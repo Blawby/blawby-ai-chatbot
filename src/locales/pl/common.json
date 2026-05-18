@@ -261,6 +261,7 @@
     "publicIntro": "Zadaj nam dowolne pytanie lub podziel się swoją opinią.",
     "continue": "Kontynuuj",
     "submitRequest": "Prześlij prośbę",
+    "payAndSubmit": "Pay & submit",
     "submitNow": "Prześlij teraz",
     "buildStrongerBrief": "Stwórz mocniejszy opis",
     "askQuestion": "Zadaj pytanie",
@@ -276,6 +277,9 @@
       "continue": "Kontynuuj",
       "addMore": "Dodaj więcej",
       "notYet": "Jeszcze nie"
+    },
+    "attachments": {
+      "disabled": "Przesyłanie załączników nie jest dostępne w tym formularzu."
     }
   },
   "intake": {

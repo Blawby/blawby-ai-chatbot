@@ -27,3 +27,9 @@ export const getUtcStartOfToday = (): Date => {
   today.setUTCHours(0, 0, 0, 0);
   return today;
 };
+
+export const buildTomorrowDateStringUtc = (): string => {
+  const tomorrow = new Date();
+  tomorrow.setUTCDate(tomorrow.getUTCDate() + 1);
+  return formatDateOnlyStringUtc(tomorrow);
+};

@@ -1,5 +1,6 @@
 import { forwardRef, useState } from 'preact/compat';
-import { EyeIcon, EyeSlashIcon } from '@heroicons/react/24/outline';
+import { Eye, EyeOff } from 'lucide-preact';
+
 import { Icon } from '@/shared/ui/Icon';
 import { cn } from '@/shared/utils/cn';
 import { useUniqueId } from '@/shared/hooks/useUniqueId';
@@ -25,6 +26,7 @@ export interface PasswordInputProps {
   errorKey?: string;
   namespace?: string;
   id?: string;
+  autoComplete?: string;
   'data-testid'?: string;
 }
 
@@ -49,6 +51,7 @@ export const PasswordInput = forwardRef<HTMLInputElement, PasswordInputProps>(({
   errorKey: _errorKey,
   namespace: _namespace = 'common',
   id,
+  autoComplete,
   'data-testid': dataTestId
 }, ref) => {
   const [showPassword, setShowPassword] = useState(false);
@@ -84,19 +87,20 @@ export const PasswordInput = forwardRef<HTMLInputElement, PasswordInputProps>(({
   };
 
   const variantClasses = {
-    default: 'border-input-border focus:ring-accent-500 focus:border-accent-500',
-    error: 'border-red-500 dark:border-red-400 focus:ring-red-500 dark:focus:ring-red-400 focus:border-red-500 dark:focus:border-red-400',
-    success: 'border-green-500 dark:border-green-400 focus:ring-green-500 dark:focus:ring-green-400 focus:border-green-500 dark:focus:border-green-400'
+    default: '',
+    error: 'isError',
+    success: 'isSuccess'
   };
 
   const inputClasses = cn(
-    'w-full border rounded-lg text-input-text placeholder:text-input-placeholder',
-    'focus:outline-none focus:ring-2 focus:ring-offset-0 transition-colors',
+    'w-full rounded-xl text-input-text placeholder:text-input-placeholder',
+    'focus:outline-none transition-all duration-200',
+    'glass-input border-none',
     sizeClasses[size],
     iconPaddingClasses[size],
     variantClasses[variant],
+    displayError && 'isError',
     disabled && 'opacity-50 cursor-not-allowed',
-    variant === 'default' ? 'glass-input' : 'bg-input-bg',
     className
   );
 
@@ -167,6 +171,7 @@ export const PasswordInput = forwardRef<HTMLInputElement, PasswordInputProps>(({
           maxLength={maxLength}
           aria-required={required}
           aria-invalid={Boolean(displayError)}
+          autoComplete={autoComplete}
           aria-describedby={ariaDescribedBy}
           className={inputClasses}
           data-testid={dataTestId}
@@ -178,12 +183,12 @@ export const PasswordInput = forwardRef<HTMLInputElement, PasswordInputProps>(({
           disabled={disabled}
           aria-label={showPassword ? "Hide password" : "Show password"}
           aria-pressed={showPassword}
-          className="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 focus:ring-2 focus:ring-accent-500 focus:ring-offset-1 focus-visible:ring-2 focus-visible:ring-accent-500 focus-visible:ring-offset-1"
+          className="absolute inset-y-0 right-0 flex items-center pr-3 text-input-placeholder hover:text-[rgb(var(--accent-foreground))] focus:ring-2 ring-inset focus:ring-accent-500 focus:ring-offset-1 focus-visible:ring-2 ring-inset focus-visible:ring-accent-500 focus-visible:ring-offset-1"
         >
           {showPassword ? (
-            <Icon icon={EyeSlashIcon} className="w-4 h-4"  />
+            <Icon icon={EyeOff} className="w-4 h-4"  />
           ) : (
-            <Icon icon={EyeIcon} className="w-4 h-4"  />
+            <Icon icon={Eye} className="w-4 h-4"  />
           )}
         </button>
       </div>
@@ -198,13 +203,13 @@ export const PasswordInput = forwardRef<HTMLInputElement, PasswordInputProps>(({
       )}
       
       {displayError && (
-        <p id={errorId} className="text-xs text-red-600 dark:text-red-400 mt-1" role="alert" aria-live="assertive">
+        <p id={errorId} className="text-xs text-accent-error dark:text-accent-error-light mt-1" role="alert" aria-live="assertive">
           {displayError}
         </p>
       )}
       
       {displayDescription && !displayError && (
-        <p id={descriptionId} className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+        <p id={descriptionId} className="text-xs text-input-placeholder mt-1">
           {displayDescription}
         </p>
       )}

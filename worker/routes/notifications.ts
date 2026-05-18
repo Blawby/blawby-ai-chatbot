@@ -1,14 +1,16 @@
 import type { Env } from '../types.js';
 import { HttpErrors } from '../errorHandler.js';
-import { requireAuth } from '../middleware/auth.js';
+import { getAttachedAuthContext } from '../middleware/compose.js';
 import { NotificationDestinationStore } from '../services/NotificationDestinationStore.js';
 import { OneSignalService } from '../services/OneSignalService.js';
 
 export async function handleNotifications(request: Request, env: Env): Promise<Response> {
   const path = new URL(request.url).pathname;
+  // Auth attached by route table's withAuth({ required: true }) wrapper.
+  const auth = getAttachedAuthContext(request);
+  if (!auth) throw HttpErrors.unauthorized('Authentication required');
 
   if (path === '/api/notifications/destinations' && request.method === 'POST') {
-    const auth = await requireAuth(request, env);
     const payload = await request.json().catch(() => null) as {
       onesignalId?: string;
       platform?: string;
@@ -39,7 +41,6 @@ export async function handleNotifications(request: Request, env: Env): Promise<R
   }
 
   if (path.startsWith('/api/notifications/destinations/') && request.method === 'DELETE') {
-    const auth = await requireAuth(request, env);
     const parts = path.split('/');
     if (parts.length !== 5) {
       throw HttpErrors.notFound('Notification endpoint not found');

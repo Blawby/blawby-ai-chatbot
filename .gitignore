@@ -33,14 +33,9 @@ build
 # Testing
 coverage
 .nyc_output
+.tmp/
 
 # Test results
-playwright/results/
-
-# Test logs
-test-logs-*/
-
-# Environment variables
 .env
 .env.local
 .env.development.local
@@ -87,14 +82,27 @@ backups/
 cookies.txt
 *.cookies.txt
 
-# Playwright auth state (contains session tokens and PII)
-playwright/.auth/
-
 # E2E credentials (local only)
 tests/e2e/fixtures/e2e-credentials.json
+
+# Playwright test results and artifacts
+playwright/results/
+playwright-report/
+test-results/
+.playwright-mcp/
+.playwright-artifacts-*/
+*.trace
+trace.zip
+*.network
 
 # Billing plan (sensitive financial/pricing information)
 BILLING_PLAN.md
 
-# Playwright reports
-playwright/reports/
+# Pencil design files (local working files)
+blawby ui.pen
+
+# Agent local working files; committed snapshots under .agents/ are allowed.
+.agents/local-*
+.agents/*.tmp
+.agents/**/*.tmp
+.agents/**/.cache/

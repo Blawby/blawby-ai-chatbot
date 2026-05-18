@@ -1,1 +1,1 @@
-export { useWelcomeModal } from './useWelcomeModal';
+export { useWelcomeDialog } from './useWelcomeDialog';

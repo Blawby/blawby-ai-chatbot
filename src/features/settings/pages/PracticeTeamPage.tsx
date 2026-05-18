@@ -1,62 +1,69 @@
-import { useEffect, useMemo, useState } from 'preact/hooks';
+import { useCallback, useEffect, useMemo, useState } from 'preact/hooks';
 import { useLocation } from 'preact-iso';
-import { ArrowLeftIcon, UserPlusIcon } from '@heroicons/react/24/outline';
+import { UserPlus, Copy, X } from 'lucide-preact';
+
 import { Icon } from '@/shared/ui/Icon';
 import { usePracticeManagement, type Role } from '@/shared/hooks/usePracticeManagement';
+import { usePracticeTeam } from '@/shared/hooks/usePracticeTeam';
 import { usePracticeInvitations } from '@/shared/hooks/usePracticeInvitations';
-import { useSessionContext } from '@/shared/contexts/SessionContext';
+import { useSessionContext, useMemberRoleContext } from '@/shared/contexts/SessionContext';
 import { usePaymentUpgrade } from '@/shared/hooks/usePaymentUpgrade';
-import { normalizeSeats } from '@/shared/utils/subscription';
 import { Button } from '@/shared/ui/Button';
-import { Input } from '@/shared/ui/input';
+import { EmailInput } from '@/shared/ui/input';
 import { FormLabel } from '@/shared/ui/form/FormLabel';
 import { Combobox } from '@/shared/ui/input/Combobox';
 import { useToastContext } from '@/shared/contexts/ToastContext';
-import { useNavigation } from '@/shared/utils/navigation';
 import { useTranslation } from '@/shared/i18n/hooks';
 import { formatDate } from '@/shared/utils/dateTime';
 import { getPracticeRoleLabel, PRACTICE_ROLE_OPTIONS, normalizePracticeRole } from '@/shared/utils/practiceRoles';
 import { FormGrid, SectionDivider } from '@/shared/ui/layout';
 import { FormActions } from '@/shared/ui/form';
-import { ContentPageLayout } from '@/shared/ui/layout';
+import { EditorShell } from '@/shared/ui/layout';
+import { ListRowSkeleton } from '@/shared/ui/layout';
 import { SettingsNotice } from '@/features/settings/components/SettingsNotice';
 import { SettingsHelperText } from '@/features/settings/components/SettingsHelperText';
 import { buildSettingsPath, resolveSettingsBasePath } from '@/shared/utils/workspace';
+import { Avatar, UserCard } from '@/shared/ui/profile';
 
 interface PracticeTeamPageProps {
-  onNavigate?: (path: string) => void;
   className?: string;
+  onBack?: () => void;
 }
 
-export const PracticeTeamPage = ({ onNavigate, className }: PracticeTeamPageProps) => {
-  const { session, activeMemberRole, activeMemberRoleLoading } = useSessionContext();
+export const PracticeTeamPage = ({ className, onBack }: PracticeTeamPageProps) => {
+  const { session } = useSessionContext();
+  const { activeMemberRole, activeMemberRoleLoading } = useMemberRoleContext();
   const {
     currentPractice,
-    getMembers,
-    fetchMembers,
     updateMemberRole,
     removeMember,
-    loading
+    isLoading
   } = usePracticeManagement();
   const {
     invitations,
     sendInvitation: sendPracticeInvitation,
     acceptInvitation,
     declineInvitation,
+    cancelInvitation,
   } = usePracticeInvitations(currentPractice?.id ?? null);
-  const { showSuccess, showError } = useToastContext();
+  const { showSuccess, showError, showWarning } = useToastContext();
   const { openBillingPortal, submitting } = usePaymentUpgrade();
-  const { navigate: baseNavigate } = useNavigation();
   const { t } = useTranslation(['settings']);
-  const navigate = onNavigate ?? baseNavigate;
   const location = useLocation();
   const settingsBasePath = resolveSettingsBasePath(location.path);
   const toSettingsPath = (subPath?: string) => buildSettingsPath(settingsBasePath, subPath);
 
   const currentUserEmail = session?.user?.email || '';
-  const members = useMemo(
-    () => (currentPractice ? getMembers(currentPractice.id) : []),
-    [currentPractice, getMembers]
+  const {
+    members,
+    summary,
+    isLoading: teamLoading,
+    error: teamError,
+    refetch: refetchTeam,
+  } = usePracticeTeam(
+    currentPractice?.id ?? null,
+    session?.user?.id ?? null,
+    { enabled: Boolean(currentPractice?.id) }
   );
 
   const currentMember = useMemo(() => {
@@ -70,11 +77,14 @@ export const PracticeTeamPage = ({ onNavigate, className }: PracticeTeamPageProp
   const currentUserRole = normalizedActiveRole ?? roleFromMembers ?? 'member';
   const isOwner = currentUserRole === 'owner';
   const isAdmin = currentUserRole === 'admin' || isOwner;
+  const isMembershipResolved = !teamLoading && !teamError;
   const isMember = Boolean(normalizedActiveRole ?? roleFromMembers);
   const teamRoleOptions = PRACTICE_ROLE_OPTIONS.filter(option => option.value !== 'owner');
 
   const [isInvitingMember, setIsInvitingMember] = useState(false);
-  const [isEditingMember, setIsEditingMember] = useState(false);
+  // Tracks the invitation currently being acted on (accept / decline / cancel).
+  // One flag is sufficient since these actions are mutually exclusive per row.
+  const [pendingInvitationId, setPendingInvitationId] = useState<string | null>(null);
   const [inviteForm, setInviteForm] = useState({
     email: '',
     role: 'admin' as Role
@@ -85,6 +95,7 @@ export const PracticeTeamPage = ({ onNavigate, className }: PracticeTeamPageProp
     name?: string;
     role: Role;
   } | null>(null);
+  const isEditingMember = editMemberData !== null;
 
   const origin = (typeof window !== 'undefined' && window.location)
     ? window.location.origin
@@ -98,13 +109,20 @@ export const PracticeTeamPage = ({ onNavigate, className }: PracticeTeamPageProp
   }, [location.query]);
 
   useEffect(() => {
-    if (!currentPractice) return;
-    fetchMembers(currentPractice.id).catch((err) => {
-      showError(err?.message || String(err) || 'Failed to fetch practice members');
-    });
-  }, [currentPractice, fetchMembers, showError]);
+    if (!teamError) return;
+    showError(teamError);
+  }, [showError, teamError]);
 
-  if (currentPractice && !activeMemberRoleLoading && !isMember) {
+  const refetchTeamAfterAction = useCallback(async () => {
+    try {
+      await refetchTeam();
+    } catch (refetchErr) {
+      console.warn('[PracticeTeamPage] Failed to refresh team — changes were saved.', refetchErr);
+      showWarning('Failed to refresh team — changes were saved.');
+    }
+  }, [refetchTeam, showWarning]);
+
+  if (currentPractice && !activeMemberRoleLoading && isMembershipResolved && !isMember) {
     return (
       <div className="h-full flex items-center justify-center">
         <p className="text-sm text-input-placeholder">You are not a member of this practice.</p>
@@ -135,7 +153,7 @@ export const PracticeTeamPage = ({ onNavigate, className }: PracticeTeamPageProp
       await updateMemberRole(currentPractice.id, editMemberData.userId, editMemberData.role);
       showSuccess('Member role updated successfully!');
       setEditMemberData(null);
-      setIsEditingMember(false);
+      await refetchTeamAfterAction();
     } catch (err) {
       showError(err instanceof Error ? err.message : 'Failed to update member role');
     }
@@ -152,27 +170,64 @@ export const PracticeTeamPage = ({ onNavigate, className }: PracticeTeamPageProp
       await removeMember(currentPractice.id, member.userId);
       showSuccess('Member removed successfully!');
       setEditMemberData(null);
-      setIsEditingMember(false);
+      await refetchTeamAfterAction();
     } catch (err) {
       showError(err instanceof Error ? err.message : 'Failed to remove member');
     }
   };
 
   const handleAcceptInvitation = async (invitationId: string) => {
+    if (pendingInvitationId) return;
+    setPendingInvitationId(invitationId);
     try {
       await acceptInvitation(invitationId);
       showSuccess('Invitation accepted!');
+      await refetchTeamAfterAction();
     } catch (err) {
       showError(err instanceof Error ? err.message : 'Failed to accept invitation');
+    } finally {
+      setPendingInvitationId(null);
     }
   };
 
   const handleDeclineInvitation = async (invitationId: string) => {
+    if (pendingInvitationId) return;
+    setPendingInvitationId(invitationId);
     try {
       await declineInvitation(invitationId);
       showSuccess('Invitation declined successfully!');
     } catch (err) {
       showError(err instanceof Error ? err.message : 'Failed to decline invitation');
+    } finally {
+      setPendingInvitationId(null);
+    }
+  };
+
+  const handleCancelInvitation = async (invitationId: string) => {
+    if (pendingInvitationId) return;
+    setPendingInvitationId(invitationId);
+    try {
+      await cancelInvitation(invitationId);
+      showSuccess('Invitation canceled successfully!');
+    } catch (err) {
+      showError(err instanceof Error ? err.message : 'Failed to cancel invitation');
+    } finally {
+      setPendingInvitationId(null);
+    }
+  };
+
+  const buildInvitationLink = (invitationId: string) => {
+    const path = `/auth/accept-invitation?invitationId=${encodeURIComponent(invitationId)}`;
+    return origin ? `${origin}${path}` : path;
+  };
+
+  const copyInvitationLink = async (invitationId: string) => {
+    const link = buildInvitationLink(invitationId);
+    try {
+      await navigator.clipboard.writeText(link);
+      showSuccess('Invite link copied', link);
+    } catch (err) {
+      showError('Failed to copy invite link', err instanceof Error ? err.message : 'Unknown error');
     }
   };
 
@@ -185,47 +240,40 @@ export const PracticeTeamPage = ({ onNavigate, className }: PracticeTeamPageProp
   }
 
   return (
-    <ContentPageLayout
-      title="Team Members"
+    <EditorShell
+      title="Team"
+      showBack={Boolean(onBack)}
+      onBack={onBack}
       className={className}
-      wrapChildren={false}
-      contentClassName="pb-6"
-      headerLeading={(
-        <Button
-          variant="icon"
-          size="icon"
-          onClick={() => navigate(toSettingsPath('practice'))}
-          aria-label="Back to practice settings"
-          icon={ArrowLeftIcon} iconClassName="w-5 h-5"
-        />
-      )}
+      contentMaxWidth={null}
     >
-      <div className="pt-2 pb-6">
-        <div className="flex items-center justify-between gap-4">
-          <div>
-            <p className="text-sm text-input-placeholder">
-              Manage access to your practice workspace.
-            </p>
-            <SettingsHelperText className="mt-2">
-              Seats used: {members.length} / {normalizeSeats(currentPractice?.seats)}
-            </SettingsHelperText>
+      <div className="space-y-6">
+        <div className="pt-2 pb-6">
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <p className="text-sm text-input-placeholder">
+                Manage access to your practice workspace.
+              </p>
+              <SettingsHelperText className="mt-2">
+                Seats used: {summary.seatsUsed} / {summary.seatsIncluded}
+              </SettingsHelperText>
+            </div>
+            {isAdmin && (
+              <Button
+                size="sm"
+                onClick={() => setIsInvitingMember(!isInvitingMember)}
+              >
+                <Icon icon={UserPlus} className="w-4 h-4 mr-2"  />
+                {isInvitingMember ? 'Cancel' : 'Invite'}
+              </Button>
+            )}
           </div>
-          {isAdmin && (
-            <Button
-              size="sm"
-              onClick={() => setIsInvitingMember(!isInvitingMember)}
-            >
-              <Icon icon={UserPlusIcon} className="w-4 h-4 mr-2"  />
-              {isInvitingMember ? 'Cancel' : 'Invite'}
-            </Button>
-          )}
         </div>
-      </div>
 
-        {members.length > normalizeSeats(currentPractice?.seats) && (
+        {summary.seatsUsed > summary.seatsIncluded && (
           <SettingsNotice variant="warning" className="mb-4" role="status" aria-live="polite">
             <p className="text-sm">
-              You&apos;re using {members.length} seats but your plan includes {normalizeSeats(currentPractice?.seats)}. The billing owner can increase seats in Stripe.
+              You&apos;re using {summary.seatsUsed} seats but your plan includes {summary.seatsIncluded}. The billing owner can increase seats in Stripe.
               {isOwner && (
                 <Button
                   variant="ghost"
@@ -246,41 +294,41 @@ export const PracticeTeamPage = ({ onNavigate, className }: PracticeTeamPageProp
           </SettingsNotice>
         )}
 
-      {members.length === 0 && loading ? (
-        <SettingsHelperText>Loading members...</SettingsHelperText>
+      {members.length === 0 && (isLoading || teamLoading) ? (
+        <ListRowSkeleton rows={4} />
       ) : members.length > 0 ? (
-          <div className="space-y-3">
-            {members.map((member) => (
-              <div key={member.userId} className="flex items-center justify-between py-2">
-                <div className="flex-1">
-                  <p className="text-sm font-medium text-input-text">
-                    {member.name || member.email}
-                  </p>
-                  <SettingsHelperText>
-                    {member.email} • {getPracticeRoleLabel(member.role)}
-                  </SettingsHelperText>
-                </div>
-                {isAdmin && member.role !== 'owner' && (
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    onClick={() => {
-                      if (isEditingMember && editMemberData?.userId === member.userId) {
-                        setIsEditingMember(false);
-                        setEditMemberData(null);
-                        return;
-                      }
-                      setEditMemberData(member);
-                      setIsEditingMember(true);
-                    }}
-                    className="text-input-text hover:text-accent-600 dark:hover:text-accent-400"
-                  >
-                    {isEditingMember && editMemberData?.userId === member.userId ? 'Cancel' : 'Manage'}
-                  </Button>
-                )}
+        <div className="space-y-3">
+          {members.map((member) => (
+            <div key={member.userId} className="flex items-center justify-between py-2">
+              <div className="flex min-w-0 flex-1 items-center gap-3">
+                <UserCard
+                  name={member.name || member.email || member.userId}
+                  image={member.image ?? null}
+                  secondary={`${member.email || member.userId} • ${getPracticeRoleLabel(member.role)}`}
+                  badge={member.role === 'owner' ? 'Owner' : undefined}
+                  size="md"
+                  className="-ml-3"
+                />
               </div>
-            ))}
-          </div>
+              {isAdmin && member.role !== 'owner' && (
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => {
+                    if (editMemberData?.userId === member.userId) {
+                      setEditMemberData(null);
+                      return;
+                    }
+                    setEditMemberData(member);
+                  }}
+                  className="text-input-text hover:text-accent-600 dark:hover:text-accent-400"
+                >
+                  {isEditingMember && editMemberData?.userId === member.userId ? 'Cancel' : 'Manage'}
+                </Button>
+              )}
+            </div>
+          ))}
+        </div>
       ) : (
         <SettingsHelperText>No team members yet</SettingsHelperText>
       )}
@@ -290,12 +338,13 @@ export const PracticeTeamPage = ({ onNavigate, className }: PracticeTeamPageProp
             <FormGrid>
               <div>
                 <FormLabel htmlFor="invite-email">Email Address</FormLabel>
-                <Input
+                <EmailInput
                   id="invite-email"
-                  type="email"
                   value={inviteForm.email}
                   onChange={(value) => setInviteForm(prev => ({ ...prev, email: value }))}
                   placeholder="colleague@lawfirm.com"
+                  showValidation
+                  required
                 />
               </div>
 
@@ -353,7 +402,6 @@ export const PracticeTeamPage = ({ onNavigate, className }: PracticeTeamPageProp
               <FormActions
                 className="gap-2 pt-0"
                 onCancel={() => {
-                  setIsEditingMember(false);
                   setEditMemberData(null);
                 }}
                 onSubmit={handleUpdateMemberRole}
@@ -373,21 +421,63 @@ export const PracticeTeamPage = ({ onNavigate, className }: PracticeTeamPageProp
             <div className="space-y-3">
               {invitations.map(inv => (
                 <div key={inv.id} className="flex items-center justify-between py-2">
-                  <div className="flex-1">
-                    <p className="text-sm font-medium text-input-text">
-                      {inv.practiceName || inv.practiceId}
-                    </p>
-                    <SettingsHelperText>
-                      Role: {getPracticeRoleLabel(inv.role)} • Expires: {formatDate(new Date(inv.expiresAt * 1000))}
-                    </SettingsHelperText>
+                  <div className="flex min-w-0 flex-1 items-center gap-3">
+                    <Avatar
+                      name={inv.email}
+                      size="md"
+                    />
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-medium text-input-text">
+                      {inv.email}
+                      </p>
+                      <SettingsHelperText className="truncate">
+                        Role: {getPracticeRoleLabel(inv.role)} • Expires: {formatDate(new Date(inv.expiresAt))}
+                      </SettingsHelperText>
+                    </div>
                   </div>
                   <div className="flex gap-2">
-                    <Button size="sm" onClick={() => handleAcceptInvitation(inv.id)}>
-                      Accept
-                    </Button>
-                    <Button size="sm" variant="secondary" onClick={() => handleDeclineInvitation(inv.id)}>
-                      Decline
-                    </Button>
+                    {inv.email.toLowerCase() === currentUserEmail.toLowerCase() ? (
+                      <>
+                        <Button
+                          size="sm"
+                          onClick={() => handleAcceptInvitation(inv.id)}
+                          disabled={pendingInvitationId !== null}
+                        >
+                          {pendingInvitationId === inv.id ? 'Accepting…' : 'Accept'}
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="secondary"
+                          onClick={() => handleDeclineInvitation(inv.id)}
+                          disabled={pendingInvitationId !== null}
+                        >
+                          {pendingInvitationId === inv.id ? 'Declining…' : 'Decline'}
+                        </Button>
+                      </>
+                    ) : isAdmin ? (
+                      <>
+                        <Button
+                          variant="icon"
+                          size="icon-sm"
+                          onClick={() => void copyInvitationLink(inv.id)}
+                          aria-label={`Copy invite link for ${inv.email}`}
+                          title="Copy invite link"
+                          icon={Copy}
+                          iconClassName="h-4 w-4"
+                        />
+                        <Button
+                          variant="icon"
+                          size="icon-sm"
+                          onClick={() => handleCancelInvitation(inv.id)}
+                          disabled={pendingInvitationId !== null}
+                          aria-label={`Cancel invitation for ${inv.email}`}
+                          title="Cancel invitation"
+                          icon={X}
+                          iconClassName="h-4 w-4"
+                        />
+                      </>
+                    ) : null
+                    }
                   </div>
                 </div>
               ))}
@@ -396,6 +486,7 @@ export const PracticeTeamPage = ({ onNavigate, className }: PracticeTeamPageProp
             <SettingsHelperText>No pending invitations</SettingsHelperText>
           )}
         </div>
-    </ContentPageLayout>
+      </div>
+    </EditorShell>
   );
 };

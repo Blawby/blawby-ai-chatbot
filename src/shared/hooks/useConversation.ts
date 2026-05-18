@@ -27,10 +27,11 @@
  *  pendingClientMessages      – ref for optimistic message tracking
  */
 
+import { unstable_batchedUpdates as batch } from 'preact/compat';
 import { useState, useMemo, useCallback, useRef, useEffect } from 'preact/hooks';
 import { useSessionContext } from '@/shared/contexts/SessionContext';
 import type { ChatMessageUI, MessageReaction } from '../../../worker/types';
-import { getConversationMessagesEndpoint, getConversationWsEndpoint } from '@/config/api';
+import { getConversationMessagesEndpoint } from '@/config/api';
 import { getWorkerApiUrl } from '@/config/urls';
 import { type IntakePaymentRequest } from '@/shared/utils/intakePayments';
 import { asMinor } from '@/shared/utils/money';
@@ -42,24 +43,18 @@ import {
   removeMessageReaction,
 } from '@/shared/lib/conversationApi';
 import { applyConsultationPatchToMetadata, hasConsultationSignals, resolveConsultationState } from '@/shared/utils/consultationState';
-import axios from 'axios';
-import { linkConversationToUser } from '@/shared/lib/apiClient';
+import { apiClient, isHttpError, linkConversationToUser } from '@/shared/lib/apiClient';
 import {
   rememberConversationAnonymousParticipant,
   clearConversationAnonymousParticipant,
 } from '@/shared/utils/anonymousIdentity';
-import { appendWidgetTokenToUrl, withWidgetAuthHeaders } from '@/shared/utils/widgetAuth';
 import { quickActionDebugLog, isQuickActionDebugEnabled } from '@/shared/utils/quickActionDebug';
+import { normalizeChatActions } from '@/shared/utils/chatActions';
+import { useConversationTransport } from '@/shared/hooks/useConversationTransport';
 
 // ─── constants ───────────────────────────────────────────────────────────────
 
-const CHAT_PROTOCOL_VERSION = 1;
-const SOCKET_READY_TIMEOUT_MS = 8_000;
 const GAP_FETCH_LIMIT = 50;
-const MESSAGE_CACHE_LIMIT = 200;
-const RECONNECT_BASE_DELAY_MS = 800;
-const RECONNECT_MAX_DELAY_MS = 12_000;
-const RECONNECT_MAX_ATTEMPTS = 5;
 export const STREAMING_BUBBLE_PREFIX = 'streaming-';
 
 // ─── helpers ─────────────────────────────────────────────────────────────────
@@ -75,10 +70,8 @@ export const buildFileUrl = (value: string): string => {
   if (ABSOLUTE_URL_PATTERN.test(trimmed) || trimmed.startsWith('data:') || trimmed.startsWith('blob:')) return trimmed;
   if (trimmed.startsWith('/')) return trimmed;
   
-  // Check cache first
-  if (fileUrlCache.has(trimmed)) {
-    return fileUrlCache.get(trimmed)!;
-  }
+  const cached = fileUrlCache.get(trimmed);
+  if (cached) return cached;
   
   // Build and cache URL
   const url = `${getWorkerApiUrl()}/api/files/${encodeURIComponent(trimmed)}`;
@@ -128,33 +121,37 @@ const parsePaymentRequestMetadata = (metadata: unknown): IntakePaymentRequest | 
 export const isTempMessageId = (id: string): boolean =>
   id.startsWith('temp-') || id.startsWith('system-') || id.startsWith(STREAMING_BUBBLE_PREFIX);
 
-const getMessageCacheKey = (practiceId: string, conversationId: string) =>
-  `chat:messages:${practiceId}:${conversationId}`;
-
 // ─── types ────────────────────────────────────────────────────────────────────
 
 export interface UseConversationOptions {
+  enabled?: boolean;
   practiceId?: string;
   conversationId?: string;
   userId?: string | null;
+  isAnonymous?: boolean;
   linkAnonymousConversationOnLoad?: boolean;
   onConversationMetadataUpdated?: (metadata: ConversationMetadata | null) => void;
+  skipInitialFetch?: boolean;
   onError?: (error: unknown, context?: Record<string, unknown>) => void;
 }
 
 // ─── hook ─────────────────────────────────────────────────────────────────────
 
 export const useConversation = ({
+  enabled = true,
   practiceId,
   conversationId,
   userId: externalUserId,
+  isAnonymous: externalIsAnonymous,
   linkAnonymousConversationOnLoad = false,
   onConversationMetadataUpdated,
+  skipInitialFetch = false,
   onError,
 }: UseConversationOptions) => {
-  const { session, isPending: sessionIsPending, isAnonymous } = useSessionContext();
-  const hasAnonymousWidgetContext = Boolean(linkAnonymousConversationOnLoad && conversationId && practiceId);
-  const sessionReady = !sessionIsPending && (Boolean(session?.user) || Boolean(externalUserId && hasAnonymousWidgetContext));
+  const { session, isPending: sessionIsPending, isAnonymous: contextIsAnonymous } = useSessionContext();
+  const isAnonymous = externalIsAnonymous ?? contextIsAnonymous;
+  const hasAnonymousWidgetContext = Boolean(enabled && linkAnonymousConversationOnLoad && conversationId && practiceId);
+  const sessionReady = enabled && !sessionIsPending && (Boolean(session?.user) || Boolean(externalUserId && hasAnonymousWidgetContext));
   const currentUserId = externalUserId ?? session?.user?.id ?? null;
 
   // ── state ──────────────────────────────────────────────────────────────────
@@ -165,7 +162,8 @@ export const useConversation = ({
   const [nextCursor, setNextCursor] = useState<string | null>(null);
   const [isLoadingMoreMessages, setIsLoadingMoreMessages] = useState(false);
   const [messagesReady, setMessagesReady] = useState(false);
-  const [isSocketReady, setIsSocketReady] = useState(false);
+  const [typingUserIds, setTypingUserIds] = useState<readonly string[]>([]);
+  const [readReceiptsByUser, setReadReceiptsByUser] = useState<ReadonlyMap<string, number>>(new Map());
 
   // ── stable refs ───────────────────────────────────────────────────────────
   const isDisposedRef = useRef(false);
@@ -175,24 +173,16 @@ export const useConversation = ({
   const practiceIdRef = useRef<string | undefined>();
   const conversationMetadataRef = useRef<ConversationMetadata | null>(null);
   const metadataUpdateQueueRef = useRef<Promise<Conversation | null>>(Promise.resolve(null));
-  const sessionReadyRef = useRef(sessionReady);
   const messagesRef = useRef(messages);
-
-  // WebSocket refs
-  const wsRef = useRef<WebSocket | null>(null);
-  const wsReadyRef = useRef<Promise<void> | null>(null);
-  const wsReadyResolveRef = useRef<(() => void) | null>(null);
-  const wsReadyRejectRef = useRef<((error: Error) => void) | null>(null);
-  const socketSessionRef = useRef(0);
-  const isSocketReadyRef = useRef(false);
   const lastSeqRef = useRef(0);
   const lastReadSeqRef = useRef(0);
-  const socketConversationIdRef = useRef<string | null>(null);
-  const isClosingSocketRef = useRef(false);
-  const reconnectAttemptRef = useRef(0);
-  const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const connectChatRoomRef = useRef<(id: string) => void>(() => {});
-  const resumeSeqResetAttemptedForRef = useRef<string | null>(null);
+
+  // Mark ready if no conversation exists yet (deferred creation case)
+  useEffect(() => {
+    if (enabled && !conversationId && !messagesReady) {
+      setMessagesReady(true);
+    }
+  }, [enabled, conversationId, messagesReady]);
 
   // Message tracking refs — exposed so useChatComposer can share them
   /** Tracks all message IDs that have been applied to avoid duplicates */
@@ -209,30 +199,37 @@ export const useConversation = ({
   // Streaming bubble refs
   const pendingStreamMessageIdRef = useRef<string | null>(null);
   const orphanTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const pendingEnsureConversationPromiseRef = useRef<Promise<string> | null>(null);
   const pendingEnsureConversationPromisesRef = useRef(new Map<string, Promise<string>>());
 
   // Reaction refs
   const reactionFetchRef = useRef(new Map<string, Promise<MessageReaction[]>>());
   const reactionLoadedRef = useRef(new Set<string>());
   const quickActionMessageDebugRef = useRef(new Map<string, string>());
+  const sendReadUpdateRef = useRef<(seq: number) => void>(() => {});
+  // Per-user expiry timers so a typer who never sends typing.stop (network blip
+  // or tab close) is cleared from the indicator after a grace period.
+  const typingExpiryTimersRef = useRef(new Map<string, ReturnType<typeof setTimeout>>());
 
   // Consult abort ref
   const consultFlowAbortRef = useRef<AbortController | null>(null);
 
   // Keep refs in sync
   practiceIdRef.current = practiceId;
-  sessionReadyRef.current = sessionReady;
   messagesRef.current = messages;
 
   useEffect(() => {
+    if (!enabled) return;
     if (!conversationId || !currentUserId || !isAnonymous) return;
     rememberConversationAnonymousParticipant(conversationId, currentUserId);
-  }, [conversationId, currentUserId, isAnonymous]);
+  }, [conversationId, currentUserId, enabled, isAnonymous]);
 
   // ── anonymous conversation linking ────────────────────────────────────────
 
   useEffect(() => {
+    if (!enabled) {
+      setIsConversationLinkReady(true);
+      return;
+    }
     if (!conversationId || !practiceId) { setIsConversationLinkReady(true); return; }
     if (!linkAnonymousConversationOnLoad || !sessionReady || isAnonymous || !currentUserId) {
       setIsConversationLinkReady(true); return;
@@ -248,7 +245,7 @@ export const useConversation = ({
         clearConversationAnonymousParticipant(conversationId);
       } catch (error) {
         console.warn('[useConversation] Conversation relink failed', { conversationId, practiceId, error });
-        const is409 = axios.isAxiosError(error) && error.response?.status === 409;
+        const is409 = isHttpError(error) && error.response.status === 409;
         if (is409) { if (!cancelled) setIsConversationLinkReady(true); return; }
         onError?.(error instanceof Error ? error.message : 'Failed to link conversation');
       } finally {
@@ -256,7 +253,7 @@ export const useConversation = ({
       }
     })();
     return () => { cancelled = true; };
-  }, [conversationId, currentUserId, isAnonymous, linkAnonymousConversationOnLoad, practiceId, sessionReady, onError]);
+  }, [conversationId, currentUserId, enabled, isAnonymous, linkAnonymousConversationOnLoad, practiceId, sessionReady, onError]);
 
   // ── metadata helpers ───────────────────────────────────────────────────────
 
@@ -270,7 +267,13 @@ export const useConversation = ({
     patch: ConversationMetadata,
     targetConversationId?: string
   ) => {
-    if (!sessionReady) return null;
+    // Allow the update when an explicit conversation ID is provided alongside a
+    // widget-bootstrap userId. The widget auth token (bw_token) handles auth for
+    // the PATCH independently of the SessionContext resolution state; blocking
+    // here causes silent no-ops on freshly-created conversations where sessionReady
+    // is false because hasAnonymousWidgetContext requires conversationId to be set.
+    const hasWidgetBypass = Boolean(externalUserId);
+    if (!sessionReady && !hasWidgetBypass) return null;
     const activeConversationId = targetConversationId ?? conversationId;
     const practiceKey = practiceId;
     if (!activeConversationId || !practiceKey) return null;
@@ -301,9 +304,10 @@ export const useConversation = ({
     const queued = metadataUpdateQueueRef.current.then(runUpdate, runUpdate);
     metadataUpdateQueueRef.current = queued.catch(() => null);
     return queued;
-  }, [applyConversationMetadata, conversationId, practiceId, sessionReady]);
+  }, [applyConversationMetadata, conversationId, externalUserId, practiceId, sessionReady]);
 
   useEffect(() => {
+    if (!enabled) return;
     if (!conversationId || !currentUserId || !isAnonymous) return;
     const existingMetadata = conversationMetadataRef.current;
     const storedParticipantId =
@@ -312,22 +316,27 @@ export const useConversation = ({
       null;
     if (storedParticipantId === currentUserId) return;
     void updateConversationMetadata({ anonParticipantId: currentUserId });
-  }, [conversationId, currentUserId, isAnonymous, updateConversationMetadata]);
+  }, [conversationId, currentUserId, enabled, isAnonymous, updateConversationMetadata]);
 
   const fetchConversationMetadata = useCallback(async (signal?: AbortSignal, targetConversationId?: string) => {
     if (!sessionReady) return null;
     const activeConversationId = targetConversationId ?? conversationId;
     const practiceKey = practiceId;
     if (!activeConversationId || !practiceKey) return null;
-    const response = await fetch(
-      `/api/conversations/${encodeURIComponent(activeConversationId)}?practiceId=${encodeURIComponent(practiceKey)}`,
-      { method: 'GET', headers: withWidgetAuthHeaders({ 'Content-Type': 'application/json' }), credentials: 'include', signal }
-    );
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({})) as { error?: string };
-      throw new Error(errorData.error || `HTTP ${response.status}`);
+    let data: { success: boolean; data?: { user_info?: ConversationMetadata | null } };
+    try {
+      const result = await apiClient.get<{ success: boolean; data?: { user_info?: ConversationMetadata | null } }>(
+        `/api/conversations/${encodeURIComponent(activeConversationId)}`,
+        { params: { practiceId: practiceKey }, signal },
+      );
+      data = result.data;
+    } catch (apiError) {
+      if (isHttpError(apiError)) {
+        const errorData = apiError.response.data as { error?: string } | undefined;
+        throw new Error(errorData?.error || `HTTP ${apiError.response.status}`);
+      }
+      throw apiError;
     }
-    const data = await response.json() as { success: boolean; data?: { user_info?: ConversationMetadata | null } };
     const metadata = data.data?.user_info ?? null;
     if (!signal?.aborted && !isDisposedRef.current && activeConversationId === conversationIdRef.current) {
       applyConversationMetadata(metadata);
@@ -345,16 +354,16 @@ export const useConversation = ({
     const metadataRecord = (msg.metadata && typeof msg.metadata === 'object' && !Array.isArray(msg.metadata))
       ? msg.metadata as Record<string, unknown>
       : null;
-    const rawQuickReplies = Array.isArray(metadataRecord?.quickReplies) ? metadataRecord.quickReplies : null;
+    const rawActions = normalizeChatActions(metadataRecord?.actions);
     if (isQuickActionDebugEnabled()) {
-      const hasQuickReplies = (rawQuickReplies?.length ?? 0) > 0;
+      const hasActions = rawActions.length > 0;
       const hasPaymentRequest = Boolean(paymentRequest);
-      if (hasQuickReplies || hasPaymentRequest) {
+      if (hasActions || hasPaymentRequest) {
         const debugKey = msg.id || msg.client_id || `${msg.role}:${msg.created_at}`;
         const snapshot = JSON.stringify({
           role: normalizedRole,
           hasPaymentRequest,
-          rawQuickReplies,
+          rawActions,
           metadataKeys: metadataRecord ? Object.keys(metadataRecord) : [],
         });
         const previous = quickActionMessageDebugRef.current.get(debugKey);
@@ -365,8 +374,8 @@ export const useConversation = ({
             role: normalizedRole,
             metadataKeys: metadataRecord ? Object.keys(metadataRecord) : [],
             hasPaymentRequest,
-            rawQuickRepliesCount: rawQuickReplies?.length ?? 0,
-            rawQuickReplies,
+            rawActionsCount: rawActions.length,
+            rawActions,
           });
         }
       }
@@ -400,94 +409,6 @@ export const useConversation = ({
     };
   }, [currentUserId]);
 
-  // ── socket ready helpers ───────────────────────────────────────────────────
-
-  const updateSocketReady = useCallback((ready: boolean) => {
-    if (isDisposedRef.current) return;
-    setIsSocketReady(ready);
-  }, []);
-
-  const initSocketReadyPromise = useCallback(() => {
-    const nextReadyPromise = new Promise<void>((resolve, reject) => {
-      wsReadyResolveRef.current = resolve;
-      wsReadyRejectRef.current = reject;
-    });
-    // This internal promise may be rejected during normal reconnect/close cycles
-    // before any consumer awaits it. Swallow unhandled-rejection noise while
-    // preserving rejection semantics for explicit awaiters.
-    nextReadyPromise.catch(() => {});
-    wsReadyRef.current = nextReadyPromise;
-    isSocketReadyRef.current = false;
-    updateSocketReady(false);
-  }, [updateSocketReady]);
-
-  const resolveSocketReady = useCallback(() => {
-    isSocketReadyRef.current = true;
-    updateSocketReady(true);
-    wsReadyResolveRef.current?.();
-    wsReadyResolveRef.current = null;
-    wsReadyRejectRef.current = null;
-  }, [updateSocketReady]);
-
-  const rejectSocketReady = useCallback((error: Error) => {
-    isSocketReadyRef.current = false;
-    updateSocketReady(false);
-    wsReadyRejectRef.current?.(error);
-    wsReadyResolveRef.current = null;
-    wsReadyRejectRef.current = null;
-  }, [updateSocketReady]);
-
-  const flushPendingAcks = useCallback((error: Error) => {
-    for (const pending of pendingAckRef.current.values()) {
-      clearTimeout(pending.timer);
-      pending.reject(error);
-    }
-    pendingAckRef.current.clear();
-  }, []);
-
-  /** Exposed so callers (useChatComposer) can await the socket */
-  const waitForSocketReady = useCallback(async () => {
-    if (!wsReadyRef.current) throw new Error('Chat connection not initialized');
-    let timeoutId: ReturnType<typeof setTimeout> | null = null;
-    const timeoutPromise = new Promise<void>((_resolve, reject) => {
-      timeoutId = setTimeout(() => reject(new Error('Chat connection timed out')), SOCKET_READY_TIMEOUT_MS);
-    });
-    try { await Promise.race([wsReadyRef.current, timeoutPromise]); }
-    finally { if (timeoutId) clearTimeout(timeoutId); }
-  }, []);
-
-  // ── realtime state reset ───────────────────────────────────────────────────
-
-  const resetRealtimeState = useCallback(() => {
-    flushPendingAcks(new Error('reset realtime state'));
-    messageIdSetRef.current.clear();
-    pendingClientMessageRef.current.clear();
-    lastSeqRef.current = 0;
-    lastReadSeqRef.current = 0;
-    messagesRef.current = [];
-    reactionLoadedRef.current.clear();
-    reactionFetchRef.current.clear();
-    pendingStreamMessageIdRef.current = null;
-    resumeSeqResetAttemptedForRef.current = null;
-  }, [flushPendingAcks]);
-
-  // ── send frame (used by WS handlers and exposed for useChatComposer) ───────
-
-  const sendFrame = useCallback((frame: { type: string; data: Record<string, unknown>; request_id?: string }) => {
-    const ws = wsRef.current;
-    if (!ws || ws.readyState !== WebSocket.OPEN) throw new Error('Chat connection not open');
-    ws.send(JSON.stringify(frame));
-  }, []);
-
-  const sendReadUpdate = useCallback((seq: number) => {
-    const activeConversationId = conversationIdRef.current;
-    if (!activeConversationId || !isSocketReadyRef.current) return;
-    if (seq <= lastReadSeqRef.current) return;
-    lastReadSeqRef.current = seq;
-    try { sendFrame({ type: 'read.update', data: { conversation_id: activeConversationId, last_read_seq: seq } }); }
-    catch (error) { if (import.meta.env.DEV) console.warn('[useConversation] Failed to send read.update', error); }
-  }, [sendFrame]);
-
   // ── core message application ───────────────────────────────────────────────
 
   const applyServerMessages = useCallback((incoming: ConversationMessage[]) => {
@@ -509,7 +430,7 @@ export const useConversation = ({
     }
 
     if (replacements.size === 0 && additions.length === 0) {
-      if (nextLatestSeq > lastSeqRef.current) { lastSeqRef.current = nextLatestSeq; sendReadUpdate(nextLatestSeq); }
+      if (nextLatestSeq > lastSeqRef.current) { lastSeqRef.current = nextLatestSeq; sendReadUpdateRef.current(nextLatestSeq); }
       return;
     }
     lastSeqRef.current = nextLatestSeq;
@@ -526,27 +447,130 @@ export const useConversation = ({
 
       if (additions.length > 0) {
         const pendingId = pendingStreamMessageIdRef.current;
-        if (pendingId) {
-          const matchIndex = additions.findIndex(m => m.id === pendingId);
-          if (matchIndex !== -1) {
-            const streamingBubble = next.find(m => m.id.startsWith(STREAMING_BUBBLE_PREFIX));
-            if (streamingBubble) {
-              const streamingClientId = typeof streamingBubble.metadata?.__client_id === 'string'
-                ? streamingBubble.metadata.__client_id
-                : streamingBubble.id;
-              const persisted = additions[matchIndex];
-              additions[matchIndex] = {
-                ...persisted,
-                timestamp: streamingBubble.timestamp,
-                metadata: {
-                  ...(persisted.metadata ?? {}),
-                  __client_id: streamingClientId,
-                },
-              } as ChatMessageUI;
+        const streamingBubbles = next.filter(m => typeof m.id === 'string' && m.id.startsWith(STREAMING_BUBBLE_PREFIX));
+        const streamingBubblesNewestFirst = [...streamingBubbles].sort((a, b) => b.timestamp - a.timestamp);
+        if (streamingBubbles.length > 0) {
+          const normalizeMessage = (value: string): string => value.trim().replace(/\s+/g, ' ').toLowerCase();
+          const MIN_COLLAPSE_TEXT_LENGTH = 5;
+          const FALLBACK_STREAM_RECENCY_WINDOW_MS = 10_000;
+          const getTokenSet = (value: string): Set<string> => new Set(
+            normalizeMessage(value).split(' ').filter((token) => token.length > 0)
+          );
+          const hasMeaningfulTokenOverlap = (left: string, right: string): boolean => {
+            const leftTokens = getTokenSet(left);
+            const rightTokens = getTokenSet(right);
+            if (leftTokens.size === 0 || rightTokens.size === 0) return false;
+            let shared = 0;
+            for (const token of leftTokens) {
+              if (rightTokens.has(token)) shared++;
             }
+            const overlapRatio = shared / Math.min(leftTokens.size, rightTokens.size);
+            return overlapRatio >= 0.5;
+          };
+          const canUseSubstringMatching = (left: string, right: string): boolean => (
+            left.length >= MIN_COLLAPSE_TEXT_LENGTH && right.length >= MIN_COLLAPSE_TEXT_LENGTH
+          );
+          const assistantAdditionIndexes = additions
+            .map((message, index) => ({ message, index }))
+            .filter(({ message }) => (
+              message.role === 'assistant'
+              || (
+                message.role === 'system'
+                && message.metadata?.source === 'ai'
+              )
+            ));
+
+          const bubbleIdsToRemove = new Set<string>();
+          const usedAdditionIndexes = new Set<number>();
+          const carryBubbleTimestampToAddition = (bubble: ChatMessageUI, additionIndex: number) => {
+            const persisted = additions[additionIndex];
+            const streamingClientId = typeof bubble.metadata?.__client_id === 'string'
+              ? bubble.metadata.__client_id
+              : bubble.id;
+            additions[additionIndex] = {
+              ...persisted,
+              timestamp: bubble.timestamp,
+              metadata: {
+                ...(persisted.metadata ?? {}),
+                __client_id: streamingClientId,
+              },
+            } as ChatMessageUI;
+          };
+
+          // Preferred path: explicit message-id handoff.
+          if (pendingId) {
+            const pendingMatchIndex = additions.findIndex((message) => message.id === pendingId);
+            if (pendingMatchIndex >= 0 && streamingBubblesNewestFirst.length >= 1) {
+              const bubble = streamingBubblesNewestFirst[0];
+              bubbleIdsToRemove.add(bubble.id);
+              carryBubbleTimestampToAddition(bubble, pendingMatchIndex);
+              usedAdditionIndexes.add(pendingMatchIndex);
+            }
+          }
+
+          // Content-based fallback: collapse temporary stream bubble when persisted assistant text arrives.
+          if (assistantAdditionIndexes.length > 0) {
+            for (const bubble of streamingBubblesNewestFirst) {
+              if (bubbleIdsToRemove.has(bubble.id)) continue;
+              if (typeof bubble.content !== 'string' || bubble.content.trim().length === 0) continue;
+              const normalizedBubble = normalizeMessage(bubble.content);
+              const matchingAssistant = assistantAdditionIndexes.find(({ message, index }) => {
+                if (usedAdditionIndexes.has(index)) return false;
+                if (typeof message.content !== 'string' || message.content.trim().length === 0) return false;
+                const normalizedAssistant = normalizeMessage(message.content);
+                if (normalizedAssistant === normalizedBubble) return true;
+                if (canUseSubstringMatching(normalizedAssistant, normalizedBubble)) {
+                  return normalizedAssistant.includes(normalizedBubble)
+                    || normalizedBubble.includes(normalizedAssistant);
+                }
+                return hasMeaningfulTokenOverlap(normalizedAssistant, normalizedBubble);
+              });
+              if (!matchingAssistant) continue;
+              bubbleIdsToRemove.add(bubble.id);
+              carryBubbleTimestampToAddition(bubble, matchingAssistant.index);
+              usedAdditionIndexes.add(matchingAssistant.index);
+            }
+          }
+
+          // Safety fallback: if a single assistant message arrived and only stream bubbles are pending,
+          // collapse the newest stream bubble to avoid duplicate assistant bubbles.
+          if (bubbleIdsToRemove.size === 0 && assistantAdditionIndexes.length === 1 && streamingBubbles.length > 0) {
+            const newestBubble = streamingBubblesNewestFirst[0];
+            const newestBubbleContent = typeof newestBubble.content === 'string' ? normalizeMessage(newestBubble.content) : '';
+            const assistantContent = typeof assistantAdditionIndexes[0].message.content === 'string'
+              ? normalizeMessage(assistantAdditionIndexes[0].message.content)
+              : '';
+            const bubbleIsRecent = Date.now() - newestBubble.timestamp <= FALLBACK_STREAM_RECENCY_WINDOW_MS;
+            const bubbleHasSimilarity = assistantContent.length >= MIN_COLLAPSE_TEXT_LENGTH
+              && newestBubbleContent.length >= MIN_COLLAPSE_TEXT_LENGTH
+              && (assistantContent === newestBubbleContent
+                || assistantContent.includes(newestBubbleContent)
+                || newestBubbleContent.includes(assistantContent)
+                || hasMeaningfulTokenOverlap(assistantContent, newestBubbleContent));
+            
+            // Context guard: prefer same request context when present, but still allow
+            // strong content matches to collapse duplicate UI bubbles.
+            const bubbleClientId = typeof newestBubble.metadata?.__client_id === 'string'
+              ? newestBubble.metadata.__client_id
+              : newestBubble.id;
+            const assistantClientId = typeof assistantAdditionIndexes[0].message.metadata?.__client_id === 'string'
+              ? assistantAdditionIndexes[0].message.metadata.__client_id
+              : assistantAdditionIndexes[0].message.id;
+            const contextsMatch = bubbleClientId === assistantClientId;
+            
+            if (bubbleIsRecent && (contextsMatch || bubbleHasSimilarity)) {
+              bubbleIdsToRemove.add(newestBubble.id);
+              carryBubbleTimestampToAddition(newestBubble, assistantAdditionIndexes[0].index);
+            }
+          }
+
+          if (bubbleIdsToRemove.size > 0) {
             pendingStreamMessageIdRef.current = null;
-            if (orphanTimerRef.current !== null) { clearTimeout(orphanTimerRef.current); orphanTimerRef.current = null; }
-            next = next.filter(m => !m.id.startsWith(STREAMING_BUBBLE_PREFIX));
+            if (orphanTimerRef.current !== null) {
+              clearTimeout(orphanTimerRef.current);
+              orphanTimerRef.current = null;
+            }
+            next = next.filter(m => !bubbleIdsToRemove.has(m.id));
           }
         }
         next = [...next, ...additions];
@@ -554,8 +578,8 @@ export const useConversation = ({
       return dedupeMessagesById(next.sort((a, b) => a.timestamp - b.timestamp));
     });
 
-    sendReadUpdate(nextLatestSeq);
-  }, [sendReadUpdate, toUIMessage]);
+    sendReadUpdateRef.current(nextLatestSeq);
+  }, [toUIMessage]);
 
   const ingestServerMessages = useCallback((incoming: ConversationMessage[]) => {
     applyServerMessages(incoming);
@@ -580,13 +604,16 @@ export const useConversation = ({
     lastSeqRef.current = Math.max(lastSeqRef.current, seqValue);
 
     const pendingId = pendingClientMessageRef.current.get(clientId);
-    if (!pendingId) { sendReadUpdate(lastSeqRef.current); return; }
+    if (!pendingId) { sendReadUpdateRef.current(lastSeqRef.current); return; }
     pendingClientMessageRef.current.delete(clientId);
     setMessages(prev => prev.map(msg => msg.id !== pendingId ? msg : { ...msg, id: messageId } as ChatMessageUI));
-    sendReadUpdate(lastSeqRef.current);
-  }, [sendReadUpdate]);
+    sendReadUpdateRef.current(lastSeqRef.current);
+  }, []);
 
   const handleMessageNew = useCallback((data: Record<string, unknown>) => {
+    if (typeof performance !== 'undefined') {
+      performance.mark('chat:message-ingest');
+    }
     const conversationIdValue = typeof data.conversation_id === 'string' ? data.conversation_id : null;
     if (!conversationIdValue || conversationIdValue !== conversationIdRef.current) return;
     const messageId = typeof data.message_id === 'string' ? data.message_id : null;
@@ -651,192 +678,210 @@ export const useConversation = ({
     if (!activeConversationId || !activePracticeId) return;
     let nextSeq: number | null = fromSeq;
     let targetLatest = latestSeq;
-    let _attempts = 0;
     let previousSeq: number | null = null;
     const MAX_NO_PROGRESS_ATTEMPTS = 3;
     let noProgressCount = 0;
+    const collected: ConversationMessage[] = [];
 
     while (nextSeq !== null && nextSeq <= targetLatest) {
       if (isDisposedRef.current || conversationIdRef.current !== activeConversationId) return;
       try {
-        const params = new URLSearchParams({ practiceId: activePracticeId, from_seq: String(nextSeq), limit: String(GAP_FETCH_LIMIT) });
-        const response = await fetch(`${getConversationMessagesEndpoint(activeConversationId)}?${params}`, { method: 'GET', headers: withWidgetAuthHeaders({ 'Content-Type': 'application/json' }), credentials: 'include' });
-        if (!response.ok) { const e = await response.json().catch(() => ({})) as { error?: string }; throw new Error(e.error || `HTTP ${response.status}`); }
-        const data = await response.json() as { success: boolean; error?: string; data?: { messages: ConversationMessage[]; latest_seq?: number; next_from_seq?: number | null } };
+        let data: { success: boolean; error?: string; data?: { messages: ConversationMessage[]; latest_seq?: number; next_from_seq?: number | null } };
+        try {
+          const result = await apiClient.get<{ success: boolean; error?: string; data?: { messages: ConversationMessage[]; latest_seq?: number; next_from_seq?: number | null } }>(
+            getConversationMessagesEndpoint(activeConversationId),
+            { params: { practiceId: activePracticeId, from_seq: String(nextSeq), limit: String(GAP_FETCH_LIMIT) } },
+          );
+          data = result.data;
+        } catch (apiError) {
+          if (isHttpError(apiError)) {
+            const errorData = apiError.response.data as { error?: string } | undefined;
+            throw new Error(errorData?.error || `HTTP ${apiError.response.status}`);
+          }
+          throw apiError;
+        }
         if (!data.success || !data.data) throw new Error(data.error || 'Failed to fetch message gap');
         if (isDisposedRef.current || conversationIdRef.current !== activeConversationId) return;
-        applyServerMessages(data.data.messages ?? []);
+        collected.push(...(data.data.messages ?? []));
         if (typeof data.data.latest_seq === 'number') targetLatest = data.data.latest_seq;
         previousSeq = nextSeq;
         nextSeq = data.data.next_from_seq ?? null;
-        
-        // Check for no progress (nextSeq not advancing)
+
         if (nextSeq !== null && nextSeq === previousSeq) {
           noProgressCount += 1;
           if (noProgressCount >= MAX_NO_PROGRESS_ATTEMPTS) {
             onError?.('Failed to recover message gap: no progress after multiple attempts');
-            return;
+            break;
           }
         } else {
           noProgressCount = 0;
         }
-        
-        _attempts = 0;
       } catch (error) {
         onError?.(error instanceof Error ? error.message : 'Failed to recover message gap');
         throw error;
       }
     }
+
+    if (collected.length > 0) applyServerMessages(collected);
   }, [applyServerMessages, onError]);
 
-  // ── reconnect ─────────────────────────────────────────────────────────────
+  const handleTransportGap = useCallback((fromSeq: number, latestSeq: number) => {
+    fetchGapMessages(fromSeq, latestSeq).catch(err => {
+      if (import.meta.env.DEV) console.warn('[useConversation] Gap fetch failed', err);
+    });
+  }, [fetchGapMessages]);
 
-  const clearReconnectTimer = useCallback(() => {
-    if (reconnectTimerRef.current) { clearTimeout(reconnectTimerRef.current); reconnectTimerRef.current = null; }
-  }, []);
-
-  const scheduleReconnect = useCallback((targetConversationId: string) => {
-    if (isDisposedRef.current || isClosingSocketRef.current || !sessionReadyRef.current) return;
-    if (conversationIdRef.current !== targetConversationId || reconnectTimerRef.current) return;
-    const nextAttempt = reconnectAttemptRef.current + 1;
-    if (nextAttempt > RECONNECT_MAX_ATTEMPTS) return;
-    reconnectAttemptRef.current = nextAttempt;
-    const backoff = Math.min(RECONNECT_BASE_DELAY_MS * 2 ** (nextAttempt - 1), RECONNECT_MAX_DELAY_MS);
-    reconnectTimerRef.current = globalThis.setTimeout(() => {
-      reconnectTimerRef.current = null;
-      if (isDisposedRef.current || isClosingSocketRef.current) return;
-      if (!sessionReadyRef.current || conversationIdRef.current !== targetConversationId) return;
-      connectChatRoomRef.current(targetConversationId);
-    }, backoff + Math.floor(Math.random() * 250));
-  }, []);
-
-  // ── WebSocket connect ──────────────────────────────────────────────────────
-
-  const connectChatRoom = useCallback((targetConversationId: string) => {
-    if (!sessionReady || !targetConversationId) return;
-    clearReconnectTimer();
-    if (typeof WebSocket === 'undefined') { onError?.('WebSocket is not available in this environment.'); return; }
-    if (wsRef.current && socketConversationIdRef.current === targetConversationId) {
-      if (wsRef.current.readyState === WebSocket.CONNECTING) return;
-      if (wsRef.current.readyState === WebSocket.OPEN && isSocketReadyRef.current) return;
+  const handleTransportResumeOk = useCallback((latestSeq: number) => {
+    if (Number.isFinite(latestSeq)) {
+      lastSeqRef.current = Math.max(lastSeqRef.current, latestSeq);
+      lastReadSeqRef.current = Math.max(lastReadSeqRef.current, latestSeq);
     }
+  }, [lastReadSeqRef, lastSeqRef]);
 
-    isClosingSocketRef.current = false;
-    socketSessionRef.current += 1;
-    const sessionId = socketSessionRef.current;
-    if (wsRef.current) { wsRef.current.close(); wsRef.current = null; }
-    socketConversationIdRef.current = targetConversationId;
-    initSocketReadyPromise();
+  const onMessageNewRef = useRef(handleMessageNew);
+  const onMessageAckRef = useRef(handleMessageAck);
+  const onReactionUpdateRef = useRef(handleReactionUpdate);
+  const onGapRef = useRef(handleTransportGap);
+  const onResumeOkRef = useRef(handleTransportResumeOk);
+  const transportErrorRef = useRef(onError);
+  onMessageNewRef.current = handleMessageNew;
+  onMessageAckRef.current = handleMessageAck;
+  onReactionUpdateRef.current = handleReactionUpdate;
+  onGapRef.current = handleTransportGap;
+  onResumeOkRef.current = handleTransportResumeOk;
+  transportErrorRef.current = onError;
 
-    const ws = new WebSocket(appendWidgetTokenToUrl(getConversationWsEndpoint(targetConversationId)));
-    wsRef.current = ws;
+  const stableOnMessageNew = useCallback((data: Record<string, unknown>) => {
+    onMessageNewRef.current(data);
+  }, []);
 
-    ws.addEventListener('open', () => {
-      reconnectAttemptRef.current = 0;
-      clearReconnectTimer();
-      ws.send(JSON.stringify({ type: 'auth', data: { protocol_version: CHAT_PROTOCOL_VERSION, client_info: { platform: 'web' } } }));
+  const stableOnMessageAck = useCallback((data: Record<string, unknown>) => {
+    onMessageAckRef.current(data);
+  }, []);
+
+  const stableOnReactionUpdate = useCallback((data: Record<string, unknown>) => {
+    onReactionUpdateRef.current(data);
+  }, []);
+
+  const stableOnGap = useCallback((fromSeq: number, latestSeq: number) => {
+    onGapRef.current(fromSeq, latestSeq);
+  }, []);
+
+  const stableOnResumeOk = useCallback((latestSeq: number) => {
+    onResumeOkRef.current(latestSeq);
+  }, []);
+
+  const stableOnError = useCallback((error: unknown) => {
+    transportErrorRef.current?.(error);
+  }, []);
+
+  const TYPING_EXPIRY_MS = 6_000;
+  const stableOnTyping = useCallback((userId: string, isTyping: boolean) => {
+    if (!userId || userId === currentUserId) return;
+    const timers = typingExpiryTimersRef.current;
+    const existing = timers.get(userId);
+    if (existing) {
+      clearTimeout(existing);
+      timers.delete(userId);
+    }
+    if (isTyping) {
+      const timer = setTimeout(() => {
+        timers.delete(userId);
+        setTypingUserIds((prev) => prev.includes(userId) ? prev.filter((id) => id !== userId) : prev);
+      }, TYPING_EXPIRY_MS);
+      timers.set(userId, timer);
+      setTypingUserIds((prev) => prev.includes(userId) ? prev : [...prev, userId]);
+    } else {
+      setTypingUserIds((prev) => prev.includes(userId) ? prev.filter((id) => id !== userId) : prev);
+    }
+  }, [currentUserId]);
+
+  const stableOnRead = useCallback((userId: string, lastReadSeq: number) => {
+    if (!userId || userId === currentUserId || !Number.isFinite(lastReadSeq)) return;
+    setReadReceiptsByUser((prev) => {
+      const previous = prev.get(userId) ?? -1;
+      if (lastReadSeq <= previous) return prev;
+      const next = new Map(prev);
+      next.set(userId, lastReadSeq);
+      return next;
     });
+  }, [currentUserId]);
 
-    ws.addEventListener('message', (event) => {
-      if (socketSessionRef.current !== sessionId || typeof event.data !== 'string') return;
-      let frame: { type?: string; data?: Record<string, unknown>; request_id?: string };
-      try { frame = JSON.parse(event.data) as typeof frame; } catch { return; }
-      if (!frame.type || !frame.data || typeof frame.data !== 'object') return;
+  const transport = useConversationTransport({
+    enabled,
+    sessionReady,
+    practiceId,
+    onError: stableOnError,
+    onMessageNew: stableOnMessageNew,
+    onMessageAck: stableOnMessageAck,
+    onReactionUpdate: stableOnReactionUpdate,
+    onGap: stableOnGap,
+    onResumeOk: stableOnResumeOk,
+    onTyping: stableOnTyping,
+    onRead: stableOnRead,
+    lastSeqRef,
+    lastReadSeqRef,
+    pendingAckRef,
+  });
+  const {
+    isSocketReady,
+    sendFrame,
+    waitForSocketReady,
+    connectChatRoom,
+    closeChatSocket,
+    isSocketReadyRef,
+    socketConversationIdRef,
+  } = transport;
 
-      switch (frame.type) {
-        case 'auth.ok':
-          resolveSocketReady();
-          try { sendFrame({ type: 'resume', data: { conversation_id: targetConversationId, last_seq: lastSeqRef.current } }); }
-          catch (err) { if (import.meta.env.DEV) console.warn('[useConversation] Failed to send resume', err); }
-          return;
-        case 'auth.error': {
-          const msg = typeof frame.data.message === 'string' ? frame.data.message : 'Chat protocol error';
-          onError?.(msg); rejectSocketReady(new Error(msg)); isClosingSocketRef.current = true; ws.close(); return;
-        }
-        case 'resume.ok': {
-          const seq = Number(frame.data.latest_seq);
-          if (Number.isFinite(seq)) { lastSeqRef.current = Math.max(lastSeqRef.current, seq); sendReadUpdate(lastSeqRef.current); }
-          return;
-        }
-        case 'resume.gap': {
-          const fromSeq = Number(frame.data.from_seq);
-          const latestSeq = Number(frame.data.latest_seq);
-          if (Number.isFinite(fromSeq) && Number.isFinite(latestSeq)) {
-            fetchGapMessages(fromSeq, latestSeq).catch(err => { if (import.meta.env.DEV) console.warn('[useConversation] Gap fetch failed', err); });
-          }
-          return;
-        }
-        case 'message.new': handleMessageNew(frame.data); return;
-        case 'message.ack': handleMessageAck(frame.data); return;
-        case 'reaction.update': handleReactionUpdate(frame.data); return;
-        case 'error': {
-          const code = typeof frame.data.code === 'string' ? frame.data.code : null;
-          const msg = typeof frame.data.message === 'string' ? frame.data.message : 'Chat error';
-          const reqId = typeof frame.request_id === 'string' ? frame.request_id : null;
-          if (reqId) {
-            const p = pendingAckRef.current.get(reqId);
-            if (p) {
-              clearTimeout(p.timer);
-              p.reject(new Error(msg));
-              pendingAckRef.current.delete(reqId);
-              // Request-scoped errors are surfaced by the sender's catch block.
-              // Emitting onError here would duplicate the same toast.
-              return;
-            }
-          }
+  const sendReadUpdate = useCallback((seq: number) => {
+    const activeConversationId = socketConversationIdRef.current;
+    if (!activeConversationId || !isSocketReadyRef.current) return;
+    if (seq <= lastReadSeqRef.current) return;
+    lastReadSeqRef.current = seq;
+    try {
+      sendFrame({ type: 'read.update', data: { conversation_id: activeConversationId, last_read_seq: seq } });
+    } catch (error) {
+      if (import.meta.env.DEV) console.warn('[useConversation] Failed to send read.update', error);
+    }
+  }, [isSocketReadyRef, sendFrame, socketConversationIdRef]);
+  sendReadUpdateRef.current = sendReadUpdate;
 
-          if (
-            code === 'invalid_payload' &&
-            msg === 'last_seq ahead of latest' &&
-            conversationIdRef.current === targetConversationId
-          ) {
-            // Server no longer has the seq we attempted to resume from
-            // (for example after data reconciliation). Reset local seq once
-            // and reconnect without showing a user-facing toast.
-            if (resumeSeqResetAttemptedForRef.current !== targetConversationId) {
-              resumeSeqResetAttemptedForRef.current = targetConversationId;
-              lastSeqRef.current = 0;
-              lastReadSeqRef.current = 0;
-              if (import.meta.env.DEV) {
-                console.warn('[useConversation] Resetting resume sequence after server drift', {
-                  conversationId: targetConversationId,
-                });
-              }
-              ws.close(4000, 'resume_seq_reset');
-              return;
-            }
-          }
+  const sendTypingState = useCallback((isTyping: boolean) => {
+    const activeConversationId = socketConversationIdRef.current;
+    if (!activeConversationId || !isSocketReadyRef.current) return;
+    try {
+      sendFrame({
+        type: isTyping ? 'typing.start' : 'typing.stop',
+        data: { conversation_id: activeConversationId },
+      });
+    } catch (error) {
+      if (import.meta.env.DEV) console.warn('[useConversation] Failed to send typing state', error);
+    }
+  }, [isSocketReadyRef, sendFrame, socketConversationIdRef]);
 
-          onError?.(msg); return;
-        }
-        default: return;
-      }
-    });
+  const flushPendingAcks = useCallback((error: Error) => {
+    for (const pending of pendingAckRef.current.values()) {
+      clearTimeout(pending.timer);
+      pending.reject(error);
+    }
+    pendingAckRef.current.clear();
+  }, [pendingAckRef]);
 
-    ws.addEventListener('close', () => {
-      if (socketSessionRef.current !== sessionId) return;
-      isSocketReadyRef.current = false;
-      rejectSocketReady(new Error('Chat connection closed'));
-      flushPendingAcks(new Error('Chat connection closed'));
-      if (wsRef.current === ws) { wsRef.current = null; socketConversationIdRef.current = null; }
-      if (!isClosingSocketRef.current && conversationIdRef.current === targetConversationId) scheduleReconnect(targetConversationId);
-    });
-
-    ws.addEventListener('error', (err) => { if (import.meta.env.DEV) console.warn('[useConversation] WebSocket error', err); });
-  }, [clearReconnectTimer, fetchGapMessages, flushPendingAcks, handleMessageAck, handleMessageNew, handleReactionUpdate, initSocketReadyPromise, onError, rejectSocketReady, resolveSocketReady, scheduleReconnect, sendFrame, sendReadUpdate, sessionReady]);
-
-  connectChatRoomRef.current = connectChatRoom;
-
-  const closeChatSocket = useCallback(() => {
-    isClosingSocketRef.current = true;
-    isSocketReadyRef.current = false;
-    rejectSocketReady(new Error('Chat connection closed'));
-    flushPendingAcks(new Error('Chat connection closed'));
-    clearReconnectTimer();
-    reconnectAttemptRef.current = 0;
-    if (wsRef.current) { wsRef.current.close(); wsRef.current = null; }
-    socketConversationIdRef.current = null;
-  }, [clearReconnectTimer, flushPendingAcks, rejectSocketReady]);
+  const resetRealtimeState = useCallback(() => {
+    flushPendingAcks(new Error('reset realtime state'));
+    messageIdSetRef.current.clear();
+    pendingClientMessageRef.current.clear();
+    lastSeqRef.current = 0;
+    lastReadSeqRef.current = 0;
+    messagesRef.current = [];
+    reactionLoadedRef.current.clear();
+    reactionFetchRef.current.clear();
+    pendingStreamMessageIdRef.current = null;
+    for (const timer of typingExpiryTimersRef.current.values()) clearTimeout(timer);
+    typingExpiryTimersRef.current.clear();
+    setTypingUserIds([]);
+    setReadReceiptsByUser(new Map());
+  }, [flushPendingAcks]);
 
   // ── message fetch & pagination ─────────────────────────────────────────────
 
@@ -846,22 +891,42 @@ export const useConversation = ({
     const activeConversationId = targetConversationId ?? conversationId;
     if (!activeConversationId || !practiceId) return;
     try {
-      const params = new URLSearchParams({ practiceId, limit: '50' });
-      params.set('source', isLoadMore ? 'chat_load_more' : 'chat_initial');
-      if (cursor) params.set('cursor', cursor);
+      const params: Record<string, string> = {
+        practiceId,
+        limit: '50',
+        source: isLoadMore ? 'chat_load_more' : 'chat_initial',
+      };
+      if (cursor) params.cursor = cursor;
       if (isLoadMore) setIsLoadingMoreMessages(true);
-      const response = await fetch(`${getConversationMessagesEndpoint(activeConversationId)}?${params}`, { method: 'GET', headers: withWidgetAuthHeaders({ 'Content-Type': 'application/json' }), credentials: 'include', signal });
-      if (!response.ok) { const e = await response.json().catch(() => ({})) as { error?: string }; throw new Error(e.error || `HTTP ${response.status}`); }
-      const data = await response.json() as { success: boolean; error?: string; data?: { messages: ConversationMessage[]; hasMore?: boolean; cursor?: string | null } };
+      let data: { success: boolean; error?: string; data?: { messages: ConversationMessage[]; hasMore?: boolean; cursor?: string | null } };
+      try {
+        const result = await apiClient.get<{ success: boolean; error?: string; data?: { messages: ConversationMessage[]; hasMore?: boolean; cursor?: string | null } }>(
+          getConversationMessagesEndpoint(activeConversationId),
+          { params, signal },
+        );
+        data = result.data;
+      } catch (apiError) {
+        if (isHttpError(apiError)) {
+          const errorData = apiError.response.data as { error?: string } | undefined;
+          throw new Error(errorData?.error || `HTTP ${apiError.response.status}`);
+        }
+        throw apiError;
+      }
       if (!data.success || !data.data) throw new Error(data.error || 'Failed to fetch messages');
       if (!isDisposedRef.current && activeConversationId === conversationIdRef.current) {
         if (isLoadMore) {
-          applyServerMessages(data.data.messages ?? []);
+          batch(() => {
+            // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+            applyServerMessages(data.data!.messages ?? []);
+            // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+            setHasMoreMessages(Boolean(data.data!.hasMore));
+            // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+            setNextCursor(data.data!.cursor ?? null);
+          });
         } else {
           const fetchedMessages = data.data.messages ?? [];
           const fetchedUIMessages = fetchedMessages.map(toUIMessage);
-          
-          // Prepare merged set for sequence calculation outside state setter
+
           const mergedBeforeState = [...fetchedUIMessages, ...messagesRef.current];
           const maxSeq = mergedBeforeState.reduce((max, m) => {
             return typeof m.seq === 'number' ? Math.max(max, m.seq) : max;
@@ -869,28 +934,31 @@ export const useConversation = ({
 
           if (maxSeq > lastSeqRef.current) {
             lastSeqRef.current = maxSeq;
-            sendReadUpdate(maxSeq);
+            sendReadUpdateRef.current(maxSeq);
           }
 
-          // Update the ID set BEFORE state update to keep updater pure
           fetchedUIMessages.forEach(m => messageIdSetRef.current.add(m.id));
 
-          setMessages(prev => {
-            const existingIds = prev.reduce((set, m) => {
-              set.add(m.id);
-              return set;
-            }, new Set<string>());
-            
-            const newBatch = fetchedUIMessages.filter(m => !existingIds.has(m.id));
-            const merged = dedupeMessagesById([...newBatch, ...prev].sort((a, b) => a.timestamp - b.timestamp));
-            
-            return merged;
+          if (typeof performance !== 'undefined') {
+            performance.mark('chat:messages-ready');
+          }
+
+          batch(() => {
+            setMessages(prev => {
+              const existingIds = prev.reduce((set, m) => {
+                set.add(m.id);
+                return set;
+              }, new Set<string>());
+              const newBatch = fetchedUIMessages.filter(m => !existingIds.has(m.id));
+              return dedupeMessagesById([...newBatch, ...prev].sort((a, b) => a.timestamp - b.timestamp));
+            });
+            setMessagesReady(true);
+            // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+            setHasMoreMessages(Boolean(data.data!.hasMore));
+            // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+            setNextCursor(data.data!.cursor ?? null);
           });
-          
-          setMessagesReady(true);
         }
-        setHasMoreMessages(Boolean(data.data.hasMore));
-        setNextCursor(data.data.cursor ?? null);
       }
     } catch (err) {
       if (isDisposedRef.current) return;
@@ -899,7 +967,7 @@ export const useConversation = ({
     } finally {
       if (!isDisposedRef.current && isLoadMore) setIsLoadingMoreMessages(false);
     }
-  }, [applyServerMessages, conversationId, onError, practiceId, sendReadUpdate, sessionReady, toUIMessage]);
+  }, [applyServerMessages, conversationId, onError, practiceId, sessionReady, toUIMessage]);
 
   const loadMoreMessages = useCallback(async () => {
     if (!nextCursor || isLoadingMoreMessages) return;
@@ -1026,41 +1094,24 @@ export const useConversation = ({
 
   // ── lifecycle effects ──────────────────────────────────────────────────────
 
-  // Message cache restore
-  useEffect(() => {
-    if (typeof window === 'undefined' || !conversationId || !practiceId) return;
-    try {
-      const raw = window.localStorage.getItem(getMessageCacheKey(practiceId, conversationId));
-      if (!raw) return;
-      const parsed = JSON.parse(raw) as ChatMessageUI[];
-      if (!Array.isArray(parsed) || parsed.length === 0) return;
-      const isValid = parsed.every(m => typeof m.id === 'string' && typeof m.content === 'string' && typeof m.timestamp === 'number');
-      if (!isValid) { window.localStorage.removeItem(getMessageCacheKey(practiceId, conversationId)); return; }
-      const filtered = parsed.filter(m => !m.id.startsWith(STREAMING_BUBBLE_PREFIX));
-      messageIdSetRef.current = new Set(filtered.map(m => m.id));
-      setMessages(filtered);
-      setMessagesReady(true);
-    } catch (err) { if (import.meta.env.DEV) console.warn('[useConversation] Failed to load cached messages', err); }
-  }, [conversationId, practiceId]);
-
-  // Message cache write
-  useEffect(() => {
-    if (typeof window === 'undefined' || !conversationId || !practiceId || messages.length === 0) return;
-    const trimmed = messages.filter(m => !m.id.startsWith(STREAMING_BUBBLE_PREFIX)).slice(-MESSAGE_CACHE_LIMIT);
-    try { window.localStorage.setItem(getMessageCacheKey(practiceId, conversationId), JSON.stringify(trimmed)); }
-    catch (err) { if (import.meta.env.DEV) console.warn('[useConversation] Failed to cache messages', err); }
-  }, [conversationId, messages, practiceId]);
-
   // Conversation change — full reset
   useEffect(() => {
-    if (lastConversationIdRef.current && conversationId && lastConversationIdRef.current !== conversationId) {
+    if (!enabled) return;
+    // Clear whenever we had a conversation and the ID changes to anything different,
+    // including undefined (e.g. when setupConversationId is cleared on home nav).
+    if (lastConversationIdRef.current && lastConversationIdRef.current !== conversationId) {
       clearMessages(); applyConversationMetadata(null);
     }
     lastConversationIdRef.current = conversationId;
-  }, [conversationId, applyConversationMetadata, clearMessages]);
+  }, [conversationId, enabled, applyConversationMetadata, clearMessages]);
 
   // Main lifecycle — fetch + connect
   useEffect(() => {
+    if (!enabled) {
+      conversationIdRef.current = undefined;
+      closeChatSocket();
+      return;
+    }
     if (!sessionReady) { closeChatSocket(); return; }
     if (!isConversationLinkReady) { closeChatSocket(); return; }
     if (!conversationId || !practiceId) { conversationIdRef.current = undefined; closeChatSocket(); return; }
@@ -1079,18 +1130,28 @@ export const useConversation = ({
     const controller = new AbortController();
     setHasMoreMessages(false);
     setNextCursor(null);
-    fetchMessages({ signal: controller.signal });
-    fetchConversationMetadata(controller.signal).catch(err => { console.warn('[useConversation] Failed to fetch metadata', err); });
+    if (!skipInitialFetch) {
+      fetchMessages({ signal: controller.signal });
+      fetchConversationMetadata(controller.signal).catch(err => { console.warn('[useConversation] Failed to fetch metadata', err); });
+    } else {
+      // Locally-created conversation: nothing to fetch from the server yet.
+      // Mark ready immediately so the ChatContainer renders system messages
+      // that are pushed in via applyServerMessages (e.g. from handleSlimFormContinue).
+      setMessagesReady(true);
+    }
     connectChatRoom(conversationId);
     return () => { controller.abort(); closeChatSocket(); };
-  }, [closeChatSocket, connectChatRoom, conversationId, fetchConversationMetadata, fetchMessages, isConversationLinkReady, practiceId, resetRealtimeState, sessionReady]);
+  }, [closeChatSocket, connectChatRoom, conversationId, enabled, fetchConversationMetadata, fetchMessages, isConversationLinkReady, practiceId, resetRealtimeState, sessionReady, skipInitialFetch]);
 
   // Disposal
   useEffect(() => {
+    const typingTimers = typingExpiryTimersRef.current;
     return () => {
       isDisposedRef.current = true;
       consultFlowAbortRef.current?.abort();
       closeChatSocket();
+      for (const timer of typingTimers.values()) clearTimeout(timer);
+      typingTimers.clear();
     };
   }, [closeChatSocket]);
 
@@ -1106,6 +1167,8 @@ export const useConversation = ({
     isLoadingMoreMessages,
     messagesReady,
     isSocketReady,
+    typingUserIds,
+    readReceiptsByUser,
 
     // Actions
     applyServerMessages,
@@ -1126,6 +1189,7 @@ export const useConversation = ({
     // Low-level — needed by useChatComposer
     sendFrame,
     sendReadUpdate,
+    sendTypingState,
     waitForSocketReady,
     isSocketReadyRef,
     socketConversationIdRef,
@@ -1134,7 +1198,6 @@ export const useConversation = ({
     pendingAckRef,
     pendingStreamMessageIdRef,
     orphanTimerRef,
-    pendingEnsureConversationPromiseRef,
     pendingEnsureConversationPromisesRef,
     conversationIdRef,
     practiceIdRef,
@@ -1150,6 +1213,8 @@ export const useConversation = ({
     isLoadingMoreMessages,
     messagesReady,
     isSocketReady,
+    typingUserIds,
+    readReceiptsByUser,
     applyServerMessages,
     ingestServerMessages,
     loadMoreMessages,
@@ -1166,6 +1231,7 @@ export const useConversation = ({
     fetchConversationMetadata,
     sendFrame,
     sendReadUpdate,
+    sendTypingState,
     waitForSocketReady,
     isSocketReadyRef,
     socketConversationIdRef,

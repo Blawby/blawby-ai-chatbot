@@ -1,4 +1,5 @@
 /// <reference types="vite/client" />
+/// <reference types="vite-plugin-pwa/client" />
 
 /**
  * Frontend Environment Variables
@@ -33,5 +34,6 @@ interface ImportMetaEnv {
 
 interface ImportMeta {
   readonly env: ImportMetaEnv;
-  readonly glob: (pattern: string) => Record<string, () => Promise<unknown>>;
+  // import.meta.glob is declared by vite/client (see /// reference above);
+  // re-declaring it here would conflict with Vite's stricter ImportGlobFunction.
 }

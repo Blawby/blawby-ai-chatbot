@@ -1,32 +1,37 @@
 import type { WorkspaceSection } from '@/shared/config/navConfig';
+import { buildReportSectionTitles } from '@/features/reports/config/reportCollection';
 
-type WorkspaceView =
+export type WorkspaceView =
   | 'home'
   | 'setup'
   | 'list'
   | 'conversation'
+  | 'intakes'
+  | 'intakeDetail'
+  | 'engagements'
   | 'matters'
-  | 'clients'
+  | 'contacts'
+  | 'files'
   | 'invoices'
   | 'invoiceCreate'
+  | 'invoiceEdit'
   | 'invoiceDetail'
   | 'reports'
-  | 'settings';
+  | 'settings'
+  | 'coverage';
 
 type WorkspaceRouteState = {
+  isIntakeTemplateRoute: boolean;
+  isIntakeTemplateEditorRoute: boolean;
+  isIntakeResponsesRoute: boolean;
   selectedMatterIdFromPath: string | null;
   isMatterNonListRoute: boolean;
-  selectedClientIdFromPath: string | null;
-  peopleRouteKind: 'all' | 'archived' | 'team' | 'clients';
+  selectedContactIdFromPath: string | null;
+  contactsRouteKind: 'all' | 'archived' | 'team' | 'clients' | 'pending';
   reportSectionFromPath: string;
 };
 
-const REPORT_SECTION_TITLES: Record<string, string> = {
-  'all-reports': 'All reports',
-  'payroll-matter-activity': 'Payroll & Matter Activity',
-  'trust-reconciliation': 'Trust Reconciliation',
-  'stale-matters': 'Stale Matters',
-};
+const REPORT_SECTION_TITLES: Record<string, string> = buildReportSectionTitles();
 
 const REPORT_SECTION_IDS = new Set(Object.keys(REPORT_SECTION_TITLES));
 
@@ -40,9 +45,16 @@ const normalizeDecodedSegment = (value: string) => {
 
 export const getWorkspaceSection = (view: WorkspaceView): WorkspaceSection => {
   if (view === 'list' || view === 'conversation') return 'conversations';
-  if (view === 'invoiceCreate' || view === 'invoiceDetail') return 'invoices';
-  if (view === 'setup' || view === 'clients') return 'home';
-  return view;
+  if (view === 'invoiceCreate' || view === 'invoiceEdit' || view === 'invoiceDetail') return 'invoices';
+  if (view === 'setup' || view === 'contacts') return 'home';
+  if (view === 'intakeDetail') return 'intakes';
+  // /engagements lives under Matters in the unified sidebar; route + breadcrumb still drive
+  // the engagements view, but the rail/active state belongs to Matters.
+  if (view === 'engagements') return 'matters';
+  // Coverage lives under Settings in the sidebar; route stays at /coverage but the
+  // rail/active state belongs to Settings so its dropdown auto-expands.
+  if (view === 'coverage') return 'settings';
+  return view as WorkspaceSection;
 };
 
 export const getWorkspaceRouteState = ({
@@ -59,6 +71,17 @@ export const getWorkspaceRouteState = ({
   isClientWorkspace: boolean;
 }): WorkspaceRouteState => {
   const isWorkspaceWithMattersRouting = isPracticeWorkspace || isClientWorkspace;
+  const intakesPath = `${normalizedBase}/intakes`;
+  const intakeResponsesPath = `${intakesPath}/responses`;
+  const isIntakeResponsesRoute = view === 'intakes'
+    && isPracticeWorkspace
+    && (path === intakeResponsesPath || path.startsWith(`${intakeResponsesPath}/`));
+  const isIntakeTemplateRoute = view === 'intakes'
+    && isPracticeWorkspace
+    && path.startsWith(intakesPath)
+    && !isIntakeResponsesRoute;
+  const isIntakeTemplateEditorRoute = isIntakeTemplateRoute
+    && path !== intakesPath;
 
   let selectedMatterIdFromPath: string | null = null;
   let isMatterNonListRoute = false;
@@ -75,45 +98,46 @@ export const getWorkspaceRouteState = ({
     }
   }
 
-  let selectedClientIdFromPath: string | null = null;
-  let peopleRouteKind: WorkspaceRouteState['peopleRouteKind'] = 'all';
-  if (view === 'clients' && isPracticeWorkspace) {
-    const peopleMarker = `${normalizedBase}/people/`;
-    const legacyMarker = `${normalizedBase}/clients/`;
-    const activeBaseMarker = path.startsWith(peopleMarker)
-      ? peopleMarker
-      : path.startsWith(legacyMarker)
-        ? legacyMarker
-        : null;
+  let selectedContactIdFromPath: string | null = null;
+  let contactsRouteKind: WorkspaceRouteState['contactsRouteKind'] = 'all';
+  if (view === 'contacts' && isPracticeWorkspace) {
+    const contactsMarker = `${normalizedBase}/contacts/`;
 
-    if (activeBaseMarker) {
-      const peopleSubpath = path.slice(activeBaseMarker.length);
-      if (peopleSubpath.startsWith('archived/')) {
-        peopleRouteKind = 'archived';
-        const raw = peopleSubpath.slice('archived/'.length).split('/')[0] ?? '';
+    if (path.startsWith(contactsMarker)) {
+      const contactsSubpath = path.slice(contactsMarker.length);
+      if (contactsSubpath.startsWith('archived/')) {
+        contactsRouteKind = 'archived';
+        const raw = contactsSubpath.slice('archived/'.length).split('/')[0] ?? '';
         const candidate = normalizeDecodedSegment(raw);
-        selectedClientIdFromPath = candidate || null;
-      } else if (peopleSubpath === 'archived') {
-        peopleRouteKind = 'archived';
-      } else if (peopleSubpath.startsWith('team/')) {
-        peopleRouteKind = 'team';
-        const raw = peopleSubpath.slice('team/'.length).split('/')[0] ?? '';
+        selectedContactIdFromPath = candidate || null;
+      } else if (contactsSubpath === 'archived') {
+        contactsRouteKind = 'archived';
+      } else if (contactsSubpath.startsWith('team/')) {
+        contactsRouteKind = 'team';
+        const raw = contactsSubpath.slice('team/'.length).split('/')[0] ?? '';
         const candidate = normalizeDecodedSegment(raw);
-        selectedClientIdFromPath = candidate ? `team:${candidate}` : null;
-      } else if (peopleSubpath === 'team') {
-        peopleRouteKind = 'team';
-      } else if (peopleSubpath.startsWith('clients/')) {
-        peopleRouteKind = 'clients';
-        const raw = peopleSubpath.slice('clients/'.length).split('/')[0] ?? '';
+        selectedContactIdFromPath = candidate ? `team:${candidate}` : null;
+      } else if (contactsSubpath === 'team') {
+        contactsRouteKind = 'team';
+      } else if (contactsSubpath.startsWith('clients/')) {
+        contactsRouteKind = 'clients';
+        const raw = contactsSubpath.slice('clients/'.length).split('/')[0] ?? '';
         const candidate = normalizeDecodedSegment(raw);
-        selectedClientIdFromPath = candidate || null;
-      } else if (peopleSubpath === 'clients') {
-        peopleRouteKind = 'clients';
+        selectedContactIdFromPath = candidate || null;
+      } else if (contactsSubpath === 'clients') {
+        contactsRouteKind = 'clients';
+      } else if (contactsSubpath.startsWith('pending/')) {
+        contactsRouteKind = 'pending';
+        const raw = contactsSubpath.slice('pending/'.length).split('/')[0] ?? '';
+        const candidate = normalizeDecodedSegment(raw);
+        selectedContactIdFromPath = candidate ? `pending:${candidate}` : null;
+      } else if (contactsSubpath === 'pending') {
+        contactsRouteKind = 'pending';
       } else {
-        const raw = peopleSubpath.split('/')[0] ?? '';
+        const raw = contactsSubpath.split('/')[0] ?? '';
         const candidate = normalizeDecodedSegment(raw);
-        if (candidate && candidate !== 'archived' && candidate !== 'clients' && candidate !== 'team') {
-          selectedClientIdFromPath = candidate;
+        if (candidate && candidate !== 'archived' && candidate !== 'clients' && candidate !== 'team' && candidate !== 'pending') {
+          selectedContactIdFromPath = candidate;
         }
       }
     }
@@ -132,10 +156,13 @@ export const getWorkspaceRouteState = ({
   }
 
   return {
+    isIntakeTemplateRoute,
+    isIntakeTemplateEditorRoute,
     selectedMatterIdFromPath,
     isMatterNonListRoute,
-    selectedClientIdFromPath,
-    peopleRouteKind,
+    isIntakeResponsesRoute,
+    selectedContactIdFromPath,
+    contactsRouteKind,
     reportSectionFromPath,
   };
 };
@@ -144,14 +171,14 @@ export const getWorkspaceDefaultSecondaryFilter = ({
   workspaceSection,
   isPracticeWorkspace,
   view,
-  peopleRouteKind,
+  contactsRouteKind,
   reportSectionFromPath,
   navSecondary,
 }: {
   workspaceSection: WorkspaceSection;
   isPracticeWorkspace: boolean;
   view: WorkspaceView;
-  peopleRouteKind: WorkspaceRouteState['peopleRouteKind'];
+  contactsRouteKind: WorkspaceRouteState['contactsRouteKind'];
   reportSectionFromPath: string;
   navSecondary?: Array<{ items: Array<{ id: string }> }>;
 }) => {
@@ -159,14 +186,23 @@ export const getWorkspaceDefaultSecondaryFilter = ({
     return 'all';
   }
   if (workspaceSection === 'home' && isPracticeWorkspace) {
-    if (view !== 'clients') return 'overview';
-    if (peopleRouteKind === 'archived') return 'people-archived';
-    if (peopleRouteKind === 'team') return 'people-team';
-    if (peopleRouteKind === 'clients') return 'people-clients';
-    return 'people-all';
+    if (view !== 'contacts') return 'overview';
+    if (contactsRouteKind === 'archived') return 'contacts-archived';
+    if (contactsRouteKind === 'team') return 'contacts-team';
+    if (contactsRouteKind === 'clients') return 'contacts-clients';
+    if (contactsRouteKind === 'pending') return 'contacts-pending';
+    return 'contacts-all';
   }
   if (workspaceSection === 'reports' && isPracticeWorkspace) {
     return reportSectionFromPath;
+  }
+  if (workspaceSection === 'intakes' && isPracticeWorkspace) {
+    return 'all';
+  }
+  // Matters > Engagements is a peer route rendered as the first sub-item; the default
+  // filter for /matters is the 'all' stage filter, not 'engagements'.
+  if (workspaceSection === 'matters' && isPracticeWorkspace) {
+    return view === 'engagements' ? 'engagements' : 'all';
   }
   return navSecondary?.[0]?.items[0]?.id ?? null;
 };
@@ -175,7 +211,7 @@ export const getWorkspaceActiveSecondaryFilter = ({
   workspaceSection,
   isPracticeWorkspace,
   view,
-  peopleRouteKind,
+  contactsRouteKind,
   reportSectionFromPath,
   secondaryFilterBySection,
   defaultSecondaryFilterId,
@@ -183,21 +219,27 @@ export const getWorkspaceActiveSecondaryFilter = ({
   workspaceSection: WorkspaceSection;
   isPracticeWorkspace: boolean;
   view: WorkspaceView;
-  peopleRouteKind: WorkspaceRouteState['peopleRouteKind'];
+  contactsRouteKind: WorkspaceRouteState['contactsRouteKind'];
   reportSectionFromPath: string;
   secondaryFilterBySection: Partial<Record<WorkspaceSection, string>>;
   defaultSecondaryFilterId: string | null;
 }) => {
   if (workspaceSection === 'settings') return null;
   if (workspaceSection === 'home' && isPracticeWorkspace) {
-    if (view !== 'clients') return 'overview';
-    if (peopleRouteKind === 'archived') return 'people-archived';
-    if (peopleRouteKind === 'team') return 'people-team';
-    if (peopleRouteKind === 'clients') return 'people-clients';
-    return 'people-all';
+    if (view !== 'contacts') return 'overview';
+    if (contactsRouteKind === 'archived') return 'contacts-archived';
+    if (contactsRouteKind === 'team') return 'contacts-team';
+    if (contactsRouteKind === 'clients') return 'contacts-clients';
+    if (contactsRouteKind === 'pending') return 'contacts-pending';
+    return 'contacts-all';
   }
   if (workspaceSection === 'reports' && isPracticeWorkspace) {
     return reportSectionFromPath;
+  }
+  // /engagements is a peer route under the Matters rail item — the active
+  // sub-item must follow the URL, not whatever Matters filter was last picked.
+  if (workspaceSection === 'matters' && view === 'engagements') {
+    return 'engagements';
   }
   return secondaryFilterBySection[workspaceSection] ?? defaultSecondaryFilterId;
 };
@@ -210,7 +252,7 @@ export const shouldShowWorkspaceMobileMenuButton = ({
   isPracticeWorkspace,
   selectedMatterIdFromPath,
   isMatterNonListRoute,
-  selectedClientIdFromPath,
+  selectedContactIdFromPath,
 }: {
   isMobileLayout: boolean;
   hasSecondaryNav: boolean;
@@ -219,13 +261,14 @@ export const shouldShowWorkspaceMobileMenuButton = ({
   isPracticeWorkspace: boolean;
   selectedMatterIdFromPath: string | null;
   isMatterNonListRoute: boolean;
-  selectedClientIdFromPath: string | null;
+  selectedContactIdFromPath: string | null;
 }) => {
   if (!isMobileLayout || !hasSecondaryNav) return false;
   if (workspaceSection === 'conversations') return view === 'list';
+  if (workspaceSection === 'intakes') return view === 'intakes';
   if (workspaceSection === 'matters') return !selectedMatterIdFromPath && !isMatterNonListRoute;
   if (workspaceSection === 'home') {
-    return isPracticeWorkspace && (view === 'home' || (view === 'clients' && !selectedClientIdFromPath));
+    return isPracticeWorkspace && (view === 'home' || (view === 'contacts' && !selectedContactIdFromPath));
   }
   if (workspaceSection === 'invoices') return view === 'invoices';
   if (workspaceSection === 'reports') return true;
@@ -248,15 +291,16 @@ export const shouldShowWorkspaceBottomNav = ({
 };
 
 export const getWorkspaceActiveHref = ({
-  view,
-  normalizedBase,
   path,
 }: {
   view: WorkspaceView;
   normalizedBase: string;
   path: string;
 }) => {
-  return view === 'clients' ? (normalizedBase || '/') : path;
+  // Previously rewrote /contacts to basePath so the Home rail item highlighted.
+  // With Contacts promoted to a top-level rail item (Pencil GtRGH), we want the
+  // real path so the unified Sidebar's longest-prefix match picks Contacts.
+  return path;
 };
 
 export const WORKSPACE_REPORT_SECTION_TITLES = REPORT_SECTION_TITLES;

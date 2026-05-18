@@ -1,14 +1,10 @@
 import { FunctionComponent } from 'preact';
 import { useState } from 'preact/hooks';
 import { Button } from '@/shared/ui/Button';
-import {
-  DocumentIcon,
-  CheckCircleIcon,
-  ExclamationTriangleIcon,
-  CloudArrowUpIcon,
-  XMarkIcon
-} from "@heroicons/react/24/outline";
+import { File, CheckCircle2, AlertTriangle, X, CloudUpload } from 'lucide-preact';
+
 import { Icon } from '@/shared/ui/Icon';
+import { LoadingSpinner } from '@/shared/ui/layout/LoadingSpinner';
 
 interface DocumentItem {
   id: string;
@@ -68,13 +64,13 @@ const DocumentChecklist: FunctionComponent<DocumentChecklistProps> = ({
   const getStatusIcon = (status: DocumentItem['status'], required: boolean) => {
     switch (status) {
       case 'uploaded':
-        return <Icon icon={CheckCircleIcon} className="w-5 h-5 text-green-500"  />;
+        return <Icon icon={CheckCircle2} className="w-5 h-5 text-accent-success"  />;
       case 'pending':
-        return <Icon icon={ExclamationTriangleIcon} className="w-5 h-5 text-yellow-500"  />;
+        return <Icon icon={AlertTriangle} className="w-5 h-5 text-yellow-500"  />;
       case 'missing':
         return required ?
-          <Icon icon={ExclamationTriangleIcon} className="w-5 h-5 text-red-500"  /> :
-          <Icon icon={DocumentIcon} className="w-5 h-5 text-gray-400"  />;
+          <Icon icon={AlertTriangle} className="w-5 h-5 text-accent-error"  /> :
+          <Icon icon={File} className="w-5 h-5 text-input-placeholder"  />;
     }
   };
 
@@ -83,7 +79,7 @@ const DocumentChecklist: FunctionComponent<DocumentChecklistProps> = ({
       case 'uploaded':
         return 'Uploaded';
       case 'pending':
-        return 'Processing...';
+        return 'Pending';
       case 'missing':
         return required ? 'Required' : 'Optional';
     }
@@ -122,7 +118,7 @@ const DocumentChecklist: FunctionComponent<DocumentChecklistProps> = ({
             className={`border rounded-xl p-4 transition-all duration-300 ${
               dragOverId === doc.id 
                 ? 'border-accent-500 bg-accent-500/10 scale-[1.02]' 
-                : 'border-white/10 bg-white/5'
+                : 'border-line-glass/10 bg-surface-utility/5'
             }`}
             onDrop={(e) => handleDrop(doc.id, e)}
             onDragOver={(e) => handleDragOver(doc.id, e)}
@@ -139,7 +135,7 @@ const DocumentChecklist: FunctionComponent<DocumentChecklistProps> = ({
                     {doc.name}
                   </h4>
                   {doc.required && (
-                    <span className="text-xs bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300 px-2 py-1 rounded">
+                    <span className="text-xs bg-accent-error/10 dark:bg-accent-error/30 text-accent-error-foreground dark:text-accent-error-light px-2 py-1 rounded">
                       Required
                     </span>
                   )}
@@ -148,7 +144,7 @@ const DocumentChecklist: FunctionComponent<DocumentChecklistProps> = ({
                       ? 'bg-emerald-500/10 text-emerald-400'
                       : doc.status === 'pending'
                       ? 'bg-amber-500/10 text-amber-400'
-                      : 'bg-white/5 text-input-placeholder'
+                      : 'bg-surface-utility/5 text-input-placeholder'
                   }`}>
                     {getStatusText(doc.status, doc.required)}
                   </span>
@@ -159,7 +155,7 @@ const DocumentChecklist: FunctionComponent<DocumentChecklistProps> = ({
                   </p>
                 )}
                 
-                {/* DocumentIcon Upload Area */}
+                {/* File Upload Area */}
                 {doc.status === 'missing' && (
                   <div className="flex items-center gap-3">
                     <label className="cursor-pointer">
@@ -172,7 +168,7 @@ const DocumentChecklist: FunctionComponent<DocumentChecklistProps> = ({
                       <Button
                         variant="secondary"
                         size="sm"
-                        icon={CloudArrowUpIcon} iconClassName="w-4 h-4"
+                        icon={CloudUpload} iconClassName="w-4 h-4"
                       >
                         Choose Document
                       </Button>
@@ -183,17 +179,17 @@ const DocumentChecklist: FunctionComponent<DocumentChecklistProps> = ({
                   </div>
                 )}
 
-                {/* Uploaded DocumentIcon Display */}
+                {/* Uploaded File Display */}
                 {doc.status === 'uploaded' && doc.file && (
                   <div className="flex items-center gap-2 mt-2">
-                    <Icon icon={DocumentIcon} className="w-4 h-4 text-emerald-400"  />
+                    <Icon icon={File} className="w-4 h-4 text-emerald-400"  />
                     <span className="text-sm text-input-text">
                       {doc.file.name}
                     </span>
                     <Button
                       variant="danger-ghost"
                       size="sm"
-                      icon={XMarkIcon} iconClassName="w-4 h-4"
+                      icon={X} iconClassName="w-4 h-4"
                       aria-label={`Remove ${doc.name ?? 'document'}`}
                       onClick={() => onDocumentRemove(doc.id)}
                     />
@@ -202,11 +198,8 @@ const DocumentChecklist: FunctionComponent<DocumentChecklistProps> = ({
 
                 {/* Pending Status */}
                 {doc.status === 'pending' && (
-                  <div className="flex items-center gap-2 mt-2">
-                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-yellow-500" />
-                    <span className="text-sm text-yellow-600 dark:text-yellow-400">
-                      Processing document...
-                    </span>
+                  <div className="mt-2 flex items-center gap-2">
+                    <LoadingSpinner size="md" ariaLabel="Pending document" />
                   </div>
                 )}
               </div>
@@ -220,7 +213,7 @@ const DocumentChecklist: FunctionComponent<DocumentChecklistProps> = ({
         <Button
           variant="ghost"
           onClick={onSkip}
-          className="text-gray-600 dark:text-gray-400"
+          className="text-input-placeholder"
         >
           Skip for now
         </Button>

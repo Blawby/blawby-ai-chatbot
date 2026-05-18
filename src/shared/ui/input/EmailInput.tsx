@@ -1,10 +1,13 @@
 import { forwardRef } from 'preact/compat';
-import { EnvelopeIcon, CheckIcon, XMarkIcon } from '@heroicons/react/24/outline';
+import { Mail, Check, X } from 'lucide-preact';
+
 import { Icon } from '@/shared/ui/Icon';
 import { cn } from '@/shared/utils/cn';
 import { useUniqueId } from '@/shared/hooks/useUniqueId';
 
 export interface EmailInputProps {
+  id?: string;
+  name?: string;
   value?: string;
   onChange?: (value: string) => void;
   placeholder?: string;
@@ -26,6 +29,8 @@ export interface EmailInputProps {
 }
 
 export const EmailInput = forwardRef<HTMLInputElement, EmailInputProps>(({
+  id,
+  name,
   value = '',
   onChange,
   placeholder,
@@ -46,7 +51,8 @@ export const EmailInput = forwardRef<HTMLInputElement, EmailInputProps>(({
   'data-testid': dataTestId
 }, ref) => {
   // Generate stable unique IDs for accessibility
-  const inputId = useUniqueId('email-input');
+  const generatedInputId = useUniqueId('email-input');
+  const inputId = id || generatedInputId;
   const descriptionId = useUniqueId('email-description');
   const validationErrorId = useUniqueId('email-validation-error');
   const externalErrorId = useUniqueId('email-external-error');
@@ -65,7 +71,7 @@ export const EmailInput = forwardRef<HTMLInputElement, EmailInputProps>(({
 
   const sizeClasses = {
     sm: 'px-2 py-1 text-sm',
-    md: 'px-3 py-2 text-sm',
+    md: 'px-3 py-2.5 text-sm',
     lg: 'px-4 py-3 text-base'
   };
 
@@ -75,33 +81,33 @@ export const EmailInput = forwardRef<HTMLInputElement, EmailInputProps>(({
     lg: 'pl-12'
   };
 
-  const variantClasses = {
-    default: 'border-input-border focus:ring-accent-500 focus:border-accent-500',
-    error: 'border-red-300 focus:ring-red-500 focus:border-red-500',
-    success: 'border-green-300 focus:ring-green-500 focus:border-green-500'
-  };
-
-  const inputClasses = cn(
-    'w-full border rounded-lg text-input-text placeholder:text-input-placeholder',
-    'focus:outline-none focus:ring-2 focus:ring-offset-0 transition-colors',
-    sizeClasses[size],
-    iconPaddingClasses[size],
-    variantClasses[variant],
-    disabled && 'opacity-50 cursor-not-allowed',
-    variant === 'default' ? 'glass-input' : 'bg-input-bg',
-    className
-  );
-
   const isValidEmail = (email: string) => {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     return emailRegex.test(email);
   };
 
   const isEmailValid = value ? isValidEmail(value) : false;
-  const showValidationIcon = showValidation && (value?.length ?? 0) > 0;
-  
-  // Combined invalid state: displayError OR (showValidation && value && !isEmailValid)
   const isInvalid = displayError || (showValidation && value && !isEmailValid);
+
+  const variantClasses = {
+    default: '',
+    error: 'isError',
+    success: 'isSuccess'
+  };
+
+  const inputClasses = cn(
+    'w-full rounded-xl text-input-text placeholder:text-input-placeholder',
+    'focus:outline-none transition-all duration-200',
+    'glass-input border-none',
+    sizeClasses[size],
+    iconPaddingClasses[size],
+    variantClasses[variant],
+    isInvalid && 'isError',
+    disabled && 'opacity-50 cursor-not-allowed',
+    className
+  );
+
+  const showValidationIcon = showValidation && (value?.length ?? 0) > 0;
 
   // Build aria-describedby attribute
   const describedByIds = [];
@@ -125,16 +131,17 @@ export const EmailInput = forwardRef<HTMLInputElement, EmailInputProps>(({
       )}
       
       <div className="relative">
-        <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
-          <Icon icon={EnvelopeIcon} className="w-4 h-4 text-gray-400 dark:text-gray-500"  />
+        <div className="absolute inset-y-0 left-0 z-10 flex items-center pl-3 pointer-events-none">
+          <Icon icon={Mail} className="w-4 h-4 text-input-placeholder"  />
         </div>
         
         <input
           ref={ref}
           id={inputId}
+          name={name}
           type="email"
           value={value}
-          onChange={(e) => onChange?.((e.target as HTMLInputElement).value)}
+          onInput={(e) => onChange?.((e.target as HTMLInputElement).value)}
           placeholder={displayPlaceholder}
           disabled={disabled}
           required={required}
@@ -146,30 +153,30 @@ export const EmailInput = forwardRef<HTMLInputElement, EmailInputProps>(({
         />
         
         {showValidationIcon && (
-          <div className="absolute inset-y-0 right-0 flex items-center pr-3">
+          <div className="absolute inset-y-0 right-0 z-10 flex items-center pr-3 pointer-events-none">
             {isEmailValid ? (
-              <Icon icon={CheckIcon} className="w-4 h-4 text-green-600 dark:text-green-400"  />
+              <Icon icon={Check} className="w-4 h-4 text-accent-success"  />
             ) : (
-              <Icon icon={XMarkIcon} className="w-4 h-4 text-red-600 dark:text-red-400"  />
+              <Icon icon={X} className="w-4 h-4 text-accent-error"  />
             )}
           </div>
         )}
       </div>
       
       {displayError && (
-        <p id={externalErrorId} className="text-xs text-red-600 dark:text-red-400 mt-1" role="alert" aria-live="assertive">
+        <p id={externalErrorId} className="text-xs text-accent-error mt-1" role="alert" aria-live="assertive">
           {displayError}
         </p>
       )}
       
       {showValidation && value && !isEmailValid && !displayError && (
-        <p id={validationErrorId} className="text-xs text-red-600 dark:text-red-400 mt-1">
+        <p id={validationErrorId} className="text-xs text-accent-error mt-1">
           Please enter a valid email address
         </p>
       )}
       
       {displayDescription && !displayError && (
-        <p id={descriptionId} className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+        <p id={descriptionId} className="text-xs text-input-placeholder mt-1">
           {displayDescription}
         </p>
       )}

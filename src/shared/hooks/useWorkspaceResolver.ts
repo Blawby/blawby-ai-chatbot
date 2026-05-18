@@ -1,36 +1,42 @@
 import { useMemo, useCallback } from 'preact/hooks';
-import { useSessionContext } from '@/shared/contexts/SessionContext';
+import { useSessionContext, useMemberRoleContext } from '@/shared/contexts/SessionContext';
 import { usePracticeManagement, type Practice } from '@/shared/hooks/usePracticeManagement';
 import type { WorkspacePreference } from '@/shared/types/workspace';
-import type { RoutingClaims } from '@/shared/types/routing';
+import { normalizePracticeRole, type PracticeRole } from '@/shared/utils/practiceRoles';
 
 interface UseWorkspaceResolverResult {
   isPending: boolean;
+  rolePending: boolean;
   practicesLoading: boolean;
+  practicesError: string | null;
   practices: Practice[];
   currentPractice: Practice | null;
+  activeRole: PracticeRole | null;
+  isClientMember: boolean;
+  hasPracticeMembership: boolean;
+  canAccessPracticeWorkspace: boolean;
+  canAccessClientWorkspace: boolean;
   hasPracticeAccess: boolean;
   defaultWorkspace: WorkspacePreference;
   resolvePracticeBySlug: (slug?: string | null) => Practice | null;
-  /**
-   * Backend routing claims when available (backend PR #101).
-   * Null when the backend is running a pre-#101 build.
-   */
-  routingClaims: RoutingClaims | null;
 }
 
 interface UseWorkspaceResolverOptions {
   autoFetchPractices?: boolean;
+  fetchOnboardingStatus?: boolean;
+  practiceSlug?: string | null;
 }
 
 export function useWorkspaceResolver(options: UseWorkspaceResolverOptions = {}): UseWorkspaceResolverResult {
-  const { autoFetchPractices = true } = options;
-  const { isPending, routingClaims } = useSessionContext();
+  const { autoFetchPractices = true, fetchOnboardingStatus = false, practiceSlug = null } = options;
+  const { isPending, session } = useSessionContext();
+  const { activeMemberRole, activeMemberRoleLoading } = useMemberRoleContext();
   const {
     practices,
     currentPractice,
-    loading: practicesLoading
-  } = usePracticeManagement({ autoFetchPractices });
+    isLoading: practicesLoading,
+    error: practicesError,
+  } = usePracticeManagement({ autoFetchPractices, fetchOnboardingStatus, practiceSlug });
 
   const practiceBySlug = useMemo(() => {
     const map = new Map<string, Practice>();
@@ -41,17 +47,39 @@ export function useWorkspaceResolver(options: UseWorkspaceResolverOptions = {}):
     return map;
   }, [practices]);
 
-  /**
-   * Prefer the backend routing claim when available.
-   * Fall back to local practice-list heuristic (legacy path).
-   */
-  const hasPracticeAccess = routingClaims
-    ? routingClaims.workspace_access.practice
-    : Boolean(currentPractice?.id || practices.length > 0);
+  const activeRole = activeMemberRoleLoading ? null : normalizePracticeRole(activeMemberRole);
+  const isClientMember = !activeMemberRoleLoading && activeRole === 'client';
+  const hasPracticeMembership = Boolean(currentPractice?.id || practices.length > 0);
+  const canAccessPracticeWorkspace = !activeMemberRoleLoading && hasPracticeMembership && !isClientMember;
+  const canAccessClientWorkspace = !activeMemberRoleLoading && Boolean(
+    session?.user &&
+    !session.user.is_anonymous &&
+    isClientMember
+  );
+  const hasPracticeAccess = canAccessPracticeWorkspace;
 
-  const defaultWorkspace: WorkspacePreference = routingClaims
-    ? (routingClaims.default_workspace === 'public' ? 'client' : routingClaims.default_workspace)
-    : hasPracticeAccess ? 'practice' : 'client';
+  // Honor user.primary_workspace strictly. If the user says "practice" AND
+  // they have any practice membership at all, we route to /practice/ even
+  // when the *currently active* organization happens to be a 'client' one.
+  // The downstream route guards (PracticeAppRoute / ClientPracticeRoute) will
+  // surface access-denied if the active org's role can't reach the chosen
+  // workspace — which is preferable to silently misrouting a stated-practice
+  // user into /client/ because their active org was set to a client membership.
+  const userPrimaryWorkspace = session?.user?.primary_workspace;
+  const preferredWorkspace: WorkspacePreference =
+    userPrimaryWorkspace === 'client' || userPrimaryWorkspace === 'public'
+      ? 'client'
+      : 'practice';
+  const defaultWorkspace: WorkspacePreference =
+    preferredWorkspace === 'practice' && hasPracticeMembership
+      ? 'practice'
+      : preferredWorkspace === 'client' && canAccessClientWorkspace
+        ? 'client'
+        : canAccessPracticeWorkspace
+          ? 'practice'
+          : canAccessClientWorkspace
+            ? 'client'
+            : preferredWorkspace;
 
   const resolvePracticeBySlug = useCallback((slug?: string | null): Practice | null => {
     const normalized = typeof slug === 'string' ? slug.trim() : '';
@@ -61,12 +89,18 @@ export function useWorkspaceResolver(options: UseWorkspaceResolverOptions = {}):
 
   return {
     isPending,
+    rolePending: activeMemberRoleLoading,
     practicesLoading,
+    practicesError,
     practices,
     currentPractice,
+    activeRole,
+    isClientMember,
+    hasPracticeMembership,
+    canAccessPracticeWorkspace,
+    canAccessClientWorkspace,
     hasPracticeAccess,
     defaultWorkspace,
     resolvePracticeBySlug,
-    routingClaims,
   };
 }

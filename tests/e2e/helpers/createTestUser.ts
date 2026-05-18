@@ -24,7 +24,7 @@ export async function createTestUser(
 ): Promise<TestUser> {
   const timestamp = Date.now();
   const user: TestUser = {
-    email: options.email || `e2e-test-${timestamp}@example.com`,
+    email: options.email || `e2e-test-${timestamp}@test-blawby.com`,
     password: options.password || 'TestPassword123!',
     name: options.name || 'E2E Test User',
   };

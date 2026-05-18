@@ -17,14 +17,10 @@ export const useLeadQueueAutoLoad = (loadLeadQueue: () => Promise<void> | void) 
 
 export const usePracticeMembersSync = ({
   practice,
-  setEditPracticeForm,
-  fetchMembers,
-  showError
+  setEditPracticeForm
 }: {
   practice: Practice | null;
   setEditPracticeForm: Dispatch<StateUpdater<EditPracticeFormState>>;
-  fetchMembers: (practiceId: string) => Promise<void>;
-  showError: ShowToast;
 }) => {
   useEffect(() => {
     if (!practice) return;
@@ -33,18 +29,7 @@ export const usePracticeMembersSync = ({
       slug: practice.slug || '',
       logo: practice.logo || ''
     });
-
-    const fetchMembersData = async () => {
-      try {
-        await fetchMembers(practice.id);
-      } catch (err) {
-        const message = err instanceof Error ? err.message : String(err);
-        showError(message || 'Failed to fetch practice members');
-      }
-    };
-
-    void fetchMembersData();
-  }, [practice, fetchMembers, setEditPracticeForm, showError]);
+  }, [practice, setEditPracticeForm]);
 };
 
 export const usePracticeSyncParamRefetch = ({

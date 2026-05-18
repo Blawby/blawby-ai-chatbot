@@ -2,6 +2,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor } from '@/__tests__/test-utils';
 import { PracticeInvoicesPage } from '@/features/invoices/pages/PracticeInvoicesPage';
+import { PracticeInvoiceEditPage } from '@/features/invoices/pages/PracticeInvoiceEditPage';
 import { PracticeInvoiceDetailPage } from '@/features/invoices/pages/PracticeInvoiceDetailPage';
 import { ClientInvoicesPage } from '@/features/invoices/pages/ClientInvoicesPage';
 import { ClientInvoiceDetailPage } from '@/features/invoices/pages/ClientInvoiceDetailPage';
@@ -30,9 +31,10 @@ vi.mock('react-i18next', () => ({
 vi.mock('@/shared/contexts/SessionContext', () => ({
   useSessionContext: () => ({
     session: {
+      session: { id: 'session-1' },
       user: {
         name: 'Test User',
-        email: 'test@example.com',
+        email: 'test@test-blawby.com',
         image: null,
       },
     },
@@ -55,6 +57,23 @@ const mockDeletePracticeInvoice = vi.fn();
 const mockUpdatePracticeInvoice = vi.fn();
 const mockGetClientInvoiceDetail = vi.fn();
 const mockRequestClientInvoiceRefund = vi.fn();
+const mockUseClientsData = vi.fn(() => ({
+  items: [
+    {
+      id: 'client-1',
+      user: {
+        id: 'client-1',
+        name: 'Client One',
+        email: 'client.one@test-blawby.com',
+        image: null,
+      },
+    },
+  ],
+  isLoading: false,
+  error: null,
+  refetch: vi.fn(),
+}));
+const mockListMatters = vi.fn(() => Promise.resolve([]));
 
 vi.mock('@/features/invoices/services/invoicesService', () => ({
   listInvoices: (...args: unknown[]) => mockListPracticeInvoiceSummaries(...args),
@@ -69,6 +88,15 @@ vi.mock('@/features/invoices/services/invoicesService', () => ({
   listClientInvoices: (...args: unknown[]) => mockListClientInvoiceSummaries(...args),
 }));
 
+vi.mock('@/shared/hooks/useClientsData', () => ({
+  useClientsData: mockUseClientsData,
+}));
+
+vi.mock('@/features/matters/services/mattersApi', () => ({
+  listMatters: mockListMatters,
+  updateMatterMilestone: vi.fn(),
+}));
+
 let routePath = '/';
 
 const setRoutePath = (nextPath: string) => {
@@ -78,15 +106,35 @@ const setRoutePath = (nextPath: string) => {
 const makeDetail = (status: string, stripeHostedInvoiceUrl: string | null): InvoiceDetail => ({
   id: 'inv-1',
   invoiceNumber: 'INV-1001',
+  stripeInvoiceNumber: null,
   status,
+  subtotal: 1200,
+  taxAmount: 0,
+  discountAmount: 0,
   clientName: 'Client One',
+  clientEmail: 'client.one@test-blawby.com',
+  clientStatus: 'active',
+  clientId: 'client-1',
   matterTitle: 'Matter One',
+  matterId: 'matter-1',
+  matterStatus: 'open',
+  matterBillingType: 'hourly',
   total: 1200,
   amountDue: status === 'paid' ? 0 : 1200,
   amountPaid: status === 'paid' ? 1200 : 0,
+  invoiceType: 'flat_fee',
+  fundDestination: null,
+  paymentFromRetainer: false,
   issueDate: '2026-03-01',
   dueDate: '2026-03-10',
   paidAt: status === 'paid' ? '2026-03-02' : null,
+  connectedAccountId: 'acct-1',
+  connectedAccountEmail: null,
+  connectedAccountStripeAccountId: null,
+  stripeInvoiceId: null,
+  stripeChargeId: null,
+  stripeTransferId: null,
+  stripePaymentIntentId: null,
   stripeHostedInvoiceUrl,
   createdAt: '2026-03-01T00:00:00.000Z',
   updatedAt: '2026-03-01T00:00:00.000Z',
@@ -139,8 +187,6 @@ const makeDetail = (status: string, stripeHostedInvoiceUrl: string | null): Invo
       line_total: asMajor(1200),
     },
   ],
-  downloadUrl: null,
-  receiptUrl: null,
   payments: [],
   refunds: [],
   refundRequests: [],
@@ -162,8 +208,10 @@ describe('Invoices pages', () => {
         {
           id: 'inv-1',
           invoiceNumber: 'INV-1001',
+          stripeInvoiceNumber: null,
           status: 'draft',
           clientName: 'Client One',
+          clientEmail: 'client.one@test-blawby.com',
           matterTitle: 'Matter One',
           total: 100,
           amountDue: 100,
@@ -188,8 +236,8 @@ describe('Invoices pages', () => {
       expect(screen.getByText('INV-1001')).toBeTruthy();
     });
 
-    fireEvent.click(screen.getByText('common.view'));
-    expect(mockNavigate).toHaveBeenCalledWith('/practice/demo-practice/invoices/inv-1');
+    fireEvent.click(screen.getByText('INV-1001'));
+    expect(mockNavigate).toHaveBeenCalledWith('/practice/demo-practice/invoices/inv-1/edit');
   });
 
   it('handles practice detail sync action', async () => {
@@ -235,11 +283,11 @@ describe('Invoices pages', () => {
     });
   });
 
-  it('handles practice draft send action', async () => {
+  it('handles practice draft send action from edit route', async () => {
     mockGetPracticeInvoiceDetail.mockResolvedValue(makeDetail('draft', null));
 
     render(
-      <PracticeInvoiceDetailPage
+      <PracticeInvoiceEditPage
         practiceId="practice-1"
         practiceSlug="demo-practice"
         invoiceId="inv-1"
@@ -247,10 +295,10 @@ describe('Invoices pages', () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: 'Send' })).toBeTruthy();
+      expect(screen.getByRole('button', { name: /send invoice/i })).toBeTruthy();
     });
 
-    fireEvent.click(screen.getByRole('button', { name: 'Send' }));
+    fireEvent.click(screen.getByRole('button', { name: /send invoice/i }));
     await waitFor(() => {
       expect(mockSendPracticeInvoice).toHaveBeenCalledWith('practice-1', 'inv-1');
     });
@@ -294,8 +342,10 @@ describe('Invoices pages', () => {
         {
           id: 'inv-1',
           invoiceNumber: 'INV-1001',
+          stripeInvoiceNumber: null,
           status: 'draft',
           clientName: 'Client One',
+          clientEmail: 'client.one@test-blawby.com',
           matterTitle: 'Matter One',
           total: 100,
           amountDue: 100,
@@ -316,9 +366,23 @@ describe('Invoices pages', () => {
     mockGetPracticeInvoiceDetail.mockResolvedValue(makeDetail('draft', null));
 
     const PracticeRouteHarness = () => {
-      const invoiceId = routePath.startsWith('/practice/demo-practice/invoices/')
-        ? routePath.replace('/practice/demo-practice/invoices/', '')
-        : null;
+      const editPrefix = '/practice/demo-practice/invoices/';
+      const editSuffix = '/edit';
+      const isEditRoute = routePath.startsWith(editPrefix) && routePath.endsWith(editSuffix);
+      const invoiceId = isEditRoute
+        ? routePath.slice(editPrefix.length, -editSuffix.length)
+        : routePath.startsWith(editPrefix)
+          ? routePath.replace(editPrefix, '')
+          : null;
+      if (isEditRoute && invoiceId) {
+        return (
+          <PracticeInvoiceEditPage
+            practiceId="practice-1"
+            practiceSlug="demo-practice"
+            invoiceId={invoiceId}
+          />
+        );
+      }
       return invoiceId
         ? (
           <PracticeInvoiceDetailPage
@@ -337,10 +401,10 @@ describe('Invoices pages', () => {
       expect(screen.getByText('INV-1001')).toBeTruthy();
     });
 
-    fireEvent.click(screen.getByText('common.view'));
-    expect(mockNavigate).toHaveBeenCalledWith('/practice/demo-practice/invoices/inv-1');
+    fireEvent.click(screen.getByText('INV-1001'));
+    expect(mockNavigate).toHaveBeenCalledWith('/practice/demo-practice/invoices/inv-1/edit');
 
-    setRoutePath('/practice/demo-practice/invoices/inv-1');
+    setRoutePath('/practice/demo-practice/invoices/inv-1/edit');
     rendered.rerender(<PracticeRouteHarness />);
 
     await waitFor(() => {
@@ -354,8 +418,10 @@ describe('Invoices pages', () => {
         {
           id: 'inv-2',
           invoiceNumber: 'INV-2001',
+          stripeInvoiceNumber: null,
           status: 'open',
           clientName: 'Client Two',
+          clientEmail: 'client.two@test-blawby.com',
           matterTitle: 'Matter Two',
           total: 200,
           amountDue: 200,
@@ -397,7 +463,7 @@ describe('Invoices pages', () => {
       expect(screen.getByText('INV-2001')).toBeTruthy();
     });
 
-    fireEvent.click(screen.getByText('common.view'));
+    fireEvent.click(screen.getByText('INV-2001'));
     expect(mockNavigate).toHaveBeenCalledWith('/client/demo-practice/invoices/inv-2');
 
     setRoutePath('/client/demo-practice/invoices/inv-2');

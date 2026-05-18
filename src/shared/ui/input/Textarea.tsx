@@ -35,6 +35,7 @@ export interface TextareaProps {
   errorKey?: string;
   namespace?: string;
   id?: string;
+  name?: string;
   autoFocus?: boolean;
   onKeyDown?: (event: import('preact').JSX.TargetedKeyboardEvent<HTMLTextAreaElement>) => void;
 }
@@ -64,9 +65,11 @@ export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(({
   errorKey: _errorKey,
   namespace: _namespace = 'common',
   id,
+  name,
   autoFocus,
   onKeyDown
 }, ref) => {
+  const localTextareaRef = useRef<HTMLTextAreaElement | null>(null);
   // Generate stable ID for accessibility
   const generatedId = useUniqueId('textarea');
   const textareaId = id || generatedId;
@@ -143,8 +146,8 @@ export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(({
   };
 
   const textareaClasses = cn(
-    'w-full border rounded-lg text-input-text placeholder:text-input-placeholder',
-    'focus:outline-none focus:ring-2 focus:ring-offset-0 transition-colors',
+    'w-full border rounded-xl text-input-text placeholder:text-input-placeholder',
+    'focus:outline-none focus:ring-2 ring-inset focus:ring-offset-0 transition-colors',
     sizeClasses[size],
     resizeClasses[resize],
     variantClasses[variant],
@@ -157,6 +160,11 @@ export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(({
   const isNearLimit = maxLength && currentLength > maxLength * 0.8;
   const isOverLimit = maxLength && currentLength > maxLength;
 
+  useEffect(() => {
+    if (!autoFocus || disabled) return;
+    localTextareaRef.current?.focus();
+  }, [autoFocus, disabled]);
+
   return (
     <div className="w-full">
       {displayLabel && (
@@ -168,7 +176,17 @@ export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(({
       
       <textarea
         id={textareaId}
-        ref={ref}
+        name={name}
+        ref={(node) => {
+          localTextareaRef.current = node;
+          if (typeof ref === 'function') {
+            ref(node);
+            return;
+          }
+          if (ref && typeof ref === 'object') {
+            (ref as { current: HTMLTextAreaElement | null }).current = node;
+          }
+        }}
         value={actualValue}
         onChange={(e) => {
           const newValue = (e.target as HTMLTextAreaElement).value;
@@ -201,21 +219,20 @@ export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(({
         disabled={disabled}
         required={required}
         rows={rows}
-        autoFocus={autoFocus}
         onKeyDown={onKeyDown}
         maxLength={enforceMaxLength === 'soft' ? undefined : maxLength}
         className={textareaClasses}
       />
       
-      {displayError && (
-        <p className="text-xs text-red-600 dark:text-red-400 mt-1">
-          {displayError}
-        </p>
-      )}
+        {displayError && (
+          <p className="text-xs text-accent-error dark:text-accent-error-light mt-1">
+            {displayError}
+          </p>
+        )}
       
       <div className="flex justify-between items-center mt-1">
         {displayDescription && (
-          <p className="text-xs text-gray-500 dark:text-gray-400">
+          <p className="text-xs text-input-placeholder">
             {displayDescription}
           </p>
         )}
@@ -223,9 +240,9 @@ export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(({
         {showCharCount && maxLength && (
           <p className={cn(
             'text-xs ml-auto',
-            isOverLimit ? 'text-red-600 dark:text-red-400' : 
-            isNearLimit ? 'text-yellow-600 dark:text-yellow-400' : 
-            'text-gray-500 dark:text-gray-400'
+            isOverLimit ? 'text-accent-error dark:text-accent-error-light' : 
+            isNearLimit ? 'text-accent-warning dark:text-accent-warning-light' : 
+            'text-input-placeholder'
           )}>
             {currentLength}/{maxLength}
           </p>

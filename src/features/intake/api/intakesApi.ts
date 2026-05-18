@@ -1,8 +1,11 @@
-import { clientIntakeClaim, clientIntakeStatus, clientIntakes } from '@/config/urls';
+import { clientIntake, clientIntakeInvite, clientIntakeStatus, clientIntakes } from '@/config/urls';
+import { apiClient, isHttpError } from '@/shared/lib/apiClient';
 
 export interface IntakeListParams {
   page: number;
-  status: 'all' | 'pending' | 'succeeded' | 'expired';
+  limit?: number;
+  status?: 'all' | 'pending' | 'succeeded' | 'expired';
+  triage_status?: 'all' | 'pending_review' | 'accepted' | 'declined';
 }
 
 export interface IntakeListItem {
@@ -26,10 +29,15 @@ export interface IntakeListItem {
   metadata: {
     email: string;
     name: string;
+    title?: string;
+    intake_title?: string;
     phone?: string;
     on_behalf_of?: string;
     opposing_party?: string;
     description?: string;
+    practice_service_uuid?: string;
+    custom_fields?: Record<string, unknown>;
+    customFields?: Record<string, unknown>;
     [key: string]: unknown;
   };
   succeeded_at?: string | null;
@@ -64,18 +72,34 @@ export interface PracticeIntakeDetail {
   metadata?: {
     email: string;
     name: string;
+    title?: string;
+    intake_title?: string;
     phone?: string;
     on_behalf_of?: string;
     opposing_party?: string;
     description?: string;
     user_id?: string;
-    address?: Record<string, unknown>;
+    practice_service_uuid?: string;
+    custom_fields?: Record<string, unknown>;
+    customFields?: Record<string, unknown>;
+    address?: {
+      line1?: string;
+      line2?: string;
+      city?: string;
+      state?: string;
+      postal_code?: string;
+      country?: string;
+    };
     [key: string]: unknown;
   };
   stripe_charge_id?: string;
   urgency?: 'routine' | 'time_sensitive' | 'emergency' | null | string;
   succeeded_at?: string | null;
   created_at: string;
+  // UI-specific fields / computed
+  client_name?: string;
+  practice_area?: string;
+  payment_verified?: boolean;
 }
 
 export interface UpdateIntakeTriageStatusResponse {
@@ -85,38 +109,68 @@ export interface UpdateIntakeTriageStatusResponse {
   triage_reason?: string | null;
 }
 
-export async function listIntakes(practiceId: string, params: IntakeListParams) {
+export interface TriggerIntakeInviteResponse {
+  success?: boolean;
+  message?: string;
+}
+
+const unwrapEnvelope = (raw: unknown): { json: Record<string, unknown>; data: Record<string, unknown> } | null => {
+  if (typeof raw !== 'object' || raw === null) return null;
+  const json = raw as Record<string, unknown>;
+  const data = (json.success !== undefined && json.data && typeof json.data === 'object')
+    ? json.data as Record<string, unknown>
+    : json;
+  return { json, data };
+};
+
+const errorFromHttp = (error: unknown, fallback: string): Error => {
+  if (isHttpError(error)) {
+    const data = error.response.data as { message?: string; error?: string } | undefined;
+    return new Error(String(data?.message ?? data?.error ?? `HTTP ${error.response.status}`));
+  }
+  return error instanceof Error ? error : new Error(fallback);
+};
+
+export async function listIntakes(practiceId: string, params: IntakeListParams, options: { signal?: AbortSignal } = {}) {
   if (!practiceId) {
     throw new Error('practiceId is required');
   }
 
-  const response = await fetch(
-    clientIntakes(practiceId, {
-      page: String(params.page),
-      status: params.status !== 'all' ? params.status : undefined
-    }),
-    { credentials: 'include' }
-  );
-
-  if (!response.ok) {
-    throw new Error('Failed to fetch intakes');
-  }
-
-  const json = await response.json() as {
-    success?: boolean;
-    data?: IntakeListResponse;
+  const query: Record<string, string | undefined> = {
+    page: String(params.page),
   };
 
-  if (json.success === false || !json.data) {
+  if (params.limit != null) {
+    query.limit = String(params.limit);
+  }
+
+  if (params.triage_status && params.triage_status !== 'all') {
+    query.status = params.triage_status;
+  } else if (params.status && params.status !== 'all') {
+    query.status = params.status;
+  }
+
+  let raw: unknown;
+  try {
+    const result = await apiClient.get<unknown>(clientIntakes(practiceId, query), { signal: options.signal });
+    raw = result.data;
+  } catch (error) {
+    throw errorFromHttp(error, 'Failed to fetch intakes');
+  }
+
+  const env = unwrapEnvelope(raw);
+  if (!env) throw new Error('Failed to fetch intakes');
+  const { json, data } = env;
+  if (json.success === false || (!Array.isArray(data.intakes) && typeof data.total !== 'number')) {
     throw new Error('Failed to fetch intakes');
   }
 
   return {
-    intakes: Array.isArray(json.data.intakes) ? json.data.intakes : [],
-    total: typeof json.data.total === 'number' ? json.data.total : 0,
-    page: typeof json.data.page === 'number' ? json.data.page : params.page,
-    total_pages: typeof json.data.total_pages === 'number' ? json.data.total_pages : 0,
-    limit: typeof json.data.limit === 'number' ? json.data.limit : undefined,
+    intakes: Array.isArray(data.intakes) ? data.intakes : [],
+    total: typeof data.total === 'number' ? data.total : 0,
+    page: typeof data.page === 'number' ? data.page : params.page,
+    total_pages: typeof data.total_pages === 'number' ? data.total_pages : 0,
+    limit: typeof data.limit === 'number' ? data.limit : undefined,
   };
 }
 
@@ -132,33 +186,22 @@ export async function getPracticeIntake(
     throw new Error('intakeId is required');
   }
 
-  const response = await fetch(
-    clientIntakes(practiceId, {
-      intake_id: intakeId,
-      page: '1',
-      limit: '1'
-    }),
-    { credentials: 'include', signal: options.signal }
-  );
+  let raw: unknown;
+  try {
+    const result = await apiClient.get<unknown>(clientIntake(practiceId, intakeId), { signal: options.signal });
+    raw = result.data;
+  } catch (error) {
+    throw errorFromHttp(error, 'Failed to fetch intake');
+  }
 
-  if (!response.ok) {
+  const env = unwrapEnvelope(raw);
+  if (!env) throw new Error('Failed to fetch intake');
+  const { json, data } = env;
+  if (json.success === false || !data || typeof data !== 'object' || !data.uuid) {
     throw new Error('Failed to fetch intake');
   }
 
-  const json = await response.json() as {
-    success?: boolean;
-    data?: {
-      intakes?: PracticeIntakeDetail[];
-    };
-  };
-
-  const intake = Array.isArray(json.data?.intakes) ? json.data.intakes[0] : null;
-
-  if (json.success === false || !intake) {
-    throw new Error('Failed to fetch intake');
-  }
-
-  return intake as PracticeIntakeDetail;
+  return data as unknown as PracticeIntakeDetail;
 }
 
 export async function updateIntakeTriageStatus(
@@ -170,28 +213,53 @@ export async function updateIntakeTriageStatus(
     throw new Error('intakeUuid is required');
   }
 
-  const response = await fetch(clientIntakeStatus(intakeUuid), {
-    method: 'PATCH',
-    credentials: 'include',
-    signal: options.signal,
-    headers: {
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify(payload)
-  });
-
-  const json = await response.json().catch(() => null) as {
-    success?: boolean;
-    data?: UpdateIntakeTriageStatusResponse;
-    error?: string;
-    message?: string;
-  } | null;
-
-  if (!response.ok || json?.success === false) {
-    throw new Error(json?.message ?? json?.error ?? `HTTP ${response.status}`);
+  let json: Record<string, unknown> | null = null;
+  try {
+    const result = await apiClient.patch<unknown>(
+      clientIntakeStatus(intakeUuid),
+      {
+        status: payload.status,
+        ...(typeof payload.reason === 'string' ? { reason: payload.reason } : {}),
+      },
+      { signal: options.signal },
+    );
+    json = (result.data && typeof result.data === 'object') ? result.data as Record<string, unknown> : null;
+  } catch (error) {
+    throw errorFromHttp(error, 'Failed to update intake triage');
   }
 
-  return json?.data ?? null;
+  if (json?.success === false) {
+    throw new Error(String(json.message ?? json.error ?? 'Failed to update intake triage'));
+  }
+  const data = (json && 'data' in json) ? json.data as Record<string, unknown> | null : json;
+  return (data || null) as UpdateIntakeTriageStatusResponse | null;
+}
+
+export async function triggerIntakeInvite(
+  intakeUuid: string,
+  options: { signal?: AbortSignal } = {}
+) {
+  if (!intakeUuid) {
+    throw new Error('intakeUuid is required');
+  }
+
+  let json: Record<string, unknown> | null = null;
+  try {
+    const result = await apiClient.post<unknown>(
+      clientIntakeInvite(intakeUuid),
+      {},
+      { signal: options.signal },
+    );
+    json = (result.data && typeof result.data === 'object') ? result.data as Record<string, unknown> : null;
+  } catch (error) {
+    throw errorFromHttp(error, 'Failed to trigger intake invite');
+  }
+
+  if (json?.success === false) {
+    throw new Error(String(json.message ?? json.error ?? 'Failed to trigger intake invite'));
+  }
+  const data = (json && 'data' in json) ? json.data as Record<string, unknown> | null : json;
+  return (data || null) as TriggerIntakeInviteResponse | null;
 }
 
 export interface IntakeStatusResponse {
@@ -209,54 +277,13 @@ export interface IntakeStatusResponse {
   metadata?: Record<string, unknown>;
 }
 
-export interface ClaimIntakePaymentResponse {
-  intake_uuid: string;
-  organization_id: string;
-}
-
 export async function getIntakeStatus(intakeUuid: string) {
-  // This endpoint currently exists
-  const response = await fetch(clientIntakeStatus(intakeUuid), {
-    credentials: 'include'
-  });
-  if (!response.ok) {
-    throw new Error('Failed to fetch intake status');
+  try {
+    const result = await apiClient.get<{ success: boolean; data: IntakeStatusResponse }>(
+      clientIntakeStatus(intakeUuid),
+    );
+    return result.data.data;
+  } catch (error) {
+    throw errorFromHttp(error, 'Failed to fetch intake status');
   }
-  const json = await response.json() as { success: boolean; data: IntakeStatusResponse };
-  return json.data;
-}
-
-export async function claimIntakePayment(sessionId: string): Promise<ClaimIntakePaymentResponse | null> {
-  if (!sessionId) {
-    throw new Error('sessionId is required');
-  }
-
-  const response = await fetch(clientIntakeClaim(), {
-    method: 'POST',
-    credentials: 'include',
-    headers: {
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify({ session_id: sessionId })
-  });
-
-  const json = await response.json().catch(() => null) as {
-    success?: boolean;
-    data?: ClaimIntakePaymentResponse;
-    error?: string;
-    message?: string;
-  } | null;
-
-  const errorText = [json?.error, json?.message].filter((value): value is string => typeof value === 'string' && value.length > 0).join(' ');
-  const isConflict = response.status === 409 || /already\s+(?:claimed|attached)|duplicate|conflict/i.test(errorText);
-
-  if (isConflict) {
-    return json?.data ?? null;
-  }
-
-  if (!response.ok || json?.success === false || !json?.data) {
-    throw new Error(json?.error || 'Failed to claim intake');
-  }
-
-  return json.data;
 }

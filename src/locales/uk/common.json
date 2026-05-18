@@ -261,6 +261,7 @@
     "publicIntro": "Запитуйте будь-що або діліться своїми відгуками.",
     "continue": "Продовжити",
     "submitRequest": "Надіслати запит",
+    "payAndSubmit": "Pay & submit",
     "submitNow": "Надіслати зараз",
     "buildStrongerBrief": "Створити більш докладне резюме",
     "askQuestion": "Поставити запитання",
@@ -276,6 +277,9 @@
       "continue": "Продовжити",
       "addMore": "Додати ще",
       "notYet": "Ще ні"
+    },
+    "attachments": {
+      "disabled": "Завантаження вкладень недоступне в цій формі."
     }
   },
   "intake": {

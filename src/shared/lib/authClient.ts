@@ -1,29 +1,43 @@
 import { createAuthClient } from 'better-auth/react';
 import { organizationClient } from 'better-auth/client/plugins';
 import { anonymousClient } from 'better-auth/client/plugins';
+import { multiSessionClient } from 'better-auth/client/plugins';
 import { stripeClient } from '@better-auth/stripe/client';
-import { useMemo } from 'preact/hooks';
-import { transformSessionUser, type BetterAuthSessionUser } from '@/shared/types/user';
+import type { SessionUser, AuthSessionPayload } from '@/shared/types/user';
+import { safeConvertToDate, validateRequiredFields } from '@/shared/types/user';
 import { getWorkerApiUrl } from '@/config/urls';
+
+type BetterAuthRawSessionRecord = Record<string, unknown> & {
+  active_organization_id?: string;
+  activeOrganizationId?: string;
+};
+
+type BetterAuthRawSessionUser = Record<string, unknown> & {
+  is_anonymous?: boolean;
+  isAnonymous?: boolean;
+  onboarding_complete?: boolean;
+  onboardingComplete?: boolean;
+  primary_workspace?: 'public' | 'client' | 'practice' | null;
+  primaryWorkspace?: 'public' | 'client' | 'practice' | null;
+  practice_id?: string | null;
+  practiceId?: string | null;
+  active_practice_id?: string | null;
+  activePracticeId?: string | null;
+  active_organization_id?: string | null;
+  activeOrganizationId?: string | null;
+  stripe_customer_id?: string | null;
+  stripeCustomerId?: string | null;
+  email_verified?: boolean;
+  emailVerified?: boolean;
+  last_login_method?: string;
+  lastLoginMethod?: string;
+};
 
 // Type for the auth client (inferred from createAuthClient return type)
 type AuthClientType = ReturnType<typeof createAuthClient>;
-type AuthSession = ReturnType<AuthClientType['useSession']>;
-type AuthSessionData = AuthSession['data'];
-type UntrustedSessionUser = {
-  id: string;
-  email?: string;
-  name?: string;
-  image?: string;
-  isAnonymous?: boolean;
-  onboardingComplete?: boolean;
-} & Record<string, unknown>;
-type TypedSessionData = NonNullable<AuthSessionData> extends { user: unknown; session: infer S }
-  ? (
-    { user: BetterAuthSessionUser; session: S; transformError?: false }
-    | { user: UntrustedSessionUser; session: S; transformError: true }
-  ) | Extract<AuthSessionData, null | undefined>
-  : AuthSessionData;
+// We intentionally avoid exposing any "transformError" union here.
+// The hook and `getSession()` unwrap any SDK envelopes and return
+// the canonical `AuthSessionPayload` to callers.
 
 // Auth requests are proxied through the Worker to keep session cookies same-origin.
 function getAuthBaseUrl(): string | undefined {
@@ -69,7 +83,7 @@ function getAuthClient(): AuthClientType {
   if (typeof window === 'undefined') {
     const placeholderBaseURL = getAuthBaseUrl(); // Returns a placeholder during SSR/build, not the real backend URL.
     return createAuthClient({
-      plugins: [organizationClient(), anonymousClient(), stripeClient({ subscription: true })],
+      plugins: [organizationClient(), anonymousClient(), multiSessionClient(), stripeClient({ subscription: true })],
       baseURL: placeholderBaseURL,
       fetchOptions: {
         credentials: 'include'
@@ -79,7 +93,7 @@ function getAuthClient(): AuthClientType {
 
   // Browser context - create the REAL client (only one is ever created and cached)
   const client = createAuthClient({
-    plugins: [organizationClient(), anonymousClient(), stripeClient({ subscription: true })],
+    plugins: [organizationClient(), anonymousClient(), multiSessionClient(), stripeClient({ subscription: true })],
     baseURL: getAuthBaseUrl(),
     fetchOptions: {
       credentials: 'include'
@@ -96,79 +110,12 @@ export function getClient(): AuthClientType {
   return getAuthClient();
 }
 
-// Export the auth client getter
+// Lazily forwards to the cached auth client so module-level imports don't
+// trigger client creation during SSR/build before window is available.
 export const authClient = new Proxy({} as AuthClientType, {
   get(_target, prop) {
-    const client = getAuthClient();
-    const value = (client as Record<PropertyKey, unknown>)[prop];
-
-    // If it's a function, it might also have properties (like subscription.upgrade, subscription.list)
-    // Create a proxy that handles both calling the function AND accessing its properties
-    if (typeof value === 'function') {
-      const boundFn = value.bind(client);
-      // Create a function that has the properties from the original value
-      // We'll use Object.assign to copy properties, but the main approach is to proxy property access
-      const proxiedFn = Object.assign(boundFn, value);
-
-      // Return a proxy that handles both function calls and property access
-      return new Proxy(proxiedFn, {
-        apply(_target, _thisArg, args) {
-          // When called as a function, call the bound function
-          return boundFn(...args);
-        },
-        get(_target, subProp) {
-          // When accessing properties (like subscription.upgrade), get them from the original value
-          // Properties are on the original function, not the bound one
-          const subValue = (value as unknown as Record<PropertyKey, unknown>)[subProp];
-
-          if (typeof subValue === 'function') {
-            // Bind nested functions to the original value to preserve 'this'
-            return subValue.bind(value);
-          }
-          // Handle further nesting (e.g., subscription.upgrade might return an object)
-          if (subValue && typeof subValue === 'object') {
-            return new Proxy(subValue, {
-              get(_target, subSubProp) {
-                const subSubValue = subValue[subSubProp];
-                if (typeof subSubValue === 'function') {
-                  return subSubValue.bind(subValue);
-                }
-                return subSubValue;
-              }
-            });
-          }
-          return subValue;
-        }
-      });
-    }
-
-    // If it's an object (like signUp, signIn, organization which have nested methods), return a proxy for it
-    if (value && typeof value === 'object') {
-      return new Proxy(value, {
-        get(_target, subProp) {
-          const subValue = value[subProp];
-          if (typeof subValue === 'function') {
-            // Bind the function to preserve 'this' context
-            return subValue.bind(value);
-          }
-          // Handle further nesting (e.g., signUp.email)
-          if (subValue && typeof subValue === 'object') {
-            return new Proxy(subValue, {
-              get(_target, subSubProp) {
-                const subSubValue = subValue[subSubProp];
-                if (typeof subSubValue === 'function') {
-                  return subSubValue.bind(subValue);
-                }
-                return subSubValue;
-              }
-            });
-          }
-          return subValue;
-        }
-      });
-    }
-    return value;
-  }
+    return (getAuthClient() as Record<PropertyKey, unknown>)[prop];
+  },
 }) as AuthClientType;
 
 export const signOut = (...args: Parameters<AuthClientType['signOut']>) => getAuthClient().signOut(...args);
@@ -176,59 +123,82 @@ export const signOut = (...args: Parameters<AuthClientType['signOut']>) => getAu
 // useSession is a React hook - must be called directly, not wrapped
 export const useSession = () => {
   const client = getAuthClient();
-  return client.useSession();
-};
-
-export const useTypedSession = (): Omit<AuthSession, 'data'> & { data: TypedSessionData | undefined } => {
-  const client = getAuthClient();
-  const session = client.useSession();
-
-  const data = useMemo(() => {
-    if (!session.data?.user) return undefined;
-    
-    try {
-      const typedUser = transformSessionUser(session.data.user as Record<string, unknown>);
-      return {
-        ...session.data,
-        user: typedUser
-      } as TypedSessionData;
-    } catch (error) {
-      console.error('[Auth] Failed to transform session user', {
-        error,
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        userId: (session.data.user as any)?.id
-      });
-      return {
-        ...session.data,
-        user: (() => {
-          const raw = session.data.user;
-          const userRecord = (raw && typeof raw === 'object')
-            ? raw as Record<string, unknown>
-            : {};
-          return {
-            ...userRecord,
-            id: typeof userRecord.id === 'string' ? userRecord.id : '',
-          } as UntrustedSessionUser;
-        })(),
-        transformError: true
-      } as TypedSessionData;
-    }
-  }, [session.data]);
+  const hook = client.useSession();
+  // Normalize the hook return so consumers only see the backend shape.
+  const sessionPayload = unwrapSessionData(hook.data);
+  const hookState = hook as unknown as { isPending?: boolean; isLoading?: boolean; error?: unknown };
 
   return {
-    ...session,
-    data
-  };
+    session: sessionPayload,
+    isPending: hookState.isPending ?? hookState.isLoading ?? false,
+    error: hookState.error ?? null,
+  } as { session: AuthSessionPayload | null; isPending: boolean; error: unknown };
 };
+
+// Helper to normalize/unpack SDK envelopes or raw backend session shapes.
+function unwrapSessionData(d: unknown): AuthSessionPayload | null {
+  const toCanonical = (record: Record<string, unknown>): AuthSessionPayload | null => {
+    if (!record.session || !record.user || typeof record.session !== 'object' || typeof record.user !== 'object') {
+      return null;
+    }
+
+    const sessionRecord = record.session as BetterAuthRawSessionRecord;
+    const userRecord = record.user as BetterAuthRawSessionUser;
+
+    // session: Better Auth org plugin sets activeOrganizationId (camelCase)
+    const normalizedSession: Record<string, unknown> = {};
+    const activeOrgId = sessionRecord.activeOrganizationId ?? sessionRecord.active_organization_id;
+    if (typeof activeOrgId === 'string') normalizedSession.active_organization_id = activeOrgId;
+
+    // user: standard Better Auth fields are camelCase; custom backend fields are snake_case
+    const normalizedUser: Record<string, unknown> = {};
+    if (typeof userRecord.id === 'string') normalizedUser.id = userRecord.id;
+    if (typeof userRecord.email === 'string') normalizedUser.email = userRecord.email;
+    if (typeof userRecord.name === 'string') normalizedUser.name = userRecord.name;
+    // is_anonymous: Better Auth anonymous plugin uses isAnonymous (camelCase)
+    normalizedUser.is_anonymous = userRecord.is_anonymous === true || userRecord.isAnonymous === true;
+    // emailVerified: standard Better Auth camelCase field
+    normalizedUser.email_verified = userRecord.emailVerified === true || userRecord.email_verified === true;
+    // Custom backend fields (snake_case)
+    if (typeof userRecord.onboarding_complete === 'boolean') normalizedUser.onboarding_complete = userRecord.onboarding_complete;
+    if (typeof userRecord.primary_workspace === 'string') normalizedUser.primary_workspace = userRecord.primary_workspace;
+    if (typeof userRecord.practice_id === 'string') normalizedUser.practice_id = userRecord.practice_id;
+    if (typeof userRecord.active_practice_id === 'string') normalizedUser.active_practice_id = userRecord.active_practice_id;
+    if (typeof userRecord.active_organization_id === 'string') normalizedUser.active_organization_id = userRecord.active_organization_id;
+    if (typeof userRecord.stripe_customer_id === 'string') normalizedUser.stripe_customer_id = userRecord.stripe_customer_id;
+    if (typeof userRecord.last_login_method === 'string') normalizedUser.last_login_method = userRecord.last_login_method;
+
+    validateRequiredFields(normalizedUser);
+
+    normalizedUser.created_at = safeConvertToDate((userRecord as Record<string, unknown>).created_at ?? null);
+    normalizedUser.updated_at = safeConvertToDate((userRecord as Record<string, unknown>).updated_at ?? null);
+
+    return {
+      session: normalizedSession,
+      user: normalizedUser as unknown as SessionUser,
+    } as AuthSessionPayload;
+  };
+
+  if (d === null || d === undefined) return null;
+  if (typeof d !== 'object') return null;
+  const asRecord = d as Record<string, unknown>;
+  if ('data' in asRecord && typeof asRecord.data === 'object' && asRecord.data !== null) {
+    return toCanonical(asRecord.data as Record<string, unknown>);
+  }
+  return toCanonical(asRecord);
+}
 
 export const useActiveMemberRole = () => {
   const client = getAuthClient();
   return client.useActiveMemberRole();
 };
 
-export const getSession = (...args: Parameters<AuthClientType['getSession']>) => getAuthClient().getSession(...args);
+export const getSession = async (...args: Parameters<AuthClientType['getSession']>): Promise<AuthSessionPayload | null> => {
+  const result = await getAuthClient().getSession(...args);
+  return unwrapSessionData(result);
+};
 type UpdateUserArgs = Parameters<AuthClientType['updateUser']>;
-type UpdateUserInput = Partial<BetterAuthSessionUser> & Record<string, unknown>;
+type UpdateUserInput = Partial<SessionUser> & Record<string, unknown>;
 type UpdateUserFn = (data: UpdateUserInput, options?: UpdateUserArgs[1]) => ReturnType<AuthClientType['updateUser']>;
 
 export const updateUser: UpdateUserFn = (data, options) =>

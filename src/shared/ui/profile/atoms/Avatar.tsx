@@ -1,20 +1,31 @@
+import { User } from 'lucide-preact';
 /**
  * Avatar - Atom Component
  * Pure user avatar display with image/initials fallback.
  */
 
 import { useState, useEffect } from 'preact/hooks';
+
+import { Icon } from '@/shared/ui/Icon';
 import { sanitizeUserImageUrl } from '@/shared/utils/urlValidation';
+
 
 interface AvatarProps {
   src?: string | null;
   name: string;
   size?: 'xs' | 'sm' | 'md' | 'lg' | 'xl';
   className?: string;
-  status?: 'active' | 'inactive';
+  /** Override the inner circle background. Defaults to 'glass-input'.
+   *  Pass a solid Tailwind class (e.g. 'bg-surface-overlay') when
+   *  rendering inside StackedAvatars to prevent backdrop-blur bleed-through.
+   */
+  bgClassName?: string;
+  status?: 'active' | 'inactive' | 'offline';
+  /** Accessible label for status dot. Defaults to status value. */
+  statusLabel?: string;
 }
 
-export const Avatar = ({ src, name, size = 'md', className = '', status }: AvatarProps) => {
+export const Avatar = ({ src, name, size = 'md', className = '', bgClassName, status, statusLabel }: AvatarProps) => {
   const [hasImgError, setHasImgError] = useState(false);
 
   // Reset error state when src changes so new images can be attempted
@@ -61,10 +72,12 @@ export const Avatar = ({ src, name, size = 'md', className = '', status }: Avata
   };
 
   const sanitizedImageUrl = sanitizeUserImageUrl(src);
+  const initials = getInitials(name);
 
   const statusClasses = {
     active: 'bg-emerald-500',
-    inactive: 'bg-amber-400'
+    inactive: 'bg-amber-400',
+    offline: 'bg-input-placeholder ring-1 ring-white/80'
   } as const;
 
   const statusSizeClasses = {
@@ -77,7 +90,7 @@ export const Avatar = ({ src, name, size = 'md', className = '', status }: Avata
 
   return (
     <div className={`${sizeClasses[size]} relative flex-shrink-0 rounded-full ${className}`}>
-      <div className="glass-input h-full w-full rounded-full text-input-text flex items-center justify-center overflow-hidden">
+      <div className={`${bgClassName ?? 'glass-input'} h-full w-full rounded-full text-input-text flex items-center justify-center overflow-hidden shadow-sm ring-1 ring-line-glass/10`}>
         {sanitizedImageUrl && !hasImgError ? (
           <img 
             src={sanitizedImageUrl} 
@@ -86,14 +99,21 @@ export const Avatar = ({ src, name, size = 'md', className = '', status }: Avata
             onError={() => setHasImgError(true)}
           />
         ) : (
-          <span className={`font-medium text-input-text ${textSizeClasses[size]}`}>{getInitials(name)}</span>
+          initials ? (
+            <span className={`font-medium text-input-text ${textSizeClasses[size]}`}>{initials}</span>
+          ) : (
+            <Icon icon={User} className="h-1/2 w-1/2 text-input-placeholder" />
+          )
         )}
       </div>
       {status && (
-        <span
-          className={`absolute bottom-0 right-0 translate-x-1/4 translate-y-1/4 rounded-full ${statusClasses[status]} ${statusSizeClasses[size]}`}
-          aria-hidden="true"
-        />
+        <>
+          <span
+            className={`absolute bottom-0 right-0 translate-x-1/4 translate-y-1/4 rounded-full ${statusClasses[status]} ${statusSizeClasses[size]}`}
+            aria-hidden="true"
+          />
+          <span className="sr-only">{statusLabel || status}</span>
+        </>
       )}
     </div>
   );

@@ -1,20 +1,8 @@
 import { FunctionComponent, ComponentType } from 'preact';
 import { Button } from '@/shared/ui/Button';
 import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from '@/shared/ui/Accordion';
-import {
-  ChatBubbleOvalLeftEllipsisIcon,
-  DocumentTextIcon,
-  UserIcon,
-  CreditCardIcon,
-  CheckCircleIcon,
-  UserPlusIcon,
-  ClockIcon,
-  PhotoIcon,
-  VideoCameraIcon,
-  MusicalNoteIcon,
-  DocumentIcon,
-  LinkIcon
-} from "@heroicons/react/24/outline";
+import { MessageSquare, FileText, User, CreditCard, CheckCircle2, UserPlus, Clock, Image, Video, File, Link, Music } from 'lucide-preact';
+
 import { Icon } from '@/shared/ui/Icon';
 import { useActivity } from '@/shared/hooks/useActivity';
 
@@ -31,28 +19,28 @@ type IconComponent = ComponentType<{ className?: string }> | ComponentType<Recor
 
 const EVENT_ICONS: Record<string, IconComponent> = {
   // Matter Events
-  matter_created: ClockIcon,
-  matter_status_changed: ChatBubbleOvalLeftEllipsisIcon,
-  lawyer_assigned: UserPlusIcon,
-  payment_completed: CreditCardIcon,
-  payment_failed: CreditCardIcon,
+  matter_created: Clock,
+  matter_status_changed: MessageSquare,
+  lawyer_assigned: UserPlus,
+  payment_completed: CreditCard,
+  payment_failed: CreditCard,
 
   // Media Events
-  image_added: PhotoIcon,
-  video_added: VideoCameraIcon,
-  audio_added: MusicalNoteIcon,
-  document_added: DocumentTextIcon,
-  file_added: DocumentIcon,
-  link_shared: LinkIcon,
+  image_added: Image,
+  video_added: Video,
+  audio_added: Music,
+  document_added: FileText,
+  file_added: File,
+  link_shared: Link,
 
   // Session Events
-  session_started: ClockIcon,
-  contact_info_provided: UserIcon,
-  intake_completed: CheckCircleIcon,
-  review_requested: ChatBubbleOvalLeftEllipsisIcon,
+  session_started: Clock,
+  contact_info_provided: User,
+  intake_completed: CheckCircle2,
+  review_requested: MessageSquare,
 
   // Default fallback
-  default: ClockIcon
+  default: Clock
 };
 
 // Format relative time
@@ -80,7 +68,7 @@ const ActivityTimeline: FunctionComponent<ActivityTimelineProps> = ({
   limit = 25
 }) => {
   // Use the activity hook to fetch real data
-  const { events, loading: _loading, error, hasMore, loadMore, refresh } = useActivity({
+  const { events, isLoading: _isLoading, error, hasMore, loadMore, refresh } = useActivity({
     practiceId,
     matterId,
     conversationId,
@@ -98,7 +86,7 @@ const ActivityTimeline: FunctionComponent<ActivityTimelineProps> = ({
             <div className="flex flex-col gap-3 pt-2">
               {/* Error state */}
               {error && (
-                <div className="flex items-center justify-between p-3 bg-red-50 dark:bg-red-900/20 rounded-lg">
+                <div className="flex items-center justify-between p-3 bg-red-50 dark:bg-red-900/20 rounded-xl">
                   <div className="flex items-center">
                     <div className="text-red-600 dark:text-red-400 text-sm">{error}</div>
                   </div>
@@ -124,8 +112,8 @@ const ActivityTimeline: FunctionComponent<ActivityTimelineProps> = ({
                     )}
                     
                     {/* Icon */}
-                    <div className="glass-input relative flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center">
-                      <IconComponent className="w-3 h-3 text-gray-600 dark:text-gray-400" />
+                    <div className="input-surface relative flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center">
+                      <IconComponent className="w-3 h-3 text-input-placeholder" />
                     </div>
                     
                     {/* Content */}
@@ -134,15 +122,15 @@ const ActivityTimeline: FunctionComponent<ActivityTimelineProps> = ({
                         <h5 className="text-xs sm:text-sm font-medium text-input-text">
                           {event.title}
                         </h5>
-                        <span className="text-xs text-gray-500 dark:text-gray-400">
+                        <span className="text-xs text-input-placeholder">
                           {formatRelativeTime(event.eventDate)}
                         </span>
                       </div>
-                      <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 mt-1">
+                      <p className="text-xs sm:text-sm text-input-placeholder mt-1">
                         {event.description}
                       </p>
                       {event.actorType && (
-                        <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                        <div className="text-xs text-input-placeholder mt-1">
                           by {event.actorType}
                         </div>
                       )}
@@ -153,8 +141,8 @@ const ActivityTimeline: FunctionComponent<ActivityTimelineProps> = ({
 
               {/* Empty state */}
               {!error && events.length === 0 && (
-                <div className="text-center py-6 text-gray-500 dark:text-gray-400">
-                  <Icon icon={ClockIcon} className="w-8 h-8 mx-auto mb-2 opacity-50"  />
+                <div className="text-center py-6 text-input-placeholder">
+                  <Icon icon={Clock} className="w-8 h-8 mx-auto mb-2 opacity-50"  />
                   <p className="text-sm">No activity yet</p>
                   <p className="text-xs mt-1">Activity will appear here as you use the system</p>
                 </div>

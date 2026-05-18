@@ -1,10 +1,17 @@
-import type { ComponentType, JSX } from 'preact';
+import type { ComponentType } from 'preact';
 
-export type IconComponent = ComponentType<JSX.SVGAttributes<SVGSVGElement>>;
+// Use a permissive component type to allow third-party icon components
+// IconComponent must be permissive to support third-party icon libraries (any)
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export type IconComponent = ComponentType<any>;
 
-interface IconProps extends JSX.SVGAttributes<SVGSVGElement> {
+interface IconProps {
   icon: IconComponent;
   decorative?: boolean;
+  className?: string;
+  // Icon props must allow arbitrary keys for third-party icon compatibility (any)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  [key: string]: any;
 }
 
 export const Icon = ({

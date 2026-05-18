@@ -1,0 +1,21 @@
+{
+	"extends": "./tsconfig.base.json",
+	"compilerOptions": {
+		"lib": ["ES2023", "DOM", "DOM.Iterable"],
+		"types": ["vitest/globals", "@testing-library/jest-dom", "@cloudflare/workers-types"]
+	},
+	"include": [
+		"node_modules/vite/client.d.ts",
+		"tests",
+		"src/vite-env.d.ts",
+		"src/types",
+		"worker/types/pdf-lib.d.ts",
+		"src/**/__tests__/**/*.ts",
+		"src/**/__tests__/**/*.tsx",
+		"src/**/*.test.ts",
+		"src/**/*.test.tsx",
+		"src/**/*.spec.ts",
+		"src/**/*.spec.tsx"
+	],
+	"exclude": []
+}

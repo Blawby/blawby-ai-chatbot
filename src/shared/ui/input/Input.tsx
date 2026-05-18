@@ -103,20 +103,16 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(({
     lg: iconPosition === 'left' ? 'pl-12' : 'pr-12'
   };
 
-  const variantClasses = {
-    default: 'border-input-border focus:ring-accent-500 focus:border-accent-500',
-    error: 'border-red-500 dark:border-red-400 focus:ring-red-500 dark:focus:ring-red-400 focus:border-red-500 dark:focus:border-red-400',
-    success: 'border-green-500 dark:border-green-400 focus:ring-green-500 dark:focus:ring-green-400 focus:border-green-500 dark:focus:border-green-400'
-  };
 
   const inputClasses = cn(
-    'w-full border rounded-lg text-input-text placeholder:text-input-placeholder',
-    'focus:outline-none focus:ring-2 focus:ring-offset-0 transition-colors',
+    'w-full rounded-xl text-input-text placeholder:text-input-placeholder',
+    'focus:outline-none transition-all duration-200',
+    'glass-input border-none',
     sizeClasses[size],
     icon && iconPaddingClasses[size],
-    variantClasses[variant],
+    variant === 'error' || displayError ? 'isError' : '',
+    variant === 'success' && 'isSuccess',
     disabled && 'opacity-50 cursor-not-allowed',
-    variant === 'default' ? 'glass-input' : 'bg-input-bg',
     className
   );
 
@@ -124,11 +120,11 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(({
     if (!icon) return null;
 
     if (isIconComponent(icon)) {
-      return <Icon icon={icon} className={cn('w-4 h-4 text-gray-400 dark:text-gray-500', iconClassName)} />;
+      return <Icon icon={icon} className={cn('w-4 h-4 text-input-placeholder', iconClassName)} />;
     }
 
     return (
-      <div className="w-4 h-4 text-gray-400 dark:text-gray-500">
+      <div className="w-4 h-4 text-input-placeholder">
         {icon}
       </div>
     );
@@ -154,7 +150,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(({
           ref={ref}
           type={type}
           value={value}
-          onChange={(e) => onChange?.((e.target as HTMLInputElement).value)}
+          onInput={(e) => onChange?.((e.target as HTMLInputElement).value)}
           placeholder={displayPlaceholder}
           disabled={disabled}
           required={required}
@@ -162,7 +158,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(({
           id={inputId}
           aria-label={ariaLabel}
           aria-describedby={computedAriaDescribedBy}
-          aria-invalid={externalAriaInvalid !== undefined ? externalAriaInvalid : Boolean(error)}
+          aria-invalid={externalAriaInvalid !== undefined ? externalAriaInvalid : Boolean(displayError)}
           aria-required={externalAriaRequired}
           aria-disabled={externalAriaDisabled}
           {...inputRestProps}
@@ -182,7 +178,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(({
       )}
       
       {displayDescription && !displayError && (
-        <p id={descriptionId} className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+        <p id={descriptionId} className="mt-1 text-xs text-input-placeholder">
           {displayDescription}
         </p>
       )}

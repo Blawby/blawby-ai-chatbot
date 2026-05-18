@@ -1,9 +1,10 @@
 import { useMemo, useState } from 'preact/hooks';
-import { EllipsisVerticalIcon, PencilIcon, PlusIcon, TrashIcon } from '@heroicons/react/24/outline';
+import { MoreVertical, Pencil, Plus, Trash2 } from 'lucide-preact';
+
 import { Icon } from '@/shared/ui/Icon';
 import { format, parseISO } from 'date-fns';
 import { ulid } from 'ulid';
-import Modal from '@/shared/components/Modal';
+import { Dialog, DialogBody, DialogFooter } from '@/shared/ui/dialog';
 import { Button } from '@/shared/ui/Button';
 import {
   DropdownMenu,
@@ -12,6 +13,7 @@ import {
   DropdownMenuTrigger
 } from '@/shared/ui/dropdown';
 import { Avatar } from '@/shared/ui/profile';
+import { ListRowSkeleton, PanelSectionHeader, PanelEmptyState, InteractiveListItem } from '@/shared/ui/layout';
 import type { MatterDetail, MatterNote } from '@/features/matters/data/matterTypes';
 import { NoteForm, type NoteFormValues } from './NoteForm';
 
@@ -49,6 +51,8 @@ export const MatterNotesPanel = ({
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingNote, setEditingNote] = useState<MatterNote | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<MatterNote | null>(null);
+  // Increment-on-record-switch + `key={formKey}` remount. See
+  // docs/solutions/conventions/form-reset-pattern-2026-05-18.md.
   const [formKey, setFormKey] = useState(0);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
@@ -131,6 +135,10 @@ export const MatterNotesPanel = ({
 
   const confirmDelete = (note: MatterNote) => {
     if (!canDelete) return;
+    if (isFormOpen || editingNote?.id === note.id) {
+      setIsFormOpen(false);
+      setEditingNote(null);
+    }
     setDeleteTarget(note);
   };
 
@@ -161,44 +169,36 @@ export const MatterNotesPanel = ({
   };
 
   return (
-    <section className="glass-panel">
-      <header className="flex flex-wrap items-center justify-between gap-3 border-b border-line-glass/30 px-6 py-4">
-        <div>
-          <h3 className="text-sm font-semibold text-input-text">Notes</h3>
-          <p className="text-xs text-gray-500 dark:text-gray-400">
-            {sortedNotes.length} notes recorded
-          </p>
-        </div>
-        <Button size="sm" icon={PlusIcon} iconClassName="h-4 w-4" onClick={openNewNote} disabled={!canCreate}>
-          Add note
-        </Button>
-      </header>
+    <section className="panel">
+      <PanelSectionHeader
+        title="Notes"
+        subtitle={sortedNotes.length}
+        subtitleSuffix="notes recorded"
+        actions={(
+          <Button size="sm" icon={Plus} iconClassName="h-4 w-4" onClick={openNewNote} disabled={!canCreate}>
+            Add note
+          </Button>
+        )}
+      />
 
       {error ? (
         <div className="px-6 py-6 text-sm text-red-600 dark:text-red-400">
           {error}
         </div>
       ) : loading && sortedNotes.length === 0 ? (
-        <div className="px-6 py-6 text-sm text-gray-500 dark:text-gray-400">
-          Loading notes...
-        </div>
+        <ListRowSkeleton rows={4} className="divide-y divide-line-default" />
       ) : sortedNotes.length === 0 ? (
-        <div className="px-6 py-6 text-sm text-gray-500 dark:text-gray-400">
-          No notes yet. Capture internal updates, decisions, or next steps tied to this matter.
-        </div>
+        <PanelEmptyState message="No notes yet. Capture internal updates, decisions, or next steps tied to this matter." />
       ) : (
         <ul className="divide-y divide-line-default">
           {sortedNotes.map((note) => (
-            <li
+            <InteractiveListItem
               key={note.id}
-              className="flex flex-col gap-4 px-6 py-4 sm:flex-row sm:items-start sm:justify-between hover:bg-white/[0.04] transition-colors"
+              onClick={() => openEditNote(note)}
+              disabled={!canEdit}
+              className="flex-col sm:flex-row"
             >
-              <button
-                type="button"
-                className="flex min-w-0 gap-3 text-left flex-1"
-                onClick={() => openEditNote(note)}
-                disabled={!canEdit}
-              >
+              <div className="flex min-w-0 gap-3 text-left flex-1">
                 <Avatar name={note.author.name} src={note.author.avatarUrl} size="sm" />
                 <div className="min-w-0">
                   <div className="flex flex-wrap items-center gap-2">
@@ -206,22 +206,22 @@ export const MatterNotesPanel = ({
                       {note.author.name}
                     </p>
                     {note.author.role && (
-                      <span className="glass-input rounded-full px-2 py-0.5 text-xs font-medium text-input-placeholder">
+                      <span className="input-surface rounded-full px-2 py-0.5 text-xs font-medium text-input-placeholder">
                         {note.author.role}
                       </span>
                     )}
-                    <span className="text-xs text-gray-500 dark:text-gray-400">
+                    <span className="text-xs text-input-placeholder">
                       {formatNoteDate(note.updatedAt ?? note.createdAt)}
                     </span>
                     {note.updatedAt && (
-                      <span className="text-xs text-gray-400">(edited)</span>
+                      <span className="text-xs text-input-placeholder">(edited)</span>
                     )}
                   </div>
-                  <p className="mt-2 whitespace-pre-wrap text-sm text-gray-600 dark:text-gray-300">
+                  <p className="mt-2 whitespace-pre-wrap text-sm text-input-text opacity-80 decoration-input-placeholder">
                     {note.content}
                   </p>
                 </div>
-              </button>
+              </div>
               {canEdit || canDelete ? (
                 <div className="flex items-center gap-2">
                 <DropdownMenu>
@@ -230,7 +230,7 @@ export const MatterNotesPanel = ({
                       variant="ghost"
                       size="sm"
                       aria-label="Open note actions"
-                      icon={EllipsisVerticalIcon} iconClassName="h-4 w-4"
+                      icon={MoreVertical} iconClassName="h-4 w-4"
                     />
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end" className="w-32">
@@ -238,7 +238,7 @@ export const MatterNotesPanel = ({
                       {canEdit ? (
                         <DropdownMenuItem onSelect={() => openEditNote(note)}>
                           <span className="flex items-center gap-2">
-                            <Icon icon={PencilIcon} className="h-4 w-4"  />
+                            <Icon icon={Pencil} className="h-4 w-4"  />
                             Edit
                           </span>
                         </DropdownMenuItem>
@@ -246,7 +246,7 @@ export const MatterNotesPanel = ({
                       {canDelete ? (
                         <DropdownMenuItem onSelect={() => confirmDelete(note)}>
                           <span className="flex items-center gap-2 text-red-600 dark:text-red-400">
-                            <Icon icon={TrashIcon} className="h-4 w-4"  />
+                            <Icon icon={Trash2} className="h-4 w-4"  />
                             Delete
                           </span>
                         </DropdownMenuItem>
@@ -256,60 +256,63 @@ export const MatterNotesPanel = ({
                 </DropdownMenu>
               </div>
               ) : null}
-            </li>
+            </InteractiveListItem>
           ))}
         </ul>
       )}
 
       {isFormOpen && (
-        <Modal
+        <Dialog
           isOpen={isFormOpen}
           onClose={closeForm}
           title={editingNote ? 'Edit note' : 'Add note'}
           contentClassName="max-w-2xl"
         >
-          <NoteForm
-            key={`${editingNote?.id ?? 'new'}-${formKey}`}
-            initialNote={editingNote ?? undefined}
-            practiceId={practiceId}
-            onSubmit={handleSave}
-            onCancel={closeForm}
-            onDelete={canDelete && editingNote ? () => confirmDelete(editingNote) : undefined}
-            isSubmitting={isSubmitting}
-          />
-          {submitError && (
-            <p className="mt-3 text-sm text-red-600 dark:text-red-400">{submitError}</p>
-          )}
-          {isSubmitting && (
-            <p className="mt-3 text-sm text-gray-500 dark:text-gray-400">Saving note...</p>
-          )}
-        </Modal>
+          <DialogBody>
+            <NoteForm
+              key={`${editingNote?.id ?? 'new'}-${formKey}`}
+              initialNote={editingNote ?? undefined}
+              practiceId={practiceId}
+              matterId={matter.id}
+              onSubmit={handleSave}
+              onCancel={closeForm}
+              onDelete={canDelete && editingNote ? () => confirmDelete(editingNote) : undefined}
+              isSubmitting={isSubmitting}
+            />
+            {submitError && (
+              <p className="mt-3 text-sm text-red-600 dark:text-red-400">{submitError}</p>
+            )}
+            {isSubmitting && (
+              <p className="mt-3 text-sm text-input-placeholder">Saving note...</p>
+            )}
+          </DialogBody>
+        </Dialog>
       )}
 
       {canDelete && deleteTarget && (
-        <Modal
+        <Dialog
           isOpen={Boolean(deleteTarget)}
           onClose={() => setDeleteTarget(null)}
           title="Delete note"
           contentClassName="max-w-xl"
         >
-          <div className="space-y-4">
-            <p className="text-sm text-gray-600 dark:text-gray-300">
+          <DialogBody className="space-y-4">
+            <p className="text-sm text-input-text opacity-80">
               Are you sure you want to delete this note? This action cannot be undone.
             </p>
             {deleteError && (
               <p className="text-sm text-red-600 dark:text-red-400">{deleteError}</p>
             )}
-            <div className="flex items-center justify-end gap-3">
-              <Button variant="secondary" onClick={() => setDeleteTarget(null)}>
-                Cancel
-              </Button>
-              <Button variant="danger" onClick={handleDelete} disabled={isSubmitting}>
-                {isSubmitting ? 'Deleting...' : 'Delete note'}
-              </Button>
-            </div>
-          </div>
-        </Modal>
+          </DialogBody>
+          <DialogFooter>
+            <Button variant="secondary" onClick={() => setDeleteTarget(null)}>
+              Cancel
+            </Button>
+            <Button variant="danger" onClick={handleDelete} disabled={isSubmitting}>
+              {isSubmitting ? 'Deleting...' : 'Delete note'}
+            </Button>
+          </DialogFooter>
+        </Dialog>
       )}
     </section>
   );

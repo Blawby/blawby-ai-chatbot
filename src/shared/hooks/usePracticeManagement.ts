@@ -1,6 +1,4 @@
-import axios, { type AxiosRequestConfig } from 'axios';
-import { atom } from 'nanostores';
-import { useStore } from '@nanostores/preact';
+import { apiClient, type ApiRequestConfig } from '@/shared/lib/apiClient';
 import { useState, useCallback, useEffect, useRef, useContext } from 'preact/hooks';
 import { getPracticeWorkspaceEndpoint } from '@/config/api';
 import { useSessionContext } from '@/shared/contexts/SessionContext';
@@ -16,17 +14,15 @@ import {
   getOnboardingStatusPayload,
   updatePracticeDetails as apiUpdatePracticeDetails,
   deletePractice as apiDeletePractice,
-  listPracticeMembers,
   updatePracticeMemberRole as apiUpdatePracticeMemberRole,
   deletePracticeMember as apiDeletePracticeMember,
   clearPublicPracticeDetailsCache
 } from '@/shared/lib/apiClient';
 import { normalizeSubscriptionStatus as normalizePracticeStatus } from '@/shared/utils/subscription';
 import { resetPracticeDetailsStore, setPracticeDetailsEntry } from '@/shared/stores/practiceDetailsStore';
+import { queryCache } from '@/shared/lib/queryCache';
 import { asMajor, type MajorAmount } from '@/shared/utils/money';
-import { normalizePracticeRole, type PracticeRole } from '@/shared/utils/practiceRoles';
-
-const ENABLE_PAYOUT_STATUS = import.meta.env.VITE_ENABLE_PAYOUTS === 'true';
+import { type PracticeRole } from '@/shared/utils/practiceRoles';
 
 const isPlainObject = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -42,6 +38,24 @@ let sharedPracticeUserId: string | null = null;
 let sharedPracticeIncludesDetails = false;
 let practicesLoaded = false;
 let practicesInFlight: Promise<void> | null = null;
+let isGloballyFetching = false;
+
+// Broadcast loading state to all active hook instances so that when any
+// instance starts a fetch, ALL instances immediately see loading=true.
+const loadingSubscribers = new Set<(v: boolean) => void>();
+const setGlobalLoading = (value: boolean) => {
+  isGloballyFetching = value;
+  for (const sub of loadingSubscribers) sub(value);
+};
+
+// Broadcast the fetched snapshot to all active hook instances so that
+// regardless of which instance triggered the fetch, all instances get
+// their practices/currentPractice state updated from the same data.
+type SnapshotSubscriber = (snapshot: SharedPracticeSnapshot, requestedSlug: string | null) => void;
+const snapshotSubscribers = new Set<SnapshotSubscriber>();
+const broadcastSnapshot = (snapshot: SharedPracticeSnapshot, requestedSlug: string | null) => {
+  for (const sub of snapshotSubscribers) sub(snapshot, requestedSlug);
+};
 
 const resetSharedPracticeCache = () => {
   sharedPracticeSnapshot = null;
@@ -50,24 +64,7 @@ const resetSharedPracticeCache = () => {
   sharedPracticeIncludesDetails = false;
   practicesLoaded = false;
   practicesInFlight = null;
-};
-
-const membersStore = atom<Record<string, Member[]>>({});
-const membersLoaded = new Set<string>();
-const membersInFlight = new Map<string, Promise<Member[]>>();
-let membersCacheUserId: string | null = null;
-
-const resetMembersCache = () => {
-  membersStore.set({});
-  membersLoaded.clear();
-  membersInFlight.clear();
-  membersCacheUserId = null;
-};
-
-const setMembersForPractice = (practiceId: string, nextMembers: Member[]) => {
-  if (!practiceId) return;
-  const snapshot = membersStore.get();
-  membersStore.set({ ...snapshot, [practiceId]: nextMembers });
+  isGloballyFetching = false;
 };
 
 // Types
@@ -80,7 +77,7 @@ export interface Practice {
   id: string;
   slug: string;
   name: string;
-  description?: string;
+  legalDisclaimer?: string | null;
   betterAuthOrgId?: string;
   stripeCustomerId?: string | null;
   currency?: string | null;
@@ -92,7 +89,6 @@ export interface Practice {
   config?: {
     ownerEmail?: string;
     metadata?: Record<string, unknown>;
-    description?: string;
     [key: string]: unknown; // Allow additional config properties
   };
   kind?: 'personal' | 'business' | 'practice';
@@ -147,14 +143,12 @@ export interface Invitation {
 export interface CreatePracticeData {
   name: string;
   slug?: string;
-  description?: string;
   metadata?: Record<string, unknown>;
 }
 
 export interface UpdatePracticeData {
   name?: string;
   slug?: string;
-  description?: string;
   businessPhone?: string;
   businessEmail?: string;
   consultationFee?: MajorAmount | null;
@@ -194,7 +188,7 @@ interface UsePracticeManagementReturn {
   // Practice CRUD
   practices: Practice[];
   currentPractice: Practice | null;
-  loading: boolean;
+  isLoading: boolean;
   error: string | null;
   
   // Practice operations
@@ -203,9 +197,6 @@ interface UsePracticeManagementReturn {
   updatePracticeDetails: (id: string, details: PracticeDetailsUpdate) => Promise<PracticeDetails | null>;
   deletePractice: (id: string) => Promise<void>;
   
-  // Team management
-  getMembers: (practiceId: string) => Member[];
-  fetchMembers: (practiceId: string, options?: { force?: boolean }) => Promise<void>;
   updateMemberRole: (practiceId: string, userId: string, role: Role) => Promise<void>;
   removeMember: (practiceId: string, userId: string) => Promise<void>;
   
@@ -255,18 +246,26 @@ function normalizePracticeRecord(raw: Record<string, unknown>): Practice {
   const cfg = (() => {
     const c = (raw as Record<string, unknown>).config as unknown;
     if (c && typeof c === 'object' && !Array.isArray(c)) {
-      return c as Practice['config'] & { description?: string };
+      return c as Practice['config'];
     }
     const metadata = (raw as Record<string, unknown>).metadata;
     if (metadata && typeof metadata === 'object' && !Array.isArray(metadata)) {
       return {
         metadata: metadata as Record<string, unknown>
-      } as Practice['config'] & { description?: string };
+      } as Practice['config'];
     }
-    return undefined as Practice['config'] & { description?: string } | undefined;
+    return undefined as Practice['config'] | undefined;
   })();
   const metadataRecord = (() => {
     const direct = (raw as Record<string, unknown>).metadata;
+    if (typeof direct === 'string') {
+      try {
+        const parsed = JSON.parse(direct);
+        if (isPlainObject(parsed)) return parsed;
+        return null;
+      }
+      catch { return null; }
+    }
     if (isPlainObject(direct)) {
       return direct as Record<string, unknown>;
     }
@@ -382,26 +381,16 @@ function normalizePracticeRecord(raw: Record<string, unknown>): Practice {
     return undefined;
   })();
 
-  const topLevelDescription = (() => {
-    const candidate = raw.description ?? raw.overview;
-    return typeof candidate === 'string' && candidate.trim().length > 0 ? candidate : undefined;
-  })();
-  const configDescription = (() => {
-    const desc = cfg && (cfg as Record<string, unknown>).description;
-    return typeof desc === 'string' && desc.trim().length > 0 ? desc : undefined;
-  })();
-  const metadataDescription = (() => {
-    const metadata = cfg && (cfg as Record<string, unknown>).metadata;
-    if (!metadata || typeof metadata !== 'object' || Array.isArray(metadata)) return undefined;
-    const desc = (metadata as Record<string, unknown>).description;
-    return typeof desc === 'string' && desc.trim().length > 0 ? desc : undefined;
+  const legalDisclaimer = (() => {
+    const candidate = raw.legalDisclaimer ?? raw.legal_disclaimer ?? raw.overview;
+    return typeof candidate === 'string' && candidate.trim().length > 0 ? candidate : null;
   })();
 
   return {
     id,
     slug,
     name,
-    description: topLevelDescription ?? configDescription ?? metadataDescription,
+    legalDisclaimer,
     stripeCustomerId: (() => {
       const val = (raw.stripeCustomerId ?? raw.stripe_customer_id ?? null);
       return typeof val === 'string' && val.trim().length > 0 ? val : null;
@@ -456,7 +445,7 @@ function normalizePracticeRecord(raw: Record<string, unknown>): Practice {
 
 const fetchPracticeDetailsFor = async (
   practice: Practice,
-  config?: Pick<AxiosRequestConfig, 'signal'>
+  config?: ApiRequestConfig
 ): Promise<PracticeDetails | null> => {
   const byId = await getPracticeDetails(practice.id, config);
   if (byId) {
@@ -500,9 +489,10 @@ function mergePracticeDetails(practice: Practice, details: PracticeDetails | nul
   setIfNonNull('country', details.country as Practice['country'] | undefined | null);
   setIfNonNull('primaryColor', details.primaryColor as Practice['primaryColor'] | undefined | null);
   setIfNonNull('accentColor', details.accentColor as Practice['accentColor'] | undefined | null);
-  setIfNonNull('description', details.description as Practice['description'] | undefined | null);
+  setIfDefined('legalDisclaimer', details.legalDisclaimer as Practice['legalDisclaimer'] | undefined);
   setIfDefined('isPublic', details.isPublic as Practice['isPublic'] | undefined);
   setIfDefined('services', details.services as Practice['services'] | undefined);
+  setIfNonNull('metadata', details.metadata as Practice['metadata'] | undefined | null);
   return {
     ...practice,
     ...patch
@@ -540,6 +530,37 @@ function _generateIdempotencyKey(): string {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
 }
 
+export const updatePracticeDetailsStandalone = async (
+  id: string,
+  details: PracticeDetailsUpdate
+): Promise<PracticeDetails | null> => {
+  if (!id) {
+    throw new Error('Practice id is required for details update');
+  }
+
+  const updatedDetails = await apiUpdatePracticeDetails(id, details);
+  setPracticeDetailsEntry(id, updatedDetails);
+
+  if (updatedDetails && sharedPracticeSnapshot) {
+    const nextPractices = sharedPracticeSnapshot.practices.map((practice) =>
+      practice.id === id ? mergePracticeDetails(practice, updatedDetails) : practice
+    );
+    const nextCurrentPractice = sharedPracticeSnapshot.currentPractice?.id === id
+      ? mergePracticeDetails(sharedPracticeSnapshot.currentPractice, updatedDetails)
+      : sharedPracticeSnapshot.currentPractice;
+    sharedPracticeSnapshot = {
+      practices: nextPractices,
+      currentPractice: nextCurrentPractice
+    };
+    if (sharedPracticeSnapshot.currentPractice?.id === id) {
+      sharedPracticeIncludesDetails = true;
+    }
+    broadcastSnapshot(sharedPracticeSnapshot, null);
+  }
+
+  return updatedDetails;
+};
+
 export function usePracticeManagement(options: UsePracticeManagementOptions = {}): UsePracticeManagementReturn {
   const {
     autoFetchPractices = true,
@@ -551,11 +572,45 @@ export function usePracticeManagement(options: UsePracticeManagementOptions = {}
   const routePractice = useContext(RoutePracticeContext);
   const [practices, setPractices] = useState<Practice[]>([]);
   const [currentPractice, setCurrentPractice] = useState<Practice | null>(null);
-  const members = useStore(membersStore);
   const [workspaceData, setWorkspaceData] = useState<Record<string, Record<string, Record<string, unknown>[]>>>({});
-  // Initialize loading to true when autoFetchPractices is enabled
-  // This ensures the UI shows a loading state during the first render before the fetch effect runs
-  const [loading, setLoading] = useState(autoFetchPractices);
+  // Only show loading when we can actually start an authenticated fetch.
+  // Starting in "true" before session readiness can deadlock route guards on
+  // soft navigations (login -> /practice/:slug) where the first fetch effect
+  // is delayed and no network request ever starts.
+  const sessionUserId = session?.user?.id ?? null;
+  // Refetch when the backend session's active org changes. The list endpoint is
+  // org-scoped, so the session field is part of the query identity.
+  const sessionActiveOrgIdForDeps = (() => {
+    const sessionRecord = session?.session as Record<string, unknown> | undefined;
+    const value = sessionRecord?.active_organization_id;
+    return typeof value === 'string' && value.trim().length > 0 ? value : null;
+  })();
+  const [isLoading, setIsLoading] = useState(() => isGloballyFetching || Boolean(
+    autoFetchPractices && !sessionLoading && sessionUserId && !isAnonymous && !practicesLoaded
+  ));
+
+  // Subscribe this instance to the global loading and snapshot broadcasters.
+  // This ensures all instances (RootRoute, PracticeAppRoute, etc.) update
+  // together when any one instance starts or finishes a fetch.
+  useEffect(() => {
+    loadingSubscribers.add(setIsLoading);
+    const onSnapshot: SnapshotSubscriber = (snapshot, _callerSlug) => {
+      // Re-select currentPractice for this instance's own requested slug.
+      const mySlug = requestedPracticeSlugRef.current;
+      let selectedCurrentPractice = snapshot.currentPractice;
+      if (mySlug) {
+        selectedCurrentPractice = snapshot.practices.find((p) => p.slug === mySlug) ?? null;
+      }
+      setPractices(snapshot.practices);
+      setCurrentPractice(selectedCurrentPractice);
+    };
+    snapshotSubscribers.add(onSnapshot);
+    return () => {
+      loadingSubscribers.delete(setIsLoading);
+      snapshotSubscribers.delete(onSnapshot);
+    };
+  }, []);
+
   const [error, setError] = useState<string | null>(null);
   const requestedPracticeSlug = (() => {
     const explicit = typeof practiceSlug === 'string' ? practiceSlug.trim() : '';
@@ -567,67 +622,26 @@ export function usePracticeManagement(options: UsePracticeManagementOptions = {}
     return null;
   })();
   
+  const requestedPracticeSlugRef = useRef(requestedPracticeSlug);
+  requestedPracticeSlugRef.current = requestedPracticeSlug;
+
   // Track if we've already fetched practices to prevent duplicate calls
   const practicesFetchedRef = useRef(false);
   const currentRequestRef = useRef<AbortController | null>(null);
   const resolvedUserId = !session?.user || isAnonymous ? null : session.user.id;
 
+  // Store session in a ref so fetchPractices can read it at call-time
+  // without closing over it as a reactive dependency, preventing the
+  // re-entrant fetch loop triggered by setActivePractice session mutations.
+  const sessionRef = useRef(session);
+  sessionRef.current = session;
+
+  // The team cache key in queryCache includes userId, so user change is
+  // naturally segregated. We still defensively drop the prefix on user
+  // change to free LRU slots for the new session.
   useEffect(() => {
-    if (membersCacheUserId !== resolvedUserId) {
-      resetMembersCache();
-      membersCacheUserId = resolvedUserId;
-    }
+    queryCache.invalidate('practice:team:', /* prefix */ true);
   }, [resolvedUserId]);
-
-  // Helper for workspace/local endpoints still served by the Worker
-  const workspaceCall = useCallback(async (url: string, options: RequestInit = {}, timeoutMs: number = 15000) => {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
-
-    try {
-      const headers = new Headers(options.headers || {});
-      headers.set('Content-Type', 'application/json');
-
-      const response = await fetch(url, {
-        ...options,
-        credentials: 'include',
-        headers,
-        signal: controller.signal,
-      });
-      clearTimeout(timeoutId);
-
-      if (!response.ok) {
-        throw new Error(response.statusText || `HTTP ${response.status}`);
-      }
-
-      if (response.status === 204) {
-        return {};
-      }
-
-      const contentType = response.headers.get('content-type');
-      if (!contentType || !contentType.includes('application/json')) {
-        return {};
-      }
-
-      try {
-        return await response.json();
-      } catch {
-        return {};
-      }
-    } catch (error) {
-      clearTimeout(timeoutId);
-      if (error instanceof Error && error.name === 'AbortError') {
-        throw new Error('Request timed out');
-      }
-      throw error;
-    }
-  }, []);
-
-  // Helper functions to get data by practiceId
-  const getMembers = useCallback((practiceId: string): Member[] => {
-    return members[practiceId] || [];
-  }, [members]);
-
 
   const getWorkspaceData = useCallback((practiceId: string, resource: string): Record<string, unknown>[] => {
     return workspaceData[practiceId]?.[resource] || [];
@@ -639,15 +653,35 @@ export function usePracticeManagement(options: UsePracticeManagementOptions = {}
   // Fetch user's practices
   const fetchPractices = useCallback(async () => {
     let currentFetchPromise: Promise<SharedPracticeSnapshot> | null = null;
+    setGlobalLoading(true);
     try {
+      const userId = sessionRef.current?.user?.id ?? null;
+      if (!userId || isAnonymous) {
+        setPractices([]);
+        setCurrentPractice(null);
+        setGlobalLoading(false);
+        practicesFetchedRef.current = false;
+        resetSharedPracticeCache();
+        resetPracticeDetailsStore();
+        clearPublicPracticeDetailsCache();
+        return;
+      }
+
       // Check if requestedPracticeSlug has changed - if so, we need to re-select even if already fetched
       const slugChanged = lastSelectedSlugRef.current !== requestedPracticeSlug;
+      // applySnapshot broadcasts to all instances so every route gets updated data.
       const applySnapshot = (snapshot: SharedPracticeSnapshot) => {
+        broadcastSnapshot(snapshot, requestedPracticeSlug);
+        // Also update this instance's own state directly (the subscriber fires
+        // after the effect loop which is too late for the calling instance).
+        let selectedCurrentPractice = snapshot.currentPractice;
+        if (requestedPracticeSlug) {
+          selectedCurrentPractice = snapshot.practices.find((p) => p.slug === requestedPracticeSlug) ?? null;
+        }
         setPractices(snapshot.practices);
-        setCurrentPractice(snapshot.currentPractice);
-        setLoading(false);
+        setCurrentPractice(selectedCurrentPractice);
+        setGlobalLoading(false);
         practicesFetchedRef.current = true;
-        // Track that we've selected this slug
         lastSelectedSlugRef.current = requestedPracticeSlug ?? undefined;
       };
       
@@ -668,20 +702,8 @@ export function usePracticeManagement(options: UsePracticeManagementOptions = {}
         }
       }
 
-      if (practicesFetchedRef.current && session?.user && (!fetchPracticeDetails || sharedPracticeIncludesDetails) && !slugChanged) {
+      if (practicesFetchedRef.current && sessionRef.current?.user && (!fetchPracticeDetails || sharedPracticeIncludesDetails) && !slugChanged) {
         if (!fetchOnboardingStatus) return;
-      }
-
-      const userId = session?.user?.id ?? null;
-      if (!userId || isAnonymous) {
-        setPractices([]);
-        setCurrentPractice(null);
-        setLoading(false);
-        practicesFetchedRef.current = false;
-        resetSharedPracticeCache();
-        resetPracticeDetailsStore();
-        clearPublicPracticeDetailsCache();
-        return;
       }
 
       if (sharedPracticeUserId && sharedPracticeUserId !== userId) {
@@ -767,7 +789,7 @@ export function usePracticeManagement(options: UsePracticeManagementOptions = {}
           applySnapshot(snapshotToApply);
           if (!fetchOnboardingStatus) return;
         } else {
-          setLoading(true);
+          setGlobalLoading(true);
           setError(null);
           const hydrated = await hydrateSnapshotDetails(snapshotToApply);
           applySnapshot(hydrated);
@@ -793,7 +815,7 @@ export function usePracticeManagement(options: UsePracticeManagementOptions = {}
           };
 
           if (fetchPracticeDetails && !sharedPracticeIncludesDetails && cachedToApply.currentPractice) {
-            setLoading(true);
+            setGlobalLoading(true);
             setError(null);
             const hydrated = await hydrateSnapshotDetails(cachedToApply);
             applySnapshot(hydrated);
@@ -817,7 +839,7 @@ export function usePracticeManagement(options: UsePracticeManagementOptions = {}
       const controller = new AbortController();
       currentRequestRef.current = controller;
 
-      setLoading(true);
+      setGlobalLoading(true);
       setError(null);
 
       sharedPracticePromise = (async () => {
@@ -837,7 +859,7 @@ export function usePracticeManagement(options: UsePracticeManagementOptions = {}
           currentPracticeNext = normalizedList[0] || null;
         }
         let details: PracticeDetails | null = null;
-        const shouldFetchStripeStatus = ENABLE_PAYOUT_STATUS && fetchOnboardingStatus;
+        const shouldFetchStripeStatus = fetchOnboardingStatus;
         let stripeDetailsSubmitted: boolean | null = shouldFetchStripeStatus ? null : false;
         if (currentPracticeNext) {
           if (fetchPracticeDetails) {
@@ -856,11 +878,7 @@ export function usePracticeManagement(options: UsePracticeManagementOptions = {}
               );
               stripeDetailsSubmitted = resolveStripeDetailsSubmitted(payload);
             } catch (stripeError) {
-              if (axios.isAxiosError(stripeError) && stripeError.response?.status === 404) {
-                stripeDetailsSubmitted = false;
-              } else {
-                console.warn('Failed to fetch onboarding status:', stripeError);
-              }
+              console.warn('Failed to fetch onboarding status:', stripeError);
             }
           }
         }
@@ -908,9 +926,10 @@ export function usePracticeManagement(options: UsePracticeManagementOptions = {}
       const snapshot = await sharedPracticePromise;
       sharedPracticeSnapshot = snapshot;
       sharedPracticeUserId = userId;
-
-      setPractices(snapshot.practices);
-      setCurrentPractice(snapshot.currentPractice);
+      practicesLoaded = true;
+      // Successful fetch — clear any stale forbidden flag so future fetches
+      // (e.g. after subscription upgrade) are not blocked.
+      applySnapshot(snapshot);
       practicesFetchedRef.current = true;
     } catch (err) {
       if (err instanceof Error && err.name === 'CanceledError') {
@@ -921,13 +940,13 @@ export function usePracticeManagement(options: UsePracticeManagementOptions = {}
       setCurrentPractice(null);
       setPractices([]);
     } finally {
-      setLoading(false);
+      setGlobalLoading(false);
       currentRequestRef.current = null;
       if (sharedPracticePromise === currentFetchPromise) {
         sharedPracticePromise = null;
       }
     }
-  }, [fetchOnboardingStatus, fetchPracticeDetails, isAnonymous, requestedPracticeSlug, session]);
+  }, [fetchOnboardingStatus, fetchPracticeDetails, isAnonymous, requestedPracticeSlug]);
 
   // Create practice
   const createPractice = useCallback(async (data: CreatePracticeData): Promise<Practice> => {
@@ -937,20 +956,10 @@ export function usePracticeManagement(options: UsePracticeManagementOptions = {}
 
     // Only include slug if user explicitly provided one - API will auto-generate otherwise
     const slug = data.slug && data.slug.trim().length > 0 ? data.slug.trim() : undefined;
-    const baseMetadata = data.description
-      ? { description: data.description }
-      : undefined;
-    const metadata = data.metadata
-      ? {
-          ...(baseMetadata ?? {}),
-          ...data.metadata
-        }
-      : baseMetadata;
-
     const practice = await apiCreatePractice({
       name: data.name,
       ...(slug ? { slug } : {}),
-      ...(metadata ? { metadata } : {})
+      ...(data.metadata ? { metadata: data.metadata } : {})
     });
 
     if (practice?.id) {
@@ -993,9 +1002,8 @@ export function usePracticeManagement(options: UsePracticeManagementOptions = {}
       payload.businessEmail = data.businessEmail.trim();
     }
 
-    if (data.businessOnboardingStatus) {
-      payload.businessOnboardingStatus = data.businessOnboardingStatus;
-    }
+      // businessOnboardingStatus is not part of the API update shape (use the
+      // details payload fields instead). Only send the draft flag when present.
     
     if (data.businessOnboardingHasDraft !== undefined) {
       payload.businessOnboardingHasDraft = data.businessOnboardingHasDraft;
@@ -1039,13 +1047,6 @@ export function usePracticeManagement(options: UsePracticeManagementOptions = {}
       };
     }
 
-    if (typeof data.description === 'string') {
-      metadataNext = {
-        ...(metadataNext ?? metadataBase),
-        description: data.description
-      };
-    }
-
     if (metadataNext) {
       payload.metadata = metadataNext;
     }
@@ -1074,9 +1075,9 @@ export function usePracticeManagement(options: UsePracticeManagementOptions = {}
     }
     const updatedPractice = normalizePracticeRecord(mergedResponse);
 
-    if (payload.businessOnboardingStatus !== undefined) {
-      updatedPractice.businessOnboardingStatus = payload.businessOnboardingStatus;
-    }
+    // Don't copy businessOnboardingStatus from payload — the API does not
+    // accept a canonical status update via this endpoint. The server will
+    // return any updated status in the response which will be merged below.
     if (payload.businessOnboardingHasDraft !== undefined) {
       updatedPractice.businessOnboardingHasDraft = payload.businessOnboardingHasDraft;
     }
@@ -1146,129 +1147,40 @@ export function usePracticeManagement(options: UsePracticeManagementOptions = {}
     await fetchPractices();
   }, [fetchPractices]);
 
-  // Fetch members
-  const fetchMembers = useCallback(async (
-    practiceId: string,
-    options: { force?: boolean } = {}
-  ): Promise<void> => {
-    if (!practiceId) return;
-
-    const force = options.force ?? false;
-    if (!force && membersLoaded.has(practiceId)) {
-      return;
-    }
-
-    const inFlight = membersInFlight.get(practiceId);
-    if (inFlight) {
-      await inFlight;
-      return;
-    }
-
-    const promise = (async () => {
-      const data = await listPracticeMembers(practiceId);
-      // Validate and normalize members manually
-    const validRoles: Role[] = ['owner', 'admin', 'attorney', 'paralegal', 'member', 'client'];
-
-      return (Array.isArray(data) ? data : [])
-        .map(m => {
-          if (!m || typeof m !== 'object') {
-            return null;
-          }
-          const member = m as Record<string, unknown>;
-          const userId = typeof member.userId === 'string'
-            ? member.userId
-            : (typeof member.user_id === 'string' ? member.user_id : null);
-          const normalizedRole = normalizePracticeRole(member.role);
-          const createdAtValue = member.createdAt ?? member.created_at ?? member.joined_at;
-          const createdAt = typeof createdAtValue === 'number'
-            ? createdAtValue
-            : (typeof createdAtValue === 'string' && createdAtValue.trim()
-              ? Number(createdAtValue)
-              : null);
-          const email = typeof member.email === 'string'
-            ? member.email
-            : (typeof (member.user as Record<string, unknown> | undefined)?.email === 'string'
-              ? (member.user as Record<string, unknown>).email as string
-              : '');
-          const userRecord = (member.user && typeof member.user === 'object')
-            ? (member.user as Record<string, unknown>)
-            : null;
-          const normalizedName = typeof member.name === 'string'
-            ? member.name
-            : (typeof userRecord?.name === 'string' ? userRecord.name : undefined);
-          const normalizedImage = typeof member.image === 'string'
-            ? member.image
-            : (typeof userRecord?.image === 'string' ? userRecord.image : undefined);
-
-          if (!userId) {
-            console.error('Invalid or missing member userId:', member);
-            return null;
-          }
-
-          if (!normalizedRole || !validRoles.includes(normalizedRole)) {
-            console.error('Invalid member role:', member.role, 'Expected one of:', validRoles, 'Member:', member);
-            return null;
-          }
-
-          if (typeof email !== 'string' || !email.trim()) {
-            console.error('Invalid or missing member email:', member.email, 'Member:', member);
-            return null;
-          }
-
-          return {
-            userId,
-            role: normalizedRole,
-            email,
-            name: normalizedName,
-            image: normalizedImage,
-            createdAt: Number.isFinite(createdAt ?? NaN) ? (createdAt as number) : Date.now(),
-          } as Member;
-        })
-        .filter((m): m is Member => m !== null);
-    })();
-
-    membersInFlight.set(practiceId, promise);
-    try {
-      const normalizedMembers = await promise;
-      membersLoaded.add(practiceId);
-      setMembersForPractice(practiceId, normalizedMembers);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to fetch members');
-      membersLoaded.delete(practiceId);
-      setMembersForPractice(practiceId, []);
-      throw err;
-    } finally {
-      membersInFlight.delete(practiceId);
-    }
-  }, []);
-
-  // Update member role
+  // Update member role — apiClient invalidates `practice:team:` via the
+  // mutation→invalidation contract.
   const updateMemberRole = useCallback(async (practiceId: string, userId: string, role: Role): Promise<void> => {
     await apiUpdatePracticeMemberRole(practiceId, { userId, role });
-    await fetchMembers(practiceId, { force: true });
-  }, [fetchMembers]);
+  }, []);
 
-  // Remove member
   const removeMember = useCallback(async (practiceId: string, userId: string): Promise<void> => {
     await apiDeletePracticeMember(practiceId, userId);
-    await fetchMembers(practiceId, { force: true });
-  }, [fetchMembers]);
+  }, []);
 
   // Fetch workspace data
   const fetchWorkspaceData = useCallback(async (practiceId: string, resource: string): Promise<void> => {
     try {
-      const data = await workspaceCall(getPracticeWorkspaceEndpoint(practiceId, resource));
+      const { data } = await apiClient.get<Record<string, unknown>>(
+        getPracticeWorkspaceEndpoint(practiceId, resource),
+        { timeout: 15_000 },
+      );
+      const items = data && typeof data === 'object' && !Array.isArray(data)
+        ? (data as Record<string, unknown>)[resource]
+        : null;
       setWorkspaceData(prev => ({
         ...prev,
         [practiceId]: {
           ...prev[practiceId],
-          [resource]: (data && data[resource]) || []
+          [resource]: Array.isArray(items) ? items as Record<string, unknown>[] : []
         }
       }));
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to fetch workspace data');
+      const message = err instanceof DOMException && err.name === 'TimeoutError'
+        ? 'Request timed out'
+        : err instanceof Error ? err.message : 'Failed to fetch workspace data';
+      setError(message);
     }
-  }, [workspaceCall]);
+  }, []);
 
   // Refetch all data
   const refetch = useCallback(async () => {
@@ -1286,29 +1198,24 @@ export function usePracticeManagement(options: UsePracticeManagementOptions = {}
     }
 
     void fetchPractices();
-
-    return () => {
-      currentRequestRef.current?.abort();
-    };
   }, [
     autoFetchPractices,
     sessionLoading,
-    session?.user?.id,
+    sessionUserId,
+    sessionActiveOrgIdForDeps,
     isAnonymous,
     fetchPractices
   ]);
 
   return {
-    practices,
-    currentPractice,
-    loading,
+    practices: practices.length > 0 ? practices : (sharedPracticeSnapshot?.practices ?? []),
+    currentPractice: currentPractice || (sharedPracticeSnapshot?.currentPractice ?? null),
+    isLoading,
     error,
     createPractice,
     updatePractice,
     updatePracticeDetails,
     deletePractice,
-    getMembers,
-    fetchMembers,
     updateMemberRole,
     removeMember,
     getWorkspaceData,

@@ -34,7 +34,7 @@ export const SetupShell = ({
     : null;
 
   return (
-    <div className={cn('relative min-h-screen w-full overflow-hidden bg-surface-base', className)}>
+    <div className={cn('relative min-h-screen w-full overflow-hidden bg-surface-app-frame', className)}>
       {resolvedAccentClasses && (
         <div className="pointer-events-none absolute inset-0 overflow-hidden">
           <div className={resolvedAccentClasses.gradientClassName} />

@@ -1,5 +1,6 @@
 import type { ComponentChildren } from 'preact';
-import { ChevronLeftIcon, EllipsisVerticalIcon } from '@heroicons/react/24/outline';
+import { ChevronLeft, MoreVertical } from 'lucide-preact';
+
 import { Button } from '@/shared/ui/Button';
 import { cn } from '@/shared/utils/cn';
 
@@ -13,6 +14,11 @@ export type DetailHeaderProps = {
   onInspector?: () => void;
   inspectorOpen?: boolean;
   className?: string;
+  /** Optional badge rendered inline next to the title (e.g. "Unread" pill). */
+  titleBadge?: ComponentChildren;
+  /** Optional second row rendered below the main header row, sharing the bottom border.
+   *  Used by Pencil to surface the contact info strip (email · phone · linked matter). */
+  secondaryRow?: ComponentChildren;
 };
 
 export const DetailHeader = ({
@@ -25,12 +31,20 @@ export const DetailHeader = ({
   onInspector,
   inspectorOpen = false,
   className,
+  titleBadge,
+  secondaryRow,
 }: DetailHeaderProps) => {
   const resolvedTitle = typeof title === 'string' ? title : '';
   const resolvedSubtitle = typeof subtitle === 'string' ? subtitle : undefined;
 
-  return (
-    <header className={cn('workspace-header', className)}>
+  const headerRow = (
+    <header
+      className={cn(
+        'workspace-header',
+        secondaryRow ? '!border-b-0 !min-h-0 !pb-1.5' : null,
+        secondaryRow ? null : className
+      )}
+    >
       {(leadingAction || showBack) ? (
         <div className="workspace-header__icon flex items-center gap-2">
           {leadingAction}
@@ -41,13 +55,20 @@ export const DetailHeader = ({
               size="icon-sm"
               onClick={onBack}
               aria-label="Back"
-              icon={ChevronLeftIcon} iconClassName="h-5 w-5"
+              icon={ChevronLeft} iconClassName="h-5 w-5"
             />
           ) : null}
         </div>
       ) : null}
       <div className="workspace-header__identity">
-        <h1 className="workspace-header__title">{resolvedTitle}</h1>
+        {titleBadge ? (
+          <div className="flex min-w-0 items-center gap-2">
+            <h1 className="workspace-header__title">{resolvedTitle}</h1>
+            {titleBadge}
+          </div>
+        ) : (
+          <h1 className="workspace-header__title">{resolvedTitle}</h1>
+        )}
         {resolvedSubtitle ? <p className="workspace-header__subtitle">{resolvedSubtitle}</p> : null}
       </div>
       {(actions || onInspector) ? (
@@ -60,12 +81,23 @@ export const DetailHeader = ({
               size="icon-sm"
               onClick={onInspector}
               aria-label={inspectorOpen ? 'Close inspector' : 'Open inspector'}
-              icon={EllipsisVerticalIcon} iconClassName="h-5 w-5"
+              icon={MoreVertical} iconClassName="h-5 w-5"
             />
           ) : null}
         </div>
       ) : null}
     </header>
+  );
+
+  if (!secondaryRow) return headerRow;
+
+  return (
+    <div className={cn('flex flex-col border-b border-card-border bg-transparent', className)}>
+      {headerRow}
+      <div className="flex flex-wrap items-center gap-x-5 gap-y-1 px-4 pb-2 text-xs text-input-placeholder">
+        {secondaryRow}
+      </div>
+    </div>
   );
 };
 

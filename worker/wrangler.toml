@@ -30,6 +30,27 @@ max_batch_timeout = 30
 max_retries = 3
 dead_letter_queue = "notification-events-dlq"
 
+[[queues.producers]]
+queue = "search-index-events"
+binding = "SEARCH_INDEX_EVENTS"
+
+[[queues.consumers]]
+queue = "search-index-events"
+max_batch_size = 25
+max_batch_timeout = 5
+max_retries = 5
+dead_letter_queue = "search-index-events-dlq"
+
+[[vectorize]]
+binding = "SEARCH_VECTORS"
+index_name = "blawby-search-vectors"
+
+[ai]
+binding = "AI"
+
+[triggers]
+crons = ["30 3 * * *"]
+
 [[durable_objects.bindings]]
 name = "CHAT_ROOM"
 class_name = "ChatRoom"
@@ -46,9 +67,17 @@ deleted_classes = ["NotificationHub"]
 name = "MATTER_PROGRESS"
 class_name = "MatterProgressRoom"
 
+[[durable_objects.bindings]]
+name = "PRESENCE_ROOM"
+class_name = "PresenceRoom"
+
 [[migrations]]
 tag = "v4"
 new_classes = ["MatterProgressRoom"]
+
+[[migrations]]
+tag = "v5"
+new_classes = ["PresenceRoom"]
 
 
 [env.dev]
@@ -74,6 +103,27 @@ max_batch_timeout = 30
 max_retries = 3
 dead_letter_queue = "notification-events-dev-dlq"
 
+[[env.dev.queues.producers]]
+queue = "search-index-events-dev"
+binding = "SEARCH_INDEX_EVENTS"
+
+[[env.dev.queues.consumers]]
+queue = "search-index-events-dev"
+max_batch_size = 25
+max_batch_timeout = 5
+max_retries = 5
+dead_letter_queue = "search-index-events-dev-dlq"
+
+[[env.dev.vectorize]]
+binding = "SEARCH_VECTORS"
+index_name = "blawby-search-vectors-dev"
+
+[env.dev.ai]
+binding = "AI"
+
+[env.dev.triggers]
+crons = ["30 3 * * *"]
+
 [[env.dev.durable_objects.bindings]]
 name = "CHAT_ROOM"
 class_name = "ChatRoom"
@@ -82,6 +132,10 @@ class_name = "ChatRoom"
 name = "MATTER_PROGRESS"
 class_name = "MatterProgressRoom"
 
+[[env.dev.durable_objects.bindings]]
+name = "PRESENCE_ROOM"
+class_name = "PresenceRoom"
+
 [[env.dev.migrations]]
 tag = "v2"
 new_classes = ["ChatRoom"]
@@ -89,6 +143,10 @@ new_classes = ["ChatRoom"]
 [[env.dev.migrations]]
 tag = "v4"
 new_classes = ["MatterProgressRoom"]
+
+[[env.dev.migrations]]
+tag = "v5"
+new_classes = ["PresenceRoom"]
 
 [env.dev.vars]
 NODE_ENV = "development"
@@ -111,6 +169,8 @@ ADOBE_SCOPE = "openid,AdobeID,DCAPI"
 ANALYSIS_TIMEOUT_MS = "60000"
 RATE_LIMIT_REQUESTS_PER_MINUTE = "60"
 RATE_LIMIT_BURST_SIZE = "10"
+SEARCH_SEMANTIC_ENABLED = "true"
+SEARCH_INDEX_CONCURRENCY = "8"
 
 [env.staging]
 name = "blawby-ai-chatbot-staging"
@@ -135,6 +195,27 @@ max_batch_timeout = 30
 max_retries = 3
 dead_letter_queue = "notification-events-staging-dlq"
 
+[[env.staging.queues.producers]]
+queue = "search-index-events-staging"
+binding = "SEARCH_INDEX_EVENTS"
+
+[[env.staging.queues.consumers]]
+queue = "search-index-events-staging"
+max_batch_size = 25
+max_batch_timeout = 5
+max_retries = 5
+dead_letter_queue = "search-index-events-staging-dlq"
+
+[[env.staging.vectorize]]
+binding = "SEARCH_VECTORS"
+index_name = "blawby-search-vectors-staging"
+
+[env.staging.ai]
+binding = "AI"
+
+[env.staging.triggers]
+crons = ["30 3 * * *"]
+
 [[env.staging.durable_objects.bindings]]
 name = "CHAT_ROOM"
 class_name = "ChatRoom"
@@ -143,6 +224,10 @@ class_name = "ChatRoom"
 name = "MATTER_PROGRESS"
 class_name = "MatterProgressRoom"
 
+[[env.staging.durable_objects.bindings]]
+name = "PRESENCE_ROOM"
+class_name = "PresenceRoom"
+
 [[env.staging.migrations]]
 tag = "v6"
 new_classes = ["MatterDiffStore"]
@@ -150,6 +235,10 @@ new_classes = ["MatterDiffStore"]
 [[env.staging.migrations]]
 tag = "v7"
 deleted_classes = ["MatterDiffStore"]
+
+[[env.staging.migrations]]
+tag = "v8"
+new_classes = ["PresenceRoom"]
 
 [env.staging.vars]
 NODE_ENV = "staging"
@@ -173,6 +262,8 @@ ADOBE_SCOPE = "openid,AdobeID,DCAPI"
 ANALYSIS_TIMEOUT_MS = "60000"
 RATE_LIMIT_REQUESTS_PER_MINUTE = "60"
 RATE_LIMIT_BURST_SIZE = "10"
+SEARCH_SEMANTIC_ENABLED = "true"
+SEARCH_INDEX_CONCURRENCY = "8"
 
 [[env.staging.routes]]
 pattern = "ai-staging.blawby.com/api/*"
@@ -192,6 +283,9 @@ deleted_classes = ["NotificationHub"]
 [[env.production.migrations]]
 tag = "v5"
 new_classes = ["MatterProgressRoom"]
+[[env.production.migrations]]
+tag = "v6"
+new_classes = ["PresenceRoom"]
 [[env.production.r2_buckets]]
 binding = "FILES_BUCKET"
 bucket_name = "blawby-ai-files"
@@ -207,6 +301,27 @@ max_batch_timeout = 30
 max_retries = 3
 dead_letter_queue = "notification-events-dlq"
 
+[[env.production.queues.producers]]
+queue = "search-index-events"
+binding = "SEARCH_INDEX_EVENTS"
+
+[[env.production.queues.consumers]]
+queue = "search-index-events"
+max_batch_size = 25
+max_batch_timeout = 5
+max_retries = 5
+dead_letter_queue = "search-index-events-dlq"
+
+[[env.production.vectorize]]
+binding = "SEARCH_VECTORS"
+index_name = "blawby-search-vectors"
+
+[env.production.ai]
+binding = "AI"
+
+[env.production.triggers]
+crons = ["30 3 * * *"]
+
 [[env.production.durable_objects.bindings]]
 name = "CHAT_ROOM"
 class_name = "ChatRoom"
@@ -214,6 +329,10 @@ class_name = "ChatRoom"
 [[env.production.durable_objects.bindings]]
 name = "MATTER_PROGRESS"
 class_name = "MatterProgressRoom"
+
+[[env.production.durable_objects.bindings]]
+name = "PRESENCE_ROOM"
+class_name = "PresenceRoom"
 
 [env.production.vars]
 NODE_ENV = "production"
@@ -236,6 +355,8 @@ ADOBE_SCOPE = "openid,AdobeID,DCAPI"
 ANALYSIS_TIMEOUT_MS = "60000"
 RATE_LIMIT_REQUESTS_PER_MINUTE = "60"
 RATE_LIMIT_BURST_SIZE = "10"
+SEARCH_SEMANTIC_ENABLED = "true"
+SEARCH_INDEX_CONCURRENCY = "8"
 
 [[env.production.routes]]
 pattern = "ai.blawby.com/api/*"

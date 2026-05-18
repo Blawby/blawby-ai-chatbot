@@ -25,7 +25,10 @@ export async function withRetry<T>(
     const status = typeof (error as { status?: number } | null)?.status === 'number'
       ? (error as { status: number }).status
       : null;
-    if (status && status >= 400 && status < 500 && status !== 429) {
+    // Don't retry any 4xx, including 429 (rate limit). Retrying 429 without
+    // honoring Retry-After makes storms worse; callers that need that behaviour
+    // should pass a custom retryOn function.
+    if (status && status >= 400 && status < 500) {
       return false;
     }
     return true;

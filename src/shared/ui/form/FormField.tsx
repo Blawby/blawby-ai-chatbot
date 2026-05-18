@@ -1,4 +1,5 @@
 import { ComponentChildren } from 'preact';
+import { useComputed } from '@preact/signals';
 import { useFormContext, FormError } from './Form';
 import { cn } from '@/shared/utils/cn';
 
@@ -20,23 +21,25 @@ export const FormField = ({
   children,
   className = ''
 }: FormFieldProps) => {
-  const { data, errors, setFieldValue, clearFieldError } = useFormContext();
-  
-  const fieldValue = data[name];
-  const fieldError = errors.find(error => error.field === name);
-  
+  const { dataSignal, errorsSignal, setFieldValue, clearFieldError } = useFormContext();
+
+  // Per-field computed signals — only re-render when this field's slice changes.
+  const fieldValue = useComputed(() => (dataSignal.value as Record<string, unknown>)[name]);
+  const fieldError = useComputed(() => errorsSignal.value.find((e) => e.field === name));
+
+  const currentError = fieldError.value;
   const handleChange = (value: unknown) => {
     setFieldValue(name, value);
-    if (fieldError) {
+    if (currentError) {
       clearFieldError(name);
     }
   };
 
   const renderProps: FormFieldRenderProps = {
-    value: fieldValue,
-    error: fieldError,
+    value: fieldValue.value,
+    error: currentError,
     onChange: handleChange,
-    className
+    className,
   };
 
   return (

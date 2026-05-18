@@ -2,7 +2,7 @@ import { parseJsonBody } from '../utils.js';
 import { HttpErrors } from '../errorHandler.js';
 import type { Env } from '../types.js';
 import { ConversationService } from '../services/ConversationService.js';
-import { optionalAuth } from '../middleware/auth.js';
+import { getAttachedAuthContext } from '../middleware/compose.js';
 import { SessionAuditService } from '../services/SessionAuditService.js';
 import { createAiClient } from '../utils/aiClient.js';
 
@@ -48,7 +48,8 @@ export async function handleAiIntent(request: Request, env: Env): Promise<Respon
     throw HttpErrors.notFound('Endpoint not found');
   }
 
-  const authContext = await optionalAuth(request, env);
+  // Auth attached by route-table withAuth({ required: true }) wrapper.
+  const authContext = getAttachedAuthContext(request);
   if (!authContext) {
     throw HttpErrors.unauthorized('Authentication required');
   }

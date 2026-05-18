@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'preact/compat
 import { PaymentElement, useElements, useStripe } from '@stripe/react-stripe-js';
 import { formatCurrency } from '@/shared/utils/currencyFormatter';
 import { Button } from '@/shared/ui/Button';
+import { LoadingSpinner } from '@/shared/ui/layout/LoadingSpinner';
 import { getConversationWsEndpoint } from '@/config/api';
 import { isPaidIntakeStatus } from '@/shared/utils/intakePayments';
 import { toMajorUnits, type MinorAmount } from '@/shared/utils/money';
@@ -316,8 +317,8 @@ export const IntakePaymentForm: FunctionComponent<IntakePaymentFormProps> = ({
   return (
     <form onSubmit={handleSubmit} className="space-y-5">
       {(!stripe || !elements) && (
-        <div className="rounded-xl border border-line-glass/30 bg-surface-panel/60 px-4 py-3 text-sm text-input-placeholder backdrop-blur-md">
-          Loading secure payment form…
+        <div className="flex justify-center rounded-xl border border-line-glass/30 bg-surface-panel/60 px-4 py-3 backdrop-blur-md">
+          <LoadingSpinner size="sm" ariaLabel="Loading secure payment form" />
         </div>
       )}
       <div className={variant === 'card' ? "glass-panel p-5" : "rounded-xl border border-line-glass/30 bg-surface-panel/60 p-4"}>
@@ -325,7 +326,7 @@ export const IntakePaymentForm: FunctionComponent<IntakePaymentFormProps> = ({
       </div>
 
       {errorMessage && (
-        <div className="rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-700 backdrop-blur-xl dark:text-red-200">
+        <div className="rounded-xl border border-accent-error/30 bg-accent-error/10 px-4 py-3 text-sm text-accent-error-foreground backdrop-blur-xl dark:text-accent-error-light">
           {errorMessage}
         </div>
       )}
@@ -349,7 +350,7 @@ export const IntakePaymentForm: FunctionComponent<IntakePaymentFormProps> = ({
             Payment successful
           </h3>
           <p className="text-input-placeholder">
-            {formattedAmount ? `Thank you for your payment of ${formattedAmount}.` : 'Thank you for your payment.'}
+            Thank you! Your payment was successful and your case details are being processed. A member of our team will contact you at the information you provided.
           </p>
           <div className="mt-4 border-t border-line-glass/30 pt-4 text-xs text-emerald-700 dark:text-emerald-300">
             Payment processed successfully. You will receive confirmation if an email is on file.
@@ -364,7 +365,14 @@ export const IntakePaymentForm: FunctionComponent<IntakePaymentFormProps> = ({
           disabled={isSubmitting || paymentSubmitted || !stripe || !elements}
           className="w-full"
         >
-          {isSubmitting ? 'Processing payment…' : (formattedAmount ? `Pay ${formattedAmount}` : 'Pay now')}
+          {isSubmitting ? (
+            <span className="inline-flex items-center">
+              <LoadingSpinner size="sm" className="mr-2" />
+              {formattedAmount ? `Pay ${formattedAmount}` : 'Pay now'}
+            </span>
+          ) : (
+            formattedAmount ? `Pay ${formattedAmount}` : 'Pay now'
+          )}
         </Button>
       )}
     </form>

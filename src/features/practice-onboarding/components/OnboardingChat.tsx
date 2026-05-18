@@ -1,3 +1,4 @@
+import { Sparkles } from 'lucide-preact';
 /**
  * OnboardingChat - Dedicated chat interface for practice onboarding
  *
@@ -8,7 +9,7 @@
 import { FunctionComponent } from 'preact';
 import { useCallback } from 'preact/hooks';
 import { useMemo } from 'preact/hooks';
-import { SparklesIcon } from '@heroicons/react/24/outline';
+
 import { Icon } from '@/shared/ui/Icon';
 import ChatContainer from '@/features/chat/components/ChatContainer';
 import ConversationalCorrection from './ConversationalCorrection';
@@ -18,6 +19,7 @@ import type { Practice } from '@/shared/hooks/usePracticeManagement';
 import type { PracticeDetails } from '@/shared/lib/apiClient';
 import type { FileAttachment } from '../../../../worker/types';
 import type { ExtractedFields } from '../types/onboardingFields';
+import { features } from '@/config/features';
 
 export interface OnboardingChatProps {
   status: PracticeSetupStatus;
@@ -55,7 +57,7 @@ export interface OnboardingChatProps {
 const OnboardingChat: FunctionComponent<OnboardingChatProps> = ({
   status,
   practice,
-  details,
+  details: _details,
   chatAdapter,
   logoUploading,
   logoUploadProgress,
@@ -71,9 +73,8 @@ const OnboardingChat: FunctionComponent<OnboardingChatProps> = ({
     name: practice?.name ?? 'Practice',
     profileImage: practice?.logo ?? null,
     practiceId: practiceId || (practice?.id ?? ''),
-    description: details?.description ?? practice?.description ?? '',
     slug: practice?.slug ?? undefined,
-  }), [details?.description, practice, practiceId]);
+  }), [practice, practiceId]);
 
   const resolvedChatMessages = useMemo(() => {
     if (!chatAdapter?.messagesReady) return [];
@@ -111,7 +112,7 @@ const OnboardingChat: FunctionComponent<OnboardingChatProps> = ({
       )}
 
       {/* Chat Panel */}
-      <section className="glass-card p-4 sm:p-5">
+      <section className="card p-4 sm:p-5">
         <div className="h-[500px] min-h-0">
           <ChatContainer
             messages={resolvedChatMessages}
@@ -145,11 +146,11 @@ const OnboardingChat: FunctionComponent<OnboardingChatProps> = ({
               }
             }}
             isPublicWorkspace={false}
+            isReady={!waitingForRealChat && Boolean(chatAdapter?.messagesReady)}
             practiceConfig={onboardingPracticeConfig}
             layoutMode="desktop"
             useFrame={false}
             practiceId={practiceId || undefined}
-            composerDisabled={waitingForRealChat}
             previewFiles={[]}
             uploadingFiles={[]}
             removePreviewFile={() => {}}
@@ -161,11 +162,9 @@ const OnboardingChat: FunctionComponent<OnboardingChatProps> = ({
             isRecording={false}
             setIsRecording={() => {}}
             isReadyToUpload={true}
-            isSessionReady={!waitingForRealChat && Boolean(chatAdapter?.messagesReady)}
-            isSocketReady={waitingForRealChat ? false : (chatAdapter?.isSocketReady ?? true)}
             messagesReady={waitingForRealChat ? false : (chatAdapter?.messagesReady ?? true)}
-            onToggleReaction={chatAdapter?.onToggleReaction}
-            onRequestReactions={chatAdapter?.onRequestReactions}
+            onToggleReaction={chatAdapter?.onToggleReaction && features.enableMessageReactions ? chatAdapter.onToggleReaction : undefined}
+            onRequestReactions={chatAdapter?.onRequestReactions && features.enableMessageReactions ? chatAdapter.onRequestReactions : undefined}
             hasMoreMessages={chatAdapter?.hasMoreMessages}
             isLoadingMoreMessages={chatAdapter?.isLoadingMoreMessages}
             onLoadMoreMessages={chatAdapter?.onLoadMoreMessages}
@@ -183,7 +182,7 @@ const OnboardingChat: FunctionComponent<OnboardingChatProps> = ({
             headerContent={
               <div className="flex items-center justify-between mb-2 gap-3 px-4 pt-3">
                 <div className="flex items-center gap-2">
-                  <Icon icon={SparklesIcon} className="w-4 h-4 text-accent-500"  />
+                  <Icon icon={Sparkles} className="w-4 h-4 text-accent-500"  />
                   <div>
                     <div className="text-sm font-semibold">Setup assistant</div>
                     {status.needsSetup ? (

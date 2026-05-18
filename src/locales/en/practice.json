@@ -1,25 +1,25 @@
 {
   "notFound": {
-    "title": "Practice Not Found",
+    "title": "Practice not found",
     "description": {
-      "prefix": "We couldn't find the practice",
-      "suffix": "This could be because:"
+      "prefix": "We couldn't find this practice. A few reasons this happens:",
+      "suffix": ""
     },
     "reasons": {
-      "incorrectId": "The practice ID might be incorrect",
-      "movedOrRemoved": "The practice may have been moved or removed",
-      "outdatedLink": "You might have an outdated link"
+      "incorrectId": "The practice ID is wrong",
+      "movedOrRemoved": "The practice was moved or removed",
+      "outdatedLink": "Your link is out of date"
     },
     "helpText": {
-      "prefix": "Please check the URL or try again. If you continue to have issues, please visit",
-      "middle": "or contact us on",
-      "suffix": "for support."
+      "prefix": "Check the URL and try again. If you're still stuck, visit",
+      "middle": "or reach us on",
+      "suffix": "for help."
     },
     "helpLink": "blawby.com/help",
     "githubLink": "GitHub",
     "actions": {
-      "tryAgain": "Try Again",
-      "goToHome": "Go to Home"
+      "tryAgain": "Try again",
+      "goToHome": "Go home"
     }
   },
   "profile": {

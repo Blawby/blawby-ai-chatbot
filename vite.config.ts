@@ -4,98 +4,54 @@ import { resolve } from 'path';
 import { visualizer } from 'rollup-plugin-visualizer';
 import { VitePWA } from 'vite-plugin-pwa';
 import { createHtmlPlugin } from 'vite-plugin-html';
+import compression from 'vite-plugin-compression';
 import { promises as fs } from 'fs';
 import { Plugin } from 'vite';
-import zlib from 'zlib';
+import { bundleBudgetPlugin } from './config/vite/bundleBudget';
 
-// Custom compression plugin to avoid path issues
-interface CompressionOptions {
-	algorithm?: 'gzip' | 'brotli';
-	ext?: string;
-	threshold?: number;
-}
-
-const customCompressionPlugin = (options: CompressionOptions = {}): Plugin => {
-	const {
-		algorithm = 'gzip',
-		ext = algorithm === 'brotli' ? '.br' : '.gz',
-		threshold = 1024, // 1KB
-	} = options;
-
-	return {
-		name: 'custom-compression',
-		apply: 'build',
-		async writeBundle(_: unknown, bundle: Record<string, unknown>) {
-			const compressFunction = algorithm === 'brotli'
-				? zlib.brotliCompressSync
-				: zlib.gzipSync;
-
-			for (const [fileName, file] of Object.entries(bundle)) {
-				const fileInfo = file as { type?: string };
-				if (fileInfo.type === 'chunk' || fileInfo.type === 'asset') {
-					const filePath = resolve('dist', fileName);
-					try {
-						const source = await fs.readFile(filePath);
-						if (source.length > threshold) {
-							// Skip small files
-							const compressed = compressFunction(source);
-							await fs.writeFile(filePath + ext, compressed);
-							console.log(`[custom-compression] Compressed ${fileName}: ${source.length}B → ${compressed.length}B`);
-						}
-					} catch (err) {
-						console.warn(`[custom-compression] Error compressing ${fileName}:`, err);
-					}
-				}
-			}
+// Inline critical CSS into dist/index.html via Beasties.
+//
+// Runs in `closeBundle` with `enforce: 'post'` so it fires after every other
+// plugin's bundle hooks have completed. `closeBundle` is Vite's last build
+// hook — by the time it fires, Rollup has flushed all assets to disk and the
+// PWA / HTML plugins have also written their outputs. No setTimeout needed.
+const criticalCssPlugin = (): Plugin => ({
+	name: 'critical-css-inline',
+	apply: 'build',
+	enforce: 'post',
+	async closeBundle() {
+		try {
+			await fs.access('dist/index.html');
+		} catch {
+			console.warn('⚠️ dist/index.html not found, skipping critical CSS extraction');
+			return;
 		}
-	};
-};
-
-// Create a plugin for critical CSS extraction
-const criticalCssPlugin = (): Plugin => {
-	return {
-		name: 'critical-css-inline',
-		apply: 'build',
-		enforce: 'post', // Ensure this runs after all other plugins
-		async closeBundle() {
-			// Wait a bit to ensure all files are written
-			await new Promise<void>((resolve) => {
-				globalThis.setTimeout(() => resolve(), 100);
-			});
-
-			const Critters = (await import('critters')).default;
-			const critters = new Critters({
-				// Critters options
+		try {
+			const Beasties = (await import('beasties')).default;
+			// pruneSource MUST stay false. Beasties only "uses" a rule if a matching
+			// selector exists in the prerendered DOM — which renders at 0 viewport, so
+			// every `sm:`/`md:`/`lg:` rule looks unused and gets stripped, leaving
+			// empty `@media(min-width:Npx){}` blocks. That silently breaks every
+			// responsive breakpoint app-wide.
+			const beasties = new Beasties({
 				preload: 'media',
 				inlineFonts: true,
-				pruneSource: true,
+				pruneSource: false,
 				compress: true,
 				mergeStylesheets: true,
-				minimumExternalSize: 4096, // Files larger than this will not be inlined (4kb)
-				path: resolve(__dirname, 'dist'), // Add explicit path to resolve stylesheet issues
+				minimumExternalSize: 4096,
+				path: resolve(__dirname, 'dist'),
 			});
-
-			try {
-				// Check if index.html exists before processing
-				try {
-					await fs.access('dist/index.html');
-				} catch {
-					console.warn('⚠️ dist/index.html not found, skipping critical CSS extraction');
-					return;
-				}
-
-				// Process the main HTML file
-				const html = await fs.readFile('dist/index.html', 'utf8');
-				const processed = await critters.process(html, { path: 'dist/index.html' });
-				await fs.writeFile('dist/index.html', processed);
-				console.log('✅ Critical CSS inlined successfully');
-			} catch (e) {
-				console.error('Error processing critical CSS:', e);
-				// Don't fail the build if critical CSS extraction fails
-			}
+			const html = await fs.readFile('dist/index.html', 'utf8');
+			const processed = await beasties.process(html);
+			await fs.writeFile('dist/index.html', processed);
+			console.log('✅ Critical CSS inlined successfully');
+		} catch (e) {
+			console.error('Error processing critical CSS:', e);
+			// Don't fail the build — uninlined CSS still works, just with a render-blocking link.
 		}
-	};
-};
+	},
+});
 
 // Worker API endpoints (proxied to localhost:8787)
 const workerEndpoints = [
@@ -112,15 +68,18 @@ const workerEndpoints = [
 	'status',
 	'ai',
 	'practices',
-	'user-details',
+	'clients',
 	'onboarding',
 	'practice',
 	'preferences',
+	'reports',
 	'subscriptions',
 	'subscription',
 	'matters',
 	'uploads',
 	'widget',
+	'presence',
+	'search',
 ];
 
 // Proxy configuration types from http-proxy-middleware
@@ -142,8 +101,6 @@ const createWorkerProxyConfig = (): ProxyOptions => ({
 	},
 });
 
-import { createRequire } from 'module';
-
 const buildProxyEntries = (): Record<string, ProxyOptions> => {
 	const entries: Record<string, ProxyOptions> = {};
 
@@ -153,50 +110,6 @@ const buildProxyEntries = (): Record<string, ProxyOptions> => {
 	});
 
 	return entries;
-};
-
-// Plugin to fix decode-named-character-reference during prerendering
-const fixDecodeNamedCharacterReference = (): Plugin => {
-	return {
-		name: 'fix-decode-named-character-reference',
-		configResolved(config) {
-			// Override the conditions to force non-DOM version during build
-			config.build.rollupOptions = {
-				...config.build.rollupOptions,
-				onwarn(warning, warn) {
-					// Suppress warnings about this specific package
-					if (warning.code === 'MODULE_LEVEL_DIRECTIVE') return;
-					warn(warning);
-				}
-			};
-		},
-		resolveId(id, importer) {
-			if (id === 'decode-named-character-reference') {
-				// Dynamically resolve the package entry instead of hardcoding a pnpm path.
-				// We want the non-DOM build (default export) so use Node resolution with
-				// appropriate conditions. If resolution fails, log and return null so
-				// Vite can fall back or surface an error.
-				try {
-					const req = createRequire(import.meta.url);
-					// require.resolve will respect "exports" and choose the default
-					// entry, which in this package is the non-DOM index.js.
-					const resolved = req.resolve('decode-named-character-reference', { paths: [__dirname] });
-					return resolved;
-				} catch (err) {
-					console.error('[vite] failed to resolve decode-named-character-reference:', err);
-					return null;
-				}
-			}
-			return null;
-		},
-		load(id) {
-			if (id.includes('decode-named-character-reference') && id.endsWith('index.js')) {
-				// Return the content of the non-DOM version
-				return null; // Let Vite handle loading the file
-			}
-			return null;
-		}
-	};
 };
 
 // Plugin to force Vite to serve static HTML files from public/ instead of SPA fallback
@@ -223,9 +136,13 @@ const serveStaticHtmlPlugin = (): Plugin => {
 							try {
 								const content = await fs.readFile(requestedPath, 'utf-8');
 								res.setHeader('Content-Type', urlPath.endsWith('.js') ? 'application/javascript' : 'text/html');
+								// Dev-only: disable browser caching for these public/ files so
+								// edits to widget-loader.js / widget-test.html / etc. show up
+								// on a normal refresh instead of being served from disk cache.
+								res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
 								res.end(content);
 								return;
-							} catch (e) {
+							} catch (_e) {
 								// File not found in public/, let Vite handle it (SPA fallback or 404)
 							}
 						}
@@ -243,16 +160,16 @@ export default defineConfig(({ mode }: ConfigEnv) => {
 		envPrefix: ['VITE_'],
 		plugins: [
 			serveStaticHtmlPlugin(),
-			fixDecodeNamedCharacterReference(),
 			preact({
 				prerender: {
 					enabled: true,
 					renderTarget: '#app',
 				},
 			}),
-			// Replace with custom compression
-			customCompressionPlugin({ algorithm: 'gzip' }),
-			customCompressionPlugin({ algorithm: 'brotli' }),
+			// gzip + brotli precompression for static assets (Cloudflare Pages serves
+			// the .gz/.br variant when the client supports it).
+			compression({ algorithm: 'gzip', threshold: 1024 }),
+			compression({ algorithm: 'brotliCompress', ext: '.br', threshold: 1024 }),
 			// Bundle visualization for production builds
 			visualizer({
 				gzipSize: true,
@@ -264,7 +181,13 @@ export default defineConfig(({ mode }: ConfigEnv) => {
 			// static files (widget-test.html, widget-loader.js) during local development.
 			// In production, Cloudflare Pages + _headers/_redirects handle routing.
 			VitePWA({
-				registerType: 'autoUpdate',
+				// 'prompt' (vs 'autoUpdate') so the new SW waits in `installed` state instead
+				// of silently calling skipWaiting + clientsClaim. A refresh toast wired
+				// via virtual:pwa-register (src/shared/lib/swUpdate.ts) lets the user
+				// click Refresh to activate the new SW and reload — avoiding the "open
+				// tab on old code, new SW serving new chunks" mismatch that breaks
+				// lazy imports after a deploy.
+				registerType: 'prompt',
 				// ↓ KEY: disable the SW in dev mode entirely
 				devOptions: {
 					enabled: false,
@@ -293,15 +216,15 @@ export default defineConfig(({ mode }: ConfigEnv) => {
 					]
 				},
 				workbox: {
-					// Precache app shell assets only — exclude static standalone pages
-					// and the widget script (they are served directly by Cloudflare Pages).
-					globPatterns: ['**/*.{js,css,svg,png,jpg,jpeg,gif,webp,html}'],
-					globIgnores: [
-						'widget-loader.js',
-						'widget-test.html',
-						'mock-embed.html',
-						'stats.html',
-					],
+					// Wait for the user to click Refresh in the update toast before
+					// activating the new SW. Pairs with registerType: 'prompt' above.
+					skipWaiting: false,
+					clientsClaim: false,
+					cleanupOutdatedCaches: true,
+					// Precache only app shell JS/CSS and PWA icons.
+					// Images, HTML pages, and widget assets are served by Cloudflare Pages directly.
+					globPatterns: ['assets/**/*.{js,css}'],
+					globIgnores: [],
 					navigateFallbackDenylist: [
 						// Never route API or auth requests through the SPA
 						/^\/api\//,
@@ -310,22 +233,7 @@ export default defineConfig(({ mode }: ConfigEnv) => {
 						/\/widget-[^/]+$/,
 						/\.html$/,
 					],
-					runtimeCaching: [
-						{
-							urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,
-							handler: 'CacheFirst',
-							options: {
-								cacheName: 'google-fonts-cache',
-								expiration: {
-									maxEntries: 10,
-									maxAgeSeconds: 60 * 60 * 24 * 365 // 1 year
-								},
-								cacheableResponse: {
-									statuses: [0, 200]
-								}
-							}
-						}
-					]
+					runtimeCaching: []
 				}
 			}),
 			// Process HTML with critical CSS extraction
@@ -335,11 +243,21 @@ export default defineConfig(({ mode }: ConfigEnv) => {
 					data: {
 						title: 'Blawby Chat',
 						description: 'Chat interface for Blawby AI assistant',
+						workerApiOrigin: (() => {
+							try {
+								const raw = process.env.VITE_WORKER_API_URL ?? '';
+								return raw ? new URL(raw).origin : '';
+							} catch {
+								return '';
+							}
+						})(),
 					}
 				}
 			}),
 			// Critical CSS extraction
 			criticalCssPlugin(),
+			// Bundle size budget enforcement (warns locally, fails in CI)
+			bundleBudgetPlugin(),
 		],
 		build: {
 			minify: 'terser',
@@ -372,11 +290,13 @@ export default defineConfig(({ mode }: ConfigEnv) => {
 						}
 						return 'assets/[name]-[hash][extname]';
 					},
-					// Manualchunks configuration for better code splitting
 					manualChunks: {
-						vendor: ['preact', 'preact/hooks', 'preact/jsx-runtime', 'preact/compat'],
-						ui: ['./src/app/ErrorBoundary.tsx']
-					}
+						vendor: ['preact', 'preact/hooks', 'preact/jsx-runtime', 'preact/compat', 'nanostores', '@nanostores/preact'],
+						i18n: ['i18next', 'react-i18next', 'i18next-browser-languagedetector'],
+						stripe: ['@stripe/stripe-js', '@stripe/react-stripe-js'],
+						markdown: ['react-markdown', 'remark-gfm'],
+						icons: ['lucide-preact'],
+					},
 				},
 			},
 			cssCodeSplit: true,
@@ -387,7 +307,7 @@ export default defineConfig(({ mode }: ConfigEnv) => {
 			assetsInlineLimit: 4096, // 4kb - small assets will be inlined
 		},
 		optimizeDeps: {
-			include: ['preact', 'preact/hooks', 'preact/compat', 'preact/jsx-runtime', 'i18next', 'react-i18next', 'i18next-browser-languagedetector'],
+			include: ['preact', 'preact/hooks', 'preact/compat', 'preact/jsx-runtime', 'i18next', 'react-i18next', 'i18next-browser-languagedetector', 'lucide-preact'],
 		},
 		resolve: {
 			dedupe: ['preact', 'preact/compat', 'react', 'react-dom'],
@@ -397,7 +317,10 @@ export default defineConfig(({ mode }: ConfigEnv) => {
 				'react-dom': 'preact/compat',
 				'react/jsx-runtime': 'preact/jsx-runtime',
 				'worker_threads': resolve(__dirname, 'tests/stubs/worker_threads.ts'),
-				'node:worker_threads': resolve(__dirname, 'tests/stubs/worker_threads.ts')
+				'node:worker_threads': resolve(__dirname, 'tests/stubs/worker_threads.ts'),
+				// Force the non-DOM build of decode-named-character-reference so the
+				// markdown chunk doesn't blow up during Node-side prerender.
+				'decode-named-character-reference': resolve(__dirname, 'node_modules/decode-named-character-reference/index.js')
 			}
 		},
 		server: {
@@ -405,6 +328,17 @@ export default defineConfig(({ mode }: ConfigEnv) => {
 			port: 5137,      // Matches your current setup
 			strictPort: true, // Fail if port is busy (tunnel expects this exact port)
 			allowedHosts: ['local.blawby.com'], // Allow the public tunnel domain
+			watch: {
+				ignored: [
+					'**/.tmp/**',
+					'**/test-results/**',
+					'**/playwright-report/**',
+					'**/.playwright-artifacts-*/**',
+					'**/trace.zip',
+					'**/*.trace',
+					'**/*.network',
+				],
+			},
 			hmr: {
 				protocol: 'wss',
 				host: 'local.blawby.com',

@@ -1,5 +1,6 @@
 import { Button } from '@/shared/ui/Button';
 import { cn } from '@/shared/utils/cn';
+import { SkeletonLoader } from '@/shared/ui/layout/SkeletonLoader';
 import { formatCurrency } from '@/shared/utils/currencyFormatter';
 import type { BillingWindow, DashboardStat } from '@/features/practice-dashboard/hooks/usePracticeBillingData';
 
@@ -27,19 +28,17 @@ export const DashboardHero = ({
   <section className="border-b border-line-glass/30 lg:border-t lg:border-t-line-glass/20">
     <div className="mx-auto flex max-w-7xl items-center gap-6 px-4 py-5 sm:px-6 lg:px-8">
       <h1 className="shrink-0 text-base font-semibold text-input-text">Cashflow</h1>
-      <div className="flex shrink-0 gap-x-8 border-l border-line-glass/30 pl-6 text-sm font-semibold">
+      <div role="group" aria-label="Time window" className="flex shrink-0 gap-x-8 border-l border-line-glass/30 pl-6 text-sm font-semibold">
         {(Object.keys(WINDOW_LABELS) as BillingWindow[]).map((window) => (
-          <button
+          <Button
             key={window}
-            type="button"
+            variant="tab"
+            size="sm"
             onClick={() => onWindowChange(window)}
             aria-pressed={window === windowSize}
-            className={cn(
-              window === windowSize ? 'text-accent-400' : 'text-input-placeholder hover:text-input-text'
-            )}
           >
             {WINDOW_LABELS[window]}
-          </button>
+          </Button>
         ))}
       </div>
       <div className="ml-auto shrink-0">
@@ -49,8 +48,15 @@ export const DashboardHero = ({
       </div>
     </div>
     {loading && stats.length === 0 ? (
-      <div className="mx-auto max-w-7xl px-4 py-8 text-sm text-input-placeholder sm:px-6 lg:px-8">
-        Loading practice metrics...
+      <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {[1, 2, 3, 4].map(i => (
+            <div key={i} className="space-y-2">
+              <SkeletonLoader variant="text" width="w-16" />
+              <SkeletonLoader variant="title" width="w-24" />
+            </div>
+          ))}
+        </div>
       </div>
     ) : (
       <dl className="mx-auto grid max-w-7xl grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 lg:px-2 xl:px-0">

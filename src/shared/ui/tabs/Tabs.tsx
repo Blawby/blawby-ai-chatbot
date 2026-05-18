@@ -16,9 +16,9 @@ interface TabsProps {
 }
 
 export const Tabs = ({ items, activeId, onChange, className = '', actions }: TabsProps) => (
-  <div className={cn('flex flex-col gap-3', className)}>
-    <div className="flex flex-wrap items-center gap-3">
-    <div className="flex flex-wrap items-center gap-4 border-b border-line-glass/30" role="tablist">
+  <div className={cn('tabs', className)}>
+    <div className="tabs__row">
+      <div className="tabs__list" role="tablist">
         {items.map((item) => {
           const isActive = item.id === activeId;
           return (
@@ -28,23 +28,19 @@ export const Tabs = ({ items, activeId, onChange, className = '', actions }: Tab
               type="button"
               role="tab"
               aria-selected={isActive}
+              data-active={isActive ? 'true' : 'false'}
               onClick={() => onChange?.(item.id)}
-              className={cn(
-                'pb-2 text-sm font-medium transition-colors',
-                isActive
-                  ? 'text-input-text border-b-2 border-input-text'
-                  : 'text-gray-500 hover:text-input-text'
-              )}
+              className="tabs__tab"
             >
               {item.label}
               {typeof item.count === 'number' && (
-                <span className="ml-2 text-xs text-gray-400">{item.count}</span>
+                <span className="tabs__count">{item.count}</span>
               )}
             </button>
           );
         })}
       </div>
-      {actions && <div className="ml-auto flex items-center gap-2">{actions}</div>}
+      {actions && <div className="tabs__actions">{actions}</div>}
     </div>
   </div>
 );

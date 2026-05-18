@@ -1,26 +1,29 @@
-import type { Env, Practice, PracticeOrWorkspace, ConversationConfig, SubscriptionLifecycleStatus } from '../types.js';
+import type { Env, PracticeOrWorkspace, ConversationConfig, SubscriptionLifecycleStatus } from '../types.js';
 import { HttpError } from '../types.js';
 import { HttpErrors } from '../errorHandler.js';
 import { Logger } from '../utils/logger.js';
 import { warnIfNotMinorUnits } from '../utils/money.js';
+import { edgeCache } from '../utils/edgeCache.js';
+import { redactSensitiveFields } from '../utils/redactResponse.js';
+import { policyTtlMs } from '../utils/cachePolicy.js';
+import { validateWire } from '../utils/validateWire.js';
+import { PracticeSchema, ConversationConfigPermissiveSchema } from '../types/wire/practice.js';
+import {
+  BackendIntakeConvertResponseSchema,
+} from '../types/wire/intake.js';
+import { canAssignTeamMemberToMatter, isTeamRole, type PracticeTeamResponse } from '../../src/shared/types/team.js';
 
 /**
  * Service for fetching practice and subscription data from the remote API.
- * 
- * @note Cache Limitation: The static caches (practiceCache, configCache, subscriptionCache)
- * are per-V8-isolate and do not persist across different Cloudflare Worker isolates.
- * Each isolate starts with an empty cache, so these caches provide warm-up optimization
- * within a single isolate's lifetime only. For cross-isolate consistency, consider
- * migrating to Workers KV or Durable Objects in the future if needed.
+ *
+ * Caching is delegated to `worker/utils/edgeCache.ts` (per-isolate Map +
+ * in-flight dedup + LRU). Per-isolate scope is inherent — Cloudflare may
+ * evict isolates at any time, so cold isolates refetch once. For
+ * cross-isolate consistency, layer KV behind specific keys at call sites
+ * (see `practiceDetailsCache.ts`).
  */
 export class RemoteApiService {
-  private static readonly CACHE_TTL = 5 * 60 * 1000; // 5 minutes
-  /** Per-isolate cache for practice data - resets when isolate is evicted */
-  private static practiceCache = new Map<string, { data: PracticeOrWorkspace; timestamp: number }>();
-  /** Per-isolate cache for conversation config - resets when isolate is evicted */
-  private static configCache = new Map<string, { data: ConversationConfig; timestamp: number }>();
-  /** Per-isolate cache for subscription status - resets when isolate is evicted */
-  private static subscriptionCache = new Map<string, { status: SubscriptionLifecycleStatus; timestamp: number }>();
+  private static readonly DEFAULT_SEAT_COUNT = 1;
 
   /**
    * Get the base URL for the remote API
@@ -51,40 +54,6 @@ export class RemoteApiService {
     return authHeader && authHeader.trim() ? authHeader.trim() : null;
   }
 
-  private static redactSensitiveFields(value: unknown): unknown {
-    if (Array.isArray(value)) {
-      return value.map((item) => this.redactSensitiveFields(item));
-    }
-
-    if (!value || typeof value !== 'object') {
-      return value;
-    }
-
-    const record = value as Record<string, unknown>;
-    const redacted: Record<string, unknown> = {};
-    const sensitiveKeys = new Set([
-      'password',
-      'token',
-      'access_token',
-      'authorization',
-      'email',
-      'ssn',
-      'secret',
-      'refresh_token',
-      'api_key',
-      'client_secret',
-    ]);
-
-    for (const [key, fieldValue] of Object.entries(record)) {
-      if (sensitiveKeys.has(key.toLowerCase())) {
-        redacted[key] = '[redacted]';
-        continue;
-      }
-      redacted[key] = this.redactSensitiveFields(fieldValue);
-    }
-
-    return redacted;
-  }
 
   /**
    * Fetch data from remote API with error handling
@@ -166,7 +135,7 @@ export class RemoteApiService {
           if (rawBody) {
             try {
               const parsedPreview = JSON.parse(rawBody);
-              upstreamBodyPreview = JSON.stringify(this.redactSensitiveFields(parsedPreview)).slice(0, 500);
+              upstreamBodyPreview = JSON.stringify(redactSensitiveFields(parsedPreview)).slice(0, 500);
             } catch {
               upstreamBodyPreview = '[non-json body omitted]';
             }
@@ -238,70 +207,55 @@ export class RemoteApiService {
     practiceId: string,
     request?: Request
   ): Promise<PracticeOrWorkspace | null> {
-    // Check cache first
-    const cached = this.practiceCache.get(practiceId);
-    if (cached && Date.now() - cached.timestamp < this.CACHE_TTL) {
-      return cached.data;
-    }
-
-    try {
-      // Try by ID first
-      let response: Response;
-      try {
-        response = await this.fetchFromRemoteApi(env, `/api/practice/${practiceId}`, request);
-      } catch (error) {
-        // If 404, try by slug
-        if (error instanceof HttpError && error.status === 404) {
+    const cacheKey = `practice:${practiceId}`;
+    return edgeCache.get_or_fetch<PracticeOrWorkspace | null>(
+      cacheKey,
+      async () => {
+        try {
+          let response: Response;
           try {
-            response = await this.fetchFromRemoteApi(env, `/api/practice?slug=${encodeURIComponent(practiceId)}`, request);
-          } catch (slugError) {
-            // If slug lookup also fails with 404, return null
-            if (slugError instanceof HttpError && slugError.status === 404) {
-              return null;
+            response = await this.fetchFromRemoteApi(env, `/api/practice/${practiceId}`, request);
+          } catch (error) {
+            if (error instanceof HttpError && error.status === 404) {
+              try {
+                response = await this.fetchFromRemoteApi(env, `/api/practice?slug=${encodeURIComponent(practiceId)}`, request);
+              } catch (slugError) {
+                if (slugError instanceof HttpError && slugError.status === 404) return null;
+                throw slugError;
+              }
+            } else {
+              throw error;
             }
-            throw slugError;
           }
-        } else {
+
+          const json = await response.json() as unknown;
+          const candidate = (() => {
+            if (!json || typeof json !== 'object' || Array.isArray(json)) return null;
+            const record = json as Record<string, unknown>;
+            if (record.data && typeof record.data === 'object') return record.data;
+            if (record.practice && typeof record.practice === 'object') return record.practice;
+            if ('id' in record) return record;
+            return null;
+          })();
+          if (!candidate) return null;
+          // Validate the wire shape — strict in dev (catches drift), loose
+          // in prod (logs + returns the raw value to avoid availability impact).
+          return validateWire(PracticeSchema, candidate, 'getPractice', { strict: false });
+        } catch (error) {
+          if (error instanceof HttpError && error.status === 404) {
+            Logger.debug('Practice not found in remote API', { practiceId });
+            return null;
+          }
+          Logger.error('Failed to fetch practice from remote API', {
+            practiceId,
+            error: error instanceof Error ? error.message : String(error),
+            status: error instanceof HttpError ? error.status : undefined,
+          });
           throw error;
         }
-      }
-
-      const data = await response.json() as Practice | { data?: Practice; practice?: Practice };
-      let practice: Practice | undefined;
-      if (data && typeof data === 'object' && !Array.isArray(data)) {
-        if ('data' in data && data.data) {
-          practice = data.data;
-        } else if ('practice' in data && data.practice) {
-          practice = data.practice;
-        } else if ('id' in data) {
-          practice = data as Practice;
-        }
-      }
-
-      if (!practice) {
-        return null;
-      }
-
-      // Cache the result
-      this.practiceCache.set(practiceId, { data: practice, timestamp: Date.now() });
-      
-      return practice;
-    } catch (error) {
-      // Distinguish between 404 (not found) and other errors (API down, network failures)
-      if (error instanceof HttpError && error.status === 404) {
-        // Practice genuinely not found
-        Logger.debug('Practice not found in remote API', { practiceId });
-        return null;
-      }
-      
-      // Re-throw connectivity/server errors (including 401) instead of swallowing them
-      Logger.error('Failed to fetch practice from remote API', {
-        practiceId,
-        error: error instanceof Error ? error.message : String(error),
-        status: error instanceof HttpError ? error.status : undefined,
-      });
-      throw error;
-    }
+      },
+      { ttlMs: policyTtlMs(cacheKey) },
+    );
   }
 
   /**
@@ -324,24 +278,16 @@ export class RemoteApiService {
     practiceId: string,
     request?: Request
   ): Promise<ConversationConfig | null> {
-    // Check cache first
-    const cached = this.configCache.get(practiceId);
-    if (cached && Date.now() - cached.timestamp < this.CACHE_TTL) {
-      return cached.data;
-    }
-
-    const practice = await this.getPractice(env, practiceId, request);
-    if (!practice) {
-      return null;
-    }
-
-    // Extract conversation config from practice.metadata.conversationConfig
-    const conversationConfig = this.extractConversationConfig(practice.metadata);
-    
-    // Cache the config
-    this.configCache.set(practiceId, { data: conversationConfig, timestamp: Date.now() });
-    
-    return conversationConfig;
+    const cacheKey = `practice:config:${practiceId}`;
+    return edgeCache.get_or_fetch<ConversationConfig | null>(
+      cacheKey,
+      async () => {
+        const practice = await this.getPractice(env, practiceId, request);
+        if (!practice) return null;
+        return this.extractConversationConfig(practice.metadata);
+      },
+      { ttlMs: policyTtlMs(cacheKey) },
+    );
   }
 
   /**
@@ -370,54 +316,175 @@ export class RemoteApiService {
     practiceId: string,
     request?: Request
   ): Promise<Array<{ user_id: string; email?: string | null; role?: string | null; name?: string | null; image?: string | null }>> {
-    type PracticeMemberPayload = {
-      user_id?: string;
-      userId?: string;
+    return this.getOrganizationMembers(env, practiceId, request);
+  }
+
+  static async getPracticeTeam(
+    env: Env,
+    practiceId: string,
+    request?: Request
+  ): Promise<PracticeTeamResponse> {
+    const practice = await this.getPracticeMembershipData(env, practiceId, request);
+    const members = practice.members
+      .filter((member): member is typeof practice.members[number] & {
+        role: import('../../src/shared/types/team.js').TeamRole;
+      } => (
+        isTeamRole(member.role)
+        && typeof member.user_id === 'string'
+        && member.user_id.trim().length > 0
+      ))
+      .map((member) => ({
+        userId: member.user_id,
+        email: member.email ?? '',
+        name: member.name ?? undefined,
+        image: member.image ?? null,
+        role: member.role,
+        createdAt: member.created_at,
+        canAssignToMatter: canAssignTeamMemberToMatter(member.role),
+        canMentionInternally: true,
+      }));
+
+    return {
+      members,
+      summary: {
+        seatsIncluded: this.normalizeSeats(practice.seats),
+        seatsUsed: members.length,
+      },
+    };
+  }
+
+  private static normalizeSeats(seats?: number | null): number {
+    const seatsValue = seats ?? 0;
+    return Number.isFinite(seatsValue) && seatsValue > 0
+      ? seatsValue
+      : this.DEFAULT_SEAT_COUNT;
+  }
+
+  private static async getPracticeMembershipData(
+    env: Env,
+    practiceId: string,
+    request?: Request
+  ): Promise<{
+    seats: number | null;
+    members: Array<{
+      user_id: string;
       email?: string | null;
-      role?: string | null;
+      role: string | null;
       name?: string | null;
       image?: string | null;
+      created_at: number | null;
+    }>;
+  }> {
+    type PracticePayload = {
+      practice?: { seats?: number | null };
+      data?: {
+        seats?: number | null;
+        practice?: { seats?: number | null };
+      };
+      seats?: number | null;
+    };
+    const [practiceResponse, members] = await Promise.all([
+      this.fetchFromRemoteApi(env, `/api/practice/${practiceId}`, request),
+      this.getOrganizationMembers(env, practiceId, request)
+    ]);
+
+    const practiceData = await practiceResponse.json() as PracticePayload;
+
+    const practiceRecord =
+      practiceData.practice ??
+      practiceData.data?.practice ??
+      practiceData.data ??
+      practiceData;
+
+    const seatsValue = typeof practiceRecord.seats === 'number'
+      ? practiceRecord.seats
+      : typeof practiceData.data?.seats === 'number'
+        ? practiceData.data.seats
+        : (typeof practiceData.seats === 'number' ? practiceData.seats : null);
+
+    return {
+      seats: seatsValue,
+      members,
+    };
+  }
+
+  private static async getOrganizationMembers(
+    env: Env,
+    practiceId: string,
+    request?: Request
+  ): Promise<Array<{
+    user_id: string;
+    email?: string | null;
+    role: string | null;
+    name?: string | null;
+    image?: string | null;
+    created_at: number | null;
+  }>> {
+    type OrganizationMemberPayload = {
+      id?: string;
+      userId?: string;
+      user_id?: string;
+      role?: string | null;
+      createdAt?: string | number | null;
+      created_at?: string | number | null;
       user?: {
+        id?: string;
+        email?: string | null;
         name?: string | null;
         image?: string | null;
-        email?: string | null;
       };
     };
-    const response = await this.fetchFromRemoteApi(env, `/api/practice/${practiceId}`, request);
-    const data = await response.json() as {
-      practice?: { members?: PracticeMemberPayload[] };
-      data?: {
-        members?: PracticeMemberPayload[];
-        practice?: { members?: PracticeMemberPayload[] };
-      };
-      members?: PracticeMemberPayload[];
+
+    const membersResponse = await this.fetchFromRemoteApi(
+      env,
+      `/api/auth/organization/list-members?organizationId=${encodeURIComponent(practiceId)}`,
+      request
+    );
+    const membersData = await membersResponse.json() as {
+      members?: OrganizationMemberPayload[];
     };
-
-    const members =
-      data.practice?.members ??
-      data.data?.practice?.members ??
-      data.data?.members ??
-      data.members;
-
-    if (!Array.isArray(members)) {
-      return [];
-    }
+    const members = Array.isArray(membersData.members) ? membersData.members : [];
 
     return members
-      .filter((m): m is PracticeMemberPayload => typeof m.userId === 'string' || typeof m.user_id === 'string')
-      .map((m) => ({
-        user_id: (typeof m.userId === 'string' ? m.userId : m.user_id) as string,
-        email: typeof m.email === 'string'
-          ? m.email
-          : (typeof m.user?.email === 'string' ? m.user.email : undefined),
-        role: m.role,
-        name: typeof m.name === 'string'
-          ? m.name
-          : (typeof m.user?.name === 'string' ? m.user.name : undefined),
-        image: typeof m.image === 'string'
-          ? m.image
-          : (typeof m.user?.image === 'string' ? m.user.image : undefined),
+      .filter((member): member is OrganizationMemberPayload => (
+        typeof member.userId === 'string'
+        || typeof member.user_id === 'string'
+        || typeof member.user?.id === 'string'
+      ))
+      .map((member) => ({
+        user_id: (
+          typeof member.userId === 'string'
+            ? member.userId
+            : typeof member.user_id === 'string'
+              ? member.user_id
+              : member.user?.id
+        ) as string,
+        email: typeof member.user?.email === 'string' ? member.user.email : undefined,
+        role: typeof member.role === 'string' ? member.role : null,
+        name: typeof member.user?.name === 'string' ? member.user.name : undefined,
+        image: typeof member.user?.image === 'string' ? member.user.image : undefined,
+        created_at: this.normalizeMembershipTimestamp(
+          member.createdAt ??
+          member.created_at
+        ),
       }));
+  }
+
+  private static normalizeMembershipTimestamp(value: unknown): number | null {
+    if (typeof value === 'number' && Number.isFinite(value)) {
+      return value;
+    }
+    if (typeof value === 'string' && value.trim()) {
+      const numericValue = Number(value);
+      if (Number.isFinite(numericValue)) {
+        return numericValue;
+      }
+      const parsedDate = Date.parse(value);
+      if (Number.isFinite(parsedDate)) {
+        return parsedDate;
+      }
+    }
+    return null;
   }
 
   /**
@@ -500,72 +567,12 @@ export class RemoteApiService {
   }
 
   private static validateConversationConfig(config: Record<string, unknown>): ConversationConfig {
-    const requiredStringArray = (value: unknown): string[] => {
-      if (!Array.isArray(value) || !value.every(item => typeof item === 'string')) {
-        throw new Error('Expected array of strings');
-      }
-      return value;
-    };
-
-    const requiredRecord = (value: unknown): Record<string, string[]> => {
-      if (!value || typeof value !== 'object') {
-        throw new Error('Expected record');
-      }
-      const entries = Object.entries(value as Record<string, unknown>).map(([key, entryValue]) => {
-        return [key, requiredStringArray(entryValue)];
-      });
-      return Object.fromEntries(entries);
-    };
-
-    const voiceValue = config.voice;
-    if (voiceValue && typeof voiceValue !== 'object') {
-      throw new Error('voice must be an object');
-    }
-
-    const voiceObj = voiceValue && typeof voiceValue === 'object' ? (voiceValue as Record<string, unknown>) : {};
-    const voice: ConversationConfig['voice'] = {
-      enabled: Boolean(voiceObj.enabled),
-      provider: (typeof voiceObj.provider === 'string' && ['cloudflare', 'elevenlabs', 'custom'].includes(voiceObj.provider)
-        ? voiceObj.provider
-        : 'cloudflare') as ConversationConfig['voice']['provider'],
-      voiceId: typeof voiceObj.voiceId === 'string' ? voiceObj.voiceId : undefined,
-      displayName: typeof voiceObj.displayName === 'string' ? voiceObj.displayName : undefined,
-      previewUrl: typeof voiceObj.previewUrl === 'string' ? voiceObj.previewUrl : undefined
-    };
-
-    return {
-      ownerEmail: typeof config.ownerEmail === 'string' ? config.ownerEmail : undefined,
-      availableServices: requiredStringArray(config.availableServices ?? []),
-      serviceQuestions: requiredRecord(config.serviceQuestions ?? {}),
-      domain: typeof config.domain === 'string' ? config.domain : '',
-      description: typeof config.description === 'string' ? config.description : '',
-      brandColor: typeof config.brandColor === 'string' ? config.brandColor : '#000000',
-      accentColor: typeof config.accentColor === 'string' ? config.accentColor : '#000000',
-      profileImage: typeof config.profileImage === 'string' ? config.profileImage : undefined,
-      voice,
-      blawbyApi: (() => {
-        if (typeof config.blawbyApi !== 'object' || config.blawbyApi === null) {
-          return undefined;
-        }
-        const apiObj = config.blawbyApi as Record<string, unknown>;
-        const result: ConversationConfig['blawbyApi'] = {
-          enabled: Boolean(apiObj.enabled),
-        };
-        if (typeof apiObj.apiKeyHash === 'string') {
-          result.apiKeyHash = apiObj.apiKeyHash;
-        }
-        if (typeof apiObj.apiUrl === 'string') {
-          result.apiUrl = apiObj.apiUrl;
-        }
-        return result;
-      })(),
-      testMode: typeof config.testMode === 'boolean' ? config.testMode : undefined,
-      metadata: typeof config.metadata === 'object' && config.metadata !== null ? config.metadata as Record<string, unknown> : undefined,
-      betterAuthOrgId: typeof config.betterAuthOrgId === 'string' ? config.betterAuthOrgId : undefined,
-      tools: typeof config.tools === 'object' && config.tools !== null ? config.tools as ConversationConfig['tools'] : undefined,
-      agentMember: typeof config.agentMember === 'object' && config.agentMember !== null ? config.agentMember as ConversationConfig['agentMember'] : undefined,
-      isPublic: typeof config.isPublic === 'boolean' ? config.isPublic : undefined
-    };
+    // Tolerant Zod parse — schema's `.default()` + `.catch()` chains
+    // preserve the original "fall back on missing/invalid" semantics
+    // (defaults to '', '#000000', 'cloudflare' provider, etc.). The
+    // strict ConversationConfigSchema is used elsewhere; this permissive
+    // variant exists for upstream payloads of unknown quality.
+    return ConversationConfigPermissiveSchema.parse(config) as ConversationConfig;
   }
 
   /**
@@ -598,8 +605,8 @@ export class RemoteApiService {
       }
     );
 
-    this.configCache.delete(practiceId);
-    this.practiceCache.delete(practiceId);
+    edgeCache.invalidate(`practice:config:${practiceId}`);
+    edgeCache.invalidate(`practice:${practiceId}`);
 
     return true;
   }
@@ -612,23 +619,16 @@ export class RemoteApiService {
     practiceId: string,
     request?: Request
   ): Promise<SubscriptionLifecycleStatus> {
-    // Check cache first
-    const cached = this.subscriptionCache.get(practiceId);
-    if (cached && Date.now() - cached.timestamp < this.CACHE_TTL) {
-      return cached.status;
-    }
-
-    const practice = await this.getPractice(env, practiceId, request);
-    if (!practice) {
-      return 'none';
-    }
-
-    const status = practice.subscriptionStatus || 'none';
-    
-    // Cache the status
-    this.subscriptionCache.set(practiceId, { status, timestamp: Date.now() });
-    
-    return status;
+    const cacheKey = `subscription:status:${practiceId}`;
+    return edgeCache.get_or_fetch<SubscriptionLifecycleStatus>(
+      cacheKey,
+      async () => {
+        const practice = await this.getPractice(env, practiceId, request);
+        if (!practice) return 'none';
+        return practice.subscriptionStatus || 'none';
+      },
+      { ttlMs: policyTtlMs(cacheKey) },
+    );
   }
 
   /**
@@ -733,18 +733,44 @@ export class RemoteApiService {
     payload: Record<string, unknown>,
     request?: Request
   ): Promise<Response> {
-    return this.fetchFromRemoteApi(
-      env,
-      '/api/practice-client-intakes/create',
-      request,
-      {
-        method: 'POST',
-        body: JSON.stringify(payload),
-        // Public slug-based intake create endpoint. Pass the resolved visitor
-        // identity in the payload and avoid org-scoped session cookies.
-        forwardAuthCookie: false,
-      }
-    );
+    const endpoint = '/api/practice-client-intakes/create';
+    const payloadKeys = Object.keys(payload);
+    Logger.info('[RemoteApiService] createIntake outbound payload', {
+      endpoint,
+      payloadKeys,
+    });
+    try {
+      return await this.fetchFromRemoteApi(
+        env,
+        endpoint,
+        request,
+        {
+          method: 'POST',
+          body: JSON.stringify(payload),
+          // Public slug-based intake create endpoint. Pass the resolved visitor
+          // identity in the payload and avoid org-scoped session cookies.
+          forwardAuthCookie: false,
+        }
+      );
+    } catch (error) {
+      const status = typeof (error as { status?: unknown })?.status === 'number'
+        ? (error as { status: number }).status
+        : null;
+      const context = typeof (error as { context?: unknown })?.context === 'object'
+        ? (error as { context: Record<string, unknown> }).context
+        : null;
+      const upstream = context && typeof context.upstream === 'object'
+        ? redactSensitiveFields(context.upstream)
+        : null;
+      Logger.error('[RemoteApiService] createIntake failed', {
+        endpoint,
+        status,
+        payloadKeys,
+        upstream,
+        error: error instanceof Error ? error.message : String(error),
+      });
+      throw error;
+    }
   }
 
   /**
@@ -775,25 +801,24 @@ export class RemoteApiService {
       }
     );
 
-    const parsed = await response.json().catch(() => null) as {
-      success?: boolean;
-      data?: Record<string, unknown>;
-    } | null;
-
-    if (!parsed || typeof parsed !== 'object' || parsed.success !== true || !parsed.data || typeof parsed.data !== 'object') {
+    const json = await response.json().catch(() => null);
+    if (!json) {
       throw HttpErrors.badGateway('Invalid convert intake response from remote API');
     }
-
-    const matterId = typeof parsed.data.matter_id === 'string' ? parsed.data.matter_id : '';
-    if (!matterId) {
+    const parsed = validateWire(
+      BackendIntakeConvertResponseSchema,
+      json,
+      'convertIntake.response',
+      { strict: false },
+    );
+    if (parsed.success !== true || !parsed.data?.matter_id) {
       throw HttpErrors.badGateway('Remote API convert response missing matter_id');
     }
-
     return {
-      matter_id: matterId,
-      matter_status: typeof parsed.data.matter_status === 'string' ? parsed.data.matter_status : undefined,
-      conversation_id: typeof parsed.data.conversation_id === 'string' ? parsed.data.conversation_id : undefined,
-      invite_sent: typeof parsed.data.invite_sent === 'boolean' ? parsed.data.invite_sent : undefined
+      matter_id: parsed.data.matter_id,
+      matter_status: parsed.data.matter_status,
+      conversation_id: parsed.data.conversation_id,
+      invite_sent: parsed.data.invite_sent,
     };
   }
 
@@ -905,7 +930,7 @@ export class RemoteApiService {
     request?: Request
   ): Promise<{
     paymentLinkEnabled?: boolean;
-    prefillAmount?: number;
+    consultationFee?: number;
     organization?: {
       id?: string;
       slug?: string;
@@ -915,51 +940,27 @@ export class RemoteApiService {
   } | null> {
     if (!practiceSlug) return null;
     try {
-      const response = await this.fetchFromRemoteApi(
-        env,
-        `/api/practice-client-intakes/${encodeURIComponent(practiceSlug)}/intake`,
-        request
-      );
-      const payload = await response.json().catch(() => null) as Record<string, unknown> | null;
-      if (!payload || typeof payload !== 'object') {
-        return null;
-      }
-      if (payload.success === false) {
-        return null;
-      }
-
-      const data = (payload.data && typeof payload.data === 'object')
-        ? payload.data as Record<string, unknown>
-        : payload;
-      const settings = data.settings;
-      if (!settings || typeof settings !== 'object') {
-        return null;
-      }
-      const settingsRecord = settings as Record<string, unknown>;
-      const orgRecord = data.organization && typeof data.organization === 'object'
-        ? data.organization as Record<string, unknown>
+      const response = await this.getPublicPracticeDetails(env, practiceSlug, request);
+      const json = await response.json().catch(() => null);
+      if (!json) return null;
+      const details = json && typeof json === 'object' && !Array.isArray(json)
+        ? json as Record<string, unknown>
         : null;
-      const prefillAmount = typeof settingsRecord.prefillAmount === 'number'
-        ? settingsRecord.prefillAmount as number
-        : typeof settingsRecord.prefill_amount === 'number'
-          ? settingsRecord.prefill_amount as number
-          : undefined;
-      warnIfNotMinorUnits(prefillAmount, 'remote.intakeSettings.prefillAmount');
+      if (!details) return null;
+
+      const consultationFee = typeof details.consultation_fee === 'number'
+        ? details.consultation_fee
+        : undefined;
+      warnIfNotMinorUnits(consultationFee, 'remote.intakeSettings.consultationFee');
       return {
-        paymentLinkEnabled: typeof settingsRecord.paymentLinkEnabled === 'boolean'
-          ? settingsRecord.paymentLinkEnabled as boolean
-          : typeof settingsRecord.payment_link_enabled === 'boolean'
-            ? settingsRecord.payment_link_enabled as boolean
-          : undefined,
-        prefillAmount,
-        organization: orgRecord
-          ? {
-              id: typeof orgRecord.id === 'string' ? orgRecord.id : undefined,
-              slug: typeof orgRecord.slug === 'string' ? orgRecord.slug : undefined,
-              name: typeof orgRecord.name === 'string' ? orgRecord.name : undefined,
-              logo: typeof orgRecord.logo === 'string' ? orgRecord.logo : undefined
-            }
-          : undefined
+        paymentLinkEnabled: details.payment_link_enabled === true,
+        consultationFee,
+        organization: {
+          id: typeof details.organization_id === 'string' ? details.organization_id : undefined,
+          slug: typeof details.slug === 'string' ? details.slug : practiceSlug,
+          name: typeof details.name === 'string' ? details.name : undefined,
+          logo: typeof details.logo === 'string' ? details.logo : undefined,
+        },
       };
     } catch (error) {
       if (error instanceof HttpError && (error.status === 404 || error.status === 401)) {
@@ -974,13 +975,12 @@ export class RemoteApiService {
    */
   static clearCache(practiceId?: string): void {
     if (practiceId) {
-      this.practiceCache.delete(practiceId);
-      this.configCache.delete(practiceId);
-      this.subscriptionCache.delete(practiceId);
+      edgeCache.invalidate(`practice:${practiceId}`);
+      edgeCache.invalidate(`practice:config:${practiceId}`);
+      edgeCache.invalidate(`subscription:status:${practiceId}`);
     } else {
-      this.practiceCache.clear();
-      this.configCache.clear();
-      this.subscriptionCache.clear();
+      edgeCache.invalidate('practice:', /* prefix */ true);
+      edgeCache.invalidate('subscription:', /* prefix */ true);
     }
   }
 }

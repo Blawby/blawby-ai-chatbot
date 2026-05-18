@@ -8,7 +8,6 @@ export { EmailSettingsSection } from './EmailSettingsSection';
 export { NotificationChannelSelector } from './NotificationChannelSelector';
 export { PlanFeaturesList } from './PlanFeaturesList';
 export { SettingsNotice } from './SettingsNotice';
-export { SettingsSubheader } from './SettingsSubheader';
 export { SettingsBadge } from './SettingsBadge';
 export { SettingsDangerButton } from './SettingsDangerButton';
 export { SettingsHelperText } from './SettingsHelperText';

@@ -1,13 +1,15 @@
 import { useState, useEffect } from 'preact/hooks';
 import { useLocation } from 'preact-iso';
 import { Button } from '@/shared/ui/Button';
-import { SectionDivider } from '@/shared/ui';
+import { SectionDivider } from '@/shared/ui/layout/SectionDivider';
 import { useToastContext } from '@/shared/contexts/ToastContext';
 import { useNavigation } from '@/shared/utils/navigation';
 import { useSessionContext } from '@/shared/contexts/SessionContext';
 import { authClient } from '@/shared/lib/authClient';
-import Modal from '@/shared/components/Modal';
-import { ExclamationTriangleIcon } from '@heroicons/react/24/outline';
+import { useAuthAccounts } from '@/shared/hooks/useAuthAccounts';
+import { Dialog, DialogBody, DialogFooter } from '@/shared/ui/dialog';
+import { AlertTriangle } from 'lucide-preact';
+
 import { Icon } from '@/shared/ui/Icon';
 import { useTranslation } from '@/shared/i18n/hooks';
 import type { SecuritySettings } from '@/shared/types/user';
@@ -15,13 +17,15 @@ import { SettingSection } from '@/features/settings/components/SettingSection';
 import { SettingToggle } from '@/features/settings/components/SettingToggle';
 import { SettingRow } from '@/features/settings/components/SettingRow';
 import { PasswordChangeForm } from '@/features/settings/components/PasswordChangeForm';
-import { ContentPageLayout } from '@/shared/ui/layout';
+import { LoadingBlock } from '@/shared/ui/layout/LoadingBlock';
 import { SettingsDangerButton } from '@/features/settings/components/SettingsDangerButton';
 import { SettingsHelperText } from '@/features/settings/components/SettingsHelperText';
 import { getPreferencesCategory, updatePreferencesCategory } from '@/shared/lib/preferencesApi';
 import type { SecurityPreferences } from '@/shared/types/preferences';
 import { FormActions } from '@/shared/ui/form';
+import { features } from '@/config/features';
 import { buildSettingsPath, resolveSettingsBasePath } from '@/shared/utils/workspace';
+import { cn } from '@/shared/utils/cn';
 
 // Local interface for user with security-related fields
 interface SecurityUser {
@@ -67,6 +71,23 @@ const safeConvertLastPasswordChange = (value: unknown): Date | undefined => {
   return isNaN(date.getTime()) ? undefined : date;
 };
 
+type BetterAuthResult = {
+  data?: unknown;
+  error?: {
+    message?: string;
+  } | null;
+} | null | undefined;
+
+const getBetterAuthErrorMessage = (
+  result: BetterAuthResult,
+  fallbackMessage: string
+): string | null => {
+  if (!result?.error) {
+    return null;
+  }
+  return result.error.message || fallbackMessage;
+};
+
 export interface SecurityPageProps {
   isMobile?: boolean;
   onClose?: () => void;
@@ -83,11 +104,20 @@ export const SecurityPage = ({
   const location = useLocation();
   const { t } = useTranslation(['settings', 'common']);
   const { session, isPending } = useSessionContext();
+  const {
+    hasPasswordAccount,
+    isLoading: authAccountsLoading,
+    error: authAccountsError,
+    reload: reloadAuthAccounts
+  } = useAuthAccounts(Boolean(session?.user));
   const [settings, setSettings] = useState<SecuritySettings | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isChangingPassword, setIsChangingPassword] = useState(false);
+  const [passwordSubmitting, setPasswordSubmitting] = useState(false);
+  const [isResettingPassword, setIsResettingPassword] = useState(false);
+  const [passwordError, setPasswordError] = useState<string | null>(null);
   const [showDisableMFAConfirm, setShowDisableMFAConfirm] = useState(false);
-  const showMfa = false;
+  const showMfa = features.enableMfa;
   const [passwordForm, setPasswordForm] = useState({
     currentPassword: '',
     newPassword: '',
@@ -146,6 +176,7 @@ export const SecurityPage = ({
     if (!settings) return;
     
     if (key === 'twoFactorEnabled') {
+      if (!showMfa) return;
       if (value) {
         // Enable MFA: Navigate to enrollment page without updating state
         navigate(toSettingsPath('mfa-enrollment'));
@@ -234,11 +265,12 @@ export const SecurityPage = ({
   };
 
   const handlePasswordChange = (field: string, value: string) => {
+    setPasswordError(null);
     setPasswordForm(prev => ({ ...prev, [field]: value }));
   };
 
   const handleChangePassword = async () => {
-    if (!passwordForm.currentPassword || !passwordForm.newPassword || !passwordForm.confirmPassword) {
+    if ((!hasPasswordAccount && !passwordForm.newPassword) || !passwordForm.confirmPassword || (hasPasswordAccount && !passwordForm.currentPassword)) {
       showError(
         t('settings:security.password.errors.missing.title'),
         t('settings:security.password.errors.missing.body')
@@ -263,29 +295,112 @@ export const SecurityPage = ({
     }
 
     try {
-      // Here you would call your API to change the password
-      // await authService.changePassword(passwordForm.currentPassword, passwordForm.newPassword);
-      
-      showSuccess(
-        t('settings:security.password.success.title'),
-        t('settings:security.password.success.body')
+      setPasswordSubmitting(true);
+      setPasswordError(null);
+      if (hasPasswordAccount) {
+        const { data: _data, error } = await authClient.changePassword({
+          currentPassword: passwordForm.currentPassword,
+          newPassword: passwordForm.newPassword
+        });
+        const errorMessage = getBetterAuthErrorMessage(
+          { data: _data, error },
+          t('settings:security.password.errors.failed.body')
+        );
+        if (errorMessage) {
+          setPasswordError(errorMessage);
+          showError(
+            t('settings:security.password.errors.failed.title'),
+            errorMessage
+          );
+          return;
+        }
+
+        showSuccess(
+          t('settings:security.password.success.title'),
+          t('settings:security.password.success.body')
+        );
+        reloadAuthAccounts().catch((err) => {
+          console.error('Failed to reload auth accounts:', err);
+        });
+        setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' });
+        setIsChangingPassword(false);
+      } else {
+        const { data: _data, error } = await authClient.setPassword({
+          newPassword: passwordForm.newPassword
+        });
+        const errorMessage = getBetterAuthErrorMessage(
+          { data: _data, error },
+          t('settings:security.password.errors.failed.body')
+        );
+        if (errorMessage) {
+          setPasswordError(errorMessage);
+          showError(
+            t('settings:security.password.errors.failed.title'),
+            errorMessage
+          );
+          return;
+        }
+
+        setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' });
+        setIsChangingPassword(false);
+        reloadAuthAccounts().catch((err) => {
+          console.error('Failed to reload auth accounts:', err);
+        });
+        showSuccess(
+          t('settings:security.password.success.title'),
+          t('settings:security.password.success.body')
+        );
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : t('settings:security.password.errors.failed.body');
+      setPasswordError(message);
+      showError(
+        t('settings:security.password.errors.failed.title'),
+        message
       );
-      setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' });
-      setIsChangingPassword(false);
+    } finally {
+      setPasswordSubmitting(false);
+    }
+  };
+
+  const handleResetPassword = async () => {
+    if (isResettingPassword) return;
+    if (!session?.user?.email) {
+      showError(
+        t('settings:security.password.errors.failed.title'),
+        t('settings:security.password.errorEmailUnavailable.reset')
+      );
+      return;
+    }
+
+    setIsResettingPassword(true);
+    try {
+      const { data: _data, error } = await authClient.requestPasswordReset({
+        email: session.user.email
+      });
+      const errorMessage = getBetterAuthErrorMessage(
+        { data: _data, error },
+        t('settings:security.password.errors.failed.body')
+      );
+      if (errorMessage) {
+        showError(
+          t('settings:security.password.errors.failed.title'),
+          errorMessage
+        );
+        return;
+      }
+      showSuccess(
+        t('settings:security.password.reset.title'),
+        t('settings:security.password.reset.body')
+      );
     } catch (error) {
       showError(
         t('settings:security.password.errors.failed.title'),
         error instanceof Error ? error.message : t('settings:security.password.errors.failed.body')
       );
+    } finally {
+      setIsResettingPassword(false);
     }
-  };
-
-  const handleResetPassword = () => {
-    // Here you would trigger a password reset email
-    showSuccess(
-      t('settings:security.password.reset.title'),
-      t('settings:security.password.reset.body')
-    );
   };
 
   const handleLogout = (type: 'current' | 'all') => {
@@ -303,14 +418,13 @@ export const SecurityPage = ({
   };
 
   // Show loading state while session or preferences are loading
-  if (isPending || isLoading) {
-    return (
-      <div className={`h-full flex items-center justify-center ${className}`}>
-        <div className="w-8 h-8 border-2 border-accent-500 border-t-transparent rounded-full animate-spin" />
-      </div>
-    );
+  if (isPending || isLoading || authAccountsLoading) {
+    return <LoadingBlock className={className} />;
   }
 
+  if (authAccountsError) {
+    throw new Error(authAccountsError);
+  }
 
   if (!settings) {
     return (
@@ -321,11 +435,13 @@ export const SecurityPage = ({
   }
 
   return (
-    <ContentPageLayout title={t('settings:security.title')} className={className}>
+    <div className={cn('space-y-6', className)}>
       {/* Password Section */}
       <SettingSection
         title={t('settings:security.password.sectionTitle')}
-        description={t('settings:security.password.description')}
+        description={hasPasswordAccount
+          ? t('settings:security.password.description')
+          : t('settings:security.password.addDescription')}
       >
         <div className="flex items-center justify-end gap-2 mb-4">
           <Button
@@ -333,16 +449,21 @@ export const SecurityPage = ({
             size="sm"
             onClick={() => setIsChangingPassword(!isChangingPassword)}
           >
-            {isChangingPassword ? t('settings:security.password.cancelButton') : t('settings:security.password.changeButton')}
+            {isChangingPassword
+              ? t('settings:security.password.cancelButton')
+              : (hasPasswordAccount ? t('settings:security.password.changeButton') : t('settings:security.password.addPassword'))}
           </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={handleResetPassword}
-            className="text-accent-600 dark:text-accent-400 hover:text-accent-700 dark:hover:text-accent-300"
-          >
-            {t('settings:security.password.resetButton')}
-          </Button>
+          {hasPasswordAccount && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => void handleResetPassword()}
+              disabled={isResettingPassword}
+              className="text-accent-600 dark:text-accent-400 hover:text-accent-700 dark:hover:text-accent-300"
+            >
+              {isResettingPassword ? t('common:status.sending', { defaultValue: 'Sending…' }) : t('settings:security.password.resetButton')}
+            </Button>
+          )}
         </div>
 
         <PasswordChangeForm
@@ -355,9 +476,14 @@ export const SecurityPage = ({
           onSubmit={handleChangePassword}
           onCancel={() => {
             setIsChangingPassword(false);
+            setPasswordError(null);
             setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' });
           }}
           isOpen={isChangingPassword}
+          isLoading={passwordSubmitting}
+          error={passwordError}
+          showCurrentPassword={hasPasswordAccount}
+          submitText={hasPasswordAccount ? t('settings:security.password.submit') : t('settings:security.password.addPassword')}
         />
       </SettingSection>
 
@@ -422,30 +548,28 @@ export const SecurityPage = ({
       {showMfa && (
         <>
           {/* MFA Disable Confirmation Modal */}
-          <Modal
+          <Dialog
             isOpen={showDisableMFAConfirm}
             onClose={handleCancelDisableMFA}
             title={t('settings:security.mfa.disable.modalTitle')}
+            description={t('settings:security.mfa.disable.description')}
             showCloseButton={true}
-            type="modal"
           >
-            <div className="space-y-4">
+            <DialogBody className="space-y-4">
               <div className="flex items-start gap-3">
                 <div className="flex-shrink-0">
-                  <Icon icon={ExclamationTriangleIcon} className="w-6 h-6 text-orange-500"  />
+                  <Icon icon={AlertTriangle} className="w-6 h-6 text-orange-500"  />
                 </div>
                 <div className="flex-1">
                   <h3 className="text-lg font-semibold text-input-text mb-2">
                     {t('settings:security.mfa.disable.heading')}
                   </h3>
-                  <p className="text-sm text-input-placeholder">
-                    {t('settings:security.mfa.disable.description')}
-                  </p>
                 </div>
               </div>
-              
+            </DialogBody>
+            <DialogFooter className="p-0">
               <FormActions
-                className="justify-end"
+                className="w-full justify-end border-0 px-5 py-4 sm:px-6"
                 size="sm"
                 onCancel={handleCancelDisableMFA}
                 onSubmit={handleConfirmDisableMFA}
@@ -454,10 +578,10 @@ export const SecurityPage = ({
                 cancelText={t('settings:security.mfa.disable.cancel')}
                 submitText={t('settings:security.mfa.disable.confirm')}
               />
-            </div>
-          </Modal>
+            </DialogFooter>
+          </Dialog>
         </>
       )}
-    </ContentPageLayout>
+    </div>
   );
 };

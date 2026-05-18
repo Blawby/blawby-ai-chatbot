@@ -1,382 +1,288 @@
-import { useState, useRef, useCallback, useEffect } from 'preact/hooks';
-import { useSessionContext } from '@/shared/contexts/SessionContext';
-import { FileAttachment } from '../../../worker/types';
-import { getWorkerRequestUrl, uploadWithProgress, validateFile } from '@/shared/services/upload/UploadTransport';
-
-export type FileStatus = 
-  | 'uploading'      // Browser → Workers
-  | 'uploaded'       // Stored in R2, queued for processing
-  | 'processing'     // Adobe extraction in progress
-  | 'analyzing'      // AI analysis in progress  
-  | 'completed'      // Ready to use
-  | 'failed';        // Error occurred
-
-export interface UploadingFile {
-  id: string;
-  file: File;
-  status: FileStatus;
-  progress: number;
-  fileId?: string;
-  storageKey?: string;
-  error?: string;
-}
-
-interface UploadResponse {
-  fileName: string;
-  fileSize?: number;
-  fileType: string;
-  url: string;
-}
+import { useCallback, useEffect, useMemo, useRef, useState } from 'preact/hooks';
+import { apiClient, isAbortError } from '@/shared/lib/apiClient';
+import { uploadIntakeFile } from '@/features/intake/api/intakeFilesApi';
+import type { FileAttachment } from '../../../worker/types';
+import type { UploadingFile } from '@/shared/types/upload';
 
 interface UseFileUploadOptions {
-  practiceId?: string;
-  conversationId?: string;
-  ensureConversation?: () => Promise<string | null>;
-  onError?: (error: string) => void;
+  practiceId: string | undefined;
+  conversationId: string | undefined;
+  enabled: boolean;
+  /**
+   * When set, post-submit chat uploads are routed through the scoped intake
+   * files API (presign → R2 → confirm) and the resulting FileAttachment is
+   * stamped with `uploadId` and `source: 'intake'`. When omitted, uploads
+   * fall back to the legacy worker R2 `/api/files/upload` pipeline.
+   */
+  intakeUuid?: string | null;
 }
 
-/**
- * Hook that uses blawby-ai practice for all file uploads
- * This is the preferred way to use file upload in components
- */
-export const useFileUploadWithContext = ({ conversationId, ensureConversation, onError }: Omit<UseFileUploadOptions, 'practiceId'>) => {
-  const { activePracticeId } = useSessionContext();
-  return useFileUpload({ practiceId: activePracticeId ?? undefined, conversationId, ensureConversation, onError });
+interface UploadResponseData {
+  fileId?: string;
+  fileName?: string;
+  fileSize?: number;
+  fileType?: string;
+  url?: string;
+  storageKey?: string;
+}
+
+const BLOCKED_EXTENSIONS = new Set([
+  'exe',
+  'bat',
+  'cmd',
+  'com',
+  'pif',
+  'scr',
+  'vbs',
+  'js',
+  'jar',
+  'msi',
+  'app',
+]);
+
+const MAX_FILE_SIZE_BYTES = 25 * 1024 * 1024;
+
+const createRandomId = (): string => {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID();
+  }
+  return `upload-${Date.now()}-${Math.random().toString(16).slice(2)}`;
 };
 
-// Utility function to upload a file to backend
-async function _uploadFileToBackend(file: File, practiceId: string, conversationId: string, signal?: AbortSignal): Promise<UploadResponse> {
-  try {
+const getFileExtension = (fileName: string): string => {
+  const trimmed = fileName.trim().toLowerCase();
+  const lastDotIndex = trimmed.lastIndexOf('.');
+  if (lastDotIndex === -1) return '';
+  return trimmed.slice(lastDotIndex + 1);
+};
+
+const extractUploadData = (value: unknown): UploadResponseData | null => {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
+  const record = value as Record<string, unknown>;
+  const candidate = record.data && typeof record.data === 'object' && !Array.isArray(record.data)
+    ? (record.data as Record<string, unknown>)
+    : record;
+
+  const fileId = typeof candidate.fileId === 'string' ? candidate.fileId : null;
+  if (!fileId) return null;
+
+  return {
+    fileId,
+    fileName: typeof candidate.fileName === 'string' ? candidate.fileName : undefined,
+    fileSize: typeof candidate.fileSize === 'number' ? candidate.fileSize : undefined,
+    fileType: typeof candidate.fileType === 'string' ? candidate.fileType : undefined,
+    url: typeof candidate.url === 'string' ? candidate.url : undefined,
+    storageKey: typeof candidate.storageKey === 'string' ? candidate.storageKey : undefined,
+  };
+};
+
+export const useFileUpload = ({ practiceId, conversationId, enabled, intakeUuid }: UseFileUploadOptions) => {
+  const [previewFiles, setPreviewFiles] = useState<FileAttachment[]>([]);
+  const [uploadingFiles, setUploadingFiles] = useState<UploadingFile[]>([]);
+  const [isRecording, setIsRecording] = useState(false);
+  const controllersRef = useRef<Map<string, AbortController>>(new Map());
+
+  // The composer is upload-ready when either:
+  //  - we have a practiceId (legacy worker R2 path), OR
+  //  - we have an intakeUuid (scoped intake files API path).
+  // The intake path takes precedence when set.
+  const isReadyToUpload = enabled && Boolean(intakeUuid || practiceId);
+
+  const removeUploadingFile = useCallback((fileId: string) => {
+    setUploadingFiles((current) => current.filter((file) => file.id !== fileId));
+  }, []);
+
+  const finalizeUpload = useCallback((fileId: string, attachment: FileAttachment) => {
+    removeUploadingFile(fileId);
+    setPreviewFiles((current) => [...current, attachment]);
+  }, [removeUploadingFile]);
+
+  const handleUploadFailure = useCallback((fileId: string, error: unknown) => {
+    removeUploadingFile(fileId);
+    console.warn('[useFileUpload] Upload failed', error);
+  }, [removeUploadingFile]);
+
+  const uploadViaIntake = useCallback(async (
+    file: File,
+    uploadId: string,
+    controller: AbortController,
+  ): Promise<FileAttachment | null> => {
+    if (!intakeUuid) return null;
+    try {
+      const result = await uploadIntakeFile({
+        intakeUuid,
+        file,
+        signal: controller.signal,
+        onProgress: ({ percentage }) => {
+          setUploadingFiles((current) => current.map((entry) => (
+            entry.id === uploadId ? { ...entry, progress: percentage } : entry
+          )));
+        },
+      });
+      const attachment: FileAttachment = {
+        id: result.id,
+        name: result.fileName,
+        size: result.fileSize,
+        type: result.mimeType ?? file.type ?? 'application/octet-stream',
+        url: result.publicUrl ?? '',
+        storageKey: result.storageKey ?? undefined,
+        uploadId: result.uploadId,
+        source: 'intake',
+      };
+      finalizeUpload(uploadId, attachment);
+      return attachment;
+    } catch (error) {
+      if (isAbortError(error)) {
+        removeUploadingFile(uploadId);
+        return null;
+      }
+      handleUploadFailure(uploadId, error);
+      return null;
+    }
+  }, [finalizeUpload, handleUploadFailure, intakeUuid, removeUploadingFile]);
+
+  const uploadViaWorker = useCallback(async (
+    file: File,
+    uploadId: string,
+    controller: AbortController,
+  ): Promise<FileAttachment | null> => {
+    if (!practiceId) return null;
     const formData = new FormData();
     formData.append('file', file);
     formData.append('practiceId', practiceId);
-    formData.append('conversationId', conversationId);
+    if (conversationId) formData.append('conversationId', conversationId);
 
-    const response = await fetch(getWorkerRequestUrl('/api/files/upload'), {
-      method: 'POST',
-      body: formData,
-      signal,
-      credentials: 'include'
-    });
-    
-    if (!response.ok) {
-      const error = await response.json().catch(() => ({})) as { error?: string };
-      throw new Error(error?.error || 'File upload failed');
-    }
-    
-    const result = await response.json() as { data: UploadResponse };
-    return result.data;
-  } catch (error) {
-    if (error instanceof Error && error.name === 'AbortError') {
-      throw new Error('Upload cancelled');
-    }
-    throw error;
-  }
-}
-
-/**
- * Legacy hook that requires practiceId parameter
- * @deprecated Use useFileUploadWithContext() instead
- */
-export const useFileUpload = ({ practiceId, conversationId, ensureConversation, onError }: UseFileUploadOptions) => {
-  const [previewFiles, setPreviewFiles] = useState<FileAttachment[]>([]);
-  const [uploadingFiles, setUploadingFiles] = useState<UploadingFile[]>([]);
-  const [isDragging, setIsDragging] = useState(false);
-  const dragCounter = useRef(0);
-  const abortControllers = useRef<Map<string, AbortController>>(new Map());
-
-  const resolvedPracticeId = (practiceId ?? '').trim();
-  const resolvedConversationId = (conversationId ?? '').trim();
-
-  // Check if we're ready to upload files
-  const isReadyToUpload = resolvedPracticeId !== '' && (resolvedConversationId !== '' || Boolean(ensureConversation));
-
-  const resolveConversationId = useCallback(async () => {
-    if (resolvedConversationId !== '') return resolvedConversationId;
-    if (!ensureConversation) return '';
-    return ((await ensureConversation()) ?? '').trim();
-  }, [ensureConversation, resolvedConversationId]);
-
-
-  // Upload files with progress tracking
-  const uploadFiles = useCallback(async (files: File[]) => {
-    const targetConversationId = await resolveConversationId();
-    if (resolvedPracticeId === '' || targetConversationId === '') {
-      const error = `Cannot upload files yet. Waiting for conversation to initialize. practiceId: "${resolvedPracticeId}", conversationId: "${targetConversationId}"`;
-      console.error(error);
-      onError?.(error);
-      return;
-    }
-
-    // Validate files first
-    const validFiles: File[] = [];
-    const invalidFiles: string[] = [];
-
-    files.forEach(file => {
-      const validation = validateFile(file);
-      if (validation.isValid) {
-        validFiles.push(file);
-      } else {
-        invalidFiles.push(`${file.name}: ${validation.error}`);
-      }
-    });
-
-    if (invalidFiles.length > 0) {
-      onError?.(`Invalid files: ${invalidFiles.join(', ')}`);
-    }
-
-    if (validFiles.length === 0) return;
-
-    // Create upload tracking entries
-    const newUploads: UploadingFile[] = validFiles.map(file => ({
-      id: crypto.randomUUID(),
-      file,
-      status: 'uploading',
-      progress: 0
-    }));
-
-    setUploadingFiles(prev => [...prev, ...newUploads]);
-
-    // Upload each file with progress tracking in parallel
-    const uploadPromises = newUploads.map(async (upload) => {
-      const abortController = new AbortController();
-      abortControllers.current.set(upload.id, abortController);
-
-      try {
-        const result = await uploadWithProgress(upload.file, {
-          practiceId: resolvedPracticeId,
-          conversationId: targetConversationId,
-          onProgress: (progress) => {
-            setUploadingFiles(prev => prev.map(f => 
-              f.id === upload.id 
-                ? { ...f, progress: progress.percentage }
-                : f
-            ));
-          },
-          onSuccess: (result) => {
-            
-            // Update file to uploaded status
-            setUploadingFiles(prev => prev.map(f => 
-              f.id === upload.id 
-                ? { 
-                    ...f, 
-                    status: 'uploaded',
-                    progress: 100,
-                    fileId: result.fileId,
-                    storageKey: result.storageKey
-                  }
-                : f
-            ));
-            
-            // After a brief delay, move to previewFiles for smooth UX
-            setTimeout(() => {
-              
-              setPreviewFiles(prev => [...prev, {
-                id: result.fileId,
-                name: upload.file.name,
-                size: upload.file.size,
-                type: upload.file.type,
-                url: result.url,
-                storageKey: result.storageKey
-              }]);
-              
-              // Remove from uploadingFiles
-              setUploadingFiles(prev => prev.filter(f => f.id !== upload.id));
-            }, 500);
-          },
-          onError: (error) => {
-            setUploadingFiles(prev => prev.map(f => 
-              f.id === upload.id 
-                ? { ...f, status: 'failed', error: error.message }
-                : f
-            ));
-            onError?.(`Failed to upload ${upload.file.name}: ${error.message}`);
-          },
-          signal: abortController.signal
-        });
-
-        return result;
-      } catch (error) {
-        setUploadingFiles(prev => prev.map(f => 
-          f.id === upload.id 
-            ? { ...f, status: 'failed', error: error instanceof Error ? error.message : 'Unknown error' }
-            : f
-        ));
-        throw error;
-      } finally {
-        abortControllers.current.delete(upload.id);
-      }
-    });
-
-    // Wait for all uploads to complete (or fail)
     try {
-      await Promise.all(uploadPromises);
+      const { data } = await apiClient.upload<unknown>('/api/files/upload', formData, {
+        signal: controller.signal,
+        onProgress: ({ percent }) => {
+          setUploadingFiles((current) => current.map((entry) => (
+            entry.id === uploadId ? { ...entry, progress: percent } : entry
+          )));
+        },
+      });
+      const responseData = extractUploadData(data);
+      if (!responseData?.fileId) throw new Error('Missing fileId in upload response');
+      const attachment: FileAttachment = {
+        id: responseData.fileId,
+        name: responseData.fileName ?? file.name,
+        size: responseData.fileSize ?? file.size,
+        type: responseData.fileType ?? file.type,
+        url: responseData.url ?? '',
+        storageKey: responseData.storageKey,
+        source: 'worker',
+      };
+      finalizeUpload(uploadId, attachment);
+      return attachment;
     } catch (error) {
-      // Individual upload errors are already handled in the map function above
-      // This catch block ensures the function doesn't throw unhandled promise rejections
-      console.warn('Some uploads failed:', error);
+      if (isAbortError(error)) {
+        removeUploadingFile(uploadId);
+        return null;
+      }
+      handleUploadFailure(uploadId, error);
+      return null;
     }
-  }, [onError, resolveConversationId, resolvedPracticeId]);
+  }, [conversationId, finalizeUpload, handleUploadFailure, practiceId, removeUploadingFile]);
 
-  // Handle camera capture
-  const handleCameraCapture = useCallback(async (file: File) => {
-    await uploadFiles([file]);
-  }, [uploadFiles]);
+  const uploadSingleFile = useCallback(async (file: File): Promise<FileAttachment | null> => {
+    if (!isReadyToUpload) return null;
 
-  // Handle file selection (now uses the new upload progress system)
-  const handleFileSelect = useCallback(async (files: File[]) => {
-    if (!isReadyToUpload) {
-      const error = `Cannot upload files yet. Waiting for conversation to initialize. practiceId: "${resolvedPracticeId}", conversationId: "${resolvedConversationId}"`;
-      console.error(error);
-      onError?.(error);
+    const fileName = typeof file.name === 'string' ? file.name.trim() : '';
+    if (!fileName) return null;
+    if (file.size > MAX_FILE_SIZE_BYTES) return null;
+    if (BLOCKED_EXTENSIONS.has(getFileExtension(fileName))) return null;
+
+    const uploadId = createRandomId();
+    setUploadingFiles((current) => [...current, { id: uploadId, file, status: 'uploading', progress: 0 }]);
+
+    const controller = new AbortController();
+    controllersRef.current.set(uploadId, controller);
+
+    try {
+      if (intakeUuid) {
+        return await uploadViaIntake(file, uploadId, controller);
+      }
+      return await uploadViaWorker(file, uploadId, controller);
+    } finally {
+      controllersRef.current.delete(uploadId);
+    }
+  }, [intakeUuid, isReadyToUpload, uploadViaIntake, uploadViaWorker]);
+
+  const handleFileSelect = useCallback(async (files: File[]): Promise<FileAttachment[]> => {
+    if (!enabled || !isReadyToUpload || !Array.isArray(files) || files.length === 0) {
       return [];
     }
 
-    // Use the new upload system with progress tracking
-    await uploadFiles(files);
-    
-    // Return empty array since files will be handled by the upload system
-    // and moved to previewFiles automatically when complete
-    return [];
-  }, [uploadFiles, isReadyToUpload, onError, resolvedPracticeId, resolvedConversationId]);
-
-  // Cancel upload
-  const cancelUpload = useCallback((uploadId: string) => {
-    const controller = abortControllers.current.get(uploadId);
-    if (controller) {
-      controller.abort();
-      abortControllers.current.delete(uploadId);
+    const uploadedAttachments: FileAttachment[] = [];
+    for (const file of files) {
+      const attachment = await uploadSingleFile(file);
+      if (attachment) {
+        uploadedAttachments.push(attachment);
+      }
     }
-    
-    setUploadingFiles(prev => prev.filter(f => f.id !== uploadId));
-  }, []);
+    return uploadedAttachments;
+  }, [enabled, isReadyToUpload, uploadSingleFile]);
 
-  // Remove preview file
-  const removePreviewFile = useCallback((index: number) => {
-    setPreviewFiles(prev => prev.filter((_, i) => i !== index));
-  }, []);
-
-  // Clear all preview files
-  const clearPreviewFiles = useCallback(() => {
-    setPreviewFiles([]);
-  }, []);
-
-  // Clear all uploading files
-  const clearUploadingFiles = useCallback(() => {
-    // Cancel all ongoing uploads
-    abortControllers.current.forEach(controller => controller.abort());
-    abortControllers.current.clear();
-    setUploadingFiles([]);
-  }, []);
-
-  // Handle media capture (audio/video)
-  const handleMediaCapture = useCallback((blob: Blob, _type: 'audio' | 'video') => {
-    const url = URL.createObjectURL(blob);
-    const file: FileAttachment = {
-      id: `recording_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`, // Generate unique ID
-      name: `Recording_${new Date().toISOString()}.webm`,
-      size: blob.size,
-      type: blob.type,
-      url,
-    };
-
-    return file;
-  }, []);
-
-  // Drag and drop handlers
-  const handleDragEnter = useCallback((e: DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    dragCounter.current += 1;
-    setIsDragging(true);
-  }, []);
-
-  const handleDragLeave = useCallback((e: DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    
-    dragCounter.current -= 1;
-    
-    // Only reset dragging state when we've left all drag elements
-    if (dragCounter.current === 0) {
-      setIsDragging(false);
-    }
-  }, []);
-
-  const handleDragOver = useCallback((e: DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-  }, []);
-
-  const handleDrop = useCallback(async (e: DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    dragCounter.current = 0;
-    setIsDragging(false);
-
-    // Get all files from the drop event
-    const droppedFiles = Array.from(e.dataTransfer?.files || []);
-    
-    if (droppedFiles.length === 0) return;
-
-    // Separate different types of files
-    const imageFiles = droppedFiles.filter(file => file.type.startsWith('image/'));
-    const videoFiles = droppedFiles.filter(file => file.type.startsWith('video/'));
-    const otherFiles = droppedFiles.filter(file => 
-      !file.type.startsWith('image/') && 
-      !file.type.startsWith('video/')
-    );
-
-    // Apply file type validation
-    const mediaFiles = [...imageFiles, ...videoFiles];
-    const safeOtherFiles = otherFiles.filter(file => {
-      const fileExtension = file.name.split('.').pop()?.toLowerCase();
-      const disallowedExtensions = ['zip', 'exe', 'bat', 'cmd', 'msi', 'app'];
-      return !disallowedExtensions.includes(fileExtension || '');
-    });
-
-    // Handle all valid files together
-    const allValidFiles = [...mediaFiles, ...safeOtherFiles];
-    if (allValidFiles.length > 0) {
-      await handleFileSelect(allValidFiles);
-    }
-
-    // Show alert if any files were filtered out
-    if (safeOtherFiles.length < otherFiles.length) {
-      onError?.('Some files were not uploaded because they have disallowed file extensions (zip, exe, etc.)');
-    }
-  }, [handleFileSelect, onError]);
-
-  // Setup global drag handlers with automatic cleanup
   useEffect(() => {
-    if (typeof document !== 'undefined') {
-      document.body.addEventListener('dragenter', handleDragEnter);
-      document.body.addEventListener('dragleave', handleDragLeave);
-      document.body.addEventListener('dragover', handleDragOver);
-      document.body.addEventListener('drop', handleDrop);
+    const controllers = controllersRef.current;
+    return () => {
+      for (const c of controllers.values()) c.abort();
+      controllers.clear();
+    };
+  }, []);
 
-      return () => {
-        document.body.removeEventListener('dragenter', handleDragEnter);
-        document.body.removeEventListener('dragleave', handleDragLeave);
-        document.body.removeEventListener('dragover', handleDragOver);
-        document.body.removeEventListener('drop', handleDrop);
-      };
-    }
-  }, [handleDragEnter, handleDragLeave, handleDragOver, handleDrop]);
+  const cancelUpload = useCallback((fileId: string) => {
+    if (!enabled) return;
+    controllersRef.current.get(fileId)?.abort();
+    controllersRef.current.delete(fileId);
+    removeUploadingFile(fileId);
+  }, [enabled, removeUploadingFile]);
 
-  return {
-    previewFiles,
-    uploadingFiles,
-    isDragging,
-    setIsDragging,
+  const handleCameraCapture = useCallback(async (file: File): Promise<void> => {
+    if (!enabled) return;
+    await handleFileSelect([file]);
+  }, [enabled, handleFileSelect]);
+
+  const handleMediaCapture = useCallback((blob: Blob, type: 'audio' | 'video') => {
+    if (!enabled) return;
+    const ext = type === 'audio' ? 'webm' : 'mp4';
+    const file = new File([blob], `Recording_${new Date().toISOString()}.${ext}`, { type: blob.type });
+    void handleFileSelect([file]);
+  }, [enabled, handleFileSelect]);
+
+  const removePreviewFile = useCallback((index: number) => {
+    if (!enabled) return;
+    setPreviewFiles((current) => current.filter((_, currentIndex) => currentIndex !== index));
+  }, [enabled]);
+
+  const clearPreviewFiles = useCallback(() => {
+    if (!enabled) return;
+    setPreviewFiles([]);
+  }, [enabled]);
+
+  return useMemo(() => ({
+    previewFiles: enabled ? previewFiles : [],
+    uploadingFiles: enabled ? uploadingFiles : [],
+    isReadyToUpload: enabled ? isReadyToUpload : false,
+    handleFileSelect,
+    handleCameraCapture,
+    removePreviewFile,
+    clearPreviewFiles,
+    cancelUpload,
+    handleMediaCapture,
+    isRecording: enabled ? isRecording : false,
+    setIsRecording: enabled ? setIsRecording : (() => {}) as typeof setIsRecording,
+  }), [
+    cancelUpload,
+    clearPreviewFiles,
+    enabled,
     handleCameraCapture,
     handleFileSelect,
     handleMediaCapture,
+    isReadyToUpload,
+    isRecording,
+    previewFiles,
     removePreviewFile,
-    clearPreviewFiles,
-    clearUploadingFiles,
-    cancelUpload,
-    uploadFiles,
-    isReadyToUpload
-  };
-}; 
+    uploadingFiles,
+  ]);
+};

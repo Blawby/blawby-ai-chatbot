@@ -8,6 +8,7 @@
 import { useState, useRef, useEffect, useMemo, useCallback } from 'preact/hooks';
 import { forwardRef } from 'preact/compat';
 import { cn } from '@/shared/utils/cn';
+import { LoadingSpinner } from '@/shared/ui/layout/LoadingSpinner';
 import { useTranslation } from '@/shared/i18n/hooks';
 import { useUniqueId } from '@/shared/hooks/useUniqueId';
 import { Tag } from './atoms/Tag';
@@ -412,7 +413,7 @@ export const TagInput = forwardRef<HTMLInputElement, TagInputProps>(({
         {/* Tags container with input */}
         <div
           className={cn(
-            'flex flex-wrap items-center w-full border rounded-lg',
+            'flex flex-wrap items-center w-full border rounded-xl',
             'bg-input-bg text-input-text',
             'focus-within:outline-none focus-within:ring-2 focus-within:ring-offset-0 transition-colors',
             containerPaddingClasses[size],
@@ -487,13 +488,16 @@ export const TagInput = forwardRef<HTMLInputElement, TagInputProps>(({
             role="listbox"
             className={cn(
               'absolute z-50 w-full mt-1 glass-panel',
-              'border border-line-glass/30 rounded-lg shadow-glass',
+              'border border-line-glass/30 rounded-xl shadow-glass',
               'max-h-60 overflow-y-auto'
             )}
           >
             {isLoadingSuggestions && (
-              <div className="px-3 py-2 text-sm text-input-placeholder">
-                Loading suggestions...
+              <div className="flex items-center justify-center px-3 py-2">
+                <LoadingSpinner
+                  size="sm"
+                  ariaLabel={t('loadingSuggestions')}
+                />
               </div>
             )}
             {!isLoadingSuggestions && filteredSuggestions.length === 0 && inputValue.trim() && (
@@ -510,10 +514,10 @@ export const TagInput = forwardRef<HTMLInputElement, TagInputProps>(({
                 aria-selected={focusedSuggestionIndex === index}
                 onClick={() => addTag(suggestion)}
                 className={cn(
-                  'w-full text-left px-3 py-2 text-sm text-input-text',
-                  'hover:bg-white/[0.12]',
-                  'focus:outline-none focus:bg-white/[0.12]',
-                  focusedSuggestionIndex === index && 'bg-accent-50 dark:bg-accent-900/20'
+                  'w-full text-left px-3 py-2 text-sm text-[rgb(var(--input-foreground))]',
+                  'hover:bg-[rgb(var(--surface-utility))]/12',
+                  'focus:outline-none focus:bg-[rgb(var(--surface-utility))]/12',
+                  focusedSuggestionIndex === index && 'bg-[rgb(var(--accent-50))] dark:bg-[rgb(var(--accent-900))]/20'
                 )}
               >
                 {suggestion}

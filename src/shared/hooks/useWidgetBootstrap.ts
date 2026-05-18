@@ -1,25 +1,22 @@
 import { useState, useEffect } from 'preact/hooks';
-import { getClient } from '@/shared/lib/authClient';
+import { apiClient, isHttpError } from '@/shared/lib/apiClient';
+import { getSession } from '@/shared/lib/authClient';
 import { rememberAnonymousUserId, rememberAnonymousSessionId } from '@/shared/utils/anonymousIdentity';
-import { clearWidgetAuthToken, persistWidgetAuthToken, withWidgetAuthHeaders } from '@/shared/utils/widgetAuth';
+import { clearWidgetAuthToken, persistWidgetAuthToken } from '@/shared/utils/widgetAuth';
+import type { IntakeTemplate } from '@/shared/types/intake';
+import type { AuthSessionPayload } from '@/shared/types/user';
 
 export interface WidgetBootstrapData {
   practiceDetails: Record<string, unknown> | null;
-  session: {
-    id?: string | null;
-    user?: {
-      id: string;
-      isAnonymous?: boolean;
-      is_anonymous?: boolean;
-      [key: string]: unknown;
-    } | null;
-  } | null;
+  session: AuthSessionPayload;
   conversationId: string | null;
   conversations: Array<Record<string, unknown>>;
   widgetAuthToken?: string | null;
   widgetAuthTokenExpiresAt?: string | null;
   widgetQueryAuthToken?: string | null;
   widgetQueryAuthTokenExpiresAt?: string | null;
+  /** Resolved IntakeTemplate for this widget boot (honours ?template= param) */
+  intakeTemplate?: IntakeTemplate | null;
 }
 
 export function useWidgetBootstrap(slug: string, isWidget: boolean) {
@@ -55,15 +52,42 @@ export function useWidgetBootstrap(slug: string, isWidget: boolean) {
 
         const cacheKey = `blawby_widget_bootstrap_${slug}`;
 
-        const res = await fetch(`/api/widget/bootstrap?slug=${encodeURIComponent(slug)}`, {
-          headers: withWidgetAuthHeaders(),
-          credentials: 'include',
-        });
-        if (!res.ok) {
-          throw new Error(`Failed to bootstrap widget (HTTP ${res.status})`);
+        // Forward ?template= param if present
+        const urlParams = new URLSearchParams(window.location.search);
+        const template = urlParams.get('template');
+        const params: Record<string, string> = { slug };
+        if (template) params.template = template;
+        let freshData: WidgetBootstrapData;
+        try {
+          const { data } = await apiClient.get<WidgetBootstrapData>('/api/widget/bootstrap', { params });
+          freshData = data;
+        } catch (fetchError) {
+          if (isHttpError(fetchError)) {
+            throw new Error(`Failed to bootstrap widget (HTTP ${fetchError.response.status})`);
+          }
+          throw fetchError;
         }
 
-        const freshData = (await res.json()) as WidgetBootstrapData;
+        // ── 2. Identity Reconciliation ──────────────────────────────────────
+        // If the backend returns a DIFFERENT user ID than what we have in storage,
+        // it means the session was reset (e.g. cookies cleared). We must wipe
+        // ALL stale state (token, cached conversation IDs, etc.) to prevent
+        // 403 errors and split-identity bugs.
+        const storedUserId = typeof window !== 'undefined' ? sessionStorage.getItem('blawby:lastAnonUserId') : null;
+        const freshUserId = freshData.session?.user?.id ? String(freshData.session.user.id) : null;
+
+        if (storedUserId && freshUserId && storedUserId !== freshUserId) {
+          console.info('[WidgetBootstrap] Identity mismatch; clearing stale session storage.');
+          clearWidgetAuthToken();
+          if (typeof window !== 'undefined') {
+            Object.keys(sessionStorage).forEach(key => {
+              if (key.startsWith('blawby:')) {
+                sessionStorage.removeItem(key);
+              }
+            });
+          }
+        }
+
         if (typeof freshData.widgetAuthToken === 'string' && freshData.widgetAuthToken.trim().length > 0) {
           persistWidgetAuthToken(
             freshData.widgetAuthToken,
@@ -76,6 +100,7 @@ export function useWidgetBootstrap(slug: string, isWidget: boolean) {
         } else {
           clearWidgetAuthToken();
         }
+
 
         // Write to cache for next page load (read back is just for reference, not fast-path).
         try {
@@ -96,16 +121,11 @@ export function useWidgetBootstrap(slug: string, isWidget: boolean) {
         // If we dispatch auth:session-updated before the fetch completes, those
         // hooks will read the old (null) session and block or error.
         const bootstrapUser = freshData.session?.user;
-        const isAnonymousUser = bootstrapUser
-          ? (typeof bootstrapUser.isAnonymous === 'boolean'
-              ? bootstrapUser.isAnonymous
-              : typeof (bootstrapUser as Record<string, unknown>).is_anonymous === 'boolean'
-                ? Boolean((bootstrapUser as Record<string, unknown>).is_anonymous)
-                : false)
-          : false;
+        // Rely on backend field names only
+        const isAnonymousUser = bootstrapUser?.is_anonymous === true;
 
-        const bootstrapSessionId = typeof freshData.session?.id === 'string'
-          ? freshData.session.id.trim()
+        const bootstrapSessionId = typeof freshData.session?.session?.id === 'string'
+          ? freshData.session.session.id.trim()
           : null;
 
         if (bootstrapUser && isAnonymousUser) {
@@ -121,7 +141,7 @@ export function useWidgetBootstrap(slug: string, isWidget: boolean) {
             rememberAnonymousSessionId(bootstrapSessionId);
           }
           try {
-            await getClient().getSession();
+            await getSession();
           } catch (sessionError) {
             // Non-fatal: the cookie was still set by the worker.
             // The next call that requires auth will pick it up automatically.

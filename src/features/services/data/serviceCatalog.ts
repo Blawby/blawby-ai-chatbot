@@ -1,97 +1,71 @@
-import {
-  AcademicCapIcon,
-  BriefcaseIcon,
-  BuildingOfficeIcon,
-  BuildingStorefrontIcon,
-  ChatBubbleLeftRightIcon,
-  ClipboardDocumentIcon,
-  DocumentTextIcon,
-  ExclamationTriangleIcon,
-  HomeIcon,
-  ScaleIcon,
-  ShieldCheckIcon,
-  SparklesIcon,
-  UserGroupIcon
-} from '@heroicons/react/24/outline';
+import { Briefcase, MessagesSquare, Clipboard, FileText, AlertTriangle, Home, Scale, ShieldCheck, Sparkles, Users, GraduationCap, Building2, Store } from 'lucide-preact';
+
 import type { ServiceTemplate } from '../types';
 
 export const SERVICE_CATALOG: ServiceTemplate[] = [
   {
     id: 'family-law',
     title: 'Family Law',
-    description: 'Divorce, custody, adoption, and other family matters.',
-    icon: UserGroupIcon
+    icon: Users
   },
   {
     id: 'business-law',
     title: 'Business Law',
-    description: 'Business formation, governance, and general counsel services.',
-    icon: BriefcaseIcon
+    icon: Briefcase
   },
   {
     id: 'contract-review',
     title: 'Contract Review',
-    description: 'Drafting, reviewing, and negotiating agreements.',
-    icon: DocumentTextIcon
+    icon: FileText
   },
   {
     id: 'intellectual-property',
     title: 'Intellectual Property',
-    description: 'Trademarks, copyrights, patents, and IP strategy.',
-    icon: SparklesIcon
+    icon: Sparkles
   },
   {
     id: 'employment-law',
     title: 'Employment Law',
-    description: 'Workplace policies, disputes, and compliance.',
-    icon: ShieldCheckIcon
+    icon: ShieldCheck
   },
   {
     id: 'personal-injury',
     title: 'Personal Injury',
-    description: 'Representation for accident and injury claims.',
-    icon: ExclamationTriangleIcon
+    icon: AlertTriangle
   },
   {
     id: 'criminal-law',
     title: 'Criminal Law',
-    description: 'Defense for charges, investigations, and hearings.',
-    icon: ScaleIcon
+    icon: Scale
   },
   {
     id: 'civil-law',
     title: 'Civil Law',
-    description: 'Disputes, litigation strategy, and settlements.',
-    icon: BuildingOfficeIcon
+    icon: Building2
   },
   {
     id: 'general-consultation',
     title: 'General Consultation',
-    description: 'General legal guidance and next steps.',
-    icon: ChatBubbleLeftRightIcon
+    icon: MessagesSquare
   },
   {
     id: 'small-business-nonprofits',
     title: 'Small Business and Nonprofits',
-    description: 'Legal support for small businesses and nonprofit leaders.',
-    icon: BuildingStorefrontIcon
+    icon: Store
   },
   {
     id: 'tenant-rights',
     title: 'Tenant Rights',
-    description: 'Support for housing disputes and tenant protections.',
-    icon: HomeIcon
+    icon: Home
   },
   {
     id: 'probate-estate-planning',
     title: 'Probate and Estate Planning',
-    description: 'Estate planning and administration services.',
-    icon: ClipboardDocumentIcon
+    icon: Clipboard
   },
   {
     id: 'special-education-iep-advocacy',
     title: 'Special Education and IEP Advocacy',
-    description: 'Guidance for IEP planning and education rights.',
-    icon: AcademicCapIcon
+    icon: GraduationCap
   }
 ];

@@ -117,24 +117,24 @@ export function getWorkspaceMattersPath(
 }
 
 /**
- * Generate a workspace clients path for the given workspace and practice slug.
+ * Generate a workspace contacts path for the given workspace and practice slug.
  * Returns null if required params are missing.
- * Routes: `/practice/:practiceSlug/people` or `/client/:practiceSlug/people`
+ * Routes: `/practice/:practiceSlug/contacts` or `/client/:practiceSlug/contacts`
  */
-export function getWorkspaceClientsPath(
+export function getWorkspaceContactsPath(
   workspace: WorkspaceType,
   slug?: string | null
 ): string | null {
   if (!slug) return null;
   
   if (workspace === 'practice') {
-    return generateWorkspacePath('/practice/:practiceSlug/people', { practiceSlug: slug });
+    return generateWorkspacePath('/practice/:practiceSlug/contacts', { practiceSlug: slug });
   }
   if (workspace === 'client') {
-    return generateWorkspacePath('/client/:practiceSlug/people', { practiceSlug: slug });
+    return generateWorkspacePath('/client/:practiceSlug/contacts', { practiceSlug: slug });
   }
   if (workspace === 'public') {
-    return generateWorkspacePath('/public/:practiceSlug/people', { practiceSlug: slug });
+    return generateWorkspacePath('/public/:practiceSlug/contacts', { practiceSlug: slug });
   }
   
   return null;
@@ -150,8 +150,29 @@ export function setSettingsReturnPath(path: string): void {
   window.sessionStorage.setItem(SETTINGS_RETURN_KEY, path);
 }
 
-const isRelativeInternalPath = (path: string): boolean =>
-  path.startsWith('/') && !path.startsWith('//');
+const isRelativeInternalPath = (path: string): boolean => {
+  if (typeof path !== 'string') return false;
+  // Reject any paths containing backslashes to avoid confusion with
+  // protocol-like inputs such as "\" or "//\\evil.com". Normalize
+  // backslashes to forward slashes and then validate.
+  if (path.includes('\\')) return false;
+  const normalized = path.replaceAll('\\', '/');
+  return normalized.startsWith('/') && !normalized.startsWith('//');
+};
+
+export function isValidInternalReturnPath(path: string | null | undefined): path is string {
+  return typeof path === 'string' && isRelativeInternalPath(path);
+}
+
+export function getValidatedInternalReturnPath(
+  returnPath: string | null | undefined,
+  fallback: string
+): string {
+  if (isValidInternalReturnPath(returnPath)) {
+    return returnPath;
+  }
+  return fallback;
+}
 
 export function getValidatedSettingsReturnPath(
   returnPath: string | null,

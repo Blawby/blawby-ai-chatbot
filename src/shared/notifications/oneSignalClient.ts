@@ -1,4 +1,4 @@
-import { getWorkerApiUrl } from '@/config/urls';
+import { apiClient, isHttpError } from '@/shared/lib/apiClient';
 
 type OneSignalInitOptions = {
   appId: string;
@@ -288,24 +288,16 @@ async function registerDestination(onesignalId: string): Promise<void> {
     }
   }
 
-  const baseUrl = getWorkerApiUrl();
-
   const send = async () => {
-    const response = await fetch(`${baseUrl}${DESTINATIONS_ENDPOINT}`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      credentials: 'include',
-      body: JSON.stringify({
-        onesignalId,
-        platform: 'web'
-      })
-    });
-
-    if (!response.ok) {
-      const text = await response.text().catch(() => '');
-      throw new Error(`Destination registration failed (${response.status}): ${text}`);
+    try {
+      await apiClient.post(DESTINATIONS_ENDPOINT, { onesignalId, platform: 'web' });
+    } catch (error) {
+      if (isHttpError(error)) {
+        const data = error.response.data;
+        const text = typeof data === 'string' ? data : JSON.stringify(data ?? {});
+        throw new Error(`Destination registration failed (${error.response.status}): ${text}`);
+      }
+      throw error;
     }
   };
 
@@ -325,14 +317,14 @@ async function registerDestination(onesignalId: string): Promise<void> {
 }
 
 async function disableDestination(onesignalId: string): Promise<void> {
-  const baseUrl = getWorkerApiUrl();
-  const response = await fetch(`${baseUrl}${DESTINATIONS_ENDPOINT}/${onesignalId}`, {
-    method: 'DELETE',
-    credentials: 'include'
-  });
-
-  if (!response.ok) {
-    const text = await response.text().catch(() => '');
-    throw new Error(`Destination disable failed (${response.status}): ${text}`);
+  try {
+    await apiClient.delete(`${DESTINATIONS_ENDPOINT}/${onesignalId}`);
+  } catch (error) {
+    if (isHttpError(error)) {
+      const data = error.response.data;
+      const text = typeof data === 'string' ? data : JSON.stringify(data ?? {});
+      throw new Error(`Destination disable failed (${error.response.status}): ${text}`);
+    }
+    throw error;
   }
 }

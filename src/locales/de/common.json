@@ -263,6 +263,7 @@
     "publicIntro": "Stellen Sie uns Ihre Fragen oder teilen Sie uns Ihr Feedback mit.",
     "submitNow": "Jetzt absenden",
     "submitRequest": "Anfrage absenden",
+    "payAndSubmit": "Bezahlen und absenden",
     "askQuestion": "Eine Frage stellen",
     "requestConsultation": "Beratung anfordern",
     "retry": "Erneut versuchen",
@@ -276,6 +277,9 @@
       "reviewSubmit": "Überprüfen & absenden",
       "submit": "Anfrage absenden",
       "submitConsultationRequest": "Beratungsanfrage absenden"
+    },
+    "attachments": {
+      "disabled": "Anhang-Upload ist in diesem Formular nicht verfügbar."
     }
   },
   "intake": {

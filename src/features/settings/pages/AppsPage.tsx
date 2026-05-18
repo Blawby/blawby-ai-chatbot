@@ -2,10 +2,10 @@ import { App } from './appsData';
 import { SettingRow } from '@/features/settings/components/SettingRow';
 import { SettingsBadge } from '@/features/settings/components/SettingsBadge';
 import { SectionDivider } from '@/shared/ui/layout';
-import { ContentPageLayout } from '@/shared/ui/layout';
-import { ChevronRightIcon, PuzzlePieceIcon, CheckBadgeIcon } from '@heroicons/react/24/outline';
-import { Icon } from '@/shared/ui/Icon';
+import { ChevronRight, Puzzle, BadgeCheck } from 'lucide-preact';
+
 import { useTranslation } from '@/shared/i18n/hooks';
+import { Icon } from '@/shared/ui/Icon';
 
 interface AppsPageProps {
   apps: App[];
@@ -17,11 +17,10 @@ export const AppsPage = ({ apps, onSelect, className = '' }: AppsPageProps) => {
   const { t } = useTranslation(['settings']);
 
   return (
-    <ContentPageLayout title={t('settings:apps.title')} className={className}>
+    <div className={`space-y-6 ${className}`}>
       <p className="text-sm text-input-placeholder mb-4">
         {t('settings:apps.description')}
       </p>
-
       {apps.map((app, index) => (
         <div key={app.id}>
           <button
@@ -33,7 +32,7 @@ export const AppsPage = ({ apps, onSelect, className = '' }: AppsPageProps) => {
               label={app.name}
               labelNode={(
                 <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 rounded-lg glass-panel flex items-center justify-center overflow-hidden">
+                  <div className="w-12 h-12 rounded-xl glass-panel flex items-center justify-center overflow-hidden">
                     {app.logo ? (
                       <img
                         src={app.logo}
@@ -42,7 +41,7 @@ export const AppsPage = ({ apps, onSelect, className = '' }: AppsPageProps) => {
                         loading="lazy"
                       />
                     ) : (
-                      <Icon icon={PuzzlePieceIcon} className="w-6 h-6 text-input-text/70" aria-hidden="true"  />
+                      <Icon icon={Puzzle} className="w-6 h-6 text-input-text/70" aria-hidden="true" />
                     )}
                   </div>
                   <div className="flex-1 min-w-0">
@@ -50,7 +49,7 @@ export const AppsPage = ({ apps, onSelect, className = '' }: AppsPageProps) => {
                       <p className="text-base font-medium text-input-text truncate">{app.name}</p>
                       {app.connected && (
                         <SettingsBadge variant="success">
-                          <Icon icon={CheckBadgeIcon} className="w-4 h-4" aria-hidden="true"  />
+                          <Icon icon={BadgeCheck} className="w-4 h-4" aria-hidden="true" />
                           {t('settings:apps.clio.connected')}
                         </SettingsBadge>
                       )}
@@ -64,12 +63,12 @@ export const AppsPage = ({ apps, onSelect, className = '' }: AppsPageProps) => {
                 </div>
               )}
             >
-              <Icon icon={ChevronRightIcon} className="w-5 h-5 text-input-placeholder" aria-hidden="true"  />
+              <Icon icon={ChevronRight} className="w-5 h-5 text-input-placeholder" aria-hidden="true" />
             </SettingRow>
           </button>
           {index < apps.length - 1 && <SectionDivider />}
         </div>
       ))}
-    </ContentPageLayout>
+    </div>
   );
 };

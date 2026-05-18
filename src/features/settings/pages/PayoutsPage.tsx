@@ -1,29 +1,27 @@
-import axios from 'axios';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { Button } from '@/shared/ui/Button';
-import { SectionDivider } from '@/shared/ui';
-import { ContentPageLayout } from '@/shared/ui/layout';
+import { SectionDivider } from '@/shared/ui/layout/SectionDivider';
+import { EditorShell } from '@/shared/ui/layout/EditorShell';
 import { SettingsHelperText } from '@/features/settings/components/SettingsHelperText';
+import { SettingsNotice } from '@/features/settings/components/SettingsNotice';
 import { SettingSection } from '@/features/settings/components/SettingSection';
+import { SettingRow } from '@/features/settings/components/SettingRow';
+import { Input } from '@/shared/ui/input';
 import { useSessionContext } from '@/shared/contexts/SessionContext';
 import { usePracticeManagement } from '@/shared/hooks/usePracticeManagement';
+import { usePracticeDetails } from '@/shared/hooks/usePracticeDetails';
 import { useToastContext } from '@/shared/contexts/ToastContext';
 import {
   createConnectedAccount,
   getOnboardingStatusPayload
 } from '@/shared/lib/apiClient';
-import { StripeOnboardingStep } from '@/features/onboarding/steps/StripeOnboardingStep';
+import { CheckCircle2, AlertTriangle, Lock, ShieldCheck, User } from 'lucide-preact';
 import { extractStripeStatusFromPayload } from '@/features/onboarding/utils';
 import type { StripeConnectStatus } from '@/features/onboarding/types';
 import { getValidatedStripeOnboardingUrl } from '@/shared/utils/stripeOnboarding';
-import {
-  CheckCircleIcon,
-  ExclamationTriangleIcon,
-  LockClosedIcon,
-  ShieldCheckIcon,
-  UserCircleIcon
-} from '@heroicons/react/24/outline';
+
 import { Icon } from '@/shared/ui/Icon';
+
 
 const maskStripeAccountId = (value?: string | null) => {
   if (!value) return 'Not created';
@@ -31,10 +29,18 @@ const maskStripeAccountId = (value?: string | null) => {
   return `${value.slice(0, 8)}...${value.slice(-4)}`;
 };
 
-export const PayoutsPage = ({ className = '' }: { className?: string }) => {
+export const PayoutsPage = ({
+  className = '',
+  onBack
+}: {
+  className?: string;
+  onBack?: () => void;
+}) => {
   const { session } = useSessionContext();
   const { currentPractice } = usePracticeManagement({ fetchPracticeDetails: true });
-  const { showError } = useToastContext();
+  const { details, updateDetails, setDetails } = usePracticeDetails(currentPractice?.id, null, false);
+  const { showError, showSuccess } = useToastContext();
+
   const organizationId = useMemo(
     () => currentPractice?.betterAuthOrgId ?? currentPractice?.id ?? null,
     [currentPractice?.betterAuthOrgId, currentPractice?.id]
@@ -43,6 +49,19 @@ export const PayoutsPage = ({ className = '' }: { className?: string }) => {
   const [stripeStatus, setStripeStatus] = useState<StripeConnectStatus | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [billingIncrementDraft, setBillingIncrementDraft] = useState<number | ''>('');
+  const [billingTouched, setBillingTouched] = useState(false);
+  const [isSavingBilling, setIsSavingBilling] = useState(false);
+
+  const savedBillingIncrement = useMemo(() => {
+    const raw = details?.billingIncrementMinutes ?? currentPractice?.billingIncrementMinutes ?? null;
+    return typeof raw === 'number' && Number.isFinite(raw) ? raw : 6;
+  }, [currentPractice?.billingIncrementMinutes, details?.billingIncrementMinutes]);
+  const displayedBillingIncrement = billingTouched ? billingIncrementDraft : savedBillingIncrement;
+  const isBillingValid = typeof displayedBillingIncrement === 'number'
+    && Number.isInteger(displayedBillingIncrement)
+    && displayedBillingIncrement >= 1
+    && displayedBillingIncrement <= 60;
 
   const fetchStatus = useCallback(async (signal: AbortSignal) => {
     if (!organizationId) {
@@ -73,10 +92,6 @@ export const PayoutsPage = ({ className = '' }: { className?: string }) => {
         return;
       }
       if ((error as { name?: string }).name === 'AbortError') {
-        return;
-      }
-      if (axios.isAxiosError(error) && error.response?.status === 404) {
-        setStripeStatus(null);
         return;
       }
       console.warn('[PAYOUTS] Failed to load Stripe status:', error);
@@ -166,150 +181,269 @@ export const PayoutsPage = ({ className = '' }: { className?: string }) => {
     ? {
         title: 'Stripe connected and ready',
         description: 'Your practice can receive payments and payouts through Stripe.',
-        icon: CheckCircleIcon,
+        icon: CheckCircle2,
         iconClassName: 'text-emerald-600 dark:text-emerald-400'
       }
     : needsAction
     ? {
         title: 'Stripe setup needs your attention',
         description: 'Finish submitting your business and representative details to enable payouts.',
-        icon: ExclamationTriangleIcon,
+        icon: AlertTriangle,
         iconClassName: 'text-amber-600 dark:text-amber-400'
       }
     : isPendingVerification
     ? {
         title: 'Verification in progress',
         description: 'Stripe has your details. Payouts will unlock after verification is complete.',
-        icon: ShieldCheckIcon,
+        icon: ShieldCheck,
         iconClassName: 'text-sky-600 dark:text-sky-400'
       }
     : null;
 
   const businessEmail = currentPractice?.businessEmail || session?.user?.email || '';
   const missingBusinessEmail = !businessEmail;
+  const statusLabel = statusTone === 'ready'
+    ? 'Ready'
+    : statusTone === 'action'
+      ? 'Action required'
+      : statusTone === 'pending'
+        ? 'Verification in progress'
+        : 'Not started';
+  const actionButtonLabel = isSubmitting
+    ? 'Preparing Stripe...'
+    : hasStripeAccount
+      ? 'Continue Stripe setup'
+      : 'Start Stripe setup';
+
+  const handleSaveBillingIncrement = async () => {
+    if (!currentPractice) return;
+    if (!isBillingValid) {
+      showError('Payouts and Billing', 'Billing increment must be a whole number between 1 and 60 minutes.');
+      return;
+    }
+    const nextValue = displayedBillingIncrement as number;
+
+    if (nextValue === savedBillingIncrement) {
+      setBillingTouched(false);
+      setBillingIncrementDraft(nextValue);
+      return;
+    }
+
+    setIsSavingBilling(true);
+    try {
+      const savedDetails = await updateDetails({ billingIncrementMinutes: nextValue });
+      if (savedDetails != null) setDetails(savedDetails);
+      setBillingTouched(false);
+      setBillingIncrementDraft(nextValue);
+      showSuccess('Payouts and Billing', 'Billing increment updated.');
+    } catch (error) {
+      showError(
+        'Payouts and Billing',
+        error instanceof Error ? error.message : 'Failed to update billing increment.'
+      );
+    } finally {
+      setIsSavingBilling(false);
+    }
+  };
 
   return (
-    <ContentPageLayout title="Payouts" className={className} contentClassName="pb-8">
-      <SettingSection title="External payout accounts">
-        {hasStripeAccount && statusSummary ? (
-          <div className="space-y-4">
+    <EditorShell
+      title="Payouts and Billing"
+      showBack={Boolean(onBack)}
+      onBack={onBack}
+      className={className}
+      contentMaxWidth={null}
+    >
+      <div className="space-y-6">
+        <SettingSection
+          title="Time entry billing increment"
+          description="Round billable time to this many minutes when entries are created."
+        >
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-end">
+            <div className="w-full max-w-[220px]">
+              <label className="mb-2 block text-sm font-medium text-input-text" htmlFor="billing-increment-minutes">
+                Minutes
+              </label>
+              <Input
+                id="billing-increment-minutes"
+                type="number"
+                min={1}
+                max={60}
+                step={1}
+                value={displayedBillingIncrement === '' ? '' : String(displayedBillingIncrement)}
+                onChange={(value) => {
+                  const trimmed = value.trim();
+                  const parsed = trimmed === '' ? '' : Number.parseInt(trimmed, 10);
+                  setBillingTouched(true);
+                  setBillingIncrementDraft(Number.isFinite(parsed as number) ? (parsed as number) : '');
+                }}
+                disabled={isSavingBilling}
+                placeholder="6"
+              />
+            </div>
+            <Button
+              type="button"
+              size="sm"
+              onClick={() => void handleSaveBillingIncrement()}
+              disabled={isSavingBilling || !billingTouched || !isBillingValid || displayedBillingIncrement === savedBillingIncrement}
+            >
+              {isSavingBilling ? 'Saving...' : 'Save'}
+            </Button>
+          </div>
+        </SettingSection>
+
+        <SectionDivider />
+
+        <SettingSection
+          title="External payout accounts"
+          description="Connect Stripe to receive payouts for your practice."
+        >
+          <SettingsNotice variant={missingBusinessEmail ? 'warning' : 'info'} className="mb-4">
             <div className="flex items-start gap-3">
-              <span className="mt-0.5 flex h-8 w-8 items-center justify-center">
-                <statusSummary.icon className={`h-5 w-5 ${statusSummary.iconClassName}`} />
+              <span className="mt-0.5 flex h-5 w-5 items-center justify-center">
+                <Icon
+                  icon={missingBusinessEmail ? AlertTriangle : (hasStripeAccount && statusSummary ? statusSummary.icon : ShieldCheck)}
+                  className={missingBusinessEmail
+                    ? 'h-5 w-5 text-amber-600 dark:text-amber-400'
+                    : hasStripeAccount && statusSummary
+                      ? `h-5 w-5 ${statusSummary.iconClassName}`
+                      : 'h-5 w-5 text-input-placeholder'}
+                />
               </span>
               <div className="min-w-0">
-                <p className="text-sm font-semibold text-input-text">{statusSummary.title}</p>
-                <p className="text-sm text-input-placeholder">{statusSummary.description}</p>
-              </div>
-            </div>
-
-            <div className="glass-panel p-4">
-              <div className="grid gap-2 text-sm">
-                <div className="flex items-center justify-between gap-4">
-                  <span className="text-input-placeholder">Stripe account</span>
-                  <span className="font-medium text-input-text">{maskStripeAccountId(stripeStatus?.stripe_account_id)}</span>
-                </div>
-                <div className="flex items-center justify-between gap-4">
-                  <span className="text-input-placeholder">Charges</span>
-                  <span className="font-medium text-input-text">{chargesEnabled ? 'Enabled' : 'Pending verification'}</span>
-                </div>
-                <div className="flex items-center justify-between gap-4">
-                  <span className="text-input-placeholder">Payouts</span>
-                  <span className="font-medium text-input-text">{payoutsEnabled ? 'Enabled' : 'Pending verification'}</span>
-                </div>
-                <div className="flex items-center justify-between gap-4">
-                  <span className="text-input-placeholder">Status</span>
-                  <span className="font-medium text-input-text">
-                    {statusTone === 'ready'
-                      ? 'Ready'
-                      : statusTone === 'action'
-                      ? 'Action required'
-                      : statusTone === 'pending'
-                      ? 'Verification in progress'
-                      : 'Not started'}
-                  </span>
-                </div>
-              </div>
-              <p className="mt-3 text-xs text-input-placeholder">
-                Bank accounts and payout schedules are managed in Stripe after onboarding.
-              </p>
-            </div>
-          </div>
-        ) : (
-          <div className="space-y-4">
-            <div className="flex items-start gap-3 text-sm text-input-placeholder">
-              <span className="mt-0.5 flex h-8 w-8 items-center justify-center">
-                <Icon icon={ShieldCheckIcon} className="h-5 w-5 text-input-placeholder"  />
-              </span>
-              <p>
-                Information about your business, and authorized representative(s) of your business, will need to be verified to comply with the law. This may require you to provide documents such as government-issued identification.
-              </p>
-            </div>
-            <div className="flex items-start gap-3 text-sm text-input-placeholder">
-              <span className="mt-0.5 flex h-8 w-8 items-center justify-center">
-                <Icon icon={UserCircleIcon} className="h-5 w-5 text-input-placeholder"  />
-              </span>
-              <p>
-                It&apos;s recommended that the person filling out the information is either the owner of the business, or someone with a significant role in the business, such as a director or executive.
-              </p>
-            </div>
-            <div className="flex items-start gap-3 text-sm text-input-placeholder">
-              <span className="mt-0.5 flex h-8 w-8 items-center justify-center">
-                <Icon icon={LockClosedIcon} className="h-5 w-5 text-input-placeholder"  />
-              </span>
-              <p>
-                Any information and documentation you submit will be securely handled in accordance with Blawby&apos;s Privacy Policy, and may be used to create a faster onboarding experience for you if you choose to use other Blawby products.
-              </p>
-            </div>
-            {missingBusinessEmail && (
-              <div className="flex items-start gap-3 text-sm text-input-placeholder">
-                <span className="mt-0.5 flex h-8 w-8 items-center justify-center">
-                  <Icon icon={ExclamationTriangleIcon} className="h-5 w-5 text-amber-600 dark:text-amber-400"  />
-                </span>
-                <p>
-                  Add a business email in your practice contact settings before starting Stripe verification.
+                <p className="text-sm font-medium">
+                  {missingBusinessEmail
+                    ? 'Business email required'
+                    : hasStripeAccount && statusSummary
+                      ? statusSummary.title
+                      : 'Stripe onboarding required'}
+                </p>
+                <p className="mt-1 text-sm">
+                  {missingBusinessEmail
+                    ? 'Add a business email in practice contact settings before starting Stripe verification.'
+                    : hasStripeAccount && statusSummary
+                      ? statusSummary.description
+                      : 'Stripe will verify your business and representative details before enabling payouts.'}
                 </p>
               </div>
-            )}
+            </div>
+          </SettingsNotice>
+
+        <SettingRow
+          label="Stripe account"
+          description={isReady ? undefined : 'Bank accounts and payout schedules are managed in Stripe after onboarding.'}
+        >
+          <div className="flex w-full items-center justify-between gap-3 sm:w-auto sm:justify-end">
+            <span className="text-sm font-medium text-input-text">
+              {maskStripeAccountId(stripeStatus?.stripe_account_id)}
+            </span>
+            {hasStripeAccount ? (
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={handleSubmitDetails}
+                disabled={isSubmitting || isLoading || missingBusinessEmail}
+              >
+                Manage
+              </Button>
+            ) : null}
           </div>
+        </SettingRow>
+
+        <SectionDivider />
+
+        <SettingRow
+          label="Business email"
+          labelNode={(
+            <div className="flex items-center gap-3">
+              <Icon icon={User} className="h-5 w-5 text-input-placeholder" />
+              <span className="text-sm font-medium text-input-text">Business email</span>
+            </div>
+          )}
+          description={isReady ? undefined : 'Stripe uses this email during onboarding and verification.'}
+        >
+          <span className="text-sm font-medium text-input-text">
+            {businessEmail || 'Not set'}
+          </span>
+        </SettingRow>
+
+        <SectionDivider />
+
+        <SettingRow
+          label="Charges"
+          description={isReady ? undefined : 'Card payments can be accepted once Stripe finishes verifying the account.'}
+        >
+          <span className="text-sm font-medium text-input-text">
+            {chargesEnabled ? 'Enabled' : 'Pending verification'}
+          </span>
+        </SettingRow>
+
+        <SectionDivider />
+
+        <SettingRow
+          label="Payouts"
+          labelNode={(
+            <div className="flex items-center gap-3">
+              <Icon icon={Lock} className="h-5 w-5 text-input-placeholder" />
+              <span className="text-sm font-medium text-input-text">Payouts</span>
+            </div>
+          )}
+          description={isReady ? undefined : 'Payouts unlock after Stripe verifies your business details.'}
+        >
+          <span className="text-sm font-medium text-input-text">
+            {payoutsEnabled ? 'Enabled' : 'Pending verification'}
+          </span>
+        </SettingRow>
+
+        <SectionDivider />
+
+        <SettingRow
+          label="Status"
+          labelNode={(
+            <div className="flex items-center gap-3">
+              <Icon icon={ShieldCheck} className="h-5 w-5 text-input-placeholder" />
+              <span className="text-sm font-medium text-input-text">Status</span>
+            </div>
+          )}
+          description={isReady
+            ? undefined
+            : hasStripeAccount
+              ? 'Review or complete Stripe onboarding to finish setup.'
+              : 'Start Stripe onboarding to create your payout account.'}
+        >
+          <span className="text-sm font-medium text-input-text">
+            {statusLabel}
+          </span>
+        </SettingRow>
+
+        {!isReady && (
+          <>
+            <SectionDivider />
+            <SettingRow
+              label="Stripe setup"
+              description="You will be redirected to Stripe to complete or review verification."
+            >
+              <Button
+                variant="primary"
+                size="sm"
+                onClick={handleSubmitDetails}
+                disabled={isSubmitting || isLoading || missingBusinessEmail}
+              >
+                {actionButtonLabel}
+              </Button>
+            </SettingRow>
+          </>
         )}
 
-        <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center">
-          {!isReady && (
-            <Button
-              variant="primary"
-              size="sm"
-              onClick={handleSubmitDetails}
-              disabled={isSubmitting || isLoading || missingBusinessEmail}
-            >
-              {isSubmitting ? 'Preparing Stripe...' : hasStripeAccount ? 'Continue Stripe setup' : 'Start Stripe setup'}
-            </Button>
-          )}
-          {!isReady && (
-            <SettingsHelperText>
-              {missingBusinessEmail
-                ? 'Add a business email before starting Stripe verification.'
-                : 'You will be redirected to Stripe to complete or review verification.'}
-            </SettingsHelperText>
-          )}
-        </div>
+        {!isReady && (
+          <SettingsHelperText className="mt-3 block">
+            {missingBusinessEmail
+              ? 'Add a business email before starting Stripe verification.'
+              : 'The recommended contact to complete onboarding is the business owner or another authorized representative.'}
+          </SettingsHelperText>
+        )}
       </SettingSection>
-
-      {stripeStatus && !isReady && (
-        <>
-          <SectionDivider />
-          <div className="mt-4">
-            <StripeOnboardingStep
-              status={stripeStatus}
-              loading={isLoading}
-              showIntro={false}
-              showInfoCard={false}
-            />
-          </div>
-        </>
-      )}
-    </ContentPageLayout>
+    </div>
+    </EditorShell>
   );
 };
-
-export default PayoutsPage;

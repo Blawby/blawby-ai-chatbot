@@ -262,6 +262,7 @@
     "publicIntro": "Bize istediğinizi sorun veya geri bildiriminizi paylaşın.",
     "continue": "Devam Et",
     "submitRequest": "Talebi gönder",
+    "payAndSubmit": "Öde ve gönder",
     "submitNow": "Şimdi gönder",
     "buildStrongerBrief": "Daha güçlü bir özet oluştur",
     "askQuestion": "Soru sor",
@@ -277,6 +278,9 @@
       "continue": "Devam Et",
       "addMore": "Daha fazla ekle",
       "notYet": "Henüz değil"
+    },
+    "attachments": {
+      "disabled": "Ek yükleme bu formda kullanılamıyor."
     }
   },
   "intake": {

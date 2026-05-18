@@ -7,8 +7,7 @@
 
 import { useState, useEffect, useRef } from 'preact/hooks';
 import { useLocation } from 'preact-iso';
-import { UserIcon } from '@heroicons/react/24/outline';
-import { Icon } from '@/shared/ui/Icon';
+import { Avatar } from '../atoms/Avatar';
 import { ProfileButton } from '../molecules/ProfileButton';
 import { ProfileDropdown } from '../molecules/ProfileDropdown';
 import { useSessionContext } from '@/shared/contexts/SessionContext';
@@ -154,17 +153,21 @@ export const UserProfileDisplay = ({
   // Handle session fetch errors
   if (error) {
     return (
-      <div className={`p-2 border-t border-line-glass/30`}>
+      <div className="p-2 w-full">
         <div className={`flex items-center ${isCollapsed ? 'justify-center py-2' : 'gap-3 px-3 py-2'}`}>
-          <div className="w-8 h-8 bg-red-100 dark:bg-red-900/20 rounded-full flex items-center justify-center flex-shrink-0">
-            <Icon icon={UserIcon} className="w-4 h-4 text-red-600 dark:text-red-400"  />
-          </div>
+          <Avatar 
+            src={null} 
+            name="Error User" 
+            size="sm" 
+            status="inactive"
+            className="w-8 h-8"
+          />
           {!isCollapsed && (
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-red-600 dark:text-red-400">
+              <p className="text-sm font-medium text-[rgb(var(--accent-error))]">
                 Failed to load session
               </p>
-              <p className="text-xs text-input-placeholder">
+              <p className="text-xs text-[rgb(var(--input-placeholder))]">
                 Please try refreshing the page
               </p>
             </div>
@@ -176,10 +179,10 @@ export const UserProfileDisplay = ({
 
   if (!user) {
     return (
-      <div className={`p-2 border-t border-line-glass/30`}>
+      <div className="p-2 w-full">
         <button
           onClick={handleSignIn}
-          className={`flex items-center w-full rounded-lg text-left transition-colors text-input-text hover:bg-white/[0.08] ${
+          className={`flex items-center w-full rounded-xl text-left transition-colors text-[rgb(var(--input-foreground))] hover:bg-[rgb(var(--surface-utility))]/5 ${
             isCollapsed 
               ? 'justify-center py-2' 
               : 'gap-3 px-3 py-2'
@@ -187,7 +190,12 @@ export const UserProfileDisplay = ({
           title={isCollapsed ? t('profile:menu.signIn') : undefined}
           aria-label={t('profile:aria.signInButton')}
         >
-          <Icon icon={UserIcon} className="w-5 h-5 flex-shrink-0"  />
+          <Avatar 
+            src={null} 
+            name="Sign In" 
+            size="sm" 
+            className="w-5 h-5 flex-shrink-0"
+          />
           {!isCollapsed && <span className="text-sm font-medium">{t('profile:menu.signIn')}</span>}
         </button>
       </div>
@@ -195,7 +203,7 @@ export const UserProfileDisplay = ({
   }
 
   return (
-    <div className={`p-2 border-t border-line-glass/30 w-full overflow-visible`}>
+    <div className="p-2 w-full overflow-visible">
       <div className="relative w-full max-w-full" ref={dropdownRef}>
         <ProfileButton
           name={user.name}

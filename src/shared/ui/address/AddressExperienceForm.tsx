@@ -10,7 +10,7 @@ import { AddressInput } from '@/shared/ui/address/AddressInput';
 import { Button } from '@/shared/ui/Button';
 import { cn } from '@/shared/utils/cn';
 import { isAddressEmpty } from '@/shared/utils/addressFormat';
-import { commonSchemas } from '@/shared/ui/validation/schemas';
+import { commonSchemas, isValidPhoneNumber } from '@/shared/ui/validation/schemas';
 import { addressLooseSchema, addressStrictWithCountrySchema } from '@/shared/ui/validation/schemas/address';
 import type { Address } from '@/shared/types/address';
 import { STATUS_OPTIONS } from '@/shared/forms/fieldRegistry';
@@ -178,9 +178,9 @@ const optionalEmail = z.string().email('Please enter a valid email address').opt
 const optionalPhone = z.string().optional().or(z.literal('')).refine(
   (val) => {
     if (!val || val === '') return true;
-    return /^\+?[\d\s\-()]+$/.test(val) && val.replace(/\D/g, '').length >= 10;
+    return isValidPhoneNumber(val);
   },
-  'Please enter a valid phone number (at least 10 digits)'
+  'Please enter a valid phone number'
 );
 
 const buildSchema = (fields: AddressExperienceField[], required: AddressExperienceField[]) => {
@@ -309,7 +309,7 @@ export const AddressExperienceForm = ({
   const containerClasses = cn(
     variant === 'plain'
       ? 'w-full'
-      : 'glass-panel rounded-lg p-6',
+      : 'glass-panel rounded-xl p-6',
     className
   );
 
@@ -320,7 +320,7 @@ export const AddressExperienceForm = ({
   return (
     <div className={containerClasses} data-testid="address-experience-form">
       {message && (
-        <div className="mb-4 text-gray-700 dark:text-gray-300">
+        <div className="mb-4 text-input-text dark:text-input-text/80">
           {message}
         </div>
       )}
@@ -363,6 +363,7 @@ export const AddressExperienceForm = ({
                   case 'email':
                     return (
                       <EmailInput
+                        name={field}
                         value={(value as string) || ''}
                         onChange={handleChange}
                         label={getLabel('email')}
@@ -378,6 +379,7 @@ export const AddressExperienceForm = ({
                   case 'phone':
                     return (
                       <PhoneInput
+                        name={field}
                         value={(value as string) || ''}
                         onChange={handleChange}
                         label={getLabel('phone')}
@@ -395,6 +397,7 @@ export const AddressExperienceForm = ({
                   case 'city':
                     return (
                       <Input
+                        name={field}
                         value={(value as string) || ''}
                         onChange={handleChange}
                         label={getLabel('city')}
@@ -409,6 +412,7 @@ export const AddressExperienceForm = ({
                   case 'state':
                     return (
                       <Input
+                        name={field}
                         value={(value as string) || ''}
                         onChange={handleChange}
                         label={getLabel('state')}
@@ -483,6 +487,7 @@ export const AddressExperienceForm = ({
                   case 'opposingParty':
                     return (
                       <Input
+                        name={field}
                         value={(value as string) || ''}
                         onChange={handleChange}
                         label={getLabel('opposingParty')}
@@ -497,6 +502,7 @@ export const AddressExperienceForm = ({
                   case 'description':
                     return (
                       <Textarea
+                        name={field}
                         value={(value as string) || ''}
                         onChange={handleChange}
                         label={getLabel('description')}
@@ -514,6 +520,7 @@ export const AddressExperienceForm = ({
                   default:
                     return (
                       <Input
+                        name={field}
                         value={(value as string) || ''}
                         onChange={handleChange}
                         label={getLabel('name')}

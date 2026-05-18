@@ -13,15 +13,15 @@ export function createKeyboardHandlers(handlers: KeyboardHandlers) {
       e.preventDefault();
       handlers.onEscape?.();
     }
-    
+
     // Ctrl/Cmd + Enter to send message (alternative to Enter)
     if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
       e.preventDefault();
       handlers.onSubmit?.();
     }
-    
+
     // Ctrl/Cmd + K to focus input (common chat shortcut)
-    if (e.key.toLowerCase() === 'k' && (e.ctrlKey || e.metaKey)) {
+    if (typeof e.key === 'string' && e.key.toLowerCase() === 'k' && (e.ctrlKey || e.metaKey)) {
       e.preventDefault();
       handlers.onFocusInput?.();
     }
@@ -43,9 +43,9 @@ export function setupGlobalKeyboardListeners(handlers: KeyboardHandlers) {
   if (typeof document !== 'undefined') {
     const keyboardHandler = createKeyboardHandlers(handlers);
     document.addEventListener('keydown', keyboardHandler);
-    
+
     return () => {
       document.removeEventListener('keydown', keyboardHandler);
     };
   }
-} 
+}

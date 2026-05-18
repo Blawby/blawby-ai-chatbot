@@ -106,9 +106,9 @@ describe('PII Sanitizer', () => {
     describe('Email sanitization', () => {
       it('should detect and sanitize email addresses', () => {
         const testCases = [
-          'Contact me at john.doe@example.com',
-          'Email: jane@company.org',
-          'Send to test+tag@domain.co.uk'
+          'Contact me at john.doe@test-blawby.com',
+          'Email: jane@test-blawby.com',
+          'Send to test+tag@test-blawby.com'
         ];
 
         testCases.forEach(content => {
@@ -206,7 +206,7 @@ describe('PII Sanitizer', () => {
       });
 
       it('should clean up extra whitespace when removing content', () => {
-        const content = 'My SSN is 123-45-6789 and email is test@example.com';
+        const content = 'My SSN is 123-45-6789 and email is test@test-blawby.com';
         const result = sanitizePII(content, { remove: true });
         
         expect(result.content).not.toContain('  '); // No double spaces
@@ -218,7 +218,7 @@ describe('PII Sanitizer', () => {
       it('should correctly set hasPII when any PII is detected', () => {
         const testCases = [
           { content: 'My SSN is 123-45-6789', expected: true },
-          { content: 'Email: test@example.com', expected: true },
+          { content: 'Email: test@test-blawby.com', expected: true },
           { content: 'Phone: 123-456-7890', expected: true },
           { content: 'Address: 123 Main St', expected: true },
           { content: 'No PII here', expected: false }
@@ -245,7 +245,7 @@ describe('PII Sanitizer', () => {
     it('should return true for content with PII', () => {
       const testCases = [
         'My SSN is 123-45-6789',
-        'Email: test@example.com',
+        'Email: test@test-blawby.com',
         'Phone: 123-456-7890',
         'Address: 123 Main St',
         'SSN: 123456789' // contextual unformatted

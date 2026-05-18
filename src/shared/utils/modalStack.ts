@@ -1,4 +1,5 @@
 let modalCount = 0;
+const modalStack: string[] = [];
 
 export const lockBodyScroll = () => {
   if (typeof document === 'undefined') return;
@@ -21,3 +22,16 @@ export const unlockBodyScroll = () => {
 };
 
 export const getModalStackCount = () => modalCount;
+
+export const registerModal = (id: string) => {
+  modalStack.push(id);
+};
+
+export const unregisterModal = (id: string) => {
+  const index = modalStack.lastIndexOf(id);
+  if (index >= 0) {
+    modalStack.splice(index, 1);
+  }
+};
+
+export const isTopmostModal = (id: string) => modalStack[modalStack.length - 1] === id;

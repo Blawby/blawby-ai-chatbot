@@ -2,17 +2,21 @@ import type { Request as WorkerRequest } from '@cloudflare/workers-types';
 import { parseJsonBody } from '../utils.js';
 import { HttpErrors } from '../errorHandler.js';
 import { HttpError, type Env } from '../types.js';
-import { ConversationService } from '../services/ConversationService.js';
+import { ConversationService, type ConversationStatus } from '../services/ConversationService.js';
 import { RemoteApiService } from '../services/RemoteApiService.js';
-import { optionalAuth, requirePracticeMember, checkPracticeMembership } from '../middleware/auth.js';
+import { optionalAuth, requirePracticeMember, requirePracticeMemberRole, checkPracticeMembership } from '../middleware/auth.js';
+import { getAttachedAuthContext } from '../middleware/compose.js';
 import type { AuthContext } from '../middleware/auth.js';
 import { withPracticeContext, getPracticeId } from '../middleware/practiceContext.js';
 import { Logger } from '../utils/logger.js';
 import { SessionAuditService } from '../services/SessionAuditService.js';
+import { listConversationParticipantRecords, validateMentionTargets, type MentionSenderType } from '../services/ConversationParticipantService.js';
 import { handleSubmitIntake } from './submitIntake.js';
+import { getAcceptedIntakeConversationIds, materializeAcceptedConversations } from '../utils/intakeVisibility.js';
 
 const SYSTEM_MESSAGE_ALLOWLIST = new Set([
   'system-intro',
+  'system-disclaimer-accepted',
   'system-ask-question-help',
   'system-intake-decision',
   'system-contact-form',
@@ -21,7 +25,8 @@ const SYSTEM_MESSAGE_ALLOWLIST = new Set([
   'system-submission-confirm',
   'system-lead-accepted',
   'system-lead-declined',
-  'system-intake-submit'
+  'system-intake-submit',
+  'system-intake-gather-details'
 ]);
 
 const isAllowedSystemMessageId = (clientId: string): boolean => {
@@ -49,6 +54,11 @@ const STAFF_MEMBER_ROLES = new Set(['owner', 'admin', 'attorney', 'paralegal']);
 const isStaffMemberRole = (role: string | undefined): boolean => {
   if (!role) return false;
   return STAFF_MEMBER_ROLES.has(role);
+};
+
+const resolveMentionSenderType = (authContext: AuthContext, memberRole?: string): MentionSenderType => {
+  if (authContext.isAnonymous) return 'anonymous';
+  return isStaffMemberRole(memberRole) ? 'team_member' : 'client';
 };
 
 const resolvePracticeContext = async (options: {
@@ -122,8 +132,11 @@ export async function handleConversations(request: Request, env: Env): Promise<R
     return handleSubmitIntake(request, env, conversationId);
   }
 
-  // Support optional auth for anonymous users (Better Auth anonymous plugin)
-  const authContext = await optionalAuth(request, env);
+  // Auth attached by route-table withAuth({ required: false }) wrapper —
+  // anonymous users are admitted via Better Auth's anonymous plugin and
+  // present as a regular AuthContext with isAnonymous=true. Tests that
+  // call this handler directly fall back to optionalAuth.
+  const authContext = getAttachedAuthContext(request) ?? await optionalAuth(request, env);
   if (!authContext) {
     throw HttpErrors.unauthorized('Authentication required - anonymous or authenticated session needed');
   }
@@ -134,9 +147,19 @@ export async function handleConversations(request: Request, env: Env): Promise<R
 
   // GET /api/conversations/:id/messages - Get messages for a conversation
   if (segments.length === 4 && segments[3] === 'messages' && request.method === 'GET') {
+        Logger.debug('[Conversations][messages][debug] handler entry', {
+          segments,
+          url: url.toString(),
+          userId,
+          prevAnonId,
+          isAnonymous: authContext.isAnonymous,
+          envBindingCount: Object.keys(env).length,
+          requestHeaderNames: Array.from((request.headers as unknown as Iterable<[string, string]>), ([k]) => k),
+        });
     const requestWithContext = await withPracticeContext(request, env, {
       requirePractice: true,
       authContext,
+      allowAuthenticatedUrlPracticeId: true,
     });
     const conversationId = segments[2];
     const conversationPracticeId = getPracticeId(requestWithContext);
@@ -186,7 +209,9 @@ export async function handleConversations(request: Request, env: Env): Promise<R
 
     let result;
     try {
-      result = await conversationService.getMessages(conversationId, conversationPracticeId, {
+      Logger.debug('[Conversations][messages][debug] calling getMessages', {
+        conversationId,
+        conversationPracticeId,
         limit,
         cursor,
         fromSeq,
@@ -194,7 +219,23 @@ export async function handleConversations(request: Request, env: Env): Promise<R
         requestSource,
         viewerId: userId
       });
+      result = await conversationService.getMessages(conversationId, conversationPracticeId, {
+        limit,
+        cursor,
+        fromSeq,
+        traceId,
+        requestSource,
+        viewerId: userId,
+        viewerIsAnonymous: authContext.isAnonymous
+      });
     } catch (error) {
+      Logger.error('[Conversations][messages][debug] error in getMessages', {
+        conversationId,
+        practiceId: conversationPracticeId,
+        isAnonymous: authContext.isAnonymous,
+        error: error instanceof Error ? error.message : String(error),
+        errorStack: error instanceof Error ? error.stack : undefined,
+      });
       Logger.warn('[Conversations] Failed to fetch messages', {
         conversationId,
         practiceId: conversationPracticeId,
@@ -208,11 +249,67 @@ export async function handleConversations(request: Request, env: Env): Promise<R
     return createJsonResponse(result, responseHeaders);
   }
 
+  // POST /api/conversations/:id/messages - Send a chat message
+  if (segments.length === 4 && segments[3] === 'messages' && request.method === 'POST') {
+    const requestWithContext = await withPracticeContext(request, env, {
+      requirePractice: true,
+      authContext,
+      allowAuthenticatedUrlPracticeId: true,
+    });
+    const conversationId = segments[2];
+    const conversationPracticeId = getPracticeId(requestWithContext);
+
+    if (authContext.isAnonymous) {
+      await conversationService.validateParticipantAccess(conversationId, conversationPracticeId, userId, { previousAnonUserId: prevAnonId });
+    } else {
+      const membership = await checkPracticeMembership(request, env, conversationPracticeId, { authContext });
+      if (isStaffMemberRole(membership.memberRole)) {
+        await requirePracticeMember(request, env, conversationPracticeId, 'paralegal');
+      } else {
+        await conversationService.validateParticipantAccess(conversationId, conversationPracticeId, userId, { previousAnonUserId: prevAnonId });
+      }
+    }
+
+    const body = await parseJsonBody(request) as {
+      content?: string;
+      metadata?: Record<string, unknown>;
+      replyToMessageId?: string | null;
+    };
+
+    const content = typeof body.content === 'string' ? body.content.trim() : '';
+
+    const metadata = (body.metadata && typeof body.metadata === 'object' && !Array.isArray(body.metadata))
+      ? body.metadata as Record<string, unknown>
+      : undefined;
+
+    // Allow file-only messages: empty content is OK as long as the metadata
+    // carries attachments. Mirrors the WebSocket sendMessageOverWs path
+    // which accepts attachment-only sends.
+    const hasAttachments = Array.isArray(metadata?.attachments)
+      && (metadata?.attachments as unknown[]).length > 0;
+    if (!content && !hasAttachments) {
+      throw HttpErrors.badRequest('content or valid attachments are required');
+    }
+
+    const storedMessage = await conversationService.sendMessage({
+      conversationId,
+      practiceId: conversationPracticeId,
+      senderUserId: userId,
+      content,
+      metadata,
+      replyToMessageId: typeof body.replyToMessageId === 'string' ? body.replyToMessageId : null,
+      request
+    });
+
+    return createJsonResponse({ message: storedMessage });
+  }
+
   // GET/POST/DELETE /api/conversations/:id/messages/:messageId/reactions
   if (segments.length === 6 && segments[3] === 'messages' && segments[5] === 'reactions') {
     const requestWithContext = await withPracticeContext(request, env, {
       requirePractice: true,
-      authContext
+      authContext,
+      allowAuthenticatedUrlPracticeId: true,
     });
     const conversationId = segments[2];
     const messageId = segments[4];
@@ -286,7 +383,8 @@ export async function handleConversations(request: Request, env: Env): Promise<R
   if (segments.length === 4 && segments[3] === 'system-messages' && request.method === 'POST') {
     const requestWithContext = await withPracticeContext(request, env, {
       requirePractice: true,
-      authContext
+      authContext,
+      allowAuthenticatedUrlPracticeId: true,
     });
     const conversationId = segments[2];
     const practiceId = getPracticeId(requestWithContext);
@@ -353,15 +451,24 @@ export async function handleConversations(request: Request, env: Env): Promise<R
       matterId?: string;
       participantUserIds: string[];
       metadata?: Record<string, unknown>;
+      status?: ConversationStatus;
     };
 
     const participantUserIds = Array.isArray(body.participantUserIds) ? body.participantUserIds : [];
 
     // Check if anonymous user
     const isAnonymous = authContext.isAnonymous === true;
-    
+
     // Ensure creator is included in participants
     const participants = Array.from(new Set([userId, ...participantUserIds]));
+
+    // Staff-initiated conversations (new-conversation picker, team DMs) skip
+    // the intake-visibility gate — they're internal and should appear in the
+    // creator's inbox immediately. Anonymous widget chats keep the default
+    // 'pending_visibility' so they remain hidden until intake is accepted.
+    const staffInitiated = !isAnonymous
+      && practiceContext.isMember
+      && isStaffMemberRole(practiceContext.memberRole);
 
     const conversation = await conversationService.createConversation({
       practiceId,
@@ -370,7 +477,8 @@ export async function handleConversations(request: Request, env: Env): Promise<R
       matterId: body.matterId || null,
       participantUserIds: participants,
       metadata: body.metadata,
-      skipPracticeValidation: !practiceContext.isMember
+      skipPracticeValidation: !practiceContext.isMember,
+      lifecycleStatus: staffInitiated ? 'visible' : 'pending_visibility',
     }, request);
 
     return createJsonResponse(conversation);
@@ -378,12 +486,22 @@ export async function handleConversations(request: Request, env: Env): Promise<R
 
   // GET /api/conversations - Smart endpoint that detects user type
   if (segments.length === 2 && request.method === 'GET') {
+    // CSV-style `?include=a,b` to opt into denormalized payload extras. Today
+    // only `latest_message` is supported; absent ⇒ unchanged response shape.
+    const includeTokens = new Set(
+      (url.searchParams.get('include') || '')
+        .split(',')
+        .map((token) => token.trim().toLowerCase())
+        .filter((token) => token.length > 0)
+    );
+    const includeLatestMessage = includeTokens.has('latest_message');
+
     if (wantsAllScope) {
       if (authContext.isAnonymous) {
         throw HttpErrors.unauthorized('Sign in is required to list conversations');
       }
 
-      const status = url.searchParams.get('status') as 'active' | 'archived' | 'closed' | null;
+      const status = url.searchParams.get('status') as ConversationStatus | null;
       const limit = parseInt(url.searchParams.get('limit') || '50', 10);
       const offset = parseInt(url.searchParams.get('offset') || '0', 10);
 
@@ -391,7 +509,8 @@ export async function handleConversations(request: Request, env: Env): Promise<R
         userId,
         status: status || undefined,
         limit,
-        offset
+        offset,
+        includeLatestMessage
       });
 
       const practiceIds = Array.from(new Set(conversations.map((conversation) => conversation.practice_id)));
@@ -433,16 +552,21 @@ export async function handleConversations(request: Request, env: Env): Promise<R
     if (isAnonymous) {
       const listRequested = ['1', 'true'].includes(url.searchParams.get('list') || '');
       if (listRequested) {
-        const status = url.searchParams.get('status') as 'active' | 'archived' | 'closed' | null;
+        const status = url.searchParams.get('status') as ConversationStatus | null;
         const limit = parseInt(url.searchParams.get('limit') || '50', 10);
         if (Number.isNaN(limit) || limit < 1) {
           throw HttpErrors.badRequest('limit must be a positive integer');
         }
+        // Anonymous widget users see their own pre-intake working set — they
+        // can't have an accepted intake yet, so applying the visibility filter
+        // would return nothing. Pass `null` to disable the filter.
         const conversations = await conversationService.getConversations({
           practiceId,
           userId,
           status: status || undefined,
-          limit
+          limit,
+          acceptedConversationIds: null,
+          includeLatestMessage
         });
         return createJsonResponse({ conversations });
       }
@@ -460,43 +584,67 @@ export async function handleConversations(request: Request, env: Env): Promise<R
     if (practiceContext.isMember && isStaffMemberRole(practiceContext.memberRole)) {
       await requirePracticeMember(request, env, practiceId, 'paralegal');
 
-      const status = url.searchParams.get('status') as 'active' | 'archived' | 'closed' | null;
+      const status = url.searchParams.get('status') as ConversationStatus | 'all' | null;
       const assignedTo = url.searchParams.get('assignedTo');
       const limit = parseInt(url.searchParams.get('limit') || '50', 10);
+      // Practice members see all visible conversations in their practice. The
+      // accepted-intake set comes from the backend; lifecycle_status='visible'
+      // is the steady-state filter once rows are materialized.
+      const acceptedConversationIds = await getAcceptedIntakeConversationIds(env, practiceId, request);
+      if (acceptedConversationIds && acceptedConversationIds.size > 0) {
+        await materializeAcceptedConversations(env, practiceId, acceptedConversationIds);
+      }
       const conversations = await conversationService.getConversations({
         practiceId,
         userId,
         bypassParticipantFilter: true,
-        status: status || undefined,
+        status: (status && status !== 'all') ? status as ConversationStatus : undefined,
         assignedTo: assignedTo === 'none' ? 'none' : undefined,
-        limit
+        limit,
+        acceptedConversationIds,
+        includeLatestMessage
       });
       return createJsonResponse({ conversations });
     }
-    
-    // Signed-in client: Return list of their conversations with this practice
+
+    // Signed-in non-staff (clients, or signed-in users with no practice
+    // context). Requester membership is the second half of the visibility
+    // invariant — until they've accepted the better-auth invite for this
+    // practice, they shouldn't see anything from it.
+    if (!practiceContext.isMember) {
+      return createJsonResponse({ conversations: [] });
+    }
+
+    // Signed-in client who has joined the practice's org. Apply the same
+    // visibility filter as the practice path; participant filter remains
+    // (so they see only conversations they're in).
     const matterId = url.searchParams.get('matterId');
-    const status = url.searchParams.get('status') as 'active' | 'archived' | 'closed' | null;
+    const status = url.searchParams.get('status') as ConversationStatus | null;
     const assignedTo = url.searchParams.get('assignedTo');
     const limit = parseInt(url.searchParams.get('limit') || '50', 10);
-    
+
+    const acceptedConversationIds = await getAcceptedIntakeConversationIds(env, practiceId, request);
+    if (acceptedConversationIds && acceptedConversationIds.size > 0) {
+      await materializeAcceptedConversations(env, practiceId, acceptedConversationIds);
+    }
     const conversations = await conversationService.getConversations({
       practiceId,
       matterId: matterId || null,
       userId, // Filter to conversations where user is a participant
       status: status || undefined,
       assignedTo: assignedTo === 'none' ? 'none' : undefined,
-      limit
+      limit,
+      acceptedConversationIds,
+      includeLatestMessage
     });
-    
+
     return createJsonResponse({ conversations }); // Array wrapped in object
   }
 
-  // GET /api/conversations/(active|current) - Get or create current conversation
-  if (segments.length === 3 && (segments[2] === 'active' || segments[2] === 'current') && request.method === 'GET') {
+  // GET /api/conversations/active - Get or create current conversation
+  if (segments.length === 3 && segments[2] === 'active' && request.method === 'GET') {
     const practiceContext = await resolvePracticeContext({ request, env, authContext });
     const practiceId = practiceContext.practiceId;
-    const isLegacyPath = segments[2] === 'current';
     const isAnonymous = authContext.isAnonymous === true;
     const conversation = await conversationService.getOrCreateCurrentConversation(
       userId,
@@ -505,18 +653,15 @@ export async function handleConversations(request: Request, env: Env): Promise<R
       isAnonymous,
       { skipPracticeValidation: !practiceContext.isMember }
     );
-    const response = createJsonResponse({ conversation });
-    if (isLegacyPath) {
-      response.headers.set('Warning', '299 - "Deprecated path /api/conversations/current; use /api/conversations/active"');
-    }
-    return response;
+    return createJsonResponse({ conversation });
   }
 
   // GET /api/conversations/:id - Get single conversation
   if (segments.length === 3 && request.method === 'GET') {
     const requestWithContext = await withPracticeContext(request, env, {
       requirePractice: true,
-      authContext
+      authContext,
+      allowAuthenticatedUrlPracticeId: true,
     });
     const conversationId = segments[2];
     const practiceId = getPracticeId(requestWithContext);
@@ -535,6 +680,27 @@ export async function handleConversations(request: Request, env: Env): Promise<R
 
     const conversation = await conversationService.getConversation(conversationId, practiceId);
     return createJsonResponse(conversation);
+  }
+
+  // DELETE /api/conversations/:id - Hard-delete a conversation and its dependents
+  if (segments.length === 3 && request.method === 'DELETE') {
+    const requestWithContext = await withPracticeContext(request, env, {
+      requirePractice: true,
+      authContext,
+    });
+    const conversationId = segments[2];
+    const practiceId = getPracticeId(requestWithContext);
+
+    if (authContext.isAnonymous) {
+      throw HttpErrors.unauthorized('Authentication required');
+    }
+    // Only practice staff can hard-delete; clients should not be able to wipe
+    // a thread out from under the practice. Paralegal+ matches other write
+    // ops on this resource.
+    await requirePracticeMemberRole(request, env, practiceId, 'paralegal', { authContext });
+
+    await conversationService.deleteConversation(conversationId, practiceId);
+    return createJsonResponse({ deleted: true, conversationId });
   }
 
   // PATCH /api/conversations/:id/matter - Link or unlink a conversation to a matter
@@ -612,10 +778,16 @@ export async function handleConversations(request: Request, env: Env): Promise<R
     const practiceId = getPracticeId(requestWithContext);
     const body = await parseJsonBody(request) as { mentionedUserIds?: string[] };
 
-    if (authContext.isAnonymous) {
-      throw HttpErrors.unauthorized('Authentication required');
+    const membership = authContext.isAnonymous
+      ? { memberRole: undefined }
+      : await checkPracticeMembership(request, env, practiceId, { authContext });
+    const senderType = resolveMentionSenderType(authContext, membership.memberRole);
+
+    if (senderType === 'team_member') {
+      await requirePracticeMember(request, env, practiceId, 'paralegal');
+    } else {
+      await conversationService.validateParticipantAccess(conversationId, practiceId, userId, { previousAnonUserId: prevAnonId });
     }
-    await requirePracticeMember(request, env, practiceId, 'paralegal');
 
     if (!Array.isArray(body.mentionedUserIds)) {
       throw HttpErrors.badRequest('mentionedUserIds must be an array');
@@ -631,14 +803,26 @@ export async function handleConversations(request: Request, env: Env): Promise<R
       sanitizedMentionedUserIds.push(el.trim());
     }
 
-    const conversation = await conversationService.setConversationMentions(
+    const conversation = await conversationService.getConversation(conversationId, practiceId);
+    const participants = await listConversationParticipantRecords({
+      env,
+      practiceId,
+      conversation,
+      request,
+    });
+    const allowedMentionedUserIds = validateMentionTargets({
+      participants,
+      senderType,
+      mentionedUserIds: sanitizedMentionedUserIds,
+    });
+
+    const updatedConversation = await conversationService.setConversationMentions(
       conversationId,
       practiceId,
-      sanitizedMentionedUserIds,
-      { request }
+      allowedMentionedUserIds
     );
 
-    return createJsonResponse(conversation);
+    return createJsonResponse(updatedConversation);
   }
 
   // PATCH /api/conversations/:id/link - Link anonymous conversation to authenticated user
@@ -864,6 +1048,16 @@ export async function handleConversations(request: Request, env: Env): Promise<R
       || body.internalNotes !== undefined;
 
     if (isTriageUpdate) {
+      Logger.warn('[Conversations] Triage update auth check', {
+        conversationId,
+        practiceId,
+        authContextUserId: authContext.user.id,
+        authContextActiveOrganizationId: authContext.activeOrganizationId ?? null,
+        authContextActiveMembershipRole: authContext.activeMembershipRole ?? null,
+        assignedToPresent: body.assignedTo !== undefined,
+        priorityPresent: body.priority !== undefined,
+        internalNotesPresent: body.internalNotes !== undefined,
+      });
       if (body.assignedTo !== undefined && body.assignedTo !== null && typeof body.assignedTo !== 'string') {
         throw HttpErrors.badRequest('assignedTo must be a string or null');
       }
@@ -874,7 +1068,7 @@ export async function handleConversations(request: Request, env: Env): Promise<R
       if (authContext.isAnonymous) {
         throw HttpErrors.unauthorized('Authentication required');
       }
-      await requirePracticeMember(request, env, practiceId, 'paralegal');
+      await requirePracticeMemberRole(request, env, practiceId, 'paralegal', { authContext });
     } else {
       if (body.metadata && 'mentionedUserIds' in body.metadata) {
         delete body.metadata.mentionedUserIds;
@@ -944,6 +1138,43 @@ export async function handleConversations(request: Request, env: Env): Promise<R
     return createJsonResponse({ logged: true });
   }
 
+  // POST /api/conversations/:id/read - Mark conversation as read for the current user
+  if (segments.length === 4 && segments[3] === 'read' && request.method === 'POST') {
+    const requestWithContext = await withPracticeContext(request, env, {
+      requirePractice: true,
+      authContext,
+      allowAuthenticatedUrlPracticeId: true,
+    });
+    const conversationId = segments[2];
+    const practiceId = getPracticeId(requestWithContext);
+
+    // Mirror the staff-bypass on GET /messages: practice staff can mark any
+    // thread in their practice as read without being explicit participants.
+    if (authContext.isAnonymous) {
+      await conversationService.validateParticipantAccess(conversationId, practiceId, userId, { previousAnonUserId: prevAnonId });
+    } else {
+      const membership = await checkPracticeMembership(request, env, practiceId, { authContext });
+      if (!isStaffMemberRole(membership.memberRole)) {
+        await conversationService.validateParticipantAccess(conversationId, practiceId, userId, { previousAnonUserId: prevAnonId });
+      }
+    }
+
+    // Get the current latest_seq for the conversation to update read state
+    const conversation = await conversationService.getConversation(conversationId, practiceId);
+    const latestSeq = conversation.latest_seq ?? 0;
+
+    // Update or insert conversation_read_state
+    await env.DB.prepare(`
+      INSERT INTO conversation_read_state (conversation_id, user_id, last_read_seq, updated_at)
+      VALUES (?, ?, ?, datetime('now'))
+      ON CONFLICT(conversation_id, user_id) DO UPDATE SET
+        last_read_seq = excluded.last_read_seq,
+        updated_at = datetime('now')
+    `).bind(conversationId, userId, latestSeq).run();
+
+    return createJsonResponse({ markedAsRead: true, lastReadSeq: latestSeq });
+  }
+
   // GET /api/conversations/:id/participants - Get participant profiles for a conversation
   if (segments.length === 4 && segments[3] === 'participants' && request.method === 'GET') {
     const requestWithContext = await withPracticeContext(request, env, {
@@ -976,41 +1207,26 @@ export async function handleConversations(request: Request, env: Env): Promise<R
       throw HttpErrors.forbidden('User is not authorized to view participants for this conversation');
     }
 
-    const [conversation, members] = await Promise.all([
-      conversationService.getConversation(conversationId, practiceId),
-      RemoteApiService.getPracticeMembers(env, practiceId, request)
-    ]);
-
-    const participantIds = Array.from(new Set([
-      ...conversation.participants.filter((id) => typeof id === 'string' && id.trim().length > 0),
-      ...(conversation.user_id ? [conversation.user_id] : [])
-    ]));
-    const staffMemberIds = members
-      .filter((member) => member.role !== 'client')
-      .map((member) => member.user_id)
-      .filter((id) => typeof id === 'string' && id.trim().length > 0);
-    const mentionableUserIds = callerIsStaff
-      ? Array.from(new Set([
-        ...participantIds,
-        ...staffMemberIds
-      ]))
-      : participantIds;
-    const memberById = new Map(members.map((member) => [member.user_id, member]));
-
-    const participants = mentionableUserIds.map((participantUserId) => {
-      const member = memberById.get(participantUserId);
-      return {
-        userId: participantUserId,
-        role: member?.role ?? null,
-        name: member?.name ?? null,
-        image: member?.image ?? null,
-      };
+    const conversation = await conversationService.getConversation(conversationId, practiceId);
+    const participants = await listConversationParticipantRecords({
+      env,
+      practiceId,
+      conversation,
+      request,
     });
 
     return createJsonResponse({
       conversationId,
       practiceId,
-      participants
+      participants: participants.map((participant) => ({
+        user_id: participant.userId,
+        name: participant.name,
+        image: participant.image,
+        role: participant.role,
+        is_team_member: participant.isTeamMember,
+        can_be_mentioned_by_team_member: participant.canBeMentionedByTeamMember,
+        can_be_mentioned_by_client: participant.canBeMentionedByClient,
+      }))
     });
   }
 

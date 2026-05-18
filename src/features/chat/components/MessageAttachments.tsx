@@ -2,9 +2,127 @@ import { FunctionComponent } from 'preact';
 import { useState } from 'preact/hooks';
 import { FileAttachment } from '../../../../worker/types';
 import LazyMedia from '@/features/media/components/LazyMedia';
-import Modal from '@/shared/components/Modal';
+import { Fullscreen } from '@/shared/ui/dialog';
 import MediaContent from '@/features/media/components/MediaContent';
 import { getDocumentIcon, formatDocumentIconSize } from '@/features/chat/utils/fileUtils';
+import { useToastContext } from '@/shared/contexts/ToastContext';
+import {
+  fetchUploadDownloadUrl,
+  useUploadPreviewUrl,
+} from '@/features/files/hooks/useUploadPreviewUrl';
+
+const fileFallbackUrl = (file: FileAttachment): string => file.url ?? '';
+
+const useResolvedAttachmentUrl = (file: FileAttachment): string => {
+  const { url } = useUploadPreviewUrl(file.uploadId ?? '', file.url || null, Boolean(file.uploadId));
+  return url ?? fileFallbackUrl(file);
+};
+
+interface SelectedMedia {
+  id: string;
+  name: string;
+  size: number;
+  type: string;
+  url: string;
+  timestamp: Date;
+  messageIndex: number;
+  category: 'image' | 'video' | 'audio';
+}
+
+interface ImageAttachmentProps {
+  file: FileAttachment;
+  onClick: (file: FileAttachment, resolvedUrl: string) => void;
+}
+
+const ImageAttachment: FunctionComponent<ImageAttachmentProps> = ({ file, onClick }) => {
+  const src = useResolvedAttachmentUrl(file);
+  return (
+    <div className="message-media-container my-2">
+      <LazyMedia
+        src={src}
+        type={file.type}
+        alt={file.name}
+        className="max-w-[300px] max-h-[300px] w-auto h-auto block cursor-pointer rounded-xl"
+        onClick={() => onClick(file, src)}
+      />
+    </div>
+  );
+};
+
+const AudioAttachment: FunctionComponent<{ file: FileAttachment }> = ({ file }) => {
+  const src = useResolvedAttachmentUrl(file);
+  return (
+    <div className="my-2 rounded-xl overflow-hidden max-w-75 w-full">
+      <LazyMedia src={src} type={file.type} alt={file.name} className="w-full h-auto block cursor-pointer" />
+    </div>
+  );
+};
+
+const VideoAttachment: FunctionComponent<{ file: FileAttachment }> = ({ file }) => {
+  const src = useResolvedAttachmentUrl(file);
+  return (
+    <div className="my-2 rounded-xl overflow-hidden max-w-75 w-full">
+      <LazyMedia src={src} type={file.type} alt={file.name} className="w-full h-auto block cursor-pointer" />
+    </div>
+  );
+};
+
+interface DocumentAttachmentProps {
+  file: FileAttachment;
+  onError: (message: string) => void;
+}
+
+const DocumentAttachment: FunctionComponent<DocumentAttachmentProps> = ({ file, onError }) => {
+  const [busy, setBusy] = useState(false);
+
+  const handleClick = async () => {
+    if (busy) return;
+    setBusy(true);
+    try {
+      const url = file.uploadId
+        ? await fetchUploadDownloadUrl(file.uploadId)
+        : fileFallbackUrl(file);
+      if (!url) throw new Error('No download URL is available for this file.');
+      const link = globalThis.document.createElement('a');
+      link.href = url;
+      link.download = file.name;
+      link.click();
+    } catch (error) {
+      onError(error instanceof Error ? error.message : 'Unable to download file.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleKeyDown = (e: globalThis.KeyboardEvent) => {
+    if (e.key === 'Enter' || e.key === ' ' || e.key === 'Spacebar') {
+      e.preventDefault();
+      void handleClick();
+    }
+  };
+
+  return (
+    <div
+      className="flex items-center gap-2 p-2 rounded-xl glass-panel cursor-pointer my-2 max-w-[300px]"
+      onClick={() => { void handleClick(); }}
+      onKeyDown={handleKeyDown}
+      role="button"
+      tabIndex={0}
+      aria-busy={busy}
+      aria-label={`Open ${file.name}`}
+    >
+      <div className="w-8 h-8 rounded bg-surface-base flex items-center justify-center flex-shrink-0">
+        {getDocumentIcon(file)}
+      </div>
+      <div className="flex-1 min-w-0">
+        <div className="text-sm font-medium text-input-text whitespace-nowrap overflow-hidden text-ellipsis" title={file.name}>
+          {file.name.length > 25 ? `${file.name.substring(0, 25)}...` : file.name}
+        </div>
+        <div className="text-xs text-input-placeholder">{formatDocumentIconSize(file.size)}</div>
+      </div>
+    </div>
+  );
+};
 
 interface MessageAttachmentsProps {
 	files: FileAttachment[];
@@ -15,132 +133,72 @@ export const MessageAttachments: FunctionComponent<MessageAttachmentsProps> = ({
 	files,
 	className = ''
 }) => {
+	const { showError } = useToastContext();
 	const [isModalOpen, setIsModalOpen] = useState(false);
-	const [selectedMedia, setSelectedMedia] = useState<{
-		id: string;
-		name: string;
-		size: number;
-		type: string;
-		url: string;
-		timestamp: Date;
-		messageIndex: number;
-		category: 'image' | 'video' | 'audio';
-	} | null>(null);
+	const [selectedMedia, setSelectedMedia] = useState<SelectedMedia | null>(null);
 
 	if (files.length === 0) return null;
 
 	const imageFiles = files.filter(file => file.type.startsWith('image/'));
 	const audioFiles = files.filter(file => file.type.startsWith('audio/'));
 	const videoFiles = files.filter(file => file.type.startsWith('video/'));
-	const documentFiles = files.filter(file => 
-		!file.type.startsWith('image/') && 
-		!file.type.startsWith('audio/') && 
+	const documentFiles = files.filter(file =>
+		!file.type.startsWith('image/') &&
+		!file.type.startsWith('audio/') &&
 		!file.type.startsWith('video/')
 	);
 
-	const handleImageClick = (file: FileAttachment) => {
+	const handleImageClick = (file: FileAttachment, resolvedUrl: string) => {
 		setSelectedMedia({
-			id: file.url,
+			id: resolvedUrl || file.id,
 			name: file.name,
 			size: file.size,
 			type: file.type,
-			url: file.url,
+			url: resolvedUrl,
 			timestamp: new Date(),
 			messageIndex: 0,
-			category: 'image' as const
+			category: 'image',
 		});
 		setIsModalOpen(true);
 	};
 
-	const handleDocumentClick = (file: FileAttachment) => {
-		const link = globalThis.document.createElement('a');
-		link.href = file.url;
-		link.download = file.name;
-		link.click();
-	};
-
-	const handleKeyDown = (e: globalThis.KeyboardEvent, file: FileAttachment, handler: (file: FileAttachment) => void) => {
-		if (e.key === 'Enter' || e.key === ' ' || e.key === 'Spacebar') {
-			e.preventDefault();
-			handler(file);
-		}
+	const handleDocumentError = (message: string) => {
+		showError('Download failed', message);
 	};
 
 	return (
 		<div className={className}>
-			{/* Images */}
 			{imageFiles.map((file, index) => (
-				<div key={file.url || index} className="message-media-container my-2">
-					<LazyMedia
-						src={file.url}
-						type={file.type}
-						alt={file.name}
-						className="max-w-[300px] max-h-[300px] w-auto h-auto block cursor-pointer rounded-lg"
-						onClick={() => handleImageClick(file)}
-					/>
-				</div>
+				<ImageAttachment key={file.id ?? file.uploadId ?? index} file={file} onClick={handleImageClick} />
 			))}
 
-			{/* Documents */}
 			{documentFiles.map((file, index) => (
-				<div 
-					key={`doc-${index}`}
-					className="flex items-center gap-2 p-2 rounded-lg glass-panel cursor-pointer my-2 max-w-[300px]"
-					onClick={() => handleDocumentClick(file)}
-					onKeyDown={(e) => handleKeyDown(e, file, handleDocumentClick)}
-					role="button"
-					tabIndex={0}
-					aria-label={`Open ${file.name}`}
-				>
-					<div className="w-8 h-8 rounded bg-surface-base flex items-center justify-center flex-shrink-0">
-						{getDocumentIcon(file)}
-					</div>
-					<div className="flex-1 min-w-0">
-						<div className="text-sm font-medium text-input-text whitespace-nowrap overflow-hidden text-ellipsis" title={file.name}>
-							{file.name.length > 25 ? `${file.name.substring(0, 25)}...` : file.name}
-						</div>
-						<div className="text-xs text-gray-500 dark:text-gray-400">{formatDocumentIconSize(file.size)}</div>
-					</div>
-				</div>
+				<DocumentAttachment
+					key={file.id ?? file.uploadId ?? `doc-${index}`}
+					file={file}
+					onError={handleDocumentError}
+				/>
 			))}
 
-			{/* Audio */}
 			{audioFiles.map((file, index) => (
-				<div key={`audio-${index}`} className="my-2 rounded-xl overflow-hidden max-w-75 w-full">
-					<LazyMedia
-						src={file.url}
-						type={file.type}
-						alt={file.name}
-						className="w-full h-auto block cursor-pointer"
-					/>
-				</div>
+				<AudioAttachment key={file.id ?? file.uploadId ?? `audio-${index}`} file={file} />
 			))}
 
-			{/* Video */}
 			{videoFiles.map((file, index) => (
-				<div key={`video-${index}`} className="my-2 rounded-xl overflow-hidden max-w-75 w-full">
-					<LazyMedia
-						src={file.url}
-						type={file.type}
-						alt={file.name}
-						className="w-full h-auto block cursor-pointer"
-					/>
-				</div>
+				<VideoAttachment key={file.id ?? file.uploadId ?? `video-${index}`} file={file} />
 			))}
 
-			{/* Modal for viewing images */}
 			{isModalOpen && selectedMedia && (
-				<Modal
+				<Fullscreen
 					isOpen={isModalOpen}
 					onClose={() => {
 						setIsModalOpen(false);
 						setSelectedMedia(null);
 					}}
-					type="fullscreen"
 					showCloseButton={true}
 				>
 					<MediaContent media={selectedMedia} />
-				</Modal>
+				</Fullscreen>
 			)}
 		</div>
 	);

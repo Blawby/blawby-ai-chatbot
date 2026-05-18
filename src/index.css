@@ -1,3 +1,40 @@
+/* Inter — latin-ext subset (variable, wght 100–900) */
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url('/fonts/inter-latin-ext.woff2') format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+/* Inter — latin subset (variable, wght 100–900) */
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url('/fonts/inter-latin.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+/* Outfit — latin-ext subset (variable, wght 100–900) */
+@font-face {
+  font-family: 'Outfit';
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url('/fonts/outfit-latin-ext.woff2') format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+/* Outfit — latin subset (variable, wght 100–900) */
+@font-face {
+  font-family: 'Outfit';
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url('/fonts/outfit-latin.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -5,24 +42,88 @@
 @layer base {
   :root {
     color-scheme: light dark;
-    --surface-base: 255 255 255;
-    --surface-overlay: 255 255 255;
-    --surface-nav-rail: 244 246 251;
-    --surface-nav-secondary: 240 242 249;
-    --surface-list-panel: 236 239 247;
+    --surface-app: 248 250 252;
+    --surface-sidebar: 255 255 255;
+    --surface-header: 255 255 255;
+    --surface-page: 248 250 252;
+    --surface-section: 255 255 255;
+    --surface-card: 255 255 255;
+    --surface-card-hover: 241 245 249;
+    --surface-card-raised: 241 245 249;
+    --surface-input: 241 245 249;
+    --surface-popover: 255 255 255;
+    --surface-modal: 255 255 255;
+    --line-utility: 226 232 240;
+    --border-subtle: 241 245 249;
+    --border-default: 226 232 240;
+    --border-strong: 203 213 225;
+    --accent-utility: var(--accent-500);
+    --accent-soft: var(--accent-500) / 0.12;
+    --accent-muted: var(--accent-500) / 0.08;
+    --accent-border: var(--accent-500) / 0.28;
+    --accent-ring: var(--accent-500) / 0.38;
+    --accent: var(--accent-500);
+    --accent-hover: var(--accent-600);
+
+    --input-text: 15 23 42;
+    --input-foreground: var(--input-text);
+    --input-placeholder: 100 116 139;
+    --text-primary: var(--input-text);
+    --text-secondary: 100 116 139;
+    --text-muted: var(--input-placeholder);
+    --text-disabled: 148 163 184;
+    --info-foreground: 29 78 216;
+    --success-foreground: 22 101 52;
+    --warning-foreground: 154 52 18;
+    --error-foreground: 153 27 27;
+    --info: var(--info-foreground);
+    --success: var(--success-foreground);
+    --warning: var(--warning-foreground);
+    --danger: var(--error-foreground);
+
+    /* Legacy aliases. New code should prefer the role tokens above. */
+    --surface-app-frame: var(--surface-app);
+    --surface-navigation: var(--surface-sidebar);
+    --surface-workspace: var(--surface-page);
+    --surface-collection: var(--surface-section);
+    --surface-utility: var(--surface-card);
+    --surface-elevated: var(--surface-card-raised);
+    --surface-panel: var(--surface-card);
+    --surface-base: var(--surface-page);
+    --surface-overlay: var(--surface-modal);
+    --surface-nav-rail: var(--surface-sidebar);
+    --surface-nav-secondary: var(--surface-sidebar);
+    --surface-list-panel: var(--surface-section);
+    --surface-inspector: var(--surface-card);
     --surface-glass: 255 255 255;
     --line-glass: 255 255 255;
-    --input-text: 17 24 39;
-    --input-placeholder: 107 114 128;
-    --accent-foreground: 255 255 255;
-    --success-foreground: 74 222 128;
-    --warning-foreground: 249 115 22;
-    --error-foreground: 248 113 113;
 
     /* Navigation Tokens - Manage all nav colors here */
     --nav-surface: var(--surface-nav-rail);
-    --nav-active-text: var(--accent-500);
-    --nav-active-bg: var(--nav-active-text) / 0.18;
+    --nav-active-text: var(--input-text);
+    --nav-active-bg: var(--accent-soft);
+
+    /* Sidebar (Pencil GtRGH) — unified sidebar primitive */
+    --sidebar-bg: var(--surface-sidebar);
+    --sidebar-border: 226 232 240;
+    --sidebar-divider: 226 232 240;
+    --sidebar-text: 15 23 42;
+    --sidebar-text-secondary: 100 116 139;
+    --sidebar-section-label: 100 116 139;
+    --sidebar-active-bg: var(--accent-soft);
+    --sidebar-active-text: var(--sidebar-text);
+    --sidebar-badge-bg: var(--accent-500);
+    --sidebar-badge-text: var(--accent-foreground);
+    --sidebar-warning-badge-bg: 245 158 11;
+    --sidebar-hover-bg: 241 245 249;
+    --sidebar-menu-bg: var(--surface-popover);
+    --sidebar-menu-border: 226 232 240;
+
+    /* Workspace shell header (Pencil rt13A / RuuTq) */
+    --header-bg: var(--surface-header);
+    --header-border: 226 232 240;
+    --header-search-bg: 241 245 249;
+    --header-shortcut-bg: 226 232 240;
 
     /* Glass rim lighting tokens — tune these to adjust the glass edge feel globally */
     --glass-rim-strong: inset 2px 2px 0px -2px rgba(255, 255, 255, 0.70),
@@ -32,25 +133,85 @@
     --glass-rim-subtle: inset 1px 1px 0px -1px rgba(255, 255, 255, 0.30),
       inset 0 0 2px 1px rgba(255, 255, 255, 0.08);
 
-    --shadow-glass: 0 18px 40px rgb(15 23 42 / 12%), 0 0 1px rgb(15 23 42 / 10%);
+    --shadow-glass: 0 10px 28px rgb(15 23 42 / 8%), 0 0 1px rgb(15 23 42 / 6%);
+
+    /* Glass Material Variables — Light Mode (Luminous direction) */
+    --glass-bg-top: rgba(255, 255, 255, 0.92);
+    --glass-bg-mid: rgba(255, 255, 255, 0.86);
+    --glass-bg-bottom: rgba(248, 250, 252, 0.82);
+    --glass-inset-rim: inset 0 1px 0 rgba(255, 255, 255, 0.95), inset 0 -1px 0 rgba(0, 0, 0, 0.01);
+    --glass-shadow: 0 32px 80px rgba(15, 23, 42, 0.16), 0 2px 4px rgba(15, 23, 42, 0.04);
+
+    /* Panel Variables — Light Mode */
+    --panel-bg-top: rgb(var(--surface-card));
+    --panel-bg-mid: rgb(var(--surface-card));
+    --panel-bg-bottom: rgb(var(--surface-card));
+    --panel-shadow: 0 1px 2px rgba(15, 23, 42, 0.05);
+
+    /* Input Variables — Light Mode */
+    --input-bg-top: rgb(var(--surface-input));
+    --input-bg-bottom: rgb(var(--surface-input));
+    --input-shadow: inset 0 1px 2px rgba(15, 23, 42, 0.04);
   }
 
   .dark {
-    --surface-base: 3 7 18;
-    --surface-overlay: 10 15 26;
-    --surface-nav-rail: 18 22 34;
-    --surface-nav-secondary: 14 18 30;
-    --surface-list-panel: 11 15 25;
-    --surface-glass: 255 255 255;
-    --line-glass: 255 255 255;
-    --input-text: 249 250 251;
-    --input-placeholder: 156 163 175;
+    --surface-app: 8 12 17;
+    --surface-sidebar: 10 15 21;
+    --surface-header: 12 17 24;
+    --surface-page: 13 19 27;
+    --surface-section: 15 22 31;
+    --surface-card: 18 26 36;
+    --surface-card-raised: 24 34 46;
+    --surface-card-hover: 29 40 54;
+    --surface-input: 10 15 22;
+    --surface-popover: 20 29 40;
+    --surface-modal: 20 29 40;
+    --line-utility: 51 65 85;
+    --border-subtle: 31 42 56;
+    --border-default: 45 59 78;
+    --border-strong: 71 85 105;
+    --accent-utility: var(--accent-400);
+    --accent-soft: var(--accent-500) / 0.16;
+    --accent-muted: var(--accent-500) / 0.10;
+    --accent-border: var(--accent-500) / 0.32;
+    --accent-ring: var(--accent-500) / 0.42;
+    --accent: var(--accent-500);
+    --accent-hover: var(--accent-600);
+
+    --input-text: 241 245 249;
+    --input-foreground: var(--input-text);
+    --input-placeholder: 148 163 184;
+    --text-primary: var(--input-text);
+    --text-secondary: 203 213 225;
+    --text-muted: var(--input-placeholder);
+    --text-disabled: 100 116 139;
 
     /* Navigation Tokens (Dark Mode) */
     --nav-surface: var(--surface-nav-rail);
-    --nav-active-text: var(--accent-500);
-    --nav-active-bg: var(--nav-active-text) / 0.18;
-    --shadow-glass: 0 20px 44px rgb(0 0 0 / 40%), 0 0 1px rgb(255 255 255 / 10%);
+    --nav-active-text: var(--input-text);
+    --nav-active-bg: var(--accent-soft);
+
+    --sidebar-bg: var(--surface-sidebar);
+    --sidebar-border: var(--border-subtle);
+    --sidebar-divider: var(--border-subtle);
+    --sidebar-text: var(--input-text);
+    --sidebar-text-secondary: var(--input-placeholder);
+    --sidebar-section-label: 100 116 139;
+    --sidebar-active-bg: var(--accent-soft);
+    --sidebar-active-text: var(--sidebar-text);
+    --sidebar-badge-bg: var(--accent-500);
+    --sidebar-badge-text: var(--accent-foreground);
+    --sidebar-warning-badge-bg: 245 158 11; /* #F59E0B */
+    --sidebar-hover-bg: var(--surface-card-raised);
+    --sidebar-menu-bg: var(--surface-popover);
+    --sidebar-menu-border: var(--border-default);
+
+    /* Workspace shell header — quiet chrome over the workspace surface. */
+    --header-bg: var(--surface-header);
+    --header-border: var(--border-subtle);
+    --header-search-bg: var(--surface-input);
+    --header-shortcut-bg: var(--surface-card-raised);
+    --shadow-glass: 0 16px 36px rgb(0 0 0 / 26%), 0 0 1px rgb(255 255 255 / 8%);
 
     /* Slightly brighter rims in dark mode — more contrast against dark bg */
     --glass-rim-strong: inset 2px 2px 0px -2px rgba(255, 255, 255, 0.78),
@@ -59,21 +220,64 @@
       inset 0 0 2px 1px rgba(255, 255, 255, 0.18);
     --glass-rim-subtle: inset 1px 1px 0px -1px rgba(255, 255, 255, 0.36),
       inset 0 0 2px 1px rgba(255, 255, 255, 0.10);
+
+    /* Glass Material Variables — Dark Mode (blue-black chrome) */
+    --glass-bg-top: rgba(20, 29, 40, 0.84);
+    --glass-bg-mid: rgba(17, 25, 35, 0.80);
+    --glass-bg-bottom: rgba(13, 19, 27, 0.76);
+    --glass-inset-rim: inset 0 1px 0 rgba(255, 255, 255, 0.09), inset 0 -1px 0 rgba(255, 255, 255, 0.03);
+    --glass-shadow: 0 10px 24px rgba(0, 0, 0, 0.24);
+
+    /* Panel Variables — Dark Mode (blue-black chrome) */
+    --panel-bg-top: rgb(var(--surface-card));
+    --panel-bg-mid: rgb(var(--surface-card));
+    --panel-bg-bottom: rgb(var(--surface-card));
+    --panel-shadow: 0 1px 2px rgba(0, 0, 0, 0.18);
+
+    /* Input Variables — Dark Mode (neutral gray) */
+    --input-bg-top: rgb(var(--surface-input));
+    --input-bg-bottom: rgb(var(--surface-input));
+    --input-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.28);
+    --success-foreground: 74 222 128;
+    --warning-foreground: 249 115 22;
+    --error-foreground: 248 113 113;
+    --info-foreground: 147 197 253;
+    --info: var(--info-foreground);
+    --success: var(--success-foreground);
+    --warning: var(--warning-foreground);
+    --danger: var(--error-foreground);
+
+    /* Legacy aliases. New code should prefer the role tokens above. */
+    --surface-app-frame: var(--surface-app);
+    --surface-navigation: var(--surface-sidebar);
+    --surface-workspace: var(--surface-page);
+    --surface-collection: var(--surface-section);
+    --surface-utility: var(--surface-card);
+    --surface-elevated: var(--surface-card-raised);
+    --surface-panel: var(--surface-card);
+    --surface-base: var(--surface-app);
+    --surface-overlay: var(--surface-modal);
+    --surface-nav-rail: var(--surface-sidebar);
+    --surface-nav-secondary: var(--surface-sidebar);
+    --surface-list-panel: var(--surface-section);
+    --surface-inspector: var(--surface-card);
+    --surface-glass: 255 255 255;
+    --line-glass: 255 255 255;
   }
 
   body {
     @apply min-h-screen m-0;
-    background-color: rgb(var(--surface-base));
-    background-image:
-      radial-gradient(ellipse 80% 50% at 50% -20%, rgb(var(--accent-500, 212 175 55) / 8%), transparent 50%),
-      radial-gradient(ellipse 60% 50% at 80% 50%, rgb(var(--accent-600, 202 138 4) / 5%), transparent 50%);
-    background-attachment: fixed;
+    background-color: rgb(var(--surface-app));
   }
 
   .widget-shell-gradient {
-    background-color: rgb(var(--surface-base));
-    background-image:
-      radial-gradient(ellipse 125% 95% at 18% 0%, rgb(var(--accent-500, 212 175 55) / 42%), transparent 68%);
+    /* Class kept for background color + widget-scoped container query.
+       Interior layout (inspector aside, future shell-aware chrome) keys off
+       @container widget instead of viewport, so the same widget renders
+       correctly at 380px (embed iframe) and at full direct-mode viewport. */
+    background-color: rgb(var(--surface-app));
+    container-type: inline-size;
+    container-name: widget;
   }
 
   /* Hide scrollbars globally */
@@ -140,81 +344,195 @@
 
 @layer components {
 
+  /* Canonical layout primitives. Feature components choose these roles; tokens decide color. */
+
+  .page-detail {
+    @apply themed-scrollbar flex h-full flex-col overflow-y-auto;
+
+    background-color: rgb(var(--surface-page));
+    color: rgb(var(--text-primary));
+  }
+
+
+  .page-detail-header {
+    @apply px-4 py-5 sm:px-6;
+
+    background-color: transparent;
+  }
+
+
+  .tab-bar {
+    @apply border-b px-4 sm:px-6;
+    border-color: rgb(var(--border-subtle));
+  }
+
+
+  .page-content {
+    @apply p-4 sm:p-6;
+
+    background-color: rgb(var(--surface-page));
+  }
+
+  .section-grid {
+    @apply grid gap-6;
+  }
+
+  .tabs {
+    @apply flex flex-col;
+  }
+
+  .tabs__row {
+    @apply flex flex-wrap items-stretch gap-6;
+  }
+
+  .tabs__list {
+    @apply flex min-h-11 flex-wrap items-stretch gap-6;
+  }
+
+  .tabs__tab {
+    @apply relative inline-flex items-center border-0 bg-transparent px-0 py-0 text-sm font-medium transition-colors;
+    color: rgb(var(--text-muted));
+  }
+
+  .tabs__tab:hover {
+    color: rgb(var(--text-secondary));
+  }
+
+  .tabs__tab[aria-selected="true"] {
+    color: rgb(var(--text-primary));
+  }
+
+  .tabs__tab[aria-selected="true"]::after {
+    content: "";
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: -1px;
+    height: 2px;
+    border-radius: 999px;
+    background: rgb(var(--accent));
+  }
+
+  .tabs__count {
+    @apply ml-2 text-xs;
+    color: rgb(var(--text-muted));
+  }
+
+  .tabs__actions {
+    @apply ml-auto flex items-center gap-2;
+  }
+
+
+  .card,
+  .card-surface,
+  .glass-card {
+    @apply rounded-2xl border;
+    position: relative;
+    background-color: rgb(var(--surface-card));
+    border-color: rgb(var(--border-subtle));
+  }
+
+  .card-hover,
+  .card-surface-hover,
+  .glass-card-hover {
+    @apply transition-all duration-200;
+  }
+
+  .card-hover:hover,
+  .card-surface-hover:hover,
+  .glass-card-hover:hover {
+    background-color: rgb(var(--surface-card-hover));
+    box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.04), 0 8px 22px rgb(0 0 0 / 0.16);
+  }
+
+  .card-muted,
+  .empty-state {
+    background-color: rgb(var(--surface-card) / 0.72);
+    border-color: rgb(var(--border-subtle));
+    color: rgb(var(--text-muted));
+    box-shadow: none;
+  }
+
+  .card-raised,
+  .side-card {
+    background-color: rgb(var(--surface-card-raised));
+    border-color: rgb(var(--border-default));
+  }
+
+  .panel,
+  .glass-panel {
+    @apply rounded-2xl border;
+    position: relative;
+    overflow: visible;
+    background-color: rgb(var(--surface-section));
+    border-color: rgb(var(--border-subtle));
+    box-shadow: var(--panel-shadow);
+  }
+
+  .input-surface,
+  .glass-input {
+    @apply rounded-xl border text-input-text placeholder:text-input-placeholder/80;
+    background-color: rgb(var(--surface-input));
+    border-color: rgb(var(--border-subtle));
+    box-shadow: var(--input-shadow);
+  }
+
   /* ============================================================
-     GLASS SURFACE SYSTEM
-     Border strategy: inset box-shadow rim lighting instead of
-     a flat border — creates a directional highlight that reads
-     as physical glass thickness catching light from top-left.
-     Three tiers of visual weight: card > panel > input/subtle
+     Legacy glass aliases
+     `glass-*` names are compatibility shims for the card/panel/input
+     primitives above. New code should use card, panel, or input-surface.
      ============================================================ */
 
-  /* Cards — most prominent surface, heaviest rim */
-  .glass-card {
-    @apply rounded-3xl bg-white/5 backdrop-blur-3xl backdrop-saturate-150 transition-all duration-300;
-
-    border: none;
-    box-shadow: var(--glass-rim-strong), var(--shadow-glass);
-  }
-
-  .glass-card-hover {
-    @apply transition-all duration-300;
-  }
-
-  .glass-card-hover:hover {
-    @apply bg-white/10 -translate-y-0.5;
-
-    box-shadow: var(--glass-rim-strong), 0 24px 48px rgb(15 23 42 / 18%), 0 0 1px rgb(15 23 42 / 12%);
-  }
-
-  /* Panels — secondary surface, medium rim */
-  .glass-panel {
-    @apply rounded-2xl backdrop-blur-2xl backdrop-saturate-150 transition-all duration-300;
-
-    border: none;
-    background: rgb(var(--surface-overlay) / 0.6);
-    box-shadow: var(--glass-rim-medium);
-  }
-
   .dark .glass-panel {
-    background: rgb(255 255 255 / 0.12);
-    box-shadow: var(--glass-rim-medium);
+    background-color: rgb(var(--surface-section));
+    box-shadow: var(--panel-shadow);
   }
 
-  .list-panel-card-gradient {
-    /* Set to transparent at the bottom so it adopts the container's base color */
-    background-image:
-      linear-gradient(to bottom,
-        rgb(var(--accent-500) / 0.12) 0%,
-        rgb(var(--accent-600) / 0.04) 10%,
-        transparent 20%);
-  }
+  /* .list-panel-card-gradient: legacy accent-tinted top fade on collection list
+     panels. Deprecated as Tenant-Identity-Rule drift (the accent bleeding into
+     chrome). Class retained as a no-op so existing call sites keep resolving;
+     the panel now adopts its container's plain surface. */
 
-  .dark .list-panel-card-gradient {
-    background-image:
-      linear-gradient(to bottom,
-        rgb(var(--accent-500) / 0.15) 0%,
-        rgb(var(--accent-600) / 0.05) 10%,
-        transparent 20%);
-  }
-
-  /* Inputs — tertiary surface, subtle rim */
-  .glass-input {
-    @apply bg-white/[0.08] text-input-text placeholder:text-input-placeholder/80 backdrop-blur-xl;
-
-    border: none;
-    box-shadow: var(--glass-rim-subtle), var(--shadow-glass);
-  }
-
-  .glass-input:focus {
+  .input-surface:focus,
+  .input-surface.isOpen,
+  .glass-input:focus,
+  .glass-input.isOpen {
     outline: none;
-    box-shadow: var(--glass-rim-medium),
-      0 0 0 2px rgb(var(--accent-500) / 0.3);
+    @apply border-accent-500/40;
+
+    box-shadow:
+      var(--input-shadow),
+      0 0 0 2px rgb(var(--accent-ring));
+  }
+
+  .glass-input.isError:focus,
+  .glass-input.isError {
+    @apply ring-0;
+    box-shadow: 
+      var(--input-shadow),
+      0 0 0 2px rgb(var(--error-500) / 0.4),
+      0 0 12px rgb(var(--error-500) / 0.2);
+  }
+
+  .glass-input.isSuccess:focus,
+  .glass-input.isSuccess {
+    @apply ring-0;
+    box-shadow: 
+      var(--input-shadow),
+      0 0 0 2px rgb(var(--success-500) / 0.4),
+      0 0 12px rgb(var(--success-500) / 0.2);
   }
 
 
 
   .workspace-header {
-    @apply relative flex min-h-[56px] items-center gap-3 px-4 py-3 text-input-text bg-surface-base border-b border-line-glass/15;
+    @apply relative flex min-h-[56px] items-center gap-3 px-4 py-3 text-input-text rounded-none border-b border-solid border-card-border;
+    background: rgb(var(--header-bg));
+    box-shadow: none;
+  }
+
+  .workspace-header::before {
+    @apply opacity-0;
   }
 
   .workspace-header__icon {
@@ -258,10 +576,10 @@
 
   /* Semantic surface helpers */
   .surface-subtle {
-    @apply bg-black/5 dark:bg-white/5 backdrop-blur-xl;
+    @apply bg-surface-elevated/55;
 
-    border: none;
-    box-shadow: var(--glass-rim-subtle);
+    border: 1px solid rgb(var(--border-subtle));
+    box-shadow: none;
   }
 
   .surface-hover {
@@ -269,9 +587,9 @@
   }
 
   .surface-hover:hover {
-    @apply bg-black/10 dark:bg-white/10;
+    background: rgb(var(--surface-card-hover));
 
-    box-shadow: var(--glass-rim-medium);
+    box-shadow: none;
   }
 
   .ai-thinking-indicator__dot {
@@ -301,7 +619,7 @@
 
   /* Base shared across all button variants */
   .btn {
-    @apply inline-flex items-center justify-center rounded-full font-medium transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed backdrop-blur-xl active:scale-[0.98] select-none px-4 py-2 text-sm;
+    @apply inline-flex items-center justify-center rounded-full font-medium transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.98] select-none px-4 py-2 text-sm;
     border: none;
   }
 
@@ -343,33 +661,29 @@
   .btn-primary {
     background-color: rgb(var(--accent-500));
     color: rgb(var(--accent-foreground));
-    box-shadow: var(--glass-rim-medium),
-      0 4px 16px rgb(var(--accent-500) / 0.3);
   }
 
   .btn-primary:hover:not(:disabled) {
     background-color: rgb(var(--accent-600));
-    box-shadow: var(--glass-rim-strong),
-      0 6px 20px rgb(var(--accent-500) / 0.4);
   }
 
   .btn-primary:focus {
     @apply ring-accent-500/50;
   }
 
-  /* Secondary — neutral glass */
+  /* Secondary — neutral elevated surface */
   .btn-secondary {
-    @apply bg-white/5 backdrop-blur-xl text-input-text;
-    box-shadow: var(--glass-rim-subtle);
+    @apply border border-card-border bg-surface-elevated text-input-text;
+    box-shadow: none;
   }
 
   .btn-secondary:hover:not(:disabled) {
-    @apply bg-white/15;
-    box-shadow: var(--glass-rim-medium);
+    background-color: rgb(var(--surface-card-hover));
+    box-shadow: none;
   }
 
   .btn-secondary:focus {
-    @apply ring-white/20;
+    @apply ring-black/20 dark:ring-white/40;
   }
 
   /* Ghost — no bg until hover */
@@ -378,13 +692,15 @@
     box-shadow: none;
   }
 
-  .btn-ghost:hover:not(:disabled) {
-    @apply bg-white/10;
-    box-shadow: var(--glass-rim-subtle);
+  .btn-ghost:hover:not(:disabled),
+  .btn-icon:hover:not(:disabled) {
+    background-color: rgb(var(--surface-card-hover));
+    box-shadow: none;
   }
 
-  .btn-ghost:focus {
-    @apply ring-white/20;
+  .btn-ghost:focus,
+  .btn-icon:focus {
+    @apply ring-black/20 dark:ring-white/40;
   }
 
   /* Icon — same as ghost, used for icon-only controls */
@@ -393,39 +709,33 @@
     box-shadow: none;
   }
 
-  .btn-icon:hover:not(:disabled) {
-    @apply bg-white/10;
-    box-shadow: var(--glass-rim-subtle);
-  }
-
-  .btn-icon:focus {
-    @apply ring-white/20;
-  }
-
-  /* Inverted — for use on dark surfaces */
+  /* Inverted — legacy glass variant. The original ship used backdrop-blur + white/20
+     tint + colored rim and glow shadows; flattened per DESIGN.md's No-Glow rule and
+     the AI-tool-template anti-ref. Now renders as a solid accent button identical in
+     feel to btn-primary so existing variant="inverted" call sites (none at the time
+     of this edit) stay viable. */
   .btn-inverted {
-    @apply bg-white/20 backdrop-blur-2xl text-white;
-    box-shadow: var(--glass-rim-medium), 0 4px 12px rgb(0 0 0 / 0.2);
+    background-color: rgb(var(--accent-500));
+    color: rgb(var(--accent-foreground));
   }
 
   .btn-inverted:hover:not(:disabled) {
-    @apply bg-white/30;
-    box-shadow: var(--glass-rim-strong), 0 6px 16px rgb(0 0 0 / 0.3);
+    background-color: rgb(var(--accent-600));
   }
 
   .btn-inverted:focus {
-    @apply ring-white/30;
+    @apply ring-accent-500/50;
   }
 
   /* Danger — red glass */
   .btn-danger {
-    @apply bg-red-500/10 backdrop-blur-xl text-red-400;
-    box-shadow: var(--glass-rim-subtle);
+    @apply bg-red-500/10 text-red-400;
+    box-shadow: none;
   }
 
   .btn-danger:hover:not(:disabled) {
     @apply bg-red-500/20 text-red-300;
-    box-shadow: var(--glass-rim-medium);
+    box-shadow: none;
   }
 
   .btn-danger:focus {
@@ -434,13 +744,13 @@
 
   /* Warning — orange destructive */
   .btn-warning {
-    @apply bg-orange-500/10 backdrop-blur-xl text-orange-400;
-    box-shadow: var(--glass-rim-subtle);
+    @apply bg-orange-500/10 text-orange-400;
+    box-shadow: none;
   }
 
   .btn-warning:hover:not(:disabled) {
     @apply bg-orange-500/20 text-orange-300;
-    box-shadow: var(--glass-rim-medium);
+    box-shadow: none;
   }
 
   .btn-warning:focus {
@@ -455,7 +765,7 @@
 
   .btn-danger-ghost:hover:not(:disabled) {
     @apply bg-red-500/10 text-red-400 dark:text-red-300;
-    box-shadow: var(--glass-rim-subtle);
+    box-shadow: none;
   }
 
   .btn-danger-ghost:focus {
@@ -464,13 +774,14 @@
 
   /* Accent ghost — accent text, no bg until hover */
   .btn-accent-ghost {
-    @apply bg-transparent text-accent-500;
+    @apply bg-transparent text-accent-500 dark:text-accent-400;
     box-shadow: none;
   }
 
   .btn-accent-ghost:hover:not(:disabled) {
-    @apply bg-accent-500/10 text-accent-400;
-    box-shadow: var(--glass-rim-subtle);
+    background-color: rgb(var(--accent-muted));
+    @apply text-accent-500 dark:text-accent-400;
+    box-shadow: none;
   }
 
   .btn-accent-ghost:focus {
@@ -479,13 +790,13 @@
 
   /* Outline — clear bg, defined rim */
   .btn-outline {
-    @apply bg-transparent backdrop-blur-sm text-input-text;
-    box-shadow: var(--glass-rim-subtle);
+    @apply border border-card-border bg-transparent text-input-text;
+    box-shadow: none;
   }
 
   .btn-outline:hover:not(:disabled) {
-    @apply bg-white/5;
-    box-shadow: var(--glass-rim-medium);
+    background-color: rgb(var(--surface-card-hover));
+    box-shadow: none;
   }
 
   .btn-outline:focus {
@@ -538,18 +849,20 @@
 
   /* Tab — for segmented navigation */
   .btn-tab {
-    @apply bg-transparent text-input-placeholder rounded-lg px-3 py-1.5 text-sm;
+    @apply bg-transparent text-input-placeholder rounded-xl px-3 py-2 text-sm;
     box-shadow: none;
   }
 
   .btn-tab:hover:not(:disabled) {
-    @apply bg-white/5 text-input-text;
+    background-color: rgb(var(--surface-card-hover));
+    @apply text-input-text;
   }
 
   .btn-tab[aria-selected="true"],
   .btn-tab.active {
-    @apply bg-white/10 text-input-text;
-    box-shadow: var(--glass-rim-subtle);
+    background-color: rgb(var(--accent-soft));
+    color: rgb(var(--input-text));
+    box-shadow: inset 0 0 0 1px rgb(var(--accent-border));
   }
 
   /* stylelint-enable declaration-empty-line-before */
@@ -558,7 +871,7 @@
   .nav-item-active {
     color: rgb(var(--nav-active-text));
     background-color: rgb(var(--nav-active-bg));
-    box-shadow: none;
+    box-shadow: inset 2px 0 0 rgb(var(--accent-utility));
   }
 
   .dark .nav-item-active {
@@ -573,54 +886,54 @@
 
   .nav-item-inactive:hover {
     color: rgb(var(--input-text) / 0.85);
-    background-color: rgb(255 255 255 / 0.06);
+    background-color: rgb(var(--surface-card-hover));
   }
 
   .dark .nav-item-inactive:hover {
-    background-color: rgb(255 255 255 / 0.08);
+    background-color: rgb(var(--surface-card-hover));
   }
 
   /* Semantic status surfaces */
   .status-info {
-    @apply border border-accent-500/20 bg-accent-500/10 text-[rgb(var(--accent-foreground))] backdrop-blur-xl;
-    box-shadow: var(--glass-rim-medium);
+    @apply border border-blue-500/20 bg-blue-500/10 text-[rgb(var(--info-foreground))] dark:bg-blue-500/10;
+    box-shadow: none;
   }
 
   .status-success {
-    @apply border border-green-500/20 bg-green-500/10 text-[rgb(var(--success-foreground))] backdrop-blur-xl;
-    box-shadow: var(--glass-rim-medium);
+    @apply border border-green-500/20 bg-green-500/10 text-[rgb(var(--success-foreground))] dark:bg-green-500/10;
+    box-shadow: none;
   }
 
   .status-warning {
-    @apply border border-orange-500/20 bg-orange-500/10 text-[rgb(var(--warning-foreground))] backdrop-blur-xl;
-    box-shadow: var(--glass-rim-medium);
+    @apply border border-orange-500/20 bg-orange-500/10 text-[rgb(var(--warning-foreground))] dark:bg-orange-500/10;
+    box-shadow: none;
   }
 
   .status-error {
-    @apply border border-red-500/20 bg-red-500/10 text-[rgb(var(--error-foreground))] backdrop-blur-xl;
-    box-shadow: var(--glass-rim-medium);
+    @apply border border-red-500/20 bg-red-500/10 text-[rgb(var(--error-foreground))] dark:bg-red-500/10;
+    box-shadow: none;
   }
 
   /* Segmented toggle */
   .segmented-toggle {
-    @apply relative inline-flex items-center rounded-full p-1 bg-transparent backdrop-blur-xl;
-    box-shadow: var(--glass-rim-subtle);
+    @apply relative inline-flex items-center rounded-full border border-card-border bg-surface-elevated p-1;
+    box-shadow: none;
   }
 
   .segmented-toggle-thumb {
-    @apply pointer-events-none absolute top-1 bottom-1 rounded-full bg-accent-500;
+    @apply pointer-events-none absolute top-1 bottom-1 rounded-full;
+    background-color: rgb(var(--accent-soft));
 
     transition: left 300ms ease-out, width 300ms ease-out;
-    box-shadow: var(--glass-rim-subtle),
-      0 2px 8px rgb(var(--accent-500) / 0.25);
+    box-shadow: inset 0 0 0 1px rgb(var(--accent-border));
   }
 
   .segmented-toggle-item {
-    @apply relative z-10 rounded-full px-4 py-1.5 text-sm font-medium transition-colors duration-200;
+    @apply relative z-10 rounded-full px-3 py-1.5 text-sm font-medium transition-colors duration-200;
   }
 
   .segmented-toggle-item-active {
-    @apply text-[rgb(var(--accent-foreground))];
+    @apply text-input-text;
   }
 
   .segmented-toggle-item-inactive {
@@ -867,7 +1180,7 @@
      ============================================================ */
 
   .file-display {
-    @apply flex items-center gap-2 p-2 glass-panel transition-all duration-200;
+    @apply flex items-center gap-2 p-2 panel transition-all duration-200;
   }
 
   .file-display-icon {
@@ -937,7 +1250,9 @@
   }
 
   .message-action-popover {
-    @apply absolute right-3 top-0 z-10 hidden -translate-y-1/2 items-center gap-1 rounded-md border border-white/10 bg-black/40 px-1 py-0.5 opacity-0 backdrop-blur-sm transition-opacity duration-150 group-hover:flex group-hover:opacity-100 group-focus-within:flex group-focus-within:opacity-100;
+    @apply absolute right-3 top-0 z-10 hidden -translate-y-1/2 items-center gap-1 rounded-md border border-black/5 dark:border-white/10 bg-white/95 dark:bg-black/40 px-1 py-0.5 opacity-0 backdrop-blur-sm transition-opacity duration-150 group-hover:flex group-hover:opacity-100 group-focus-within:flex group-focus-within:opacity-100;
+
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
   }
 
   .message-action-btn {
@@ -946,16 +1261,16 @@
   }
 
   .message-action-btn:hover:not(:disabled) {
-    @apply bg-white/10 text-input-text;
+    @apply bg-black/5 dark:bg-white/10 text-input-text;
   }
 
   .message-reaction-chip {
-    @apply inline-flex items-center gap-1 rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-xs text-input-text transition;
+    @apply inline-flex items-center gap-1 rounded-full border border-black/5 dark:border-white/10 bg-black/5 dark:bg-white/5 px-2 py-0.5 text-xs text-input-text transition;
     box-shadow: none;
   }
 
   .message-reaction-chip:hover:not(:disabled) {
-    @apply bg-white/10;
+    @apply bg-black/10 dark:bg-white/10;
   }
 
   .message-reaction-chip-active {
@@ -1011,6 +1326,64 @@
 
   .scrollbar-hide::-webkit-scrollbar {
     display: none;
+  }
+
+  /* Slim themed scrollbar for opt-in scroll containers (dialogs, matter list,
+     matter detail panel). Qualified with `body.modal-open` so the selector
+     specificity beats the `body.modal-open .overflow-auto` hide rule above —
+     otherwise the scrollbar would stay suppressed inside any open modal. */
+  body.modal-open .themed-scrollbar,
+  body .themed-scrollbar {
+    scrollbar-width: thin;
+    scrollbar-color: rgb(var(--sidebar-border)) transparent;
+    -ms-overflow-style: auto;
+  }
+
+  body.modal-open .themed-scrollbar::-webkit-scrollbar,
+  body .themed-scrollbar::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+    display: block;
+  }
+
+  body .themed-scrollbar::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  body .themed-scrollbar::-webkit-scrollbar-thumb {
+    background: rgb(var(--sidebar-border));
+    border-radius: 9999px;
+  }
+
+  body .themed-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: rgb(var(--sidebar-text-secondary));
+  }
+
+  /* Slim themed scrollbar that overrides the global scrollbar-hide. Used by the
+     Sidebar so long nav lists remain reachable on short viewports. */
+  .sidebar-scroll {
+    scrollbar-width: thin;
+    scrollbar-color: rgb(var(--sidebar-border)) transparent;
+    -ms-overflow-style: auto;
+  }
+
+  .sidebar-scroll::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+    display: block;
+  }
+
+  .sidebar-scroll::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .sidebar-scroll::-webkit-scrollbar-thumb {
+    background: rgb(var(--sidebar-border));
+    border-radius: 9999px;
+  }
+
+  .sidebar-scroll::-webkit-scrollbar-thumb:hover {
+    background: rgb(var(--sidebar-text-secondary));
   }
 
   /* ============================================================
@@ -1341,6 +1714,22 @@
      ANIMATIONS
      ============================================================ */
 
+  @keyframes toast-in {
+    from {
+      opacity: 0;
+      transform: translateY(-12px) scale(0.95);
+    }
+
+    to {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+    }
+  }
+
+  .animate-toast-in {
+    animation: toast-in 0.3s ease-out both;
+  }
+
   @keyframes float-in {
     from {
       opacity: 0;
@@ -1355,6 +1744,94 @@
 
   .animate-float-in {
     animation: float-in 600ms ease-out both;
+  }
+
+  .ui-overlay-enter {
+    animation: ui-fade-in 160ms cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .ui-surface-enter {
+    animation: ui-surface-in 160ms cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .ui-surface-enter-right {
+    animation: ui-surface-in-right 160ms cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  @keyframes ui-fade-in {
+    from {
+      opacity: 0;
+    }
+
+    to {
+      opacity: 1;
+    }
+  }
+
+  @keyframes ui-surface-in {
+    from {
+      opacity: 0;
+      transform: translateY(8px);
+    }
+
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes ui-surface-in-right {
+    from {
+      opacity: 0;
+      transform: translateX(8px);
+    }
+
+    to {
+      opacity: 1;
+      transform: translateX(0);
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .ui-overlay-enter,
+    .ui-surface-enter,
+    .ui-surface-enter-right {
+      animation: none !important;
+    }
+
+    @keyframes ui-fade-in {
+      from {
+        opacity: 1;
+      }
+
+      to {
+        opacity: 1;
+      }
+    }
+
+    @keyframes ui-surface-in {
+      from {
+        opacity: 1;
+        transform: none;
+      }
+
+      to {
+        opacity: 1;
+        transform: none;
+      }
+    }
+
+    @keyframes ui-surface-in-right {
+      from {
+        opacity: 1;
+        transform: none;
+      }
+
+      to {
+        opacity: 1;
+        transform: none;
+      }
+    }
   }
 
   @keyframes ai-thinking-dot-pulse {
@@ -1375,6 +1852,63 @@
 
     to {
       transform: translateX(100%);
+    }
+  }
+
+  @keyframes progress-indeterminate {
+    0% {
+      transform: translateX(-100%);
+    }
+    100% {
+      transform: translateX(400%);
+    }
+  }
+
+  .animate-progress-indeterminate {
+    animation: progress-indeterminate 1.5s ease-in-out infinite;
+  }
+
+  /* Skeleton placeholder bars.
+   *
+   * Two layers do the work:
+   *   1. A static base color sized to the bar — `--input-placeholder` flips
+   *      correctly between themes (medium gray on light, lighter gray on
+   *      dark) so bars are always visible against the surface, never the
+   *      barely-there ghosting of the prior `--accent-foreground/0.1`.
+   *   2. A diagonal-friendly horizontal highlight band that sweeps across
+   *      the bar via background-position. This is the "premium" shimmer
+   *      pattern (Stripe / LinkedIn) and reads as polish without flash.
+   *
+   * Slow cadence (1.6s) feels confident; faster looks anxious. The peak
+   * opacity (0.32) is high enough to be visible on both themes but stays
+   * shy of a fully solid block. Honors prefers-reduced-motion by dropping
+   * the sweep and showing a slightly more opaque static bar instead.
+   */
+  @keyframes skeleton-shimmer {
+    0%   { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+  }
+
+  .skeleton-bar {
+    background-color: rgb(var(--input-placeholder) / 0.18);
+    background-image: linear-gradient(
+      90deg,
+      rgba(0, 0, 0, 0) 0%,
+      rgb(var(--input-placeholder) / 0.32) 50%,
+      rgba(0, 0, 0, 0) 100%
+    );
+    background-repeat: no-repeat;
+    background-size: 50% 100%;
+    background-position: 200% 0;
+    animation: skeleton-shimmer 1.6s ease-in-out infinite;
+    will-change: background-position;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .skeleton-bar {
+      animation: none;
+      background-image: none;
+      background-color: rgb(var(--input-placeholder) / 0.24);
     }
   }
 

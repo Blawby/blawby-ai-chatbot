@@ -1,7 +1,10 @@
 import { Fragment } from 'preact';
-import { ArrowDownCircleIcon, ArrowPathIcon, ArrowUpCircleIcon } from '@heroicons/react/20/solid';
+import { ArrowDownCircle, RefreshCw, ArrowUpCircle } from 'lucide-preact';
+
 import { Icon } from '@/shared/ui/Icon';
+import { Button } from '@/shared/ui/Button';
 import { cn } from '@/shared/utils/cn';
+import { SkeletonLoader } from '@/shared/ui/layout/SkeletonLoader';
 import { formatCurrency } from '@/shared/utils/currencyFormatter';
 import { formatDate } from '@/shared/utils/dateTime';
 import type { ActivityDay, ActivityEntry } from '@/features/practice-dashboard/hooks/usePracticeBillingData';
@@ -24,17 +27,18 @@ const formatAmountLabel = (amount: number) => {
 
 const statusIcon = (status: ActivityEntry['status']) => {
   const normalized = status.toLowerCase();
-  if (normalized === 'paid') return ArrowUpCircleIcon;
-  if (normalized === 'overdue') return ArrowPathIcon;
-  return ArrowDownCircleIcon;
+  if (normalized === 'paid') return ArrowUpCircle;
+  if (normalized === 'overdue') return RefreshCw;
+  return ArrowDownCircle;
 };
 
 const statusClass = (status: ActivityEntry['status']) => {
   const normalized = status.toLowerCase();
-  if (normalized === 'paid') return 'text-emerald-300 bg-emerald-500/10 ring-emerald-500/20';
-  if (normalized === 'overdue') return 'text-rose-300 bg-rose-500/10 ring-rose-500/20';
-  if (normalized === 'sent' || normalized === 'pending') return 'text-input-placeholder bg-surface-glass ring-line-glass/50';
-  return 'bg-surface-glass text-input-placeholder ring-line-glass/50';
+  if (normalized === 'paid') return 'bg-emerald-500/10 text-emerald-700 ring-emerald-500/20 dark:text-emerald-300';
+  if (normalized === 'overdue') return 'bg-rose-500/10 text-rose-700 ring-rose-500/20 dark:text-rose-300';
+  if (normalized === 'draft') return 'bg-surface-overlay/80 text-input-placeholder ring-line-glass/20';
+  if (normalized === 'sent' || normalized === 'pending') return 'bg-surface-overlay/80 text-input-placeholder ring-line-glass/20';
+  return 'bg-surface-overlay/80 text-input-placeholder ring-line-glass/20';
 };
 
 export const RecentActivityTable = ({ days, loading = false, error = null, onOpenInvoice }: RecentActivityTableProps) => (
@@ -46,8 +50,18 @@ export const RecentActivityTable = ({ days, loading = false, error = null, onOpe
     </div>
     {loading ? (
       <div className="mt-6 border-t border-line-glass/30">
-        <div className="mx-auto max-w-7xl px-4 py-5 text-sm text-input-placeholder sm:px-6 lg:px-8">
-          Loading activity...
+        <div className="mx-auto max-w-7xl px-4 py-5 sm:px-6 lg:px-8">
+          <div className="space-y-3">
+            {[1, 2, 3, 4, 5].map(i => (
+              <div key={i} className="flex items-center space-x-4">
+                <SkeletonLoader variant="avatar" />
+                <div className="flex-1 space-y-2">
+                  <SkeletonLoader variant="text" width="w-32" />
+                  <SkeletonLoader variant="text" width="w-48" />
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       </div>
     ) : error ? (
@@ -84,8 +98,8 @@ export const RecentActivityTable = ({ days, loading = false, error = null, onOpe
                       <tr className="text-sm text-input-text">
                         <th scope="colgroup" colSpan={3} className="relative isolate py-2 font-semibold">
                           <time dateTime={day.isoDate}>{day.label}</time>
-                          <div className="absolute inset-y-0 right-full -z-10 w-screen border-b border-line-glass/30 bg-surface-glass" />
-                          <div className="absolute inset-y-0 left-0 -z-10 w-screen border-b border-line-glass/30 bg-surface-glass" />
+                          <div className="absolute inset-y-0 right-full -z-10 w-screen border-b border-line-glass/30 bg-surface-overlay/70" />
+                          <div className="absolute inset-y-0 left-0 -z-10 w-screen border-b border-line-glass/30 bg-surface-overlay/70" />
                         </th>
                       </tr>
                       {day.entries.length === 0 && showEmptyRows ? (
@@ -133,13 +147,9 @@ export const RecentActivityTable = ({ days, loading = false, error = null, onOpe
                           </td>
                           <td className="py-5 text-right">
                             <div className="flex justify-end">
-                              <button
-                                type="button"
-                                onClick={() => onOpenInvoice?.(entry)}
-                                className="text-sm font-medium text-accent-400 hover:text-accent-300"
-                              >
-                                View transaction
-                              </button>
+                              <Button variant="link" size="sm" onClick={() => onOpenInvoice?.(entry)}>
+                                View invoice
+                              </Button>
                             </div>
                             <div className="mt-1 text-xs text-input-placeholder">
                               Invoice <span className="text-input-text">#{entry.invoiceNumber ?? entry.invoiceId?.slice(0, 6)}</span>

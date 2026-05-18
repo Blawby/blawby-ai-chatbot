@@ -1,3 +1,4 @@
+import { Check, ChevronDown, X, Plus, ChevronsUpDown } from 'lucide-preact';
 /**
  * Combobox — unified select / combobox primitive
  *
@@ -14,13 +15,7 @@
 
 import { useMemo, useState, useRef, useEffect, useCallback } from 'preact/hooks';
 import type { ComponentChildren } from 'preact';
-import {
-  CheckIcon,
-  ChevronDownIcon,
-  ChevronUpDownIcon,
-  XMarkIcon,
-  PlusIcon,
-} from '@heroicons/react/24/outline';
+
 import { Icon } from '@/shared/ui/Icon';
 import { cn } from '@/shared/utils/cn';
 
@@ -32,8 +27,10 @@ export type ComboboxOption = {
   value: string;
   label: string;
   meta?: string;
+  description?: string;
   icon?: ComponentChildren;
   isCustom?: boolean;
+  disabled?: boolean;
 };
 
 type BaseProps = {
@@ -46,6 +43,7 @@ type BaseProps = {
   optionLeading?: ComponentChildren | ((option: ComboboxOption) => ComponentChildren);
   /** Optional custom right-side meta content for each dropdown option */
   optionMeta?: (option: ComboboxOption) => ComponentChildren;
+  footer?: ComponentChildren | ((close: () => void) => ComponentChildren);
   className?: string;
   disabled?: boolean;
   /** Show clear icon for single-select values. Default: true */
@@ -56,6 +54,8 @@ type BaseProps = {
   allowCustomValues?: boolean;
   /** Label for the "Add …" row. Default: "Add" */
   addNewLabel?: string;
+  /** Hide the default helper text shown for free-text comboboxes. */
+  hideCustomHint?: boolean;
   /** Dropdown direction. Default: "down" */
   direction?: 'up' | 'down';
   description?: string;
@@ -82,7 +82,8 @@ const normalize = (s: string) =>
     .replace(/\s+/g, ' ')
     .trim();
 
-const uid = () => Math.random().toString(36).slice(2, 9);
+let comboboxUidCounter = 0;
+const uid = () => `cbx-${++comboboxUidCounter}`;
 
 // ---------------------------------------------------------------------------
 // Sub-components
@@ -92,32 +93,40 @@ function Chip({
   label,
   isCustom,
   onRemove,
+  compact = false,
+  showCustomBadge = true,
 }: {
   label: string;
   isCustom?: boolean;
   onRemove: () => void;
+  compact?: boolean;
+  showCustomBadge?: boolean;
 }) {
   return (
     <span
       className={cn(
-        'inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs font-medium',
+        'inline-flex max-w-full items-center gap-1 rounded-xl border text-xs font-medium',
+        compact ? 'min-h-8 px-3 py-1 text-sm' : 'px-2 py-0.5',
         isCustom
-          ? 'bg-accent-500/20 text-accent-300 ring-1 ring-inset ring-accent-500/30'
-          : 'bg-white/10 text-input-text ring-1 ring-inset ring-white/15'
+          ? 'border-accent-500/25 bg-accent-500/12 text-accent-utility'
+          : 'border-line-utility/10 bg-surface-utility/10 text-input-text'
       )}
     >
-      {label}
-      {isCustom && (
-        <span className="text-accent-400/60 text-[10px] leading-none">custom</span>
+      <span className="truncate">{label}</span>
+      {isCustom && showCustomBadge && (
+        <span className="text-accent-utility/60 text-[10px] leading-none">custom</span>
       )}
       <button
         type="button"
         onMouseDown={(e) => e.preventDefault()}
-        onClick={onRemove}
-        className="ml-0.5 rounded hover:text-red-400 transition-colors"
+        onClick={(e) => {
+          e.stopPropagation();
+          onRemove();
+        }}
+        className="ml-0.5 rounded text-input-placeholder transition-colors hover:text-input-text"
         aria-label={`Remove ${label}`}
       >
-        <Icon icon={XMarkIcon} className="h-3 w-3"  />
+        <Icon icon={X} className={cn(compact ? 'h-4 w-4' : 'h-3 w-3')}  />
       </button>
     </span>
   );
@@ -153,21 +162,31 @@ function DropdownOption({
       tabIndex={-1}
       onMouseDown={(e) => e.preventDefault()}
       onClick={onSelect}
+      disabled={option.disabled}
       className={cn(
-        'group relative flex w-full items-center justify-between px-3 py-2 text-left text-sm transition-colors',
+        'group relative flex w-full items-center justify-between px-3 py-2.5 text-left text-sm transition-all',
+        option.disabled && 'cursor-not-allowed opacity-45',
         isSelected || isFocused
-          ? 'bg-accent-500/15 text-accent-400'
-          : 'text-input-text hover:bg-white/[0.08]'
+          ? 'bg-accent-500/15 text-input-text'
+          : 'text-input-text hover:bg-surface-utility/10 dark:hover:bg-surface-utility/20',
+        option.disabled && 'hover:bg-transparent dark:hover:bg-transparent'
       )}
     >
-      <span className="flex min-w-0 items-center gap-2.5">
+      <span className="flex min-w-0 items-start gap-2.5">
         {resolvedOptionLeading && (
-          <span className="flex h-5 w-5 flex-shrink-0 items-center justify-center text-input-placeholder group-hover:text-input-text">
+          <span className="mt-0.5 flex h-5 w-5 flex-shrink-0 items-center justify-center text-input-placeholder group-hover:text-input-text">
             {resolvedOptionLeading}
           </span>
         )}
-        <span className={cn('truncate', isSelected && 'font-medium')}>
-          {option.label}
+        <span className="min-w-0">
+          <span className={cn('block truncate', isSelected && 'font-medium')}>
+            {option.label}
+          </span>
+          {option.description ? (
+            <span className="mt-0.5 block truncate text-xs text-input-placeholder">
+              {option.description}
+            </span>
+          ) : null}
         </span>
       </span>
       <span className="flex flex-shrink-0 items-center gap-2">
@@ -175,7 +194,7 @@ function DropdownOption({
           <span className="text-xs text-input-placeholder">{resolvedOptionMeta}</span>
         )}
         {isSelected && (
-          <Icon icon={CheckIcon} className="h-4 w-4 text-accent-400" aria-hidden="true"  />
+          <Icon icon={Check} className="h-4 w-4 text-accent-400" aria-hidden="true"  />
         )}
       </span>
     </button>
@@ -194,6 +213,7 @@ export function Combobox({
   leading,
   optionLeading,
   optionMeta,
+  footer,
   onChange,
   multiple,
   className,
@@ -202,6 +222,7 @@ export function Combobox({
   searchable = true,
   allowCustomValues = false,
   addNewLabel = 'Add',
+  hideCustomHint = false,
   direction = 'down',
   description,
   'aria-labelledby': ariaLabelledBy,
@@ -211,7 +232,7 @@ export function Combobox({
   hideTrigger = false,
 }: ComboboxProps) {
   const isMultiple = multiple === true;
-  const internalId = useMemo(() => `cbx-${uid()}`, []);
+  const internalId = useMemo(() => uid(), []);
   const inputId = id || internalId;
   const listboxId = `${inputId}-listbox`;
 
@@ -227,7 +248,9 @@ export function Combobox({
     if (autoFocus && !disabled) {
       open();
     }
-  }, [autoFocus, disabled]); // eslint-disable-line react-hooks/exhaustive-deps
+    // effect intentionally only runs on autoFocus, disabled
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoFocus, disabled]);
 
   // ------------------------------------------------------------------
   // Derived state
@@ -238,7 +261,7 @@ export function Combobox({
     return value ? [value as string] : [];
   }, [value, isMultiple]);
 
-  // Merge in any custom (free-text) values already selected so chips resolve
+  // Keep selected custom values visible even when they are not part of the option list yet.
   const mergedOptions = useMemo(() => {
     const known = new Set(options.map((o) => o.value));
     const custom: ComboboxOption[] = valueList
@@ -276,8 +299,8 @@ export function Combobox({
     allowCustomValues &&
     isOpen &&
     trimmedQuery.length > 0 &&
-    !queryMatchesExisting &&
-    !queryAlreadySelected;
+    !queryAlreadySelected &&
+    (!queryMatchesExisting || filteredOptions.length === 0);
 
   const totalRows = filteredOptions.length + (showAddRow ? 1 : 0);
   const clampedFocus = focusedIndex >= 0 && focusedIndex < totalRows ? focusedIndex : -1;
@@ -303,6 +326,8 @@ export function Combobox({
     setFocusedIndex(-1);
     triggerRef.current?.focus();
   }, []);
+
+  const resolvedFooter = typeof footer === 'function' ? footer(close) : footer;
 
   // Close on outside click
   useEffect(() => {
@@ -468,22 +493,41 @@ export function Combobox({
 
   const triggerContent = (
     <>
-      {/* Leading icon */}
       {resolvedLeading && (
-        <span className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-input-placeholder">
+        <span
+          className={cn(
+            'pointer-events-none flex-shrink-0 text-input-placeholder',
+            isMultiple ? 'pt-1' : ''
+          )}
+        >
           {resolvedLeading}
         </span>
       )}
 
-      {/* Display text / placeholder */}
-      <span
-        className={cn(
-          'flex-1 truncate text-left text-sm',
-          resolvedLeading && 'pl-7',
-          !hasValue && 'text-input-placeholder'
+      <span className="min-w-0 flex-1 text-left">
+        {isMultiple && hasValue ? (
+          <span className="flex flex-wrap gap-2">
+            {selectedOptions.map((option) => (
+              <Chip
+                key={option.value}
+                label={option.label}
+                isCustom={option.isCustom}
+                onRemove={() => remove(option.value)}
+                compact
+                showCustomBadge={false}
+              />
+            ))}
+          </span>
+        ) : (
+          <span
+            className={cn(
+              'block truncate text-sm',
+              !hasValue && 'text-input-placeholder'
+            )}
+          >
+            {hasValue ? displayText : placeholder}
+          </span>
         )}
-      >
-        {hasValue ? displayText : placeholder}
       </span>
 
       {/* Clear or chevron */}
@@ -495,13 +539,13 @@ export function Combobox({
           className="flex-shrink-0 text-input-placeholder hover:text-input-text transition-colors"
           aria-label="Clear selection"
         >
-          <Icon icon={XMarkIcon} className="h-4 w-4"  />
+          <Icon icon={X} className="h-4 w-4"  />
         </button>
       ) : (
         <span className="flex-shrink-0 text-input-placeholder pointer-events-none">
           {searchable
-            ? <Icon icon={ChevronUpDownIcon} className="h-4 w-4"  />
-            : <Icon icon={ChevronDownIcon} className={cn('h-4 w-4 transition-transform', isOpen && 'rotate-180')}  />
+            ? <Icon icon={ChevronsUpDown} className="h-4 w-4"  />
+            : <Icon icon={ChevronDown} className={cn('h-4 w-4 transition-transform', isOpen && 'rotate-180')}  />
           }
         </span>
       )}
@@ -536,9 +580,9 @@ export function Combobox({
           onClick={() => (isOpen ? close() : open())}
           onKeyDown={handleKeyDown}
           className={cn(
-            'glass-input relative flex w-full items-center gap-2 rounded-md px-3 py-2.5 transition-all duration-150',
-            'focus:outline-none focus:ring-2 focus:ring-accent-500/50 focus:ring-offset-0',
-            isOpen && 'ring-2 ring-accent-500/50',
+            'glass-input relative flex w-full gap-2 rounded-xl px-3 py-2.5 transition-all duration-200',
+            isOpen && 'isOpen',
+            'items-center',
             !disabled && 'cursor-pointer'
           )}
         >
@@ -557,27 +601,14 @@ export function Combobox({
           tabIndex={-1}
           onMouseDown={(e) => e.preventDefault()}
           className={cn(
-            'z-50 w-full overflow-hidden rounded-xl border border-white/10 bg-surface-overlay/95 backdrop-blur-2xl shadow-glass absolute',
+            'z-[60] w-full overflow-hidden rounded-xl absolute',
+            'bg-surface-overlay shadow-glass border border-line-glass/20',
             hideTrigger ? 'top-0 mt-1' : (direction === 'up' ? 'bottom-full mb-1 top-auto' : 'top-full mt-1')
           )}
         >
-          {/* Multi chips inside dropdown header */}
-          {isMultiple && selectedOptions.length > 0 && (
-            <div className="flex flex-wrap gap-1.5 border-b border-white/[0.06] px-3 py-2">
-              {selectedOptions.map((opt) => (
-                <Chip
-                  key={opt.value}
-                  label={opt.label}
-                  isCustom={opt.isCustom}
-                  onRemove={() => remove(opt.value)}
-                />
-              ))}
-            </div>
-          )}
-
           {/* Search input */}
           {searchable && (
-            <div className="border-b border-white/[0.06] px-2 py-2">
+            <div className="border-b border-line-glass/10 px-2 py-2">
               <input
                 ref={inputRef}
                 type="text"
@@ -589,9 +620,9 @@ export function Combobox({
                 }}
                 onKeyDown={handleKeyDown}
                 className={cn(
-                  'w-full rounded-md bg-white/[0.06] px-3 py-1.5 text-sm text-input-text',
+                  'w-full rounded-xl bg-surface-utility/10 px-3 py-1.5 text-sm text-input-text',
                   'placeholder:text-input-placeholder/60',
-                  'focus:outline-none focus:ring-1 focus:ring-accent-500/50',
+                  'focus:outline-none focus:ring-2 ring-inset focus:ring-accent-500/30'
                 )}
                 aria-autocomplete="list"
                 aria-controls={listboxId}
@@ -616,22 +647,22 @@ export function Combobox({
                 className={cn(
                   'flex w-full items-center gap-2.5 px-3 py-2 text-left text-sm transition-colors',
                   clampedFocus === 0
-                    ? 'bg-accent-500/15 text-accent-400'
-                    : 'text-input-text hover:bg-white/[0.08]'
+                    ? 'bg-accent-500/15 text-input-text'
+                    : 'text-input-text hover:bg-surface-utility/10 focus:bg-surface-utility/20'
                 )}
               >
-                <span className="flex h-5 w-5 flex-shrink-0 items-center justify-center rounded bg-accent-500/20 text-accent-400">
-                  <Icon icon={PlusIcon} className="h-3.5 w-3.5"  />
+                <span className="flex h-5 w-5 flex-shrink-0 items-center justify-center rounded bg-accent-500/20 text-accent-utility">
+                  <Icon icon={Plus} className="h-3.5 w-3.5"  />
                 </span>
                 <span>
                   {addNewLabel}{' '}
-                  <span className="font-semibold text-accent-300">&quot;{trimmedQuery}&quot;</span>
+                  <span className="font-semibold text-accent-utility">&quot;{trimmedQuery}&quot;</span>
                 </span>
               </button>
             )}
 
             {showAddRow && filteredOptions.length > 0 && (
-              <div className="my-1 border-t border-white/[0.06]" />
+              <div className="my-1 border-t border-black/5 dark:border-white/[0.06]" />
             )}
 
             {filteredOptions.map((option, index) => {
@@ -645,19 +676,37 @@ export function Combobox({
                   isFocused={rowIndex === clampedFocus}
                   optionLeading={optionLeading}
                   optionMeta={optionMeta}
-                  onSelect={() =>
-                    isMultiple ? toggle(option.value) : commit(option.value)
+                  onSelect={option.disabled
+                    ? () => {}
+                    : () => isMultiple ? toggle(option.value) : commit(option.value)
                   }
                 />
               );
             })}
 
-            {filteredOptions.length === 0 && !showAddRow && (
+            {filteredOptions.length === 0 && !showAddRow && !resolvedFooter && (
               <p className="px-4 py-3 text-center text-sm text-input-placeholder">
-                No options found.
+                {allowCustomValues
+                  ? (trimmedQuery
+                    ? 'No matches. Keep typing to add it.'
+                    : 'No options yet. Type above to add one.')
+                  : 'No options found.'}
               </p>
             )}
           </div>
+
+          {resolvedFooter ? (
+            <div className="border-t border-line-glass/10 px-2 py-2">
+              {resolvedFooter}
+            </div>
+          ) : allowCustomValues && filteredOptions.length === 0 && !showAddRow ? (
+            <div className="flex items-center gap-2 border-t border-line-glass/10 px-3 py-2 text-xs text-input-placeholder">
+              <span className="flex h-4 w-4 flex-shrink-0 items-center justify-center rounded bg-accent-500/20 text-accent-utility">
+                <Icon icon={Plus} className="h-3 w-3" />
+              </span>
+              <span>Type a name and press Enter to add a new option.</span>
+            </div>
+          ) : null}
         </div>
       )}
 
@@ -665,7 +714,7 @@ export function Combobox({
       {description && (
         <p className="mt-1 pl-1 text-xs text-input-placeholder">{description}</p>
       )}
-      {allowCustomValues && !isOpen && !description && (
+      {allowCustomValues && !hideCustomHint && !isOpen && !description && (
         <p className="mt-1 pl-1 text-xs text-input-placeholder">
           Select an option or type to add your own.
         </p>

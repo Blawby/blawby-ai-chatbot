@@ -5,7 +5,12 @@ export interface AggregatedMedia {
   name: string;
   size: number;
   type: string;
+  /** Pre-resolved public URL, when the source attachment has one. Empty
+   *  string for privileged uploads — consumers must resolve via uploadId. */
   url: string;
+  /** Scoped-upload id; when set, consumers route through
+   *  /api/uploads/:uploadId/download for a fresh presigned URL. */
+  uploadId?: string;
   timestamp: Date;
   messageIndex: number;
   category: 'image' | 'video' | 'document' | 'audio' | 'other';
@@ -33,7 +38,8 @@ export function aggregateMediaFromMessages(messages: Array<{ files?: FileAttachm
           name: file.name,
           size: file.size,
           type: file.type,
-          url: file.url,
+          url: file.url ?? '',
+          uploadId: file.uploadId,
           timestamp: new Date(), // In a real app, this would come from message timestamp
           messageIndex,
           category
@@ -132,7 +138,7 @@ export function getFileIconName(category: AggregatedMedia['category'], filename:
     case 'video':
       return 'VideoCameraIcon';
     case 'audio':
-      return 'MusicalNoteIcon';
+      return 'Music';
     case 'document':
       if (extension === 'pdf') return 'DocumentTextIcon';
       if (['doc', 'docx'].includes(extension)) return 'DocumentIcon';

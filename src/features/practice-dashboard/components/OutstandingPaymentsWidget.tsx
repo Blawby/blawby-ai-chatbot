@@ -1,5 +1,6 @@
 import { Button } from '@/shared/ui/Button';
 import { Panel } from '@/shared/ui/layout/Panel';
+import { LoadingSpinner } from '@/shared/ui/layout/LoadingSpinner';
 import { formatCurrency } from '@/shared/utils/currencyFormatter';
 import type { OutstandingPaymentsSummary } from '@/features/practice-dashboard/hooks/usePracticeBillingData';
 
@@ -23,9 +24,11 @@ export const OutstandingPaymentsWidget = ({
     </header>
     <div className="flex-1 px-5 py-4">
       {loading ? (
-        <p className="text-sm text-input-placeholder">Calculating balances…</p>
+        <div className="flex items-center justify-center py-8">
+          <LoadingSpinner size="md" />
+        </div>
       ) : error ? (
-        <div className="rounded-lg border border-line-glass/40 bg-surface-glass px-3 py-2 text-sm text-input-text">
+        <div className="rounded-xl border border-card-border bg-card px-3 py-2 text-sm text-input-text">
           {error}
         </div>
       ) : summary ? (

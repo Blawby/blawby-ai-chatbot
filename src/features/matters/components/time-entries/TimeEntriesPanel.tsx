@@ -1,7 +1,9 @@
 import { useMemo, useState } from 'preact/hooks';
-import { ChevronLeftIcon, ChevronRightIcon, PlusIcon } from '@heroicons/react/24/outline';
-import Modal from '@/shared/components/Modal';
+import { ChevronLeft, ChevronRight, Plus } from 'lucide-preact';
+
+import { Dialog, DialogBody, DialogFooter } from '@/shared/ui/dialog';
 import { Button } from '@/shared/ui/Button';
+import { ListRowSkeleton } from '@/shared/ui/layout';
 import type { TimeEntry } from '@/features/matters/data/matterTypes';
 import { TimeEntryForm, type TimeEntryFormValues } from './TimeEntryForm';
 import { formatDateOnlyStringUtc } from '@/shared/utils/dateOnly';
@@ -151,14 +153,14 @@ export const TimeEntriesPanel = ({
           selectedWeekStart={selectedWeekStart}
           onSelectWeek={(date) => setSelectedWeekStart(getStartOfWeek(date))}
         />
-        <div className="glass-panel overflow-hidden">
-          <header className="flex flex-wrap items-center justify-between gap-3 border-b border-line-glass/30 px-6 py-4">
+        <div className="panel overflow-hidden">
+          <header className="flex flex-wrap items-center justify-between gap-3 border-b border-line-subtle px-6 py-4">
             <div className="flex items-center gap-3">
               <Button
                 variant="ghost"
                 size="sm"
                 aria-label="Previous week"
-                icon={ChevronLeftIcon}
+                icon={ChevronLeft}
                 iconClassName="h-4 w-4"
                 onClick={handlePreviousWeek}
               />
@@ -169,36 +171,36 @@ export const TimeEntriesPanel = ({
                 variant="ghost"
                 size="sm"
                 aria-label="Next week"
-                icon={ChevronRightIcon}
+                icon={ChevronRight}
                 iconClassName="h-4 w-4"
                 onClick={handleNextWeek}
               />
             </div>
-            <Button size="sm" icon={PlusIcon} iconClassName="h-4 w-4" onClick={() => openNewEntry()}>
+            <Button size="sm" icon={Plus} iconClassName="h-4 w-4" onClick={() => openNewEntry()}>
               Add time entry
             </Button>
           </header>
 
-          <div className="divide-y divide-gray-200 dark:divide-white/10">
+          <div className="divide-y divide-line-default">
             {error ? (
               <div className="px-6 py-6 text-sm text-red-600 dark:text-red-400">{error}</div>
             ) : loading && entries.length === 0 ? (
-              <div className="px-6 py-6 text-sm text-gray-500 dark:text-gray-400">Loading time entries...</div>
+              <ListRowSkeleton rows={4} avatar={false} />
             ) : null}
             {showEntries && dailyEntries.map((day) => (
               <button
                 key={day.dateKey}
                 type="button"
                 onClick={() => openNewEntry(day.dateKey)}
-                className="w-full text-left px-4 py-3 sm:px-6 hover:bg-white/[0.04] transition-colors"
+                className="w-full text-left px-4 py-3 sm:px-6 hover:bg-surface-card-hover transition-colors"
               >
                 <div className="grid gap-2 sm:grid-cols-12 sm:items-center">
-                  <div className="text-sm font-medium text-gray-600 dark:text-gray-300 sm:col-span-3">
+                  <div className="text-sm font-medium text-input-placeholder sm:col-span-3">
                     {formatDateLabel(day.date)}
                   </div>
                   <div className="sm:col-span-9">
                     <div className="flex items-center gap-3">
-                      <div className="flex-1 h-2 rounded-full bg-line-glass/60">
+                      <div className="flex-1 h-2 rounded-full bg-line-subtle">
                         <div
                           className="h-2 rounded-full bg-accent-500"
                           style={{ width: `${day.progressPercentage}%` }}
@@ -208,7 +210,7 @@ export const TimeEntriesPanel = ({
                         {formatDuration(day.totalSeconds)}
                       </div>
                     </div>
-                    <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                    <p className="mt-1 text-xs text-input-placeholder">
                       {day.entries.length === 1 ? '1 entry' : `${day.entries.length} entries`}
                     </p>
                   </div>
@@ -220,45 +222,47 @@ export const TimeEntriesPanel = ({
       </section>
 
       {isFormOpen && (
-        <Modal
+        <Dialog
           isOpen={isFormOpen}
           onClose={closeForm}
           title={editingEntry ? 'Edit time entry' : 'Add time entry'}
           contentClassName="max-w-2xl"
         >
-          <TimeEntryForm
-            key={editingEntry?.id ?? `new-${draftDate ?? 'today'}`}
-            initialEntry={editingEntry ?? undefined}
-            initialDate={draftDate ?? undefined}
-            lockDate={isDateLocked}
-            onSubmit={handleSave}
-            onCancel={closeForm}
-            onDelete={editingEntry ? () => confirmDelete(editingEntry) : undefined}
-          />
-        </Modal>
+          <DialogBody>
+            <TimeEntryForm
+              key={editingEntry?.id ?? `new-${draftDate ?? 'today'}`}
+              initialEntry={editingEntry ?? undefined}
+              initialDate={draftDate ?? undefined}
+              lockDate={isDateLocked}
+              onSubmit={handleSave}
+              onCancel={closeForm}
+              onDelete={editingEntry ? () => confirmDelete(editingEntry) : undefined}
+            />
+          </DialogBody>
+        </Dialog>
       )}
 
       {deleteTarget && (
-        <Modal
+        <Dialog
           isOpen={Boolean(deleteTarget)}
           onClose={() => setDeleteTarget(null)}
           title="Delete time entry"
           contentClassName="max-w-xl"
         >
-          <div className="space-y-4">
-            <p className="text-sm text-gray-600 dark:text-gray-300">
+          <DialogBody className="space-y-4">
+            <p className="text-sm text-input-placeholder">
               Are you sure you want to delete this time entry? This action cannot be undone.
             </p>
-            <div className="flex items-center justify-end gap-3">
-              <Button variant="secondary" onClick={() => setDeleteTarget(null)}>
-                Cancel
-              </Button>
-              <Button variant="danger" onClick={handleDelete}>
-                Delete time entry
-              </Button>
-            </div>
-          </div>
-        </Modal>
+          </DialogBody>
+          <DialogFooter>
+            <Button variant="secondary" onClick={() => setDeleteTarget(null)}>
+              Cancel
+            </Button>
+            <Button variant="danger" onClick={handleDelete}>
+              Delete time entry
+            </Button>
+          </DialogFooter>
+        </Dialog>
       )}
     </div>
   );

@@ -110,7 +110,7 @@ export const RadioGroup = ({
                 required={required}
                 className={cn(
                   'border bg-input-bg text-accent-600',
-                  'focus:outline-none focus:ring-2 focus:ring-offset-0 transition-colors',
+                  'focus:outline-none focus:ring-2 ring-inset focus:ring-offset-0 transition-colors',
                   sizeClasses[size],
                   variantClasses[variant],
                   (disabled || option.disabled) && 'opacity-50 cursor-not-allowed'
@@ -130,7 +130,7 @@ export const RadioGroup = ({
               </label>
               
               {option.description && (
-                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                <p className="text-xs text-input-placeholder mt-1">
                   {option.description}
                 </p>
               )}
@@ -140,13 +140,13 @@ export const RadioGroup = ({
       </div>
       
       {displayDescription && !displayError && (
-        <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+        <p className="text-xs text-input-placeholder mt-1">
           {displayDescription}
         </p>
       )}
       
       {displayError && (
-        <p id={errorId} className="text-xs text-red-600 dark:text-red-400 mt-1" role="alert" aria-live="assertive">
+        <p id={errorId} className="text-xs text-accent-error dark:text-accent-error-light mt-1" role="alert" aria-live="assertive">
           {displayError}
         </p>
       )}

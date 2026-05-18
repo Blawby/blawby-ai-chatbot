@@ -15,7 +15,7 @@ export interface TestUserCleanup {
  */
 export async function resetTestUsers(
   baseUrl: string = 'http://localhost:8787',
-  emailPattern: string = 'test-.*@example\\.com|e2e-.*@example\\.com'
+  emailPattern: string = 'test-.*@example\\.com|e2e-.*@example\\.com|e2e-.*@test-blawby\\.com'
 ): Promise<void> {
   // TODO: Implement admin endpoint for user deletion
   // For now, this is a placeholder that documents the intended behavior

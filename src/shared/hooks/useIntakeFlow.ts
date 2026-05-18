@@ -1,5 +1,4 @@
-import { useCallback, useMemo, useRef } from 'preact/hooks';
-import axios from 'axios';
+import { useCallback, useEffect, useMemo, useRef } from 'preact/hooks';
 import { postSystemMessage } from '@/shared/lib/conversationApi';
 import type { ContactData } from '@/features/intake/components/ContactForm';
 import type { ConversationMetadata, ConversationMessage } from '@/shared/types/conversation';
@@ -12,20 +11,17 @@ import {
   type DerivedIntakeStatus,
   type IntakeFieldChangeOptions,
 } from '@/shared/types/intake';
-import { useSessionContext } from '@/shared/contexts/SessionContext';
-import { linkConversationToUser } from '@/shared/lib/apiClient';
-import {
-  clearConversationAnonymousParticipant,
-} from '@/shared/utils/anonymousIdentity';
-import { withWidgetAuthHeaders } from '@/shared/utils/widgetAuth';
-import { resolveAllowedParentOrigins } from '@/shared/utils/widgetEvents';
+import { apiClient, isHttpError } from '@/shared/lib/apiClient';
+import { postToParentFrame, resolveAllowedParentOrigins } from '@/shared/utils/widgetEvents';
 import {
   applyConsultationPatchToMetadata,
   deriveIntakeStatusFromConsultation,
-  isIntakeReadyForSubmission,
   resolveConsultationState,
 } from '@/shared/utils/consultationState';
 import { quickActionDebugLog } from '@/shared/utils/quickActionDebug';
+import {
+  getPracticeClientIntakeSettingsEndpoint,
+} from '@/config/api';
 
 /** Minimal sanitizer for user-provided name in greeting — no XSS risk in system messages but keeps intent clear */
 const sanitizeName = (name: string): string =>
@@ -37,20 +33,37 @@ const sanitizeName = (name: string): string =>
     .replace(/'/g, '&#039;');
 
 const INTAKE_FIELD_LABELS: Partial<Record<keyof IntakeFieldsPayload, string>> = {
-  practiceAreaName: 'Practice area',
+  practiceServiceUuid: 'Practice area',
   description: 'Case summary',
   urgency: 'Urgency',
   opposingParty: 'Opposing party',
   city: 'City',
   state: 'State',
-  postalCode: 'Postal code',
-  addressLine1: 'Address line 1',
   desiredOutcome: 'Desired outcome',
   courtDate: 'Court date',
-  income: 'Income',
-  householdSize: 'Household size',
   hasDocuments: 'Supporting documents',
+  householdSize: 'Household size',
 };
+
+const PERSISTED_INTAKE_FIELD_KEYS = [
+  'practiceServiceUuid',
+  'description',
+  'urgency',
+  'opposingParty',
+  'city',
+  'state',
+  'desiredOutcome',
+  'courtDate',
+  'hasDocuments',
+  'householdSize',
+  'ctaShown',
+  'enrichmentMode',
+] as const satisfies ReadonlyArray<keyof IntakeConversationState & keyof IntakeFieldsPayload>;
+
+type PersistedIntakeFieldKey = (typeof PERSISTED_INTAKE_FIELD_KEYS)[number];
+
+
+
 
 const WIDGET_ATTRIBUTION_STORAGE_KEY = 'blawby:widget:attribution';
 
@@ -112,9 +125,11 @@ const emitWidgetLeadSubmitted = (payload: {
 };
 
 interface UseIntakeFlowOptions {
+  enabled?: boolean;
   conversationId: string | undefined;
   practiceId: string | undefined;
   practiceSlug?: string | null;
+  onEnsureConversation?: () => Promise<string | null>;
   conversationMetadata: ConversationMetadata | null;
   slimContactDraft: SlimContactDraft | null;
   conversationMetadataRef: React.MutableRefObject<ConversationMetadata | null>;
@@ -139,9 +154,10 @@ interface UseIntakeFlowOptions {
     conversationId?: string | null
   ) => Promise<unknown>;
   onError?: (error: unknown) => void;
+  setSessionIntent?: (intent: unknown) => void;
 }
 
-interface UseIntakeFlowResult {
+export interface UseIntakeFlowResult {
   /** Derived intake status for UI orchestration */
   intakeStatus: DerivedIntakeStatus;
   /** Live intake state from metadata */
@@ -156,8 +172,15 @@ interface UseIntakeFlowResult {
   handleIntakeCtaResponse: (response: 'ready' | 'not_yet') => Promise<void>;
   /** Reset CTA state */
   resetIntakeCta: () => Promise<void>;
-  /** Final intake submission via worker bridge */
-  handleSubmitNow: () => Promise<void>;
+  /**
+   * Phase 1: validate contact, link user, then delegate to handleFinalizeSubmit.
+   */
+  handleConfirmSubmit: () => Promise<void>;
+  /**
+   * Phase 2: call the submit-intake API and post the success message.
+   * Called by the parent after payment is confirmed, or immediately if no payment needed.
+   */
+  handleFinalizeSubmit: (options?: { generatePaymentLinkOnly?: boolean }) => Promise<{ paymentLinkUrl: string | null; intakeUuid: string | null }>;
   /** Apply fields extracted by AI or manual edits */
   applyIntakeFields: (payload: IntakeFieldsPayload, options?: IntakeFieldChangeOptions) => Promise<void>;
   /** Legacy alias or specialized form submit if needed */
@@ -165,9 +188,11 @@ interface UseIntakeFlowResult {
 }
 
 export function useIntakeFlow({
+  enabled = true,
   conversationId,
   practiceId,
   practiceSlug,
+  onEnsureConversation,
   conversationMetadata,
   slimContactDraft,
   conversationMetadataRef,
@@ -177,9 +202,11 @@ export function useIntakeFlow({
   sendMessageOverWs,
   onError,
 }: UseIntakeFlowOptions): UseIntakeFlowResult {
-  const { session, isAnonymous } = useSessionContext();
-  const currentUserId = session?.user?.id ?? null;
   const submitInFlightRef = useRef(false);
+  const phase1InFlightRef = useRef(false);
+  const finalizeRef = useRef<(options?: { generatePaymentLinkOnly?: boolean }) => Promise<{ paymentLinkUrl: string | null; intakeUuid: string | null }>>(async () => ({ paymentLinkUrl: null, intakeUuid: null }));
+  const paymentPollingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const paymentPollingCancelledRef = useRef(false);
 
   // ---------------------------------------------------------------------------
   // Derived State
@@ -205,34 +232,51 @@ export function useIntakeFlow({
     deriveIntakeStatusFromConsultation(conversationMetadata)
   ), [conversationMetadata]);
 
+  useEffect(() => {
+    if (enabled) {
+      paymentPollingCancelledRef.current = false;
+      return;
+    }
+    paymentPollingCancelledRef.current = true;
+    if (paymentPollingTimerRef.current !== null) {
+      clearTimeout(paymentPollingTimerRef.current);
+      paymentPollingTimerRef.current = null;
+    }
+  }, [enabled]);
+
   // ---------------------------------------------------------------------------
   // Actions
   // ---------------------------------------------------------------------------
 
   const applyIntakeFields = useCallback(async (payload: IntakeFieldsPayload, options?: IntakeFieldChangeOptions) => {
-    const currentConsultation = resolveConsultationState(conversationMetadataRef.current);
-    const current = currentConsultation?.case ?? intakeConversationState;
-    const next: IntakeConversationState = { ...current };
+    if (!enabled) return;
 
+    // Build only the delta — fields that are explicitly provided in payload.
+    // updateConversationMetadata reads conversationMetadataRef.current as the base,
+    // so we must not pre-merge here (that would cause a double stale-ref spread).
+    const delta: Partial<IntakeConversationState> = {};
     const changedFields: string[] = [];
-    (Object.keys(payload) as Array<keyof IntakeFieldsPayload>).forEach(key => {
+
+    const currentConsultation = resolveConsultationState(conversationMetadataRef.current);
+    const currentCase = currentConsultation?.case ?? intakeConversationState;
+
+    PERSISTED_INTAKE_FIELD_KEYS.forEach((key: PersistedIntakeFieldKey) => {
       const val = payload[key];
       if (val !== undefined) {
-        if (current[key as keyof IntakeConversationState] !== val) {
+        if (currentCase[key] !== val) {
           const label = INTAKE_FIELD_LABELS[key];
           if (label) changedFields.push(label);
         }
-        (next as unknown as Record<string, unknown>)[key] = val;
+        (delta as Record<string, unknown>)[key] = val;
       }
     });
-    next.intakeReady = isIntakeReadyForSubmission(next);
+
+    if (Object.keys(delta).length === 0) return;
 
     await updateConversationMetadata(
       applyConsultationPatchToMetadata(
         conversationMetadataRef.current,
-        {
-          case: next,
-        },
+        { case: { ...(currentCase), ...delta } },
         { mirrorLegacyFields: true }
       )
     );
@@ -252,9 +296,11 @@ export function useIntakeFlow({
         console.warn('[Intake] Failed to post manual update ack', err);
       }
     }
-  }, [conversationId, practiceId, conversationMetadataRef, updateConversationMetadata, intakeConversationState]);
+  }, [conversationId, enabled, practiceId, conversationMetadataRef, updateConversationMetadata, intakeConversationState]);
+
 
   const resetIntakeCta = useCallback(async () => {
+    if (!enabled) return;
     const current = consultation?.case ?? intakeConversationState;
     await updateConversationMetadata(
       applyConsultationPatchToMetadata(
@@ -265,9 +311,17 @@ export function useIntakeFlow({
         { mirrorLegacyFields: true }
       )
     );
-  }, [consultation, conversationMetadataRef, intakeConversationState, updateConversationMetadata]);
+  }, [consultation, conversationMetadataRef, enabled, intakeConversationState, updateConversationMetadata]);
 
   const handleSlimFormContinue = useCallback(async (draft: ContactData) => {
+    if (!enabled) return;
+
+    const practiceContextId = (practiceId ?? '').trim();
+    if (!practiceContextId) return;
+
+    const resolvedConversationId = conversationId ?? (onEnsureConversation ? await onEnsureConversation() : null);
+    if (!resolvedConversationId) return;
+
     const nextDraft: SlimContactDraft = {
       name: (draft.name ?? '').trim(),
       email: (draft.email ?? '').trim(),
@@ -286,10 +340,7 @@ export function useIntakeFlow({
     if (normalizedPracticeSlug) {
       patch.practiceSlug = normalizedPracticeSlug;
     }
-    await updateConversationMetadata(patch);
-
-    const practiceContextId = (practiceId ?? '').trim();
-    if (!conversationId || !practiceContextId) return;
+    await updateConversationMetadata(patch, resolvedConversationId);
 
     const safeName = sanitizeName(nextDraft.name);
     const safeEmail = sanitizeName(nextDraft.email);
@@ -297,7 +348,7 @@ export function useIntakeFlow({
     const emailLine = nextDraft.email ? `Email: ${safeEmail}` : 'Email: Not provided';
     const phoneLine = nextDraft.phone ? `Phone: ${safePhone}` : 'Phone: Not provided';
     try {
-      const ackMsg = await postSystemMessage(conversationId, practiceContextId, {
+      const ackMsg = await postSystemMessage(resolvedConversationId, practiceContextId, {
         clientId: 'system-intake-contact-ack',
         content: [
           'Contact info received',
@@ -317,13 +368,13 @@ export function useIntakeFlow({
       });
       if (ackMsg) applyServerMessages([ackMsg]);
     } catch (error) {
-      console.error('[Intake] Failed to persist contact ack message', { conversationId, practiceContextId, error });
+      console.error('[Intake] Failed to persist contact ack message', { conversationId: resolvedConversationId, practiceContextId, error });
     }
 
     const firstName = nextDraft.name.split(' ')[0] || nextDraft.name;
     const greeting = `Thanks, ${firstName}! I've got your contact info. Can you tell me a bit about your legal situation? Just describe what's going on in your own words and I'll help make sure we connect you with the right attorney.`;
     try {
-      const openingMsg = await postSystemMessage(conversationId, practiceContextId, {
+      const openingMsg = await postSystemMessage(resolvedConversationId, practiceContextId, {
         clientId: 'system-intake-opening',
         content: greeting,
         metadata: { source: 'ai', intakeOpening: true },
@@ -336,12 +387,15 @@ export function useIntakeFlow({
     applyServerMessages,
     conversationId,
     conversationMetadataRef,
+    enabled,
+    onEnsureConversation,
     practiceId,
     updateConversationMetadata,
     normalizedPracticeSlug,
   ]);
 
   const handleBuildBrief = useCallback(async () => {
+    if (!enabled) return;
     const currentConsultation = resolveConsultationState(conversationMetadataRef.current);
     const current = currentConsultation?.case ?? intakeConversationState;
     const patch: ConversationMetadata = applyConsultationPatchToMetadata(
@@ -366,9 +420,10 @@ export function useIntakeFlow({
     } catch (error) {
       console.error('[Intake] Failed to start brief-building conversation', error);
     }
-  }, [conversationMetadataRef, intakeConversationState, sendMessage, updateConversationMetadata]);
+  }, [conversationMetadataRef, enabled, intakeConversationState, sendMessage, updateConversationMetadata]);
 
   const handleIntakeCtaResponse = useCallback(async (response: 'ready' | 'not_yet') => {
+    if (!enabled) return;
     const currentConsultation = resolveConsultationState(conversationMetadataRef.current);
     const current = currentConsultation?.case ?? intakeConversationState;
     if (response === 'ready') {
@@ -399,13 +454,51 @@ export function useIntakeFlow({
     } catch (error) {
       if (import.meta.env.DEV) console.warn('[Intake] Failed to send "Not yet" response', error);
     }
-  }, [conversationMetadataRef, intakeConversationState, sendMessage, updateConversationMetadata]);
+  }, [conversationMetadataRef, enabled, intakeConversationState, sendMessage, updateConversationMetadata]);
 
-  const handleSubmitNow = useCallback(async () => {
+  const handlePaymentHandoff = useCallback(async (handoffParams: {
+    paymentLinkUrl: string | null;
+    intakeUuid: string | null;
+    practiceSlug: string;
+  }) => {
+    const { paymentLinkUrl, intakeUuid } = handoffParams;
+    if (!intakeUuid || !conversationId || !practiceId) return;
+
+    const paymentUrl = paymentLinkUrl;
+    if (!paymentUrl) {
+      const errorMessage = 'Payment could not be initialized. Please try again or contact support.';
+      onError?.(errorMessage);
+      return;
+    }
+
+    if (typeof window !== 'undefined') {
+      const popup = window.open(paymentUrl, '_blank', 'noopener,noreferrer');
+      if (!popup) {
+        if (window !== window.top) {
+          // Widget is in an iframe — Stripe rejects iframe embedding, so ask
+          // the parent page to open the URL in a new tab instead.
+          postToParentFrame({ type: 'blawby:open-url', url: paymentUrl });
+        } else {
+          window.location.assign(paymentUrl);
+        }
+      }
+    }
+  }, [
+    conversationId,
+    onError,
+    practiceId,
+  ]);
+
+  /**
+   * Phase 1 — validate contact, persist practice slug, and decide whether to
+   * continue into payment or create the intake immediately.
+   */
+  const handleConfirmSubmit = useCallback(async () => {
+    if (!enabled) return;
     if (!conversationId || !practiceId) return;
     if (!resolvedSlimContactDraft) {
       if (import.meta.env.DEV) {
-        console.warn('[handleSubmitNow] Missing slimContactDraft, cannot submit intake.');
+        console.warn('[handleConfirmSubmit] Missing slimContactDraft, cannot submit intake.');
       }
       const errMessage = 'We need your contact information before submitting. Please fill out the contact form.';
       if (onError) {
@@ -415,28 +508,18 @@ export function useIntakeFlow({
       }
       return;
     }
-    if (submitInFlightRef.current) {
+    if (phase1InFlightRef.current) {
       if (import.meta.env.DEV) {
-        console.info('[handleSubmitNow] Skipping duplicate submit while request is in-flight', {
+        console.info('[handleConfirmSubmit] Skipping duplicate submit while request is in-flight', {
           conversationId,
           practiceId,
         });
       }
       return;
     }
-    submitInFlightRef.current = true;
-    try {
-      if (currentUserId && !isAnonymous) {
-        try {
-          await linkConversationToUser(conversationId, practiceId);
-          clearConversationAnonymousParticipant(conversationId);
-        } catch (linkError) {
-          if (!axios.isAxiosError(linkError) || linkError.response?.status !== 409) {
-            console.warn('[handleSubmitNow] Conversation link check failed', linkError);
-          }
-        }
-      }
 
+    phase1InFlightRef.current = true;
+    try {
       const effectivePracticeSlug =
         (typeof conversationMetadataRef.current?.practiceSlug === 'string'
           ? conversationMetadataRef.current.practiceSlug.trim()
@@ -447,33 +530,207 @@ export function useIntakeFlow({
         return;
       }
 
-      if (
-        effectivePracticeSlug &&
-        conversationMetadataRef.current?.practiceSlug !== effectivePracticeSlug
-      ) {
+      if (conversationMetadataRef.current?.practiceSlug !== effectivePracticeSlug) {
         try {
           await updateConversationMetadata({ practiceSlug: effectivePracticeSlug });
         } catch (metadataError) {
-          console.warn('[handleSubmitNow] Failed to persist practice slug before submission', metadataError);
+          console.warn('[handleConfirmSubmit] Failed to persist practice slug before submission', metadataError);
         }
       }
 
-      const response = await fetch(
-        `/api/conversations/${encodeURIComponent(conversationId)}/submit-intake?practiceId=${encodeURIComponent(practiceId)}`,
-        { method: 'POST', headers: withWidgetAuthHeaders({ 'Content-Type': 'application/json' }), credentials: 'include' },
+      // ── Payment gate ──────────────────────────────────────────────────────
+      // Template-level payment config wins when present. Fall back to the
+      // practice-level intake settings only when the conversation has no
+      // embedded template payment settings.
+      let consultationFee = 0;
+      const rawTemplate = conversationMetadataRef.current?.intakeTemplate;
+      const isPlainObject = rawTemplate && typeof rawTemplate === 'object' && !Array.isArray(rawTemplate);
+      const storedTemplate = isPlainObject
+        ? (rawTemplate as { paymentLinkEnabled?: boolean; consultationFee?: number })
+        : undefined;
+      const templateHasPaymentConfig = Boolean(
+        storedTemplate &&
+        (typeof storedTemplate.paymentLinkEnabled === 'boolean' || typeof storedTemplate.consultationFee === 'number')
       );
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({})) as { error?: string };
-        throw new Error(errorData.error || `Intake submission failed (HTTP ${response.status})`);
+      if (templateHasPaymentConfig) {
+        consultationFee = typeof storedTemplate?.consultationFee === 'number' ? storedTemplate.consultationFee : 0;
       }
-      const result = await response.json() as {
+      let practicePaymentLinkEnabled = false;
+
+      try {
+        if (!templateHasPaymentConfig) {
+          try {
+            type SettingsRecord = {
+              consultationFee?: number;
+              consultation_fee?: number;
+              paymentLinkEnabled?: boolean;
+              payment_link_enabled?: boolean;
+            };
+            const { data: settingsPayload } = await apiClient.get<{
+              success?: boolean;
+              settings?: SettingsRecord;
+              data?: { settings?: SettingsRecord };
+            }>(getPracticeClientIntakeSettingsEndpoint(effectivePracticeSlug));
+            // Backend emits the flat shape ({success, settings, organization}); the
+            // nested ({data: {settings}}) form was used by an earlier version. The
+            // worker-side helper already accepts both, so mirror that here.
+            const settings = settingsPayload.settings ?? settingsPayload.data?.settings;
+            consultationFee =
+              (typeof settings?.consultationFee === 'number' ? settings.consultationFee : 0) ||
+              (typeof settings?.consultation_fee === 'number' ? settings.consultation_fee : 0);
+            practicePaymentLinkEnabled =
+              settings?.paymentLinkEnabled === true ||
+              settings?.payment_link_enabled === true;
+          } catch (apiError) {
+            // Non-2xx silently falls through to the catch below; preserves prior `if (settingsRes.ok)` behavior.
+            if (!isHttpError(apiError)) throw apiError;
+          }
+        }
+      } catch (settingsError) {
+        // If fetching practice-level settings fails, we default to zero
+        // consultation fee when there is no template-level payment config.
+        // Notes: `storedTemplate` (from conversation metadata) and
+        // `templateHasPaymentConfig` were evaluated above; if a template
+        // includes payment settings we preserve those values and do not
+        // override them here. When no template config exists a failed
+        // settings fetch results in `consultationFee = 0` (no payment
+        // required) to avoid blocking submissions due to transient
+        // settings API errors.
+        console.warn('[handleConfirmSubmit] Failed to fetch intake settings; using default consultation fee', settingsError, {
+          storedTemplate, templateHasPaymentConfig, consultationFee
+        });
+        if (!templateHasPaymentConfig) {
+          consultationFee = 0;
+        }
+      }
+
+      const paymentRequired = templateHasPaymentConfig
+        ? storedTemplate?.paymentLinkEnabled === true && consultationFee > 0
+        : practicePaymentLinkEnabled && consultationFee > 0;
+      quickActionDebugLog('payment gate evaluated', {
+        consultationFee,
+        paymentLinkEnabled: templateHasPaymentConfig ? storedTemplate?.paymentLinkEnabled === true : practicePaymentLinkEnabled,
+        paymentRequired,
+        effectivePracticeSlug,
+        source: templateHasPaymentConfig ? 'template' : 'practice_settings',
+      });
+
+      if (paymentRequired) {
+        // ── Direct payment handoff ──────────────────────────────────────────
+        // Step 1: Create the intake record. handleFinalizeSubmit returns the
+        // identifiers we need directly so this flow does not race the metadata
+        // persistence round-trip.
+        const finalizeResult = await finalizeRef.current({ generatePaymentLinkOnly: true });
+        await handlePaymentHandoff({
+          paymentLinkUrl: finalizeResult?.paymentLinkUrl,
+          intakeUuid: finalizeResult?.intakeUuid,
+          practiceSlug: effectivePracticeSlug,
+        });
+        return;
+      }
+
+      // No payment pre-calculated — create the intake record immediately.
+      // If the backend returns a paymentLinkUrl, we still hand off to payment.
+      const finalizeResult = await finalizeRef.current();
+      if (finalizeResult?.paymentLinkUrl) {
+        await handlePaymentHandoff({
+          paymentLinkUrl: finalizeResult.paymentLinkUrl,
+          intakeUuid: finalizeResult.intakeUuid,
+          practiceSlug: effectivePracticeSlug,
+        });
+      }
+    } catch (error) {
+      console.error('[handleConfirmSubmit] Intake submission failed', error);
+      onError?.(error instanceof Error ? error.message : 'Failed to submit intake. Please try again.');
+    } finally {
+      phase1InFlightRef.current = false;
+    }
+  }, [
+    conversationId,
+    conversationMetadataRef,
+    enabled,
+    onError,
+    practiceId,
+    resolvedSlimContactDraft,
+    updateConversationMetadata,
+    normalizedPracticeSlug,
+    handlePaymentHandoff,
+  ]);
+
+  /**
+   * Phase 2 — call the submit-intake API and post the success message.
+   * Should be invoked:
+   *   - directly by handleConfirmSubmit when no payment is required, OR
+   *   - by the payment UI's onSuccess callback after payment completes.
+   */
+  const handleFinalizeSubmit = useCallback(async (options?: { generatePaymentLinkOnly?: boolean }): Promise<{ paymentLinkUrl: string | null; intakeUuid: string | null }> => {
+    if (!enabled) return { paymentLinkUrl: null, intakeUuid: null };
+    if (!conversationId || !practiceId) return { paymentLinkUrl: null, intakeUuid: null };
+
+    const existingSubmission = conversationMetadataRef.current?.submission as { intakeUuid?: string } | undefined;
+    if (existingSubmission?.intakeUuid) {
+      if (import.meta.env.DEV) {
+        console.info('[handleFinalizeSubmit] Skipping submit: intake record already exists', {
+          conversationId,
+          practiceId,
+          intakeUuid: existingSubmission.intakeUuid,
+        });
+      }
+      return { paymentLinkUrl: null, intakeUuid: existingSubmission.intakeUuid };
+    }
+    if (submitInFlightRef.current) {
+      if (import.meta.env.DEV) {
+        console.info('[handleFinalizeSubmit] Skipping duplicate submit while request is in-flight', {
+          conversationId,
+          practiceId,
+        });
+      }
+      return { paymentLinkUrl: null, intakeUuid: null };
+    }
+    submitInFlightRef.current = true;
+    try {
+      const latestMergedIntakeState = conversationMetadataRef.current?.mergedIntakeState ?? intakeConversationState;
+      const submitParams: Record<string, string> = { practiceId };
+      if (options?.generatePaymentLinkOnly) submitParams.generatePaymentLinkOnly = 'true';
+      let result: {
         success: boolean;
-        data: { intake_uuid: string; status: string; payment_link_url: string | null };
+        data: {
+          intake_uuid: string;
+          status: string;
+          payment_link_url: string | null;
+          organization?: {
+            name?: string | null;
+          } | null;
+        };
       };
+      try {
+        const submitResult = await apiClient.post<{
+          success: boolean;
+          data: {
+            intake_uuid: string;
+            status: string;
+            payment_link_url: string | null;
+            organization?: {
+              name?: string | null;
+            } | null;
+          };
+        }>(
+          `/api/conversations/${encodeURIComponent(conversationId)}/submit-intake`,
+          { mergedIntakeState: latestMergedIntakeState },
+          { params: submitParams },
+        );
+        result = submitResult.data;
+      } catch (apiError) {
+        if (isHttpError(apiError)) {
+          const errorData = apiError.response.data as { error?: string } | undefined;
+          throw new Error(errorData?.error || `Intake submission failed (HTTP ${apiError.response.status})`);
+        }
+        throw apiError;
+      }
       quickActionDebugLog('submit-intake response received', {
         conversationId,
         practiceId,
-        httpOk: response.ok,
+        httpOk: true,
         success: result.success,
         intakeUuid: result.data?.intake_uuid ?? null,
         hasPaymentLinkUrl: Boolean(result.data?.payment_link_url),
@@ -482,64 +739,30 @@ export function useIntakeFlow({
         throw new Error('Intake submission returned an unexpected response');
       }
       const { intake_uuid: intakeUuid, payment_link_url: paymentLinkUrl } = result.data;
+
       emitWidgetLeadSubmitted({
         intakeUuid,
         status: result.data.status ?? 'submitted',
-        requiresPayment: Boolean(paymentLinkUrl)
+        requiresPayment: Boolean(paymentLinkUrl),
       });
-      if (paymentLinkUrl) {
-        const paymentPromptMessageId = `system-intake-payment-${intakeUuid}`;
-        const paymentPromptMetadata: Record<string, unknown> = {
-          intakeUuid,
-          intakeSubmitted: true,
-          paymentRequired: true,
-          paymentRequest: {
-            intakeUuid,
-            paymentLinkUrl,
-            practiceId,
-            conversationId,
-            returnTo: typeof window !== 'undefined'
-              ? `${window.location.pathname}${window.location.search}`
-              : undefined,
-          },
-        };
-        quickActionDebugLog('posting payment prompt system message', {
-          conversationId,
-          practiceId,
-          clientId: paymentPromptMessageId,
-          metadataKeys: Object.keys(paymentPromptMetadata),
-          hasPaymentRequest: true,
-          paymentRequestKeys: Object.keys(
-            (paymentPromptMetadata.paymentRequest as Record<string, unknown>) ?? {}
-          ),
-        });
-        try {
-          const paymentPromptMessage = await postSystemMessage(conversationId, practiceId, {
-            clientId: paymentPromptMessageId,
-            content: 'Your request has been submitted. To continue, please complete payment using the button below.',
-            metadata: paymentPromptMetadata,
-          });
-          if (paymentPromptMessage) applyServerMessages([paymentPromptMessage]);
-        } catch (msgError) {
-          console.warn('[handleSubmitNow] Failed to post payment prompt message', msgError);
-        }
-      }
+
+      // If no payment is required, post the standard success message.
+      // (If payment is required, the prompt is handled by handleConfirmSubmit).
       if (!paymentLinkUrl) {
-        const practiceName =
-          (conversationMetadataRef.current as Record<string, unknown>)?.practiceName as string | undefined
-          ?? 'the practice';
         const messageId = `system-intake-submit-${intakeUuid}`;
         try {
           const persistedMessage = await postSystemMessage(conversationId, practiceId, {
             clientId: messageId,
-            content: `Your intake has been submitted. ${practiceName} will review it and follow up with you here shortly.`,
+            content: 'Thank you, we will be in touch.',
             metadata: { intakeUuid, intakeSubmitted: true },
           });
           if (persistedMessage) applyServerMessages([persistedMessage]);
         } catch (msgError) {
-          console.warn('[handleSubmitNow] Failed to post confirmation message', msgError);
+          console.warn('[handleFinalizeSubmit] Failed to post confirmation message', msgError);
         }
       }
+
+      // Persist submission state so reload derives step: 'pending_review' correctly.
       const currentConsultation = resolveConsultationState(conversationMetadataRef.current);
       const current = currentConsultation?.case ?? intakeConversationState;
       await updateConversationMetadata(
@@ -557,9 +780,11 @@ export function useIntakeFlow({
           { mirrorLegacyFields: true }
         )
       );
+      return { paymentLinkUrl: paymentLinkUrl ?? null, intakeUuid };
     } catch (error) {
-      console.error('[handleSubmitNow] Intake submission failed', error);
+      console.error('[handleFinalizeSubmit] Intake submission failed', error);
       onError?.(error instanceof Error ? error.message : 'Failed to submit intake. Please try again.');
+      return { paymentLinkUrl: null, intakeUuid: null };
     } finally {
       submitInFlightRef.current = false;
     }
@@ -567,17 +792,30 @@ export function useIntakeFlow({
     applyServerMessages,
     conversationId,
     conversationMetadataRef,
-    currentUserId,
-    isAnonymous,
+    enabled,
     onError,
     practiceId,
-    resolvedSlimContactDraft,
     updateConversationMetadata,
-    normalizedPracticeSlug,
     intakeConversationState,
   ]);
 
+   
+  finalizeRef.current = handleFinalizeSubmit as (options?: { generatePaymentLinkOnly?: boolean }) => Promise<{ paymentLinkUrl: string | null; intakeUuid: string | null }>;
+
+  // Cancel any in-flight payment polling when the hook unmounts.
+  useEffect(() => {
+    return () => {
+      paymentPollingCancelledRef.current = true;
+      if (paymentPollingTimerRef.current !== null) {
+        clearTimeout(paymentPollingTimerRef.current);
+        paymentPollingTimerRef.current = null;
+      }
+    };
+   
+  }, [handlePaymentHandoff]);
+
   const handleContactFormSubmit = useCallback(async (draft: ContactData) => {
+    if (!enabled) return;
     try {
       const sanitizedContactDetails = {
         name: (draft.name ?? '').trim(),
@@ -594,7 +832,7 @@ export function useIntakeFlow({
       console.error('[Intake] Contact form submit failed', error);
       onError?.('Failed to submit contact information.');
     }
-  }, [handleSlimFormContinue, onError, sendMessageOverWs]);
+  }, [enabled, handleSlimFormContinue, onError, sendMessageOverWs]);
 
   return {
     intakeStatus,
@@ -604,7 +842,8 @@ export function useIntakeFlow({
     handleBuildBrief,
     handleIntakeCtaResponse,
     resetIntakeCta,
-    handleSubmitNow,
+    handleConfirmSubmit,
+    handleFinalizeSubmit,
     applyIntakeFields,
     handleContactFormSubmit,
   };

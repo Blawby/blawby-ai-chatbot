@@ -10,9 +10,8 @@ export const SettingDescription = ({
   className = ''
 }: SettingDescriptionProps) => {
   return (
-    <p className={cn('text-xs text-input-placeholder mt-1', className)}>
+    <p className={cn('mt-1 text-xs text-input-placeholder', className)}>
       {text}
     </p>
   );
 };
-

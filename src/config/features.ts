@@ -25,10 +25,10 @@ interface FeatureFlags {
     enableFileAttachments: boolean;
 
     /**
-     * Enable left sidebar
-     * When false, the left column will be hidden and the layout will be 2-column
+     * Enable in-composer camera capture ("Take Photo" menu item)
+     * When false, the camera item is hidden from the file menu.
      */
-    enableLeftSidebar: boolean;
+    enableCameraCapture: boolean;
 
     /**
      * Enable AI feedback and copy buttons on messages
@@ -81,8 +81,17 @@ interface FeatureFlags {
      */
     enableMultiplePractices: boolean;
 
+    /**
+     * Enable account links settings UI
+     * When false, the account links section is hidden
+     */
+    enableAccountLinks: boolean;
 
-
+    /**
+     * Enable multi-factor authentication settings UI and enrollment flow
+     * When false, MFA controls and routes stay hidden from settings
+     */
+    enableMfa: boolean;
     /**
      * Enable Plus subscription tier in UI
      * When false, the Plus plan is hidden from pricing/upgrade flows
@@ -99,14 +108,20 @@ interface FeatureFlags {
      * source of truth for activity events.
      */
     enableActivity: boolean;
+
+    /**
+     * Enable message reactions feature
+     * When false, reaction UI and functionality will be hidden from messages
+     */
+    enableMessageReactions: boolean;
 }
 
 // Immutable base configuration
 const baseFeatureConfig: FeatureFlags = {
-    enableAudioRecording: false, // Set to false to hide voice recording
+    enableAudioRecording: true, // Voice memo button shown inside the composer pill
     enableVideoRecording: false, // Not implemented yet
-    enableFileAttachments: true, // File attachments are enabled
-    enableLeftSidebar: true, // Enable left sidebar
+    enableFileAttachments: true, // Enabled for authenticated (client/practice) workspaces only
+    enableCameraCapture: false, // Hide "Take Photo" menu item — not supported at this time
     enableMessageFeedback: false, // Disable feedback and copy buttons on messages
     enableDisclaimerText: false, // Disable disclaimer text below input
     enableLearnServicesButton: false, // Hide learn services button
@@ -115,9 +130,12 @@ const baseFeatureConfig: FeatureFlags = {
     enablePaymentIframe: false, // Disable payment iframe/drawer - only show "Open in Browser" button
     enableLeadQualification: true, // Enable lead qualification flow - AI asks questions before contact form
     enableMultiplePractices: true, // Enable multiple practices feature
+    enableAccountLinks: false, // Hide account links until the settings flow is ready
+    enableMfa: false, // Hide MFA until the backend/auth flow is ready end-to-end
 
     enablePlusTier: false, // Hide Plus plan by default (not available at launch)
     enableActivity: false, // Disabled until activity is migrated off Worker/D1
+    enableMessageReactions: false, // Disable message reactions for MVP
 };
 
 // DEV-only overrides (computed via spread, no mutation)

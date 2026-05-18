@@ -13,7 +13,7 @@ export default defineConfig({
   fullyParallel: true,
   retries: 1,
   workers: resolveWorkers(),
-  outputDir: './playwright/results',
+  outputDir: './.tmp/playwright/default/results',
   use: {
     baseURL: process.env.E2E_BASE_URL || 'https://local.blawby.com',
     trace: 'on-first-retry',
@@ -21,7 +21,7 @@ export default defineConfig({
   },
   projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
   reporter: [
-    ['html', { outputFolder: './playwright/reports', open: 'never' }],
+    ['html', { outputFolder: './.tmp/playwright/default/report', open: 'never' }],
     ['list']
   ]
 });

@@ -5,42 +5,46 @@ import VirtualMessageList from './VirtualMessageList';
 import MessageComposer from './MessageComposer';
 import { ChatMessageUI } from '../../../../worker/types';
 import { FileAttachment } from '../../../../worker/types';
-import { ContactData, ContactForm } from '@/features/intake/components/ContactForm';
-import { isValidStripePaymentLink, type IntakePaymentRequest } from '@/shared/utils/intakePayments';
 import { createKeyPressHandler } from '@/shared/utils/keyboard';
-import type { UploadingFile } from '@/shared/hooks/useFileUpload';
+import type { UploadingFile } from '@/shared/types/upload';
 import type { ConversationMode } from '@/shared/types/conversation';
 import type { ReplyTarget } from '@/features/chat/types';
-import { useTranslation } from '@/shared/i18n/hooks';
 import type { LayoutMode } from '@/app/MainApp';
-import type { IntakeConversationState } from '@/shared/types/intake';
+import { isIntakeSubmittable } from '@/shared/utils/consultationState';
 import { getChatPatterns } from '../config/chatPatterns';
 import type { OnboardingActions } from './VirtualMessageList';
-import { getSession as refreshAuthSession } from '@/shared/lib/authClient';
-import { rememberPostAuthConversationContext, type PostAuthConversationContext } from '@/shared/utils/anonymousIdentity';
 import { ChatActionCard } from './ChatActionCard';
+import { useIntakeContext } from '@/shared/contexts/IntakeContext';
+
+import { features } from '@/config/features';
 
 export interface ChatContainerProps {
+    // Disclaimer gating (like slim form)
+    disclaimerProps?: {
+      text: string;
+      onAccept: () => void | Promise<void>;
+      onClose: () => void;
+    };
   messages: ChatMessageUI[];
   conversationTitle?: string | null;
+  conversationContactName?: string | null;
+  viewerContext?: 'practice' | 'client' | 'public';
   onSendMessage: (
     message: string,
     attachments: FileAttachment[],
     replyToMessageId?: string | null,
-    options?: { mentionedUserIds?: string[] }
+    options?: { additionalContext?: string; mentionedUserIds?: string[]; suppressAi?: boolean }
   ) => void;
-  onAddMessage?: (message: ChatMessageUI) => void;
+  isReady: boolean;
   conversationMode?: ConversationMode | null;
-  onSelectMode?: (mode: ConversationMode, source: 'intro_gate' | 'composer_footer') => void;
+  onSelectMode?: (mode: ConversationMode, source?: 'intro_gate' | 'composer_footer' | 'home_cta' | 'chat_intro' | 'slim_form_dismiss' | 'chat_selector') => void;
   onToggleReaction?: (messageId: string, emoji: string) => void;
   onRequestReactions?: (messageId: string) => void;
-  composerDisabled?: boolean;
   isPublicWorkspace?: boolean;
   practiceConfig?: {
     name: string;
     profileImage: string | null;
     practiceId: string;
-    description?: string | null;
     slug?: string | null;
   };
   heightClassName?: string;
@@ -49,54 +53,26 @@ export interface ChatContainerProps {
   layoutMode?: LayoutMode;
   onOpenSidebar?: () => void;
   practiceId?: string;
-  conversationId?: string | null;
-
   // File handling props
   previewFiles: FileAttachment[];
   uploadingFiles: UploadingFile[];
   removePreviewFile: (index: number) => void;
   clearPreviewFiles: () => void;
-  handleFileSelect: (files: File[]) => Promise<void>;
+  handleFileSelect: (files: File[]) => Promise<unknown>;
   handleCameraCapture: (file: File) => Promise<void>;
   cancelUpload: (fileId: string) => void;
   handleMediaCapture: (blob: Blob, type: 'audio' | 'video') => void;
   isRecording: boolean;
   setIsRecording: (v: boolean) => void;
   isReadyToUpload?: boolean;
-  isSessionReady?: boolean;
-  isSocketReady?: boolean;
-  intakeStatus?: {
-    step: string;
-    decision?: string;
-    intakeUuid?: string | null;
-    paymentRequired?: boolean;
-    paymentReceived?: boolean;
-  };
-  intakeConversationState?: IntakeConversationState | null;
-  onIntakeCtaResponse?: (response: 'ready' | 'not_yet') => void;
-  onSlimFormContinue?: (data: ContactData) => void | Promise<void>;
-  onSlimFormDismiss?: () => void | Promise<void>;
-  onBuildBrief?: () => void;
-  onSubmitNow?: () => void | Promise<void>;
-  slimContactDraft?: {
-    name: string;
-    email: string;
-    phone: string;
-  } | null;
   isAnonymousUser?: boolean;
   canChat?: boolean;
   hasMoreMessages?: boolean;
   isLoadingMoreMessages?: boolean;
   onLoadMoreMessages?: () => void | Promise<void>;
   messagesReady?: boolean;
-  leadReviewActions?: {
-    practiceId: string;
-    practiceName: string;
-    conversationId: string;
-    canReviewLeads: boolean;
-    mattersBasePath: string;
-    navigateTo: (path: string) => void;
-  };
+  conversationId?: string | null;
+
 
   // Input control prop
   clearInput?: number;
@@ -107,19 +83,32 @@ export interface ChatContainerProps {
   onAuthPromptRequest?: () => void;
   onAuthPromptClose?: () => void;
   onAuthPromptSuccess?: () => void;
+  hideComposer?: boolean;
+  hideMessageActions?: boolean;
   onboardingActions?: OnboardingActions;
   mentionCandidates?: Array<{
     userId: string;
     name: string;
     email?: string;
   }>;
+  /** UserIds (excluding self) currently typing in this conversation. */
+  typingUserIds?: readonly string[];
+  /** Per-user last_read_seq for resolving per-message read receipts. */
+  readReceiptsByUser?: ReadonlyMap<string, number>;
+  /** Current user id (filters self out of typing/read displays). */
+  currentUserId?: string | null;
+  /** Send typing.start (true) / typing.stop (false) on the active WS. */
+  sendTypingState?: (isTyping: boolean) => void;
 }
 
 const ChatContainer: FunctionComponent<ChatContainerProps> = ({
+  disclaimerProps,
   messages,
   conversationTitle,
+  conversationContactName,
+  viewerContext,
   onSendMessage,
-  onAddMessage: _onAddMessage,
+  isReady,
   conversationMode,
   isPublicWorkspace = false,
   practiceConfig,
@@ -129,7 +118,6 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
   layoutMode,
   onOpenSidebar,
   practiceId,
-  conversationId,
   onToggleReaction,
   onRequestReactions,
   previewFiles,
@@ -143,66 +131,83 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
   isRecording,
   setIsRecording,
   isReadyToUpload,
-  isSessionReady,
-  isSocketReady,
-  intakeStatus,
-  intakeConversationState,
-  onIntakeCtaResponse,
-  onSlimFormContinue,
-  onSlimFormDismiss,
-  onBuildBrief,
-  onSubmitNow,
-  slimContactDraft,
   clearInput,
-  isAnonymousUser,
   canChat = true,
   onSelectMode,
-  composerDisabled,
   hasMoreMessages,
   isLoadingMoreMessages,
   onLoadMoreMessages,
   messagesReady = true,
-  leadReviewActions,
+
   showAuthPrompt = false,
   authPromptCallbackUrl,
   onAuthPromptRequest,
+  conversationId,
   onAuthPromptClose,
   onAuthPromptSuccess,
+  hideComposer = false,
+  hideMessageActions = false,
   onboardingActions,
-  mentionCandidates = []
+  mentionCandidates = [],
+  typingUserIds,
+  readReceiptsByUser,
+  currentUserId,
+  sendTypingState,
 }) => {
-  const { t } = useTranslation('common');
+  const intakeContext = useIntakeContext();
   const [inputValue, setInputValue] = useState('');
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const [paymentRequest, setPaymentRequest] = useState<IntakePaymentRequest | null>(null);
-  const [pendingPaymentRequest, setPendingPaymentRequest] = useState<IntakePaymentRequest | null>(null);
-  const [pendingSubmitAfterAuth, setPendingSubmitAfterAuth] = useState(false);
-  const authSuccessCloseRef = useRef(false);
-  const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
   const [replyTarget, setReplyTarget] = useState<ReplyTarget | null>(null);
   const composerDockRef = useRef<HTMLDivElement>(null);
   const [composerInsetPx, setComposerInsetPx] = useState(104);
-  const isChatInputLocked = Boolean(composerDisabled) || isSessionReady === false || isSocketReady === false;
-  const baseMessages = isPublicWorkspace
-    ? messages.filter((message) => message.metadata?.systemMessageKey !== 'ask_question_help')
-    : messages;
-  const hasUserMessages = messages.some((message) => message.role === 'user');
-  const filteredMessages = hasUserMessages
-    ? baseMessages.filter((message) => message.metadata?.systemMessageKey !== 'intro')
-    : baseMessages;
-  
-  const hasContactInfoSubmitted = Boolean(
-    intakeStatus?.intakeUuid || 
-    intakeStatus?.step === 'completed' || 
-    intakeStatus?.step === 'pending_review'
-  );
+  const isChatInputLocked = (!isReady && !!conversationId) || (isPublicWorkspace && intakeContext.intakeStatus?.step === 'contact_form_slim');
 
-  const shouldShowSlimForm = isPublicWorkspace && 
-    intakeStatus?.step === 'contact_form_slim' && 
-    conversationMode === 'REQUEST_CONSULTATION' && 
-    !hasContactInfoSubmitted &&
-    typeof onSlimFormContinue === 'function';
+  // Track whether the chat connection has ever been ready *for the current
+  // conversation*. If it was, and isReady flips false again, that's a
+  // reconnect-in-progress (vs first-load "still connecting"). Scoping this
+  // to conversationId prevents the banner from flashing when the user
+  // switches conversations and the new one is still on its first connect.
+  const wasEverReadyRef = useRef(false);
+  const lastConversationIdRef = useRef<string | null | undefined>(conversationId);
+  const [isReconnecting, setIsReconnecting] = useState(false);
+  useEffect(() => {
+    if (lastConversationIdRef.current !== conversationId) {
+      lastConversationIdRef.current = conversationId;
+      wasEverReadyRef.current = false;
+      setIsReconnecting(false);
+      if (!isReady) return;
+    }
+    if (isReady) {
+      wasEverReadyRef.current = true;
+      setIsReconnecting(false);
+    } else if (wasEverReadyRef.current && Boolean(conversationId)) {
+      setIsReconnecting(true);
+    }
+  }, [isReady, conversationId]);
+  const hiddenSystemMessageKeys = new Set(['ask_question_help', 'disclaimer_accepted']);
+  const baseMessages = isPublicWorkspace
+    ? messages.filter((message) => !hiddenSystemMessageKeys.has(String(message.metadata?.systemMessageKey ?? '')))
+    : messages;
+  const filteredMessages = baseMessages;
+  const hasAcceptedIntakeJoinMessage = isPublicWorkspace && messages.some((message) =>
+    message.metadata?.systemMessageKey === 'lead_accepted' ||
+    message.metadata?.triageStatus === 'accepted' ||
+    message.metadata?.triage_status === 'accepted'
+  );
+  const composerIntakeStatus = hasAcceptedIntakeJoinMessage && intakeContext.intakeStatus?.step === 'pending_review'
+    ? { ...intakeContext.intakeStatus, step: 'accepted' as const }
+    : intakeContext.intakeStatus;
+  
+  const shouldShowSlimForm = isPublicWorkspace &&
+    (intakeContext.intakeStatus?.step === 'contact_form_slim' || (!conversationId && conversationMode === 'REQUEST_CONSULTATION')) &&
+    !intakeContext.intakeStatus?.intakeUuid &&
+    typeof intakeContext.onSlimFormContinue === 'function';
+
+  // Show disclaimer if disclaimerProps is present
+  const shouldShowDisclaimer = Boolean(disclaimerProps);
   const [isDismissingSlimDrawer, setIsDismissingSlimDrawer] = useState(false);
+
+
   // Simple resize handler for window size changes
   useEffect(() => {
     const handleResize = () => {
@@ -244,6 +249,10 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
     if (!element) return;
 
     const updateInset = () => {
+      if (hideComposer) {
+        setComposerInsetPx(24);
+        return;
+      }
       const nextInset = Math.max(80, Math.ceil(element.getBoundingClientRect().height) + 12);
       setComposerInsetPx(nextInset);
     };
@@ -258,7 +267,7 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
 
     const fallback = window.setInterval(updateInset, 200);
     return () => window.clearInterval(fallback);
-  }, []);
+  }, [hideComposer]);
 
   // Return focus to chat input when slim form is dismissed
   const prevShouldShowSlimFormRef = useRef(shouldShowSlimForm);
@@ -269,6 +278,54 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
     prevShouldShowSlimFormRef.current = shouldShowSlimForm;
   }, [shouldShowSlimForm]);
 
+  // Emit typing.start while the user is actively editing the composer; auto-stop
+  // after a short idle so the indicator never sticks if input is left non-empty.
+  // Reset on conversation change so we don't emit typing for the previous chat.
+  const typingActiveRef = useRef(false);
+  const typingIdleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    if (!sendTypingState) return;
+    if (typingIdleTimerRef.current) {
+      clearTimeout(typingIdleTimerRef.current);
+      typingIdleTimerRef.current = null;
+    }
+    const trimmed = inputValue.trim();
+    if (trimmed.length === 0) {
+      if (typingActiveRef.current) {
+        typingActiveRef.current = false;
+        sendTypingState(false);
+      }
+      return;
+    }
+    if (!typingActiveRef.current) {
+      typingActiveRef.current = true;
+      sendTypingState(true);
+    }
+    typingIdleTimerRef.current = setTimeout(() => {
+      typingActiveRef.current = false;
+      sendTypingState(false);
+    }, 3_000);
+    return () => {
+      if (typingIdleTimerRef.current) {
+        clearTimeout(typingIdleTimerRef.current);
+        typingIdleTimerRef.current = null;
+      }
+    };
+  }, [inputValue, sendTypingState, conversationId]);
+
+  useEffect(() => {
+    return () => {
+      if (typingIdleTimerRef.current) {
+        clearTimeout(typingIdleTimerRef.current);
+        typingIdleTimerRef.current = null;
+      }
+      if (typingActiveRef.current) {
+        typingActiveRef.current = false;
+        sendTypingState?.(false);
+      }
+    };
+  }, [sendTypingState]);
+
 
   const handleSubmit = (mentionedUserIds?: string[]) => {
     if (isChatInputLocked) return;
@@ -278,27 +335,34 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
     const attachments = [...previewFiles];
     const replyToMessageId = replyTarget?.messageId ?? null;
 
-    const canHandleCta = Boolean(intakeConversationState?.intakeReady) && intakeConversationState?.ctaResponse !== 'ready';
+    const canHandleCta = isPublicWorkspace && isIntakeSubmittable(intakeContext.intakeConversationState, {
+      paymentRequired: intakeContext.intakeStatus?.paymentRequired ?? null,
+      paymentReceived: intakeContext.intakeStatus?.paymentReceived ?? null,
+    }) && intakeContext.intakeConversationState?.ctaResponse !== 'ready';
     const normalized = message.trim();
     const { affirmative, negative } = getChatPatterns('en'); // TODO: Pass actual language when available
-    const isAffirmative = affirmative.test(normalized);
+    const isPatternAffirmative = affirmative.test(normalized);
     const isNegative = negative.test(normalized);
 
-    if (canHandleCta && onIntakeCtaResponse) {
-      if (isAffirmative) {
-        (async () => {
-          await handleSubmitNowAction();
-        })();
-        setInputValue('');
-        setReplyTarget(null);
-        return;
-      }
-      if (isNegative) {
-        onIntakeCtaResponse('not_yet');
-        setInputValue('');
-        setReplyTarget(null);
-        return;
-      }
+    if (canHandleCta && intakeContext.onIntakeCtaResponse && isPatternAffirmative) {
+      (async () => {
+        try {
+          await handleConfirmSubmitAction();
+          setInputValue('');
+          setReplyTarget(null);
+        } catch (error) {
+          console.error('[ChatContainer] Intake finalization failed:', error);
+          // Retain state so user can retry or see what they sent
+        }
+      })();
+      return;
+    }
+
+    if (canHandleCta && intakeContext.onIntakeCtaResponse && isNegative) {
+      void intakeContext.onIntakeCtaResponse('not_yet');
+      setInputValue('');
+      setReplyTarget(null);
+      return;
     }
 
     // Send message to API
@@ -319,78 +383,33 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
     }
   };
 
-  const onSubmitNowRef = useRef(onSubmitNow);
-  useEffect(() => {
-    onSubmitNowRef.current = onSubmitNow;
-  }, [onSubmitNow]);
+  const submitActionInFlightRef = useRef(false);
 
-  const effectiveLayout: LayoutMode = layoutMode ?? 'widget';
-  const resolvedWorkspaceType: PostAuthConversationContext['workspace'] = isPublicWorkspace
-    ? 'public'
-    : effectiveLayout === 'mobile'
-      ? 'client'
-      : effectiveLayout === 'widget'
-        ? 'widget'
-        : 'practice';
-
-  const rememberPostAuthContext = useCallback(() => {
-    if (!isAnonymousUser) return;
-    if (!conversationId) return;
-    const resolvedPracticeId = practiceConfig?.practiceId || practiceId;
-    const resolvedPracticeSlug = practiceConfig?.slug || null;
-    if (!resolvedPracticeId && !resolvedPracticeSlug) return;
-    rememberPostAuthConversationContext({
-      conversationId,
-      practiceId: resolvedPracticeId ?? null,
-      practiceSlug: resolvedPracticeSlug,
-      workspace: resolvedWorkspaceType,
-    });
-  }, [conversationId, isAnonymousUser, practiceConfig?.practiceId, practiceConfig?.slug, practiceId, resolvedWorkspaceType]);
-
-  const emitAuthPromptRequest = () => {
-    rememberPostAuthContext();
+  const emitAuthPromptRequest = useCallback(() => {
     onAuthPromptRequest?.();
-  };
+  }, [onAuthPromptRequest]);
 
-  useEffect(() => {
-    if (!showAuthPrompt) return;
-    rememberPostAuthContext();
-  }, [rememberPostAuthContext, showAuthPrompt]);
-
-  const handleSubmitNowAction = async () => {
-    if (onSubmitNow) {
-      await onSubmitNow();
+  const handleConfirmSubmitAction = async () => {
+    if (submitActionInFlightRef.current) {
       return;
     }
-    onIntakeCtaResponse?.('ready');
-  };
-
-  useEffect(() => {
-    if (!pendingSubmitAfterAuth) return;
-    if (isAnonymousUser) return;
-    if (!onSubmitNowRef.current) {
-      onIntakeCtaResponse?.('ready');
-      setPendingSubmitAfterAuth(false);
-      return;
-    }
-
-    let cancelled = false;
-    (async () => {
+    submitActionInFlightRef.current = true;
+    if (intakeContext.onSubmitNow) {
       try {
-        await onSubmitNowRef.current?.();
-      } catch (error) {
-        console.error('Failed to continue intake after auth', error);
+        await intakeContext.onSubmitNow();
       } finally {
-        if (!cancelled) {
-          setPendingSubmitAfterAuth(false);
-        }
+        submitActionInFlightRef.current = false;
       }
-    })();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [isAnonymousUser, pendingSubmitAfterAuth, onIntakeCtaResponse]);
+      return;
+    }
+    try {
+      if (intakeContext.onIntakeCtaResponse) {
+        await Promise.resolve(intakeContext.onIntakeCtaResponse('ready'));
+      }
+    } finally {
+      submitActionInFlightRef.current = false;
+    }
+  };
 
   const baseKeyHandler = createKeyPressHandler(handleSubmit);
 
@@ -413,106 +432,17 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
     baseKeyHandler(e);
   };
 
-  const openPayment = (request: IntakePaymentRequest): boolean => {
-    const hasClientSecret = typeof request.clientSecret === 'string' &&
-      request.clientSecret.trim().length > 0;
-    if (!hasClientSecret &&
-      request.paymentLinkUrl &&
-      isValidStripePaymentLink(request.paymentLinkUrl) &&
-      typeof window !== 'undefined') {
-      window.open(request.paymentLinkUrl, '_blank', 'noopener');
-      return false;
-    }
-    setPaymentRequest(request);
-    setIsPaymentModalOpen(true);
-    return true;
-  };
-
-  const handleAuthPromptClose = () => {
-    setPendingPaymentRequest(null);
-    if (!authSuccessCloseRef.current) {
-      setPendingSubmitAfterAuth(false);
-    }
-    authSuccessCloseRef.current = false;
-    onAuthPromptClose?.();
-  };
-
-  const handleAuthSuccess = async () => {
-    authSuccessCloseRef.current = true;
-    try {
-      await refreshAuthSession().catch(() => undefined);
-      if (typeof window !== 'undefined') {
-        window.dispatchEvent(new CustomEvent('auth:session-updated'));
-      }
-    } catch {
-      // best effort: the auth form has already completed the sign-in
-    }
-    let modalOpened = false;
-    if (pendingPaymentRequest) {
-      modalOpened = openPayment(pendingPaymentRequest);
-      setPendingPaymentRequest(null);
-    }
-    if (!modalOpened) {
-      onAuthPromptSuccess?.();
-    }
-  };
-
-  const handleOpenPayment = (request: IntakePaymentRequest) => {
-    if (isAnonymousUser) {
-      setPendingPaymentRequest(request);
-      emitAuthPromptRequest();
-      return;
-    }
-    openPayment(request);
-  };
-
-  const handleClosePayment = () => {
-    setIsPaymentModalOpen(false);
-  };
-
-  const handlePaymentSuccess = async () => {
-    if (!paymentRequest) {
-      handleClosePayment();
-      return;
-    }
-
-    const isValidUuid = typeof paymentRequest.intakeUuid === 'string'
-      && (
-        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(paymentRequest.intakeUuid)
-        || /^[0-9A-HJKMNP-TV-Z]{26}$/i.test(paymentRequest.intakeUuid)
-      );
-
-    if (typeof window !== 'undefined' && isValidUuid && paymentRequest.intakeUuid) {
-      try {
-        const payload: Record<string, string> = {};
-        if (paymentRequest.practiceName) payload.practiceName = paymentRequest.practiceName;
-        if (paymentRequest.practiceId) payload.practiceId = paymentRequest.practiceId;
-        if (paymentRequest.conversationId) payload.conversationId = paymentRequest.conversationId;
-
-        window.sessionStorage.setItem(
-          `intakePaymentSuccess:${paymentRequest.intakeUuid}`,
-          JSON.stringify(payload)
-        );
-      } catch (error) {
-        console.warn('[Chat] Failed to persist payment success flag', error);
-      }
-    } else if (paymentRequest.intakeUuid) {
-      console.warn('[Chat] Skipped persisting invalid intakeUuid', paymentRequest.intakeUuid);
-    }
-    handleClosePayment();
-  };
-
-  const handleModeSelection = (mode: ConversationMode, source: 'intro_gate' | 'composer_footer') => {
+  const handleModeSelection = (mode: ConversationMode) => {
     if (!onSelectMode) return;
-    onSelectMode(mode, source);
+    onSelectMode(mode);
   };
 
   const handleAskQuestion = () => {
-    handleModeSelection('ASK_QUESTION', 'intro_gate');
+    handleModeSelection('ASK_QUESTION');
   };
 
   const handleRequestConsultation = () => {
-    handleModeSelection('REQUEST_CONSULTATION', 'intro_gate');
+    handleModeSelection('REQUEST_CONSULTATION');
   };
 
   /**
@@ -534,7 +464,7 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
     ? 'flex flex-col flex-1 min-h-0 w-full overflow-hidden relative'
     : isWidgetMode
       ? 'flex flex-col flex-1 min-h-0 w-full h-full overflow-hidden relative bg-transparent'
-      : `flex flex-col flex-1 min-h-0 w-full overflow-hidden relative ${isPublicWorkspace ? 'bg-transparent px-2 sm:px-4 py-4' : 'bg-transparent'}`;
+      : `flex flex-col flex-1 min-h-0 w-full overflow-hidden relative ${isPublicWorkspace ? 'bg-transparent py-4' : 'bg-transparent'}`;
 
   // frameClassName: widget fills 100%; non-widget public caps at 420px; desktop is unconstrained.
   const frameClassName = isDesktopMode
@@ -559,10 +489,10 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
 
   const dismissSlimForm = async (source: 'backdrop' | 'gesture' | 'manual' = 'manual') => {
     void source;
-    if (!onSlimFormDismiss || isDismissingSlimDrawer) return;
+    if (!intakeContext.onSlimFormDismiss || isDismissingSlimDrawer) return;
     setIsDismissingSlimDrawer(true);
     try {
-      await onSlimFormDismiss();
+      await intakeContext.onSlimFormDismiss();
     } finally {
       setIsDismissingSlimDrawer(false);
     }
@@ -574,80 +504,89 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
       data-testid="chat-container"
     >
       <main className={mainClassName}>
-        {canChat ? (
-          <div className={frameClassName}>
-            <div 
-              className="flex flex-1 min-h-0 flex-col"
-            >
-              {headerContent ? (
-                <div className="shrink-0">
-                  {headerContent}
-                </div>
-              ) : null}
-              <div className="flex flex-1 min-h-0 flex-col">
-                <VirtualMessageList
-                  messages={messagesReady ? filteredMessages : []}
-                  conversationTitle={conversationTitle}
-                  practiceConfig={practiceConfig}
-                  isPublicWorkspace={isPublicWorkspace}
-                  onOpenSidebar={onOpenSidebar}
-                  onOpenPayment={handleOpenPayment}
-                  practiceId={practiceId}
-                  onReply={handleReply}
-                  onToggleReaction={onToggleReaction}
-                  onRequestReactions={onRequestReactions}
-                  onAuthPromptRequest={emitAuthPromptRequest}
-                  intakeStatus={intakeStatus}
-                  intakeConversationState={intakeConversationState}
-                  hasSlimContactDraft={Boolean(slimContactDraft)}
-                  onQuickReply={handleQuickReply}
-                  onIntakeCtaResponse={onIntakeCtaResponse}
-                  onSubmitNow={handleSubmitNowAction}
-                  onBuildBrief={onBuildBrief}
-                  modeSelectorActions={onSelectMode ? {
-                    onAskQuestion: handleAskQuestion,
-                    onRequestConsultation: handleRequestConsultation
-                  } : undefined}
-                  leadReviewActions={leadReviewActions}
-                  hasMoreMessages={hasMoreMessages}
-                  isLoadingMoreMessages={isLoadingMoreMessages}
-                  onLoadMoreMessages={onLoadMoreMessages}
-                  showSkeleton={!messagesReady}
-                  compactLayout={false}
-                  onboardingActions={onboardingActions}
-                  bottomInsetPx={composerInsetPx}
-                />
+        <div className={frameClassName}>
+          <div 
+            className="flex flex-1 min-h-0 flex-col"
+          >
+            {headerContent ? (
+              <div className="shrink-0">
+                {headerContent}
               </div>
+            ) : null}
+            <div className="flex flex-1 min-h-0 flex-col">
+              <VirtualMessageList
+                messages={messagesReady ? filteredMessages : []}
+                conversationTitle={conversationTitle}
+                conversationContactName={conversationContactName}
+                viewerContext={viewerContext}
+                practiceConfig={practiceConfig}
+                isPublicWorkspace={isPublicWorkspace}
+                onOpenSidebar={onOpenSidebar}
+                practiceId={practiceId}
+                onReply={handleReply}
+                onToggleReaction={onToggleReaction && features.enableMessageReactions ? onToggleReaction : undefined}
+                onRequestReactions={onRequestReactions}
+                onAuthPromptRequest={emitAuthPromptRequest}
+                onQuickReply={handleQuickReply}
+                modeSelectorActions={onSelectMode ? {
+                  onAskQuestion: handleAskQuestion,
+                  onRequestConsultation: handleRequestConsultation
+                } : undefined}
 
+                hasMoreMessages={hasMoreMessages}
+                isLoadingMoreMessages={isLoadingMoreMessages}
+                onLoadMoreMessages={onLoadMoreMessages}
+                showSkeleton={!messagesReady}
+                compactLayout={false}
+                onboardingActions={onboardingActions}
+                bottomInsetPx={composerInsetPx}
+                hideMessageActions={hideMessageActions}
+                typingUserIds={typingUserIds}
+                readReceiptsByUser={readReceiptsByUser}
+                conversationId={conversationId}
+                currentUserId={currentUserId}
+              />
             </div>
 
-            <div ref={composerDockRef} className="sticky bottom-0 z-[1000] w-full">
-              <ChatActionCard
-                isOpen={isPaymentModalOpen || showAuthPrompt || shouldShowSlimForm}
-                type={isPaymentModalOpen ? 'payment' : showAuthPrompt ? 'auth' : shouldShowSlimForm ? 'slim-form' : null}
-                onClose={() => {
-                  if (isPaymentModalOpen) handleClosePayment();
-                  else if (showAuthPrompt) handleAuthPromptClose();
-                  else if (shouldShowSlimForm) dismissSlimForm('manual');
-                }}
-                authProps={{
-                  practiceName: practiceConfig?.name,
-                  initialEmail: slimContactDraft?.email ?? '',
-                  initialName: slimContactDraft?.name ?? '',
-                  callbackURL: authPromptCallbackUrl,
-                  onSuccess: handleAuthSuccess
-                }}
-                paymentProps={{
-                  request: paymentRequest,
-                  onSuccess: handlePaymentSuccess
-                }}
-                slimFormProps={{
-                  onContinue: onSlimFormContinue as NonNullable<typeof onSlimFormContinue>,
-                  initialValues: slimContactDraft
-                }}
-              />
+          </div>
 
-              {(!isPaymentModalOpen && !showAuthPrompt && !shouldShowSlimForm) && (
+          <div ref={composerDockRef} className="sticky bottom-0 z-[1000] w-full">
+            {isReconnecting ? (
+              <div
+                className="mx-auto flex w-full max-w-3xl items-center gap-2 px-4 py-2 text-xs text-input-placeholder"
+                role="status"
+                aria-live="polite"
+              >
+                <span
+                  aria-hidden="true"
+                  className="inline-block h-2 w-2 animate-pulse rounded-full bg-amber-500"
+                />
+                Reconnecting to chat…
+              </div>
+            ) : null}
+            <ChatActionCard
+              isOpen={showAuthPrompt || shouldShowSlimForm || shouldShowDisclaimer}
+              type={showAuthPrompt ? 'auth' : shouldShowSlimForm ? 'slim-form' : shouldShowDisclaimer ? 'disclaimer' : null}
+              onClose={() => {
+                if (showAuthPrompt) onAuthPromptClose?.();
+                else if (shouldShowSlimForm) dismissSlimForm('manual');
+                else if (shouldShowDisclaimer && disclaimerProps) disclaimerProps.onClose();
+              }}
+              authProps={{
+                practiceName: practiceConfig?.name,
+                initialEmail: intakeContext.slimContactDraft?.email ?? '',
+                initialName: intakeContext.slimContactDraft?.name ?? '',
+                callbackURL: authPromptCallbackUrl,
+                onSuccess: onAuthPromptSuccess
+              }}
+              slimFormProps={{
+                onContinue: intakeContext.onSlimFormContinue as NonNullable<typeof intakeContext.onSlimFormContinue>,
+                initialValues: intakeContext.slimContactDraft
+              }}
+              disclaimerProps={shouldShowDisclaimer && disclaimerProps ? disclaimerProps : undefined}
+            />
+
+            {(!showAuthPrompt && !shouldShowSlimForm && !shouldShowDisclaimer && !hideComposer) && (
                 <MessageComposer
                   inputValue={inputValue}
                   setInputValue={setInputValue}
@@ -664,18 +603,19 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
                   onKeyDown={handleKeyDown}
                   textareaRef={textareaRef}
                   isReadyToUpload={isReadyToUpload}
-                  isSessionReady={isSessionReady}
-                  isSocketReady={isSocketReady}
-                  intakeStatus={intakeStatus}
-                  disabled={composerDisabled}
+                  isSessionReady={isReady || (!conversationId && !!canChat)}
+                  isSocketReady={isReady || (!conversationId && !!canChat)}
+                  intakeStatus={isPublicWorkspace ? composerIntakeStatus : undefined}
+                  disabled={isChatInputLocked}
                   replyTo={replyTarget}
                   onCancelReply={handleCancelReply}
                   mentionCandidates={mentionCandidates}
+                  hideAttachmentControls={!features.enableFileAttachments}
+                  isPublicWorkspace={isPublicWorkspace}
                 />
-              )}
-            </div>
+            )}
           </div>
-        ) : null}
+        </div>
       </main>
 
 

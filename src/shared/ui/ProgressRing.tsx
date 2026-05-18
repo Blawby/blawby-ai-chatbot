@@ -69,7 +69,7 @@ export const ProgressRing: FunctionComponent<ProgressRingProps> = ({
           stroke="currentColor"
           strokeWidth={strokeWidth}
           fill="transparent"
-          className={cn('text-gray-200 dark:text-white/10', trackClassName)}
+          className={cn('text-line-glass', trackClassName)}
         />
         {/* Progress circle */}
         <circle

@@ -1,11 +1,11 @@
 import { useState, useEffect, useMemo, useCallback } from 'preact/hooks';
 import { useTranslation } from '@/shared/i18n/hooks';
-import { SectionDivider } from '@/shared/ui';
+import { SectionDivider } from '@/shared/ui/layout/SectionDivider';
 import { useToastContext } from '@/shared/contexts/ToastContext';
 import { DEFAULT_LOCALE, detectBestLocale, setLocale, SUPPORTED_LOCALES } from '@/shared/i18n/hooks';
 import type { Language } from '@/shared/types/user';
 import { SettingSelect } from '@/features/settings/components/SettingSelect';
-import { ContentPageLayout } from '@/shared/ui/layout';
+import { LoadingBlock } from '@/shared/ui/layout/LoadingBlock';
 import { getPreferencesCategory, preferencesApi } from '@/shared/lib/preferencesApi';
 import type { GeneralPreferences } from '@/shared/types/preferences';
 
@@ -163,16 +163,12 @@ export const GeneralPage = ({
 
   // Show loading state while session is loading
   if (isLoading) {
-    return (
-      <div className={`h-full flex items-center justify-center ${className}`}>
-        <div className="w-8 h-8 border-2 border-accent-500 border-t-transparent rounded-full animate-spin" />
-      </div>
-    );
+    return <LoadingBlock className={className} />;
   }
 
-  // Use same layout for both mobile and desktop
   return (
-    <ContentPageLayout title={t('settings:general.title')} className={className}>
+    <>
+      <div className="space-y-6">
       <SettingSelect
         label={t('settings:general.theme.label')}
         value={settings.theme}
@@ -209,6 +205,7 @@ export const GeneralPage = ({
         ]}
         onChange={(value) => handleSettingChange('spokenLanguage', value)}
       />
-    </ContentPageLayout>
+      </div>
+    </>
   );
 };

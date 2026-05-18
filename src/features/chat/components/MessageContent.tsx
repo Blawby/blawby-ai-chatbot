@@ -53,23 +53,46 @@ export const MessageContent: FunctionComponent<MessageContentProps> = ({
   className = ''
 }) => {
   if (!content) return null;
+  
+  // Strip self-annotated quick replies from display text
+  const displayContent = content.replace(/\n?\bQUICK_REPLIES:\s*.*(?:\n|$)/gi, '').trim();
+  const hasQuickRepliesMarker = /\bQUICK_REPLIES:/i.test(content);
+  
+  if (!displayContent && (hasQuickRepliesMarker || !content.trim())) {
+    return null;
+  }
 
   // Special styling for analysis status messages
   const isAnalysisMessage = !isUser && (content.includes('📄 Analyzing document') || content.includes('🔍'));
-  const analysisAriaLabel = getAnalysisAriaLabel(content, isAnalysisMessage);
+  const analysisAriaLabel = getAnalysisAriaLabel(displayContent, isAnalysisMessage);
 
   if (isAnalysisMessage) {
     return (
-      <div className={`status-info flex items-center gap-2 px-3 py-2 rounded-lg ${className}`}>
+      <div className={`status-info flex items-center gap-2 px-3 py-2 rounded-xl ${className}`}>
         <LoadingSpinner size="md" ariaLabel={analysisAriaLabel} />
-        <ChatMarkdown text={content} isStreaming={isStreaming} variant={variant} size={size} />
+        <ChatMarkdown text={displayContent} isStreaming={isStreaming} variant={variant} size={size} />
       </div>
     );
   }
 
+  // Chat-bubble surface (Pencil LymwK / rmTOt). Sent uses accent fill with a
+  // sharper bottom-right corner; received uses a raised surface with a sharper
+  // bottom-left corner. Padding & radius mirror the design components.
+  const bubbleClassName = isUser
+    ? 'inline-block max-w-full rounded-2xl rounded-br-[4px] bg-accent-500 px-[14px] py-[10px] text-[rgb(var(--accent-foreground))] shadow-sm'
+    : 'inline-block max-w-full rounded-2xl rounded-bl-[4px] bg-[rgb(var(--surface-card-hover))] px-[14px] py-[10px] text-input-text';
+
+  // The outer wrapper is a flex row so the inline-block bubble follows the
+  // sender alignment even when the column it sits in (MessageBubble) is wider
+  // than the bubble's content — e.g. when the author/time header above is
+  // longer than a short message.
   return (
-    <div className={`min-h-4 ${className}`}>
-      <ChatMarkdown text={content} isStreaming={isStreaming} variant={variant} size={size} />
+    <div
+      className={`flex min-h-4 min-w-0 max-w-full ${isUser ? 'justify-end' : 'justify-start'} ${className}`}
+    >
+      <div className={bubbleClassName}>
+        <ChatMarkdown text={displayContent} isStreaming={isStreaming} variant={variant} size={size} />
+      </div>
     </div>
   );
 };

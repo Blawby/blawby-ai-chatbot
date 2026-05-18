@@ -1,23 +1,116 @@
-import { useState, useMemo, useRef } from 'preact/hooks';
+import { useState, useMemo, useRef, useEffect } from 'preact/hooks';
 import { useSessionContext } from '@/shared/contexts/SessionContext';
-import type { ConversationMetadata, ConversationMode } from '@/shared/types/conversation';
+import type { ConversationMetadata, ConversationMode, SetupFieldsPayload } from '@/shared/types/conversation';
 import { useIntakeFlow } from '@/shared/hooks/useIntakeFlow';
+import { useSetupFlow } from '@/shared/hooks/useSetupFlow';
 import { useConversation } from '@/shared/hooks/useConversation';
 import { useChatComposer } from '@/shared/hooks/useChatComposer';
 import { usePaymentStatus } from '@/shared/hooks/usePaymentStatus';
-import { resolveConsultationState } from '@/shared/utils/consultationState';
+import { resolveConsultationState, applyConsultationPatchToMetadata } from '@/shared/utils/consultationState';
+import type { 
+  IntakeConversationState, 
+  SlimContactDraft, 
+  IntakeFieldsPayload, 
+  DerivedIntakeStatus, 
+  IntakeFieldChangeOptions 
+} from '@/shared/types/intake';
+import type { ChatMessageUI, FileAttachment } from '../../../worker/types';
+import type { ConversationMessage } from '@/shared/types/conversation';
+import type { ContactData } from '@/features/intake/components/ContactForm';
 
 export interface UseMessageHandlingOptions {
+  enabled?: boolean;
   practiceId?: string;
   practiceSlug?: string;
   conversationId?: string;
-  ensureConversation?: () => Promise<string | null>;
+  onEnsureConversation?: () => Promise<string | null>;
   userId?: string | null;
+  isAnonymous?: boolean;
   linkAnonymousConversationOnLoad?: boolean;
   mode?: ConversationMode | null;
   onConversationMetadataUpdated?: (metadata: ConversationMetadata | null) => void;
   onError?: (error: unknown, context?: Record<string, unknown>) => void;
+  skipInitialFetch?: boolean;
 }
+
+export interface UseMessageHandlingResult {
+  messages: ChatMessageUI[];
+  conversationMetadata: ConversationMetadata | null;
+  messagesReady: boolean;
+  hasMoreMessages: boolean;
+  isLoadingMoreMessages: boolean;
+  isSocketReady: boolean;
+  /** Other participants currently typing in this conversation. */
+  typingUserIds: readonly string[];
+  /** Per-user last_read_seq received from the server. */
+  readReceiptsByUser: ReadonlyMap<string, number>;
+  /** Send typing.start (true) or typing.stop (false) on the active WS. */
+  sendTypingState: (isTyping: boolean) => void;
+  loadMoreMessages: () => Promise<void>;
+  startConsultFlow: (id: string) => void;
+  clearMessages: () => void;
+  addMessage: (msg: ChatMessageUI) => void;
+  updateMessage: (id: string, patch: Partial<ChatMessageUI>) => void;
+  ingestServerMessages: (msgs: ConversationMessage[]) => void;
+  updateConversationMetadata: (patch: Partial<ConversationMetadata>) => Promise<ConversationMetadata | null>;
+  requestMessageReactions: (messageId: string) => Promise<void>;
+  toggleMessageReaction: (messageId: string, emoji: string) => Promise<void>;
+  sendMessage: (content: string, attachments?: FileAttachment[], replyToId?: string | null, options?: { additionalContext?: string }) => Promise<void>;
+  paymentRetryNotice: { message: string; paymentUrl: string } | null;
+  verifiedPaidIntakeUuids: Set<string>;
+  intakeStatus: DerivedIntakeStatus | null;
+  intakeConversationState: IntakeConversationState | null;
+  slimContactDraft: SlimContactDraft | null;
+  handleSlimFormContinue: (draft: ContactData) => Promise<void>;
+  handleBuildBrief: () => Promise<void>;
+  handleIntakeCtaResponse: (response: 'ready' | 'not_yet') => Promise<void>;
+  resetIntakeCta: () => Promise<void>;
+  handleConfirmSubmit: () => Promise<void>;
+  handleFinalizeSubmit: (options?: { generatePaymentLinkOnly?: boolean }) => Promise<{ paymentLinkUrl: string | null; intakeUuid: string | null }>;
+  handleContactFormSubmit: (data: ContactData) => Promise<void>;
+  applyIntakeFields: (payload: IntakeFieldsPayload, options?: IntakeFieldChangeOptions) => Promise<void>;
+  setupFields: SetupFieldsPayload;
+  applySetupFields: (payload: Partial<SetupFieldsPayload>, options?: { sendSystemAck?: boolean }) => Promise<void>;
+  isConsultFlowActive: boolean;
+}
+
+const DISABLED_MESSAGE_HANDLING_RESULT: UseMessageHandlingResult = {
+  messages: [],
+  conversationMetadata: null,
+  messagesReady: false,
+  hasMoreMessages: false,
+  isLoadingMoreMessages: false,
+  isSocketReady: false,
+  typingUserIds: [],
+  readReceiptsByUser: new Map(),
+  sendTypingState: () => {},
+  loadMoreMessages: async () => {},
+  startConsultFlow: () => {},
+  clearMessages: () => {},
+  addMessage: () => {},
+  updateMessage: () => {},
+  ingestServerMessages: () => {},
+  updateConversationMetadata: async () => null,
+  requestMessageReactions: async () => {},
+  toggleMessageReaction: async () => {},
+  sendMessage: async () => {},
+  paymentRetryNotice: null,
+  verifiedPaidIntakeUuids: new Set<string>(),
+  intakeStatus: null,
+  intakeConversationState: null,
+  slimContactDraft: null,
+  handleSlimFormContinue: async () => {},
+  handleBuildBrief: async () => {},
+  handleIntakeCtaResponse: async () => {},
+  resetIntakeCta: async () => {},
+  handleConfirmSubmit: async () => {},
+  handleFinalizeSubmit: async () => ({ paymentLinkUrl: null, intakeUuid: null }),
+  handleContactFormSubmit: async () => {},
+  applyIntakeFields: async () => {},
+  setupFields: {},
+  applySetupFields: async () => {},
+  isConsultFlowActive: false,
+};
 
 export const useMessageHandlingWithContext = (options: Omit<UseMessageHandlingOptions, 'practiceId'>) => {
   const { activePracticeId } = useSessionContext();
@@ -26,58 +119,92 @@ export const useMessageHandlingWithContext = (options: Omit<UseMessageHandlingOp
 
 export const useMessageHandling = (options: UseMessageHandlingOptions) => {
   const {
+    enabled = true,
     practiceId,
     practiceSlug,
     conversationId,
-    ensureConversation,
+    onEnsureConversation,
     userId,
+    isAnonymous,
     mode,
     onConversationMetadataUpdated,
     onError,
-    linkAnonymousConversationOnLoad = false
+    linkAnonymousConversationOnLoad = false,
+    skipInitialFetch = false,
   } = options;
 
-  // 1. Core Transport & State
+  const composerRef = useRef<ReturnType<typeof useChatComposer> | null>(null);
+
+  const mountedRef = useRef(true);
+  useEffect(() => {
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
+
+  // 1. Conversations & Sync
   const conversation = useConversation({
+    enabled,
     practiceId,
     conversationId,
     userId,
+    isAnonymous,
     linkAnonymousConversationOnLoad,
     onConversationMetadataUpdated,
+    skipInitialFetch,
     onError,
   });
 
-  const composerRef = useRef<ReturnType<typeof useChatComposer> | null>(null);
   const consultation = useMemo(
     () => resolveConsultationState(conversation.conversationMetadata),
     [conversation.conversationMetadata]
   );
 
-  // 2. Intake Flow logic
-  const intake = useIntakeFlow({
+  // Keep ref updated for subsequent intakes if needed, though usually stable
+
+  // Intake Flow logic
+  const liveIntake = useIntakeFlow({
+    enabled,
     conversationId,
     practiceId,
     practiceSlug,
+    onEnsureConversation,
     conversationMetadata: conversation.conversationMetadata,
     slimContactDraft: consultation?.contact ?? null,
     conversationMetadataRef: conversation.conversationMetadataRef,
     updateConversationMetadata: conversation.updateConversationMetadata,
     applyServerMessages: conversation.applyServerMessages,
-    // Proxy functions to chat composer via ref to avoid TDZ errors
-    sendMessage: (content, att, reply, opts) => composerRef.current?.sendMessage(content, att, reply, opts),
-    sendMessageOverWs: (content, att, meta, reply, convId) => composerRef.current?.sendMessageOverWs(content, att, meta, reply, convId),
+    sendMessage: (content, att, reply, opts) => {
+      const fn = composerRef.current?.sendMessage;
+      return fn ? fn(content, att, reply, opts) : Promise.resolve();
+    },
+    sendMessageOverWs: (content, att, meta, reply, convId) => {
+      const fn = composerRef.current?.sendMessageOverWs;
+      return fn ? fn(content, att, meta, reply, convId) : Promise.resolve({ messageId: '', seq: 0, serverTs: '', clientId: '' });
+    },
     onError,
   });
 
+  const liveSetup = useSetupFlow({
+    enabled,
+    conversationId,
+    practiceId,
+    conversationMetadata: conversation.conversationMetadata,
+    conversationMetadataRef: conversation.conversationMetadataRef,
+    updateConversationMetadata: conversation.updateConversationMetadata,
+  });
+
+
   // 3. User Actions & AI (Streaming, Intent, etc)
   const composer = useChatComposer({
+    enabled,
     practiceId,
     practiceSlug,
     conversationId,
-    ensureConversation,
+    onEnsureConversation,
     userId,
     linkAnonymousConversationOnLoad,
-    mode,
+    mode: conversation.conversationMetadata?.mode ?? mode ?? null,
     messages: conversation.messages,
     messagesRef: conversation.messagesRef,
     conversationMetadataRef: conversation.conversationMetadataRef,
@@ -93,13 +220,13 @@ export const useMessageHandling = (options: UseMessageHandlingOptions) => {
     pendingStreamMessageIdRef: conversation.pendingStreamMessageIdRef,
     orphanTimerRef: conversation.orphanTimerRef,
     conversationIdRef: conversation.conversationIdRef,
-    pendingEnsureConversationPromiseRef: conversation.pendingEnsureConversationPromiseRef,
     pendingEnsureConversationPromisesRef: conversation.pendingEnsureConversationPromisesRef,
     connectChatRoom: conversation.connectChatRoom,
     updateConversationMetadata: conversation.updateConversationMetadata,
     applyServerMessages: conversation.applyServerMessages,
     fetchConversationMetadata: conversation.fetchConversationMetadata,
-    applyIntakeFields: intake.applyIntakeFields,
+    applyIntakeFields: liveIntake.applyIntakeFields,
+    applySetupFields: liveSetup.applySetupFields,
     onError,
   });
 
@@ -112,11 +239,13 @@ export const useMessageHandling = (options: UseMessageHandlingOptions) => {
   const [verifiedPaidIntakeUuids, setVerifiedPaidIntakeUuids] = useState<Set<string>>(new Set());
   
   const payments = usePaymentStatus({
+    enabled,
     conversationId,
     practiceId,
     latestIntakeSubmission: {
       intakeUuid: consultation?.submission?.intakeUuid ?? null,
       paymentRequired: consultation?.submission?.paymentRequired ?? false,
+      checkoutSessionId: consultation?.submission?.checkoutSessionId ?? null,
     },
     onPaymentConfirmed: (uuid) => {
       setVerifiedPaidIntakeUuids(prev => {
@@ -124,6 +253,32 @@ export const useMessageHandling = (options: UseMessageHandlingOptions) => {
         next.add(uuid);
         return next;
       });
+
+      (async () => {
+        try {
+          // Patch conversation metadata to mark payment as received.
+          // Compute this inside the async block using the freshest ref to avoid race conditions.
+          const nextMetadata = applyConsultationPatchToMetadata(
+            conversation.conversationMetadataRef.current,
+            { submission: { paymentReceived: true } },
+            { mirrorLegacyFields: true }
+          );
+          if (mountedRef.current) {
+            await conversation.updateConversationMetadata(nextMetadata);
+          }
+        } catch (error) {
+          if (mountedRef.current) {
+            setVerifiedPaidIntakeUuids(prev => {
+              const next = new Set(prev);
+              next.delete(uuid);
+              return next;
+            });
+            if (typeof onError === 'function') {
+              onError(error, { context: 'updateConversationMetadata', conversationId });
+            }
+          }
+        }
+      })();
     },
     applyServerMessages: conversation.applyServerMessages,
     onError,
@@ -131,79 +286,104 @@ export const useMessageHandling = (options: UseMessageHandlingOptions) => {
 
   // Derived state for UI orchestration
   const isConsultFlowActive = useMemo(() => {
+    if (!enabled) return false;
     if (mode === 'REQUEST_CONSULTATION') return true;
     if (mode === 'ASK_QUESTION' || mode === 'PRACTICE_ONBOARDING' || mode === null) return false;
     return false;
-  }, [mode]);
+  }, [enabled, mode]);
 
-  return useMemo(() => ({
-    // Transport & State (from useConversation)
-    messages: conversation.messages,
-    conversationMetadata: conversation.conversationMetadata,
-    messagesReady: conversation.messagesReady,
-    hasMoreMessages: conversation.hasMoreMessages,
-    isLoadingMoreMessages: conversation.isLoadingMoreMessages,
-    isSocketReady: conversation.isSocketReady,
-    loadMoreMessages: conversation.loadMoreMessages,
-    startConsultFlow: conversation.startConsultFlow,
-    clearMessages: conversation.clearMessages,
-    addMessage: conversation.addMessage,
-    updateMessage: conversation.updateMessage,
-    ingestServerMessages: conversation.ingestServerMessages,
-    updateConversationMetadata: conversation.updateConversationMetadata,
-    requestMessageReactions: conversation.requestMessageReactions,
-    toggleMessageReaction: conversation.toggleMessageReaction,
+  return useMemo(() => {
+    if (!enabled) {
+      return DISABLED_MESSAGE_HANDLING_RESULT;
+    }
 
-    // Actions & Sending (from useChatComposer)
-    sendMessage: composer.sendMessage,
+    return {
+      // Transport & State (from useConversation)
+      messages: conversation.messages,
+      conversationMetadata: conversation.conversationMetadata,
+      messagesReady: conversation.messagesReady,
+      hasMoreMessages: conversation.hasMoreMessages,
+      isLoadingMoreMessages: conversation.isLoadingMoreMessages,
+      isSocketReady: conversation.isSocketReady,
+      typingUserIds: conversation.typingUserIds,
+      readReceiptsByUser: conversation.readReceiptsByUser,
+      sendTypingState: conversation.sendTypingState,
+      loadMoreMessages: conversation.loadMoreMessages,
+      startConsultFlow: conversation.startConsultFlow,
+      clearMessages: conversation.clearMessages,
+      addMessage: conversation.addMessage,
+      updateMessage: conversation.updateMessage,
+      ingestServerMessages: conversation.ingestServerMessages,
+      updateConversationMetadata: conversation.updateConversationMetadata,
+      requestMessageReactions: conversation.requestMessageReactions,
+      toggleMessageReaction: conversation.toggleMessageReaction,
 
-    // Payments (from usePaymentStatus)
-    paymentRetryNotice: payments.paymentRetryNotice,
-    verifiedPaidIntakeUuids,
+      // Actions & Sending (from useChatComposer)
+      sendMessage: async (...args: Parameters<typeof composer.sendMessage>) => {
+        // Ensure we have a conversation record and its ID before proceeding
+        if (typeof onEnsureConversation === 'function') {
+          const ensuredId = await onEnsureConversation();
+          if (ensuredId == null) {
+            throw new Error('Failed to ensure conversation before sending message.');
+          }
+        }
 
-    // Intake Logic (from useIntakeFlow)
-    intakeStatus: intake.intakeStatus,
-    intakeConversationState: intake.intakeConversationState,
-    slimContactDraft: intake.slimContactDraft,
-    handleSlimFormContinue: intake.handleSlimFormContinue,
-    handleBuildBrief: intake.handleBuildBrief,
-    handleIntakeCtaResponse: intake.handleIntakeCtaResponse,
-    resetIntakeCta: intake.resetIntakeCta,
-    handleSubmitNow: intake.handleSubmitNow,
-    handleContactFormSubmit: intake.handleContactFormSubmit,
-    applyIntakeFields: intake.applyIntakeFields,
+        const isDraft = conversation.conversationMetadataRef.current?.status === 'draft' ||
+                        (!conversation.conversationMetadataRef.current && skipInitialFetch);
+        if (isDraft) {
+          try {
+            await conversation.updateConversationMetadata({ status: 'active' });
+          } catch (err) {
+            console.error('[useMessageHandling] Failed to activate conversation on send', err);
+            throw err;
+          }
+        }
+        return composer.sendMessage(...args);
+      },
 
-    // App state
-    isConsultFlowActive,
-  }), [
-    conversation.messages,
-    conversation.conversationMetadata,
-    conversation.messagesReady,
-    conversation.hasMoreMessages,
-    conversation.isLoadingMoreMessages,
-    conversation.isSocketReady,
-    conversation.loadMoreMessages,
-    conversation.startConsultFlow,
-    conversation.clearMessages,
-    conversation.addMessage,
-    conversation.updateMessage,
-    conversation.ingestServerMessages,
-    conversation.updateConversationMetadata,
-    conversation.requestMessageReactions,
-    conversation.toggleMessageReaction,
-    composer.sendMessage,
+      // Payments (from usePaymentStatus)
+      paymentRetryNotice: payments.paymentRetryNotice,
+      verifiedPaidIntakeUuids,
+
+      // Intake Logic (from useIntakeFlow)
+      intakeStatus: liveIntake.intakeStatus,
+      intakeConversationState: liveIntake.intakeConversationState,
+      slimContactDraft: liveIntake.slimContactDraft,
+      handleSlimFormContinue: liveIntake.handleSlimFormContinue,
+      handleBuildBrief: liveIntake.handleBuildBrief,
+      handleIntakeCtaResponse: liveIntake.handleIntakeCtaResponse,
+      resetIntakeCta: liveIntake.resetIntakeCta,
+      handleConfirmSubmit: liveIntake.handleConfirmSubmit,
+      handleFinalizeSubmit: liveIntake.handleFinalizeSubmit,
+      handleContactFormSubmit: liveIntake.handleContactFormSubmit,
+      applyIntakeFields: liveIntake.applyIntakeFields,
+      setupFields: liveSetup.setupFields,
+      applySetupFields: liveSetup.applySetupFields,
+
+      // App state
+      isConsultFlowActive,
+    };
+  }, [
+    enabled,
+    conversation,
+    composer,
+    onEnsureConversation,
+    skipInitialFetch,
     payments.paymentRetryNotice,
     verifiedPaidIntakeUuids,
-    intake.intakeStatus,
-    intake.intakeConversationState,
-    intake.slimContactDraft,
-    intake.handleSlimFormContinue,
-    intake.handleBuildBrief,
-    intake.handleIntakeCtaResponse,
-    intake.resetIntakeCta,
-    intake.handleSubmitNow,
-    intake.handleContactFormSubmit,
-    intake.applyIntakeFields,
-    isConsultFlowActive,
+    liveIntake.intakeStatus,
+    liveIntake.intakeConversationState,
+    liveIntake.slimContactDraft,
+    liveIntake.handleSlimFormContinue,
+    liveIntake.handleBuildBrief,
+    liveIntake.handleIntakeCtaResponse,
+    liveIntake.resetIntakeCta,
+    liveIntake.handleConfirmSubmit,
+    liveIntake.handleFinalizeSubmit,
+    liveIntake.handleContactFormSubmit,
+    liveIntake.applyIntakeFields,
+    liveSetup.setupFields,
+    liveSetup.applySetupFields,
+    isConsultFlowActive
   ]);
 };

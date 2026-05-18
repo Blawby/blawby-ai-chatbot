@@ -7,10 +7,10 @@
     "upgradeTooltip": "Upgrade your plan",
     "help": "Get help",
     "signOut": "Sign out",
-    "signIn": "Sign In"
+    "signIn": "Sign in"
   },
   "status": {
-    "signingOut": "Signing Out...",
+    "signingOut": "Signing out...",
     "loading": "Loading..."
   },
   "aria": {
@@ -18,12 +18,12 @@
     "signInButton": "Sign in to your account"
   },
   "errors": {
-    "signOutFailed": "Failed to sign out. Please try again.",
+    "signOutFailed": "Couldn't sign out. Try again.",
     "signOutFailedTitle": "Sign out failed"
   },
   "workspace": "Workspace",
   "clientView": "Client view",
   "practiceView": "Practice view",
-  "practiceViewWithName": "Practice view - {{practiceLabel}}",
+  "practiceViewWithName": "Practice view: {{practiceLabel}}",
   "createPractice": "Create a practice"
 }

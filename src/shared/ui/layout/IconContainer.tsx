@@ -20,7 +20,7 @@ export const IconContainer = ({
 
   return (
     <div className={cn(
-      'text-gray-400 dark:text-gray-500 flex-shrink-0 flex items-start justify-center pt-2',
+      'text-input-placeholder flex-shrink-0 flex items-start justify-center pt-2',
       sizeClasses[size],
       className
     )}>

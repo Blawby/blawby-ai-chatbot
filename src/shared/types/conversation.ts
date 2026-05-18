@@ -12,11 +12,61 @@ export interface MessageReaction {
 export type ConversationStatus = 'active' | 'archived' | 'completed' | 'closed';
 
 /**
+ * Conversation visibility lifecycle (separate from workflow `status`).
+ *
+ * `pending_visibility` — row exists but is excluded from inbox lists.
+ * `visible` — flipped on once the backend reports an accepted intake. The
+ *             requester's own org membership is checked separately per-request.
+ * `archived` — explicit terminal state for hidden rows.
+ *
+ * The worker is the gatekeeper. The frontend should NOT re-filter on this —
+ * if a row was returned by the worker, it's already passed the visibility
+ * predicate for the current viewer.
+ */
+export type ConversationLifecycleStatus = 'pending_visibility' | 'visible' | 'archived';
+
+/**
  * Message role in conversation
  */
 export type MessageRole = 'user' | 'assistant' | 'system';
 
-export type ConversationMode = 'ASK_QUESTION' | 'REQUEST_CONSULTATION' | 'PRACTICE_ONBOARDING';
+export type ConversationMode = 'ASK_QUESTION' | 'REQUEST_CONSULTATION' | 'PRACTICE_ONBOARDING' | 'CONVERSATION';
+
+export type ChatMessageActionVariant = 'primary' | 'secondary';
+
+export type ChatMessageAction =
+  | {
+      type: 'reply';
+      label: string;
+      value: string;
+      variant?: ChatMessageActionVariant;
+    }
+  | {
+      type: 'submit';
+      label: string;
+      variant?: ChatMessageActionVariant;
+    }
+  | {
+      type: 'continue_payment';
+      label: string;
+      variant?: ChatMessageActionVariant;
+    }
+  | {
+      type: 'open_url';
+      label: string;
+      url: string;
+      variant?: ChatMessageActionVariant;
+    }
+  | {
+      type: 'build_brief';
+      label: string;
+      variant?: ChatMessageActionVariant;
+    }
+  | {
+      type: 'strengthen_case';
+      label: string;
+      variant?: ChatMessageActionVariant;
+    };
 
 export interface FirstMessageIntent {
   intent: ConversationMode | 'UNCLEAR';
@@ -34,17 +84,46 @@ export interface ConversationParticipant {
   image?: string | null;
 }
 
+export interface SetupAddressPayload {
+  address?: string;
+  apartment?: string;
+  city?: string;
+  state?: string;
+  postalCode?: string;
+  country?: string;
+}
+
+export interface SetupServicePayload {
+  name: string;
+  key?: string;
+  description?: string;
+}
+
+export interface SetupFieldsPayload {
+  name?: string;
+  slug?: string;
+  description?: string;
+  accentColor?: string;
+  website?: string;
+  businessEmail?: string;
+  businessPhone?: string;
+  address?: SetupAddressPayload;
+  services?: SetupServicePayload[];
+}
+
 /**
  * Conversation metadata stored in user_info JSON field
  */
 export interface ConversationMetadata {
   title?: string;
+  intake_title?: string;
   mode?: ConversationMode;
   first_message_intent?: FirstMessageIntent;
   system_conversation?: boolean;
   consultation?: import('./intake').ConsultationState | null;
   intakeConversationState?: import('./intake').IntakeConversationState;
   intakeSlimContactDraft?: import('./intake').SlimContactDraft | null;
+  intakeTemplate?: import('./intake').IntakeTemplate | null;
   intakeAiBriefActive?: boolean;
   intakeUuid?: string | null;
   intakePaymentRequired?: boolean;
@@ -52,6 +131,7 @@ export interface ConversationMetadata {
   intakeSubmitted?: boolean;
   intakeCompleted?: boolean;
   intakeDecision?: string | null;
+  setupFields?: SetupFieldsPayload | null;
   practiceName?: string;
   practiceSlug?: string;
   anonParticipantId?: string;
@@ -74,6 +154,10 @@ export interface Conversation {
   participants: string[]; // Array of user IDs
   user_info: ConversationMetadata | null;
   status: ConversationStatus;
+  // Visibility gate set by the worker. Rows returned by GET /api/conversations
+  // are already filtered; this field is exposed for diagnostics and ordering.
+  lifecycle_status?: ConversationLifecycleStatus;
+  intake_accepted_at?: string | null;
   // Triage fields (optional, practice workflows only)
   assigned_to?: string | null; // User ID of assigned practice member
   priority?: 'low' | 'normal' | 'high' | 'urgent';
@@ -81,6 +165,13 @@ export interface Conversation {
   internal_notes?: string | null; // Internal notes for practice members
   last_message_at?: string | null; // ISO timestamp of last message
   last_message_content?: string | null; // Content of last message for preview
+  /**
+   * Populated only when the conversation list endpoint is called with
+   * `?include=latest_message`. Lets inbox/preview consumers read the latest
+   * non-system message off the list response instead of issuing a separate
+   * `GET /api/conversations/:id/messages?source=preview` per row.
+   */
+  latest_message?: { content: string; role: MessageRole; created_at: string } | null;
   unread_count?: number | null;
   latest_seq?: number;
   first_response_at?: string | null; // ISO timestamp of first practice member response
@@ -136,6 +227,8 @@ export interface ConversationMessageUI extends ConversationMessage {
     size: number;
     type: string;
     url: string;
+    uploadId?: string;
+    source?: 'worker' | 'intake';
   }>;
 }
 

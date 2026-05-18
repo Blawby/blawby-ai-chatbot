@@ -1,5 +1,6 @@
-import Modal from '@/shared/components/Modal';
+import { Dialog, DialogBody, DialogFooter } from '@/shared/ui/dialog';
 import { Button } from '@/shared/ui/Button';
+import { LoadingSpinner } from '@/shared/ui/layout/LoadingSpinner';
 import { formatCurrency } from '@/shared/utils/currencyFormatter';
 import type { InvoiceLineItem } from '@/features/matters/types/billing.types';
 import type { MajorAmount } from '@/shared/utils/money';
@@ -11,6 +12,15 @@ type SendInvoiceDialogProps = {
   onConfirm: () => Promise<void> | void;
   onCancel: () => void;
   loading?: boolean;
+  /**
+   * 'create' (default): used inside the invoice editor, where the parent first
+   * persists/updates the draft before sending. 'detail' is used from the detail
+   * page where the invoice already exists; the dialog just confirms the send
+   * action with the existing line items + recipient.
+   */
+  mode?: 'create' | 'detail';
+  /** Recipient email shown in detail mode to confirm where the invoice will go */
+  recipientEmail?: string | null;
   /** When provided, an embedded InvoicePreview is shown inside the dialog body */
   lineItems?: InvoiceLineItem[];
   dueDate?: string;
@@ -23,6 +33,8 @@ type SendInvoiceDialogProps = {
   clientName?: string | null;
   clientEmail?: string | null;
   billingIncrementMinutes?: number | null;
+  /** Notes to client forwarded into the preview */
+  previewNotes?: string | null;
 };
 
 export const SendInvoiceDialog = ({
@@ -31,6 +43,8 @@ export const SendInvoiceDialog = ({
   onConfirm,
   onCancel,
   loading = false,
+  mode = 'create',
+  recipientEmail,
   lineItems,
   dueDate,
   previewTitle,
@@ -42,37 +56,50 @@ export const SendInvoiceDialog = ({
   clientName,
   clientEmail,
   billingIncrementMinutes,
+  previewNotes,
 }: SendInvoiceDialogProps) => {
   const hasPreview = Array.isArray(lineItems) && lineItems.length > 0;
+  const detailMode = mode === 'detail';
+  const resolvedRecipientEmail = recipientEmail ?? clientEmail ?? null;
 
   return (
-    <Modal
+    <Dialog
       isOpen={isOpen}
       onClose={onCancel}
-      title="Send Invoice"
+      title={detailMode ? 'Send invoice to client' : 'Send Invoice'}
+      description={detailMode
+        ? 'Confirm the invoice and recipient before sending.'
+        : 'Review the final amount before sending the invoice to your client.'}
       contentClassName={hasPreview ? 'max-w-3xl' : 'max-w-xl'}
       disableBackdropClick={loading}
     >
       {/* Loading overlay */}
       {loading && (
-        <div className="absolute inset-0 z-20 flex items-center justify-center rounded-3xl bg-white/60 backdrop-blur-sm">
-          <span className="text-sm font-medium text-gray-700">Processing…</span>
+        <div className="absolute inset-0 z-20 flex items-center justify-center rounded-3xl bg-surface-app-frame/60 backdrop-blur-sm">
+          <LoadingSpinner size="lg" />
         </div>
       )}
 
-      <div className="space-y-4">
-        <div className="rounded-xl border border-line-glass/10 bg-white/[0.03] p-4">
-          <p className="text-sm text-white/70">
-            You are about to send this invoice to the client.
-          </p>
-          <p className="mt-1 text-base font-semibold text-white">
+      <DialogBody className="space-y-4">
+        <div className="rounded-xl border border-line-glass/10 bg-surface-utility/40 dark:bg-surface-utility/10 p-4">
+          <p className="text-sm text-input-placeholder">Send this invoice now?</p>
+          <p className="mt-1 text-base font-semibold text-input-text">
             Total due: {formatCurrency(totalAmount)}
           </p>
+          {detailMode && resolvedRecipientEmail ? (
+            <p className="mt-2 text-xs text-input-placeholder">
+              Will be sent to <span className="text-input-text">{resolvedRecipientEmail}</span>.
+            </p>
+          ) : (
+            <p className="mt-2 text-xs text-input-placeholder">
+              You can update invoices until they are paid. The client will receive a receipt after payment.
+            </p>
+          )}
         </div>
 
         {/* Embedded invoice preview — visual confirmation before send */}
         {hasPreview && (
-          <div className="rounded-xl border border-line-glass/20 bg-gray-50 p-3 overflow-y-auto max-h-[28rem]">
+          <div className="rounded-xl border border-line-glass/20 bg-surface-workspace p-3 overflow-y-auto max-h-[28rem]">
             <InvoicePreview
               title={previewTitle ?? 'Invoice'}
               referenceLabel={previewReferenceLabel}
@@ -85,27 +112,35 @@ export const SendInvoiceDialog = ({
               clientName={clientName}
               clientEmail={clientEmail}
               billingIncrementMinutes={billingIncrementMinutes}
+              notes={previewNotes}
             />
           </div>
         )}
 
-        <div className="flex justify-end gap-2">
-          <Button variant="secondary" onClick={onCancel} disabled={loading}>
-            Continue Editing
-          </Button>
-          <Button
-            onClick={() => {
-              const result = onConfirm();
-              if (result && typeof (result as Promise<void>).then === 'function') {
-                return result as Promise<void>;
-              }
-            }}
-            disabled={loading}
-          >
-            {loading ? 'Sending…' : 'Send invoice'}
-          </Button>
-        </div>
-      </div>
-    </Modal>
+      </DialogBody>
+      <DialogFooter>
+        <Button variant="secondary" onClick={onCancel} disabled={loading}>
+          {detailMode ? 'Cancel' : 'Continue Editing'}
+        </Button>
+        <Button
+          onClick={() => {
+            const result = onConfirm();
+            if (result && typeof (result as Promise<void>).then === 'function') {
+              return result as Promise<void>;
+            }
+          }}
+          disabled={loading}
+        >
+          {loading ? (
+            <span className="inline-flex items-center">
+              <LoadingSpinner size="sm" className="mr-2" />
+              Send invoice
+            </span>
+          ) : (
+            'Send invoice'
+          )}
+        </Button>
+      </DialogFooter>
+    </Dialog>
   );
 };

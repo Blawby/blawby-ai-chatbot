@@ -7,7 +7,8 @@
 
 import { FunctionComponent } from 'preact';
 import { Button } from '@/shared/ui/Button';
-import { CompletionRing } from '@/shared/ui/CompletionRing';
+import { LoadingSpinner } from '@/shared/ui/layout/LoadingSpinner';
+import { ProgressRing } from '@/shared/ui/ProgressRing';
 import type { PracticeSetupStatus } from '../../practice-setup/utils/status';
 
 export interface OnboardingActionsProps {
@@ -78,7 +79,7 @@ const OnboardingActions: FunctionComponent<OnboardingActionsProps> = ({
   return (
     <div className="space-y-6">
       {/* Progress Overview */}
-      <section className="glass-card p-4 sm:p-5">
+      <section className="card p-4 sm:p-5">
         <div className="flex items-center justify-between mb-4">
           <div>
             <h3 className="text-lg font-semibold text-input-text">Setup Progress</h3>
@@ -87,15 +88,19 @@ const OnboardingActions: FunctionComponent<OnboardingActionsProps> = ({
             </p>
           </div>
           <div className="relative">
-            <CompletionRing 
-              score={completionScore} 
+            <ProgressRing
+              progress={completionScore}
+              useTrafficLights
               size={64}
-            />
+              fontSize="10px"
+            >
+              <span className="font-bold">{Math.round(completionScore)}%</span>
+            </ProgressRing>
           </div>
         </div>
 
         {missingFields.length > 0 && (
-          <div className="rounded-xl bg-yellow-50/10 border border-yellow-200/30 p-3">
+          <div className="rounded-xl bg-accent-warning/10 border border-accent-warning/30 p-3">
             <p className="text-sm text-yellow-800">
               <strong>Still needed:</strong> {missingFields.join(', ')}
             </p>
@@ -103,8 +108,8 @@ const OnboardingActions: FunctionComponent<OnboardingActionsProps> = ({
         )}
 
         {saveError && (
-          <div className="rounded-xl bg-red-50/10 border border-red-200/30 p-3">
-            <p className="text-sm text-red-800">
+          <div className="rounded-xl bg-accent-error/10 border border-accent-error/30 p-3">
+            <p className="text-sm text-accent-error-foreground">
               <strong>Error:</strong> {saveError}
             </p>
           </div>
@@ -112,7 +117,7 @@ const OnboardingActions: FunctionComponent<OnboardingActionsProps> = ({
       </section>
 
       {/* Action Buttons */}
-      <section className="glass-card p-4 sm:p-5">
+      <section className="card p-4 sm:p-5">
         <h3 className="text-lg font-semibold text-input-text mb-4">Quick Actions</h3>
         <div className="flex flex-wrap gap-4">
           {onEditBasics && (
@@ -171,7 +176,14 @@ const OnboardingActions: FunctionComponent<OnboardingActionsProps> = ({
               }}
               disabled={isSaving || logoUploading}
             >
-              {logoUploading ? `Uploading... ${logoUploadProgress ? `${logoUploadProgress}%` : ''}` : 'Choose Logo'}
+              {logoUploading ? (
+                <span className="inline-flex items-center">
+                  <LoadingSpinner size="sm" className="mr-2" />
+                  {logoUploadProgress != null ? `${logoUploadProgress}%` : 'Choose Logo'}
+                </span>
+              ) : (
+                'Choose Logo'
+              )}
             </Button>
           </div>
         </div>
@@ -179,13 +191,13 @@ const OnboardingActions: FunctionComponent<OnboardingActionsProps> = ({
 
       {/* Additional Slots */}
       {servicesSlot && (
-        <section className="glass-card p-4 sm:p-5">
+        <section className="card p-4 sm:p-5">
           {servicesSlot}
         </section>
       )}
 
       {payoutsSlot && (
-        <section className="glass-card p-4 sm:p-5">
+        <section className="card p-4 sm:p-5">
           {payoutsSlot}
         </section>
       )}

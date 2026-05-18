@@ -1,10 +1,14 @@
-import axios from 'axios';
-import { apiClient } from '@/shared/lib/apiClient';
+import {
+  apiClient,
+  isHttpError,
+  isAbortError,
+  pluckCollection,
+  unwrapApiResponse,
+} from '@/shared/lib/apiClient';
 import { urls } from '@/config/urls';
 import {
   assertMajorUnits,
   asMajor,
-  safeMultiply,
   toMajorUnits,
   toMinorUnitsValue,
   type MajorAmount
@@ -22,51 +26,15 @@ type FetchOptions = {
   signal?: AbortSignal;
 };
 
-type BackendInvoiceLineItem = {
-  id?: string;
-  type?: string;
-  description?: string;
-  quantity?: number;
-  unit_price?: number;
-  line_total?: number;
-  time_entry_id?: string | null;
-  expense_id?: string | null;
-  sort_order?: number;
-};
-
-export type BackendInvoice = {
-  id: string;
-  organization_id: string;
-  client_id: string;
-  matter_id?: string | null;
-  connected_account_id: string;
-  invoice_number?: string | null;
-  stripe_invoice_id?: string | null;
-  stripe_invoice_number?: string | null;
-  stripe_hosted_invoice_url?: string | null;
-  invoice_type?: string | null;
-  status?: string | null;
-  subtotal?: number | null;
-  tax_amount?: number | null;
-  discount_amount?: number | null;
-  total?: number | null;
-  amount_paid?: number | null;
-  amount_due?: number | null;
-  issue_date?: string | Date | null;
-  due_date?: string | Date | null;
-  paid_at?: string | Date | null;
-  notes?: string | null;
-  memo?: string | null;
-  created_at?: string | Date | null;
-  updated_at?: string | Date | null;
-  line_items?: BackendInvoiceLineItem[] | null;
-  lineItems?: BackendInvoiceLineItem[] | null;
-  client?: Record<string, unknown> | null;
-};
+// Wire types live in worker/types/wire/invoice.ts (single source of truth).
+// Re-exported here for existing consumers; new code should import from
+// `@/shared/types/wire` directly.
+import type { BackendInvoice, BackendInvoiceLineItem } from '@/shared/types/wire';
+export type { BackendInvoice, BackendInvoiceLineItem };
 
 const getErrorMessage = (error: unknown, fallback: string) => {
-  if (axios.isAxiosError(error)) {
-    const data = error.response?.data;
+  if (isHttpError(error)) {
+    const data = error.response.data;
     if (typeof data === 'string' && data.trim().length > 0) return data;
     if (data && typeof data === 'object') {
       const record = data as Record<string, unknown>;
@@ -85,13 +53,9 @@ const requestData = async <T>(promise: Promise<{ data: T }>, fallbackMessage: st
     const response = await promise;
     return response.data;
   } catch (error) {
-    if (axios.isCancel(error) || (error instanceof Error && error.name === 'AbortError')) {
-      throw error;
-    }
+    if (isAbortError(error)) throw error;
     const normalized = new Error(getErrorMessage(error, fallbackMessage)) as Error & { status?: number };
-    if (axios.isAxiosError(error)) {
-      normalized.status = error.response?.status;
-    }
+    if (isHttpError(error)) normalized.status = error.response.status;
     throw normalized;
   }
 };
@@ -108,21 +72,16 @@ const isBackendInvoice = (val: unknown): val is BackendInvoice => {
 };
 
 export const extractInvoicesArray = (payload: unknown): BackendInvoice[] => {
-  if (Array.isArray(payload)) {
-    return payload.filter(isBackendInvoice);
+  const unwrapped = unwrapApiResponse<unknown>(payload);
+  const list = pluckCollection<BackendInvoice>(unwrapped, ['invoices']).filter(isBackendInvoice);
+  if (list.length > 0) return list;
+  // Fallbacks: backend occasionally returns a single invoice at top level or
+  // under `invoice`.
+  if (unwrapped && typeof unwrapped === 'object' && !Array.isArray(unwrapped)) {
+    const record = unwrapped as Record<string, unknown>;
+    if (record.invoice && isBackendInvoice(record.invoice)) return [record.invoice as BackendInvoice];
+    if (isBackendInvoice(record)) return [record as BackendInvoice];
   }
-  if (!payload || typeof payload !== 'object') return [];
-  const record = payload as Record<string, unknown>;
-  if (Array.isArray(record.invoices)) {
-    return record.invoices.filter(isBackendInvoice);
-  }
-  if (record.invoice && isBackendInvoice(record.invoice)) {
-    return [record.invoice as BackendInvoice];
-  }
-  if (isBackendInvoice(record)) {
-    return [record as BackendInvoice];
-  }
-  if (record.data) return extractInvoicesArray(record.data);
   return [];
 };
 
@@ -160,6 +119,9 @@ export const normalizeInvoice = (invoice: BackendInvoice): Invoice => {
     invoice_number: invoice.invoice_number ?? null,
     stripe_invoice_id: invoice.stripe_invoice_id ?? null,
     stripe_invoice_number: invoice.stripe_invoice_number ?? null,
+    stripe_charge_id: invoice.stripe_charge_id ?? null,
+    stripe_transfer_id: invoice.stripe_transfer_id ?? null,
+    stripe_payment_intent_id: invoice.stripe_payment_intent_id ?? null,
     stripe_hosted_invoice_url: invoice.stripe_hosted_invoice_url ?? null,
     invoice_type: (invoice.invoice_type ?? 'flat_fee') as Invoice['invoice_type'],
     status: (invoice.status ?? 'draft') as Invoice['status'],
@@ -169,6 +131,8 @@ export const normalizeInvoice = (invoice: BackendInvoice): Invoice => {
     total: asMajor(toMajorUnits(invoice.total ?? 0) ?? 0),
     amount_paid: asMajor(toMajorUnits(invoice.amount_paid ?? 0) ?? 0),
     amount_due: asMajor(toMajorUnits(invoice.amount_due ?? 0) ?? 0),
+    fund_destination: invoice.fund_destination ?? null,
+    payment_from_retainer: invoice.payment_from_retainer ?? null,
     issue_date: formatDate(invoice.issue_date),
     due_date: formatDate(invoice.due_date),
     paid_at: formatDate(invoice.paid_at),
@@ -177,7 +141,26 @@ export const normalizeInvoice = (invoice: BackendInvoice): Invoice => {
     created_at: formatDate(invoice.created_at) ?? new Date(0).toISOString(),
     updated_at: formatDate(invoice.updated_at) ?? new Date(0).toISOString(),
     line_items: lineItems.map(normalizeLineItem),
-    client: invoice.client ?? null
+    client: invoice.client ?? null,
+    matter: invoice.matter
+      ? {
+          id: typeof invoice.matter.id === 'string' ? invoice.matter.id : '',
+          title: typeof invoice.matter.title === 'string' ? invoice.matter.title : '',
+          status: typeof invoice.matter.status === 'string' ? invoice.matter.status : undefined,
+          billing_type: typeof invoice.matter.billing_type === 'string' ? invoice.matter.billing_type : null,
+          retainer_balance: typeof invoice.matter.retainer_balance === 'number'
+            ? asMajor(toMajorUnits(invoice.matter.retainer_balance) ?? 0)
+            : null,
+        }
+      : null,
+    connectedAccount: invoice.connectedAccount
+      ? {
+          email: typeof invoice.connectedAccount.email === 'string' ? invoice.connectedAccount.email : null,
+          stripe_account_id: typeof invoice.connectedAccount.stripe_account_id === 'string'
+            ? invoice.connectedAccount.stripe_account_id
+            : null,
+        }
+      : null,
   };
 };
 
@@ -548,4 +531,27 @@ export const getUnbilledSummary = async (
 ): Promise<UnbilledSummary> => {
   const result = await getMatterUnbilledData(practiceId, matterId, { signal: options.signal });
   return result.summary;
+};
+
+export type BillingSummaryResult = { matterId: string; totalUnbilled: MajorAmount | null }[];
+
+export const getPracticeBillingSummary = async (
+  practiceId: string,
+  matterIds: string[],
+  options: FetchOptions = {}
+): Promise<BillingSummaryResult> => {
+  if (!practiceId || matterIds.length === 0) return [];
+  const params = new URLSearchParams({ matterIds: matterIds.join(',') });
+  const payload = await requestData(
+    apiClient.get(`/api/practice/${encodeURIComponent(practiceId)}/billing/summary?${params}`, { signal: options.signal }),
+    'Failed to load billing summary'
+  );
+  const record = unwrapPayloadRecord(payload);
+  const summaries = Array.isArray(record.summaries) ? record.summaries : [];
+  return (summaries as Record<string, unknown>[])
+    .filter((item) => typeof item.matterId === 'string')
+    .map((item) => ({
+      matterId: item.matterId as string,
+      totalUnbilled: typeof item.totalUnbilled === 'number' ? asMajor(item.totalUnbilled) : null,
+    }));
 };

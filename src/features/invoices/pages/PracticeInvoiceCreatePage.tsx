@@ -1,79 +1,18 @@
-import { useCallback, useEffect, useMemo, useState } from 'preact/hooks';
-import { useStore } from '@nanostores/preact';
+import { useCallback, useMemo, useRef } from 'preact/hooks';
 import { useLocation } from 'preact-iso';
-import { Breadcrumbs } from '@/shared/ui/navigation';
-import { Page } from '@/shared/ui/layout/Page';
-import { PageHeader } from '@/shared/ui/layout/PageHeader';
-import { Panel } from '@/shared/ui/layout/Panel';
+import { EditorShell } from '@/shared/ui/layout';
 import { useNavigation } from '@/shared/utils/navigation';
 import { useToastContext } from '@/shared/contexts/ToastContext';
-import {
-  getOnboardingStatus,
-  listUserDetails,
-  type UserDetailRecord,
-} from '@/shared/lib/apiClient';
-import { listMatters, type BackendMatter, updateMatterMilestone } from '@/features/matters/services/mattersApi';
-import { InvoiceBuilder } from '@/features/invoices/components/InvoiceBuilder';
+import { usePracticeManagement } from '@/shared/hooks/usePracticeManagement';
+import { updateMatterMilestone } from '@/features/matters/services/mattersApi';
+import { InvoiceBuilderSurface } from '@/features/invoices/components/InvoiceBuilderSurface';
+import type { InvoiceFormHandle } from '@/features/invoices/components/InvoiceForm';
+import { InvoiceEditHeaderActions } from '@/features/invoices/components/edit/InvoiceEditHeaderActions';
 import {
   clearPendingInvoiceDraftContext,
   readPendingInvoiceDraftContext,
 } from '@/features/invoices/utils/invoiceDraftContext';
-import { practiceDetailsStore } from '@/shared/stores/practiceDetailsStore';
-import { usePracticeManagement } from '@/shared/hooks/usePracticeManagement';
-
-const PAGE_SIZE = 50;
-
-const mergeRecordsById = <T extends { id: string }>(currentRecords: T[], incomingRecords: T[]) => {
-  if (incomingRecords.length === 0) return currentRecords;
-  const existingIds = new Set(currentRecords.map((record) => record.id));
-  const mergedRecords = [...currentRecords];
-  for (const record of incomingRecords) {
-    if (existingIds.has(record.id)) continue;
-    existingIds.add(record.id);
-    mergedRecords.push(record);
-  }
-  return mergedRecords;
-};
-
-const loadFirstClientPage = async (practiceId: string, signal: AbortSignal) => {
-  return listUserDetails(practiceId, { limit: PAGE_SIZE, offset: 0, signal });
-};
-
-const loadRemainingClientPages = async (
-  practiceId: string,
-  signal: AbortSignal,
-  onPage: (records: UserDetailRecord[]) => void
-) => {
-  for (let offset = PAGE_SIZE; ; offset += PAGE_SIZE) {
-    const response = await listUserDetails(practiceId, { limit: PAGE_SIZE, offset, signal });
-    if (response.data.length === 0) break;
-    onPage(response.data);
-    if (response.data.length < PAGE_SIZE) break;
-  }
-};
-
-const loadFirstMatterPage = async (practiceId: string, signal: AbortSignal) => {
-  return listMatters(practiceId, { page: 1, limit: PAGE_SIZE, signal });
-};
-
-const loadRemainingMatterPages = async (
-  practiceId: string,
-  signal: AbortSignal,
-  onPage: (records: BackendMatter[]) => void
-) => {
-  for (let page = 2; ; page += 1) {
-    const pageItems = await listMatters(practiceId, { page, limit: PAGE_SIZE, signal });
-    if (pageItems.length === 0) break;
-    onPage(pageItems);
-    if (pageItems.length < PAGE_SIZE) break;
-  }
-};
-
-const getClientLabel = (client: UserDetailRecord) => {
-  const name = client.user?.name?.trim();
-  const email = client.user?.email?.trim();
-  return name || email || 'Unnamed person';
-};
+import { getValidatedInternalReturnPath } from '@/shared/utils/workspace';
 
 export function PracticeInvoiceCreatePage({
   practiceId,
@@ -85,19 +24,11 @@ export function PracticeInvoiceCreatePage({
   const location = useLocation();
   const { navigate } = useNavigation();
   const { showError } = useToastContext();
-  const [clients, setClients] = useState<UserDetailRecord[]>([]);
-  const [matters, setMatters] = useState<BackendMatter[]>([]);
-  const [connectedAccountId, setConnectedAccountId] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [loadError, setLoadError] = useState<string | null>(null);
-
-  // Read cached practice identity — no extra requests; usePracticeManagement uses shared snapshot cache
   const { currentPractice } = usePracticeManagement({
     practiceSlug: practiceSlug ?? undefined,
     fetchPracticeDetails: true,
   });
-  const practiceDetailsMap = useStore(practiceDetailsStore);
-  const cachedDetails = practiceId ? (practiceDetailsMap[practiceId] ?? null) : null;
+  const formRef = useRef<InvoiceFormHandle | null>(null);
 
   const draftId = useMemo(() => {
     const value = location.query?.draft;
@@ -113,80 +44,19 @@ export function PracticeInvoiceCreatePage({
     if (!practiceSlug) return null;
     return `/practice/${encodeURIComponent(practiceSlug)}/invoices`;
   }, [practiceSlug]);
-  const returnPath = draftContext?.returnPath?.trim() || invoicesPath;
-  const breadcrumbLabel = draftContext?.returnLabel?.trim() || 'Invoices';
-  const missingDraftError = draftId && !draftContext
-    ? 'Invoice draft context was not found. Start invoice creation from the matter or invoices page again.'
-    : null;
-  const displayError = loadError ?? missingDraftError;
-  const pageSubtitle = draftContext?.matterId
-    ? 'Draft a new invoice for this matter, review the preview, and send it when ready.'
-    : 'Draft a new invoice, choose who it belongs to, and optionally link it to a matter.';
-
-  useEffect(() => {
-    if (!practiceId) return;
-    const controller = new AbortController();
-    setLoading(true);
-    setLoadError(null);
-
-    void (async () => {
-      try {
-        const [clientPage, matterPage, onboardingStatus] = await Promise.all([
-          loadFirstClientPage(practiceId, controller.signal),
-          loadFirstMatterPage(practiceId, controller.signal),
-          getOnboardingStatus(practiceId, { signal: controller.signal }),
-        ]);
-
-        if (controller.signal.aborted) return;
-
-        setClients(clientPage.data);
-        setMatters(matterPage);
-        setConnectedAccountId(onboardingStatus.connectedAccountId ?? null);
-
-        void Promise.allSettled([
-          loadRemainingClientPages(practiceId, controller.signal, (records) => {
-            if (controller.signal.aborted) return;
-            setClients((current) => mergeRecordsById(current, records));
-          }),
-          loadRemainingMatterPages(practiceId, controller.signal, (records) => {
-            if (controller.signal.aborted) return;
-            setMatters((current) => mergeRecordsById(current, records));
-          }),
-        ]).then((results) => {
-          if (controller.signal.aborted) return;
-          const rejection = results.find((result) => result.status === 'rejected');
-          if (rejection && rejection.status === 'rejected') {
-            setLoadError(rejection.reason instanceof Error ? rejection.reason.message : 'Failed to load invoice builder');
-          }
-        });
-      } catch (error) {
-        if ((error as DOMException)?.name === 'AbortError' || controller.signal.aborted) return;
-        setLoadError(error instanceof Error ? error.message : 'Failed to load invoice builder');
-      } finally {
-        if (!controller.signal.aborted) {
-          setLoading(false);
-        }
-      }
-    })();
-
-    return () => controller.abort();
-  }, [practiceId]);
-
-  const clientOptions = useMemo(() => {
-    return clients.map((client) => ({
-      value: client.id,
-      label: getClientLabel(client),
-      meta: client.user?.email ?? undefined,
-    }));
-  }, [clients]);
-
-  const matterOptions = useMemo(() => {
-    return matters.map((matter) => ({
-      value: matter.id,
-      label: matter.title?.trim() || 'Untitled matter',
-      meta: matter.client_id ?? undefined,
-    }));
-  }, [matters]);
+  const returnTo = useMemo(() => {
+    const fallback = invoicesPath ?? '/practice';
+    return getValidatedInternalReturnPath(
+      typeof location.query?.returnTo === 'string'
+        ? location.query.returnTo
+        : typeof location.query?.backTo === 'string'
+          ? location.query.backTo
+          : draftContext?.returnPath ?? null,
+      fallback
+    );
+  }, [draftContext?.returnPath, invoicesPath, location.query?.backTo, location.query?.returnTo]);
+  const returnPath = returnTo ?? invoicesPath;
+  const canRenderBuilder = Boolean(practiceId) && (!draftId || Boolean(draftContext));
 
   const handleBackToInvoices = useCallback(() => {
     if (!returnPath) return;
@@ -233,50 +103,37 @@ export function PracticeInvoiceCreatePage({
   }, [draftContext?.matterId, draftContext?.milestoneToComplete, draftId, invoicesPath, navigate, practiceId, showError]);
 
   return (
-    <Page className="min-h-full">
-      <div className="mx-auto flex max-w-7xl flex-col gap-6">
-        <Breadcrumbs
-          items={[{ label: breadcrumbLabel, href: returnPath ?? undefined }, { label: 'Create invoice' }]}
-          onNavigate={navigate}
-        />
-        <PageHeader
-          title="Create Invoice"
-          subtitle={pageSubtitle}
-        />
-        {displayError ? (
-          <div className="rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-200">
-            {displayError}
+    <EditorShell
+      title="Create Invoice"
+      subtitle="Build, preview, and send an invoice."
+      showBack
+      backVariant="close"
+      onBack={handleBackToInvoices}
+      contentMaxWidth={null}
+      actions={<InvoiceEditHeaderActions formRef={formRef} />}
+    >
+      <div className="mx-auto flex w-full max-w-7xl flex-col gap-6 px-4 py-6 sm:px-6 lg:px-8">
+        {draftId && !draftContext ? (
+          <div className="rounded-xl border border-accent-error/30 bg-accent-error/10 px-4 py-3 text-sm text-accent-error-foreground">
+            Invoice draft context was not found. Start invoice creation from the matter or invoices page again.
           </div>
         ) : null}
-        {loading ? (
-          <Panel className="p-6">
-            <div className="text-sm text-input-placeholder">Loading invoice builder...</div>
-          </Panel>
-        ) : missingDraftError || !practiceId ? null : (
-          <InvoiceBuilder
+        {canRenderBuilder ? (
+          <InvoiceBuilderSurface
+            ref={formRef}
+            mode="create"
             practiceId={practiceId}
-            connectedAccountId={connectedAccountId}
-            clientOptions={clientOptions}
-            matterOptions={matterOptions}
-            initialClientId={draftContext?.clientId ?? undefined}
-            initialMatterId={draftContext?.matterId ?? undefined}
-            initialLineItems={draftContext?.lineItems ?? undefined}
-            initialDueDate={draftContext?.dueDate ?? undefined}
-            initialNotes={draftContext?.notes ?? undefined}
-            initialMemo={draftContext?.memo ?? undefined}
-            initialInvoiceType={draftContext?.invoiceType ?? undefined}
-            invoiceContext={draftContext?.invoiceContext ?? 'default'}
+            initialDraftContext={draftContext}
             onClose={handleBackToInvoices}
             onSuccess={handleCreated}
-            closeAfterSuccess={false}
             practiceName={currentPractice?.name ?? undefined}
             practiceLogoUrl={currentPractice?.logo ?? undefined}
-            practiceEmail={currentPractice?.businessEmail ?? cachedDetails?.businessEmail ?? undefined}
+            practiceEmail={currentPractice?.businessEmail ?? undefined}
             billingIncrementMinutes={currentPractice?.billingIncrementMinutes ?? undefined}
           />
-        )}
+        ) : null}
       </div>
-    </Page>
+    </EditorShell>
   );
 }
 

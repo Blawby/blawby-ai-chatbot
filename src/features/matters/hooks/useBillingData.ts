@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'preact/hooks';
+import { useMemo } from 'preact/hooks';
 import {
   getMatterUnbilledData,
   listInvoices
@@ -6,6 +6,9 @@ import {
 import type { MatterDetail } from '@/features/matters/data/matterTypes';
 import type { Invoice, UnbilledExpense, UnbilledSummary, UnbilledTimeEntry } from '@/features/matters/types/billing.types';
 import { asMajor } from '@/shared/utils/money';
+import { useQuery } from '@/shared/hooks/useQuery';
+import { queryCache } from '@/shared/lib/queryCache';
+import { policyTtl } from '@/shared/lib/cachePolicy';
 
 type UseBillingDataProps = {
   practiceId: string | null;
@@ -16,6 +19,13 @@ type UseBillingDataProps = {
   enabled?: boolean;
 };
 
+type BillingPayload = {
+  invoices: Invoice[];
+  unbilledTimeEntries: UnbilledTimeEntry[];
+  unbilledExpenses: UnbilledExpense[];
+  unbilledSummary: UnbilledSummary | null;
+};
+
 export const useBillingData = ({
   practiceId,
   matterId,
@@ -24,47 +34,29 @@ export const useBillingData = ({
   adminHourlyRate,
   enabled = true
 }: UseBillingDataProps) => {
-  const [invoices, setInvoices] = useState<Invoice[]>([]);
-  const [unbilledTimeEntries, setUnbilledTimeEntries] = useState<UnbilledTimeEntry[]>([]);
-  const [unbilledExpenses, setUnbilledExpenses] = useState<UnbilledExpense[]>([]);
-  const [unbilledSummaryRemote, setUnbilledSummaryRemote] = useState<UnbilledSummary | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const cacheKey = `billing:matter:${practiceId ?? ''}:${matterId ?? ''}`;
 
-  const fetchAll = useCallback(async (signal?: AbortSignal) => {
-    if (!enabled || !practiceId || !matterId) {
-      setInvoices([]);
-      setUnbilledTimeEntries([]);
-      setUnbilledExpenses([]);
-      setUnbilledSummaryRemote(null);
-      setLoading(false);
-      setError(null);
-      return;
+  const fallbackUnbilledSummary = useMemo<UnbilledSummary>(() => ({
+    unbilledTime: { hours: 0, amount: asMajor(0), entries: 0 },
+    unbilledExpenses: { count: 0, amount: asMajor(0) },
+    totalUnbilled: asMajor(0),
+    matterBillingType: matterBillingType ?? 'hourly',
+    rates: {
+      attorney: attorneyHourlyRate ?? null,
+      admin: adminHourlyRate ?? null
     }
-    setLoading(true);
-    setError(null);
-    const fallbackUnbilledSummary: UnbilledSummary = {
-      unbilledTime: {
-        hours: 0,
-        amount: asMajor(0),
-        entries: 0
-      },
-      unbilledExpenses: {
-        count: 0,
-        amount: asMajor(0)
-      },
-      totalUnbilled: asMajor(0),
-      matterBillingType: matterBillingType ?? 'hourly',
-      rates: {
-        attorney: attorneyHourlyRate ?? null,
-        admin: adminHourlyRate ?? null
-      }
-    };
+  }), [adminHourlyRate, attorneyHourlyRate, matterBillingType]);
 
-    try {
+  const { data, isLoading, error, refetch } = useQuery<BillingPayload>({
+    key: cacheKey,
+    enabled: enabled && Boolean(practiceId && matterId),
+    ttl: policyTtl(cacheKey),
+    fetcher: async (signal) => {
       const [invoicesResult, unbilledResult] = await Promise.allSettled([
-        listInvoices(practiceId, matterId, { signal }),
-        getMatterUnbilledData(practiceId, matterId, {
+        // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+        listInvoices(practiceId!, matterId!, { signal }),
+        // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+        getMatterUnbilledData(practiceId!, matterId!, {
           signal,
           summaryDefaults: {
             matterBillingType: matterBillingType ?? 'hourly',
@@ -75,62 +67,50 @@ export const useBillingData = ({
           }
         })
       ]);
+
+      let invoices: Invoice[] = [];
       let invoicesError: unknown = null;
       if (invoicesResult.status === 'fulfilled') {
-        setInvoices(invoicesResult.value);
+        invoices = invoicesResult.value;
       } else {
         invoicesError = invoicesResult.reason;
       }
 
+      let unbilledTimeEntries: UnbilledTimeEntry[] = [];
+      let unbilledExpenses: UnbilledExpense[] = [];
+      let unbilledSummary: UnbilledSummary | null = null;
       if (unbilledResult.status === 'fulfilled') {
-        setUnbilledTimeEntries(unbilledResult.value.timeEntries);
-        setUnbilledExpenses(unbilledResult.value.expenses);
-        setUnbilledSummaryRemote(unbilledResult.value.summary);
+        unbilledTimeEntries = unbilledResult.value.timeEntries;
+        unbilledExpenses = unbilledResult.value.expenses;
+        unbilledSummary = unbilledResult.value.summary;
       } else if (!signal?.aborted) {
         console.warn('[useBillingData] Failed to load unbilled billing data', unbilledResult.reason);
-        setUnbilledTimeEntries([]);
-        setUnbilledExpenses([]);
-        setUnbilledSummaryRemote((current) => current ?? fallbackUnbilledSummary);
+        // Preserve the previous summary on partial failure (matches the
+        // pre-migration semantic where setUnbilledSummaryRemote((current)
+        // => current ?? fallback) kept the prior cached value visible).
+        const previous = queryCache.get<BillingPayload>(cacheKey);
+        unbilledSummary = previous?.unbilledSummary ?? fallbackUnbilledSummary;
       }
 
+      // If invoices failed and we don't have a partial recovery to surface,
+      // throw so the caller's `error` reflects the failure.
       if (invoicesError && !signal?.aborted) {
-        throw invoicesError;
+        throw invoicesError instanceof Error
+          ? invoicesError
+          : new Error('Failed to load billing data');
       }
-    } catch (err) {
-      if (signal?.aborted) return;
-      setError(err instanceof Error ? err.message : 'Failed to load billing data');
-    } finally {
-      if (!signal?.aborted) setLoading(false);
-    }
-  }, [adminHourlyRate, attorneyHourlyRate, enabled, matterBillingType, practiceId, matterId]);
 
-  const abortControllerRef = useRef<AbortController | null>(null);
-  
-  const refetchAll = useCallback(async () => {
-    if (abortControllerRef.current) {
-      abortControllerRef.current.abort();
-    }
-    const controller = new AbortController();
-    abortControllerRef.current = controller;
-    await fetchAll(controller.signal);
-  }, [fetchAll]);
-
-  useEffect(() => {
-    void refetchAll();
-    return () => {
-      if (abortControllerRef.current) {
-        abortControllerRef.current.abort();
-      }
-    };
-  }, [refetchAll]);
+      return { invoices, unbilledTimeEntries, unbilledExpenses, unbilledSummary };
+    },
+  });
 
   return {
-    invoices,
-    unbilledTimeEntries,
-    unbilledExpenses,
-    unbilledSummary: unbilledSummaryRemote,
-    loading,
+    invoices: data?.invoices ?? [],
+    unbilledTimeEntries: data?.unbilledTimeEntries ?? [],
+    unbilledExpenses: data?.unbilledExpenses ?? [],
+    unbilledSummary: data?.unbilledSummary ?? null,
+    isLoading,
     error,
-    refetchAll
+    refetchAll: refetch,
   };
 };

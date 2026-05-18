@@ -261,6 +261,7 @@
     "publicIntro": "궁금한 점이 있으면 무엇이든 물어보거나 의견을 공유해 주세요.",
     "continue": "계속",
     "submitRequest": "요청 제출",
+    "payAndSubmit": "Pay & submit",
     "submitNow": "지금 제출",
     "buildStrongerBrief": "더 강력한 요약 작성",
     "askQuestion": "질문하기",
@@ -276,6 +277,9 @@
       "continue": "계속",
       "addMore": "더 추가하기",
       "notYet": "아직 아니요"
+    },
+    "attachments": {
+      "disabled": "이 양식에서는 첨부 파일 업로드를 사용할 수 없습니다."
     }
   },
   "intake": {

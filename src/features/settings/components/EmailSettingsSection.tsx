@@ -1,4 +1,5 @@
-import { EnvelopeIcon } from '@heroicons/react/24/outline';
+import { Mail } from 'lucide-preact';
+
 import { Icon } from '@/shared/ui/Icon';
 import { SettingSection } from './SettingSection';
 
@@ -25,7 +26,7 @@ export const EmailSettingsSection = ({
     <SettingSection title={title} className={className}>
       {/* Email Address */}
       <div className="flex items-center gap-3 py-3">
-        <Icon icon={EnvelopeIcon} className="w-4 h-4 text-input-placeholder"  />
+        <Icon icon={Mail} className="w-4 h-4 text-input-placeholder"  />
         <span className="text-sm text-input-text">
           {email}
         </span>

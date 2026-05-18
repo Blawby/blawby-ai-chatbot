@@ -18,7 +18,7 @@ import {
   type MatterTask,
   type TimeEntry
 } from '@/features/matters/data/matterTypes';
-import type { MatterFormState } from '@/features/matters/components/MatterCreateModal';
+import type { MatterFormState } from '@/features/matters/components/MatterForm';
 import { asMajor, toMajorUnits } from '@/shared/utils/money';
 import { formatCurrency } from '@/shared/utils/currencyFormatter';
 import { formatLongDate } from '@/shared/utils/dateFormatter';
@@ -435,41 +435,54 @@ export const buildFormStateFromDetail = (detail: MatterDetail, overrides?: Parti
 export const nullIfEmpty = (value: string | undefined | null): string | null | undefined =>
   value === '' ? null : value || undefined;
 
-const uuidOrNull = (value: string | undefined | null): string | null | undefined => {
+const _uuidOrNull = (value: string | undefined | null): string | null | undefined => {
   if (!value || value === '') return null;
   return isUuid(value) ? value : undefined;
 };
 
-export const buildCreatePayload = (values: MatterFormState): Record<string, unknown> => ({
-  title: values.title.trim(),
-  billing_type: values.billingType,
-  status: values.status,
-  client_id: values.clientId || undefined,
-  practice_service_id: values.practiceAreaId || undefined,
-  description: values.description || undefined,
-  case_number: values.caseNumber || undefined,
-  matter_type: values.matterType || undefined,
-  urgency: values.urgency || undefined,
-  responsible_attorney_id: values.responsibleAttorneyId || undefined,
-  originating_attorney_id: values.originatingAttorneyId || undefined,
-  court: values.court || undefined,
-  judge: values.judge || undefined,
-  opposing_party: values.opposingParty || undefined,
-  opposing_counsel: values.opposingCounsel || undefined,
-  attorney_hourly_rate: values.attorneyHourlyRate ?? undefined,
-  admin_hourly_rate: values.adminHourlyRate ?? undefined,
-  payment_frequency: values.paymentFrequency ?? undefined,
-  total_fixed_price: values.totalFixedPrice ?? undefined,
-  contingency_percentage: values.contingencyPercent ?? undefined,
-  settlement_amount: values.settlementAmount ?? undefined,
-  assignee_ids: values.assigneeIds.length > 0 ? values.assigneeIds : undefined,
-  milestones: values.milestones.map((m, i) => ({
-    description: m.description,
-    amount: m.amount ?? 0,
-    due_date: m.dueDate || null,
-    order: i + 1
-  }))
-});
+export const buildCreatePayload = (values: MatterFormState): Record<string, unknown> => {
+  // Backend's billing validator requires `total_fixed_price` for fixed billing
+  // regardless of payment_frequency. For milestone billing the form doesn't
+  // collect a top-line price, so derive it from the milestone amounts.
+  const isMilestoneFixed =
+    values.billingType === 'fixed' &&
+    values.paymentFrequency === 'milestone' &&
+    values.milestones.length > 0;
+  const milestoneTotal = isMilestoneFixed
+    ? values.milestones.reduce((sum, m) => sum + (m.amount ?? 0), 0)
+    : undefined;
+
+  return {
+    title: values.title.trim(),
+    billing_type: values.billingType,
+    status: values.status,
+    client_id: values.clientId || undefined,
+    practice_service_id: values.practiceAreaId || undefined,
+    description: values.description || undefined,
+    case_number: values.caseNumber || undefined,
+    matter_type: values.matterType || undefined,
+    urgency: values.urgency || undefined,
+    responsible_attorney_id: values.responsibleAttorneyId || undefined,
+    originating_attorney_id: values.originatingAttorneyId || undefined,
+    court: values.court || undefined,
+    judge: values.judge || undefined,
+    opposing_party: values.opposingParty || undefined,
+    opposing_counsel: values.opposingCounsel || undefined,
+    attorney_hourly_rate: values.attorneyHourlyRate ?? undefined,
+    admin_hourly_rate: values.adminHourlyRate ?? undefined,
+    payment_frequency: values.paymentFrequency ?? undefined,
+    total_fixed_price: values.totalFixedPrice ?? milestoneTotal,
+    contingency_percentage: values.contingencyPercent ?? undefined,
+    settlement_amount: values.settlementAmount ?? undefined,
+    assignee_ids: values.assigneeIds.length > 0 ? values.assigneeIds : undefined,
+    milestones: values.milestones.map((m, i) => ({
+      description: m.description,
+      amount: m.amount ?? 0,
+      due_date: m.dueDate || null,
+      order: i + 1
+    }))
+  };
+};
 
 export const buildUpdatePayload = (
   values: MatterFormState,
@@ -477,25 +490,25 @@ export const buildUpdatePayload = (
 ): Record<string, unknown> => ({
   title: values.title.trim(),
   billing_type: values.billingType,
-  description: values.description?.trim() ?? undefined,
-  client_id: nullIfEmpty(values.clientId),
-  practice_service_id: nullIfEmpty(values.practiceAreaId),
-  case_number: nullIfEmpty(values.caseNumber),
-  matter_type: nullIfEmpty(values.matterType),
-  urgency: nullIfEmpty(values.urgency),
-  responsible_attorney_id: uuidOrNull(values.responsibleAttorneyId),
-  originating_attorney_id: uuidOrNull(values.originatingAttorneyId),
-  court: nullIfEmpty(values.court),
-  judge: nullIfEmpty(values.judge),
-  opposing_party: nullIfEmpty(values.opposingParty),
-  opposing_counsel: nullIfEmpty(values.opposingCounsel),
-  attorney_hourly_rate: values.attorneyHourlyRate ?? undefined,
-  admin_hourly_rate: values.adminHourlyRate ?? undefined,
-  payment_frequency: values.paymentFrequency ?? undefined,
-  settlement_amount: values.settlementAmount ?? undefined,
+  description: values.description?.trim() ?? null,
+  client_id: values.clientId && values.clientId !== '' ? values.clientId : null,
+  practice_service_id: values.practiceAreaId && values.practiceAreaId !== '' ? values.practiceAreaId : null,
+  case_number: values.caseNumber && values.caseNumber !== '' ? values.caseNumber : null,
+  matter_type: values.matterType && values.matterType !== '' ? values.matterType : null,
+  urgency: values.urgency ? values.urgency : null,
+  responsible_attorney_id: values.responsibleAttorneyId && values.responsibleAttorneyId !== '' ? values.responsibleAttorneyId : null,
+  originating_attorney_id: values.originatingAttorneyId && values.originatingAttorneyId !== '' ? values.originatingAttorneyId : null,
+  court: values.court && values.court !== '' ? values.court : null,
+  judge: values.judge && values.judge !== '' ? values.judge : null,
+  opposing_party: values.opposingParty && values.opposingParty !== '' ? values.opposingParty : null,
+  opposing_counsel: values.opposingCounsel && values.opposingCounsel !== '' ? values.opposingCounsel : null,
+  attorney_hourly_rate: values.attorneyHourlyRate ?? null,
+  admin_hourly_rate: values.adminHourlyRate ?? null,
+  payment_frequency: values.paymentFrequency ?? null,
+  settlement_amount: values.settlementAmount ?? null,
   // Only send status if it changed
   status: values.status !== currentStatus ? values.status : undefined,
-  assignee_ids: values.assigneeIds.length > 0 ? values.assigneeIds : null
+  assignee_ids: Array.isArray(values.assigneeIds) ? values.assigneeIds : []
 });
 
 export const prunePayload = (payload: Record<string, unknown>): Record<string, unknown> =>

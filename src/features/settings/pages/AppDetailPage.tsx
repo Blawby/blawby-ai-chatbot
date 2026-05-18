@@ -1,21 +1,19 @@
-import { useState, useRef, useEffect } from 'preact/hooks';
+import { useState } from 'preact/hooks';
 import { ComponentChildren } from 'preact';
 import { App, mockConnectApp, mockDisconnectApp } from './appsData';
-import { AppConnectionModal } from '@/features/settings/components/AppConnectionModal';
+import { AppConnectionDialog } from '@/features/settings/components/AppConnectionDialog';
 import { Button } from '@/shared/ui/Button';
-import { SectionDivider } from '@/shared/ui/layout';
+import { SectionDivider, EditorShell } from '@/shared/ui/layout';
 import { SettingRow } from '@/features/settings/components/SettingRow';
 import { SettingSection } from '@/features/settings/components/SettingSection';
-import { ContentPageLayout } from '@/shared/ui/layout';
 import { SettingsBadge } from '@/features/settings/components/SettingsBadge';
 import { Input } from '@/shared/ui/input';
-import { ArrowLeftIcon, EllipsisVerticalIcon, GlobeAltIcon, PuzzlePieceIcon, Cog6ToothIcon } from '@heroicons/react/24/outline';
+import { MoreVertical, Globe, Puzzle, Settings } from 'lucide-preact';
+
 import { useToastContext } from '@/shared/contexts/ToastContext';
 import { useTranslation } from '@/shared/i18n/hooks';
 import { formatDate } from '@/shared/utils/dateTime';
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from '@/shared/ui/dropdown';
-import { useWorkspaceResolver } from '@/shared/hooks/useWorkspaceResolver';
-import { DocumentDuplicateIcon, CheckIcon } from '@heroicons/react/24/outline';
 import { Icon } from '@/shared/ui/Icon';
 
 interface AppDetailPageProps {
@@ -24,28 +22,6 @@ interface AppDetailPageProps {
   onUpdate: (appId: string, updates: Partial<App>) => void;
 }
 
-const copyToClipboardWithFallback = async (value: string): Promise<void> => {
-  if (navigator.clipboard?.writeText) {
-    await navigator.clipboard.writeText(value);
-    return;
-  }
-
-  const textarea = document.createElement('textarea');
-  textarea.value = value;
-  textarea.setAttribute('readonly', '');
-  textarea.style.position = 'fixed';
-  textarea.style.opacity = '0';
-  textarea.style.pointerEvents = 'none';
-  document.body.appendChild(textarea);
-  textarea.focus();
-  textarea.select();
-  const copied = document.execCommand('copy');
-  document.body.removeChild(textarea);
-  if (!copied) {
-    throw new Error('Failed to copy text');
-  }
-};
-
 export const AppDetailPage = ({ app, onBack, onUpdate }: AppDetailPageProps) => {
   const { t } = useTranslation(['settings']);
   const { showSuccess, showError } = useToastContext();
@@ -53,77 +29,6 @@ export const AppDetailPage = ({ app, onBack, onUpdate }: AppDetailPageProps) => 
   const [isDisconnecting, setIsDisconnecting] = useState(false);
   const [showConnectModal, setShowConnectModal] = useState(false);
   const isComingSoon = Boolean(app.comingSoon);
-
-  const { practices, currentPractice } = useWorkspaceResolver();
-  const slug = currentPractice?.slug ?? practices[0]?.slug;
-  const [copiedScript, setCopiedScript] = useState(false);
-  const [copiedTrackingScript, setCopiedTrackingScript] = useState(false);
-  const copyTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  useEffect(() => {
-    return () => {
-      if (copyTimeoutRef.current) clearTimeout(copyTimeoutRef.current);
-    };
-  }, []);
-
-  const widgetLoaderBaseUrl = (
-    import.meta.env.VITE_APP_BASE_URL
-    || (typeof window !== 'undefined' ? window.location.origin : '')
-  ).replace(/\/+$/, '');
-  const widgetLoaderSrc = `${widgetLoaderBaseUrl}/widget-loader.js`;
-  const widgetBaseUrl = new URL(
-    widgetLoaderSrc,
-    typeof window !== 'undefined' ? window.location.origin : 'http://localhost'
-  ).origin;
-
-  const messengerSnippet = slug ? `<script>
-  window.BlawbyWidget = {
-    baseUrl: ${JSON.stringify(widgetBaseUrl)},
-    practiceSlug: ${JSON.stringify(slug)},
-    pushDataLayerOnLeadSubmit: true,
-    leadSubmitEventName: "blawby_lead_submitted",
-    pushDataLayerOnChatStart: false,
-    dataLayerEventName: "blawby_chat_start",
-  };
-</script>
-<script src="${widgetLoaderSrc}" defer></script>` : undefined;
-
-  const trackingSnippet = `window.addEventListener('blawby:widget-event', (event) => {
-  const detail = event?.detail || {};
-
-  if (detail.type === 'lead_submitted') {
-    // Fire your conversion pixel(s) here.
-    // Example:
-    // gtag('event', 'generate_lead', { value: 1, currency: 'USD' });
-    // fbq('track', 'Lead');
-    console.log('Blawby lead submitted', detail);
-  }
-});`;
-
-  const withCopyFeedback = async (
-    value: string,
-    setCopied: (next: boolean) => void
-  ) => {
-    try {
-      await copyToClipboardWithFallback(value);
-      setCopied(true);
-      if (copyTimeoutRef.current) clearTimeout(copyTimeoutRef.current);
-      copyTimeoutRef.current = setTimeout(() => setCopied(false), 2000);
-      showSuccess(t('settings:apps.copySnippetSuccess.title'), t('settings:apps.copySnippetSuccess.body'));
-    } catch (err) {
-      console.error('Failed to copy snippet:', err);
-      showError(t('settings:apps.copySnippetError.title'), t('settings:apps.copySnippetError.body'));
-    }
-  };
-
-  const copySnippet = () => {
-    if (!messengerSnippet) return;
-    void withCopyFeedback(messengerSnippet, setCopiedScript);
-  };
-
-  const copyTrackingSnippet = () => {
-    void withCopyFeedback(trackingSnippet, setCopiedTrackingScript);
-  };
 
   const handleConnectClick = () => {
     setShowConnectModal(true);
@@ -171,24 +76,22 @@ export const AppDetailPage = ({ app, onBack, onUpdate }: AppDetailPageProps) => 
   };
 
   const handleOpenSettings = () => {
-    window.open(app.website, '_blank', 'noopener,noreferrer');
+    if (!app.website) return;
+    try {
+      window.open(app.website, '_blank', 'noopener,noreferrer');
+    } catch (_err) {
+      // ignore - defensive in case window.open is unavailable
+    }
   };
 
   return (
-    <ContentPageLayout
+    <EditorShell
       title={app.name}
-      wrapChildren={false}
-      contentClassName="pb-6"
-      headerLeading={(
-        <Button
-          variant="icon"
-          size="icon"
-          onClick={onBack}
-          aria-label={t('settings:navigation.backToSettings')}
-          icon={ArrowLeftIcon} iconClassName="w-5 h-5"
-        />
-      )}
+      showBack
+      onBack={onBack}
+      contentMaxWidth={null}
     >
+      <div className="space-y-6">
       <div className="pt-2 pb-6">
         <SettingRow
           label={app.name}
@@ -203,7 +106,7 @@ export const AppDetailPage = ({ app, onBack, onUpdate }: AppDetailPageProps) => 
                     loading="lazy"
                   />
                 ) : (
-                  <Icon icon={PuzzlePieceIcon} className="w-8 h-8 text-input-text/80" aria-hidden="true"  />
+                  <Icon icon={Puzzle} className="w-8 h-8 text-input-text/80" aria-hidden="true"  />
                 )}
               </div>
               <div className="flex items-center gap-2">
@@ -222,19 +125,17 @@ export const AppDetailPage = ({ app, onBack, onUpdate }: AppDetailPageProps) => 
               variant={app.connected ? 'secondary' : 'primary'}
               size="sm"
               onClick={app.connected ? handleDisconnect : handleConnectClick}
-              disabled={app.id === 'blawby-messenger' || isConnecting || isDisconnecting || (!app.connected && isComingSoon)}
+              disabled={isConnecting || isDisconnecting || (!app.connected && isComingSoon)}
             >
               {isConnecting
                 ? t('common:actions.loading')
                 : isDisconnecting
                   ? t('common:actions.loading')
-                  : app.id === 'blawby-messenger'
-                    ? t('settings:apps.enabled')
-                    : app.connected
-                      ? t('settings:apps.clio.disconnect')
-                      : isComingSoon
-                        ? t('settings:apps.comingSoon')
-                        : t('settings:apps.clio.connect')}
+                  : app.connected
+                    ? t('settings:apps.clio.disconnect')
+                    : isComingSoon
+                      ? t('settings:apps.comingSoon')
+                      : t('settings:apps.clio.connect')}
             </Button>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -242,13 +143,13 @@ export const AppDetailPage = ({ app, onBack, onUpdate }: AppDetailPageProps) => 
                   variant="ghost"
                   size="sm"
                   aria-label="More options"
-                  icon={EllipsisVerticalIcon} iconClassName="w-5 h-5"
+                  icon={MoreVertical} iconClassName="w-5 h-5"
                 />
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
-                <DropdownMenuItem onSelect={handleOpenSettings}>
+                <DropdownMenuItem onSelect={handleOpenSettings} disabled={!app.website}>
                   <div className="flex items-center gap-2">
-                    <Icon icon={Cog6ToothIcon} className="w-4 h-4" aria-hidden="true"  />
+                    <Icon icon={Settings} className="w-4 h-4" aria-hidden="true"  />
                     <span>{t('settings:apps.clio.settings')}</span>
                   </div>
                 </DropdownMenuItem>
@@ -259,70 +160,6 @@ export const AppDetailPage = ({ app, onBack, onUpdate }: AppDetailPageProps) => 
       </div>
 
       <SectionDivider />
-
-      {/* Blawby Messenger custom integration block */}
-      {app.id === 'blawby-messenger' && (
-        <>
-          <SettingSection title={t('settings:apps.messenger.integrationGuide.title')} className="py-6">
-            <div className="space-y-4">
-              <p className="text-sm text-secondary leading-relaxed">
-                Install Website Messenger on every page where you want chat available.
-              </p>
-              <p className="text-sm text-secondary leading-relaxed">
-                1. Paste this script as high as possible in your <code>&lt;head&gt;</code> (preferred), or before <code>&lt;/body&gt;</code>.
-              </p>
-
-              <div className="relative group">
-                <pre className={`bg-elevation-2 rounded-lg p-4 text-sm font-mono text-accent-100 overflow-x-auto border border-line-glass/30 ${!slug ? 'opacity-50 grayscale' : ''}`}>
-                  {slug ? messengerSnippet : t('settings:apps.messenger.placeholder')}
-                </pre>
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  disabled={!slug}
-                  className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 focus-visible:opacity-100 transition-opacity bg-elevation-3 hover:bg-elevation-4 border-line-glass/30"
-                  icon={copiedScript ? <Icon icon={CheckIcon} className="w-4 h-4 text-green-500"  /> : <Icon icon={DocumentDuplicateIcon} className="w-4 h-4"  />}
-                  onClick={copySnippet}
-                >
-                  {copiedScript ? t('settings:apps.copied') : t('settings:apps.copy')}
-                </Button>
-                {!slug && (
-                  <div className="absolute inset-0 flex items-center justify-center bg-elevation-1/40 backdrop-blur-[1px] rounded-lg">
-                    <span className="text-xs font-medium text-secondary bg-elevation-3 px-3 py-1.5 rounded-full border border-line-glass/20 shadow-xl">
-                      {t('settings:apps.messenger.missingSlugWarning')}
-                    </span>
-                  </div>
-                )}
-              </div>
-
-              <p className="text-sm text-secondary leading-relaxed">
-                2. Publish your site and verify the launcher appears on page load.
-              </p>
-              <p className="text-sm text-secondary leading-relaxed">
-                3. Optional: add this listener snippet if you want to fire your own conversion pixels when a lead is submitted.
-              </p>
-
-              <div className="relative group">
-                <pre className="bg-elevation-2 rounded-lg p-4 text-sm font-mono text-accent-100 overflow-x-auto border border-line-glass/30">
-                  {trackingSnippet}
-                </pre>
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 focus-visible:opacity-100 transition-opacity bg-elevation-3 hover:bg-elevation-4 border-line-glass/30"
-                  icon={copiedTrackingScript ? <Icon icon={CheckIcon} className="w-4 h-4 text-green-500"  /> : <Icon icon={DocumentDuplicateIcon} className="w-4 h-4"  />}
-                  onClick={copyTrackingSnippet}
-                >
-                  {copiedTrackingScript ? t('settings:apps.copied') : t('settings:apps.copy')}
-                </Button>
-              </div>
-            </div>
-          </SettingSection>
-
-          <SectionDivider />
-        </>
-      )}
-
       {/* Information */}
       <SettingSection title={t('settings:apps.clio.information')} className="py-6">
           {app.connected && app.connectedAt && (
@@ -343,7 +180,7 @@ export const AppDetailPage = ({ app, onBack, onUpdate }: AppDetailPageProps) => 
                 className="inline-flex items-center gap-1 text-accent-600 dark:text-accent-400"
               >
                 {app.website}
-                <Icon icon={GlobeAltIcon} className="w-4 h-4" aria-hidden="true"  />
+                <Icon icon={Globe} className="w-4 h-4" aria-hidden="true"  />
               </a>
             }
           />
@@ -357,7 +194,7 @@ export const AppDetailPage = ({ app, onBack, onUpdate }: AppDetailPageProps) => 
                 className="inline-flex items-center gap-1 text-accent-600 dark:text-accent-400"
               >
                 {app.privacyPolicy}
-                <Icon icon={GlobeAltIcon} className="w-4 h-4" aria-hidden="true"  />
+                <Icon icon={Globe} className="w-4 h-4" aria-hidden="true"  />
               </a>
             }
           />
@@ -398,13 +235,14 @@ export const AppDetailPage = ({ app, onBack, onUpdate }: AppDetailPageProps) => 
         </SettingSection>
       )}
 
-      <AppConnectionModal
+      <AppConnectionDialog
         isOpen={showConnectModal}
         onClose={() => setShowConnectModal(false)}
         app={app}
         onConnect={handleConnect}
       />
-    </ContentPageLayout>
+    </div>
+    </EditorShell>
   );
 };
 

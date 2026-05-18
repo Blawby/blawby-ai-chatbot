@@ -19,8 +19,8 @@ const PLACEHOLDER_VALUES = new Set([
   'change-me',
   'your-practice-uuid',
   'your-practice-slug',
-  'owner@example.com',
-  'client@example.com'
+  'owner@test-blawby.com',
+  'client@test-blawby.com'
 ]);
 
 const normalizeValue = (value: string | undefined | null): string | null => {

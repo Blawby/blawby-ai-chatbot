@@ -261,6 +261,7 @@
     "publicIntro": "Haznos cualquier pregunta o comparte tus comentarios.",
     "continue": "Continuar",
     "submitRequest": "Enviar solicitud",
+    "payAndSubmit": "Pagar y enviar",
     "submitNow": "Enviar ahora",
     "buildStrongerBrief": "Crear un informe mejor",
     "askQuestion": "Hacer una pregunta",
@@ -276,6 +277,9 @@
       "continue": "Continuar",
       "addMore": "Añadir más",
       "notYet": "Todavía no"
+    },
+    "attachments": {
+      "disabled": "Los archivos adjuntos en el chat están deshabilitados actualmente."
     }
   },
   "intake": {

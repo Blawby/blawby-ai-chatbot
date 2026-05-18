@@ -12,7 +12,7 @@ export const LoadingSpinner = ({
   className = '',
   size = 'md',
   ariaLabel,
-  announce = true
+  announce = true,
 }: LoadingSpinnerProps) => {
   const { t } = useTranslation('common');
 
@@ -22,23 +22,22 @@ export const LoadingSpinner = ({
     lg: 'h-6 w-6 border-2'
   };
   const resolvedAriaLabel = ariaLabel ?? t('app.loading');
-  const liveRegionProps = announce
-    ? {
-        role: 'status' as const,
-        'aria-live': 'polite' as const
-      }
-    : {};
 
   return (
     <div
-      className={cn('inline-flex items-center justify-center', className)}
-      {...liveRegionProps}
+      className={cn(
+        'inline-flex items-center justify-center text-[rgb(var(--accent-foreground))]',
+        className
+      )}
+      {...(announce ? { role: 'status', 'aria-live': 'polite' } : {})}
     >
-      {announce ? <span className="sr-only">{resolvedAriaLabel}</span> : null}
+      {announce
+        ? <span className="sr-only">{resolvedAriaLabel}</span>
+        : <span aria-hidden="true" />}
       <div
         aria-hidden="true"
         className={cn(
-          'rounded-full animate-spin border-[rgb(var(--accent-foreground))] border-t-transparent',
+          'rounded-full animate-spin border-current border-t-transparent',
           sizeClasses[size]
         )}
       />

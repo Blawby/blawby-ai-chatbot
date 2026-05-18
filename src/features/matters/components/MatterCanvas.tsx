@@ -1,5 +1,6 @@
 import { FunctionalComponent } from 'preact';
-import { ExclamationTriangleIcon } from "@heroicons/react/24/outline";
+import { AlertTriangle } from 'lucide-preact';
+
 import { Icon } from '@/shared/ui/Icon';
 import { analyzeMissingInfo } from '@/shared/utils/matterAnalysis';
 import { MatterStatusBadge, type MatterWorkflowStatus } from './StatusBadge';
@@ -47,7 +48,7 @@ const MatterCanvas: FunctionalComponent<MatterCanvasProps> = ({
     <div className="matter-canvas">
       <div className="flex items-center justify-between mb-4">
         <MatterStatusBadge status={effectiveStatus} />
-        <span className="text-sm text-gray-600 dark:text-gray-300">
+        <span className="text-sm text-input-placeholder">
           {effectiveStatus === 'lead' ? 'Waiting for review' : effectiveStatus.replaceAll('_', ' ')}
         </span>
       </div>
@@ -60,7 +61,7 @@ const MatterCanvas: FunctionalComponent<MatterCanvasProps> = ({
         {missingInfo.length > 0 && (
           <div className="missing-info-section">
             <div className="missing-info-header">
-              <Icon icon={ExclamationTriangleIcon} className="w-4 h-4"  />
+              <Icon icon={AlertTriangle} className="w-4 h-4"  />
               <span>Missing Information</span>
             </div>
             <div className="missing-info-list">

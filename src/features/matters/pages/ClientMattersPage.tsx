@@ -9,9 +9,11 @@ import { MATTER_STATUS_LABELS } from '@/shared/types/matterStatus';
 import { useSessionContext } from '@/shared/contexts/SessionContext';
 import { type MatterDetail, type MatterSummary, type MatterTask } from '@/features/matters/data/matterTypes';
 import { MatterListItem } from '@/features/matters/components/MatterListItem';
+import { MatterDetailSkeleton } from '@/features/matters/components/MatterDetailSkeleton';
 import { MatterSummaryCards } from '@/features/matters/components/MatterSummaryCards';
 import { MatterTasksPanel } from '@/features/matters/components/tasks/MatterTasksPanel';
 import { MatterMessagesPanel } from '@/features/matters/components/messages/MatterMessagesPanel';
+import { MatterFilesPanel } from '@/features/matters/components/files/MatterFilesPanel';
 import {
   getMatter,
   getMatterActivity,
@@ -32,16 +34,17 @@ import {
 } from '@/features/matters/utils/matterUtils';
 import { asMajor, safeAdd } from '@/shared/utils/money';
 
-type DetailTabId = 'overview' | 'tasks' | 'messages';
+type DetailTabId = 'overview' | 'tasks' | 'messages' | 'files';
 
 const DETAIL_TABS: Array<{ id: DetailTabId; label: string }> = [
   { id: 'overview', label: 'Overview' },
   { id: 'tasks', label: 'Tasks' },
-  { id: 'messages', label: 'Messages' }
+  { id: 'messages', label: 'Messages' },
+  { id: 'files', label: 'Files' }
 ];
 
 const isDetailTabId = (value: string): value is DetailTabId =>
-  value === 'overview' || value === 'tasks' || value === 'messages';
+  value === 'overview' || value === 'tasks' || value === 'messages' || value === 'files';
 
 type ClientMattersPageProps = {
   basePath?: string;
@@ -377,8 +380,16 @@ export const ClientMattersPage = ({
   }
 
   if (selectedMatterId) {
-    if (detailLoading && !resolvedMatter) {
-      return <LoadingState message="Loading matter details..." />;
+    // Gate on `!detailReady` (FULL detail for the CURRENT matter), NOT
+    // `!resolvedMatter` — the latter falls back to the summary which is
+    // hydrated synchronously from the cached matters list, bypassing the
+    // gate and rendering with empty/fallback fields until detail arrives.
+    // Identity check (`detail.id === selectedMatterId`) makes switching
+    // between matters route through the skeleton instead of briefly
+    // showing the previous matter's data.
+    const detailReady = Boolean(selectedMatterDetail) && selectedMatterDetail?.id === selectedMatterId;
+    if (detailLoading && !detailReady) {
+      return <MatterDetailSkeleton />;
     }
     if (detailError && !resolvedMatter) {
       return (
@@ -407,7 +418,7 @@ export const ClientMattersPage = ({
             inspectorOpen={detailInspectorOpen}
           />
           <nav
-            className="relative z-10 flex items-end gap-0 border-b border-white/[0.06] px-4"
+            className="relative z-10 flex items-end gap-0 border-b border-line-subtle px-4"
             aria-label="Matter sections"
           >
             {DETAIL_TABS.map((tab) => {
@@ -428,7 +439,7 @@ export const ClientMattersPage = ({
                     'after:absolute after:bottom-0 after:left-0 after:right-0 after:h-0.5 after:rounded-full after:transition-all after:duration-150',
                     isActive
                       ? 'text-input-text after:bg-accent-500'
-                      : 'text-input-placeholder hover:text-input-text after:bg-transparent hover:after:bg-white/20'
+                      : 'text-input-placeholder hover:text-input-text after:bg-transparent hover:after:bg-line-subtle'
                   ].join(' ')}
                 >
                   {tab.label}
@@ -452,8 +463,8 @@ export const ClientMattersPage = ({
                   paymentFrequency={resolvedMatter.paymentFrequency ?? null}
                   fixedMetrics={fixedSummaryMetrics}
                 />
-                <section className="glass-panel overflow-hidden">
-                  <header className="border-b border-line-glass/30 px-6 py-4">
+                <section className="panel overflow-hidden">
+                  <header className="border-b border-line-subtle px-6 py-4">
                     <h3 className="text-sm font-semibold text-input-text">Matter details</h3>
                   </header>
                   <div className="grid gap-4 px-6 py-5 text-sm sm:grid-cols-2">
@@ -475,8 +486,8 @@ export const ClientMattersPage = ({
                     </div>
                   </div>
                 </section>
-                <section className="glass-panel overflow-hidden">
-                  <header className="border-b border-line-glass/30 px-6 py-4">
+                <section className="panel overflow-hidden">
+                  <header className="border-b border-line-subtle px-6 py-4">
                     <h3 className="text-sm font-semibold text-input-text">Matter description</h3>
                   </header>
                   <div className="px-6 py-5">
@@ -526,6 +537,13 @@ export const ClientMattersPage = ({
                 <ErrorBanner>Missing practice context for conversations.</ErrorBanner>
               )
             ) : null}
+            {detailTab === 'files' ? (
+              <MatterFilesPanel
+                key={`files-${resolvedMatter.id}`}
+                matterId={resolvedMatter.id}
+                isPrivilegedUploads={false}
+              />
+            ) : null}
           </div>
         </div>
       </div>
@@ -550,6 +568,7 @@ export const ClientMattersPage = ({
           isLoading={mattersLoading}
           isLoadingMore={false}
           error={mattersError}
+          minMountSkeletonMs={250}
           emptyState={<div className="p-4 text-sm text-input-placeholder">No matters found.</div>}
         />
       </Panel>

@@ -1,6 +1,7 @@
 import { Env } from '../types.js';
 import { HttpErrors } from '../errorHandler.js';
 import { RemoteApiService } from '../services/RemoteApiService.js';
+import { Logger } from '../utils/logger.js';
 import { ConversationService } from '../services/ConversationService.js';
 import {
   extractWidgetTokenFromRequest,
@@ -8,6 +9,8 @@ import {
   issueWidgetAuthToken,
   validateWidgetAuthToken
 } from '../utils/widgetAuthToken.js';
+import type { IntakeTemplate } from '../../src/shared/types/intake.js';
+import { DEFAULT_INTAKE_TEMPLATE } from '../../src/shared/constants/intakeTemplates.js';
 
 const normalizeCrossSiteWidgetCookie = (cookie: string, request: Request): string => {
   const protocol = new URL(request.url).protocol;
@@ -43,6 +46,9 @@ export async function handleWidgetBootstrap(request: Request, env: Env): Promise
     throw HttpErrors.badRequest('slug parameter is required');
   }
 
+  // ?template param — resolved after practice details arrive
+  const templateSlugParam = url.searchParams.get('template')?.trim() || null;
+
   // Define headers for upstream calls
   const incomingCookie = request.headers.get('Cookie');
   const headers = new Headers();
@@ -74,96 +80,144 @@ export async function handleWidgetBootstrap(request: Request, env: Env): Promise
 
   // 2. Manage Session (Check session, if none, do anon sign-in)
   let responseCookies: string[] = [];
-  let sessionData: unknown = null;
+  let cookieSessionData: { user?: { id?: string; is_anonymous?: boolean }; session?: { id?: string } } | null = null;
+  let tokenSessionData: { user?: { id?: string; is_anonymous?: boolean }; session?: { id?: string } } | null = null;
   const requestedWidgetToken = extractWidgetTokenFromRequest(request);
   let validatedWidgetTokenSource: 'authorization' | 'query' | null = null;
 
+  // First, check for a valid session via cookies
+  try {
+    const sessionController = new AbortController();
+    const sessionTimer = setTimeout(() => sessionController.abort(), 5000);
+
+    try {
+      const sessionRes = await fetch(`${env.BACKEND_API_URL}/api/auth/get-session`, {
+        headers: upstreamHeaders,
+        signal: sessionController.signal
+      });
+      if (sessionRes.ok) {
+        cookieSessionData = await sessionRes.json().catch(() => null);
+      } else if (sessionRes.status !== 401 && sessionRes.status !== 404) {
+        const errorText = await sessionRes.text().catch(() => '');
+        Logger.warn('[Bootstrap] Optional session check failed', {
+          status: sessionRes.status,
+          error: errorText
+        });
+      }
+    } finally {
+      clearTimeout(sessionTimer);
+    }
+  } catch (err) {
+    Logger.warn('[Bootstrap] Session check error ignored', { error: err instanceof Error ? err.message : String(err) });
+  }
+
+  // Second, try to validate the widget token if provided
   if (requestedWidgetToken) {
     try {
       const validatedToken = await validateWidgetAuthToken(requestedWidgetToken.token, env);
       validatedWidgetTokenSource = requestedWidgetToken.tokenSource;
-      sessionData = {
-        id: validatedToken.sessionId,
+      tokenSessionData = {
         user: {
           id: validatedToken.userId,
-          isAnonymous: true,
           is_anonymous: true,
         },
         session: {
           id: validatedToken.sessionId,
         },
       };
+
+      // IDENTITY RECONCILIATION:
+      // If we have both, they MUST match. If they don't (e.g. cookie cleared but token remains),
+      // we must trust the cookie/session state (which is the source of truth for the browser's
+      // current identity) and discard the stale token.
+      if (cookieSessionData?.user?.id && tokenSessionData?.user?.id && cookieSessionData.user.id !== tokenSessionData.user.id) {
+        Logger.info('[Bootstrap] Identity mismatch detected; discarding stale widget token', {
+          cookieUserId: cookieSessionData.user.id,
+          tokenUserId: tokenSessionData.user.id
+        });
+        tokenSessionData = null;
+      }
     } catch {
-      // Invalid/expired widget token should not fail bootstrap; fall back to
-      // cookie/anonymous session bootstrap flow.
+      // Invalid/expired widget token falls through
     }
   }
 
-  if (!sessionData) {
-    try {
-      const sessionController = new AbortController();
-      const sessionTimer = setTimeout(() => sessionController.abort(), 5000);
+  // Final session selection: Prefer the recovered token session (if it matched or was standalone),
+  // otherwise use the cookie session.
+  let sessionData = tokenSessionData || cookieSessionData;
 
-      try {
-        const sessionRes = await fetch(`${env.BACKEND_API_URL}/api/auth/get-session`, {
-          headers: upstreamHeaders,
-          signal: sessionController.signal
-        });
-        if (sessionRes.ok) {
-          sessionData = await sessionRes.json().catch(() => null);
-        } else if (sessionRes.status === 401 || sessionRes.status === 404) {
-          sessionData = null;
-        } else {
-          const errorText = await sessionRes.text().catch(() => '');
-          throw HttpErrors.badGateway(
-            `[Bootstrap] Session check failed: ${sessionRes.status}${errorText ? ` - ${errorText}` : ''}`
-          );
-        }
-      } finally {
-        clearTimeout(sessionTimer);
+  // Typing session data for subsequent logic
+  const typedSessionData = sessionData as { user?: { id?: string; is_anonymous?: boolean } } | null;
+
+
+  if (!typedSessionData?.user) {
+    try {
+      // Need anonymous signin
+      const anonHeaders = new Headers(upstreamHeaders);
+      if (!anonHeaders.has('Content-Type')) {
+        anonHeaders.set('Content-Type', 'application/json');
       }
 
-      // Typing session data
-      const typedSessionData = sessionData as { user?: { id?: string; isAnonymous?: boolean } } | null;
+      const anonController = new AbortController();
+      const anonTimer = setTimeout(() => anonController.abort(), 5000);
 
-      if (!typedSessionData?.user) {
-        // Need anonymous signin
-        const anonHeaders = new Headers(upstreamHeaders);
-        if (!anonHeaders.has('Content-Type')) {
-          anonHeaders.set('Content-Type', 'application/json');
-        }
-        
-        const anonController = new AbortController();
-        const anonTimer = setTimeout(() => anonController.abort(), 5000);
-
-        try {
-          const anonRes = await fetch(`${env.BACKEND_API_URL}/api/auth/sign-in/anonymous`, {
-            method: 'POST',
-            headers: anonHeaders,
-            body: '{}',
-            signal: anonController.signal
-          });
-          if (!anonRes.ok) {
-            const errorText = await anonRes.text().catch(() => '');
-            if (anonRes.status === 429) {
-              throw HttpErrors.tooManyRequests(
-                `[Bootstrap] Anonymous sign-in failed: 429${errorText ? ` - ${errorText}` : ''}`
-              );
-            }
-            throw HttpErrors.badGateway(
-              `[Bootstrap] Anonymous sign-in failed: ${anonRes.status}${errorText ? ` - ${errorText}` : ''}`
+      try {
+        const anonRes = await fetch(`${env.BACKEND_API_URL}/api/auth/sign-in/anonymous`, {
+          method: 'POST',
+          headers: anonHeaders,
+          body: '{}',
+          signal: anonController.signal
+        });
+        if (!anonRes.ok) {
+          const errorText = await anonRes.text().catch(() => '');
+          if (anonRes.status === 429) {
+            throw HttpErrors.tooManyRequests(
+              `[Bootstrap] Anonymous sign-in failed: 429${errorText ? ` - ${errorText}` : ''}`
             );
           }
-          
-          const setCookieHeaders = anonRes.headers.getSetCookie 
-            ? anonRes.headers.getSetCookie() 
-            : (anonRes.headers.get('set-cookie') ? [anonRes.headers.get('set-cookie') as string] : []);
-          
-          responseCookies = responseCookies.concat(setCookieHeaders);
-          sessionData = await anonRes.json().catch(() => null);
-        } finally {
-          clearTimeout(anonTimer);
+          throw HttpErrors.badGateway(
+            `[Bootstrap] Anonymous sign-in failed: ${anonRes.status}${errorText ? ` - ${errorText}` : ''}`
+          );
         }
+
+        if (!anonRes.headers.getSetCookie) {
+          throw new Error('[Bootstrap] Environment does not support getSetCookie(); cannot reliably extract Set-Cookie headers.');
+        }
+        const setCookieHeaders = anonRes.headers.getSetCookie();
+
+        responseCookies = responseCookies.concat(setCookieHeaders);
+        sessionData = await anonRes.json().catch(() => null);
+
+        // After anonymous sign-in the upstream may return only a `user` object
+        // and set a session cookie. Fetch the session wrapper using that
+        // cookie so `session.id` is available to downstream logic.
+        try {
+          const cookieHeader = setCookieHeaders.map(c => c.split(';')[0]).join('; ');
+          if (cookieHeader) {
+            const followHeaders = Object.assign({}, upstreamHeaders);
+            followHeaders['Cookie'] = cookieHeader;
+            const followController = new AbortController();
+            const followTimer = setTimeout(() => followController.abort(), 5000);
+            try {
+              const followRes = await fetch(`${env.BACKEND_API_URL}/api/auth/get-session`, {
+                headers: followHeaders,
+                signal: followController.signal
+              }).catch(() => null);
+              if (followRes && followRes.ok) {
+                const followed = await followRes.json().catch(() => null);
+                if (followed) {
+                  sessionData = followed;
+                }
+              }
+            } finally {
+              clearTimeout(followTimer);
+            }
+          }
+        } catch (_e) {
+          // If we fail to follow-up, keep the original anon payload (user only)
+        }
+      } finally {
+        clearTimeout(anonTimer);
       }
     } catch (err) {
       if (err instanceof Error && err.name === 'AbortError') {
@@ -173,19 +227,12 @@ export async function handleWidgetBootstrap(request: Request, env: Env): Promise
     }
   }
 
+
   // 3. Wait for practice details
-  const practiceDetails = await getPracticeDetails as {
-    data?: { id?: string };
-    id?: string;
-    practiceId?: string;
-  };
-  const practiceId = 'practiceId' in practiceDetails && typeof practiceDetails.practiceId === 'string'
-      ? practiceDetails.practiceId 
-      : 'data' in practiceDetails && typeof practiceDetails.data === 'object' && practiceDetails.data && 'id' in practiceDetails.data && typeof practiceDetails.data.id === 'string'
-        ? practiceDetails.data.id
-        : 'id' in practiceDetails && typeof practiceDetails.id === 'string'
-          ? practiceDetails.id
-          : null;
+  const practiceDetails = await getPracticeDetails as Record<string, unknown>;
+  const pd = practiceDetails as Record<string, unknown>;
+  const practiceId =
+    (typeof pd.organization_id === 'string' && pd.organization_id.trim()) || null;
   if (!practiceId) {
     throw HttpErrors.badGateway('Unable to resolve practice id from practice details');
   }
@@ -195,17 +242,15 @@ export async function handleWidgetBootstrap(request: Request, env: Env): Promise
   let conversationId: string | null = null;
   let recentConversations: Array<{ id: string, created_at: string, last_message_at: string | null }> = [];
   const typedSessionDataResolved = sessionData as {
-    user?: { id?: string; isAnonymous?: boolean; is_anonymous?: boolean };
+    user?: { id?: string; is_anonymous?: boolean };
     session?: { id?: string };
   } | null;
   const sessionUserId = typedSessionDataResolved?.user?.id ?? null;
   const sessionId =
     typeof typedSessionDataResolved?.session?.id === 'string' && typedSessionDataResolved.session.id.trim().length > 0
       ? typedSessionDataResolved.session.id.trim()
-      : sessionUserId;
-  const isAnonymous =
-    typedSessionDataResolved?.user?.isAnonymous === true ||
-    typedSessionDataResolved?.user?.is_anonymous === true;
+      : null;
+  const isAnonymous = typedSessionDataResolved?.user?.is_anonymous === true;
   const widgetAuth =
     isAnonymous && sessionUserId && sessionId
       ? await issueWidgetAuthToken(
@@ -228,30 +273,75 @@ export async function handleWidgetBootstrap(request: Request, env: Env): Promise
   if (practiceId && sessionUserId) {
     try {
       const conversationService = new ConversationService(env);
-      const conversation = await conversationService.getOrCreateCurrentConversation(
-        sessionUserId,
-        practiceId,
-        request,
-        isAnonymous,
-        { skipPracticeValidation: true }
-      );
-      conversationId = conversation.id;
 
-      // Also fetch a few recent conversations to populate the conversations list
+      // Only fetch existing recent conversations; no more creation in bootstrap.
+      // Filter for ('active', 'submitted') to avoid showing archived conversations in the widget.
       const userConversations = await conversationService.getConversations({
         practiceId,
         userId: sessionUserId,
-        limit: 5,
-        status: 'active'
+        status: 'active',
+        limit: 5
       });
+
+      const mostRecent = userConversations[0] || null;
+      conversationId = mostRecent?.id ?? null;
+
       recentConversations = userConversations.map(c => ({
         id: c.id,
         created_at: c.created_at,
         last_message_at: c.last_message_at ?? null
       }));
     } catch (err) {
-      console.error('[Bootstrap] Failed to get or create conversation', { sessionUserId, practiceId, error: err });
+      console.error('[Bootstrap] Failed to get conversations', { sessionUserId, practiceId, error: err });
     }
+  }
+
+  // 5. Resolve intake template
+  // ------------------------------------------------------------------
+  // Resolution rules (never hard-fail — always fall back to default):
+  //   - no ?template param → default
+  //   - param present → find slug match in settings.intakeTemplates
+  //   - not found / broken config → default
+  // ------------------------------------------------------------------
+  let intakeTemplate: IntakeTemplate = DEFAULT_INTAKE_TEMPLATE;
+  try {
+    const dataSource = pd.metadata ?? pd.settings ?? pd.practice_settings;
+    let templates: unknown[] = [];
+
+    if (typeof dataSource === 'string') {
+      const parsed = JSON.parse(dataSource) as unknown;
+      if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+        const s = parsed as Record<string, unknown>;
+        const rawTemplates = s.intakeTemplates;
+        if (typeof rawTemplates === 'string') {
+          try { templates = JSON.parse(rawTemplates) as unknown[]; } catch { /* ignore */ }
+        } else if (Array.isArray(rawTemplates)) {
+          templates = rawTemplates;
+        }
+      }
+    } else if (dataSource && typeof dataSource === 'object' && !Array.isArray(dataSource)) {
+      const s = dataSource as Record<string, unknown>;
+      const rawTemplates = s.intakeTemplates;
+      if (typeof rawTemplates === 'string') {
+        try { templates = JSON.parse(rawTemplates) as unknown[]; } catch { /* ignore */ }
+      } else if (Array.isArray(rawTemplates)) {
+        templates = rawTemplates;
+      }
+    }
+
+    const resolvedSlug = templateSlugParam ?? DEFAULT_INTAKE_TEMPLATE.slug;
+    const match = templates.find(
+      (t): t is IntakeTemplate =>
+        !!t && typeof t === 'object' && (t as Record<string, unknown>).slug === resolvedSlug
+        && Array.isArray((t as Record<string, unknown>).fields)
+        && ((t as Record<string, unknown>).fields as unknown[]).length > 0,
+    ) ?? null;
+
+    if (match) {
+      intakeTemplate = match;
+    }
+  } catch {
+    // Malformed settings JSON — fall back to default (already set)
   }
 
   // Create the response object
@@ -264,7 +354,8 @@ export async function handleWidgetBootstrap(request: Request, env: Env): Promise
     widgetAuthToken: widgetAuth?.token ?? null,
     widgetAuthTokenExpiresAt: widgetAuth?.expiresAt ?? null,
     widgetQueryAuthToken: widgetQueryAuth?.token ?? null,
-    widgetQueryAuthTokenExpiresAt: widgetQueryAuth?.expiresAt ?? null
+    widgetQueryAuthTokenExpiresAt: widgetQueryAuth?.expiresAt ?? null,
+    intakeTemplate,
   };
 
   const responseHeaders = new Headers({
@@ -281,5 +372,59 @@ export async function handleWidgetBootstrap(request: Request, env: Env): Promise
   return new Response(JSON.stringify(bootstrapResponse), {
     status: 200,
     headers: responseHeaders
+  });
+}
+
+export async function handlePublicPracticeIntakeSettings(request: Request, env: Env): Promise<Response> {
+  if (request.method !== 'GET') {
+    throw HttpErrors.methodNotAllowed('Method not allowed');
+  }
+
+  const url = new URL(request.url);
+  const match = url.pathname.match(/^\/api\/practice-client-intakes\/([^/]+)\/intake$/);
+  const slug = match?.[1] ? decodeURIComponent(match[1]).trim() : '';
+  if (!slug) {
+    throw HttpErrors.badRequest('Practice slug is required');
+  }
+
+  const res = await RemoteApiService.getPublicPracticeDetails(env, slug, request);
+  if (!res.ok) {
+    if (res.status === 404) {
+      throw HttpErrors.notFound('Practice not found');
+    }
+    const text = await res.text().catch(() => 'No body');
+    throw HttpErrors.badGateway(`[Public intake settings] Error fetching practice details: ${res.status} - ${text}`);
+  }
+
+  const practiceDetails = await res.json().catch(() => null) as Record<string, unknown> | null;
+  if (!practiceDetails) {
+    throw HttpErrors.badGateway('Failed to parse public practice details');
+  }
+
+  const settings = {
+    paymentLinkEnabled: Boolean(practiceDetails.payment_link_enabled),
+    payment_link_enabled: Boolean(practiceDetails.payment_link_enabled),
+    consultationFee: typeof practiceDetails.consultation_fee === 'number' ? practiceDetails.consultation_fee : undefined,
+    consultation_fee: typeof practiceDetails.consultation_fee === 'number' ? practiceDetails.consultation_fee : undefined,
+  };
+
+  const organization = {
+    id: typeof practiceDetails.organization_id === 'string' ? practiceDetails.organization_id : undefined,
+    slug: typeof practiceDetails.slug === 'string' ? practiceDetails.slug : slug,
+    name: typeof practiceDetails.name === 'string' ? practiceDetails.name : undefined,
+    logo: typeof practiceDetails.logo === 'string' ? practiceDetails.logo : undefined,
+  };
+
+  return new Response(JSON.stringify({
+    success: true,
+    settings,
+    organization,
+    data: { settings, organization },
+  }), {
+    status: 200,
+    headers: {
+      'Content-Type': 'application/json',
+      'Cache-Control': 'no-store',
+    },
   });
 }

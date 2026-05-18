@@ -1,38 +1,43 @@
 import { useMemo, useState, useEffect } from 'preact/hooks';
 import { useNavigation } from '@/shared/utils/navigation';
 import { cn } from '@/shared/utils/cn';
-import { type App } from './appsData';
-import { useSessionContext } from '@/shared/contexts/SessionContext';
+import { type App, mockApps } from './appsData';
+import { useSessionContext, useMemberRoleContext } from '@/shared/contexts/SessionContext';
 import { useWorkspace } from '@/shared/hooks/useWorkspace';
+import { normalizePracticeRole } from '@/shared/utils/practiceRoles';
 import { GeneralPage } from './GeneralPage';
 import { NotificationsPage } from './NotificationsPage';
 import { AccountPage } from './AccountPage';
 import { PayoutsPage } from './PayoutsPage';
 import { SecurityPage } from './SecurityPage';
 import { HelpPage } from './HelpPage';
+import { MFAEnrollmentPage } from './MFAEnrollmentPage';
 import { PracticePage } from './PracticePage';
-import { PracticeServicesPage } from './PracticeServicesPage';
 import { PracticeTeamPage } from './PracticeTeamPage';
-import { PracticePricingPage } from './PracticePricingPage';
 import { AppsPage } from './AppsPage';
 import { AppDetailPage } from './AppDetailPage';
+import IntakeTemplatesPage from '@/features/intake/pages/IntakeTemplatesPage';
+import { EditorShell } from '@/shared/ui/layout';
+import { getSettingsNavConfig } from '@/shared/config/navConfig';
+import { useTranslation } from '@/shared/i18n/hooks';
 
 export type SettingsView =
   | 'general'
   | 'notifications'
   | 'account'
-  | 'account-payouts'
   | 'practice'
-  | 'practice-services'
+  | 'practice-payouts'
   | 'practice-team'
-  | 'practice-pricing'
   | 'apps'
   | 'app-detail'
+  | 'intake-forms'
+  | 'intake-forms-editor'
   | 'security'
-  | 'help';
+  | 'help'
+  | 'mfa-enrollment'
+  ;
 
 export interface SettingsContentProps {
-  // Legacy compatibility props (unused in content-only mode)
   isMobile?: boolean;
   onClose?: () => void;
   className?: string;
@@ -40,89 +45,64 @@ export interface SettingsContentProps {
   practiceSlug?: string;
   view?: SettingsView;
   appId?: string;
+  intakeTemplateSlug?: string;
   apps?: App[];
 }
 
-export const SettingsContent = ({
-  isMobile: _isMobile = false,
-  onClose: _onClose,
-  className = '',
-  workspace = 'practice',
-  practiceSlug = 'workspace',
-  view = 'general',
+const SettingsRouter = ({
+  view,
   appId,
-  apps: initialApps,
-}: SettingsContentProps) => {
+  intakeTemplateSlug,
+  apps,
+  handleAppUpdate,
+  toSettingsPath,
+  viewLabel,
+}: {
+  view: SettingsView;
+  appId?: string;
+  intakeTemplateSlug?: string;
+  apps: App[];
+  handleAppUpdate: (targetAppId: string, updates: Partial<App>) => void;
+  toSettingsPath: (subPath?: string) => string;
+  viewLabel: string;
+}) => {
   const { navigate } = useNavigation();
-  const [apps, setApps] = useState<App[]>(initialApps ?? []);
 
-  useEffect(() => {
-    setApps(initialApps ?? []);
-  }, [initialApps]);
-
-  const { isPending: sessionPending } = useSessionContext();
-  const { canAccessPractice } = useWorkspace();
-
-  const settingsBasePath = `/${workspace}/${encodeURIComponent(practiceSlug)}/settings`;
-  const toSettingsPath = (subPath?: string) => {
-    if (!subPath) return settingsBasePath;
-    return `${settingsBasePath}/${subPath.replace(/^\/+/, '')}`;
-  };
-
-  const isPracticeScopedView = view === 'practice'
-    || view === 'practice-services'
-    || view === 'practice-team'
-    || view === 'practice-pricing'
-    || view === 'apps'
-    || view === 'app-detail';
-
-  useEffect(() => {
-    if (sessionPending) return;
-    if (isPracticeScopedView && !canAccessPractice) {
-      navigate(`${settingsBasePath}/general`, true);
-    }
-  }, [canAccessPractice, isPracticeScopedView, navigate, sessionPending, settingsBasePath]);
-
-  const handleAppUpdate = (targetAppId: string, updates: Partial<App>) => {
-    setApps((prev) => prev.map((app) => app.id === targetAppId ? { ...app, ...updates } : app));
-  };
-
-  const currentApp = useMemo(() => apps.find((item) => item.id === appId), [appId, apps]);
-
-  const renderContent = () => {
+  const renderViewContent = () => {
     switch (view) {
       case 'general':
-        return <GeneralPage className="h-full" />;
+        return <GeneralPage />;
       case 'notifications':
-        return <NotificationsPage className="h-full" />;
+        return <NotificationsPage />;
       case 'account':
-        return <AccountPage className="h-full" />;
-      case 'account-payouts':
-        return <PayoutsPage className="h-full" />;
+        return <AccountPage />;
       case 'practice':
-        return <PracticePage className="h-full" />;
-      case 'practice-services':
-        return <PracticeServicesPage className="h-full" />;
+        return <PracticePage onBack={() => navigate(toSettingsPath('general'))} />;
+      case 'practice-payouts':
+        return <PayoutsPage onBack={() => navigate(toSettingsPath('practice'))} />;
       case 'practice-team':
-        return <PracticeTeamPage className="h-full" />;
-      case 'practice-pricing':
-        return <PracticePricingPage className="h-full" />;
+        return <PracticeTeamPage onBack={() => navigate(toSettingsPath('practice'))} />;
       case 'apps':
         return (
           <AppsPage
             apps={apps}
             onSelect={(selectedAppId) => navigate(toSettingsPath(`apps/${selectedAppId}`))}
-            className="h-full"
           />
         );
-      case 'app-detail':
+      case 'app-detail': {
+        if (!appId) {
+          return (
+            <EditorShell title="Apps" showBack onBack={() => navigate(toSettingsPath('apps'))} contentMaxWidth={null}>
+              <AppsPage apps={apps} onSelect={(id) => navigate(toSettingsPath(`apps/${id}`))} />
+            </EditorShell>
+          );
+        }
+        const currentApp = apps.find((app) => app.id === appId);
         if (!currentApp) {
           return (
-            <AppsPage
-              apps={apps}
-              onSelect={(selectedAppId) => navigate(toSettingsPath(`apps/${selectedAppId}`))}
-              className="h-full"
-            />
+            <EditorShell title="Apps" showBack onBack={() => navigate(toSettingsPath('apps'))} contentMaxWidth={null}>
+              <AppsPage apps={apps} onSelect={(id) => navigate(toSettingsPath(`apps/${id}`))} />
+            </EditorShell>
           );
         }
         return (
@@ -132,18 +112,156 @@ export const SettingsContent = ({
             onUpdate={handleAppUpdate}
           />
         );
+      }
+      case 'intake-forms':
+        return (
+          <IntakeTemplatesPage
+            basePath={toSettingsPath('intake-forms')}
+            routeMode="list"
+          />
+        );
+      case 'intake-forms-editor':
+        return (
+          <IntakeTemplatesPage
+            basePath={toSettingsPath('intake-forms')}
+            routeMode="editor"
+            routeTemplateSlug={intakeTemplateSlug ?? null}
+            onBack={() => navigate(toSettingsPath('intake-forms'))}
+          />
+        );
       case 'security':
-        return <SecurityPage className="h-full" />;
+        return <SecurityPage />;
+      case 'mfa-enrollment':
+        return <MFAEnrollmentPage onBack={() => navigate(toSettingsPath('security'))} />;
       case 'help':
-        return <HelpPage className="h-full" />;
+        return <HelpPage />;
       default:
-        return <GeneralPage className="h-full" />;
+        return <GeneralPage />;
     }
   };
 
+  const isSelfWrappedView = view === 'app-detail'
+    || view === 'practice'
+    || view === 'practice-payouts'
+    || view === 'practice-team'
+    || view === 'intake-forms'
+    || view === 'intake-forms-editor'
+    || view === 'mfa-enrollment'
+
+  if (isSelfWrappedView) {
+    return renderViewContent();
+  }
+
+  return (
+    <EditorShell
+      title={viewLabel}
+      contentMaxWidth={null}
+    >
+      {renderViewContent()}
+    </EditorShell>
+  );
+};
+
+/**
+ * Controller for all settings views.
+ *
+ * Provides settings routing while keeping list pages and detail/editor pages explicit.
+ * Top-level views are wrapped here. Detail/editor views render their own EditorShell
+ * so header actions, back behavior, and previews stay local to the editor state.
+ */
+export const SettingsContent = (props: SettingsContentProps) => {
+  const {
+    className = '',
+    workspace = 'practice',
+    practiceSlug = 'workspace',
+    view = 'general',
+    appId,
+    intakeTemplateSlug,
+    apps: initialApps,
+  } = props;
+
+  const { navigate } = useNavigation();
+  const { t } = useTranslation(['settings']);
+  const [appUpdates, setAppUpdates] = useState<Record<string, Partial<App>>>({});
+
+  const { isPending: sessionPending } = useSessionContext();
+  const { activeMemberRole } = useMemberRoleContext();
+  const { canAccessPractice } = useWorkspace();
+
+  const settingsBasePath = `/${workspace}/${encodeURIComponent(practiceSlug)}/settings`;
+  const toSettingsPath = (subPath?: string) => {
+    if (!subPath) return settingsBasePath;
+    return `${settingsBasePath}/${subPath.replace(/^\/+/, '')}`;
+  };
+
+  const isPracticeScopedView = view === 'practice-payouts'
+    || view === 'practice-team'
+    || view === 'practice'
+    || view === 'apps'
+    || view === 'app-detail'
+    || view === 'intake-forms'
+    || view === 'intake-forms-editor'
+
+  useEffect(() => {
+    if (sessionPending) return;
+    if (isPracticeScopedView && !canAccessPractice) {
+      navigate(`${settingsBasePath}/general`, true);
+    }
+  }, [canAccessPractice, isPracticeScopedView, navigate, sessionPending, settingsBasePath]);
+
+  useEffect(() => {
+    if (initialApps) {
+      setAppUpdates({});
+    }
+  }, [initialApps]);
+
+  const apps = useMemo(() => {
+    const sourceApps = initialApps ?? mockApps;
+    return sourceApps.map((app) => ({ ...app, ...appUpdates[app.id] }));
+  }, [appUpdates, initialApps]);
+
+  const handleAppUpdate = (targetAppId: string, updates: Partial<App>) => {
+    setAppUpdates((prev) => ({
+      ...prev,
+      [targetAppId]: {
+        ...prev[targetAppId],
+        ...updates,
+      },
+    }));
+  };
+
+  const currentApp = useMemo(() => apps.find((item) => item.id === appId), [appId, apps]);
+
+  const navConfig = useMemo(() => {
+    return getSettingsNavConfig({
+      practiceSlug,
+      role: normalizePracticeRole(activeMemberRole) ?? null,
+      canAccessPractice,
+    });
+  }, [activeMemberRole, canAccessPractice, practiceSlug]);
+
+  const viewLabel = useMemo(() => {
+    if (view === 'app-detail' && currentApp) return currentApp.name;
+    for (const section of navConfig.secondary ?? []) {
+      const item = section.items.find((i) => i.id === view);
+      if (item) return item.label;
+    }
+    if (view === 'practice') return t('settings:practice.title');
+    if (view === 'mfa-enrollment') return t('settings:mfa.title');
+    return t(`settings:${view}.title`);
+  }, [currentApp, navConfig.secondary, t, view]);
+
   return (
     <div className={cn('h-full min-h-0 overflow-hidden', className)}>
-      {renderContent()}
+      <SettingsRouter
+        view={view}
+        appId={appId}
+        intakeTemplateSlug={intakeTemplateSlug}
+        apps={apps}
+        handleAppUpdate={handleAppUpdate}
+        toSettingsPath={toSettingsPath}
+        viewLabel={viewLabel}
+      />
     </div>
   );
 };

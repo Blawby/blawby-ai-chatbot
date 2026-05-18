@@ -262,6 +262,7 @@
     "publicIntro": "हमसे कुछ भी पूछें, या अपनी प्रतिक्रिया साझा करें।",
     "continue": "जारी रखें",
     "submitRequest": "अनुरोध सबमिट करें",
+    "payAndSubmit": "भुगतान करें और सबमिट करें",
     "submitNow": "अभी सबमिट करें",
     "buildStrongerBrief": "मजबूत ब्रीफ बनाएं",
     "askQuestion": "प्रश्न पूछें",
@@ -277,6 +278,9 @@
       "continue": "जारी रखें",
       "addMore": "और जोड़ें",
       "notYet": "अभी नहीं"
+    },
+    "attachments": {
+      "disabled": "चैट अनुलग्नक वर्तमान में अक्षम हैं।"
     }
   },
   "intake": {

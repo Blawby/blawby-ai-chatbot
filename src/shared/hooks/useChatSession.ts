@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'preact/hooks';
 import { useSessionContext } from '@/shared/contexts/SessionContext';
 import { getSessionsEndpoint } from '@/config/api';
+import { apiClient, isHttpError } from '@/shared/lib/apiClient';
 
 const STORAGE_PREFIX = 'session:';
 
@@ -108,20 +109,20 @@ export function useChatSession(practiceId?: string | null): ChatSessionState {
       }
 
     try {
-      const response = await fetch(getSessionsEndpoint(), {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        credentials: 'include',
-        body: JSON.stringify(body)
-      });
-
-      if (!response.ok) {
-        throw new Error(`Session initialization failed (${response.status})`);
+      let json: { success?: boolean; error?: string; data?: SessionResponsePayload };
+      try {
+        const result = await apiClient.post<{ success?: boolean; error?: string; data?: SessionResponsePayload }>(
+          getSessionsEndpoint(),
+          body,
+        );
+        json = result.data;
+      } catch (apiError) {
+        if (isHttpError(apiError)) {
+          throw new Error(`Session initialization failed (${apiError.response.status})`);
+        }
+        throw apiError;
       }
 
-      const json = await response.json() as { success?: boolean; error?: string; data?: SessionResponsePayload };
       if (!json?.success) {
         throw new Error(json?.error || 'Session initialization failed');
       }

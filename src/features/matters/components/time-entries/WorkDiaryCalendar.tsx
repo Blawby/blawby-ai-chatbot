@@ -73,11 +73,11 @@ export const WorkDiaryCalendar = ({ selectedWeekStart, onSelectWeek }: WorkDiary
   ));
 
   return (
-    <div className="glass-panel p-4">
+    <div className="panel p-4">
       <div className="text-sm font-semibold text-input-text text-center">{monthLabel}</div>
 
       <div
-        className="mt-4 grid gap-2 text-center text-[11px] font-medium text-gray-500 dark:text-gray-400 justify-items-center"
+        className="mt-4 grid gap-2 text-center text-[11px] font-medium text-input-placeholder justify-items-center"
         style={{ gridTemplateColumns: 'repeat(7, minmax(0, 1fr))' }}
       >
         {WEEKDAYS.map((day) => (
@@ -100,8 +100,8 @@ export const WorkDiaryCalendar = ({ selectedWeekStart, onSelectWeek }: WorkDiary
               onClick={() => onSelectWeek(day)}
               className={[
                 'h-9 w-9 rounded-full text-sm font-medium transition-colors',
-                isCurrentMonth ? 'text-input-text' : 'text-gray-400 dark:text-gray-500',
-                isSelectedWeek ? 'bg-accent-500/20 text-[rgb(var(--accent-foreground))]' : 'hover:bg-accent-500/10',
+                isCurrentMonth ? 'text-input-text' : 'text-input-placeholder',
+                isSelectedWeek ? 'bg-surface-card-raised text-input-text' : 'hover:bg-surface-card-hover',
                 isToday ? 'ring-2 ring-accent-500' : 'ring-1 ring-transparent'
               ].join(' ')}
             >

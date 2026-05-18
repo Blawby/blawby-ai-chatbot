@@ -9,12 +9,16 @@ import {
 const mockGet = vi.fn();
 const mockPost = vi.fn();
 
-vi.mock('@/shared/lib/apiClient', () => ({
-  apiClient: {
-    get: (...args: unknown[]) => mockGet(...args),
-    post: (...args: unknown[]) => mockPost(...args),
-  },
-}));
+vi.mock('@/shared/lib/apiClient', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/shared/lib/apiClient')>();
+  return {
+    ...actual,
+    apiClient: {
+      get: (...args: unknown[]) => mockGet(...args),
+      post: (...args: unknown[]) => mockPost(...args),
+    },
+  };
+});
 
 describe('invoicesClient service', () => {
   beforeEach(() => {

@@ -32,8 +32,8 @@
  *   /api/practices/*               - Practice CRUD operations
  *   /api/subscription/*            - Subscription management
  *   /api/members/*                 - Member management
- *   /api/practice/client-intakes/* - Intake settings, status, creation
- *   /api/user-details/*            - Client user details & memos
+ *   /api/practice-client-intakes/* - Intake settings, status, creation
+ *   /api/clients/*                 - Client user details & memos
  *   /api/conversations/:id/link    - Conversation link generation
  */
 
@@ -56,21 +56,38 @@ const appendQuery = (path: string, query?: Record<string, string | undefined>): 
 export const clientIntakes = (
 	practiceId: string,
 	query?: Record<string, string | undefined>
-): string => appendQuery(`/api/practice/client-intakes/${encodeSegment(practiceId)}`, query);
+): string => appendQuery(`/api/practice-client-intakes/${encodeSegment(practiceId)}`, query);
 
 export const clientIntake = (
 	practiceId: string,
 	intakeId: string,
 	query?: Record<string, string | undefined>
 ): string => appendQuery(
-	`/api/practice/client-intakes/${encodeSegment(practiceId)}/${encodeSegment(intakeId)}`,
+	`/api/practice-client-intakes/${encodeSegment(practiceId)}/${encodeSegment(intakeId)}`,
 	query
 );
 
 export const clientIntakeStatus = (intakeId: string): string =>
-	`/api/practice/client-intakes/${encodeSegment(intakeId)}/status`;
+	`/api/practice-client-intakes/${encodeSegment(intakeId)}/status`;
 
-export const clientIntakeClaim = (): string => '/api/practice/client-intakes/claim';
+export const clientIntakeInvite = (intakeId: string): string =>
+	`/api/practice-client-intakes/${encodeSegment(intakeId)}/invite`;
+
+
+export const intakeFilesPath = (intakeUuid: string): string =>
+	`/api/practice-client-intakes/${encodeSegment(intakeUuid)}/files`;
+
+export const intakeFilePresignPath = (intakeUuid: string): string =>
+	`${intakeFilesPath(intakeUuid)}/presign`;
+
+export const intakeFileConfirmPath = (intakeUuid: string, uploadId: string): string =>
+	`${intakeFilesPath(intakeUuid)}/${encodeSegment(uploadId)}/confirm`;
+
+export const intakeFileItemPath = (intakeUuid: string, fileId: string): string =>
+	`${intakeFilesPath(intakeUuid)}/${encodeSegment(fileId)}`;
+
+export const uploadDownloadPath = (uploadId: string): string =>
+	`/api/uploads/${encodeSegment(uploadId)}/download`;
 
 export const matterCollectionPath = (practiceId: string): string => `/api/matters/${encodeSegment(practiceId)}`;
 
@@ -256,7 +273,7 @@ export const urls = {
 	clientIntakes,
 	clientIntake,
 	clientIntakeStatus,
-	clientIntakeClaim,
+	clientIntakeInvite,
 	invoices: (practiceId: string) => `/api/invoices/${encodeURIComponent(practiceId)}`,
 	invoice: (practiceId: string, invoiceId: string) => `/api/invoices/${encodeURIComponent(practiceId)}/${encodeURIComponent(invoiceId)}`,
 	createInvoice: (practiceId: string) => `/api/invoices/${encodeURIComponent(practiceId)}`,
@@ -266,6 +283,9 @@ export const urls = {
 	voidInvoice: (practiceId: string, invoiceId: string) => `/api/invoices/${encodeURIComponent(practiceId)}/${encodeURIComponent(invoiceId)}/void`,
 	syncInvoice: (practiceId: string, invoiceId: string) => `/api/invoices/${encodeURIComponent(practiceId)}/${encodeURIComponent(invoiceId)}/sync`,
 	invoiceRefundRequests: (practiceId: string, invoiceId: string) => `/api/invoices/${encodeURIComponent(practiceId)}/${encodeURIComponent(invoiceId)}/refund-requests`,
+	practiceRefundRequests: (practiceId: string) => `/api/invoices/${encodeURIComponent(practiceId)}/refund-requests`,
+	practiceRefundRequest: (practiceId: string, refundRequestId: string) => `/api/invoices/${encodeURIComponent(practiceId)}/refund-requests/${encodeURIComponent(refundRequestId)}`,
+	practiceRefundRequestExecute: (practiceId: string, refundRequestId: string) => `/api/invoices/${encodeURIComponent(practiceId)}/refund-requests/${encodeURIComponent(refundRequestId)}/execute`,
 	clientInvoicesList: (practiceId: string) => `/api/invoices/${encodeURIComponent(practiceId)}/client`,
 	clientInvoice: (practiceId: string, invoiceId: string) => `/api/invoices/${encodeURIComponent(practiceId)}/client/${encodeURIComponent(invoiceId)}`,
 	clientInvoiceRefundRequests: (practiceId: string, invoiceId: string) => `/api/invoices/${encodeURIComponent(practiceId)}/client/${encodeURIComponent(invoiceId)}/refund-requests`,
@@ -278,6 +298,37 @@ export const urls = {
 	matterNestedItemPath
 };
 
+/**
+ * Widget/script helpers
+ */
+export function getWidgetScriptUrl(templateSlug?: string): string {
+	// Prefer same-origin in browser to support self-hosted widget loaders.
+	let base: string;
+	if (typeof window !== 'undefined' && window.location?.origin) {
+		base = window.location.origin;
+	} else if (import.meta.env.VITE_WIDGET_ORIGIN) {
+		base = import.meta.env.VITE_WIDGET_ORIGIN;
+	} else if (isDevelopment()) {
+		base = 'http://localhost:8787';
+    } else {
+        base = 'https://app.blawby.com';
+    }
+
+	const url = new URL('/widget.js', base);
+	if (templateSlug) url.searchParams.set('template', String(templateSlug));
+	return url.toString();
+}
+
+export function getPublicFormOrigin(): string {
+    if (typeof window !== 'undefined' && window.location?.origin) {
+        return window.location.origin;
+    }
+    if (import.meta.env.VITE_PUBLIC_FORM_ORIGIN) {
+        return import.meta.env.VITE_PUBLIC_FORM_ORIGIN;
+    }
+    return 'https://app.blawby.com';
+}
+
 const WIDGET_TOKEN_ALLOWLIST_PATTERNS: RegExp[] = [
 	/^\/api\/conversations(?:\/|$)/,
 	/^\/api\/ai(?:\/|$)/,
@@ -286,7 +337,6 @@ const WIDGET_TOKEN_ALLOWLIST_PATTERNS: RegExp[] = [
 ];
 
 const WIDGET_TOKEN_DENYLIST_PATTERNS: RegExp[] = [
-	/^\/api\/conversations\/[^/]+\/link(?:\/|$)/
 ];
 
 const extractPathname = (requestUrl: string): string | null => {

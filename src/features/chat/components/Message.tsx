@@ -1,5 +1,6 @@
 import { FunctionComponent } from 'preact';
 import { memo } from 'preact/compat';
+import { useCallback } from 'preact/hooks';
 import { FileAttachment, MessageReaction } from '../../../../worker/types';
 import type { IntakePaymentRequest } from '@/shared/utils/intakePayments';
 import { AIThinkingIndicator } from './AIThinkingIndicator';
@@ -8,12 +9,16 @@ import { MessageAvatar } from './MessageAvatar';
 import { MessageContent } from './MessageContent';
 import { MessageAttachments } from './MessageAttachments';
 import { MessageActions } from './MessageActions';
+import { MessageReadReceipts, type ReadReceiptReader } from './MessageReadReceipts';
+import ConversationEventRow from './ConversationEventRow';
 import type { ReplyTarget } from '@/features/chat/types';
-import { ArrowUturnLeftIcon } from '@heroicons/react/24/outline';
+import { Undo2 } from 'lucide-preact';
+
 import { Icon } from '@/shared/ui/Icon';
 import { formatRelativeTime } from '@/features/matters/utils/formatRelativeTime';
 import { chatTypography } from '@/features/chat/styles/chatTypography';
-import type { IntakeConversationState } from '@/shared/types/intake';
+import type { ChatMessageAction } from '@/shared/types/conversation';
+import { features } from '@/config/features';
 
 interface MessageProps {
 	content: string;
@@ -72,59 +77,24 @@ interface MessageProps {
 		label: string;
 	};
 	onAuthPromptRequest?: () => void;
-	leadReview?: {
-		canReview: boolean;
-		isSubmitting?: boolean;
-		intake?: {
-			name?: string;
-			email?: string;
-			phone?: string;
-			description?: string;
-			opposingParty?: string;
-			urgency?: string;
-			paymentStatus?: string;
-			triageStatus?: string;
-			triageReason?: string;
-			amount?: number;
-			currency?: string;
-			submittedAt?: string;
-		};
-		onAccept: () => void;
-		onReject: () => void;
-		onConvert?: () => void;
-	};
 	replyPreview?: ReplyTarget;
 	reactions?: MessageReaction[];
 	onReplyPreviewClick?: () => void;
-	onReply?: () => void;
-	onToggleReaction?: (emoji: string) => void;
+	onReply?: (target: ReplyTarget) => void;
+	onToggleReaction?: (messageId: string, emoji: string) => void;
 	practiceConfig?: {
 		name: string;
 		profileImage: string | null;
 		practiceId: string;
 	};
 	onOpenSidebar?: () => void;
-	onOpenPayment?: (request: IntakePaymentRequest) => void;
 	isStreaming?: boolean;
 	isLoading?: boolean;
 	toolMessage?: string;
 	id?: string;
 	practiceId?: string;
-	intakeStatus?: {
-		step?: string;
-		decision?: string;
-		intakeUuid?: string | null;
-		paymentRequired?: boolean;
-		paymentReceived?: boolean;
-	};
-	intakeConversationState?: IntakeConversationState | null;
-	showIntakeCta?: boolean;
-	onIntakeCtaResponse?: (response: 'ready' | 'not_yet') => void;
-	onSubmitNow?: () => void | Promise<void>;
-	showIntakeDecisionPrompt?: boolean;
-	onBuildBrief?: () => void;
-	quickReplies?: string[];
-	onQuickReply?: (text: string) => void;
+	actions?: ChatMessageAction[];
+	onActionReply?: (text: string) => void;
 	onboardingProfile?: {
 		completionScore?: number;
 		missingFields?: string[];
@@ -145,6 +115,10 @@ interface MessageProps {
 		};
 	};
 	isLast?: boolean;
+	isSystemEvent?: boolean;
+	hideMessageActions?: boolean;
+	/** Other participants who have read this message (for own messages only). */
+	readReceipts?: readonly ReadReceiptReader[];
 	// Styling
 	className?: string;
 }
@@ -159,18 +133,15 @@ const Message: FunctionComponent<MessageProps> = memo(({
 	variant = 'default',
 	size = 'md',
 	matterCanvas,
-	intakeStatus,
 	documentChecklist,
 	generatedPDF,
 	paymentRequest,
 	practiceConfig: _practiceConfig,
 	onOpenSidebar: _onOpenSidebar,
-	onOpenPayment,
 	modeSelector,
 	assistantRetry,
 	authCta,
 	onAuthPromptRequest,
-	leadReview,
 	replyPreview,
 	reactions = [],
 	onReplyPreviewClick,
@@ -182,17 +153,33 @@ const Message: FunctionComponent<MessageProps> = memo(({
 	id: _id,
 	practiceId: _practiceId,
 	className = '',
-	intakeConversationState,
-	showIntakeCta,
-	onIntakeCtaResponse,
-	onSubmitNow,
-	showIntakeDecisionPrompt,
-	onBuildBrief,
-	quickReplies,
-	onQuickReply,
+	actions,
+	onActionReply,
 	onboardingProfile,
-	isLast
+	isLast,
+	isSystemEvent = false,
+	hideMessageActions = false,
+	readReceipts = [],
 }) => {
+	const handleReply = useCallback(() => {
+		if (!onReply) return;
+		onReply({
+			messageId: _id ?? '',
+			authorName: authorName ?? avatar?.name ?? 'Unknown',
+			content,
+			avatar,
+		});
+	}, [onReply, _id, authorName, avatar, content]);
+
+	if (isSystemEvent) {
+		return (
+			<ConversationEventRow
+				content={content}
+				className={className}
+			/>
+		);
+	}
+
 	const hasContent = Boolean(content);
 	const shouldShowIndicator = isLoading && !hasContent;
 	
@@ -204,19 +191,27 @@ const Message: FunctionComponent<MessageProps> = memo(({
 
 	const messageAvatar = avatar;
 	const showHeader = Boolean(authorName || timestamp);
-	const contentClassName = showHeader ? 'mt-1' : '';
+	const contentClassName = '';
 	const formattedTime = timestamp
 		? formatRelativeTime(new Date(timestamp))
 		: null;
 
-	// Avatar size based on message size
-	const avatarSize = size === 'sm' ? 'sm' : 'lg';
+	// Pencil rmTOt uses a 28px avatar next to the bubble — `sm` (24px) is the
+	// closest token. `lg` (40px) is reserved for callers that explicitly opt
+	// into the larger size via `size="lg"`.
+	const avatarSize = size === 'lg' ? 'lg' : 'sm';
 	const quickReactions = ['👍', '👀', '😂', '❤️'];
-	const showActions = Boolean(onReply || onToggleReaction);
-	const hasReactions = reactions.length > 0;
+
+	const showActions = !hideMessageActions && Boolean(onReply || (onToggleReaction && features.enableMessageReactions));
+	const hasReactions = reactions.length > 0 && features.enableMessageReactions;
 	const hasReplyPreview = Boolean(replyPreview);
+	// Sent messages right-align with no avatar (Pencil LymwK); received messages
+	// keep avatar on the left with the bubble flowing to its right (rmTOt).
+	// `justify-start` is set explicitly for received so the row layout is robust
+	// against ancestors that flip flex direction or alignment.
 	const wrapperClassName = [
-		'relative flex items-start gap-3 px-4 py-3 group message-list-item',
+		'relative flex w-full items-start gap-3 px-4 py-3 group message-list-item',
+		isUser ? 'justify-end' : 'justify-start',
 		className
 	].filter(Boolean).join(' ');
 
@@ -226,8 +221,8 @@ const Message: FunctionComponent<MessageProps> = memo(({
 			data-message-id={_id}
 			className={wrapperClassName}
 		>
-			{/* Avatar */}
-			{messageAvatar && (
+			{/* Avatar — hidden for sent (user) messages to match Pencil LymwK. */}
+			{messageAvatar && !isUser && (
 				<MessageAvatar
 					src={messageAvatar.src}
 					name={messageAvatar.name}
@@ -238,13 +233,13 @@ const Message: FunctionComponent<MessageProps> = memo(({
 
 			{showActions && (
 				<div className="message-action-popover">
-					{onToggleReaction && quickReactions.map((emoji) => (
+					{onToggleReaction && features.enableMessageReactions && quickReactions.map((emoji) => (
 						<button
 							key={emoji}
 							type="button"
 							className="message-action-btn text-sm"
 							aria-label={`React with ${emoji}`}
-							onClick={() => onToggleReaction(emoji)}
+							onClick={() => _id && onToggleReaction(_id, emoji)}
 						>
 							{emoji}
 						</button>
@@ -254,15 +249,16 @@ const Message: FunctionComponent<MessageProps> = memo(({
 							type="button"
 							className="message-action-btn"
 							aria-label="Reply to message"
-							onClick={onReply}
+							onClick={handleReply}
 						>
-							<Icon icon={ArrowUturnLeftIcon} className="h-4 w-4"  />
+							<Icon icon={Undo2} className="h-4 w-4"  />
 						</button>
 					)}
 				</div>
 			)}
 			
-			{/* Message Bubble */}
+			{/* Message Bubble (+ optional read receipts stacked below for own messages) */}
+			<div className={`flex min-w-0 flex-col ${isUser ? 'items-end' : 'items-start'}`}>
 			<MessageBubble
 				isUser={isUser}
 				variant={variant}
@@ -271,12 +267,15 @@ const Message: FunctionComponent<MessageProps> = memo(({
 				{hasReplyPreview && replyPreview && (
 					<button
 						type="button"
-						className={`relative flex min-w-0 items-center gap-2 pl-7 text-left text-xs text-input-placeholder ${onReplyPreviewClick ? 'cursor-pointer transition hover:text-input-text' : 'cursor-default pointer-events-none'}`}
+												className={onReplyPreviewClick
+													? 'relative flex min-w-0 items-center gap-2 pl-7 text-left text-xs text-input-placeholder cursor-pointer transition hover:text-accent-foreground'
+													: 'relative flex min-w-0 items-center gap-2 pl-7 text-left text-xs text-input-placeholder cursor-default pointer-events-none'
+												}
 						onClick={onReplyPreviewClick}
 						disabled={!onReplyPreviewClick}
 						aria-label="Jump to replied message"
 					>
-						<span className="pointer-events-none absolute left-[-32px] top-1/2 h-[14px] w-[60px] -translate-y-1/2 rounded-tl-lg border-l-2 border-t border-line-glass/40" />
+						<span className="pointer-events-none absolute left-[-32px] top-1/2 h-[14px] w-[60px] -translate-y-1/2 rounded-tl-xl border-l-[2px] border-t border-line-utility" />
 						{replyPreview.avatar && (
 							<MessageAvatar
 								src={replyPreview.avatar.src}
@@ -285,14 +284,14 @@ const Message: FunctionComponent<MessageProps> = memo(({
 								className="flex-shrink-0 mt-0.5 relative z-10"
 							/>
 						)}
-						<span className="font-semibold text-input-text">{replyPreview.authorName}</span>
+						<span className="font-semibold text-accent-foreground">{replyPreview.authorName}</span>
 						<span className="truncate text-input-placeholder">
 							{replyPreview.isMissing ? 'Original message unavailable' : replyPreview.content}
 						</span>
 					</button>
 				)}
 				{showHeader && (
-					<div className="mt-1 flex min-w-0 items-baseline justify-between gap-3 text-left">
+					<div className="flex min-w-0 items-baseline gap-2 text-left">
 						{(authorName || messageAvatar?.name) && (
 							<span className={`min-w-0 truncate leading-none ${chatTypography.headerName}`}>
 								{authorName || messageAvatar?.name}
@@ -329,25 +328,17 @@ const Message: FunctionComponent<MessageProps> = memo(({
 				{/* Actions (matter canvas, forms, etc.) */}
 			<MessageActions
 					matterCanvas={matterCanvas}
-					intakeStatus={intakeStatus}
-					documentChecklist={documentChecklist}
-					generatedPDF={generatedPDF}
+				documentChecklist={documentChecklist}
+				generatedPDF={generatedPDF}
 					paymentRequest={paymentRequest}
-					onOpenPayment={onOpenPayment}
 					modeSelector={modeSelector}
 					assistantRetry={assistantRetry}
 					authCta={authCta}
 					onAuthPromptRequest={onAuthPromptRequest}
-					leadReview={leadReview}
-				intakeConversationState={intakeConversationState}
-				quickReplies={quickReplies}
-				onQuickReply={onQuickReply}
-				showIntakeCta={showIntakeCta}
-				onIntakeCtaResponse={onIntakeCtaResponse}
-				onSubmitNow={onSubmitNow}
-				showIntakeDecisionPrompt={showIntakeDecisionPrompt}
-				onBuildBrief={onBuildBrief}
+				actions={actions}
+				onActionReply={onActionReply}
 				onboardingProfile={onboardingProfile}
+				isStreaming={isStreaming}
 				isLast={isLast}
 			/>
 				
@@ -366,7 +357,7 @@ const Message: FunctionComponent<MessageProps> = memo(({
 								type="button"
 								className={`message-reaction-chip ${reaction.reactedByMe ? 'message-reaction-chip-active' : ''}`}
 								aria-label={`React with ${reaction.emoji}`}
-								onClick={() => onToggleReaction?.(reaction.emoji)}
+								onClick={() => _id && onToggleReaction?.(_id, reaction.emoji)}
 							>
 								<span className="text-sm">{reaction.emoji}</span>
 								<span className="message-reaction-count">{reaction.count}</span>
@@ -375,6 +366,10 @@ const Message: FunctionComponent<MessageProps> = memo(({
 					</div>
 				)}
 			</MessageBubble>
+			{isUser && readReceipts.length > 0 && (
+				<MessageReadReceipts readers={readReceipts} />
+			)}
+			</div>
 		</div>
 	);
 });

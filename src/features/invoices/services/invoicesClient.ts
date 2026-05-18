@@ -1,13 +1,12 @@
-import axios from 'axios';
-import { apiClient } from '@/shared/lib/apiClient';
+import { apiClient, isHttpError, isAbortError, pluckCollection, unwrapApiResponse } from '@/shared/lib/apiClient';
 import { urls } from '@/config/urls';
 import type { Invoice } from '@/features/matters/types/billing.types';
 
 type FetchOptions = { signal?: AbortSignal };
 
 const getErrorMessage = (error: unknown, fallback: string) => {
-  if (axios.isAxiosError(error)) {
-    const data = error.response?.data;
+  if (isHttpError(error)) {
+    const data = error.response.data;
     if (typeof data === 'string' && data.trim().length > 0) return data;
     if (data && typeof data === 'object') {
       const record = data as Record<string, unknown>;
@@ -26,45 +25,22 @@ const requestData = async <T>(promise: Promise<{ data: T }>, fallbackMessage: st
     const response = await promise;
     return response.data;
   } catch (error) {
-    if (axios.isCancel(error) || (error instanceof Error && error.name === 'AbortError')) {
-      throw error;
-    }
+    if (isAbortError(error)) throw error;
     const normalized = new Error(getErrorMessage(error, fallbackMessage)) as Error & { status?: number };
-    if (axios.isAxiosError(error)) {
-      normalized.status = error.response?.status;
-    }
+    if (isHttpError(error)) normalized.status = error.response.status;
     throw normalized;
   }
 };
 
 const extractInvoices = (payload: unknown): Invoice[] => {
-  if (Array.isArray(payload)) {
-    return payload.filter((item): item is Invoice => Boolean(item && typeof item === 'object'));
+  const unwrapped = unwrapApiResponse<unknown>(payload);
+  const list = pluckCollection<Invoice>(unwrapped, ['invoices']);
+  if (list.length > 0) return list;
+  // Fallback: backend occasionally returns `{ invoice: {...} }` for single-result paths.
+  if (unwrapped && typeof unwrapped === 'object' && !Array.isArray(unwrapped)) {
+    const record = unwrapped as Record<string, unknown>;
+    if (record.invoice && typeof record.invoice === 'object') return [record.invoice as Invoice];
   }
-  if (!payload || typeof payload !== 'object') return [];
-  const record = payload as Record<string, unknown>;
-  if (Array.isArray(record.invoices)) {
-    return record.invoices.filter((item): item is Invoice => Boolean(item && typeof item === 'object'));
-  }
-  if (record.invoice && typeof record.invoice === 'object') {
-    return [record.invoice as Invoice];
-  }
-  if ('data' in record) return extractInvoices(record.data);
-  return [];
-};
-
-const extractArray = <T extends Record<string, unknown>>(payload: unknown, keys: string[]): T[] => {
-  if (Array.isArray(payload)) {
-    return payload.filter((entry): entry is T => Boolean(entry && typeof entry === 'object'));
-  }
-  if (!payload || typeof payload !== 'object') return [];
-  const record = payload as Record<string, unknown>;
-  for (const key of keys) {
-    if (Array.isArray(record[key])) {
-      return record[key].filter((entry): entry is T => Boolean(entry && typeof entry === 'object'));
-    }
-  }
-  if ('data' in record) return extractArray<T>(record.data, keys);
   return [];
 };
 
@@ -77,7 +53,7 @@ export const listClientInvoices = async (practiceId: string, options: FetchOptio
 
   const invoices = extractInvoices(payload);
   if (invoices.length > 0) return invoices;
-  return extractArray<Invoice>(payload, ['items', 'data']);
+  return pluckCollection<Invoice>(unwrapApiResponse<unknown>(payload), ['items']);
 };
 
 export const getClientInvoice = async (practiceId: string, invoiceId: string, options: FetchOptions = {}): Promise<Invoice | null> => {
@@ -120,7 +96,10 @@ export const listClientRefundRequests = async (
     'Failed to load refund requests'
   );
 
-  return extractArray<Record<string, unknown>>(payload, ['refund_requests', 'refundRequests', 'requests', 'items']);
+  return pluckCollection<Record<string, unknown>>(
+    unwrapApiResponse<unknown>(payload),
+    ['refund_requests', 'refundRequests', 'requests', 'items']
+  );
 };
 
 export const cancelRefundRequest = async (

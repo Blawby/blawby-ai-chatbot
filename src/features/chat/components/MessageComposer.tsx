@@ -5,13 +5,13 @@ import FileMenu from '@/features/media/components/FileMenu';
 import MediaControls from '@/features/media/components/MediaControls';
 import { FileDisplay } from '@/shared/ui/upload/organisms/FileDisplay';
 import { FileUploadStatus } from '@/shared/ui/upload/molecules/FileUploadStatus';
-import { ArrowUpIcon, XMarkIcon } from "@heroicons/react/24/outline";
+import { ArrowUp, X } from 'lucide-preact';
+
 import { features } from '@/config/features';
 import { FileAttachment } from '../../../../worker/types';
-import type { UploadingFile } from '@/shared/hooks/useFileUpload';
-import { Trans } from '@/shared/i18n/hooks';
+import type { UploadingFile } from '@/shared/types/upload';
+import { Trans, useTranslation } from '@/shared/i18n/hooks';
 import type { ReplyTarget } from '@/features/chat/types';
-import { useTranslation } from 'react-i18next';
 
 interface MessageComposerProps {
   inputValue: string;
@@ -19,7 +19,7 @@ interface MessageComposerProps {
   previewFiles: FileAttachment[];
   uploadingFiles: UploadingFile[];
   removePreviewFile: (index: number) => void;
-  handleFileSelect: (files: File[]) => Promise<void>;
+  handleFileSelect: (files: File[]) => Promise<unknown>;
   handleCameraCapture: (file: File) => Promise<void>;
   cancelUpload: (fileId: string) => void;
   isRecording: boolean;
@@ -35,15 +35,15 @@ interface MessageComposerProps {
     step: string;
     decision?: string;
     intakeUuid?: string | null;
+    submittedAt?: string | null;
     paymentRequired?: boolean;
     paymentReceived?: boolean;
   };
   disabled?: boolean;
   replyTo?: ReplyTarget | null;
   onCancelReply?: () => void;
-  footerActions?: preact.ComponentChildren;
   hideAttachmentControls?: boolean;
-  hideMediaControls?: boolean;
+  isPublicWorkspace?: boolean;
   mentionCandidates?: Array<{
     userId: string;
     name: string;
@@ -54,6 +54,7 @@ interface MessageComposerProps {
 const MIN_TEXTAREA_HEIGHT = 32;
 const MAX_TEXTAREA_HEIGHT = 144;
 const MOBILE_MAX_TEXTAREA_HEIGHT = 112;
+const getMentionLabel = (candidate: { name: string }) => candidate.name.trim();
 
 const MessageComposer = ({
   inputValue,
@@ -77,9 +78,8 @@ const MessageComposer = ({
   disabled,
   replyTo,
   onCancelReply,
-  footerActions,
   hideAttachmentControls = false,
-  hideMediaControls = false,
+  isPublicWorkspace = false,
   mentionCandidates = [],
 }: MessageComposerProps) => {
   const { t } = useTranslation('common');
@@ -94,13 +94,23 @@ const MessageComposer = ({
   const [mentionFocusIndex, setMentionFocusIndex] = useState(0);
   const [selectedMentionUserIds, setSelectedMentionUserIds] = useState<string[]>([]);
   const highlighterRef = useRef<HTMLDivElement>(null);
-  const getMentionLabel = useCallback((candidate: { name: string }) => candidate.name.trim(), []);
+  const getSanitizedMentionIds = useCallback(() =>
+    selectedMentionUserIds.filter(id => {
+      const candidate = mentionCandidates.find(c => c.userId === id);
+      if (!candidate) return false;
+      const label = getMentionLabel(candidate);
+      if (!label) return false;
+      const escapedLabel = label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const regex = new RegExp(`(^|\\s)@${escapedLabel}(?:\\s|$)`);
+      return regex.test(inputValue);
+    }),
+  [inputValue, mentionCandidates, selectedMentionUserIds]);
 
   const intakeStep = intakeStatus?.step;
-  const isIntakeLocked =
+  const isIntakeLocked = isPublicWorkspace && (
     intakeStep === 'pending_review' ||
-    intakeStep === 'accepted' ||
-    intakeStep === 'rejected';
+    intakeStep === 'rejected'
+  );
   const isComposerDisabled = Boolean(disabled) || isSessionReady === false || isSocketReady === false || isIntakeLocked;
   const attachmentCount = uploadingFiles.length + previewFiles.length;
   const shouldWrapAttachments = attachmentCount > 4;
@@ -207,18 +217,7 @@ const MessageComposer = ({
     if (!inputValue.trim() && previewFiles.length === 0) return;
     if (isComposerDisabled) return;
 
-    // Validate and sanitize selectedMentionUserIds before sending
-    const sanitizedMentionIds = selectedMentionUserIds.filter(id => {
-      const candidate = mentionCandidates.find(c => c.userId === id);
-      if (!candidate) return false;
-      const label = getMentionLabel(candidate);
-      if (!label) return false;
-      // Use a more robust check that handles multi-word names and word boundaries
-      const escapedLabel = label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-      const regex = new RegExp(`(^|\\s)@${escapedLabel}(?:\\s|$)`);
-      return regex.test(inputValue);
-    });
-
+    const sanitizedMentionIds = getSanitizedMentionIds();
     onSubmit(sanitizedMentionIds.length > 0 ? sanitizedMentionIds : undefined);
     const el = textareaRef.current;
     if (el) {
@@ -260,7 +259,7 @@ const MessageComposer = ({
       textarea.setSelectionRange(nextCaret, nextCaret);
       resizeTextarea(textarea);
     });
-  }, [closeMentionMenu, filteredMentionCandidates, getMentionLabel, inputValue, mentionStartIndex, resizeTextarea, setInputValue, textareaRef]);
+  }, [closeMentionMenu, filteredMentionCandidates, inputValue, mentionStartIndex, resizeTextarea, setInputValue, textareaRef]);
 
   const highlightedContent = useMemo(() => {
     if (!inputValue) return null;
@@ -293,7 +292,7 @@ const MessageComposer = ({
     parts.push(<span key={`final-${lastIndex}`} className="text-transparent">{inputValue.slice(lastIndex)}</span>);
     
     return parts;
-  }, [getMentionLabel, inputValue, mentionCandidates]);
+  }, [inputValue, mentionCandidates]);
 
   useLayoutEffect(() => {
     const el = textareaRef.current;
@@ -306,13 +305,15 @@ const MessageComposer = ({
     (!inputValue.trim() && previewFiles.length === 0) ||
     isComposerDisabled
   );
-  const canShowAttachmentMenu = !hideAttachmentControls && !isRecording && !isComposerDisabled && Boolean(isReadyToUpload);
+  // Public widget hides file upload entirely — public users cannot upload.
+  // Authenticated client/practice workspaces keep the attachment menu.
+  const canShowAttachmentMenu = !hideAttachmentControls && !isPublicWorkspace && !isRecording && !isComposerDisabled && Boolean(isReadyToUpload);
 
   const textareaClasses = "w-full min-h-8 py-2 m-0 text-sm sm:text-base leading-[1.45] text-input-text bg-transparent border-none resize-none outline-none overflow-hidden box-border placeholder:text-input-placeholder transition-all duration-200";
 
   return (
-    <div className="pl-4 pr-4 pb-2 bg-transparent rounded-none border-0 h-auto flex flex-col w-full">
-      <form 
+    <div className="px-4 pt-3 pb-3 bg-transparent rounded-none border-0 h-auto flex flex-col w-full">
+      <form
         className="w-full flex flex-col"
         aria-label="Message composition"
         onSubmit={(e) => {
@@ -322,7 +323,7 @@ const MessageComposer = ({
       >
         <div className="message-composer-container">
           {replyTo && (
-            <div className="flex items-center justify-between gap-3 rounded-t-2xl bg-surface-overlay/80 px-4 py-1.5 text-sm text-input-text -mx-2 -mt-1">
+            <div className="flex items-center justify-between gap-3 rounded-t-2xl bg-surface-utility/40 dark:bg-surface-utility/20 px-4 py-1.5 text-sm text-input-text -mx-2 -mt-1">
               <div className="flex min-w-0 items-center gap-2">
                 <span className="text-input-text/70">
                   <Trans
@@ -341,7 +342,7 @@ const MessageComposer = ({
                 className="h-6 w-6 rounded-full"
                 aria-label="Cancel reply"
                 onClick={() => onCancelReply?.()}
-                icon={XMarkIcon} iconClassName="h-4 w-4"
+                icon={X} iconClassName="h-4 w-4"
               />
             </div>
           )}
@@ -372,22 +373,30 @@ const MessageComposer = ({
             </div>
           )}
 
-          <div className="message-composer-input-row">
-            {canShowAttachmentMenu && (
-              <div className="col-start-1 flex-shrink-0 self-end">
-                <FileMenu
-                  onFileSelect={handleFileSelect}
-                  onCameraCapture={handleCameraCapture}
-                  isReadyToUpload
-                />
-              </div>
-            )}
-
-            <div className={`col-start-2 min-w-0 relative flex flex-1 items-end gap-2 glass-input min-h-12 ${isInputExpanded ? 'rounded-2xl py-2 px-3.5' : 'rounded-full py-1 px-3'} ${isInputFocused ? 'ring-2 ring-accent-500/40 border-accent-500/40' : ''}`}>
-              {showScrollFade && (
-                <div className="pointer-events-none absolute left-3 right-12 top-2 h-4 bg-gradient-to-b from-black/20 to-transparent z-10" />
+            {/* Single rounded pill. + (FileMenu) sits at the
+              left edge inside the pill, then the textarea, then the voice-memo
+              mic, then the send button. The grid CSS class is intentionally
+              dropped here in favor of inline flex so the icons live inside the
+              pill rather than beside it. */}
+          <div className="w-full">
+            <div className={`min-w-0 relative flex w-full items-end gap-1 glass-input min-h-12 ${isInputExpanded ? 'rounded-2xl py-2 px-2' : 'rounded-full py-1 px-2'} ${isInputFocused ? 'ring-2 ring-accent-500/40 border-accent-500/40' : ''}`}>
+              {canShowAttachmentMenu && (
+                <div className="flex-shrink-0 self-end">
+                  <FileMenu
+                    onFileSelect={handleFileSelect}
+                    onCameraCapture={handleCameraCapture}
+                    isReadyToUpload
+                  />
+                </div>
               )}
-              <div className="relative flex-1 min-w-0 self-stretch flex items-center">
+              {showScrollFade && (
+                <div
+                  className={`pointer-events-none absolute top-2 h-4 bg-gradient-to-b from-surface-app-frame/60 dark:from-black/20 to-transparent z-10
+                    ${canShowAttachmentMenu ? (features.enableAudioRecording && !isRecording ? 'right-20 left-12' : 'right-12 left-12') : (features.enableAudioRecording && !isRecording ? 'right-20 left-2' : 'right-12 left-2')}
+                  `}
+                />
+              )}
+              <div className="relative flex-1 min-w-0 self-stretch flex items-center px-1">
                 <div 
                   ref={highlighterRef}
                   className={`${textareaClasses} pointer-events-none absolute inset-0 overflow-hidden whitespace-pre-wrap break-words border-none select-none`}
@@ -439,21 +448,9 @@ const MessageComposer = ({
                       }
                     }
                     
-                    // Validate and sanitize selectedMentionUserIds before forwarding
-                    const sanitizedMentionIds = selectedMentionUserIds.filter(id => {
-                      const candidate = mentionCandidates.find(c => c.userId === id);
-                      if (!candidate) return false;
-                      const label = getMentionLabel(candidate);
-                      if (!label) return false;
-                      const escapedLabel = label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-                      const regex = new RegExp(`(^|\\s)@${escapedLabel}(?:\\s|$)`);
-                      return regex.test(inputValue);
-                    });
-                    
-                    onKeyDown(event, sanitizedMentionIds);
+                    onKeyDown(event, getSanitizedMentionIds());
                   }}
                   aria-label="Message input"
-                  aria-expanded={mentionMenuOpen}
                   aria-controls={mentionMenuOpen ? "mention-listbox" : undefined}
                   aria-activedescendant={mentionMenuOpen ? `mention-option-${mentionFocusIndex}` : undefined}
                   disabled={isComposerDisabled}
@@ -464,7 +461,7 @@ const MessageComposer = ({
                 <div 
                   id="mention-listbox"
                   role="listbox"
-                  className="absolute bottom-full left-2 right-2 z-40 mb-2 overflow-hidden rounded-xl border border-white/10 bg-surface-overlay/95 shadow-glass backdrop-blur-2xl"
+                  className="absolute bottom-full left-2 right-2 z-40 mb-2 overflow-hidden rounded-xl border border-line-glass/10 bg-surface-workspace dark:bg-surface-overlay/95 shadow-glass backdrop-blur-2xl"
                 >
                   <div className="max-h-56 overflow-y-auto py-1">
                     {filteredMentionCandidates.map((candidate, index) => (
@@ -478,8 +475,8 @@ const MessageComposer = ({
                         onClick={() => handleMentionSelect(index)}
                         className={`flex w-full items-center justify-between px-3 py-2 text-left text-sm transition-colors ${
                           index === mentionFocusIndex
-                            ? 'bg-accent-500/15 text-accent-400'
-                            : 'text-input-text hover:bg-white/[0.08]'
+                            ? 'bg-accent-500/15 text-[rgb(var(--accent-foreground))]'
+                            : 'text-input-text hover:bg-surface-utility/40'
                         }`}
                       >
                         <span className="truncate">{candidate.name}</span>
@@ -488,36 +485,36 @@ const MessageComposer = ({
                   </div>
                 </div>
               ) : null}
-              <Button
-                type="submit"
-                variant={inputValue.trim() || previewFiles.length > 0 ? 'primary' : 'secondary'}
-                size="sm"
-                disabled={sendDisabled}
-                aria-label={
-                  isSessionReady === false
-                    ? 'Send message (waiting for secure session)'
-                    : isSocketReady === false
-                      ? 'Send message (connecting to chat)'
-                      : (!inputValue.trim() && previewFiles.length === 0
-                        ? 'Send message (disabled)'
-                        : 'Send message')}
-                className={`w-8 h-8 p-0 rounded-full shrink-0 ${isInputExpanded ? 'self-end' : 'self-center'} transition ${isInputFocused && !sendDisabled ? 'ring-2 ring-accent-500/50 shadow-[0_0_0_2px_rgba(255,196,0,0.15)]' : ''}`}
-                icon={ArrowUpIcon} iconClassName="w-3.5 h-3.5"
-                data-testid="message-send-button"
-              />
-            </div>
-
-            <div className="col-start-3 flex items-center gap-2 flex-shrink-0 self-end">
-              {!hideMediaControls && features.enableAudioRecording && (
-                <MediaControls onMediaCapture={handleMediaCapture} onRecordingStateChange={setIsRecording} />
-              )}
+              {features.enableAudioRecording && !isComposerDisabled ? (
+                <div className="flex-shrink-0 self-end">
+                  <MediaControls onMediaCapture={handleMediaCapture} onRecordingStateChange={setIsRecording} />
+                </div>
+              ) : null}
+              {!isRecording ? (
+                <Button
+                  type="submit"
+                  variant={inputValue.trim() || previewFiles.length > 0 ? 'primary' : 'secondary'}
+                  size="sm"
+                  disabled={sendDisabled}
+                  aria-label={
+                    isSessionReady === false
+                      ? 'Send message (waiting for secure session)'
+                      : isSocketReady === false
+                        ? 'Send message (connecting to chat)'
+                        : (!inputValue.trim() && previewFiles.length === 0
+                          ? 'Send message (disabled)'
+                          : 'Send message')}
+                  className={`w-8 h-8 p-0 rounded-full shrink-0 ${isInputExpanded ? 'self-end' : 'self-center'} transition ${isInputFocused && !sendDisabled ? 'ring-2 ring-accent-500/50 shadow-[0_0_0_2px_rgba(255,196,0,0.15)]' : ''}`}
+                  icon={ArrowUp} iconClassName="w-3.5 h-3.5"
+                  data-testid="message-send-button"
+                />
+              ) : null}
             </div>
           </div>
 
         </div>
 
       </form>
-      {footerActions}
     </div>
   );
 };

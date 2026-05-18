@@ -1,6 +1,6 @@
 import { join } from 'path';
 
-export const AUTH_DIR = join(process.cwd(), 'playwright', '.auth');
+export const AUTH_DIR = join(process.cwd(), '.tmp', 'playwright', 'auth', 'state');
 
 export const AUTH_STATE_PATHS = {
   owner: join(AUTH_DIR, 'owner.json'),

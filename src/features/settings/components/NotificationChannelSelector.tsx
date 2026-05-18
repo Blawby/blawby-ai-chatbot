@@ -53,7 +53,7 @@ export const NotificationChannelSelector = ({
     ];
 
   return (
-    <div className={cn('ml-4', className)}>
+    <div className={cn('w-full sm:ml-4 sm:w-auto', className)}>
       <Combobox
         value={currentValue}
         options={options}
@@ -65,7 +65,7 @@ export const NotificationChannelSelector = ({
         }}
         disabled={isDisabled}
         className={cn(
-          'min-w-[180px] [&_[role=combobox]]:rounded-xl'
+          'w-full min-w-0 sm:min-w-[180px] [&_[role=combobox]]:w-full [&_[role=combobox]]:rounded-xl'
         )}
         clearable={false}
         searchable={false}

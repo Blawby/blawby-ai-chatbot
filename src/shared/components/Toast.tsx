@@ -1,7 +1,7 @@
-import { FunctionComponent } from 'preact';
+import { FunctionComponent, memo } from 'preact/compat';
 import { useEffect, useRef, useCallback } from 'preact/hooks';
-import { motion } from 'framer-motion';
-import { CheckCircleIcon, ExclamationTriangleIcon, InformationCircleIcon, XMarkIcon } from "@heroicons/react/24/outline";
+import { CheckCircle2, AlertTriangle, Info, X } from 'lucide-preact';
+
 import { Icon } from '@/shared/ui/Icon';
 
 export interface Toast {
@@ -39,14 +39,14 @@ const ToastComponent: FunctionComponent<ToastProps> = ({ toast, onRemove }) => {
   const getIcon = () => {
     switch (toast.type) {
       case 'success':
-        return <Icon icon={CheckCircleIcon} className="h-5 w-5 text-green-500"  />;
+        return <Icon icon={CheckCircle2} className="h-5 w-5 text-accent-success"  />;
       case 'error':
-        return <Icon icon={ExclamationTriangleIcon} className="h-5 w-5 text-red-500"  />;
+        return <Icon icon={AlertTriangle} className="h-5 w-5 text-accent-error"  />;
       case 'warning':
-        return <Icon icon={ExclamationTriangleIcon} className="h-5 w-5 text-yellow-500"  />;
+        return <Icon icon={AlertTriangle} className="h-5 w-5 text-accent-warning"  />;
       case 'info':
       default:
-        return <Icon icon={InformationCircleIcon} className="h-5 w-5 text-accent-400"  />;
+        return <Icon icon={Info} className="h-5 w-5 text-accent-400"  />;
     }
   };
 
@@ -65,13 +65,7 @@ const ToastComponent: FunctionComponent<ToastProps> = ({ toast, onRemove }) => {
   };
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: -50, scale: 0.95 }}
-      animate={{ opacity: 1, y: 0, scale: 1 }}
-      exit={{ opacity: 0, y: -50, scale: 0.95 }}
-      transition={{ duration: 0.3, ease: 'easeOut' }}
-      className={`max-w-sm w-full ${getStatusClass()} rounded-lg p-4 relative`}
-    >
+    <div className={`max-w-sm w-full ${getStatusClass()} rounded-xl p-4 relative animate-toast-in`}>
       <div className="flex items-start">
         <div className="flex-shrink-0">
           {getIcon()}
@@ -91,12 +85,12 @@ const ToastComponent: FunctionComponent<ToastProps> = ({ toast, onRemove }) => {
             onClick={handleRemove}
             className="inline-flex text-input-placeholder hover:text-input-text transition-colors duration-200 focus-visible:ring-2 focus-visible:ring-accent-500 rounded-sm focus:outline-none"
           >
-            <Icon icon={XMarkIcon} className="h-4 w-4"  />
+            <Icon icon={X} className="h-4 w-4"  />
           </button>
         </div>
       </div>
-    </motion.div>
+    </div>
   );
 };
 
-export default ToastComponent;
+export default memo(ToastComponent);

@@ -1,13 +1,14 @@
 import { useMemo, useState } from 'preact/hooks';
-import { ChatBubbleLeftRightIcon, InformationCircleIcon } from '@heroicons/react/24/outline';
+import { MessagesSquare, Info } from 'lucide-preact';
+
 import { Icon } from '@/shared/ui/Icon';
 import { Button } from '@/shared/ui/Button';
 import WorkspacePage from '@/features/chat/pages/WorkspacePage';
 import ChatContainer from '@/features/chat/components/ChatContainer';
-import Modal from '@/shared/components/Modal';
+import { Dialog, DialogBody } from '@/shared/ui/dialog';
 import { DetailHeader } from '@/shared/ui/layout/DetailHeader';
 import type { Conversation } from '@/shared/types/conversation';
-import type { UploadingFile } from '@/shared/hooks/useFileUpload';
+import type { UploadingFile } from '@/shared/types/upload';
 import type { FileAttachment, ChatMessageUI } from '../../worker/types';
 import { useMobileDetection } from '@/shared/hooks/useMobileDetection';
 
@@ -341,6 +342,7 @@ export default function DebugConversationsPage() {
       messages={activeMessages}
       conversationTitle={activeConversation?.user_info?.title as string | null}
       onSendMessage={handleSendMessage}
+      isReady={true}
       conversationMode="ASK_QUESTION"
       isPublicWorkspace={false}
       practiceConfig={{
@@ -365,11 +367,11 @@ export default function DebugConversationsPage() {
                 type="button"
                 variant="icon"
                 size="icon-sm"
-                className="border border-line-glass/30 bg-white/[0.08] hover:bg-white/[0.12]"
+                className="border border-line-glass/30 bg-surface-workspace/10 hover:bg-surface-workspace/15"
                 aria-label="Open conversation details"
                 onClick={() => setIsConversationDetailsOpen(true)}
               >
-                <Icon icon={InformationCircleIcon} className="h-4 w-4" aria-hidden="true"  />
+                <Icon icon={Info} className="h-4 w-4" aria-hidden="true"  />
               </Button>
             )
             : (
@@ -377,11 +379,11 @@ export default function DebugConversationsPage() {
                 type="button"
                 variant="icon"
                 size="icon-sm"
-                className="border border-line-glass/30 bg-white/[0.08] hover:bg-white/[0.12]"
+                className="border border-line-glass/30 bg-surface-utility/10 hover:bg-surface-utility/20"
                 aria-label="Open conversation details"
                 onClick={() => setIsConversationDetailsOpen(true)}
               >
-                <Icon icon={InformationCircleIcon} className="h-4 w-4" aria-hidden="true"  />
+                <Icon icon={Info} className="h-4 w-4" aria-hidden="true"  />
               </Button>
             )}
         />
@@ -399,8 +401,6 @@ export default function DebugConversationsPage() {
       isRecording={isRecording}
       setIsRecording={setIsRecording}
       isReadyToUpload
-      isSessionReady
-      isSocketReady
       messagesReady
     />
   );
@@ -409,7 +409,7 @@ export default function DebugConversationsPage() {
     <main className="mx-auto max-w-[1480px] space-y-4 p-4 md:p-6">
       <header className="space-y-2">
         <div className="flex flex-wrap items-center gap-2">
-          <Icon icon={ChatBubbleLeftRightIcon} className="h-6 w-6 text-accent-500" aria-hidden="true"  />
+          <Icon icon={MessagesSquare} className="h-6 w-6 text-accent-500" aria-hidden="true"  />
           <h1 className="text-2xl font-semibold text-input-text">Debug Conversations</h1>
           <span className="rounded-full border border-line-glass/30 bg-surface-panel/60 px-2.5 py-1 text-xs font-medium text-input-placeholder">
             No API
@@ -462,31 +462,31 @@ export default function DebugConversationsPage() {
         />
       </section>
 
-      <Modal
+      <Dialog
         isOpen={isConversationDetailsOpen}
         onClose={() => setIsConversationDetailsOpen(false)}
         title="Conversation details"
-        type={isMobile ? 'drawer' : 'drawer-right'}
+        contentClassName={isMobile ? 'max-w-lg' : 'max-w-xl'}
       >
-        <div className="space-y-4 text-sm text-input-text">
+        <DialogBody className="space-y-4 text-sm text-input-text">
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <div className="glass-panel rounded-lg p-3">
+            <div className="glass-panel rounded-xl p-3">
               <div className="text-xs uppercase tracking-wide text-input-placeholder">Workspace</div>
               <div className="mt-1 font-semibold capitalize">{workspaceKind}</div>
             </div>
-            <div className="glass-panel rounded-lg p-3">
+            <div className="glass-panel rounded-xl p-3">
               <div className="text-xs uppercase tracking-wide text-input-placeholder">Conversation ID</div>
               <div className="mt-1 break-all font-mono text-xs">{activeConversationId}</div>
             </div>
           </div>
           {activeConversation?.user_info?.title ? (
-            <div className="glass-panel rounded-lg p-3">
+            <div className="glass-panel rounded-xl p-3">
               <div className="text-xs uppercase tracking-wide text-input-placeholder">Title</div>
               <div className="mt-1 font-semibold">{String(activeConversation.user_info.title)}</div>
             </div>
           ) : null}
-        </div>
-      </Modal>
+        </DialogBody>
+      </Dialog>
     </main>
   );
 }

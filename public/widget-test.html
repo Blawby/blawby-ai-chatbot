@@ -1,220 +1,580 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Widget Test — Mock Practice Site</title>
+  <title>Widget Debug</title>
   <style>
-    * {
-      box-sizing: border-box;
-      margin: 0;
-      padding: 0;
-    }
-
+    * { box-sizing: border-box; }
     body {
-      font-family: system-ui, -apple-system, sans-serif;
-      background: linear-gradient(135deg, #f0f4ff 0%, #e8f5f0 100%);
+      margin: 0;
+      font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: linear-gradient(180deg, #08101d 0%, #0f172a 100%);
+      color: #e5edf7;
       min-height: 100vh;
-      display: flex;
-      align-items: flex-start;
-      justify-content: center;
-      padding: 40px 20px;
     }
-
     .page {
-      max-width: 760px;
-      width: 100%;
+      width: min(1200px, calc(100% - 32px));
+      margin: 0 auto;
+      padding: 32px 0 120px;
     }
-
+    .hero {
+      margin-bottom: 24px;
+    }
     h1 {
+      margin: 0 0 8px;
       font-size: 2rem;
-      font-weight: 700;
-      color: #1a1a2e;
-      margin-bottom: 8px;
+      line-height: 1.1;
     }
-
-    p {
-      color: #555;
+    .lead {
+      margin: 0;
+      color: #9fb0c6;
       line-height: 1.6;
-      margin-bottom: 16px;
-      font-size: 1rem;
+      max-width: 72ch;
     }
-
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(12, minmax(0, 1fr));
+      gap: 16px;
+    }
     .card {
-      background: white;
-      border-radius: 12px;
-      padding: 28px;
-      margin-top: 24px;
-      box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
-    }
-
-    .card h2 {
-      font-size: 1.25rem;
-      color: #1a1a2e;
-      margin-bottom: 12px;
-    }
-
-    code {
-      background: #f4f4f8;
-      padding: 2px 6px;
-      border-radius: 4px;
-      font-size: 0.875rem;
-    }
-
-    pre {
-      background: #1a1a2e;
-      color: #a8ff78;
+      grid-column: span 12;
+      background: rgba(15, 23, 42, 0.78);
+      border: 1px solid rgba(148, 163, 184, 0.18);
+      border-radius: 18px;
       padding: 20px;
-      border-radius: 8px;
-      overflow-x: auto;
-      font-size: 0.85rem;
-      line-height: 1.6;
-      margin: 16px 0;
+      box-shadow: 0 14px 40px rgba(0, 0, 0, 0.24);
+      backdrop-filter: blur(12px);
     }
-
+    .card h2 {
+      margin: 0 0 12px;
+      font-size: 1rem;
+      color: #f8fafc;
+      letter-spacing: 0.01em;
+    }
+    .card p {
+      margin: 0 0 12px;
+      color: #9fb0c6;
+      line-height: 1.5;
+    }
+    .card-half { grid-column: span 6; }
+    .card-third { grid-column: span 4; }
     .controls {
       display: flex;
-      gap: 10px;
       flex-wrap: wrap;
-      margin-top: 16px;
+      gap: 10px;
+      margin-top: 14px;
     }
-
     button {
-      padding: 10px 20px;
-      border-radius: 8px;
-      border: 1.5px solid #10B981;
-      background: transparent;
-      color: #10B981;
+      appearance: none;
+      border: 1px solid rgba(212, 175, 55, 0.45);
+      background: rgba(212, 175, 55, 0.12);
+      color: #f8fafc;
+      border-radius: 999px;
+      padding: 10px 16px;
       font-size: 0.9rem;
       font-weight: 600;
       cursor: pointer;
-      transition: background 0.15s;
+      transition: transform 0.15s ease, background 0.15s ease, border-color 0.15s ease;
     }
-
     button:hover {
-      background: #10B981;
-      color: white;
+      transform: translateY(-1px);
+      background: rgba(212, 175, 55, 0.2);
+      border-color: rgba(212, 175, 55, 0.7);
     }
-
-    .notice {
-      background: #fff8e1;
-      border-left: 4px solid #f59e0b;
-      padding: 12px 16px;
-      border-radius: 0 6px 6px 0;
-      font-size: 0.875rem;
-      color: #78350f;
-      margin-top: 12px;
+    button.secondary {
+      border-color: rgba(148, 163, 184, 0.3);
+      background: rgba(148, 163, 184, 0.08);
     }
-
-    .events {
-      margin-top: 16px;
-      padding: 12px;
-      background: #f8fafc;
-      border: 1px solid #e2e8f0;
-      border-radius: 8px;
-      max-height: 220px;
-      overflow: auto;
-      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    .fields {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 12px;
+      margin-top: 14px;
+    }
+    label {
+      display: block;
+      margin-bottom: 6px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: #cbd5e1;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+    input {
+      width: 100%;
+      border: 1px solid rgba(148, 163, 184, 0.25);
+      border-radius: 12px;
+      background: rgba(15, 23, 42, 0.9);
+      color: #f8fafc;
+      padding: 11px 12px;
+      font-size: 0.95rem;
+    }
+    input:focus {
+      outline: 2px solid rgba(212, 175, 55, 0.6);
+      outline-offset: 1px;
+    }
+    .kv {
+      display: grid;
+      grid-template-columns: 180px minmax(0, 1fr);
+      gap: 10px 16px;
+      align-items: start;
+      font-size: 0.92rem;
+    }
+    .kv dt {
+      color: #94a3b8;
+      font-weight: 600;
+    }
+    .kv dd {
+      margin: 0;
+      color: #f8fafc;
+      word-break: break-word;
+    }
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 12px;
+      border-radius: 999px;
+      background: rgba(148, 163, 184, 0.12);
+      color: #e2e8f0;
+      font-size: 0.82rem;
+      margin-right: 8px;
+      margin-bottom: 8px;
+    }
+    .swatch {
+      width: 14px;
+      height: 14px;
+      border-radius: 999px;
+      border: 1px solid rgba(255, 255, 255, 0.24);
+      flex-shrink: 0;
+    }
+    pre {
+      margin: 0;
+      padding: 14px;
+      border-radius: 14px;
+      background: rgba(2, 6, 23, 0.9);
+      border: 1px solid rgba(148, 163, 184, 0.14);
+      color: #d9f99d;
       font-size: 12px;
-      line-height: 1.45;
-      color: #0f172a;
+      line-height: 1.5;
       white-space: pre-wrap;
+      word-break: break-word;
+      overflow: auto;
+      min-height: 110px;
+      max-height: 320px;
+    }
+    .log {
+      min-height: 180px;
+      max-height: 360px;
+    }
+    .muted {
+      color: #94a3b8;
+    }
+    .notice {
+      margin-top: 12px;
+      padding: 12px 14px;
+      border-radius: 12px;
+      background: rgba(251, 191, 36, 0.12);
+      border: 1px solid rgba(251, 191, 36, 0.24);
+      color: #fde68a;
+      font-size: 0.88rem;
+      line-height: 1.5;
+    }
+    @media (max-width: 900px) {
+      .card-half, .card-third { grid-column: span 12; }
+      .fields { grid-template-columns: 1fr; }
+      .kv { grid-template-columns: 1fr; }
     }
   </style>
 </head>
-
 <body>
   <script>
-    // Forcibly remove any lingering PWA Service Workers from previous dev sessions
-    // that might intercept this HTML file and route it to the SPA.
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.getRegistrations().then(function (registrations) {
-        for (let registration of registrations) {
+        registrations.forEach(function (registration) {
           registration.unregister();
-          console.log('Unregistered stale service worker.');
-        }
+        });
       });
     }
   </script>
-  <div class="page">
-    <h1>⚖️ Park & Associates</h1>
-    <p>Expert legal counsel in employment law, corporate litigation, and estate planning. Serving the greater
-      metropolitan area for over 20 years.</p>
-    <p>Have a legal question? Chat with our AI assistant below — click the green button in the bottom-right corner to
-      get started.</p>
 
-    <div class="card">
-      <h2>Widget Integration Code</h2>
-      <p>Paste this snippet into your website to activate the Blawby Messenger:</p>
-      <pre id="snippet-preview"></pre>
-      <p class="notice">
-        ⚠️ This test page loads the widget against <code>localhost:5173</code>. Update <code>baseUrl</code> to
-        <code>https://ai.blawby.com</code> for production.
+  <div class="page">
+    <div class="hero">
+      <h1>Widget Debug</h1>
+      <p class="lead">
+        This page shows the actual widget config and runtime state being used locally:
+        loader source, resolved iframe URL, fetched practice details, CSS theme vars, and emitted widget events.
       </p>
-      <div class="controls">
-        <button onclick="window.BlawbyWidget.open()">Open Widget</button>
-        <button onclick="window.BlawbyWidget.close()">Close Widget</button>
-        <button onclick="window.BlawbyWidget.toggle()">Toggle Widget</button>
-      </div>
-      <div id="event-log" class="events">Widget events will appear here…</div>
+    </div>
+
+    <div class="grid">
+      <section class="card">
+        <h2>Runtime Controls</h2>
+        <p>Edit the debug config below, then reload the widget to see exactly what code and runtime values are being used.</p>
+        <div class="fields">
+          <div>
+            <label for="practice-slug">Practice Slug</label>
+            <input id="practice-slug" type="text" value="paul-yahoo" />
+          </div>
+          <div>
+            <label for="base-url">Base URL</label>
+            <input id="base-url" type="text" value="" />
+          </div>
+          <div>
+            <label for="primary-color">Primary Color Override</label>
+            <input id="primary-color" type="text" value="" placeholder="Optional hex, e.g. #D4AF37" />
+          </div>
+        </div>
+        <div class="controls">
+          <button id="reload-widget" type="button">Reload Widget</button>
+          <button id="open-widget" type="button" class="secondary">Open</button>
+          <button id="close-widget" type="button" class="secondary">Close</button>
+          <button id="toggle-widget" type="button" class="secondary">Toggle</button>
+          <button id="refresh-debug" type="button" class="secondary">Refresh Debug Data</button>
+        </div>
+        <div class="notice">
+          The effective embed snippet below is generated from the current inputs, not a hardcoded demo string.
+        </div>
+      </section>
+
+      <section class="card card-half">
+        <h2>Effective Embed Snippet</h2>
+        <pre id="effective-snippet"></pre>
+      </section>
+
+      <section class="card card-half">
+        <h2>Runtime Snapshot</h2>
+        <dl class="kv">
+          <dt>Loader Script URL</dt>
+          <dd id="loader-script-url" class="muted">Waiting for loader…</dd>
+          <dt>Configured Base URL</dt>
+          <dd id="configured-base-url" class="muted">—</dd>
+          <dt>Configured Practice Slug</dt>
+          <dd id="configured-practice-slug" class="muted">—</dd>
+          <dt>Configured Primary Color</dt>
+          <dd id="configured-primary-color" class="muted">—</dd>
+          <dt>Widget Iframe URL</dt>
+          <dd id="iframe-url" class="muted">Waiting for iframe…</dd>
+          <dt>Resolved Theme Color</dt>
+          <dd id="resolved-theme-color" class="muted">Waiting for widget…</dd>
+          <dt>Theme Source</dt>
+          <dd id="resolved-theme-source" class="muted">Waiting for theme_applied…</dd>
+          <dt>Container CSS Var</dt>
+          <dd id="container-css-var" class="muted">Waiting for widget…</dd>
+        </dl>
+      </section>
+
+      <section class="card card-third">
+        <h2>Practice Details Fetch</h2>
+        <div id="practice-fetch-badges"></div>
+        <pre id="practice-fetch-payload">No fetch captured yet.</pre>
+      </section>
+
+      <section class="card card-third">
+        <h2>Configured Widget Object</h2>
+        <pre id="widget-config-payload">Waiting for config…</pre>
+      </section>
+
+      <section class="card card-third">
+        <h2>Last Theme Event</h2>
+        <pre id="theme-event-payload">No theme event yet.</pre>
+      </section>
+
+      <section class="card card-half">
+        <h2>Widget Events</h2>
+        <pre id="event-log" class="log">Widget events will appear here…</pre>
+      </section>
+
+      <section class="card card-half">
+        <h2>Network / Debug Log</h2>
+        <pre id="network-log" class="log">Debug log will appear here…</pre>
+      </section>
     </div>
   </div>
 
   <script>
-    // ── Widget configuration ──────────────────────────────────────────────
-    // In a real website, replace this with your actual practice slug.
-    // The practiceSlug is shown in Settings → Practice → Workspace URL.
-    var PRACTICE_SLUG = 'paul-yahoo'; // <-- replace with your slug
-    var eventLogEl = document.getElementById('event-log');
-    window.dataLayer = window.dataLayer || [];
-    var originalDataLayerPush = window.dataLayer.push.bind(window.dataLayer);
+    (function () {
+      var eventLogEl = document.getElementById('event-log');
+      var networkLogEl = document.getElementById('network-log');
+      var snippetEl = document.getElementById('effective-snippet');
+      var widgetConfigEl = document.getElementById('widget-config-payload');
+      var practiceFetchEl = document.getElementById('practice-fetch-payload');
+      var practiceFetchBadgesEl = document.getElementById('practice-fetch-badges');
+      var themeEventEl = document.getElementById('theme-event-payload');
+      var loaderScriptUrlEl = document.getElementById('loader-script-url');
+      var configuredBaseUrlEl = document.getElementById('configured-base-url');
+      var configuredPracticeSlugEl = document.getElementById('configured-practice-slug');
+      var configuredPrimaryColorEl = document.getElementById('configured-primary-color');
+      var iframeUrlEl = document.getElementById('iframe-url');
+      var resolvedThemeColorEl = document.getElementById('resolved-theme-color');
+      var resolvedThemeSourceEl = document.getElementById('resolved-theme-source');
+      var containerCssVarEl = document.getElementById('container-css-var');
 
-    function appendEvent(prefix, payload) {
-      var line = '[' + new Date().toISOString() + '] ' + prefix + ': ' + JSON.stringify(payload);
-      console.log(line);
-      if (eventLogEl) {
-        eventLogEl.textContent = line + '\n' + eventLogEl.textContent;
+      var slugInput = document.getElementById('practice-slug');
+      var baseUrlInput = document.getElementById('base-url');
+      var primaryColorInput = document.getElementById('primary-color');
+
+      var MAX_DEBUG_EVENTS = 200;
+      var debugState = {
+        events: [],
+        network: [],
+        practiceFetch: null,
+        themeEvent: null
+      };
+
+      function appendLog(el, prefix, payload) {
+        var line = '[' + new Date().toISOString() + '] ' + prefix + ': ' + JSON.stringify(payload, null, 2);
+        el.textContent = line + '\n\n' + el.textContent;
       }
-    }
 
-    window.dataLayer.push = function (payload) {
-      appendEvent('dataLayer', payload);
-      return originalDataLayerPush(payload);
-    };
-
-    window.BlawbyWidget = {
-      practiceSlug: PRACTICE_SLUG,
-      // Override baseUrl to point at local dev server for testing.
-      // Remove this line (or set to 'https://ai.blawby.com') in production.
-      baseUrl: window.location.origin,
-      position: 'bottom-right',
-      pushDataLayerOnChatStart: true,
-      onEvent: function (eventPayload) {
-        appendEvent('onEvent', eventPayload);
-      },
-      onChatStart: function (eventPayload) {
-        appendEvent('onChatStart', eventPayload);
+      function setText(idOrElement, value) {
+        var el = typeof idOrElement === 'string' ? document.getElementById(idOrElement) : idOrElement;
+        if (!el) return;
+        el.textContent = value;
       }
-    };
 
-    window.addEventListener('blawby:widget-event', function (event) {
-      appendEvent('dom-event', event.detail);
-    });
+      function renderJson(el, payload) {
+        el.textContent = JSON.stringify(payload, null, 2);
+      }
 
-    // Show the snippet in the card
-    var snippetEl = document.getElementById('snippet-preview');
-    snippetEl.textContent = [
-      '<script>',
-      '  window.BlawbyWidget = {',
-      '    practiceSlug: \'' + PRACTICE_SLUG + '\'',
-      '  };',
-      '<\/script>',
-      '<script src="https://ai.blawby.com/widget-loader.js" defer><\/script>',
-    ].join('\n');
+      function normalizeHexColor(value) {
+        if (typeof value !== 'string') return null;
+        var trimmed = value.trim();
+        if (!trimmed) return null;
+        if (!/^#[0-9a-fA-F]{3}([0-9a-fA-F]{3})?$/.test(trimmed)) return null;
+        if (trimmed.length === 4) {
+          return '#' + trimmed[1] + trimmed[1] + trimmed[2] + trimmed[2] + trimmed[3] + trimmed[3];
+        }
+        return trimmed;
+      }
+
+      function getBaseUrl() {
+        var raw = (baseUrlInput.value || '').trim();
+        return raw || window.location.origin;
+      }
+
+      function getConfig() {
+        return {
+          practiceSlug: (slugInput.value || '').trim() || 'paul-yahoo',
+          baseUrl: getBaseUrl(),
+          position: 'bottom-right',
+          primaryColor: normalizeHexColor(primaryColorInput.value),
+          pushDataLayerOnChatStart: true,
+          onEvent: function (eventPayload) {
+            debugState.events.unshift(eventPayload);
+            if (debugState.events.length > MAX_DEBUG_EVENTS) {
+              debugState.events.pop();
+            }
+            appendLog(eventLogEl, 'onEvent', eventPayload);
+            if (eventPayload && eventPayload.type === 'theme_applied') {
+              debugState.themeEvent = eventPayload;
+              renderJson(themeEventEl, eventPayload);
+              setText(resolvedThemeSourceEl, eventPayload.source || 'unknown');
+            }
+            refreshRuntimeSnapshot();
+          },
+          onChatStart: function (eventPayload) {
+            appendLog(eventLogEl, 'onChatStart', eventPayload);
+          }
+        };
+      }
+
+      function renderSnippet() {
+        var cfg = getConfig();
+        var lines = [
+          '<script>',
+          '  window.BlawbyWidget = {',
+          '    practiceSlug: ' + JSON.stringify(cfg.practiceSlug) + ',',
+          '    baseUrl: ' + JSON.stringify(cfg.baseUrl) + (cfg.primaryColor ? ',' : '')
+        ];
+        if (cfg.primaryColor) {
+          lines.push('    primaryColor: ' + JSON.stringify(cfg.primaryColor));
+        }
+        lines.push('  };');
+        lines.push('<\/script>');
+        lines.push('<script src="' + cfg.baseUrl.replace(/\/+$/, '') + '/widget-loader.js" defer><\/script>');
+        snippetEl.textContent = lines.join('\n');
+      }
+
+      function refreshRuntimeSnapshot() {
+        var cfg = getConfig();
+        var loaderScript = document.getElementById('widget-loader-script');
+        var iframe = document.querySelector('iframe[id^="blawby-widget-"][id$="-iframe"]');
+        var container = document.querySelector('div[id^="blawby-widget-"][id$="-container"]');
+        var cssVar = container ? getComputedStyle(container).getPropertyValue('--blawby-widget-primary-color').trim() : '';
+
+        renderJson(widgetConfigEl, {
+          practiceSlug: cfg.practiceSlug,
+          baseUrl: cfg.baseUrl,
+          primaryColor: cfg.primaryColor,
+          position: cfg.position,
+          pushDataLayerOnChatStart: cfg.pushDataLayerOnChatStart
+        });
+        setText(loaderScriptUrlEl, loaderScript ? loaderScript.src : 'Loader script not mounted');
+        setText(configuredBaseUrlEl, cfg.baseUrl);
+        setText(configuredPracticeSlugEl, cfg.practiceSlug);
+        setText(configuredPrimaryColorEl, cfg.primaryColor || '(none)');
+        setText(iframeUrlEl, iframe && iframe.getAttribute('src') ? iframe.getAttribute('src') : 'Iframe not loaded yet');
+        setText(containerCssVarEl, cssVar || 'Widget container not mounted yet');
+
+        if (cssVar) {
+          resolvedThemeColorEl.textContent = '';
+          var badge = document.createElement('span');
+          badge.className = 'badge';
+          var swatch = document.createElement('span');
+          swatch.className = 'swatch';
+          swatch.style.background = cssVar;
+          badge.appendChild(swatch);
+          badge.appendChild(document.createTextNode(cssVar));
+          resolvedThemeColorEl.appendChild(badge);
+        } else {
+          setText(resolvedThemeColorEl, 'Waiting for widget…');
+        }
+
+        if (!debugState.themeEvent) {
+          setText(resolvedThemeSourceEl, 'Waiting for theme_applied…');
+        }
+      }
+
+      function renderPracticeFetch(payload) {
+        debugState.practiceFetch = payload;
+        renderJson(practiceFetchEl, payload);
+        practiceFetchBadgesEl.innerHTML = '';
+
+        if (payload && payload.url) {
+          var urlBadge = document.createElement('div');
+          urlBadge.className = 'badge';
+          urlBadge.textContent = 'URL: ' + payload.url;
+          practiceFetchBadgesEl.appendChild(urlBadge);
+        }
+
+        if (payload && payload.accentColor) {
+          var colorBadge = document.createElement('div');
+          colorBadge.className = 'badge';
+          var swatch = document.createElement('span');
+          swatch.className = 'swatch';
+          swatch.style.background = payload.accentColor;
+          colorBadge.appendChild(swatch);
+          colorBadge.appendChild(document.createTextNode('accentColor: ' + payload.accentColor));
+          practiceFetchBadgesEl.appendChild(colorBadge);
+        }
+      }
+
+      function captureFetch() {
+        var originalFetch = window.fetch.bind(window);
+        window.fetch = function (input, init) {
+          var url = typeof input === 'string' ? input : (input && input.url ? input.url : '');
+          return originalFetch(input, init).then(function (response) {
+            if (url.indexOf('/api/widget/practice-details/') !== -1) {
+              response.clone().json().then(function (payload) {
+                renderPracticeFetch({
+                  url: url,
+                  ok: response.ok,
+                  status: response.status,
+                  accentColor: payload && (payload.accentColor || payload.accent_color) || null,
+                  payload: payload
+                });
+                appendLog(networkLogEl, 'practice-details', {
+                  url: url,
+                  status: response.status,
+                  payload: payload
+                });
+              }).catch(function (error) {
+                appendLog(networkLogEl, 'practice-details-error', {
+                  url: url,
+                  status: response.status,
+                  error: String(error)
+                });
+              });
+            }
+            return response;
+          });
+        };
+      }
+
+      function installDataLayerDebug() {
+        window.dataLayer = window.dataLayer || [];
+        var originalPush = window.dataLayer.push.bind(window.dataLayer);
+        window.dataLayer.push = function (payload) {
+          appendLog(networkLogEl, 'dataLayer', payload);
+          return originalPush(payload);
+        };
+      }
+
+      function mountWidget() {
+        window.BlawbyWidget = getConfig();
+        renderSnippet();
+        refreshRuntimeSnapshot();
+
+        var existingScript = document.getElementById('widget-loader-script');
+        if (existingScript) {
+          existingScript.remove();
+        }
+
+        var existingContainer = document.querySelector('div[id^="blawby-widget-"][id$="-container"]');
+        if (existingContainer) {
+          existingContainer.remove();
+        }
+
+        var script = document.createElement('script');
+        script.id = 'widget-loader-script';
+        script.src = getBaseUrl().replace(/\/+$/, '') + '/widget-loader.js?v=debug-' + Date.now();
+        script.defer = true;
+        script.onload = function () {
+          appendLog(networkLogEl, 'loader', { src: script.src, status: 'loaded' });
+          setTimeout(refreshRuntimeSnapshot, 50);
+          setTimeout(refreshRuntimeSnapshot, 250);
+          setTimeout(refreshRuntimeSnapshot, 1000);
+        };
+        script.onerror = function () {
+          appendLog(networkLogEl, 'loader', { src: script.src, status: 'failed' });
+          refreshRuntimeSnapshot();
+        };
+        document.body.appendChild(script);
+      }
+
+      document.getElementById('reload-widget').addEventListener('click', function () {
+        mountWidget();
+      });
+      document.getElementById('refresh-debug').addEventListener('click', function () {
+        refreshRuntimeSnapshot();
+      });
+      document.getElementById('open-widget').addEventListener('click', function () {
+        if (window.BlawbyWidget && typeof window.BlawbyWidget.open === 'function') {
+          window.BlawbyWidget.open();
+          setTimeout(refreshRuntimeSnapshot, 50);
+        }
+      });
+      document.getElementById('close-widget').addEventListener('click', function () {
+        if (window.BlawbyWidget && typeof window.BlawbyWidget.close === 'function') {
+          window.BlawbyWidget.close();
+          setTimeout(refreshRuntimeSnapshot, 50);
+        }
+      });
+      document.getElementById('toggle-widget').addEventListener('click', function () {
+        if (window.BlawbyWidget && typeof window.BlawbyWidget.toggle === 'function') {
+          window.BlawbyWidget.toggle();
+          setTimeout(refreshRuntimeSnapshot, 50);
+        }
+      });
+
+      window.addEventListener('blawby:widget-event', function (event) {
+        appendLog(eventLogEl, 'dom-event', event.detail);
+        if (event.detail && event.detail.type === 'theme_applied') {
+          debugState.themeEvent = event.detail;
+          renderJson(themeEventEl, event.detail);
+          setText(resolvedThemeSourceEl, event.detail.source || 'unknown');
+        }
+        refreshRuntimeSnapshot();
+      });
+
+      captureFetch();
+      installDataLayerDebug();
+      baseUrlInput.value = window.location.origin;
+      renderSnippet();
+      mountWidget();
+    })();
   </script>
-  <!-- Widget loader — in production use src="https://ai.blawby.com/widget-loader.js" -->
-  <script src="/widget-loader.js?v=2" defer></script>
 </body>
-
 </html>

@@ -1,19 +1,7 @@
 import { useEffect, useRef, useState } from 'preact/hooks';
-import {
-  ScaleIcon,
-  ChatBubbleLeftRightIcon,
-  MagnifyingGlassIcon,
-  ShieldExclamationIcon,
-  ExclamationTriangleIcon,
-  DocumentCheckIcon,
-  BriefcaseIcon,
-  PauseCircleIcon,
-  CheckCircleIcon,
-  XCircleIcon,
-  ArrowUturnRightIcon,
-  ChevronDownIcon
-} from '@heroicons/react/24/outline';
-import { CheckIcon } from '@heroicons/react/24/solid';
+import { Scale, MessagesSquare, Search, AlertTriangle, Briefcase, CheckCircle2, XCircle, ChevronDown, Check, Redo2, FileCheck2, CirclePause, ShieldAlert } from 'lucide-preact';
+
+
 import { Icon } from '@/shared/ui/Icon';
 import {
   MATTER_STATUS_LABELS,
@@ -21,47 +9,30 @@ import {
   type MatterStatus
 } from '@/shared/types/matterStatus';
 import { cn } from '@/shared/utils/cn';
+import { MATTER_STATUS_BADGE_CLASS } from '@/features/matters/utils/matterStatusStyles';
 
 const STATUS_ICON: Record<MatterStatus, unknown> = {
-  first_contact: ChatBubbleLeftRightIcon,
-  intake_pending: MagnifyingGlassIcon,
-  conflict_check: ShieldExclamationIcon,
-  conflicted: ExclamationTriangleIcon,
-  eligibility: ScaleIcon,
-  referred: ArrowUturnRightIcon,
-  consultation_scheduled: DocumentCheckIcon,
-  declined: XCircleIcon,
-  engagement_pending: PauseCircleIcon,
-  active: BriefcaseIcon,
-  pleadings_filed: DocumentCheckIcon,
-  discovery: MagnifyingGlassIcon,
-  mediation: ScaleIcon,
-  pre_trial: ShieldExclamationIcon,
-  trial: ExclamationTriangleIcon,
-  order_entered: CheckCircleIcon,
-  appeal_pending: ArrowUturnRightIcon,
-  closed: CheckCircleIcon
-};
-
-const STATUS_COLOR: Record<MatterStatus, string> = {
-  first_contact: 'bg-accent-500 text-[rgb(var(--accent-foreground))] ring-accent-500/40',
-  intake_pending: 'bg-amber-500 text-slate-950 ring-amber-500/45',
-  conflict_check: 'bg-amber-500 text-slate-950 ring-amber-500/45',
-  conflicted: 'bg-red-500 text-white ring-red-500/45',
-  eligibility: 'bg-accent-500 text-[rgb(var(--accent-foreground))] ring-accent-500/40',
-  referred: 'bg-white text-input-text ring-white/40',
-  consultation_scheduled: 'bg-accent-500 text-[rgb(var(--accent-foreground))] ring-accent-500/40',
-  declined: 'bg-red-500 text-white ring-red-500/45',
-  engagement_pending: 'bg-amber-500 text-slate-950 ring-amber-500/45',
-  active: 'bg-emerald-500 text-white ring-emerald-500/45',
-  pleadings_filed: 'bg-accent-500 text-[rgb(var(--accent-foreground))] ring-accent-500/40',
-  discovery: 'bg-accent-500 text-[rgb(var(--accent-foreground))] ring-accent-500/40',
-  mediation: 'bg-amber-500 text-slate-950 ring-amber-500/45',
-  pre_trial: 'bg-amber-500 text-slate-950 ring-amber-500/45',
-  trial: 'bg-red-500 text-white ring-red-500/45',
-  order_entered: 'bg-emerald-500 text-white ring-emerald-500/45',
-  appeal_pending: 'bg-amber-500 text-slate-950 ring-amber-500/45',
-  closed: 'bg-white text-input-text ring-white/40'
+  first_contact: MessagesSquare,
+  intake_pending: Search,
+  conflict_check: ShieldAlert,
+  conflicted: AlertTriangle,
+  eligibility: Scale,
+  referred: Redo2,
+  consultation_scheduled: FileCheck2,
+  declined: XCircle,
+  engagement_draft: Briefcase,
+  engagement_sent: Briefcase,
+  engagement_accepted: CheckCircle2,
+  engagement_pending: CirclePause,
+  active: Briefcase,
+  pleadings_filed: FileCheck2,
+  discovery: Search,
+  mediation: Scale,
+  pre_trial: ShieldAlert,
+  trial: AlertTriangle,
+  order_entered: CheckCircle2,
+  appeal_pending: Redo2,
+  closed: CheckCircle2
 };
 
 interface MatterStatusPopoverProps {
@@ -130,8 +101,8 @@ export const MatterStatusPopover = ({ currentStatus, onSelect, disabled }: Matte
     }
   };
 
-  const StatusIcon = (STATUS_ICON[currentStatus] as preact.ComponentType<{ className?: string; 'aria-hidden'?: boolean }>) ?? ScaleIcon;
-  const colorClasses = STATUS_COLOR[currentStatus];
+  const StatusIcon = (STATUS_ICON[currentStatus] as preact.ComponentType<{ className?: string; 'aria-hidden'?: boolean }>) ?? Scale;
+  const colorClasses = MATTER_STATUS_BADGE_CLASS[currentStatus];
 
   return (
     <div ref={ref} className="relative">
@@ -153,14 +124,14 @@ export const MatterStatusPopover = ({ currentStatus, onSelect, disabled }: Matte
           'inline-flex items-center gap-2 rounded-full px-3 py-1.5',
           'text-sm font-medium ring-1 ring-inset',
           'transition-all duration-150',
-          'hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-500',
+          'hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-ring',
           'disabled:opacity-50 disabled:cursor-not-allowed',
           colorClasses
         )}
       >
         <Icon icon={StatusIcon} className="h-4 w-4 shrink-0" />
         {MATTER_STATUS_LABELS[currentStatus]}
-        <Icon icon={ChevronDownIcon}
+        <Icon icon={ChevronDown}
           className={cn('h-3.5 w-3.5 shrink-0 transition-transform duration-150', open && 'rotate-180')}
           aria-hidden
          />
@@ -174,13 +145,13 @@ export const MatterStatusPopover = ({ currentStatus, onSelect, disabled }: Matte
           onKeyDown={handleListboxKeyDown}
           className={cn(
             'absolute left-0 top-full z-50 mt-2 w-56',
-            'rounded-xl border border-white/10',
+            'rounded-xl border border-line-subtle',
             'bg-surface-overlay/95 backdrop-blur-2xl shadow-glass',
             'py-1 overflow-y-auto max-h-72'
           )}
         >
           {MATTER_WORKFLOW_STATUSES.map((status, index) => {
-            const statusIcon = (STATUS_ICON[status] as preact.ComponentType<{ className?: string; 'aria-hidden'?: boolean }>) ?? ScaleIcon;
+            const statusIcon = (STATUS_ICON[status] as preact.ComponentType<{ className?: string; 'aria-hidden'?: boolean }>) ?? Scale;
             const isSelected = status === currentStatus;
             const isFocused = index === focusedIndex;
             return (
@@ -199,19 +170,19 @@ export const MatterStatusPopover = ({ currentStatus, onSelect, disabled }: Matte
                 className={cn(
                   'w-full flex items-center gap-2.5 px-3 py-2 text-left text-sm transition-colors duration-100',
                   isSelected
-                    ? 'bg-accent-500 text-[rgb(var(--accent-foreground))]'
-                    : 'text-input-text hover:bg-white/10'
+                    ? cn(MATTER_STATUS_BADGE_CLASS[status], 'ring-1 ring-inset')
+                    : 'text-input-text hover:bg-surface-card-hover'
                 )}
               >
                 <Icon
                   icon={statusIcon}
                   className={cn(
                     'h-4 w-4 shrink-0',
-                    isSelected ? 'text-[rgb(var(--accent-foreground))]' : 'text-input-placeholder'
+                    isSelected ? '' : 'text-input-placeholder'
                   )}
                 />
                 <span className="flex-1">{MATTER_STATUS_LABELS[status]}</span>
-                {isSelected && <Icon icon={CheckIcon} className="h-3.5 w-3.5 shrink-0 text-[rgb(var(--accent-foreground))]" aria-hidden  />}
+                {isSelected && <Icon icon={Check} className="h-3.5 w-3.5 shrink-0" aria-hidden  />}
               </button>
             );
           })}

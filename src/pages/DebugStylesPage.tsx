@@ -5,8 +5,8 @@ import { Input } from '@/shared/ui/input/Input';
 import { CurrencyInput } from '@/shared/ui/input/CurrencyInput';
 import { DatePicker } from '@/shared/ui/input/DatePicker';
 import { Textarea } from '@/shared/ui/input/Textarea';
-import { UserCircleIcon } from '@heroicons/react/24/outline';
-import { Icon } from '@/shared/ui/Icon';
+import { Avatar, StackedAvatars, UserCard, type SelectableUser } from '@/shared/ui/profile';
+import { renderUserAvatar } from '@/shared/ui/profile';
 
 const buttonVariants = [
   'primary',
@@ -34,6 +34,14 @@ export default function DebugStylesPage() {
   const [currencyValue, setCurrencyValue] = useState<number | undefined>(325);
   const [dateValue, setDateValue] = useState('2026-02-19');
   const [textareaValue, setTextareaValue] = useState('Draft response and settlement options.');
+
+  const sampleUsers: SelectableUser[] = useMemo(() => [
+    { id: 'u1', name: 'Alice Chen', email: 'alice@lawfirm.com', role: 'owner' },
+    { id: 'u2', name: 'Bob Ramirez', email: 'bob@lawfirm.com', role: 'admin' },
+    { id: 'u3', name: 'Carol Singh', email: 'carol@lawfirm.com', role: 'member' },
+    { id: 'u4', name: 'David Kim', email: 'david@lawfirm.com', role: 'member' },
+    { id: 'u5', name: 'Eva Torres', email: 'eva@lawfirm.com', role: 'member' },
+  ], []);
 
   const selectOptions: ComboboxOption[] = useMemo(
     () => [
@@ -74,8 +82,8 @@ export default function DebugStylesPage() {
       </header>
 
 
-      <section className="space-y-3">
-        <h2 className="text-lg font-medium text-input-text">Surfaces</h2>
+      <section className="space-y-4">
+        <h2 className="text-xs font-semibold uppercase tracking-widest text-input-placeholder">Surfaces</h2>
         <div className="grid gap-4 md:grid-cols-3">
           <div className="glass-card p-4">
             <p className="font-medium text-input-text">glass-card</p>
@@ -92,8 +100,8 @@ export default function DebugStylesPage() {
         </div>
       </section>
 
-      <section className="space-y-3">
-        <h2 className="text-lg font-medium text-input-text">Buttons</h2>
+      <section className="space-y-4 pt-4">
+        <h2 className="text-xs font-semibold uppercase tracking-widest text-input-placeholder">Buttons</h2>
         <p className="text-sm text-input-placeholder">
           `menu-item` and `tab` are intentionally subtle and can look similar; use them by behavior/context, not for visual emphasis.
         </p>
@@ -107,8 +115,8 @@ export default function DebugStylesPage() {
         </div>
       </section>
 
-      <section className="space-y-3">
-        <h2 className="text-lg font-medium text-input-text">Button Sizes</h2>
+      <section className="space-y-4 pt-4">
+        <h2 className="text-xs font-semibold uppercase tracking-widest text-input-placeholder">Button Sizes</h2>
         <div className="glass-panel flex flex-wrap items-center gap-3 rounded-xl p-3">
           {buttonSizes.map((size) => (
             <Button key={size} size={size} variant="secondary">
@@ -126,8 +134,8 @@ export default function DebugStylesPage() {
         </div>
       </section>
 
-      <section className="space-y-3">
-        <h2 className="text-lg font-medium text-input-text">Nav State Tokens</h2>
+      <section className="space-y-4 pt-4">
+        <h2 className="text-xs font-semibold uppercase tracking-widest text-input-placeholder">Nav State Tokens</h2>
         <div className="grid gap-3 md:grid-cols-2">
           <button type="button" className="nav-item-active rounded-xl px-3 py-2 text-left">
             Active nav item (`nav-item-active`)
@@ -138,8 +146,33 @@ export default function DebugStylesPage() {
         </div>
       </section>
 
-      <section className="space-y-3">
-        <h2 className="text-lg font-medium text-input-text">Dynamic Foreground</h2>
+      <section className="space-y-4 pt-4">
+        <h2 className="text-xs font-semibold uppercase tracking-widest text-input-placeholder">Status Utilities</h2>
+        <p className="text-sm text-input-placeholder">
+          Semantic status banners for inline feedback. Uses `rounded-xl`.
+        </p>
+        <div className="grid gap-4 md:grid-cols-2">
+          <div className="status-info rounded-xl p-3">
+            <p className="text-sm font-semibold">status-info</p>
+            <p className="text-sm opacity-90">Information or neutral feedback.</p>
+          </div>
+          <div className="status-success rounded-xl p-3">
+            <p className="text-sm font-semibold">status-success</p>
+            <p className="text-sm opacity-90">Operation completed successfully.</p>
+          </div>
+          <div className="status-warning rounded-xl p-3">
+            <p className="text-sm font-semibold">status-warning</p>
+            <p className="text-sm opacity-90">Warning or attention required.</p>
+          </div>
+          <div className="status-error rounded-xl p-3">
+            <p className="text-sm font-semibold">status-error</p>
+            <p className="text-sm opacity-90">Critical failure or invalid input.</p>
+          </div>
+        </div>
+      </section>
+
+      <section className="space-y-4 pt-4">
+        <h2 className="text-xs font-semibold uppercase tracking-widest text-input-placeholder">Dynamic Foreground</h2>
         <p className="text-sm text-input-placeholder">
           Accent-colored surfaces should use `text-[rgb(var(--accent-foreground))]` for contrast-safe text/icons.
         </p>
@@ -148,15 +181,61 @@ export default function DebugStylesPage() {
             <p className="font-medium">Correct: accent foreground token</p>
             <p className="text-sm opacity-90">Remains readable across accent theme changes.</p>
           </div>
-          <div className="rounded-xl bg-accent-500 p-4 text-white">
+          <div className="rounded-xl bg-accent-500 p-4 text-[rgb(var(--accent-foreground))]">
             <p className="font-medium">Avoid: hardcoded `text-white`</p>
             <p className="text-sm opacity-90">Can fail contrast on some accent colors.</p>
           </div>
         </div>
       </section>
 
-      <section className="space-y-3">
-        <h2 className="text-lg font-medium text-input-text">Inputs</h2>
+      <section className="space-y-4 pt-4">
+        <h2 className="text-xs font-semibold uppercase tracking-widest text-input-placeholder">Input States</h2>
+        <p className="text-sm text-input-placeholder">
+          Status is communicated through colored rings while preserving the glass material.
+        </p>
+        <div className="grid gap-4 md:grid-cols-2">
+          <div className="glass-panel rounded-xl p-4 space-y-4">
+            <div className="space-y-1">
+              <label htmlFor="defaultInput" className="text-xs font-medium text-input-placeholder">Default / Focus</label>
+              <input 
+                id="defaultInput"
+                className="glass-input w-full rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-accent-500/30" 
+                placeholder="Standard state" 
+              />
+            </div>
+            <div className="space-y-1">
+              <label htmlFor="errorInput" className="text-xs font-medium text-input-placeholder">Error (ring-red)</label>
+              <input 
+                id="errorInput"
+                className="glass-input w-full rounded-xl px-3 py-2 text-sm ring-2 ring-red-500/40 focus:ring-red-500/60" 
+                placeholder="Invalid value" 
+              />
+            </div>
+          </div>
+          <div className="glass-panel rounded-xl p-4 space-y-4">
+            <div className="space-y-1">
+              <label htmlFor="successInput" className="text-xs font-medium text-input-placeholder">Success (ring-green)</label>
+              <input 
+                id="successInput"
+                className="glass-input w-full rounded-xl px-3 py-2 text-sm ring-2 ring-green-500/40 focus:ring-green-500/60" 
+                placeholder="Valid value" 
+              />
+            </div>
+            <div className="space-y-1">
+              <label htmlFor="disabledInput" className="text-xs font-medium text-input-placeholder">Disabled</label>
+              <input 
+                id="disabledInput"
+                disabled
+                className="glass-input w-full rounded-xl px-3 py-2 text-sm opacity-50 cursor-not-allowed focus:ring-0" 
+                placeholder="Locked" 
+              />
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section className="space-y-4 pt-4 text-input-text">
+        <h2 className="text-xs font-semibold uppercase tracking-widest text-input-placeholder">Inputs</h2>
         <p className="text-sm text-input-placeholder">
           Height baseline should align with Combobox for `md` controls.
         </p>
@@ -205,8 +284,8 @@ export default function DebugStylesPage() {
         </div>
       </section>
 
-      <section className="space-y-3">
-        <h2 className="text-lg font-medium text-input-text">Combobox Modes</h2>
+      <section className="space-y-4 pt-4">
+        <h2 className="text-xs font-semibold uppercase tracking-widest text-input-placeholder">Combobox Modes</h2>
         <p className="text-sm text-input-placeholder">
           One component, four modes. `multiple` and `allowCustomValues` toggle behavior; this is not a separate component.
         </p>
@@ -227,7 +306,7 @@ export default function DebugStylesPage() {
               options={comboboxOptions}
               value={comboboxValue}
               onChange={setComboboxValue}
-              leading={<Icon icon={UserCircleIcon} className="h-4 w-4 text-input-placeholder"  />}
+              leading={renderUserAvatar({ name: 'Demo User' }, 'xs', 'h-4 w-4 text-input-placeholder')}
             />
           </div>
           <div className="glass-panel relative z-30 rounded-xl p-4 overflow-visible">
@@ -239,7 +318,7 @@ export default function DebugStylesPage() {
               onChange={setComboboxMultiOnlyValue}
               multiple
               searchable={false}
-              leading={<Icon icon={UserCircleIcon} className="h-4 w-4 text-input-placeholder"  />}
+              leading={renderUserAvatar({ name: 'Demo User' }, 'xs', 'h-4 w-4 text-input-placeholder')}
             />
           </div>
           <div className="glass-panel relative z-30 rounded-xl p-4 overflow-visible">
@@ -251,7 +330,109 @@ export default function DebugStylesPage() {
               onChange={setComboboxMultiValue}
               multiple
               allowCustomValues
-              leading={<Icon icon={UserCircleIcon} className="h-4 w-4 text-input-placeholder"  />}
+              leading={renderUserAvatar({ name: 'Demo User' }, 'xs', 'h-4 w-4 text-input-placeholder')}
+            />
+          </div>
+        </div>
+      </section>
+
+      {/* ================================================================== */}
+      {/* Avatar & User Components                                            */}
+      {/* ================================================================== */}
+
+      <section className="space-y-4 pt-4">
+        <h2 className="text-xs font-semibold uppercase tracking-widest text-input-placeholder">Avatar Sizes &amp; Status</h2>
+        <p className="text-sm text-input-placeholder">
+          Five sizes (<code>xs sm md lg xl</code>) with optional <code>status</code> dot (<code>active</code> = emerald, <code>inactive</code> = amber).
+          Image falls back to initials extracted from <code>name</code>.
+        </p>
+        <div className="glass-panel rounded-xl p-4">
+          <div className="flex flex-wrap items-end gap-6">
+            {(['xs', 'sm', 'md', 'lg', 'xl'] as const).map((size) => (
+              <div key={size} className="flex flex-col items-center gap-2">
+                <Avatar name="Alice Chen" size={size} status="active" />
+                <code className="text-[10px] text-input-placeholder">{size} / active</code>
+              </div>
+            ))}
+            {(['xs', 'sm', 'md', 'lg', 'xl'] as const).map((size) => (
+              <div key={`${size}-inactive`} className="flex flex-col items-center gap-2">
+                <Avatar name="Bob Ramirez" size={size} status="inactive" />
+                <code className="text-[10px] text-input-placeholder">{size} / inactive</code>
+              </div>
+            ))}
+            <div className="flex flex-col items-center gap-2">
+              <Avatar name="No Status" size="md" />
+              <code className="text-[10px] text-input-placeholder">md / none</code>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section className="space-y-4 pt-4">
+        <h2 className="text-xs font-semibold uppercase tracking-widest text-input-placeholder">StackedAvatars</h2>
+        <p className="text-sm text-input-placeholder">
+          Pass a <code>users</code> array and a <code>max</code> cap. Overflow renders a <code>+N</code> badge using the <code>glass-input</code> surface.
+        </p>
+        <div className="glass-panel rounded-xl p-4 flex flex-wrap items-center gap-8">
+          <div className="flex flex-col gap-1">
+            <StackedAvatars users={sampleUsers} size="sm" max={3} />
+            <code className="text-[10px] text-input-placeholder">size=sm max=3</code>
+          </div>
+          <div className="flex flex-col gap-1">
+            <StackedAvatars users={sampleUsers} size="md" max={4} />
+            <code className="text-[10px] text-input-placeholder">size=md max=4</code>
+          </div>
+          <div className="flex flex-col gap-1">
+            <StackedAvatars users={sampleUsers} size="lg" max={2} />
+            <code className="text-[10px] text-input-placeholder">size=lg max=2</code>
+          </div>
+          <div className="flex flex-col gap-1">
+            <StackedAvatars users={sampleUsers} size="md" max={10} showOverflow={false} />
+            <code className="text-[10px] text-input-placeholder">showOverflow=false</code>
+          </div>
+        </div>
+      </section>
+
+      <section className="space-y-4 pt-4">
+        <h2 className="text-xs font-semibold uppercase tracking-widest text-input-placeholder">UserCard</h2>
+        <p className="text-sm text-input-placeholder">
+          Combines Avatar + identity lines + optional <code>badge</code> pill + optional <code>trailing</code> action slot.
+          Pass <code>onClick</code> to make it a button (adds hover + focus ring).
+        </p>
+        <div className="grid gap-3 md:grid-cols-2">
+          <div className="glass-panel rounded-xl p-1">
+            <UserCard
+              name="Alice Chen"
+              secondary="alice@lawfirm.com"
+              badge="Owner"
+              size="md"
+              status="active"
+            />
+          </div>
+          <div className="glass-panel rounded-xl p-1">
+            <UserCard
+              name="Bob Ramirez"
+              secondary="bob@lawfirm.com"
+              badge="Admin"
+              size="md"
+              status="inactive"
+              trailing={<Button size="xs" variant="ghost">Manage</Button>}
+            />
+          </div>
+          <div className="glass-panel rounded-xl overflow-hidden">
+            <UserCard
+              name="Carol Singh"
+              secondary="carol@lawfirm.com"
+              size="sm"
+              onClick={() => alert('UserCard clicked')}
+            />
+          </div>
+          <div className="glass-panel rounded-xl overflow-hidden">
+            <UserCard
+              name="David Kim"
+              secondary="Member"
+              size="lg"
+              trailing={<Button size="xs" variant="secondary">Remove</Button>}
             />
           </div>
         </div>

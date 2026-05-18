@@ -90,6 +90,7 @@ fi
 
 LOG_DIR="test-logs-${TIMESTAMP}${LOG_SUFFIX}"
 SESSION_PREFIX="convtest-${TIMESTAMP}"
+ARTIFACT_ROOT=".tmp/playwright/api/production-readiness"
 
 ###############################################
 # Colors
@@ -106,9 +107,9 @@ TESTS_PASSED=0
 TESTS_FAILED=0
 CRITICAL_FAILURES=0
 
-mkdir -p "playwright/results/production-readiness/$LOG_DIR"
+mkdir -p "$ARTIFACT_ROOT/$LOG_DIR"
 
-RUN_INFO_PATH="playwright/results/production-readiness/$LOG_DIR/run-info.txt"
+RUN_INFO_PATH="$ARTIFACT_ROOT/$LOG_DIR/run-info.txt"
 {
     echo "timestamp=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
     echo "base_url=$BASE_URL"
@@ -123,7 +124,7 @@ echo -e "${BLUE}⚙️  Test Configuration${NC}"
 echo -e "  Base URL:     $BASE_URL"
 echo -e "  AI Provider:  ${AI_PROVIDER:-default}" \
         "\n  AI Model:     ${AI_MODEL:-default}" \
-        "\n  Log Directory: playwright/results/production-readiness/$LOG_DIR"
+        "\n  Log Directory: $ARTIFACT_ROOT/$LOG_DIR"
 echo ""
 
 ###############################################
@@ -166,7 +167,7 @@ make_request() {
     local session_id=$2
     local messages_json=$3
     local test_name=$4
-    local log_file="playwright/results/production-readiness/$LOG_DIR/$(echo "$test_name" | tr -cs 'A-Za-z0-9' '-').json"
+    local log_file="$ARTIFACT_ROOT/$LOG_DIR/$(echo "$test_name" | tr -cs 'A-Za-z0-9' '-').json"
     
     echo -e "${YELLOW}📤 Request: $test_name${NC}"
     echo -e "${YELLOW}   Organization: $organization_id | Session: $session_id${NC}"
@@ -648,17 +649,17 @@ echo -e "${GREEN}✅ Tests Passed: $TESTS_PASSED${NC}"
 echo -e "${RED}❌ Tests Failed: $TESTS_FAILED${NC}"
 echo -e "${RED}🚨 Critical Failures: $CRITICAL_FAILURES${NC}"
 echo ""
-echo -e "${BLUE}📁 Logs: playwright/results/production-readiness/$LOG_DIR${NC}"
+echo -e "${BLUE}📁 Logs: $ARTIFACT_ROOT/$LOG_DIR${NC}"
 echo ""
 echo -e "${BLUE}🔍 Debugging Commands:${NC}"
 echo -e "${YELLOW}   # View specific test:${NC}"
-echo -e "   cat playwright/results/production-readiness/$LOG_DIR/Initial-Greeting.json | jq ."
+echo -e "   cat $ARTIFACT_ROOT/$LOG_DIR/Initial-Greeting.json | jq ."
 echo ""
 echo -e "${YELLOW}   # Check for tool execution:${NC}"
-echo -e "   grep -r '\"type\":\"tool_call\"' playwright/results/production-readiness/$LOG_DIR/"
+echo -e "   grep -r '\"type\":\"tool_call\"' $ARTIFACT_ROOT/$LOG_DIR/"
 echo ""
 echo -e "${YELLOW}   # Check for contact forms:${NC}"
-echo -e "   grep -r '\"type\":\"contact_form\"' playwright/results/production-readiness/$LOG_DIR/"
+echo -e "   grep -r '\"type\":\"contact_form\"' $ARTIFACT_ROOT/$LOG_DIR/"
 echo ""
 
 if [ $CRITICAL_FAILURES -eq 0 ]; then

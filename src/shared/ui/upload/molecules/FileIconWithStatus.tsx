@@ -8,7 +8,7 @@
 import { useState, useEffect } from 'preact/hooks';
 import { FileIcon } from '../atoms/FileIcon';
 import { StatusOverlay, type StatusType } from '../atoms/StatusOverlay';
-import { ProgressRing } from '../atoms/ProgressRing';
+import { UploadProgressRing } from '../atoms/UploadProgressRing';
 import { isImageFile } from '@/shared/utils/fileTypeUtils';
 import { cn } from '@/shared/utils/cn';
 
@@ -55,7 +55,7 @@ export const FileIconWithStatus = ({
         
         {/* Progress ring for uploading */}
         {status === 'uploading' && (
-          <ProgressRing progress={progress} size={size} />
+          <UploadProgressRing progress={progress} size={size} />
         )}
       </div>
     );

@@ -102,7 +102,7 @@ export const Checkbox = forwardRef<HTMLInputElement, CheckboxProps>(({
 
   const checkboxClasses = cn(
     'rounded border text-accent-600',
-    'focus:outline-none focus:ring-2 focus:ring-offset-0 transition-colors',
+    'focus:outline-none focus:ring-2 ring-inset focus:ring-offset-0 transition-colors',
     sizeClasses[size],
     variantClasses[variant],
     disabled && 'opacity-50 cursor-not-allowed',

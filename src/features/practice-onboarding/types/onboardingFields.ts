@@ -18,7 +18,7 @@ export interface ExtractedFields {
     country?: string;
   };
   isRemote?: boolean; // New field to track remote practices
-  services?: Array<{ name: string; description?: string; key?: string }>;
+  services?: Array<{ name: string; key?: string }>;
   completionScore?: number;
   missingFields?: string[];
 }

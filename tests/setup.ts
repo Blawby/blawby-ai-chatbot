@@ -77,52 +77,6 @@ Object.defineProperty(FileReaderMock, 'DONE', {
 
 global.FileReader = FileReaderMock as unknown as typeof FileReader;
 
-// Mock framer-motion
-vi.mock('framer-motion', () => ({
-  motion: {
-    div: 'div',
-    span: 'span',
-    button: 'button',
-    section: 'section',
-    article: 'article',
-    header: 'header',
-    footer: 'footer',
-    nav: 'nav',
-    main: 'main',
-    aside: 'aside',
-    h1: 'h1',
-    h2: 'h2',
-    h3: 'h3',
-    h4: 'h4',
-    h5: 'h5',
-    h6: 'h6',
-    p: 'p',
-    a: 'a',
-    img: 'img',
-    ul: 'ul',
-    ol: 'ol',
-    li: 'li',
-    table: 'table',
-    tr: 'tr',
-    td: 'td',
-    th: 'th',
-    thead: 'thead',
-    tbody: 'tbody',
-    tfoot: 'tfoot',
-    form: 'form',
-    input: 'input',
-    textarea: 'textarea',
-    select: 'select',
-    option: 'option',
-    label: 'label',
-    fieldset: 'fieldset',
-    legend: 'legend',
-  },
-  AnimatePresence: ({ children }: { children: any }) => children,
-  usePresence: () => [true, null],
-}));
-
-
 // Mock window.location
 Object.defineProperty(window, 'location', {
   value: {

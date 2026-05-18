@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'preact/hooks';
 import { asMajor, getMajorAmountValue, safeAdd, type MajorAmount } from '@/shared/utils/money';
 import { listMatters, type BackendMatter } from '@/features/matters/services/mattersApi';
-import { getUnbilledSummary, listInvoices } from '@/features/matters/services/invoicesApi';
+import { getPracticeBillingSummary, listInvoices } from '@/features/matters/services/invoicesApi';
 import type { Invoice } from '@/features/matters/types/billing.types';
 
 export type BillingActionReason = 'unbilled' | 'overdue' | 'retainer';
@@ -183,7 +183,14 @@ export const usePracticeBillingData = ({
   const [summaryStats, setSummaryStats] = useState<DashboardStat[]>([]);
   const [recentActivity, setRecentActivity] = useState<ActivityDay[]>([]);
   const [recentClients, setRecentClients] = useState<RecentClient[]>([]);
-  const [loading, setLoading] = useState(false);
+  // Start loading=true whenever this hook is enabled — first render must
+  // show skeletons, not the empty state. Note: gating only on `enabled`
+  // (not also `practiceId`) is intentional. `practiceId` arrives async via
+  // usePracticeManagement, so checking it here would briefly show empty
+  // state before practiceId resolves. We stay loading until either the
+  // fetch completes (setLoading(false) in finally) or the hook is
+  // explicitly disabled.
+  const [loading, setLoading] = useState(Boolean(enabled));
   const [error, setError] = useState<string | null>(null);
 
   const buildActions = useCallback((snapshots: MatterBillingSnapshot[]): BillingAction[] => {
@@ -246,13 +253,19 @@ export const usePracticeBillingData = ({
   }, []);
 
   const fetchData = useCallback(async (signal?: AbortSignal) => {
-    if (!practiceId || !enabled) {
+    if (!enabled) {
       setBillingActions([]);
       setOutstandingSummary(null);
       setSummaryStats([]);
       setRecentActivity([]);
       setRecentClients([]);
       setLoading(false);
+      return;
+    }
+    if (!practiceId) {
+      // Enabled but waiting on practiceId — keep loading=true so the
+      // skeleton continues to render. This effect will re-run via the
+      // useEffect dependency when practiceId arrives.
       return;
     }
     setLoading(true);
@@ -291,28 +304,19 @@ export const usePracticeBillingData = ({
         return map;
       }, new Map());
 
-      const unbilledSnapshots = await Promise.allSettled(
-        matterSubset.map(async (matter) => {
-          try {
-            const summary = await getUnbilledSummary(practiceId, matter.id, { signal });
-            return summary.totalUnbilled ?? null;
-          } catch (err) {
-            if ((err as DOMException)?.name === 'AbortError' || (err as { name?: string })?.name === 'CanceledError') {
-              return null;
-            }
-            console.warn('[usePracticeBillingData] Failed to load unbilled summary', err);
-            return null;
-          }
-        })
+      const unbilledResults = await getPracticeBillingSummary(
+        practiceId,
+        matterSubset.map((m) => m.id),
+        { signal }
       );
       if (signal?.aborted) return;
 
-      const snapshots: MatterBillingSnapshot[] = matterSubset.map((matter, index) => {
+      const unbilledMap = new Map(unbilledResults.map((r) => [r.matterId, r.totalUnbilled]));
+
+      const snapshots: MatterBillingSnapshot[] = matterSubset.map((matter) => {
         const invoicesForMatter = invoiceMap.get(matter.id) ?? [];
         const overdueInvoices = invoicesForMatter.filter((invoice) => invoice.status === 'overdue');
-        const unbilledTotal = unbilledSnapshots[index].status === 'fulfilled'
-          ? unbilledSnapshots[index].value
-          : null;
+        const unbilledTotal = unbilledMap.get(matter.id) ?? null;
         return {
           matter,
           unbilledTotal,
@@ -432,7 +436,7 @@ export const usePracticeBillingData = ({
           invoiceNumber: invoice.stripe_invoice_number ?? invoice.invoice_number,
           amount: invoice.total,
           status: invoice.status,
-          clientName: invoice.client?.user?.name ?? invoice.client?.user?.email ?? 'Person',
+          clientName: invoice.client?.name ?? invoice.client?.email ?? 'Contact',
           description: invoice.memo ?? invoice.notes ?? null,
           issuedAt: isoDate
         };
@@ -456,8 +460,8 @@ export const usePracticeBillingData = ({
         if (!existing || (latestDate && (!existing.lastInvoice?.date || new Date(latestDate) > new Date(existing.lastInvoice.date)))) {
           clientMap.set(invoice.client_id, {
             id: invoice.client_id,
-            name: invoice.client?.user?.name ?? invoice.client?.user?.email ?? `Person ${invoice.client_id.slice(0, 5)}`,
-            avatarUrl: invoice.client?.user?.image ?? null,
+            name: invoice.client?.name ?? invoice.client?.email ?? `Contact ${invoice.client_id.slice(0, 5)}`,
+            avatarUrl: null,
             lastInvoice: latestDate ? { date: latestDate, amount, status: invoice.status } : null
           });
         }
@@ -475,6 +479,9 @@ export const usePracticeBillingData = ({
       setRecentClients([]);
     } finally {
       if (!signal?.aborted) {
+        if (typeof performance !== 'undefined') {
+          performance.mark('app:dashboard-ready');
+        }
         setLoading(false);
       }
     }

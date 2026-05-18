@@ -9,9 +9,10 @@
  *   5. Intent classification (first message in ASK_QUESTION mode)
  *   6. Intake state init guard (REQUEST_CONSULTATION mode)
  *
- * Deliberately has NO knowledge of intake business logic — that belongs in
- * useIntakeFlow.  It receives applyIntakeFields as a callback so the SSE
- * stream can forward structured intake data without a direct dependency.
+ * Deliberately has NO knowledge of intake or setup business logic — that
+ * belongs in the dedicated flow hooks. It receives applyIntakeFields and
+ * applySetupFields as callbacks so the SSE stream can forward structured data
+ * without a direct dependency.
  *
  * Dependencies injected via options so this hook is independently testable.
  */
@@ -19,11 +20,19 @@
 import { useCallback, useRef, useEffect } from 'preact/hooks';
 import { useSessionContext } from '@/shared/contexts/SessionContext';
 import type { ChatMessageUI, FileAttachment } from '../../../worker/types';
-import type { ConversationMessage, ConversationMetadata, ConversationMode, FirstMessageIntent } from '@/shared/types/conversation';
+import type {
+  ConversationMessage,
+  ConversationMetadata,
+  ConversationMode,
+  FirstMessageIntent,
+  SetupFieldsPayload,
+} from '@/shared/types/conversation';
 import { type IntakeFieldsPayload } from '@/shared/types/intake';
 import { STREAMING_BUBBLE_PREFIX } from './useConversation';
-import { withWidgetAuthHeaders } from '@/shared/utils/widgetAuth';
+import { apiClient, isHttpError } from '@/shared/lib/apiClient';
 import { applyConsultationPatchToMetadata, resolveConsultationState } from '@/shared/utils/consultationState';
+import { normalizeChatActions } from '@/shared/utils/chatActions';
+import { normalizeSetupFieldsPayload } from '@/shared/utils/setupState';
 
 // ─── constants ────────────────────────────────────────────────────────────────
 
@@ -34,10 +43,11 @@ const SESSION_READY_TIMEOUT_MS = 8_000;
 
 
 export interface UseChatComposerOptions {
+  enabled?: boolean;
   practiceId?: string;
   practiceSlug?: string;
   conversationId?: string;
-  ensureConversation?: () => Promise<string | null>;
+  onEnsureConversation?: () => Promise<string | null>;
   userId?: string | null;
   linkAnonymousConversationOnLoad?: boolean;
   mode?: ConversationMode | null;
@@ -62,7 +72,6 @@ export interface UseChatComposerOptions {
   pendingStreamMessageIdRef: React.MutableRefObject<string | null>;
   orphanTimerRef: React.MutableRefObject<ReturnType<typeof setTimeout> | null>;
   conversationIdRef: React.MutableRefObject<string | undefined>;
-  pendingEnsureConversationPromiseRef: React.MutableRefObject<Promise<string> | null>;
   pendingEnsureConversationPromisesRef: React.MutableRefObject<Map<string, Promise<string>>>;
   connectChatRoom: (id: string) => void;
   updateConversationMetadata: (patch: ConversationMetadata, targetId?: string) => Promise<unknown>;
@@ -71,6 +80,7 @@ export interface UseChatComposerOptions {
 
   // Injected from useIntakeFlow
   applyIntakeFields: (fields: IntakeFieldsPayload) => Promise<void>;
+  applySetupFields: (fields: Partial<SetupFieldsPayload>) => Promise<void>;
 
   onError?: (error: unknown, context?: Record<string, unknown>) => void;
 }
@@ -87,10 +97,11 @@ const createClientId = (prefix = 'client'): string => {
 // ─── hook ─────────────────────────────────────────────────────────────────────
 
 export const useChatComposer = ({
+  enabled = true,
   practiceId,
   practiceSlug,
   conversationId,
-  ensureConversation,
+  onEnsureConversation,
   userId: externalUserId,
   linkAnonymousConversationOnLoad = false,
   mode,
@@ -102,18 +113,18 @@ export const useChatComposer = ({
   waitForSocketReady,
   isSocketReadyRef,
   socketConversationIdRef,
-  messageIdSetRef: _messageIdSetRef,
+  messageIdSetRef,
   pendingClientMessageRef,
   pendingAckRef,
   pendingStreamMessageIdRef,
   orphanTimerRef,
   conversationIdRef,
-  pendingEnsureConversationPromiseRef: _pendingEnsureConversationPromiseRef,
   pendingEnsureConversationPromisesRef,
   connectChatRoom,
   updateConversationMetadata,
   fetchConversationMetadata,
   applyIntakeFields,
+  applySetupFields,
   onError,
 }: UseChatComposerOptions) => {
   const { session, isPending: sessionIsPending } = useSessionContext();
@@ -136,6 +147,7 @@ export const useChatComposer = ({
 
   const abortControllerRef = useRef<AbortController | null>(null);
   const intentAbortRef = useRef<AbortController | null>(null);
+  const activeStreamingBubbleIdRef = useRef<string | null>(null);
   const hasLoggedIntentRef = useRef(false);
   const defaultModePersistedConversationRef = useRef<string | null>(null);
   const pendingIntakeInitRef = useRef<Promise<void> | null>(null);
@@ -144,6 +156,7 @@ export const useChatComposer = ({
   // ── session readiness guard ───────────────────────────────────────────────
 
   const waitForSessionReady = useCallback(async () => {
+    if (!enabled) throw new Error('Chat is suspended.');
     if (sessionReadyRef.current) return;
     if (typeof window === 'undefined') throw new Error('Chat session is not available in this environment.');
     const start = Date.now();
@@ -152,13 +165,14 @@ export const useChatComposer = ({
       if (Date.now() - start > SESSION_READY_TIMEOUT_MS) throw new Error('Secure session is not ready yet. Please try again in a moment.');
       await new Promise(resolve => setTimeout(resolve, 200));
     }
-  }, []);
+  }, [enabled]);
 
   const ensureConversationId = useCallback(async () => {
+    if (!enabled) throw new Error('Chat is suspended.');
     const existingConversationId = conversationIdRef.current?.trim();
     if (existingConversationId) return existingConversationId;
 
-    if (!ensureConversation) return '';
+    if (!onEnsureConversation) return '';
 
     // Create context key based on practiceId and current user
     const contextKey = `${practiceIdRef.current || ''}:${currentUserId || ''}`;
@@ -170,7 +184,7 @@ export const useChatComposer = ({
     }
 
     // Create and cache the promise for this context
-    const promise = ensureConversation().then(id => {
+    const promise = onEnsureConversation().then(id => {
       // Verify context still matches before assigning to conversationIdRef
       const currentContextKey = `${practiceIdRef.current || ''}:${currentUserId || ''}`;
       if (currentContextKey === contextKey) {
@@ -190,7 +204,7 @@ export const useChatComposer = ({
 
     pendingEnsureConversationPromisesRef.current.set(contextKey, promise);
     return promise;
-  }, [conversationIdRef, ensureConversation, pendingEnsureConversationPromisesRef, currentUserId]);
+  }, [conversationIdRef, currentUserId, enabled, onEnsureConversation, pendingEnsureConversationPromisesRef]);
 
   // ── streaming bubble helpers ──────────────────────────────────────────────
 
@@ -215,6 +229,29 @@ export const useChatComposer = ({
     setMessages(prev => prev.filter(msg => msg.id !== bubbleId));
   }, [setMessages]);
 
+  const cleanupStreamingState = useCallback((bubbleId?: string | null) => {
+    const targetBubbleId = bubbleId ?? activeStreamingBubbleIdRef.current;
+    if (targetBubbleId) {
+      removeStreamingBubble(targetBubbleId);
+    }
+    if (activeStreamingBubbleIdRef.current === targetBubbleId) {
+      activeStreamingBubbleIdRef.current = null;
+    }
+    pendingStreamMessageIdRef.current = null;
+    if (orphanTimerRef.current !== null) {
+      clearTimeout(orphanTimerRef.current);
+      orphanTimerRef.current = null;
+    }
+  }, [orphanTimerRef, pendingStreamMessageIdRef, removeStreamingBubble]);
+
+  const abortActiveRequests = useCallback(() => {
+    abortControllerRef.current?.abort();
+    abortControllerRef.current = null;
+    intentAbortRef.current?.abort();
+    intentAbortRef.current = null;
+    cleanupStreamingState();
+  }, [cleanupStreamingState]);
+
   // ── low-level WS send ─────────────────────────────────────────────────────
 
   /**
@@ -228,8 +265,13 @@ export const useChatComposer = ({
     replyToMessageId?: string | null,
     conversationId?: string | null
   ) => {
-    if (!content.trim()) throw new Error('Message cannot be empty.');
-    
+    if (!enabled) throw new Error('Chat is suspended.');
+    // Allow file-only messages: a send is valid if there's text OR at least
+    // one attachment. Mirrors the worker's relaxed validation.
+    if (!content.trim() && attachments.length === 0) {
+      throw new Error('Message cannot be empty.');
+    }
+
     const effectivePracticeId = (practiceIdRef.current ?? '').trim();
     const activeConversationId = conversationId?.trim() || await ensureConversationId();
     if (!effectivePracticeId) throw new Error('practiceId is required');
@@ -316,7 +358,7 @@ export const useChatComposer = ({
       setMessages(prev => prev.filter(msg => msg.id !== tempId));
       throw error;
     });
-  }, [connectChatRoom, currentUserId, ensureConversationId, isSocketReadyRef, pendingAckRef, pendingClientMessageRef, sendFrame, setMessages, socketConversationIdRef, waitForSessionReady, waitForSocketReady]);
+  }, [connectChatRoom, currentUserId, enabled, ensureConversationId, isSocketReadyRef, pendingAckRef, pendingClientMessageRef, sendFrame, setMessages, socketConversationIdRef, waitForSessionReady, waitForSocketReady]);
 
   // ── SSE stream processor ──────────────────────────────────────────────────
 
@@ -328,6 +370,8 @@ export const useChatComposer = ({
     const reader = aiResponse.body.getReader();
     const decoder = new TextDecoder();
     let sseBuffer = '';
+    let finalDoneReply: string | null = null;
+    let persistedMessageId: string | null = null;
 
     const processEvent = async (eventData: string) => {
       let parsed: Record<string, unknown>;
@@ -338,12 +382,30 @@ export const useChatComposer = ({
         return;
       }
       if (parsed.done === true) {
+        const doneReply = typeof parsed.reply === 'string' ? parsed.reply : null;
+        finalDoneReply = doneReply;
+        persistedMessageId = typeof parsed.persistedMessageId === 'string'
+          ? parsed.persistedMessageId
+          : null;
+        if (doneReply !== null) {
+          setMessages(prev => prev.map(msg =>
+            msg.id === bubbleId
+              ? { ...msg, content: doneReply, isLoading: false }
+              : msg
+          ));
+        }
         if (parsed.intakeFields && typeof parsed.intakeFields === 'object') {
           applyIntakeFields(parsed.intakeFields as IntakeFieldsPayload).catch(err => {
             console.warn('[useChatComposer] Failed to apply intake fields from stream', err);
           });
         }
         if (parsed.onboardingFields && typeof parsed.onboardingFields === 'object') {
+          const setupPatch = normalizeSetupFieldsPayload(parsed.onboardingFields as Record<string, unknown>);
+          if (mode === 'PRACTICE_ONBOARDING' && Object.keys(setupPatch).length > 0) {
+            applySetupFields(setupPatch).catch(err => {
+              console.warn('[useChatComposer] Failed to apply setup fields from stream', err);
+            });
+          }
           setMessages(prev => prev.map(msg =>
             msg.id === bubbleId
               ? { ...msg, metadata: { ...(msg.metadata ?? {}), onboardingFields: parsed.onboardingFields } }
@@ -357,12 +419,69 @@ export const useChatComposer = ({
               : msg
           ));
         }
-        return;
-      }
-      if (parsed.persisted === true && typeof parsed.messageId === 'string') {
-        const messageExists = messagesRef.current?.some(m => m.id === parsed.messageId);
-        if (messageExists) { removeStreamingBubble(bubbleId); return; }
-        pendingStreamMessageIdRef.current = parsed.messageId;
+        const doneActions = normalizeChatActions(parsed.actions);
+        if (doneActions.length > 0) {
+          let wasEmpty = false;
+          setMessages(prev => {
+            const currentBubble = prev.find((message) => message.id === bubbleId);
+            const bubbleContent = finalDoneReply ?? currentBubble?.content ?? '';
+            if (bubbleContent.trim()) {
+              return prev.map(msg =>
+                msg.id === bubbleId ? {
+                  ...msg,
+                  content: finalDoneReply ?? msg.content,
+                  isLoading: false,
+                  metadata: { ...(msg.metadata ?? {}), actions: doneActions }
+                } : msg
+              );
+            }
+            wasEmpty = true;
+            return prev.filter((msg) => msg.id !== bubbleId);
+          });
+
+          if (wasEmpty) {
+            pendingStreamMessageIdRef.current = null;
+            if (activeStreamingBubbleIdRef.current === bubbleId) {
+              activeStreamingBubbleIdRef.current = null;
+            }
+            if (orphanTimerRef.current !== null) {
+              clearTimeout(orphanTimerRef.current);
+              orphanTimerRef.current = null;
+            }
+            return;
+          }
+
+          if (activeStreamingBubbleIdRef.current === bubbleId) {
+            activeStreamingBubbleIdRef.current = null;
+          }
+          pendingStreamMessageIdRef.current = null;
+          if (orphanTimerRef.current !== null) {
+            clearTimeout(orphanTimerRef.current);
+            orphanTimerRef.current = null;
+          }
+          return;
+        }
+        let removedEmptyBubble = false;
+        setMessages(prev => {
+          const currentBubble = prev.find((message) => message.id === bubbleId);
+          const bubbleContent = finalDoneReply ?? currentBubble?.content ?? '';
+
+          if (bubbleContent.trim()) {
+            return prev;
+          }
+          removedEmptyBubble = prev.some((message) => message.id === bubbleId);
+          return prev.filter((message) => message.id !== bubbleId);
+        });
+        if (removedEmptyBubble || activeStreamingBubbleIdRef.current === bubbleId) {
+          if (activeStreamingBubbleIdRef.current === bubbleId) {
+            activeStreamingBubbleIdRef.current = null;
+          }
+          pendingStreamMessageIdRef.current = null;
+          if (orphanTimerRef.current !== null) {
+            clearTimeout(orphanTimerRef.current);
+            orphanTimerRef.current = null;
+          }
+        }
         return;
       }
       if (parsed.error === true) {
@@ -402,32 +521,69 @@ export const useChatComposer = ({
       if (dataLine) await processEvent(dataLine.slice(6));
     }
 
-    // Handle orphan bubble (no persisted event arrived)
-    if (pendingStreamMessageIdRef.current === null) {
-      const bubbleIdToHandle = bubbleId;
-      let orphanedBubble: ChatMessageUI | null = null;
-      const orphanExpiryMs = 30_000;
-
+    const bubbleContentForHandoff = finalDoneReply ?? messagesRef.current.find(m => m.id === bubbleId)?.content ?? '';
+    if (persistedMessageId && bubbleContentForHandoff.trim()) {
+      messageIdSetRef.current.add(persistedMessageId);
       setMessages(prev => {
-        const bubble = prev.find(m => m.id === bubbleIdToHandle);
-        if (!bubble || !bubble.content.trim()) return prev;
-        
-        orphanedBubble = {
-          ...bubble,
-          metadata: { ...bubble.metadata, isOrphan: true, orphanExpiryTime: Date.now() + orphanExpiryMs },
-        };
-        return prev.map(m => m.id === bubbleIdToHandle ? orphanedBubble : m);
+        const persistedAlreadyPresent = prev.some(message => message.id === persistedMessageId);
+        if (persistedAlreadyPresent) {
+          return prev.filter(message => message.id !== bubbleId);
+        }
+        return prev.map(message => (
+          message.id === bubbleId
+            ? {
+                ...message,
+                id: String(persistedMessageId), // ensure string
+                content: bubbleContentForHandoff,
+                isLoading: false,
+                metadata: {
+                  ...(message.metadata ?? {}),
+                  source: 'ai',
+                  sourceBubbleId: bubbleId,
+                  __client_id: bubbleId,
+                },
+              }
+            : message
+        ));
       });
-
-      if (orphanedBubble) {
-        if (orphanTimerRef.current) clearTimeout(orphanTimerRef.current);
-        orphanTimerRef.current = setTimeout(() => {
-          setMessages(current => current.filter(m => m.id !== bubbleIdToHandle));
-          orphanTimerRef.current = null;
-        }, orphanExpiryMs);
+      pendingStreamMessageIdRef.current = null;
+      if (activeStreamingBubbleIdRef.current === bubbleId) {
+        activeStreamingBubbleIdRef.current = null;
       }
+      if (orphanTimerRef.current !== null) {
+        clearTimeout(orphanTimerRef.current);
+        orphanTimerRef.current = null;
+      }
+      return;
     }
-  }, [appendStreamingToken, applyIntakeFields, messagesRef, onError, orphanTimerRef, pendingStreamMessageIdRef, removeStreamingBubble, setMessages]);
+
+    if (bubbleContentForHandoff.trim()) {
+      setMessages(prev => prev.map(message => (
+        message.id === bubbleId
+          ? { ...message, content: bubbleContentForHandoff, isLoading: false }
+          : message
+      )));
+      // Clean up streaming refs just like the persisted branch
+      if (activeStreamingBubbleIdRef.current === bubbleId) {
+        activeStreamingBubbleIdRef.current = null;
+      }
+      if (orphanTimerRef.current) {
+        clearTimeout(orphanTimerRef.current);
+        orphanTimerRef.current = null;
+      }
+      pendingStreamMessageIdRef.current = null;
+    } else {
+      setMessages(prev => prev.filter(message => message.id !== bubbleId));
+      if (activeStreamingBubbleIdRef.current === bubbleId) {
+        activeStreamingBubbleIdRef.current = null;
+      }
+      if (orphanTimerRef.current !== null) {
+        clearTimeout(orphanTimerRef.current);
+        orphanTimerRef.current = null;
+      }
+      pendingStreamMessageIdRef.current = null;
+    }
+  }, [appendStreamingToken, applyIntakeFields, applySetupFields, messageIdSetRef, messagesRef, mode, onError, orphanTimerRef, pendingStreamMessageIdRef, removeStreamingBubble, setMessages]);
 
   // ── main send ─────────────────────────────────────────────────────────────
 
@@ -438,8 +594,12 @@ export const useChatComposer = ({
     options?: { additionalContext?: string; mentionedUserIds?: string[]; suppressAi?: boolean }
   ) => {
     try {
-      if (!message.trim()) throw new Error('Message cannot be empty.');
-      
+      // Allow file-only messages — same relaxed precondition as
+      // sendMessageOverWs and the worker route.
+      if (!message.trim() && attachments.length === 0) {
+        throw new Error('Message cannot be empty.');
+      }
+
       const resolvedConversationId = await ensureConversationId();
       if (!resolvedConversationId) throw new Error('conversationId is required');
 
@@ -477,7 +637,9 @@ export const useChatComposer = ({
         !options?.suppressAi && (
           effectiveMode === 'ASK_QUESTION' ||
           effectiveMode === 'REQUEST_CONSULTATION' ||
-          effectiveMode === 'PRACTICE_ONBOARDING'
+          effectiveMode === 'PRACTICE_ONBOARDING' ||
+          (effectiveMode === 'CONVERSATION' &&
+            conversationMetadataRef.current?.intakeConversationState?.enrichmentMode === true)
         );
       const shouldClassifyIntent = effectiveMode === 'ASK_QUESTION';
       const preSendMessages = [...messagesRef.current];
@@ -546,15 +708,23 @@ export const useChatComposer = ({
         const intentPracticeId = resolvedPracticeId;
 
         try {
-          const intentResponse = await fetch('/api/ai/intent', {
-            method: 'POST',
-            headers: withWidgetAuthHeaders({ 'Content-Type': 'application/json' }),
-            credentials: 'include',
-            signal: intentController.signal,
-            body: JSON.stringify({ conversationId: resolvedConversationId, practiceId: resolvedPracticeId, message: trimmedMessage }),
-          });
-          if (intentResponse?.ok) {
-            const intentData = await intentResponse.json() as FirstMessageIntent;
+          let intentData: FirstMessageIntent | null = null;
+          try {
+            const result = await apiClient.post<FirstMessageIntent>(
+              '/api/ai/intent',
+              { conversationId: resolvedConversationId, practiceId: resolvedPracticeId, message: trimmedMessage },
+              { signal: intentController.signal },
+            );
+            intentData = result.data;
+          } catch (apiError) {
+            if (isHttpError(apiError)) {
+              // Non-2xx responses are silently ignored — preserves prior `if (intentResponse?.ok)` behavior.
+              intentData = null;
+            } else {
+              throw apiError;
+            }
+          }
+          if (intentData) {
             if (intentController.signal.aborted) return;
             if (conversationIdRef.current !== intentConversationId || practiceIdRef.current !== intentPracticeId) return;
             if (hasLoggedIntentRef.current) return;
@@ -566,6 +736,10 @@ export const useChatComposer = ({
           if (intentError instanceof Error && intentError.name !== 'AbortError') {
             console.error('[useChatComposer] Intent classification failed:', intentError);
           }
+        } finally {
+          if (intentAbortRef.current === intentController) {
+            intentAbortRef.current = null;
+          }
         }
       }
 
@@ -574,7 +748,7 @@ export const useChatComposer = ({
         ...preSendMessages
           .filter(msg => msg.role === 'user' || msg.role === 'assistant' || (msg.role === 'system' && msg.metadata?.source === 'ai'))
           .filter(msg => !msg.metadata?.error)
-          .filter(msg => !msg.id.startsWith(STREAMING_BUBBLE_PREFIX))
+          .filter(msg => typeof msg.id === 'string' && !msg.id.startsWith(STREAMING_BUBBLE_PREFIX))
           .map(msg => ({ role: msg.role === 'system' ? 'assistant' : msg.role, content: msg.content })),
         { role: 'user' as const, content: trimmedMessage },
       ];
@@ -585,75 +759,79 @@ export const useChatComposer = ({
       const streamRequestId = createClientId();
       const bubbleId = `${STREAMING_BUBBLE_PREFIX}${resolvedConversationId}-${streamRequestId}`;
       addStreamingBubble(bubbleId);
+      activeStreamingBubbleIdRef.current = bubbleId;
 
       abortControllerRef.current?.abort();
       const abortController = new AbortController();
       abortControllerRef.current = abortController;
 
       try {
-        const aiResponse = await fetch('/api/ai/chat', {
-          method: 'POST',
-          headers: withWidgetAuthHeaders({ 'Content-Type': 'application/json', 'Accept': 'text/event-stream' }),
-          credentials: 'include',
-          signal: abortController.signal,
-          body: JSON.stringify({
-            conversationId: resolvedConversationId, practiceId: resolvedPracticeId,
-            ...(resolvedPracticeSlug ? { practiceSlug: resolvedPracticeSlug } : {}),
-            mode: effectiveMode, intakeSubmitted, messages: aiMessages,
-            additionalContext: options?.additionalContext,
-          }),
-        });
-
-        if (!aiResponse.ok) {
-          removeStreamingBubble(bubbleId);
-          const errorData = await aiResponse.json().catch(() => ({})) as {
-            error?: string;
-            errorCode?: string;
-            details?: {
-              userMessage?: string;
-              [key: string]: unknown;
-            } | unknown;
-          };
-          const recoveryMessage =
-            errorData.details && typeof errorData.details === 'object' && !Array.isArray(errorData.details)
-              ? (typeof (errorData.details as { userMessage?: unknown }).userMessage === 'string'
-                  ? (errorData.details as { userMessage: string }).userMessage
-                  : null)
-              : null;
-          console.error('[useChatComposer] /api/ai/chat failed', {
-            status: aiResponse.status,
-            statusText: aiResponse.statusText,
-            payload: errorData,
-            request: {
-              conversationId,
-              resolvedConversationId,
-              practiceId: resolvedPracticeId,
-              practiceSlug: resolvedPracticeSlug || null,
-              mode: effectiveMode,
-              intakeSubmitted,
+        let aiResponse: Response;
+        try {
+          aiResponse = await apiClient.stream('/api/ai/chat', {
+            method: 'POST',
+            headers: { 'Accept': 'text/event-stream' },
+            signal: abortController.signal,
+            body: {
+              conversationId: resolvedConversationId, practiceId: resolvedPracticeId,
+              ...(resolvedPracticeSlug ? { practiceSlug: resolvedPracticeSlug } : {}),
+              mode: effectiveMode, intakeSubmitted, messages: aiMessages,
+              additionalContext: options?.additionalContext,
+              sourceBubbleId: bubbleId,
             },
           });
-          if (recoveryMessage) {
-            setMessages(prev => [...prev, {
-              id: createClientId('system-error'),
-              role: 'system',
-              content: recoveryMessage,
-              isUser: false,
-              timestamp: Date.now(),
-              userId: null,
-              reply_to_message_id: null,
-              metadata: { source: 'system', error: true, errorCode: errorData.errorCode ?? null },
-            }]);
-            return;
+        } catch (apiError) {
+          cleanupStreamingState(bubbleId);
+          if (isHttpError(apiError)) {
+            const errorData = (apiError.response.data ?? {}) as {
+              error?: string;
+              errorCode?: string;
+              details?: {
+                userMessage?: string;
+                [key: string]: unknown;
+              } | unknown;
+            };
+            const recoveryMessage =
+              errorData.details && typeof errorData.details === 'object' && !Array.isArray(errorData.details)
+                ? (typeof (errorData.details as { userMessage?: unknown }).userMessage === 'string'
+                    ? (errorData.details as { userMessage: string }).userMessage
+                    : null)
+                : null;
+            console.error('[useChatComposer] /api/ai/chat failed', {
+              status: apiError.response.status,
+              payload: errorData,
+              request: {
+                conversationId,
+                resolvedConversationId,
+                practiceId: resolvedPracticeId,
+                practiceSlug: resolvedPracticeSlug || null,
+                mode: effectiveMode,
+                intakeSubmitted,
+              },
+            });
+            if (recoveryMessage) {
+              setMessages(prev => [...prev, {
+                id: createClientId('system-error'),
+                role: 'system',
+                content: recoveryMessage,
+                isUser: false,
+                timestamp: Date.now(),
+                userId: null,
+                reply_to_message_id: null,
+                metadata: { source: 'system', error: true, errorCode: errorData.errorCode ?? null },
+              }]);
+              return;
+            }
+            throw new Error(errorData.error || `HTTP ${apiError.response.status}`);
           }
-          throw new Error(errorData.error || `HTTP ${aiResponse.status}`);
+          throw apiError;
         }
 
         const contentType = aiResponse.headers.get('content-type') ?? '';
 
         // JSON fallback (short-circuit replies — legal disclaimer, service list, etc.)
         if (contentType.includes('application/json')) {
-          removeStreamingBubble(bubbleId);
+          cleanupStreamingState(bubbleId);
           const aiData = await aiResponse.json() as {
             reply?: string;
             message?: ConversationMessage;
@@ -663,6 +841,10 @@ export const useChatComposer = ({
           };
           if (aiData.intakeFields) await applyIntakeFields(aiData.intakeFields);
           if (aiData.onboardingFields) {
+            const setupPatch = normalizeSetupFieldsPayload(aiData.onboardingFields);
+            if (mode === 'PRACTICE_ONBOARDING' && Object.keys(setupPatch).length > 0) {
+              await applySetupFields(setupPatch);
+            }
             setMessages(prev => prev.map(msg =>
               msg.id === bubbleId
                 ? { ...msg, metadata: { ...(msg.metadata ?? {}), onboardingFields: aiData.onboardingFields ?? null } }
@@ -676,11 +858,11 @@ export const useChatComposer = ({
                 : msg
             ));
           }
-          // Let WebSocket deliver the persisted message — no local insertion needed
+          // Let the stored message arrive through realtime delivery — no local insertion needed
           if (aiData.message) return;
           const reply = (aiData.reply ?? '').trim();
           if (!reply) throw new Error('AI response missing');
-          if (import.meta.env.DEV) console.warn('[useChatComposer] AI returned reply without persisted message');
+          if (import.meta.env.DEV) console.warn('[useChatComposer] AI returned reply without stored message');
           onError?.('Something went wrong. Please try again.');
           return;
         }
@@ -689,9 +871,19 @@ export const useChatComposer = ({
         await processSSEStream(aiResponse, bubbleId);
 
       } catch (streamError) {
-        if (streamError instanceof Error && streamError.name === 'AbortError') return;
-        removeStreamingBubble(bubbleId);
+        if (streamError instanceof Error && streamError.name === 'AbortError') {
+          cleanupStreamingState(bubbleId);
+          return;
+        }
+        cleanupStreamingState(bubbleId);
         throw streamError;
+      } finally {
+        if (abortControllerRef.current === abortController) {
+          abortControllerRef.current = null;
+        }
+        if (activeStreamingBubbleIdRef.current === bubbleId) {
+          activeStreamingBubbleIdRef.current = null;
+        }
       }
 
     } catch (error) {
@@ -705,9 +897,11 @@ export const useChatComposer = ({
   }, [
     addStreamingBubble,
     applyIntakeFields,
+    applySetupFields,
     conversationId,
     conversationMetadataRef,
     conversationIdRef,
+    cleanupStreamingState,
     ensureConversationId,
     messagesRef,
     mode,
@@ -715,7 +909,6 @@ export const useChatComposer = ({
     practiceId,
     practiceSlug,
     processSSEStream,
-    removeStreamingBubble,
     sendMessageOverWs,
     setMessages,
     fetchConversationMetadata,
@@ -729,21 +922,24 @@ export const useChatComposer = ({
     intentAbortRef.current?.abort();
   }, []);
 
+  useEffect(() => {
+    if (enabled) return;
+    abortActiveRequests();
+  }, [abortActiveRequests, enabled]);
+
   // Cleanup on unmount
   useEffect(() => {
     isMountedRef.current = true;
     const currentPendingAck = pendingAckRef.current;
     return () => {
       isMountedRef.current = false;
-      abortControllerRef.current?.abort();
-      intentAbortRef.current?.abort();
-      if (orphanTimerRef.current) clearTimeout(orphanTimerRef.current);
+      abortActiveRequests();
       currentPendingAck.forEach(item => {
         clearTimeout(item.timer);
       });
       currentPendingAck.clear();
     };
-  }, [orphanTimerRef, pendingAckRef]);
+  }, [abortActiveRequests, pendingAckRef]);
 
   return {
     sendMessage,

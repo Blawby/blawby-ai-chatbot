@@ -17,7 +17,7 @@ export const ListPanelHeader = ({
   className
 }: ListPanelHeaderProps) => {
   return (
-    <header className={cn('workspace-header border-b border-line-glass/30', className)}>
+    <header className={cn('workspace-header', className)}>
       {leftControl ? <div className="workspace-header__icon">{leftControl}</div> : null}
       <div className="workspace-header__identity">
         <h2 className="workspace-header__title">{title}</h2>

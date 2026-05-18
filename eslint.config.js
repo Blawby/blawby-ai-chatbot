@@ -5,6 +5,12 @@ import typescriptParser from '@typescript-eslint/parser';
 import react from 'eslint-plugin-react';
 import reactHooks from 'eslint-plugin-react-hooks';
 import jsxA11y from 'eslint-plugin-jsx-a11y';
+import { createRequire } from 'module';
+
+const require = createRequire(import.meta.url);
+const loadingConsistency = require('./config/eslint-rules/loading-consistency.cjs');
+const noInlineContextValue = require('./config/eslint-rules/no-inline-context-value.cjs');
+const noFixedInWidgetInterior = require('./config/eslint-rules/no-fixed-in-widget-interior.cjs');
 
 export default [
   // Base JavaScript configuration
@@ -17,8 +23,7 @@ export default [
       'node_modules/**',
       'worker/node_modules/**',
       'coverage/**',
-      'playwright/results/**',
-      'playwright/reports/**',
+      '.tmp/playwright/**',
       'test-logs-*/**',
       '*.min.js',
       '*.bundle.js',
@@ -77,20 +82,45 @@ export default [
       '@typescript-eslint': typescript,
       react: fixupPluginRules(react),
       'react-hooks': fixupPluginRules(reactHooks),
-      'jsx-a11y': fixupPluginRules(jsxA11y)
+      'jsx-a11y': fixupPluginRules(jsxA11y),
+      custom: {
+        rules: {
+          'loading-consistency': loadingConsistency,
+          'no-inline-context-value': noInlineContextValue,
+          'no-fixed-in-widget-interior': noFixedInWidgetInterior,
+          'no-hardcoded-colors': {
+            create(context) {
+              const COLORS_REGEX = /text-white|text-black|bg-white|bg-black|\b(gray|zinc|neutral|stone|blue|indigo|purple|slate)-/;
+              const MESSAGE = 'Prefer system tokens (surface-*, input-*, or accent-*) over hardcoded colors to ensure proper theme inversion.';
+              return {
+                'JSXAttribute[name.name="className"] Literal': (node) => {
+                  if (typeof node.value === 'string' && COLORS_REGEX.test(node.value)) {
+                    context.report({ node, message: MESSAGE });
+                  }
+                },
+                'JSXAttribute[name.name="className"] TemplateElement': (node) => {
+                  if (node.value.raw && COLORS_REGEX.test(node.value.raw)) {
+                    context.report({ node, message: MESSAGE });
+                  }
+                }
+              };
+            }
+          }
+        },
+      },
     },
     rules: {
       // TypeScript rules
       ...typescript.configs.recommended.rules,
       'no-undef': 'off', // Let TypeScript compiler handle DOM/ambient types
-      '@typescript-eslint/no-unused-vars': ['warn', { 
+      '@typescript-eslint/no-unused-vars': ['error', { 
         argsIgnorePattern: '^_', 
         varsIgnorePattern: '^_', 
         caughtErrorsIgnorePattern: '^_',
         ignoreRestSiblings: true 
       }],
       '@typescript-eslint/no-explicit-any': 'error', // Enforce no explicit any
-      '@typescript-eslint/no-non-null-assertion': 'warn', // TODO: consider stricter null safety later
+      '@typescript-eslint/no-non-null-assertion': 'error',
 
       // React/JSX + hooks + a11y
       ...react.configs.recommended.rules,
@@ -100,8 +130,8 @@ export default [
       'jsx-a11y/click-events-have-key-events': 'error',
       'jsx-a11y/no-static-element-interactions': 'error',
       'jsx-a11y/media-has-caption': 'error',
-      'jsx-a11y/no-autofocus': 'warn',
-      'jsx-a11y/role-supports-aria-props': 'warn',
+      'jsx-a11y/no-autofocus': 'error',
+      'jsx-a11y/role-supports-aria-props': 'error',
       'jsx-a11y/no-noninteractive-element-to-interactive-role': 'error',
       'react/jsx-uses-react': 'off',
       'react/react-in-jsx-scope': 'off',
@@ -109,10 +139,10 @@ export default [
       'react/jsx-key': 'error',
       'react/jsx-no-duplicate-props': 'error',
       'react/jsx-no-undef': 'error',
-      'react/no-unknown-property': 'warn', // Allow class instead of className in some cases
-      'react/self-closing-comp': 'warn',
+      'react/no-unknown-property': 'error',
+      'react/self-closing-comp': 'error',
       'react-hooks/rules-of-hooks': 'error', // Keep this as error for safety
-      'react-hooks/exhaustive-deps': 'warn', // TODO: consider error once deps are stabilized
+      'react-hooks/exhaustive-deps': 'error',
 
       // General best practices
       'no-console': 'off', // Allow console in development
@@ -122,17 +152,72 @@ export default [
       'no-var': 'error',
       'object-shorthand': 'error',
       'prefer-template': 'error',
+
+      // Custom loading consistency rule
+      'custom/loading-consistency': 'error',
+      'custom/no-inline-context-value': 'error',
+      'custom/no-hardcoded-colors': 'error',
+
+      // Import guardrails: ban barrel import, namespace imports of icon/motion libs,
+      // and the deleted/migrated ad-hoc store modules.
+      'no-restricted-imports': [
+        'error',
+        {
+          paths: [
+            {
+              name: '@/shared/ui',
+              message: 'Import from the specific path (e.g. @/shared/ui/Button) instead of the barrel.'
+            },
+            {
+              name: '@/shared/stores/clientsStore',
+              message: 'Removed in β. Use useQuery / queryCache instead.'
+            },
+            {
+              name: '@/shared/stores/mattersStore',
+              message: 'Removed in β. Use useQuery / queryCache instead.'
+            },
+            {
+              name: '@/shared/stores/practiceTeamStore',
+              message: 'Removed in β. Use usePracticeTeam (which goes through queryCache).'
+            }
+          ],
+          patterns: [
+            {
+              group: ['@heroicons/react/*/index', '@heroicons/react/index'],
+              message: 'Import individual icons by path (e.g. @heroicons/react/24/outline/CheckIcon).'
+            }
+          ]
+        }
+      ],
+
+      // Project guardrails
       'no-restricted-syntax': [
         'error',
         {
-          selector: "JSXAttribute[name.name='href'] Literal[value=/^\\u002f/]",
-          message: 'Use Link or navigate() for internal routes; <a href> should be external or full reload only.'
+          selector: 'a[href^="/"]',
+          message: 'Use Link or navigate()/location.route() for in-app routes instead of internal <a href="/..."> anchors'
         },
         {
-          selector: "Literal[value=/\\b(?:bg|text|border)-blue-(?:400|500|600|700)\\b/]",
-          message: 'Use accent/button/nav tokens instead of hardcoded blue utility classes.'
+          selector: 'ImportDeclaration[source.value=/LoadingIndicator/]',
+          message: 'Import LoadingIndicator from shared/ui/layout instead of local definitions'
+        },
+        {
+          selector: 'ClassDeclaration[id=/LoadingSpinner|LoadingBlock|LoadingScreen|SkeletonLoader/]',
+          message: 'Use shared loading components from shared/ui/layout instead of redeclaring'
+        },
+        {
+          selector: 'JSXAttribute[name.name="className"] > Literal[value=/animate-spin/]',
+          message: 'Use LoadingSpinner component instead of inline animate-spin classes'
+        },
+        {
+          selector: 'TSTypeAliasDeclaration[id.name=/^Backend/]',
+          message: 'Backend wire types live in worker/types/wire/ — import from @/shared/types/wire instead of redeclaring inline.'
+        },
+        {
+          selector: 'TSInterfaceDeclaration[id.name=/^Backend/]',
+          message: 'Backend wire types live in worker/types/wire/ — import from @/shared/types/wire instead of redeclaring inline.'
         }
-      ]
+      ],
     },
     settings: {
       react: {
@@ -140,6 +225,16 @@ export default [
         pragma: 'h'
       }
     }
+  },
+
+  // Widget interior — overlays must portal via WidgetOverlayRoot.
+  // Scope is intentionally narrow to widget-exclusive directories;
+  // chat/pages and chat/components are dual-use under AppShell.
+  {
+    files: ['src/features/chat/views/**/*.{ts,tsx}', 'src/features/intake/**/*.{ts,tsx}'],
+    rules: {
+      'custom/no-fixed-in-widget-interior': 'error',
+    },
   },
 
   // Worker files (Cloudflare Workers runtime)
@@ -150,6 +245,7 @@ export default [
       parserOptions: { ecmaVersion: 'latest', sourceType: 'module' },
       globals: {
         Request: 'readonly',
+        RequestInit: 'readonly',
         Response: 'readonly',
         Headers: 'readonly',
         URL: 'readonly',
@@ -176,17 +272,20 @@ export default [
         TextDecoder: 'readonly',
         AbortController: 'readonly',
         AbortSignal: 'readonly',
+        RequestInit: 'readonly',
         Buffer: 'readonly',
+        process: 'readonly',
         ReadableStreamDefaultController: 'readonly',
         ExecutionContext: 'readonly', // TODO: validate Worker typing approach
         MessageBatch: 'readonly',
-        BodyInit: 'readonly'
+        BodyInit: 'readonly',
+        process: 'readonly' // guarded by typeof checks; used by validateWire in Node test contexts
       }
     },
     plugins: { '@typescript-eslint': typescript },
     rules: {
       ...typescript.configs.recommended.rules,
-      '@typescript-eslint/no-unused-vars': ['warn', { 
+      '@typescript-eslint/no-unused-vars': ['error', { 
         argsIgnorePattern: '^_', 
         varsIgnorePattern: '^_', 
         caughtErrorsIgnorePattern: '^_',
@@ -194,7 +293,27 @@ export default [
       }],
       '@typescript-eslint/no-explicit-any': 'error', // Enforce no explicit any
       'no-console': 'off', // keep console logging for Workers (debugging/forensics)
-      'no-unused-vars': 'off'
+      'no-unused-vars': 'off',
+      'no-restricted-syntax': [
+        'error',
+        {
+          selector: 'TSTypeAliasDeclaration[id.name=/^Backend/]',
+          message: 'Backend wire types live in worker/types/wire/ — declare there, not inline.'
+        },
+        {
+          selector: 'TSInterfaceDeclaration[id.name=/^Backend/]',
+          message: 'Backend wire types live in worker/types/wire/ — declare there, not inline.'
+        }
+      ]
+    }
+  },
+
+  // Worker wire types — canonical home for Backend* declarations.
+  // Inherits the worker block's parser/globals; only override the rule that bans them.
+  {
+    files: ['worker/types/wire/**/*.{ts,js}'],
+    rules: {
+      'no-restricted-syntax': 'off'
     }
   },
 
@@ -222,7 +341,7 @@ export default [
     plugins: { '@typescript-eslint': typescript },
     rules: {
       ...typescript.configs.recommended.rules,
-      '@typescript-eslint/no-unused-vars': ['warn', { 
+      '@typescript-eslint/no-unused-vars': ['error', { 
         argsIgnorePattern: '^_', 
         varsIgnorePattern: '^_', 
         caughtErrorsIgnorePattern: '^_',
@@ -253,7 +372,7 @@ export default [
     plugins: { '@typescript-eslint': typescript },
     rules: {
       ...typescript.configs.recommended.rules,
-      '@typescript-eslint/no-unused-vars': ['warn', { 
+      '@typescript-eslint/no-unused-vars': ['error', { 
         argsIgnorePattern: '^_', 
         varsIgnorePattern: '^_', 
         caughtErrorsIgnorePattern: '^_',
@@ -321,7 +440,7 @@ export default [
     },
     rules: {
       ...typescript.configs.recommended.rules,
-      '@typescript-eslint/no-unused-vars': ['warn', { 
+      '@typescript-eslint/no-unused-vars': ['error', { 
         argsIgnorePattern: '^_', 
         varsIgnorePattern: '^_', 
         caughtErrorsIgnorePattern: '^_',
@@ -412,7 +531,7 @@ export default [
     },
     rules: {
       ...typescript.configs.recommended.rules,
-      '@typescript-eslint/no-unused-vars': ['warn', { 
+      '@typescript-eslint/no-unused-vars': ['error', { 
         argsIgnorePattern: '^_', 
         varsIgnorePattern: '^_', 
         caughtErrorsIgnorePattern: '^_',
@@ -470,7 +589,7 @@ export default [
     },
     rules: {
       ...typescript.configs.recommended.rules,
-      '@typescript-eslint/no-unused-vars': ['warn', { 
+      '@typescript-eslint/no-unused-vars': ['error', { 
         argsIgnorePattern: '^_', 
         varsIgnorePattern: '^_', 
         caughtErrorsIgnorePattern: '^_',

@@ -1,7 +1,8 @@
 import { useMemo, useState } from 'preact/hooks';
-import { EllipsisVerticalIcon, PencilIcon, PlusIcon, TrashIcon } from '@heroicons/react/24/outline';
+import { MoreVertical, Pencil, Plus, Trash2 } from 'lucide-preact';
+
 import { Icon } from '@/shared/ui/Icon';
-import Modal from '@/shared/components/Modal';
+import { Dialog, DialogBody, DialogFooter } from '@/shared/ui/dialog';
 import { Button } from '@/shared/ui/Button';
 import {
   DropdownMenu,
@@ -11,6 +12,7 @@ import {
 } from '@/shared/ui/dropdown';
 import { Combobox } from '@/shared/ui/input/Combobox';
 import { Input } from '@/shared/ui/input/Input';
+import { ListRowSkeleton, PanelSectionHeader, PanelEmptyState, InteractiveListItem } from '@/shared/ui/layout';
 import type { MatterOption, MatterTask } from '@/features/matters/data/matterTypes';
 import { formatDateOnlyUtc } from '@/shared/utils/dateOnly';
 import { toTaskStageOptions } from '@/features/matters/utils/matterUtils';
@@ -44,7 +46,7 @@ const STATUS_STYLES: Record<MatterTask['status'], string> = {
   pending: 'text-amber-800 bg-amber-50 ring-amber-600/20',
   in_progress: 'text-blue-800 bg-blue-50 ring-blue-600/20',
   completed: 'text-emerald-700 bg-emerald-50 ring-emerald-600/20',
-  blocked: 'text-red-800 bg-red-50 ring-red-600/20'
+  blocked: 'text-rose-800 bg-rose-50 ring-rose-600/20'
 };
 
 interface MatterTasksPanelProps {
@@ -165,30 +167,24 @@ export const MatterTasksPanel = ({
   };
 
   return (
-    <section className="glass-panel">
-      <header className="flex flex-wrap items-center justify-between gap-3 border-b border-line-glass/30 px-6 py-4">
-        <div>
-          <h3 className="text-sm font-semibold text-input-text">Tasks</h3>
-          <p className="text-xs text-gray-500 dark:text-gray-400">
-            {readOnly ? 'Review matter work items.' : 'Plan and track matter work items.'}
-          </p>
-        </div>
-        {canCreateTask ? (
-          <div className="flex items-center gap-2">
-            <Button size="sm" icon={PlusIcon} iconClassName="h-4 w-4" onClick={openCreate}>
-              Add task
-            </Button>
-          </div>
+    <section className="panel">
+      <PanelSectionHeader
+        title="Tasks"
+        subtitle={readOnly ? 'Review matter work items.' : 'Plan and track matter work items.'}
+        actions={canCreateTask ? (
+          <Button size="sm" icon={Plus} iconClassName="h-4 w-4" onClick={openCreate}>
+            Add task
+          </Button>
         ) : null}
-      </header>
+      />
 
       {error ? <div className="px-6 py-4 text-sm text-red-600 dark:text-red-400">{error}</div> : null}
       {requestError ? <div className="px-6 py-4 text-sm text-red-600 dark:text-red-400">{requestError}</div> : null}
 
-      {loading ? (
-        <div className="px-6 py-6 text-sm text-gray-500 dark:text-gray-400">Loading tasks...</div>
+      {loading && tasks.length === 0 ? (
+        <ListRowSkeleton rows={4} avatar={false} className="divide-y divide-line-default" />
       ) : tasks.length === 0 ? (
-        <div className="px-6 py-6 text-sm text-gray-500 dark:text-gray-400">No tasks yet.</div>
+        <PanelEmptyState message="No tasks yet." />
       ) : (
         <ul className="divide-y divide-line-default">
           {tasks.map((task) => {
@@ -201,17 +197,15 @@ export const MatterTasksPanel = ({
               return stageOptions;
             })();
             return (
-              <li key={task.id} className="px-4 py-4">
-                <div className="flex flex-wrap items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    {!canUpdateTask ? (
-                      <p className="text-sm font-semibold text-input-text">{task.name}</p>
-                    ) : (
-                      <button type="button" onClick={() => openEdit(task)} className="text-left">
-                        <p className="text-sm font-semibold text-input-text">{task.name}</p>
-                      </button>
-                    )}
-                    <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
+              <InteractiveListItem
+                key={task.id}
+                onClick={() => openEdit(task)}
+                disabled={!canUpdateTask}
+                padding="px-4 py-4"
+              >
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-semibold text-input-text">{task.name}</p>
+                    <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-input-placeholder">
                       <span className={[STATUS_STYLES[task.status], 'rounded-md px-2 py-0.5 font-medium ring-1 ring-inset'].join(' ')}>{task.status}</span>
                       <span>Priority: {task.priority}</span>
                       <span>Stage: {task.stage}</span>
@@ -284,7 +278,7 @@ export const MatterTasksPanel = ({
                             variant="ghost"
                             size="sm"
                             aria-label="Open task actions"
-                            icon={EllipsisVerticalIcon} iconClassName="h-4 w-4"
+                            icon={MoreVertical} iconClassName="h-4 w-4"
                           />
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end" className="w-32">
@@ -292,7 +286,7 @@ export const MatterTasksPanel = ({
                             {canUpdateTask ? (
                               <DropdownMenuItem onSelect={() => openEdit(task)}>
                                 <span className="flex items-center gap-2">
-                                  <Icon icon={PencilIcon} className="h-4 w-4"  />
+                                  <Icon icon={Pencil} className="h-4 w-4"  />
                                   Edit
                                 </span>
                               </DropdownMenuItem>
@@ -300,7 +294,7 @@ export const MatterTasksPanel = ({
                             {canDeleteTask ? (
                               <DropdownMenuItem onSelect={() => setDeleteTarget(task)}>
                                 <span className="flex items-center gap-2 text-red-600 dark:text-red-400">
-                                  <Icon icon={TrashIcon} className="h-4 w-4"  />
+                                  <Icon icon={Trash2} className="h-4 w-4"  />
                                   Delete
                                 </span>
                               </DropdownMenuItem>
@@ -310,59 +304,60 @@ export const MatterTasksPanel = ({
                       </DropdownMenu>
                     </div>
                   ) : null}
-                </div>
-              </li>
+              </InteractiveListItem>
             );
           })}
         </ul>
       )}
 
       {!readOnly && isFormOpen ? (
-        <Modal
+        <Dialog
           isOpen={isFormOpen}
           onClose={closeForm}
           title={editingTask ? 'Edit task' : 'Add task'}
           contentClassName="max-w-2xl"
         >
-          <MatterTaskForm
-            key={editingTask?.id ?? 'new-task'}
-            initialTask={editingTask}
-            assignees={assignees}
-            stageOptions={stageOptions}
-            saving={isSaving}
-            error={requestError}
-            onSubmit={submitForm}
-            onCancel={closeForm}
-            onDelete={editingTask && canDeleteTask ? async () => {
-              setDeleteTarget(editingTask);
-              setIsFormOpen(false);
-            } : undefined}
-          />
-        </Modal>
+          <DialogBody>
+            <MatterTaskForm
+              key={editingTask?.id ?? 'new-task'}
+              initialTask={editingTask}
+              assignees={assignees}
+              stageOptions={stageOptions}
+              saving={isSaving}
+              error={requestError}
+              onSubmit={submitForm}
+              onCancel={closeForm}
+              onDelete={editingTask && canDeleteTask ? async () => {
+                setDeleteTarget(editingTask);
+                setIsFormOpen(false);
+              } : undefined}
+            />
+          </DialogBody>
+        </Dialog>
       ) : null}
 
       {canDeleteTask && deleteTarget ? (
-        <Modal
+        <Dialog
           isOpen={Boolean(deleteTarget)}
           onClose={() => setDeleteTarget(null)}
           title="Delete task"
           contentClassName="max-w-xl"
         >
-          <div className="space-y-4">
-            <p className="text-sm text-gray-600 dark:text-gray-300">
+          <DialogBody className="space-y-4">
+            <p className="text-sm text-input-text opacity-80">
               Are you sure you want to delete this task? This action cannot be undone.
             </p>
             {requestError ? <p className="text-sm text-red-600 dark:text-red-400">{requestError}</p> : null}
-            <div className="flex items-center justify-end gap-3">
-              <Button variant="secondary" onClick={() => setDeleteTarget(null)} disabled={isSaving}>
-                Cancel
-              </Button>
-              <Button variant="danger" onClick={() => void handleDelete()} disabled={isSaving}>
-                {isSaving ? 'Deleting...' : 'Delete task'}
-              </Button>
-            </div>
-          </div>
-        </Modal>
+          </DialogBody>
+          <DialogFooter>
+            <Button variant="secondary" onClick={() => setDeleteTarget(null)} disabled={isSaving}>
+              Cancel
+            </Button>
+            <Button variant="danger" onClick={() => void handleDelete()} disabled={isSaving}>
+              {isSaving ? 'Deleting...' : 'Delete task'}
+            </Button>
+          </DialogFooter>
+        </Dialog>
       ) : null}
 
     </section>

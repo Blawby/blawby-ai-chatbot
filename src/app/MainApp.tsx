@@ -1,66 +1,67 @@
 import { useState, useCallback, useRef, useEffect, useMemo } from 'preact/hooks';
 import type { ComponentChildren } from 'preact';
+import { useLocation } from 'preact-iso';
 import ChatContainer from '@/features/chat/components/ChatContainer';
 import DragDropOverlay from '@/shared/ui/DragDropOverlay';
+import { Avatar } from '@/shared/ui/profile/atoms/Avatar';
 import WorkspacePage from '@/features/chat/pages/WorkspacePage';
-import { useSessionContext } from '@/shared/contexts/SessionContext';
+import { useSessionContext, useMemberRoleContext } from '@/shared/contexts/SessionContext';
 import { RoutePracticeProvider } from '@/shared/contexts/RoutePracticeContext';
+import { IntakeProvider } from '@/shared/contexts/IntakeContext';
+import { PresenceProvider } from '@/shared/contexts/PresenceContext';
 import type { UIPracticeConfig } from '@/shared/hooks/usePracticeConfig';
 import type { WorkspaceType } from '@/shared/types/workspace';
 import { useMessageHandling } from '@/shared/hooks/useMessageHandling';
-import { useFileUploadWithContext } from '@/shared/hooks/useFileUpload';
 import { useConversationSetup } from '@/shared/hooks/useConversationSetup';
 import { useWorkspaceRouting } from '@/shared/hooks/useWorkspaceRouting';
+import { useFileUpload } from '@/shared/hooks/useFileUpload';
 import { setupGlobalKeyboardListeners } from '@/shared/utils/keyboard';
 import type { FileAttachment } from '../../worker/types';
 import { useNavigation } from '@/shared/utils/navigation';
-import WelcomeModal from '@/features/modals/components/WelcomeModal';
-import { useWelcomeModal } from '@/features/modals/hooks/useWelcomeModal';
-import { getPreferencesCategory, updatePreferencesCategory } from '@/shared/lib/preferencesApi';
-import type { OnboardingPreferences } from '@/shared/types/preferences';
-import { BusinessWelcomePrompt } from '@/features/onboarding/components/BusinessWelcomePrompt';
+import WelcomeDialog from '@/features/modals/components/WelcomeDialog';
+import { useWelcomeDialog } from '@/features/modals/hooks/useWelcomeDialog';
 import { SessionNotReadyError } from '@/shared/types/errors';
 import { useToastContext } from '@/shared/contexts/ToastContext';
 import { clearPendingPracticeInviteLink, readPendingPracticeInviteLink } from '@/shared/utils/practiceInvites';
 import { usePracticeManagement } from '@/shared/hooks/usePracticeManagement';
 import { usePracticeDetails } from '@/shared/hooks/usePracticeDetails';
-import type { ConversationMetadata, ConversationMode } from '@/shared/types/conversation';
-import { lazy, Suspense } from 'preact/compat';
+import type { ConversationMode } from '@/shared/types/conversation';
+import { lazy } from 'preact/compat';
+import { Plus, Mail, Phone, Briefcase } from 'lucide-preact';
 const PracticeMattersPage = lazy(() => import('@/features/matters/pages/PracticeMattersPage').then(m => ({ default: m.PracticeMattersPage })));
-const PracticeClientsPage = lazy(() => import('@/features/clients/pages/PracticeClientsPage').then(m => ({ default: m.PracticeClientsPage })));
+const PracticeContactsPage = lazy(() => import('@/features/clients/pages/PracticeContactsPage').then(m => ({ default: m.PracticeContactsPage })));
 const ClientMattersPage = lazy(() => import('@/features/matters/pages/ClientMattersPage').then(m => ({ default: m.ClientMattersPage })));
 const PracticeInvoicesPage = lazy(() => import('@/features/invoices/pages/PracticeInvoicesPage').then(m => ({ default: m.PracticeInvoicesPage })));
-const PracticeInvoiceCreatePage = lazy(() => import('@/features/invoices/pages/PracticeInvoiceCreatePage').then(m => ({ default: m.PracticeInvoiceCreatePage })));
 const PracticeInvoiceDetailPage = lazy(() => import('@/features/invoices/pages/PracticeInvoiceDetailPage').then(m => ({ default: m.PracticeInvoiceDetailPage })));
 const ClientInvoicesPage = lazy(() => import('@/features/invoices/pages/ClientInvoicesPage').then(m => ({ default: m.ClientInvoicesPage })));
 const ClientInvoiceDetailPage = lazy(() => import('@/features/invoices/pages/ClientInvoiceDetailPage').then(m => ({ default: m.ClientInvoiceDetailPage })));
 const PracticeReportsPage = lazy(() => import('@/features/reports/pages/PracticeReportsPage').then(m => ({ default: m.PracticeReportsPage })));
+const IntakesPage = lazy(() => import('@/features/intake/pages/IntakesPage').then(m => ({ default: m.IntakesPage })));
+const ClientIntakesView = lazy(() => import('@/features/intake/pages/ClientIntakesView').then(m => ({ default: m.ClientIntakesView })));
+const EngagementsPage = lazy(() => import('@/features/engagements/pages/EngagementsPage').then(m => ({ default: m.EngagementsPage })));
+const PracticeFilesPage = lazy(() => import('@/features/files/pages/PracticeFilesPage').then(m => ({ default: m.PracticeFilesPage })));
+const ClientFilesPage = lazy(() => import('@/features/files/pages/ClientFilesPage').then(m => ({ default: m.ClientFilesPage })));
 import { useConversationSystemMessages } from '@/shared/hooks/useConversationSystemMessages';
 import { initializeAccentColor } from '@/shared/utils/accentColors';
-import { getConversationParticipants, linkConversationToUser } from '@/shared/lib/apiClient';
+import { useMentionCandidates } from '@/shared/hooks/useMentionCandidates';
 import { resolveConsultationState } from '@/shared/utils/consultationState';
-import {
-  peekAnonymousSessionId,
-  peekAnonymousUserId,
-  peekConversationAnonymousParticipant,
-  consumePostAuthConversationContext,
-  peekPostAuthConversationContext,
-} from '@/shared/utils/anonymousIdentity';
 import type { SettingsView } from '@/features/settings/pages/SettingsContent';
-import { InformationCircleIcon } from '@heroicons/react/24/outline';
-import { PlusIcon } from '@heroicons/react/24/solid';
 import { Button } from '@/shared/ui/Button';
 import { Icon } from '@/shared/ui/Icon';
 import { shouldShowWorkspaceDetailBack } from '@/shared/utils/workspaceDetailNavigation';
-import { resolveConversationDisplayTitle } from '@/shared/utils/conversationDisplay';
+import {
+  resolveConversationContactName,
+  resolveConversationDisplayTitle,
+  resolveConversationPresence,
+} from '@/shared/utils/conversationDisplay';
 import { DetailHeader } from '@/shared/ui/layout/DetailHeader';
-import { LoadingBlock } from '@/shared/ui/layout/LoadingBlock';
-import { resolveStrengthStyle, resolveStrengthTier } from '@/shared/utils/intakeStrength';
-import { formatRelativeTime } from '@/features/matters/utils/formatRelativeTime';
+import { LazyRouteBoundary } from '@/shared/ui/layout/LazyRouteBoundary';
+import { features } from '@/config/features';
 
 // ─── types ────────────────────────────────────────────────────────────────────
 
-type WorkspaceView = 'home' | 'setup' | 'list' | 'conversation' | 'matters' | 'clients' | 'invoices' | 'invoiceCreate' | 'invoiceDetail' | 'reports' | 'settings';
+import type { WorkspaceView } from '@/shared/utils/workspaceShell';
+export type { WorkspaceView };
 
 /**
  * LayoutMode controls how ChatContainer renders its shell.
@@ -69,8 +70,6 @@ type WorkspaceView = 'home' | 'setup' | 'list' | 'conversation' | 'matters' | 'c
  * - 'widget'  – embedded in 3rd-party site via iframe (?v=widget)
  */
 export type LayoutMode = 'widget' | 'mobile' | 'desktop';
-
-const WorkspaceSubviewFallback = () => <LoadingBlock className="p-6" />;
 
 // ─── component ────────────────────────────────────────────────────────────────
 
@@ -82,8 +81,11 @@ export function MainApp({
   chatContent,
   routeConversationId,
   routeInvoiceId,
+  routeReportDeliveryId,
+  routeIntakeId: _routeIntakeId,
   routeSettingsView,
   routeSettingsAppId,
+  routeSettingsIntakeTemplateSlug,
   publicPracticeSlug,
   workspaceView,
   clientPracticeSlug,
@@ -97,8 +99,11 @@ export function MainApp({
   chatContent?: ComponentChildren;
   routeConversationId?: string;
   routeInvoiceId?: string;
+  routeReportDeliveryId?: string;
+  routeIntakeId?: string;
   routeSettingsView?: SettingsView;
   routeSettingsAppId?: string;
+  routeSettingsIntakeTemplateSlug?: string;
   publicPracticeSlug?: string;
   workspaceView?: WorkspaceView;
   clientPracticeSlug?: string;
@@ -107,14 +112,10 @@ export function MainApp({
 }) {
   // ── UI state ───────────────────────────────────────────────────────────────
   const [clearInputTrigger, setClearInputTrigger] = useState(0);
-  const [isRecording, setIsRecording] = useState(false);
-  const [showBusinessWelcome, setShowBusinessWelcome] = useState(false);
-  const [conversationMode, setConversationMode] = useState<ConversationMode | null>(null);
-  const [dismissedIntakeAuthFor, setDismissedIntakeAuthFor] = useState<string | null>(null);
   const [isPaymentAuthPromptOpen, setIsPaymentAuthPromptOpen] = useState(false);
-  const preAuthUserIdRef = useRef<string | null>(null);
 
   const { navigate } = useNavigation();
+  const location = useLocation();
   const { showError, showInfo } = useToastContext();
   const showErrorRef = useRef(showError);
   useEffect(() => { showErrorRef.current = showError; }, [showError]);
@@ -130,9 +131,10 @@ export function MainApp({
   });
 
   // ── workspace routing — single source of truth ────────────────────────────
-  const { session, isPending: sessionIsPending, isAnonymous, activeMemberRole, routingClaims } = useSessionContext();
+  const { session, isPending: sessionIsPending, isAnonymous } = useSessionContext();
+  const { activeMemberRole } = useMemberRoleContext();
 
-  // ── practice details (accent color, description) ──────────────────────────
+  // ── practice details (accent color) ───────────────────────────────────────
   // For the public workspace, prefer practiceConfig.id (UUID) as the store key.
   // usePracticeConfig already seeds practiceDetailsStore under both the slug AND
   // the UUID (see usePracticeConfig lines 151-155), so using the UUID here gives
@@ -175,16 +177,13 @@ export function MainApp({
     resolvedClientPracticeSlug,
     resolvedPracticeName,
     resolvedPracticeLogo,
-    resolvedPracticeDescription: fullDescription,
     resolvedAccentColor: fullAccentColor,
     normalizedRouteConversationId,
     conversationsBasePath,
     conversationBackPath,
     practiceMattersPath,
-    practiceClientsPath,
-    conversationResetKey,
+    practiceContactsPath,
     layoutMode,
-    canReviewLeads,
   } = useWorkspaceRouting({
     practiceId,
     practiceConfig,
@@ -198,7 +197,6 @@ export function MainApp({
     practiceDetails,
     activeMemberRole,
     session,
-    routing: routingClaims,
   });
   const clientMattersPath = useMemo(() => {
     if (!isClientWorkspace) return null;
@@ -212,15 +210,32 @@ export function MainApp({
     if (!slug) return null;
     return `/practice/${encodeURIComponent(slug)}/invoices`;
   }, [isPracticeWorkspace, resolvedPracticeSlug]);
+  const practiceIntakesPath = useMemo(() => {
+    if (!isPracticeWorkspace) return null;
+    const slug = resolvedPracticeSlug;
+    if (!slug) return null;
+    return `/practice/${encodeURIComponent(slug)}/intakes`;
+  }, [isPracticeWorkspace, resolvedPracticeSlug]);
+  const clientIntakesPath = useMemo(() => {
+    if (!isClientWorkspace) return null;
+    const slug = clientPracticeSlug ?? resolvedClientPracticeSlug;
+    if (!slug) return null;
+    return `/client/${encodeURIComponent(slug)}/intakes`;
+  }, [clientPracticeSlug, isClientWorkspace, resolvedClientPracticeSlug]);
+
+  const practiceEngagementsPath = useMemo(() => {
+    if (!isPracticeWorkspace) return null;
+    const slug = resolvedPracticeSlug;
+    if (!slug) return null;
+    return `/practice/${encodeURIComponent(slug)}/engagements`;
+  }, [isPracticeWorkspace, resolvedPracticeSlug]);
+
+  const isAuthenticatedWorkspace = isPracticeWorkspace || isClientWorkspace;
+  const returnToPath = location.url.startsWith('/') ? location.url : `/${location.url.replace(/^\/+/, '')}`;
 
   useEffect(() => {
     initializeAccentColor(fullAccentColor);
   }, [fullAccentColor]);
-
-  // ── reset conversation when practice context changes ───────────────────────
-  useEffect(() => {
-    setConversationMode(null);
-  }, [conversationResetKey]);
 
   const handleSetupError = useCallback((msg: string) => {
     showErrorRef.current?.(msg);
@@ -229,8 +244,9 @@ export function MainApp({
   // ── conversation setup ─────────────────────────────────────────────────────
   const {
     conversationId: setupConversationId,
-    setConversationId,
+    setConversationId: _setConversationId,
     isCreatingConversation,
+    createConversation,
     ensureConversation,
     applyConversationMode,
   } = useConversationSetup({
@@ -241,205 +257,111 @@ export function MainApp({
     sessionIsPending,
     isPracticeWorkspace,
     isPublicWorkspace,
-    onModeChange: setConversationMode,
+    onModeChange: () => {},
     onError: handleSetupError,
   });
 
   const activeConversationId = normalizedRouteConversationId ?? setupConversationId;
-
-  useEffect(() => {
-    if (sessionIsPending) return;
-    if (!session?.user || isAnonymous) return;
-    const pending = peekPostAuthConversationContext();
-    if (!pending) return;
-    if (pending.practiceId) {
-      const matchesPractice =
-        pending.practiceId === practiceId ||
-        pending.practiceId === effectivePracticeId;
-      if (!matchesPractice) return;
-    }
-
-    const consumedPending = consumePostAuthConversationContext();
-    if (!consumedPending) return;
-
-    if (consumedPending.workspace === 'public' && consumedPending.practiceSlug) {
-      const slug = consumedPending.practiceSlug;
-      navigate(`/public/${encodeURIComponent(slug)}/conversations/${encodeURIComponent(consumedPending.conversationId)}`, true);
-      return;
-    }
-
-    setConversationId(consumedPending.conversationId);
-  }, [
-    effectivePracticeId,
-    isAnonymous,
-    navigate,
-    practiceId,
-    session?.user,
-    sessionIsPending,
-    setConversationId,
-  ]);
+  const shouldEnableConversationTransport = workspace === 'public'
+    || workspaceView === 'conversation'
+    || workspaceView === 'list'
+    || workspaceView === 'home';
+  const liveConversationId = shouldEnableConversationTransport ? activeConversationId : null;
 
   // ── message handling ───────────────────────────────────────────────────────
-  const handleMessageError = useCallback((error: string | Error) => {
-    const message = typeof error === 'string' ? error : error.message;
+  const handleMessageError = useCallback((error: unknown, _context?: Record<string, unknown>) => {
+    let message: string;
+    if (typeof error === 'string') {
+      message = error;
+    } else if (error instanceof Error) {
+      message = error.message;
+    } else {
+      message = 'We hit a snag sending that message.';
+    }
     if (message.toLowerCase().includes('chat connection closed')) return;
     console.error('Message handling error:', error);
     showErrorRef.current?.(message || 'We hit a snag sending that message.');
   }, []);
 
-  const handleConversationMetadataUpdated = useCallback((metadata: ConversationMetadata | null) => {
-    const persistedMode = metadata?.mode;
-    if (
-      persistedMode === 'ASK_QUESTION' ||
-      persistedMode === 'REQUEST_CONSULTATION' ||
-      persistedMode === 'PRACTICE_ONBOARDING'
-    ) {
-      setConversationMode(persistedMode);
-    }
-  }, []);
+
 
   const messageHandling = useMessageHandling({
+    enabled: shouldEnableConversationTransport,
     practiceId: effectivePracticeId,
     practiceSlug: resolvedPracticeSlug ?? undefined,
-    conversationId: activeConversationId ?? undefined,
-    ensureConversation: () => ensureConversation({ waitForSessionReadyMs: 3000 }),
+    conversationId: liveConversationId ?? undefined,
+    onEnsureConversation: () => ensureConversation(),
     linkAnonymousConversationOnLoad: isPublicWorkspace,
-    mode: conversationMode,
-    onConversationMetadataUpdated: handleConversationMetadataUpdated,
     onError: handleMessageError,
   });
 
   const {
-    messages, conversationMetadata, sendMessage, addMessage, clearMessages,
+    messages, conversationMetadata, sendMessage, addMessage: _addMessage, clearMessages,
     requestMessageReactions, toggleMessageReaction,
     intakeStatus, intakeConversationState, handleIntakeCtaResponse,
-    slimContactDraft, handleSlimFormContinue, handleBuildBrief, handleSubmitNow,
+    slimContactDraft, handleSlimFormContinue, handleBuildBrief, handleConfirmSubmit, handleFinalizeSubmit: _handleFinalizeSubmit,
     startConsultFlow, updateConversationMetadata: _updateConversationMetadata,
     ingestServerMessages, messagesReady, hasMoreMessages, isLoadingMoreMessages,
     loadMoreMessages, isSocketReady, applyIntakeFields,
+    typingUserIds, readReceiptsByUser, sendTypingState,
   } = messageHandling;
+
+  const conversationMode = conversationMetadata?.mode ?? null;
 
 
 
   useEffect(() => { clearMessages(); }, [practiceId, clearMessages]);
 
-  // ── intake auth prompt ─────────────────────────────────────────────────────
-  const intakeUuid = intakeStatus?.intakeUuid ?? null;
-
-  const intakeAuthTarget = useMemo(() => {
-    if (!isPublicWorkspace || !intakeUuid) return null;
-    if (intakeStatus?.paymentRequired && !intakeStatus?.paymentReceived) return null;
-    return intakeUuid;
-  }, [intakeUuid, intakeStatus?.paymentReceived, intakeStatus?.paymentRequired, isPublicWorkspace]);
-
-  const shouldShowIntakeAuthPrompt = Boolean(isAnonymous && intakeAuthTarget && dismissedIntakeAuthFor !== intakeAuthTarget);
-  const shouldShowAuthPrompt = Boolean(isAnonymous && (shouldShowIntakeAuthPrompt || isPaymentAuthPromptOpen));
-
-  const intakePostAuthPath = useMemo(() => {
-    if (!isPublicWorkspace) return null;
-    if (!resolvedPublicPracticeSlug || !activeConversationId) return null;
-    return `/public/${encodeURIComponent(resolvedPublicPracticeSlug)}/conversations/${encodeURIComponent(activeConversationId)}`;
-  }, [activeConversationId, isPublicWorkspace, resolvedPublicPracticeSlug]);
-
-  const handleIntakeAuthSuccess = useCallback(async () => {
-    if (!intakePostAuthPath) return;
-    if (intakeAuthTarget) setDismissedIntakeAuthFor(intakeAuthTarget);
-    navigate(intakePostAuthPath, true);
-  }, [intakePostAuthPath, intakeAuthTarget, navigate]);
-
-  const capturePreAuthUserId = useCallback(() => {
-    if (preAuthUserIdRef.current) return;
-    preAuthUserIdRef.current = session?.user?.id ?? null;
-  }, [session?.user?.id]);
+  // ── optional auth prompt ───────────────────────────────────────────────────
+  const shouldShowAuthPrompt = Boolean(isAnonymous && isPaymentAuthPromptOpen);
   const handlePaymentAuthRequest = useCallback(() => {
-    capturePreAuthUserId();
     setIsPaymentAuthPromptOpen(true);
-  }, [capturePreAuthUserId]);
+  }, []);
 
   const handleAuthPromptClose = useCallback(() => {
-    if (typeof window !== 'undefined') {
-      try { window.sessionStorage.removeItem('intakeAwaitingInvitePath'); } catch { /* noop */ }
-    }
     if (isPaymentAuthPromptOpen) setIsPaymentAuthPromptOpen(false);
-    if (intakeAuthTarget) setDismissedIntakeAuthFor(intakeAuthTarget);
-    preAuthUserIdRef.current = null;
-  }, [intakeAuthTarget, isPaymentAuthPromptOpen]);
+  }, [isPaymentAuthPromptOpen]);
 
   const handleAuthPromptSuccess = useCallback(async () => {
-    const hadPreAuthIdentity = Boolean(preAuthUserIdRef.current);
-    const linkPracticeId = effectivePracticeId ?? practiceId;
-    if (activeConversationId && linkPracticeId && hadPreAuthIdentity) {
-      try {
-        const previousParticipantId =
-          peekConversationAnonymousParticipant(activeConversationId) ??
-          peekAnonymousUserId();
-        const anonymousSessionId = peekAnonymousSessionId();
-        await linkConversationToUser(
-          activeConversationId,
-          linkPracticeId,
-          undefined,
-          {
-            previousParticipantId: previousParticipantId ?? undefined,
-            anonymousSessionId: anonymousSessionId ?? undefined,
-          }
-        );
-        preAuthUserIdRef.current = null;
-      } catch (error) {
-        console.warn('[MainApp] Conversation link after auth failed', error);
-      }
-    }
     if (isPaymentAuthPromptOpen) setIsPaymentAuthPromptOpen(false);
-    if (isWidget) {
-      if (intakeAuthTarget) setDismissedIntakeAuthFor(intakeAuthTarget);
-      return;
+  }, [isPaymentAuthPromptOpen]);
+
+  const handleStrengthenCase = useCallback(async () => {
+    try {
+      // Clear ctaShown so the submit button disappears during enrichment.
+      await applyIntakeFields({ enrichmentMode: true, ctaShown: false });
+      await sendMessage('I want to provide more details to strengthen my case.', []);
+    } catch (err) {
+      console.error('Failed to start strengthen case flow', err);
     }
-    await handleIntakeAuthSuccess();
-  }, [activeConversationId, effectivePracticeId, handleIntakeAuthSuccess, intakeAuthTarget, isPaymentAuthPromptOpen, isWidget, practiceId]);
-
-  useEffect(() => {
-    if (!intakePostAuthPath || !shouldShowAuthPrompt || typeof window === 'undefined') return;
-    try { window.sessionStorage.setItem('intakeAwaitingInvitePath', intakePostAuthPath); } catch { /* noop */ }
-  }, [intakePostAuthPath, shouldShowAuthPrompt]);
-
-  useEffect(() => {
-    if (!shouldShowAuthPrompt) return;
-    capturePreAuthUserId();
-  }, [capturePreAuthUserId, shouldShowAuthPrompt]);
+  }, [applyIntakeFields, sendMessage]);
 
   // ── conversation mode selection ────────────────────────────────────────────
-  const isSelectingRef = useRef(false);
-
   const handleModeSelection = useCallback(async (
     nextMode: ConversationMode,
-    source: 'intro_gate' | 'composer_footer'
+    source: string = 'home_cta'
   ) => {
-    if (isSelectingRef.current) return;
-    try {
-      isSelectingRef.current = true;
-      const currentConversationId = activeConversationId ?? (isCreatingConversation ? null : await ensureConversation({ waitForSessionReadyMs: 3000 }));
-      if (!currentConversationId || !practiceId) return;
-      await applyConversationMode(nextMode, currentConversationId, source, startConsultFlow);
-    } catch (error) {
-      setConversationMode(null);
-      showErrorRef.current?.(error instanceof Error ? error.message : 'Unable to start conversation');
-      console.warn('[MainApp] Failed to persist conversation mode selection', error);
-    } finally {
-      isSelectingRef.current = false;
-    }
-  }, [activeConversationId, applyConversationMode, ensureConversation, isCreatingConversation, practiceId, startConsultFlow]);
+    const currentConversationId = activeConversationId ?? await ensureConversation();
+    if (!currentConversationId || !practiceId) return;
+    await applyConversationMode(nextMode, currentConversationId, source as 'intro_gate' | 'composer_footer' | 'home_cta' | 'chat_intro' | 'slim_form_dismiss' | 'chat_selector', startConsultFlow);
+  }, [activeConversationId, applyConversationMode, ensureConversation, practiceId, startConsultFlow]);
+
 
   const handleSlimFormDismiss = useCallback(async () => {
     if (conversationMode !== 'REQUEST_CONSULTATION') return;
-    await handleModeSelection('ASK_QUESTION', 'composer_footer');
+    await handleModeSelection('ASK_QUESTION', 'slim_form_dismiss');
   }, [conversationMode, handleModeSelection]);
 
   const handleStartNewConversation = useCallback(async (
     nextMode: ConversationMode,
     preferredConversationId?: string,
-    options?: { forceCreate?: boolean; silentSessionNotReady?: boolean }
+    options?: {
+      forceCreate?: boolean;
+      silentSessionNotReady?: boolean;
+      additionalParticipantUserIds?: string[];
+      additionalMetadata?: Record<string, unknown>;
+    }
   ): Promise<string> => {
-    if (isSelectingRef.current) throw new Error('Conversation start already in progress');
-    isSelectingRef.current = true;
     try {
       if (!practiceId) throw new Error('Practice context is required');
 
@@ -456,14 +378,22 @@ export function MainApp({
       }
 
       // ── Create new conversation ─────────────────────────────────────────────
-      // Poll briefly so we don't fail while auth/session state is still settling.
-      const newConversationId = await ensureConversation({ waitForSessionReadyMs: 3000 });
+      // forceCreate must skip ensureConversation (which short-circuits to the
+      // current active id) and call createConversation directly. The
+      // allowPracticeWorkspace flag opts out of the staff-auto-create guard so
+      // the explicit "New conversation" affordance works for practice users too.
+      const newConversationId = options?.forceCreate
+        ? await createConversation({
+            allowPracticeWorkspace: true,
+            additionalParticipantUserIds: options.additionalParticipantUserIds,
+            additionalMetadata: options.additionalMetadata,
+          })
+        : await ensureConversation();
 
       if (!newConversationId) {
-        // Session still not ready — surface a friendly toast and bail without
-        // throwing so the caller can handle gracefully.
+        // Practice workspace or other condition where creation is not applicable.
         if (!options?.silentSessionNotReady) {
-          showErrorRef.current?.('Still setting up your session. Please try again in a moment.');
+          showErrorRef.current?.('Unable to start a conversation. Please try again in a moment.');
         }
         return Promise.reject(new SessionNotReadyError());
       }
@@ -471,14 +401,10 @@ export function MainApp({
       await applyConversationMode(nextMode, newConversationId, 'home_cta', startConsultFlow);
       return newConversationId;
     } catch (error) {
-      setConversationMode(null);
       console.warn('[MainApp] Failed to start new conversation', error);
       throw error;
-    } finally {
-      // Always release the lock so subsequent clicks work.
-      isSelectingRef.current = false;
     }
-  }, [activeConversationId, applyConversationMode, ensureConversation, practiceId, startConsultFlow]);
+  }, [activeConversationId, applyConversationMode, createConversation, ensureConversation, practiceId, startConsultFlow]);
 
   // ── send message ───────────────────────────────────────────────────────────
   const handleSendMessage = useCallback(async (
@@ -493,92 +419,85 @@ export function MainApp({
     });
   }, [sendMessage, isPracticeWorkspace]);
 
-  const [mentionCandidates, setMentionCandidates] = useState<Array<{ userId: string; name: string }>>([]);
-  useEffect(() => {
-    if (!isPracticeWorkspace || !practiceId || !activeConversationId) {
-      setMentionCandidates([]);
-      return;
-    }
-
-    const looksLikeEmail = (value: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
-    const controller = new AbortController();
-
-    (async () => {
-      try {
-        const participants = await getConversationParticipants(activeConversationId, practiceId, { signal: controller.signal });
-        const nextMentionCandidates = participants
-          .filter((participant) => participant.role !== 'client')
-          .map((participant) => ({
-            userId: participant.userId,
-            name: (participant.name ?? '').trim(),
-          }))
-          .filter((participant) => (
-            participant.userId.trim().length > 0
-            && participant.name.length > 0
-            && !looksLikeEmail(participant.name)
-          ));
-        setMentionCandidates(nextMentionCandidates);
-      } catch (error) {
-        if ((error as DOMException)?.name === 'AbortError') return;
-        console.warn('[MainApp] Failed to load conversation participants for mentions', error);
-        setMentionCandidates([]);
-      }
-    })();
-
-    return () => controller.abort();
-  }, [activeConversationId, isPracticeWorkspace, practiceId]);
-
-  const handleUploadError = useCallback((error: unknown) => {
-    console.error('File upload error:', error);
-    showErrorRef.current?.(typeof error === 'string' ? error : 'File upload failed. Please try again.');
-  }, []);
+  const { mentionCandidates } = useMentionCandidates(practiceId, liveConversationId);
 
   // ── file upload ────────────────────────────────────────────────────────────
   const {
-    previewFiles, uploadingFiles, isDragging, setIsDragging,
-    handleCameraCapture, handleFileSelect, removePreviewFile,
-    clearPreviewFiles, cancelUpload, isReadyToUpload,
-  } = useFileUploadWithContext({
+    previewFiles,
+    uploadingFiles,
+    isReadyToUpload,
+    handleFileSelect,
+    handleCameraCapture,
+    removePreviewFile,
+    clearPreviewFiles,
+    cancelUpload,
+    handleMediaCapture,
+    isRecording,
+    setIsRecording,
+  } = useFileUpload({
+    practiceId: effectivePracticeId ?? practiceId,
     conversationId: activeConversationId ?? undefined,
-    ensureConversation: () => ensureConversation({ waitForSessionReadyMs: 3000 }),
-    onError: handleUploadError,
+    enabled: features.enableFileAttachments && isAuthenticatedWorkspace,
+    intakeUuid: resolveConsultationState(conversationMetadata)?.submission?.intakeUuid ?? null,
   });
 
-  // ── welcome modals ─────────────────────────────────────────────────────────
-  const { shouldShow: shouldShowWelcome, markAsShown: markWelcomeAsShown } = useWelcomeModal({ enabled: workspace !== 'public' });
-  const showWelcomeModal = shouldShowWelcome && workspace !== 'public';
-
-  const practiceWelcomeCheckRef = useRef(false);
+  // Page-level drop handler. Tracks real drag state via window listeners
+  // (matters pattern: depth ref to debounce nested enter/leave from children)
+  // and drives the page-wide DragDropOverlay's visibility.
+  const [isDraggingFiles, setIsDraggingFiles] = useState(false);
+  const dragDepthRef = useRef(0);
   useEffect(() => {
-    if (workspace !== 'practice') { practiceWelcomeCheckRef.current = false; setShowBusinessWelcome(false); return; }
-    if (sessionIsPending || isAnonymous || !session?.user?.id) { setShowBusinessWelcome(false); return; }
-    if (practiceWelcomeCheckRef.current) return;
-    practiceWelcomeCheckRef.current = true;
-    (async () => {
-      try {
-        const prefs = await getPreferencesCategory<OnboardingPreferences>('onboarding');
-        setShowBusinessWelcome(prefs?.completed === true && !prefs?.practice_welcome_shown);
-      } catch (err) {
-        console.warn('[PRACTICE_WELCOME] Preferences fetch failed:', err);
-        practiceWelcomeCheckRef.current = false;
-        setShowBusinessWelcome(false);
-      }
-    })();
-  }, [isAnonymous, session?.user?.id, sessionIsPending, workspace]);
+    if (!features.enableFileAttachments || !isAuthenticatedWorkspace || isWidget) return;
+    const hasDraggedFiles = (event: DragEvent) => {
+      const types = event.dataTransfer?.types;
+      return Boolean(types && Array.from(types).includes('Files'));
+    };
+    const onDragEnter = (event: DragEvent) => {
+      if (!hasDraggedFiles(event)) return;
+      event.preventDefault();
+      dragDepthRef.current += 1;
+      setIsDraggingFiles(true);
+    };
+    const onDragOver = (event: DragEvent) => {
+      if (!hasDraggedFiles(event)) return;
+      event.preventDefault();
+      if (event.dataTransfer) event.dataTransfer.dropEffect = 'copy';
+      setIsDraggingFiles(true);
+    };
+    const onDragLeave = (event: DragEvent) => {
+      if (!hasDraggedFiles(event)) return;
+      event.preventDefault();
+      dragDepthRef.current = Math.max(0, dragDepthRef.current - 1);
+      if (dragDepthRef.current === 0) setIsDraggingFiles(false);
+    };
+    const onDrop = (event: DragEvent) => {
+      if (!hasDraggedFiles(event)) return;
+      event.preventDefault();
+      dragDepthRef.current = 0;
+      setIsDraggingFiles(false);
+      const dropped = event.dataTransfer?.files ? Array.from(event.dataTransfer.files) : [];
+      if (dropped.length > 0) void handleFileSelect(dropped);
+    };
+    window.addEventListener('dragenter', onDragEnter);
+    window.addEventListener('dragover', onDragOver);
+    window.addEventListener('dragleave', onDragLeave);
+    window.addEventListener('drop', onDrop);
+    return () => {
+      window.removeEventListener('dragenter', onDragEnter);
+      window.removeEventListener('dragover', onDragOver);
+      window.removeEventListener('dragleave', onDragLeave);
+      window.removeEventListener('drop', onDrop);
+    };
+    // `features` is a static module-scope config, not reactive state — the
+    // early-return on line 448 reads it directly, so it doesn't belong in deps.
+  }, [isAuthenticatedWorkspace, isWidget, handleFileSelect]);
+
+  // ── welcome modals ─────────────────────────────────────────────────────────
+  const { shouldShow: shouldShowWelcome, markAsShown: markWelcomeAsShown } = useWelcomeDialog({ enabled: workspace !== 'public' });
+  const showWelcomeDialog = shouldShowWelcome && workspace !== 'public';
 
   const handleWelcomeComplete = async () => { await markWelcomeAsShown(); };
   const handleWelcomeClose = async () => { await markWelcomeAsShown(); };
-  const handleBusinessWelcomeClose = async () => {
-    setShowBusinessWelcome(false);
-    try { await updatePreferencesCategory('onboarding', { practice_welcome_shown: true }); }
-    catch (err) {
-      console.warn('[PRACTICE_WELCOME] Failed to update preferences', err);
-      showError('Update failed', 'We could not save your preference. You may see this prompt again.');
-    }
-    if (resolvedPracticeSlug) {
-      navigate(`/practice/${encodeURIComponent(resolvedPracticeSlug)}/settings/practice`);
-    }
-  };
 
   // ── invite link handling ───────────────────────────────────────────────────
   useEffect(() => {
@@ -627,30 +546,7 @@ export function MainApp({
   }, []);
 
   // ── media capture ──────────────────────────────────────────────────────────
-  const handleMediaCaptureWrapper = async (blob: Blob, type: 'audio' | 'video') => {
-    try {
-      const ext = type === 'audio' ? 'webm' : 'mp4';
-      const file = new File([blob], `Recording_${new Date().toISOString()}.${ext}`, { type: blob.type });
-      const uploadedFiles = await handleFileSelect([file]);
-      await handleSendMessage(`I've recorded a ${type} message.`, uploadedFiles);
-    } catch (err) {
-      console.error('Failed to upload captured media:', err);
-      showErrorRef.current?.('Failed to upload recording. Please try again.');
-    }
-  };
-
   // ── conversation header ────────────────────────────────────────────────────
-  const leadReviewActions = useMemo(() => {
-    if (!isPracticeWorkspace || !practiceId || !activeConversationId || !practiceMattersPath) return undefined;
-    return {
-      practiceId,
-      practiceName: resolvedPracticeName,
-      conversationId: activeConversationId,
-      canReviewLeads,
-      mattersBasePath: practiceMattersPath,
-      navigateTo: (path: string) => navigate(path),
-    };
-  }, [isPracticeWorkspace, practiceId, activeConversationId, practiceMattersPath, resolvedPracticeName, canReviewLeads, navigate]);
 
   const filteredMessagesForHeader = useMemo(() => {
     const base = messages.filter((message) => message.metadata?.systemMessageKey !== 'ask_question_help');
@@ -658,81 +554,169 @@ export function MainApp({
     return hasNonSystem ? base.filter((message) => message.metadata?.systemMessageKey !== 'intro') : base;
   }, [messages]);
 
-  const conversationHeaderActiveLabel = useMemo(() => {
-    if (isSocketReady) return 'Active';
-    const lastTimestamp = [...filteredMessagesForHeader].reverse().find((message) => typeof message.timestamp === 'number')?.timestamp;
-    if (!lastTimestamp) return 'Inactive';
-    const relative = formatRelativeTime(new Date(lastTimestamp));
-    return relative ? `Active ${relative}` : 'Inactive';
+  // Resolve presence (active | offline) for the conversation header. We can't
+  // read PresenceContext from this scope (MainApp renders the provider, so
+  // hooks here resolve outside it) — the list view does that. Fall back to
+  // the timestamp proxy + socket-ready as a "this thread is live" hint.
+  const conversationHeaderPresence = useMemo(() => {
+    const lastTimestamp = [...filteredMessagesForHeader].reverse()
+      .find((message) => typeof message.timestamp === 'number')?.timestamp;
+    return resolveConversationPresence(lastTimestamp ?? null, isSocketReady);
   }, [filteredMessagesForHeader, isSocketReady]);
+  const conversationHeaderActiveLabel = conversationHeaderPresence.label;
+  const conversationContactName = useMemo(() => (
+    resolveConversationContactName(conversationMetadata ?? null)
+  ), [conversationMetadata]);
+  // Conversation header always shows the contact name (the person being
+  // chatted with). No fallback to metadata.title or the practice name —
+  // those leak case-internal labels into the header. If the contact is
+  // unknown, render a generic placeholder rather than a misleading fallback.
+  const conversationCaseTitle = useMemo(() => (
+    conversationContactName?.trim() || 'Conversation'
+  ), [conversationContactName]);
 
-  const isConsultConversation = useMemo(
-    () => conversationMode === 'REQUEST_CONSULTATION'
-      || Boolean(resolveConsultationState(conversationMetadata))
-      || Boolean(
-        slimContactDraft?.name
-        || slimContactDraft?.email
-        || slimContactDraft?.phone
-        || intakeStatus?.intakeUuid
-        || intakeStatus?.step !== 'contact_form_slim'
-        || intakeConversationState?.turnCount
-        || intakeConversationState?.ctaShown
-        || intakeConversationState?.intakeReady
-        || intakeConversationState?.description
-        || intakeConversationState?.opposingParty
-        || intakeConversationState?.city
-        || intakeConversationState?.state
-        || intakeConversationState?.desiredOutcome
-      ),
-    [conversationMetadata, conversationMode, intakeConversationState, intakeStatus, slimContactDraft]
-  );
+  // On desktop practice/client surfaces the inspector panel is open by default,
+  // so the 3-dot inspector toggle in the conversation header would be redundant
+  // chrome. Mobile keeps it (the inspector is a drawer there) and the public
+  // widget is left untouched.
+  const hideInspectorChrome = layoutMode === 'desktop' && isAuthenticatedWorkspace;
 
-  const conversationStrengthAction = useMemo(() => {
-    if (!isConsultConversation) return null;
-
-    const tier = resolveStrengthTier(intakeConversationState);
-    const { percent, ringClass } = resolveStrengthStyle(tier);
-    const radius = 9;
-    const circumference = 2 * Math.PI * radius;
-    const dashOffset = circumference - (percent / 100) * circumference;
-
+  // Pencil rxzde detail header: practice viewers see a primary "Create
+  // Engagement" CTA. The CTA jumps to the engagements page where the existing
+  // creation flow lives. Hidden on non-desktop layouts (Pencil d08Mpc keeps the
+  // mobile detail header spartan — only back + title + overflow menu).
+  const createEngagementAction = useMemo(() => {
+    if (!isPracticeWorkspace) return null;
+    if (!practiceEngagementsPath) return null;
+    if (layoutMode !== 'desktop') return null;
     return (
       <Button
         type="button"
-        variant="icon"
-        size="icon-sm"
-        onClick={() => {
-          if (typeof window === 'undefined') return;
-          window.dispatchEvent(new CustomEvent('workspace:open-inspector'));
-        }}
-        aria-label="Case strength"
+        variant="primary"
+        size="sm"
+        onClick={() => navigate(practiceEngagementsPath)}
+        icon={Plus}
+        iconClassName="h-4 w-4"
+        iconPosition="left"
       >
-        <span className="relative flex h-6 w-6 items-center justify-center">
-          <svg className="-rotate-90 absolute inset-0 h-6 w-6" viewBox="0 0 24 24" aria-hidden="true">
-            <circle cx="12" cy="12" r={radius} strokeWidth="2" fill="none" className="text-line-glass/30" stroke="currentColor" />
-            <circle
-              cx="12" cy="12" r={radius} strokeWidth="2" fill="none" strokeLinecap="round"
-              className={`transition-all duration-300 ${ringClass}`} stroke="currentColor"
-              strokeDasharray={circumference} strokeDashoffset={dashOffset}
-            />
-          </svg>
-          <Icon icon={InformationCircleIcon} className="relative z-10 h-3.5 w-3.5" aria-hidden="true" />
-        </span>
+        Create Engagement
       </Button>
     );
-  }, [intakeConversationState, isConsultConversation]);
+  }, [isPracticeWorkspace, layoutMode, practiceEngagementsPath, navigate]);
+
+  const conversationHeaderActions = useMemo(() => {
+    if (!createEngagementAction) return null;
+    return (
+      <div className="flex items-center gap-2">
+        {createEngagementAction}
+      </div>
+    );
+  }, [createEngagementAction]);
+
+  // Pencil rxzde header strip: email + phone + linked-matter chip rendered as a
+  // second row below the main header. Email/phone come from the same intake
+  // sources used by ConversationContextPanel — keep both surfaces aligned so a
+  // value visible in the right panel is also visible up here.
+  const conversationHeaderEmail = useMemo(() => {
+    const intake = (intakeConversationState ?? null) as unknown as Record<string, unknown> | null;
+    if (typeof intake?.email === 'string' && intake.email.trim()) return intake.email.trim();
+    if (typeof slimContactDraft?.email === 'string' && slimContactDraft.email.trim()) return slimContactDraft.email.trim();
+    return '';
+  }, [intakeConversationState, slimContactDraft]);
+  const conversationHeaderPhone = useMemo(() => {
+    const intake = (intakeConversationState ?? null) as unknown as Record<string, unknown> | null;
+    if (typeof intake?.phone === 'string' && intake.phone.trim()) return intake.phone.trim();
+    if (typeof slimContactDraft?.phone === 'string' && slimContactDraft.phone.trim()) return slimContactDraft.phone.trim();
+    return '';
+  }, [intakeConversationState, slimContactDraft]);
+  const conversationHeaderMatterLabel = useMemo(() => {
+    const meta = conversationMetadata as Record<string, unknown> | null | undefined;
+    const candidates = [
+      meta?.matter_title,
+      meta?.matterTitle,
+      meta?.matter_name,
+      meta?.matterName,
+    ];
+    for (const value of candidates) {
+      if (typeof value === 'string' && value.trim()) return value.trim();
+    }
+    return '';
+  }, [conversationMetadata]);
+
+  const conversationHeaderSecondaryRow = useMemo(() => {
+    if (!isPracticeWorkspace) return undefined;
+    if (layoutMode !== 'desktop') return undefined;
+    if (!conversationHeaderEmail && !conversationHeaderPhone && !conversationHeaderMatterLabel) return undefined;
+    return (
+      <>
+        {conversationHeaderEmail ? (
+          <a
+            href={`mailto:${conversationHeaderEmail}`}
+            className="inline-flex min-w-0 items-center gap-1.5 truncate hover:text-input-text"
+          >
+            <Icon icon={Mail} className="h-3.5 w-3.5 shrink-0" />
+            <span className="truncate">{conversationHeaderEmail}</span>
+          </a>
+        ) : null}
+        {conversationHeaderPhone ? (
+          <a
+            href={`tel:${conversationHeaderPhone.replace(/[^0-9+]/g, '')}`}
+            className="inline-flex min-w-0 items-center gap-1.5 truncate hover:text-input-text"
+          >
+            <Icon icon={Phone} className="h-3.5 w-3.5 shrink-0" />
+            <span className="truncate">{conversationHeaderPhone}</span>
+          </a>
+        ) : null}
+        {conversationHeaderMatterLabel ? (
+          <span className="inline-flex min-w-0 items-center gap-1.5 truncate rounded-full bg-accent-500/10 px-2 py-0.5 text-accent-utility">
+            <Icon icon={Briefcase} className="h-3.5 w-3.5 shrink-0" />
+            <span className="truncate">{conversationHeaderMatterLabel}</span>
+          </span>
+        ) : null}
+      </>
+    );
+  }, [
+    conversationHeaderEmail, conversationHeaderMatterLabel, conversationHeaderPhone,
+    isPracticeWorkspace, layoutMode,
+  ]);
+
+  // Pencil rxzde inline "• Unread" pill next to the title — only shown when the
+  // active conversation hasn't been read yet (socket marks it read once messages
+  // are loaded, so this is mostly a transient state on initial open).
+  const conversationHeaderUnreadBadge = useMemo(() => {
+    if (!isPracticeWorkspace) return undefined;
+    if (isSocketReady) return undefined;
+    return (
+      <span className="inline-flex items-center gap-1 rounded-full bg-accent-500/15 px-2 py-0.5 text-[11px] font-semibold text-accent-utility">
+        <span className="h-1.5 w-1.5 rounded-full bg-accent-500" aria-hidden="true" />
+        Unread
+      </span>
+    );
+  }, [isPracticeWorkspace, isSocketReady]);
 
   const conversationHeaderContent = useMemo(() => {
     if (!conversationsBasePath || !activeConversationId) return undefined;
     const showConversationBack = shouldShowWorkspaceDetailBack(layoutMode, Boolean(conversationBackPath));
+    const headerAvatar = (
+      <Avatar
+        src={null}
+        name={conversationCaseTitle}
+        size="sm"
+        className="ring-1 ring-line-glass/10"
+        status={conversationHeaderPresence.status}
+      />
+    );
     return (
       <DetailHeader
-        title={resolvedPracticeName}
+        title={conversationCaseTitle}
         subtitle={conversationHeaderActiveLabel}
         showBack={showConversationBack}
         onBack={showConversationBack ? () => navigate(conversationBackPath) : undefined}
-        actions={conversationStrengthAction}
-        onInspector={() => {
+        leadingAction={headerAvatar}
+        actions={conversationHeaderActions}
+        titleBadge={conversationHeaderUnreadBadge}
+        secondaryRow={conversationHeaderSecondaryRow}
+        onInspector={hideInspectorChrome ? undefined : () => {
           if (typeof window === 'undefined') return;
           window.dispatchEvent(new CustomEvent('workspace:open-inspector'));
         }}
@@ -741,8 +725,9 @@ export function MainApp({
     );
   }, [
     activeConversationId, conversationBackPath, conversationsBasePath,
-    conversationHeaderActiveLabel, conversationStrengthAction,
-    layoutMode, navigate, resolvedPracticeName,
+    conversationCaseTitle, conversationHeaderActiveLabel, conversationHeaderActions,
+    conversationHeaderPresence, conversationHeaderSecondaryRow, conversationHeaderUnreadBadge,
+    hideInspectorChrome, layoutMode, navigate,
   ]);
   const showWorkspaceDetailBack = useMemo(
     () => shouldShowWorkspaceDetailBack(layoutMode),
@@ -759,7 +744,7 @@ export function MainApp({
 
   // ── system messages ────────────────────────────────────────────────────────
   useConversationSystemMessages({
-    conversationId: activeConversationId,
+    conversationId: liveConversationId,
     practiceId: effectivePracticeId,
     ingestServerMessages,
   });
@@ -773,6 +758,7 @@ export function MainApp({
   const isSessionReady = isConversationReady && isAuthReady;
   const effectiveIsSocketReady = isConversationReady && isAuthReady ? isSocketReady : false;
   const isComposerDisabled = isPublicWorkspace && !conversationMode;
+  const isChatReady = isSessionReady && effectiveIsSocketReady && !isComposerDisabled;
   const canChat = Boolean(practiceId) && (!isPracticeWorkspace ? Boolean(isPracticeView) : Boolean(activeConversationId));
   const shouldShowChatPlaceholder = workspace !== 'public' && !activeConversationId;
 
@@ -793,15 +779,14 @@ export function MainApp({
               conversationMetadata ?? null,
               conversationMetadata?.title ?? ''
             )}
+            conversationContactName={conversationContactName}
+            viewerContext={isPracticeWorkspace ? 'practice' : isClientWorkspace ? 'client' : 'public'}
             onSendMessage={handleSendMessage}
-            onAddMessage={addMessage}
             conversationMode={conversationMode}
-            onSelectMode={handleModeSelection}
-            onToggleReaction={toggleMessageReaction}
+            onSelectMode={(mode, source) => { void handleModeSelection(mode, source); }}
+            onToggleReaction={features.enableMessageReactions ? toggleMessageReaction : undefined}
             onRequestReactions={requestMessageReactions}
-            composerDisabled={isComposerDisabled}
             isPublicWorkspace={isPublicWorkspace}
-            leadReviewActions={leadReviewActions}
             messagesReady={messagesReady}
             headerContent={conversationHeaderContent}
             onOpenSidebar={() => {
@@ -815,44 +800,38 @@ export function MainApp({
               name: resolvedPracticeName,
               profileImage: resolvedPracticeLogo,
               practiceId,
-              description: fullDescription,
               slug: resolvedPracticeSlug,
             }}
             practiceId={practiceId}
-            conversationId={activeConversationId ?? null}
             previewFiles={previewFiles}
             uploadingFiles={uploadingFiles}
             removePreviewFile={removePreviewFile}
             clearPreviewFiles={clearPreviewFiles}
             handleCameraCapture={handleCameraCapture}
-            handleFileSelect={async (files: File[]) => { await handleFileSelect(files); }}
+            handleFileSelect={handleFileSelect}
             cancelUpload={cancelUpload}
-            handleMediaCapture={handleMediaCaptureWrapper}
+            handleMediaCapture={handleMediaCapture}
             isRecording={isRecording}
             setIsRecording={setIsRecording}
             clearInput={clearInputTrigger}
             isReadyToUpload={isReadyToUpload}
-            isSessionReady={isSessionReady}
-            isSocketReady={effectiveIsSocketReady}
-            intakeStatus={intakeStatus}
-            intakeConversationState={intakeConversationState}
-            onIntakeCtaResponse={handleIntakeCtaResponse}
-            slimContactDraft={slimContactDraft}
-            onSlimFormContinue={handleSlimFormContinue}
-            onSlimFormDismiss={handleSlimFormDismiss}
-            onBuildBrief={handleBuildBrief}
-            onSubmitNow={handleSubmitNow}
+            isReady={isChatReady}
+
             isAnonymousUser={isAnonymous}
             canChat={canChat}
             hasMoreMessages={hasMoreMessages}
             isLoadingMoreMessages={isLoadingMoreMessages}
             onLoadMoreMessages={loadMoreMessages}
             showAuthPrompt={shouldShowAuthPrompt}
-            authPromptCallbackUrl={intakePostAuthPath ?? undefined}
             onAuthPromptRequest={isAnonymous ? handlePaymentAuthRequest : undefined}
             onAuthPromptClose={handleAuthPromptClose}
             onAuthPromptSuccess={handleAuthPromptSuccess}
             mentionCandidates={mentionCandidates}
+            typingUserIds={typingUserIds}
+            readReceiptsByUser={readReceiptsByUser}
+            currentUserId={session?.user?.id ?? null}
+            sendTypingState={sendTypingState}
+            conversationId={liveConversationId ?? null}
           />
         </div>
       )}
@@ -882,6 +861,7 @@ export function MainApp({
             : resolvedPublicPracticeSlug
       }
       routeInvoiceId={routeInvoiceId ?? null}
+      routeReportDeliveryId={routeReportDeliveryId ?? null}
       practiceName={resolvedPracticeName}
       practiceLogo={resolvedPracticeLogo}
       messages={messages}
@@ -889,39 +869,55 @@ export function MainApp({
       workspace={workspace}
       settingsView={routeSettingsView}
       settingsAppId={routeSettingsAppId}
+      settingsIntakeTemplateSlug={routeSettingsIntakeTemplateSlug}
       onStartNewConversation={handleStartNewConversation}
       activeConversationId={activeConversationId}
       intakeConversationState={intakeConversationState}
       intakeStatus={intakeStatus}
-      onIntakeFieldsChange={applyIntakeFields}
+      onIntakeFieldsChange={(patch, options) => {
+        const payload: Record<string, unknown> = {};
+        Object.entries(patch).forEach(([key, value]) => {
+          if (value !== null) payload[key] = value;
+        });
+        return applyIntakeFields(payload, options);
+      }}
       practiceDetails={practiceDetails}
       chatView={chatPanel}
+      fileUploadProps={{
+        previewFiles,
+        uploadingFiles,
+        isReadyToUpload,
+        handleFileSelect,
+        handleCameraCapture,
+        removePreviewFile,
+        clearPreviewFiles,
+        cancelUpload,
+        handleMediaCapture,
+        isRecording,
+        setIsRecording,
+      }}
       mattersView={
         isPracticeWorkspace
           ? (practiceMattersPath
-            ? (statusFilter, prefetchData, onDetailInspector, detailInspectorOpen, detailHeaderLeadingAction) => (
-              <Suspense fallback={<WorkspaceSubviewFallback />}>
+            ? (statusFilter, prefetchData) => (
+              <LazyRouteBoundary>
                 <PracticeMattersPage
                   basePath={practiceMattersPath}
                   practiceId={effectivePracticeId ?? practiceId}
-                  renderMode={layoutMode === 'desktop' ? 'detailOnly' : 'full'}
+                  renderMode="full"
                   statusFilter={statusFilter}
                   prefetchedItems={prefetchData?.mattersData?.items}
                   prefetchedLoading={prefetchData?.mattersData?.isLoading}
                   prefetchedError={prefetchData?.mattersData?.error}
                   onRefetchList={prefetchData?.mattersData?.refetch}
-                  onDetailInspector={onDetailInspector}
-                  detailInspectorOpen={detailInspectorOpen}
-                  detailHeaderLeadingAction={detailHeaderLeadingAction}
-                  showDetailBackButton={showWorkspaceDetailBack}
                 />
-              </Suspense>
+              </LazyRouteBoundary>
             )
             : null)
           : isClientWorkspace
             ? (clientMattersPath
               ? (statusFilter, prefetchData, onDetailInspector, detailInspectorOpen) => (
-                <Suspense fallback={<WorkspaceSubviewFallback />}>
+                <LazyRouteBoundary>
                   <ClientMattersPage
                     basePath={clientMattersPath}
                     practiceId={effectivePracticeId ?? practiceId}
@@ -935,17 +931,17 @@ export function MainApp({
                     detailInspectorOpen={detailInspectorOpen}
                     showDetailBackButton={showWorkspaceDetailBack}
                   />
-                </Suspense>
+                </LazyRouteBoundary>
               )
               : null)
             : undefined
       }
       mattersListContent={
-        isPracticeWorkspace && layoutMode === 'desktop' && practiceMattersPath
+        isClientWorkspace && layoutMode === 'desktop' && clientMattersPath
           ? (statusFilter, prefetchData) => (
-            <Suspense fallback={<WorkspaceSubviewFallback />}>
-              <PracticeMattersPage
-                basePath={practiceMattersPath}
+            <LazyRouteBoundary>
+              <ClientMattersPage
+                basePath={clientMattersPath}
                 practiceId={effectivePracticeId ?? practiceId}
                 renderMode="listOnly"
                 statusFilter={statusFilter}
@@ -955,67 +951,50 @@ export function MainApp({
                 onRefetchList={prefetchData?.mattersData?.refetch}
                 showDetailBackButton={showWorkspaceDetailBack}
               />
-            </Suspense>
+            </LazyRouteBoundary>
           )
-          : isClientWorkspace && layoutMode === 'desktop' && clientMattersPath
-            ? (statusFilter, prefetchData) => (
-              <Suspense fallback={<WorkspaceSubviewFallback />}>
-                <ClientMattersPage
-                  basePath={clientMattersPath}
-                  practiceId={effectivePracticeId ?? practiceId}
-                  renderMode="listOnly"
-                  statusFilter={statusFilter}
-                  prefetchedItems={prefetchData?.mattersData?.items}
-                  prefetchedLoading={prefetchData?.mattersData?.isLoading}
-                  prefetchedError={prefetchData?.mattersData?.error}
-                  onRefetchList={prefetchData?.mattersData?.refetch}
-                  showDetailBackButton={showWorkspaceDetailBack}
-                />
-              </Suspense>
-            )
           : undefined
       }
-      clientsView={isPracticeWorkspace && practiceClientsPath != null
+      contactsView={isPracticeWorkspace && practiceContactsPath != null
         ? (statusFilter, prefetchData, onDetailInspector, detailInspectorOpen, detailHeaderLeadingAction) => (
-          <Suspense fallback={<WorkspaceSubviewFallback />}>
-            <PracticeClientsPage
+          <LazyRouteBoundary>
+            <PracticeContactsPage
               practiceId={effectivePracticeId ?? practiceId}
-              basePath={practiceClientsPath}
+              basePath={practiceContactsPath}
               renderMode={layoutMode === 'desktop' ? 'detailOnly' : 'full'}
               statusFilter={statusFilter}
-              prefetchedItems={prefetchData?.clientsData?.items}
-              prefetchedLoading={prefetchData?.clientsData?.isLoading}
-              prefetchedError={prefetchData?.clientsData?.error}
-              onRefetchList={prefetchData?.clientsData?.refetch}
-              onDetailInspector={onDetailInspector}
-              detailInspectorOpen={detailInspectorOpen}
+              prefetchedItems={prefetchData?.contactsData?.items}
+              prefetchedLoading={prefetchData?.contactsData?.isLoading}
+              prefetchedError={prefetchData?.contactsData?.error}
+              onRefetchList={prefetchData?.contactsData?.refetch}
+
               detailHeaderLeadingAction={detailHeaderLeadingAction}
               showDetailBackButton={showWorkspaceDetailBack}
             />
-          </Suspense>
+          </LazyRouteBoundary>
         )
         : undefined}
-      clientsListContent={isPracticeWorkspace && layoutMode === 'desktop' && practiceClientsPath != null
+      contactsListContent={isPracticeWorkspace && layoutMode === 'desktop' && practiceContactsPath != null
         ? (statusFilter, prefetchData) => (
-          <Suspense fallback={<WorkspaceSubviewFallback />}>
-            <PracticeClientsPage
+          <LazyRouteBoundary>
+            <PracticeContactsPage
               practiceId={effectivePracticeId ?? practiceId}
-              basePath={practiceClientsPath}
+              basePath={practiceContactsPath}
               renderMode="listOnly"
               statusFilter={statusFilter}
-              prefetchedItems={prefetchData?.clientsData?.items}
-              prefetchedLoading={prefetchData?.clientsData?.isLoading}
-              prefetchedError={prefetchData?.clientsData?.error}
-              onRefetchList={prefetchData?.clientsData?.refetch}
+              prefetchedItems={prefetchData?.contactsData?.items}
+              prefetchedLoading={prefetchData?.contactsData?.isLoading}
+              prefetchedError={prefetchData?.contactsData?.error}
+              onRefetchList={prefetchData?.contactsData?.refetch}
               showDetailBackButton={showWorkspaceDetailBack}
             />
-          </Suspense>
+          </LazyRouteBoundary>
         )
         : undefined}
       invoicesView={
         isPracticeWorkspace
           ? (statusFilter, onDetailInspector, detailInspectorOpen, detailHeaderLeadingAction) => (
-            <Suspense fallback={<WorkspaceSubviewFallback />}>
+            <LazyRouteBoundary>
               {resolvedWorkspaceView === 'invoiceDetail' ? (
                 <PracticeInvoiceDetailPage
                   practiceId={effectivePracticeId ?? practiceId}
@@ -1026,25 +1005,20 @@ export function MainApp({
                   inspectorOpen={detailInspectorOpen}
                   showBack={showPracticeInvoiceDetailBack}
                 />
-              ) : resolvedWorkspaceView === 'invoiceCreate' ? (
-                <PracticeInvoiceCreatePage
-                  practiceId={effectivePracticeId ?? practiceId}
-                  practiceSlug={resolvedPracticeSlug ?? null}
-                />
               ) : (
                 <PracticeInvoicesPage
                   practiceId={effectivePracticeId ?? practiceId}
                   practiceSlug={resolvedPracticeSlug ?? null}
                   statusFilter={statusFilter}
-                  renderMode={layoutMode === 'desktop' ? 'detailOnly' : 'full'}
-                  onCreateInvoice={practiceInvoicesPath ? () => navigate(`${practiceInvoicesPath}/new`) : undefined}
+                  renderMode="full"
+                  onCreateInvoice={practiceInvoicesPath ? () => navigate(`${practiceInvoicesPath}/new?returnTo=${encodeURIComponent(returnToPath)}`) : undefined}
                 />
               )}
-            </Suspense>
+            </LazyRouteBoundary>
           )
           : isClientWorkspace
             ? (statusFilter, onDetailInspector, detailInspectorOpen) => (
-              <Suspense fallback={<WorkspaceSubviewFallback />}>
+              <LazyRouteBoundary>
                 {resolvedWorkspaceView === 'invoiceDetail' ? (
                 <ClientInvoiceDetailPage
                     practiceId={effectivePracticeId ?? practiceId}
@@ -1056,28 +1030,28 @@ export function MainApp({
                   />
                 ) : (
                   <ClientInvoicesPage
-                    key={`${effectivePracticeId}-${layoutMode === 'desktop' ? 'detailOnly' : 'full'}-${JSON.stringify(statusFilter)}`}
+                    key={`${effectivePracticeId}-full-${JSON.stringify(statusFilter)}`}
                     practiceId={effectivePracticeId ?? practiceId}
                     practiceSlug={(clientPracticeSlug ?? resolvedClientPracticeSlug) ?? null}
                     statusFilter={statusFilter}
-                    renderMode={layoutMode === 'desktop' ? 'detailOnly' : 'full'}
+                    renderMode="full"
                   />
                 )}
-              </Suspense>
+              </LazyRouteBoundary>
             )
             : undefined
       }
       invoicesListContent={
-        (isPracticeWorkspace || isClientWorkspace) && layoutMode === 'desktop'
+        (isPracticeWorkspace || isClientWorkspace) && layoutMode === 'desktop' && resolvedWorkspaceView === 'invoiceDetail'
           ? (statusFilter) => (
-            <Suspense fallback={<WorkspaceSubviewFallback />}>
+            <LazyRouteBoundary>
               {isPracticeWorkspace ? (
                 <PracticeInvoicesPage
                   practiceId={effectivePracticeId ?? practiceId}
                   practiceSlug={resolvedPracticeSlug ?? null}
                   statusFilter={statusFilter}
                   renderMode="listOnly"
-                  onCreateInvoice={practiceInvoicesPath ? () => navigate(`${practiceInvoicesPath}/new`) : undefined}
+                  onCreateInvoice={practiceInvoicesPath ? () => navigate(`${practiceInvoicesPath}/new?returnTo=${encodeURIComponent(returnToPath)}`) : undefined}
                 />
               ) : (
                 <ClientInvoicesPage
@@ -1088,37 +1062,102 @@ export function MainApp({
                   renderMode="listOnly"
                 />
               )}
-            </Suspense>
+            </LazyRouteBoundary>
           )
           : undefined
       }
       reportsView={
         isPracticeWorkspace
-          ? (reportTitle) => (
-            <Suspense fallback={<WorkspaceSubviewFallback />}>
-              <PracticeReportsPage title={reportTitle} />
-            </Suspense>
+          ? (reportTitle, reportType, deliveryId) => (
+            <LazyRouteBoundary>
+              <PracticeReportsPage
+                title={reportTitle}
+                reportType={reportType}
+                deliveryId={deliveryId}
+                practiceId={effectivePracticeId ?? practiceId}
+                practiceSlug={resolvedPracticeSlug ?? practiceSlug ?? null}
+              />
+            </LazyRouteBoundary>
           )
           : undefined
+      }
+      intakesView={
+        isPracticeWorkspace
+          ? (activeFilter) => (
+            <LazyRouteBoundary>
+              <IntakesPage
+                practiceId={effectivePracticeId ?? practiceId}
+                activeTriageFilter={activeFilter}
+                basePath={practiceIntakesPath ?? '/practice/intakes'}
+                conversationsBasePath={conversationsBasePath}
+                practiceName={resolvedPracticeName}
+                practiceLogo={resolvedPracticeLogo}
+              />
+            </LazyRouteBoundary>
+          )
+          : isClientWorkspace
+            ? () => (
+              <LazyRouteBoundary>
+                <ClientIntakesView
+                  basePath={clientIntakesPath ?? '/client/intakes'}
+                  practiceName={resolvedPracticeName}
+                />
+              </LazyRouteBoundary>
+            )
+            : undefined
+      }
+      engagementsView={
+        isPracticeWorkspace
+          ? (activeFilter) => (
+            <LazyRouteBoundary>
+              <EngagementsPage
+                practiceId={effectivePracticeId ?? practiceId}
+                basePath={practiceEngagementsPath ?? '/practice/engagements'}
+                conversationsBasePath={conversationsBasePath}
+                practiceName={resolvedPracticeName}
+                practiceLogo={resolvedPracticeLogo}
+                activeStatusFilter={activeFilter}
+              />
+            </LazyRouteBoundary>
+          )
+          : undefined
+      }
+      filesView={
+        isPracticeWorkspace && resolvedPracticeSlug ? (
+          <LazyRouteBoundary>
+            <PracticeFilesPage
+              practiceId={effectivePracticeId ?? practiceId}
+              practiceSlug={resolvedPracticeSlug}
+            />
+          </LazyRouteBoundary>
+        ) : isClientWorkspace && (clientPracticeSlug ?? resolvedClientPracticeSlug) ? (
+          <LazyRouteBoundary>
+            <ClientFilesPage
+              practiceId={effectivePracticeId ?? practiceId}
+              practiceSlug={(clientPracticeSlug ?? resolvedClientPracticeSlug) as string}
+              userId={session?.user?.id ?? null}
+            />
+          </LazyRouteBoundary>
+        ) : undefined
       }
       primaryCreateAction={
         resolvedWorkspaceView === 'matters' && isPracticeWorkspace && practiceMattersPath
           ? {
               label: 'New Matter',
-              onClick: () => navigate(`${practiceMattersPath}/new`),
-              icon: PlusIcon,
+              onClick: () => navigate(`${practiceMattersPath}/new?returnTo=${encodeURIComponent(returnToPath)}`),
+              icon: Plus,
             }
-          : (resolvedWorkspaceView === 'invoices' || resolvedWorkspaceView === 'invoiceDetail') && isPracticeWorkspace && practiceInvoicesPath
+          : resolvedWorkspaceView === 'invoices' && isPracticeWorkspace && practiceInvoicesPath
             ? {
                 label: 'New Invoice',
-                onClick: () => navigate(`${practiceInvoicesPath}/new`),
-                icon: PlusIcon,
+                onClick: () => navigate(`${practiceInvoicesPath}/new?returnTo=${encodeURIComponent(returnToPath)}`),
+                icon: Plus,
               }
-          : resolvedWorkspaceView === 'clients' && isPracticeWorkspace && practiceClientsPath
+          : resolvedWorkspaceView === 'contacts' && isPracticeWorkspace && practiceContactsPath
             ? {
-                label: 'New Person',
-                onClick: () => navigate(`${practiceClientsPath}?create=1`),
-                icon: PlusIcon,
+                label: 'Invite Contact',
+                onClick: () => navigate(`${practiceContactsPath}?create=1`),
+                icon: Plus,
               }
             : null
       }
@@ -1127,6 +1166,18 @@ export function MainApp({
 
   // ── render ─────────────────────────────────────────────────────────────────
   const rootClassName = isWidget ? 'h-full w-full overflow-hidden' : 'min-h-dvh w-full';
+  const intakeProviderValue = {
+    intakeStatus,
+    intakeConversationState,
+    onIntakeCtaResponse: handleIntakeCtaResponse,
+    onSubmitNow: handleConfirmSubmit,
+    onBuildBrief: handleBuildBrief,
+    onStrengthenCase: handleStrengthenCase,
+    slimContactDraft,
+    onSlimFormContinue: handleSlimFormContinue,
+    onSlimFormDismiss: handleSlimFormDismiss,
+    isPublicWorkspace,
+  };
 
   const routePracticeContextValue = {
     practiceId: effectivePracticeId ?? null,
@@ -1140,23 +1191,28 @@ export function MainApp({
 
   return (
     <>
-      {!isWidget && <DragDropOverlay isVisible={isDragging} onClose={() => setIsDragging(false)} />}
-      <div className={rootClassName}>
-        <RoutePracticeProvider value={routePracticeContextValue}>
-          {workspacePage}
-        </RoutePracticeProvider>
-      </div>
+      {!isWidget && <DragDropOverlay isVisible={isDraggingFiles} />}
+      <IntakeProvider value={intakeProviderValue}>
+        <PresenceProvider
+          practiceId={effectivePracticeId ?? practiceId ?? null}
+          userId={session?.user?.id ?? null}
+          enabled={!isWidget && !isAnonymous}
+        >
+          <div className={rootClassName}>
+            <RoutePracticeProvider value={routePracticeContextValue}>
+              {workspacePage}
+            </RoutePracticeProvider>
+          </div>
+        </PresenceProvider>
+      </IntakeProvider>
       {!isWidget && (
         <>
-          <WelcomeModal
-            isOpen={showWelcomeModal}
+          <WelcomeDialog
+            isOpen={showWelcomeDialog}
             onClose={handleWelcomeClose}
             onComplete={handleWelcomeComplete}
             workspace={isPracticeWorkspace ? 'practice' : 'client'}
           />
-          {showBusinessWelcome && (
-            <BusinessWelcomePrompt isOpen={showBusinessWelcome} onClose={handleBusinessWelcomeClose} />
-          )}
         </>
       )}
     </>

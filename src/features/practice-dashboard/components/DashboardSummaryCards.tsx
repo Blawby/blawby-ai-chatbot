@@ -1,4 +1,5 @@
 import { Panel } from '@/shared/ui/layout/Panel';
+import { SkeletonLoader } from '@/shared/ui/layout/SkeletonLoader';
 import { formatCurrency } from '@/shared/utils/currencyFormatter';
 import type { DashboardStat } from '@/features/practice-dashboard/hooks/usePracticeBillingData';
 
@@ -22,8 +23,12 @@ type DashboardSummaryCardsProps = {
 export const DashboardSummaryCards = ({ stats, loading = false }: DashboardSummaryCardsProps) => (
   <Panel className="overflow-hidden">
     {loading && stats.length === 0 ? (
-      <div className="py-8 text-center text-sm text-input-placeholder">
-        Loading practice metrics…
+      <div className="py-8">
+        <div className="space-y-3">
+          <SkeletonLoader variant="rect" height="h-16" />
+          <SkeletonLoader variant="rect" height="h-16" />
+          <SkeletonLoader variant="rect" height="h-16" />
+        </div>
       </div>
     ) : stats.map((stat, index) => (
       <div
@@ -49,7 +54,7 @@ export const DashboardSummaryCards = ({ stats, loading = false }: DashboardSumma
         </div>
         <div className="flex items-start justify-end">
           {stat.changeLabel ? (
-            <span className={`mt-1 rounded-md bg-surface-glass px-2 py-1 text-xs font-semibold ${changeToneClass[stat.changeTone ?? 'neutral']}`}>
+            <span className={`mt-1 rounded-md bg-surface-utility/10 px-2 py-1 text-xs font-semibold ${changeToneClass[stat.changeTone ?? 'neutral']}`}>
               {stat.changeLabel}
             </span>
           ) : null}

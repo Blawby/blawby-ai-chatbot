@@ -5,7 +5,7 @@
  *   1. On mount, reads `intakePaymentSuccess:*` keys from sessionStorage
  *      (written by the Stripe return URL handler) and posts a confirmation
  *      system message.
- *   2. For pending payments, checks the backend intake status endpoint
+ *   2. For pending payments, checks the backend post-pay status endpoint
  *      on load to reconcile if the user returned without a success flag
  *      (e.g., closed the Stripe tab and refreshed).
  *   3. Exposes `verifiedPaidIntakeUuids` so the rest of the UI can gate
@@ -19,8 +19,10 @@
 
 import { useState, useEffect, useRef, useCallback } from 'preact/hooks';
 import type { ConversationMessage } from '@/shared/types/conversation';
-import { getPracticeClientIntakeStatusEndpoint } from '@/config/api';
-import { isPaidIntakeStatus } from '@/shared/utils/intakePayments';
+import {
+  fetchPostPayIntakeStatus,
+  PAYMENT_CONFIRMED_STORAGE_KEY,
+} from '@/shared/utils/intakePayments';
 import { postSystemMessage } from '@/shared/lib/conversationApi';
 
 // ─── types ────────────────────────────────────────────────────────────────────
@@ -28,9 +30,11 @@ import { postSystemMessage } from '@/shared/lib/conversationApi';
 export interface LatestIntakeSubmission {
   intakeUuid: string | null;
   paymentRequired: boolean;
+  checkoutSessionId?: string | null;
 }
 
 export interface UsePaymentStatusOptions {
+  enabled?: boolean;
   conversationId: string | null | undefined;
   practiceId: string | null | undefined;
   latestIntakeSubmission: LatestIntakeSubmission;
@@ -44,31 +48,12 @@ export interface UsePaymentStatusOptions {
 
 // ─── helpers ──────────────────────────────────────────────────────────────────
 
-const fetchIntakePaidStatus = async (intakeUuid: string, signal?: AbortSignal): Promise<boolean> => {
-  const response = await fetch(getPracticeClientIntakeStatusEndpoint(intakeUuid), {
-    credentials: 'include',
-    signal,
-  });
-  if (!response.ok) throw new Error(`Failed to fetch intake status (${response.status})`);
-  const payload = await response.json() as {
-    success?: boolean;
-    data?: { status?: string; succeeded_at?: string | null };
-  };
-  if (!payload?.success || !payload.data) return false;
-  return isPaidIntakeStatus(payload.data.status, payload.data.succeeded_at);
-};
-
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-
-const parseStoredFlag = (raw: string | null): { practiceName?: string; practiceId?: string; conversationId?: string } | null => {
-  if (!raw) return null;
-  try { return JSON.parse(raw) as { practiceName?: string }; }
-  catch (err) { console.warn('[usePaymentStatus] Failed to parse payment flag', err); return null; }
-};
 
 // ─── hook ─────────────────────────────────────────────────────────────────────
 
 export const usePaymentStatus = ({
+  enabled = true,
   conversationId,
   practiceId,
   latestIntakeSubmission,
@@ -89,98 +74,136 @@ export const usePaymentStatus = ({
     uuid: string,
     practiceName: string,
     signal?: AbortSignal,
-  ) => {
-    if (!conversationId || !practiceId) return;
+    sessionId?: string | null,
+  ): Promise<boolean> => {
+    if (!enabled) return false;
+    if (!conversationId || !practiceId) return false;
 
     const messageId = `system-payment-confirm-${uuid}`;
-    if (processedPaymentUuidsRef.current.has(uuid)) return;
+    if (processedPaymentUuidsRef.current.has(uuid)) return true;
 
     // Check if a confirmation already exists in the current message list
     // (handled by the caller via latestIntakeSubmission / verifiedPaidIntakeUuids)
 
     try {
-      if (signal?.aborted) return;
+      if (signal?.aborted) return false;
       processedPaymentUuidsRef.current.add(uuid);
 
       const persistedMessage = await postSystemMessage(conversationId, practiceId, {
         clientId: messageId,
-        content: `Payment received. ${practiceName} will review your intake and follow up here shortly.`,
-        metadata: { intakePaymentUuid: uuid, paymentStatus: 'succeeded' },
+        content: `Thank you! Your payment was successful and your case details are being processed. A member of our team will contact you at the information you provided.`,
+        metadata: {
+          intakePaymentUuid: uuid,
+          paymentStatus: 'succeeded',
+          ...(sessionId ? { checkoutSessionId: sessionId } : {}),
+        },
       });
 
-      // After successful persistence, always update client state regardless of abort status
       if (persistedMessage) {
         // Mark as confirmed in parent state ONLY after persistence success
         onPaymentConfirmed(uuid);
         applyServerMessages([persistedMessage]);
         setPaymentRetryNotice(null);
-      } else {
-        throw new Error('Payment confirmation message could not be saved.');
+        return true;
       }
+      
+      // If we failed to get a response but didn't throw, evict from snapshots so we can retry
+      processedPaymentUuidsRef.current.delete(uuid);
+      return false;
     } catch (error) {
       processedPaymentUuidsRef.current.delete(uuid);
+      if (signal?.aborted) return false;
       console.warn('[usePaymentStatus] Failed to persist payment confirmation message', error);
       onError?.(error);
       throw error;
     }
-  }, [applyServerMessages, conversationId, onError, onPaymentConfirmed, practiceId]);
+  }, [applyServerMessages, conversationId, enabled, onError, onPaymentConfirmed, practiceId]);
 
-  // ── sessionStorage reconciliation (Stripe return) ─────────────────────────
-
+  // ── sessionStorage & URL reconciliation (Stripe return) ───────────────────
   useEffect(() => {
     if (typeof window === 'undefined') return;
 
     const controller = new AbortController();
-    let cancelled = false;
 
-    // Collect keys written by the Stripe return URL handler
-    const paymentSuccessKeys: string[] = [];
-    const paymentPendingKeys: string[] = [];
+    // 1. Process URL parameters (Fast path for direct Stripe returns)
+    const url = new URL(window.location.href);
+    const sessionIdFromUrl = url.searchParams.get('session_id');
+    const uuidFromUrl = url.searchParams.get('uuid');
 
-    for (let i = 0; i < window.sessionStorage.length; i += 1) {
+    if (sessionIdFromUrl && uuidFromUrl && UUID_PATTERN.test(uuidFromUrl)) {
+      postPaymentConfirmation(uuidFromUrl, practiceName || 'the practice', controller.signal, sessionIdFromUrl)
+        .then(() => {
+          // Clear URL params only after successful confirmation to allow retry on error
+          const nextUrl = new URL(window.location.href);
+          nextUrl.searchParams.delete('session_id');
+          nextUrl.searchParams.delete('uuid');
+          window.history.replaceState({}, '', nextUrl.pathname + nextUrl.search);
+        })
+        .catch(err => {
+          console.warn('[usePaymentStatus] URL-based confirmation failed', err);
+          // Keep params intact on error to allow user to retry or for debugging
+        });
+    }
+    // 2. Clean up legacy sessionStorage keys (Fallback cleanup)
+    // Iterate backwards so removeItem doesn't shift indices of unvisited keys
+    for (let i = window.sessionStorage.length - 1; i >= 0; i -= 1) {
       const key = window.sessionStorage.key(i);
       if (!key) continue;
-      if (key.startsWith('intakePaymentSuccess:')) paymentSuccessKeys.push(key);
-      if (key.startsWith('intakePaymentPending:')) paymentPendingKeys.push(key);
+      if (key.startsWith('intakePaymentSuccess:') || key.startsWith('intakePaymentPending:')) {
+        window.sessionStorage.removeItem(key);
+      }
     }
 
-    // Clean up stale "pending" keys — these are written before the Stripe redirect
-    // and should always be removed once we're back on the page.
-    paymentPendingKeys.forEach(key => window.sessionStorage.removeItem(key));
+    return () => {
+      controller.abort();
+    };
+  }, [conversationId, practiceId, postPaymentConfirmation, practiceName]);
 
-    // Process confirmed payments
-    paymentSuccessKeys.forEach(key => {
-      const uuid = key.split(':')[1];
-      if (!uuid || !UUID_PATTERN.test(uuid)) {
-        console.warn('[usePaymentStatus] Skipping malformed payment confirmation key', { key });
+  // ── Cross-tab payment signal (PaymentResultPage → widget tab) ─────────────
+  // PaymentResultPage writes PAYMENT_CONFIRMED_STORAGE_KEY to localStorage after
+  // Stripe redirects. localStorage storage events fire on every other same-origin
+  // tab, so the widget tab picks this up even though it never navigated to /p/.
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+    const handleStorage = (event: StorageEvent) => {
+      if (event.key !== PAYMENT_CONFIRMED_STORAGE_KEY) return;
+      if (!event.newValue) return;
+
+      let payload: { intakeUuid?: string; sessionId?: string; conversationId?: string | null } | null = null;
+      try { payload = JSON.parse(event.newValue); } catch { return; }
+
+      // Ensure the confirmation belongs to this conversation
+      if (payload?.conversationId && conversationId && payload.conversationId !== conversationId) {
         return;
       }
 
-      let practiceName = 'the practice';
-      const raw = window.sessionStorage.getItem(key);
-      const parsed = parseStoredFlag(raw);
-      if (parsed?.practiceName?.trim()) practiceName = parsed.practiceName.trim();
+      const intakeUuid = payload?.intakeUuid;
+      if (!intakeUuid || !UUID_PATTERN.test(intakeUuid)) return;
 
-      postPaymentConfirmation(uuid, practiceName, controller.signal)
-        .then(() => { if (!cancelled) window.sessionStorage.removeItem(key); })
-        .catch(err => { console.warn('[usePaymentStatus] Payment confirmation retry failed, keeping session key', err); });
-    });
-
-    return () => {
-      cancelled = true;
-      controller.abort();
+      postPaymentConfirmation(intakeUuid, practiceName || 'the practice', undefined, payload?.sessionId ?? null)
+        .then((success) => {
+          // Clean up only after successful confirmation so other tabs can retry on failure
+          if (success) {
+            try { localStorage.removeItem(PAYMENT_CONFIRMED_STORAGE_KEY); } catch { /* ignore */ }
+          }
+        })
+        .catch(err => console.warn('[usePaymentStatus] Cross-tab payment confirmation failed', err));
     };
-  // Run once on mount (and on conversation/practice change in case of navigation)
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [conversationId, practiceId]);
+
+    window.addEventListener('storage', handleStorage);
+    return () => window.removeEventListener('storage', handleStorage);
+  }, [conversationId, postPaymentConfirmation, practiceName]);
 
   // ── backend payment reconciliation ────────────────────────────────────────
   // Runs whenever the latest intake submission changes — handles the case
-  // where a user paid but sessionStorage was cleared (different device, tab crash, etc.)
+  // where a user returned without a persisted payment-success flag.
 
   useEffect(() => {
-    const { intakeUuid, paymentRequired } = latestIntakeSubmission;
-    if (!intakeUuid || !paymentRequired) return;
+    const { checkoutSessionId, paymentRequired } = latestIntakeSubmission;
+    if (!checkoutSessionId || !paymentRequired) return;
     if (!conversationId || !practiceId) return;
 
     let cancelled = false;
@@ -188,13 +211,13 @@ export const usePaymentStatus = ({
 
     (async () => {
       try {
-        const isPaid = await fetchIntakePaidStatus(intakeUuid, controller.signal);
-        if (!isPaid || cancelled) return;
+        const intakeUuid = await fetchPostPayIntakeStatus(checkoutSessionId, { timeoutMs: 8_000, conversationId });
+        if (!intakeUuid || cancelled) return;
         await postPaymentConfirmation(intakeUuid, practiceName || 'the practice', controller.signal);
       } catch (error) {
         if (controller.signal.aborted || cancelled) return;
         const errorMessage = error instanceof Error ? error.message : String(error);
-        onError?.(errorMessage, { source: 'fetchIntakePaidStatus', intakeUuid });
+        onError?.(errorMessage, { source: 'fetchPostPayIntakeStatus', checkoutSessionId });
         console.warn('[usePaymentStatus] Failed to reconcile payment status on refresh', error);
       }
     })();

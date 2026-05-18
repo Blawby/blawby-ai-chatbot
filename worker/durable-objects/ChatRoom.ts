@@ -5,6 +5,14 @@ import { HttpError } from '../types.js';
 import { checkPracticeMembership, requireAuth } from '../middleware/auth.js';
 import { parseEnvBool } from '../utils/safeStringUtils.js';
 import { createAiClient } from '../utils/aiClient.js';
+import { ConversationService } from '../services/ConversationService.js';
+import {
+  extractMentionUserIds,
+  listConversationParticipantRecords,
+  validateMentionTargets,
+  withValidatedMentionMetadata,
+  type MentionSenderType,
+} from '../services/ConversationParticipantService.js';
 
 const DEFAULT_AI_MODEL = '@cf/zai-org/glm-4.7-flash';
 
@@ -24,6 +32,7 @@ const IDLE_TIMEOUT_MS = 30 * 60 * 1000;
 interface ConnectionAttachment {
   conversationId: string;
   userId: string;
+  isAnonymous: boolean;
   negotiated: boolean;
   negotiationDeadline: number | null;
   lastActivityAt: number;
@@ -84,6 +93,7 @@ interface PersistOptions {
   replyToMessageId?: string | null;
   userId: string | null;
   role: 'user' | 'system';
+  senderType?: MentionSenderType;
 }
 
 type PersistResult =
@@ -101,6 +111,20 @@ export class ChatRoom {
   private readonly presenceCounts = new Map<string, number>();
   private cachedMembershipVersion: number | null = null;
   private membershipCheckedAt: number | null = null;
+  // Cache for conversation.user_info.hideReplies / hide_replies
+  private hideRepliesCache: boolean | null = null;
+
+  private parseUserInfo(value: unknown): Record<string, unknown> | null {
+    if (!value) return null;
+    if (typeof value === 'object' && !Array.isArray(value)) return value as Record<string, unknown>;
+    if (typeof value !== 'string') return null;
+    try {
+      const parsed = JSON.parse(value) as unknown;
+      return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed as Record<string, unknown> : null;
+    } catch {
+      return null;
+    }
+  }
 
   constructor(state: DurableObjectState, env: Env) {
     this.state = state;
@@ -116,6 +140,21 @@ export class ChatRoom {
         return new Response('Method not allowed', { status: 405 });
       }
       return this.handleMembershipRevocation(request);
+    }
+
+    if (url.pathname === '/internal/invalidate-hide-replies') {
+      if (request.method !== 'POST') {
+        return new Response('Method not allowed', { status: 405 });
+      }
+      try {
+        // Accept a body with conversation_id but we clear cache regardless for this DO instance
+        // so that tokenized/negotiated connections won't receive stale behavior.
+        await request.json().catch(() => null);
+      } catch {
+        // ignore
+      }
+      this.hideRepliesCache = null;
+      return new Response(JSON.stringify({ success: true }), { headers: { 'Content-Type': 'application/json' } });
     }
 
     if (url.pathname === '/internal/message') {
@@ -160,11 +199,10 @@ export class ChatRoom {
       throw error;
     }
 
-    const isMember = await this.isConversationMember(conversationId, auth.user.id);
-    let isPracticeMember = false;
-    if (!isMember) {
-      isPracticeMember = await this.isPracticeMember(request, conversationId);
-      if (!isPracticeMember) {
+    const isPracticeMember = await this.isPracticeMember(request, conversationId);
+    if (!isPracticeMember) {
+      const isMember = await this.isConversationMember(conversationId, auth.user.id);
+      if (!isMember) {
         return new Response('Forbidden', { status: 403 });
       }
     }
@@ -181,6 +219,7 @@ export class ChatRoom {
     const attachment: ConnectionAttachment = {
       conversationId,
       userId: auth.user.id,
+      isAnonymous: auth.isAnonymous === true,
       negotiated: false,
       negotiationDeadline: null,
       lastActivityAt: Date.now(),
@@ -316,22 +355,6 @@ export class ChatRoom {
     attachment: ConnectionAttachment,
     frame: ClientFrame
   ): Promise<void> {
-    try {
-      const rawConversationId = this.readString(frame.data.conversation_id);
-      const rawClientId = this.readString(frame.data.client_id);
-      const rawContent = typeof frame.data.content === 'string' ? frame.data.content : '';
-      console.warn('[ChatRoom] message.send received', {
-        conversationId: rawConversationId ?? null,
-        clientId: rawClientId ?? null,
-        contentLength: rawContent.length,
-        hasAttachments: Array.isArray(frame.data.attachments) ? frame.data.attachments.length : 0,
-        hasMetadata: frame.data.metadata !== undefined && frame.data.metadata !== null,
-        requestId: frame.request_id ?? null
-      });
-    } catch {
-      console.warn('[ChatRoom] message.send received (log failure)');
-    }
-
     const conversationId = this.readString(frame.data.conversation_id);
     if (!conversationId || conversationId !== attachment.conversationId) {
       this.rejectInvalidPayload(ws, frame.request_id, 'conversation_id mismatch');
@@ -344,8 +367,11 @@ export class ChatRoom {
       return;
     }
 
-    const content = this.readString(frame.data.content);
-    if (!content || content.length > MAX_CONTENT_LENGTH) {
+    // readString returns null when the field is missing or not a string;
+    // normalize to an empty string so the length check below is safe and the
+    // file-only path treats "no text" the same as "empty text".
+    const content = this.readString(frame.data.content) ?? '';
+    if (content.length > MAX_CONTENT_LENGTH) {
       this.rejectInvalidPayload(ws, frame.request_id, 'content invalid');
       return;
     }
@@ -357,6 +383,14 @@ export class ChatRoom {
     }
     if (attachments.length > MAX_ATTACHMENTS) {
       this.rejectInvalidPayload(ws, frame.request_id, 'attachments limit exceeded');
+      return;
+    }
+
+    // After attachments are validated: require non-empty content OR at least
+    // one attachment. File-only sends are valid (drop file, hit send without
+    // typing).
+    if (!content && attachments.length === 0) {
+      this.rejectInvalidPayload(ws, frame.request_id, 'content invalid');
       return;
     }
 
@@ -385,7 +419,10 @@ export class ChatRoom {
       metadata: payloadMetadata,
       replyToMessageId,
       userId: attachment.userId,
-      role: 'user'
+      role: 'user',
+      senderType: attachment.isAnonymous
+        ? 'anonymous'
+        : (attachment.isPracticeMember ? 'team_member' : 'client')
     });
 
     if (result.kind === 'error') {
@@ -408,7 +445,7 @@ export class ChatRoom {
     }, frame.request_id);
 
     if (result.broadcast) {
-      this.broadcastFrame('message.new', result.broadcast);
+      await this.broadcastFrame('message.new', result.broadcast);
     }
   }
 
@@ -471,11 +508,36 @@ export class ChatRoom {
       return;
     }
 
-    this.broadcastFrame('typing', {
+    void this.broadcastFrame('typing', {
       conversation_id: conversationId,
       user_id: attachment.userId,
       is_typing: isTyping
     });
+
+    // Fan out to PresenceRoom so the conversation list (which doesn't subscribe
+    // to per-conversation WS) can render "typing…" badges.
+    void this.forwardTypingToPresence(conversationId, attachment.userId, isTyping);
+  }
+
+  private async forwardTypingToPresence(
+    conversationId: string,
+    userId: string,
+    isTyping: boolean
+  ): Promise<void> {
+    try {
+      const practiceId = await this.getPracticeId(conversationId);
+      if (!practiceId) return;
+      const id = this.env.PRESENCE_ROOM.idFromName(practiceId);
+      const stub = this.env.PRESENCE_ROOM.get(id);
+      await stub.fetch('https://presence/typing', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ conversationId, userId, isTyping })
+      });
+    } catch {
+      // Best-effort fan-out — failure to reach PresenceRoom must not break
+      // the per-conversation typing broadcast that already succeeded.
+    }
   }
 
   private async handleReadUpdate(
@@ -529,7 +591,7 @@ export class ChatRoom {
       return;
     }
 
-    this.broadcastFrame('read', {
+    await this.broadcastFrame('read', {
       conversation_id: conversationId,
       user_id: attachment.userId,
       last_read_seq: clamped
@@ -570,6 +632,10 @@ export class ChatRoom {
       return new Response('metadata invalid', { status: 400 });
     }
     const allowEmptyContent = (() => {
+      // File-only sends: when at least one attachment is present, the message
+      // can have empty content. Mirrors typical chat UX (drop a file, hit send
+      // without typing).
+      if (attachments.length > 0) return true;
       if (roleValue !== 'system') return false;
       if (!metadata || typeof metadata !== 'object') return false;
       const systemKey = (metadata as Record<string, unknown>).systemMessageKey;
@@ -608,7 +674,8 @@ export class ChatRoom {
       metadata: payloadMetadata,
       replyToMessageId,
       userId,
-      role: roleValue
+      role: roleValue,
+      senderType: roleValue === 'user' ? 'client' : undefined
     });
 
     if (result.kind === 'error') {
@@ -617,7 +684,7 @@ export class ChatRoom {
     }
 
     if (result.broadcast) {
-      this.broadcastFrame('message.new', result.broadcast);
+      await this.broadcastFrame('message.new', result.broadcast);
     }
 
     return new Response(JSON.stringify({
@@ -641,7 +708,8 @@ export class ChatRoom {
       metadata,
       replyToMessageId,
       userId,
-      role
+      role,
+      senderType
     } = options;
 
     await this.sweepPending(conversationId);
@@ -712,14 +780,45 @@ export class ChatRoom {
 
     const serverTs = new Date().toISOString();
     const messageId = crypto.randomUUID();
-    const metadataJson = metadata ? JSON.stringify(metadata) : null;
+    let sanitizedMetadata = metadata;
+    const mentionUserIds = extractMentionUserIds(metadata);
+
+    if (role === 'user' && senderType && mentionUserIds.length > 0) {
+      try {
+        const conversationService = new ConversationService(this.env);
+        const conversation = await conversationService.getConversation(conversationId, practiceId);
+        const participants = await listConversationParticipantRecords({
+          env: this.env,
+          practiceId,
+          conversation,
+        });
+        const validatedMentionUserIds = validateMentionTargets({
+          participants,
+          senderType,
+          mentionedUserIds: mentionUserIds,
+        });
+        sanitizedMetadata = withValidatedMentionMetadata(metadata, validatedMentionUserIds);
+      } catch (error) {
+        if (error instanceof HttpError) {
+          return {
+            kind: 'error',
+            code: 'invalid_payload',
+            message: error.message,
+            closeCode: 4400
+          };
+        }
+        throw error;
+      }
+    }
+
+    const metadataJson = sanitizedMetadata ? JSON.stringify(sanitizedMetadata) : null;
 
     const shouldUpdateContent = role !== 'system' && content.trim().length > 0;
-    const persistBatch = async (includeLastMessageContent: boolean) => {
-      const convSql = shouldUpdateContent && includeLastMessageContent
+    const persistBatch = async () => {
+      const convSql = shouldUpdateContent
         ? 'UPDATE conversations SET latest_seq = ?, updated_at = ?, last_message_at = ?, last_message_content = ? WHERE id = ?'
         : 'UPDATE conversations SET latest_seq = ?, updated_at = ?, last_message_at = ? WHERE id = ?';
-      const convBindings = shouldUpdateContent && includeLastMessageContent
+      const convBindings = shouldUpdateContent
         ? [pending.allocated_seq, serverTs, serverTs, content, conversationId]
         : [pending.allocated_seq, serverTs, serverTs, conversationId];
 
@@ -759,21 +858,8 @@ export class ChatRoom {
       ]);
     };
 
-    const isMissingLastMessageContentColumn = (error: unknown): boolean => {
-      const message = error instanceof Error ? error.message : String(error);
-      return /no such column:\s*last_message_content/i.test(message);
-    };
-
     try {
-      try {
-        await persistBatch(true);
-      } catch (error) {
-        if (shouldUpdateContent && isMissingLastMessageContentColumn(error)) {
-          await persistBatch(false);
-        } else {
-          throw error;
-        }
-      }
+      await persistBatch();
     } catch (error) {
       if (this.isUniqueConstraintError(error)) {
         const existing = await this.fetchExistingMessage(conversationId, clientId);
@@ -834,7 +920,7 @@ export class ChatRoom {
       content,
       ...(replyToMessageId ? { reply_to_message_id: replyToMessageId } : {}),
       ...(attachments.length > 0 ? { attachments } : {}),
-      ...(metadata ? { metadata } : {})
+      ...(sanitizedMetadata ? { metadata: sanitizedMetadata } : {})
     };
 
     return {
@@ -890,18 +976,8 @@ export class ChatRoom {
     return Boolean(record);
   }
 
-  private async fetchConversationPracticeId(conversationId: string): Promise<string | null> {
-    const record = await this.env.DB.prepare(`
-      SELECT practice_id
-      FROM conversations
-      WHERE id = ?
-    `).bind(conversationId).first<{ practice_id: string } | null>();
-
-    return record?.practice_id ?? null;
-  }
-
   private async isPracticeMember(request: Request, conversationId: string): Promise<boolean> {
-    const practiceId = await this.fetchConversationPracticeId(conversationId);
+    const practiceId = await this.getPracticeId(conversationId);
     if (!practiceId) {
       return false;
     }
@@ -920,7 +996,7 @@ export class ChatRoom {
   }
 
   private async revalidatePracticeMembership(attachment: ConnectionAttachment): Promise<boolean> {
-    const practiceId = await this.fetchConversationPracticeId(attachment.conversationId);
+    const practiceId = await this.getPracticeId(attachment.conversationId);
     if (!practiceId) {
       return false;
     }
@@ -1051,7 +1127,7 @@ export class ChatRoom {
     this.cachedMembershipVersion = membershipVersion;
     this.membershipCheckedAt = Date.now();
 
-    this.broadcastFrame('membership.changed', {
+    await this.broadcastFrame('membership.changed', {
       conversation_id: conversationId,
       membership_version: membershipVersion
     });
@@ -1126,7 +1202,7 @@ export class ChatRoom {
     if (lastSeen) {
       data.last_seen = lastSeen;
     }
-    this.broadcastFrame('presence', data);
+    void this.broadcastFrame('presence', data);
   }
 
   async alarm(): Promise<void> {
@@ -1436,14 +1512,69 @@ export class ChatRoom {
       data.count = count;
     }
 
-    this.broadcastFrame('reaction.update', data);
+    await this.broadcastFrame('reaction.update', data);
 
     return new Response(JSON.stringify({ success: true }), {
       headers: { 'Content-Type': 'application/json' }
     });
   }
 
-  private broadcastFrame(type: string, data: Record<string, unknown>): void {
+  private async broadcastFrame(type: string, data: Record<string, unknown>): Promise<void> {
+    // Special-case message broadcasts: sanitize per-connection for anonymous
+    // viewers when the conversation requests assistant replies to be hidden.
+    if (type === 'message.new' && typeof data.conversation_id === 'string') {
+      const convId = data.conversation_id as string;
+
+      // Use cached value when available to avoid per-broadcast DB reads.
+      let hideReplies: boolean | null = this.hideRepliesCache;
+      if (hideReplies === null) {
+        try {
+          const row = await this.env.DB.prepare(`SELECT user_info FROM conversations WHERE id = ?`).bind(convId).first<Record<string, unknown> | null>();
+          if (!row) {
+            console.warn('[ChatRoom] No conversation found for hideReplies; treating as hide (fail-closed) but not caching');
+            hideReplies = true;
+          } else {
+            const parsed = this.parseUserInfo(row.user_info);
+            hideReplies = Boolean(parsed && (parsed.hideReplies ?? parsed.hide_replies));
+            this.hideRepliesCache = hideReplies;
+          }
+        } catch (err) {
+          console.warn('[ChatRoom] Failed to read conversation.user_info for hideReplies, treating this broadcast as hide (fail-closed) but not caching', err);
+          hideReplies = true;
+        }
+      }
+
+      for (const socket of this.state.getWebSockets()) {
+        const attachment = this.getAttachment(socket);
+        if (!attachment?.negotiated) continue;
+
+        if (hideReplies && attachment.isAnonymous) {
+          const role = typeof data.role === 'string' ? data.role : null;
+          const metadata = (data.metadata && typeof data.metadata === 'object') ? data.metadata as Record<string, unknown> : null;
+          const source = metadata && metadata.source ? String(metadata.source).toLowerCase() : '';
+          // MessageBroadcast only allows 'user' | 'system', so treat 'system' as AI or use source
+          const isAi = role === 'system' || source.startsWith('ai');
+          if (isAi) {
+            const masked: Record<string, unknown> = {
+              ...data,
+              content: '',
+              metadata: { ...(metadata || {}), hidden_reply: true }
+            };
+            if ('attachments' in masked) delete masked.attachments;
+            if (masked.metadata && typeof masked.metadata === 'object' && 'attachments' in (masked.metadata as Record<string, unknown>)) {
+              // Remove any attachment urls in metadata to avoid leaking
+              delete (masked.metadata as Record<string, unknown>).attachments;
+            }
+            this.sendFrame(socket, type, masked);
+            continue;
+          }
+        }
+
+        this.sendFrame(socket, type, data);
+      }
+      return;
+    }
+
     for (const socket of this.state.getWebSockets()) {
       const attachment = this.getAttachment(socket);
       if (!attachment?.negotiated) {
@@ -1570,7 +1701,7 @@ export class ChatRoom {
       return null;
     }
 
-    let model = DEFAULT_AI_MODEL;
+    const model = this.env.AI_MODEL || DEFAULT_AI_MODEL;
 
     const response = await aiClient.requestChatCompletions({
       model,
@@ -1580,8 +1711,9 @@ export class ChatRoom {
         {
           role: 'system',
           content: [
-            'Create a short, descriptive conversation title (3-6 words).',
+            'Create a short legal conversation title (3-6 words).',
             'Use plain text only. No quotes. No punctuation at the end.',
+            'Describe the user issue, not the contact name.',
             'Summarize the user message without legal advice.'
           ].join(' ')
         },

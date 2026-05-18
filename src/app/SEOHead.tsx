@@ -9,36 +9,6 @@ interface SEOHeadProps {
   currentUrl?: string;
 }
 
-/**
- * Truncates text to a maximum length while preserving word boundaries.
- * If truncation occurs mid-word, cuts back to the last space.
- */
-function truncateToWordBoundary(text: string, maxLength: number): string {
-  if (!text || text.length <= maxLength) {
-    return text;
-  }
-  
-  const trimmed = text.trim();
-  if (trimmed.length <= maxLength) {
-    return trimmed;
-  }
-  
-  // Find the last space before maxLength
-  const truncated = trimmed.substring(0, maxLength);
-  const lastSpaceIndex = truncated.lastIndexOf(' ');
-  
-  // Minimum allowed length to avoid extremely short truncations
-  const MINIMUM_ALLOWED = 10;
-  
-  // If we found a space and it's not below the minimum threshold, use it
-  // This preserves word boundaries whenever possible
-  if (lastSpaceIndex !== -1 && lastSpaceIndex >= MINIMUM_ALLOWED) {
-    return truncated.substring(0, lastSpaceIndex).trim();
-  }
-  
-  // Fallback: just truncate at maxLength (word might be longer than maxLength)
-  return truncated.trim();
-}
 
 /**
  * Generates a safe, SEO-friendly page title with proper fallbacks.
@@ -98,8 +68,9 @@ export function SEOHead({
 
     // Update Open Graph tags
     updateMetaTag('og:title', title);
-    updateMetaTag('og:description', pageDescription || 
-      (practiceConfig?.description || 'Get instant legal guidance, document analysis, and matter creation with Blawby\'s AI-powered legal assistant. Available nationwide for legal professionals and individuals seeking legal information.'));
+    const defaultDescription = 'Get instant legal guidance, document analysis, and matter creation with Blawby\'s AI-powered legal assistant. Available nationwide for legal professionals and individuals seeking legal information.';
+
+    updateMetaTag('og:description', pageDescription || defaultDescription);
     updateMetaTag('og:url', currentUrl || window.location.href);
     updateMetaTag('og:image', pageImage || 
       (practiceConfig?.profileImage || '/team-profile-demo.png'));
@@ -111,14 +82,12 @@ export function SEOHead({
 
     // Update Twitter tags
     updateMetaName('twitter:title', title);
-    updateMetaName('twitter:description', pageDescription || 
-      (practiceConfig?.description || 'Get instant legal guidance, document analysis, and matter creation with Blawby\'s AI-powered legal assistant. Available nationwide for legal professionals and individuals seeking legal information.'));
+    updateMetaName('twitter:description', pageDescription || defaultDescription);
     updateMetaName('twitter:image', pageImage || 
       (practiceConfig?.profileImage || 'https://ai.blawby.com/organization-profile-demo.png'));
 
     // Update standard meta tags
-    updateMetaName('description', pageDescription || 
-      (practiceConfig?.description || 'Get instant legal guidance, document analysis, and matter creation with Blawby\'s AI-powered legal assistant. Available nationwide for legal professionals and individuals seeking legal information.'));
+    updateMetaName('description', pageDescription || defaultDescription);
 
     // Update canonical URL
     let canonical = document.querySelector('link[rel="canonical"]') as HTMLLinkElement;

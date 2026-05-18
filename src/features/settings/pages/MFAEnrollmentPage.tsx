@@ -1,20 +1,17 @@
 import { useState, useMemo, useEffect } from 'preact/hooks';
-import { useLocation } from 'preact-iso';
 import { Button } from '@/shared/ui/Button';
 import { Input } from '@/shared/ui/input';
-import { SectionDivider } from '@/shared/ui/layout';
-import { ContentPageLayout } from '@/shared/ui/layout';
+import { SectionDivider, EditorShell } from '@/shared/ui/layout';
+import { LoadingSpinner } from '@/shared/ui/layout/LoadingSpinner';
 import { SettingsNotice } from '@/features/settings/components/SettingsNotice';
 import { SettingsHelperText } from '@/features/settings/components/SettingsHelperText';
-import { ArrowLeftIcon } from '@heroicons/react/24/outline';
 import { useToastContext } from '@/shared/contexts/ToastContext';
-import { useNavigation } from '@/shared/utils/navigation';
 import { authClient, hasTwoFactorPlugin, type TwoFactorClient } from '@/shared/lib/authClient';
 import { useTranslation } from '@/shared/i18n/hooks';
-import { buildSettingsPath, resolveSettingsBasePath } from '@/shared/utils/workspace';
 
 export interface MFAEnrollmentPageProps {
   className?: string;
+  onBack?: () => void;
 }
 
 /**
@@ -38,17 +35,14 @@ export class MFAVerificationError extends Error {
 }
 
 export const MFAEnrollmentPage = ({
-  className = ''
+  className = '',
+  onBack
 }: MFAEnrollmentPageProps) => {
   const { showSuccess, showError } = useToastContext();
-  const { navigate } = useNavigation();
-  const location = useLocation();
   const [verificationCode, setVerificationCode] = useState('');
   const [isVerifying, setIsVerifying] = useState(false);
   const [isMFAConfigured, setIsMFAConfigured] = useState<boolean | null>(null);
   const { t } = useTranslation(['settings', 'common']);
-  const settingsBasePath = resolveSettingsBasePath(location.path);
-  const toSettingsPath = (subPath?: string) => buildSettingsPath(settingsBasePath, subPath);
 
   // Check for twoFactor availability during component initialization
   useEffect(() => {
@@ -129,7 +123,7 @@ export const MFAEnrollmentPage = ({
         t('settings:security.mfa.toastEnabled.title'),
         t('settings:security.mfa.toastEnabled.body')
       );
-      navigate(toSettingsPath('security'));
+        if (onBack) onBack();
     } catch (error) {
       // Distinguish between configuration errors and verification failures
       if (error instanceof MFAConfigurationError) {
@@ -191,20 +185,12 @@ export const MFAEnrollmentPage = ({
   };
 
   return (
-    <ContentPageLayout
+    <EditorShell
       title={t('settings:mfa.title')}
+      showBack={Boolean(onBack)}
+      onBack={onBack}
       className={className}
-      wrapChildren={false}
-      contentClassName="pb-8"
-      headerLeading={(
-        <Button
-          variant="icon"
-          size="icon"
-          onClick={() => navigate(toSettingsPath('security'))}
-          aria-label={t('settings:mfa.back')}
-          icon={ArrowLeftIcon} iconClassName="w-5 h-5"
-        />
-      )}
+      contentMaxWidth={null}
     >
       <div className="max-w-md mx-auto text-center space-y-8">
           {/* Configuration Error Banner */}
@@ -213,7 +199,7 @@ export const MFAEnrollmentPage = ({
               <div className="flex items-start">
                 <div className="flex-shrink-0">
                   <svg
-                    className="h-5 w-5 text-red-400"
+                    className="h-5 w-5 text-accent-error-light"
                     viewBox="0 0 20 20"
                     fill="currentColor"
                     aria-hidden="true"
@@ -229,7 +215,7 @@ export const MFAEnrollmentPage = ({
                   <h3 className="text-sm font-medium">
                     {t('settings:mfa.errors.configurationError.title')}
                   </h3>
-                  <div className="mt-2 text-sm text-red-700 dark:text-red-300">
+                  <div className="mt-2 text-sm text-accent-error-foreground dark:text-accent-error-light">
                     <p>{t('settings:mfa.errors.configurationError.body')}</p>
                   </div>
                 </div>
@@ -246,17 +232,17 @@ export const MFAEnrollmentPage = ({
 
           {/* QR Code */}
           <div className="flex justify-center">
-            <div className="glass-panel p-4 rounded-lg">
+            <div className="glass-panel p-4 rounded-xl">
               {/* Mock QR Code - in real app, you'd use a QR code library */}
               <div className="w-48 h-48 bg-surface-base rounded flex items-center justify-center">
                 <div className="text-center">
-                  <div className="w-32 h-32 bg-black dark:bg-white rounded grid grid-cols-8 gap-1 p-2">
+                  <div className="w-32 h-32 bg-surface-app-frame dark:bg-surface-workspace rounded grid grid-cols-8 gap-1 p-2">
                     {/* Mock QR pattern - stable pattern that doesn't flicker */}
                     {qrPattern.map((isWhite, i) => (
                       <div
                         key={i}
                         className={`w-full h-full rounded-sm ${
-                          isWhite ? 'bg-white dark:bg-black' : 'bg-black dark:bg-white'
+                          isWhite ? 'bg-surface-workspace dark:bg-surface-app-frame' : 'bg-surface-app-frame dark:bg-surface-workspace'
                         }`}
                       />
                     ))}
@@ -315,10 +301,10 @@ export const MFAEnrollmentPage = ({
               className="w-full"
             >
               {isVerifying ? (
-                <>
-                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
+                <span className="inline-flex items-center">
+                  <LoadingSpinner size="sm" className="mr-2" ariaLabel={t('settings:mfa.verifying')} />
                   {t('settings:mfa.verifying')}
-                </>
+                </span>
               ) : (
                 t('settings:mfa.verifyButton')
               )}
@@ -351,6 +337,6 @@ export const MFAEnrollmentPage = ({
             </div>
           </div>
       </div>
-    </ContentPageLayout>
+    </EditorShell>
   );
 };

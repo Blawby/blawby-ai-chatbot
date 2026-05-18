@@ -1,10 +1,8 @@
 import { useCallback } from 'preact/hooks';
 import { useStore } from '@nanostores/preact';
-import { getPracticeDetails, getPublicPracticeDetails, type PracticeDetails } from '@/shared/lib/apiClient';
-import { usePracticeManagement } from '@/shared/hooks/usePracticeManagement';
+import { getPracticeDetails, getPublicPracticeDetails } from '@/shared/lib/apiClient';
+import { updatePracticeDetailsStandalone } from '@/shared/hooks/usePracticeManagement';
 import { practiceDetailsStore, setPracticeDetailsEntry } from '@/shared/stores/practiceDetailsStore';
-
-const practiceDetailsInFlight = new Map<string, Promise<PracticeDetails | null>>();
 
 /**
  * usePracticeDetails
@@ -45,9 +43,7 @@ export const usePracticeDetails = (
       ? detailsMap[practiceId] ?? null
       : null;
 
-  const { updatePracticeDetails } = usePracticeManagement({
-    autoFetchPractices: false,
-  });
+
 
   // ------------------------------------------------------------------
   // fetchDetails — only hits the network when the store has no entry.
@@ -73,49 +69,38 @@ export const usePracticeDetails = (
       }
     }
 
-    const inFlightKey = `${practiceId}:${allowPublicFallback}:${practiceSlug?.trim() || ''}`;
-    const inFlight = practiceDetailsInFlight.get(inFlightKey);
-    if (inFlight) {
-      return inFlight;
+    // The underlying API calls are queryCache-backed and coalesce concurrent
+    // calls, so this hook only mirrors the result into the details store.
+    if (!allowPublicFallback) {
+      const fetched = await getPracticeDetails(practiceId);
+      setPracticeDetailsEntry(practiceId, fetched);
+      return fetched;
     }
 
-    const loadDetails = (async (): Promise<PracticeDetails | null> => {
-      if (!allowPublicFallback) {
-        const fetched = await getPracticeDetails(practiceId);
-        setPracticeDetailsEntry(practiceId, fetched);
-        return fetched;
-      }
-
-      const slugToFetch = practiceSlug?.trim() || practiceId;
-      const publicDetails = await getPublicPracticeDetails(slugToFetch);
-      setPracticeDetailsEntry(practiceId, publicDetails?.details ?? null);
-      if (publicDetails?.practiceId && publicDetails.practiceId !== practiceId) {
-        setPracticeDetailsEntry(publicDetails.practiceId, publicDetails.details ?? null);
-      }
-      return publicDetails?.details ?? null;
-    })();
-
-    practiceDetailsInFlight.set(inFlightKey, loadDetails);
-    try {
-      return await loadDetails;
-    } finally {
-      practiceDetailsInFlight.delete(inFlightKey);
+    const slugToFetch = practiceSlug?.trim() || practiceId;
+    const publicDetails = await getPublicPracticeDetails(slugToFetch);
+    setPracticeDetailsEntry(practiceId, publicDetails?.details ?? null);
+    if (publicDetails?.practiceId && publicDetails.practiceId !== practiceId) {
+      setPracticeDetailsEntry(publicDetails.practiceId, publicDetails.details ?? null);
     }
+    return publicDetails?.details ?? null;
   }, [practiceId, practiceSlug, allowPublicFallback]);
 
   // ------------------------------------------------------------------
   // updateDetails — for practice-owner settings saves.
   // ------------------------------------------------------------------
   const updateDetails = useCallback(
-    async (payload: Parameters<typeof updatePracticeDetails>[1]) => {
+    async (payload: Parameters<typeof updatePracticeDetailsStandalone>[1]) => {
       if (!practiceId) throw new Error('Practice id is required for details update');
-      const result = await updatePracticeDetails(practiceId, payload);
-      if (result !== undefined) {
-        setPracticeDetailsEntry(practiceId, result);
-      }
+      const result = await updatePracticeDetailsStandalone(practiceId, payload);
+      // Re-seed the details store with the server's canonical response so every
+      // consumer (AppShell brand-color effect, MainApp, sibling pages) sees the
+      // new values on the next render — without each caller having to remember
+      // to call setPracticeDetailsEntry / setDetails themselves.
+      if (result) setPracticeDetailsEntry(practiceId, result);
       return result;
     },
-    [practiceId, updatePracticeDetails],
+    [practiceId],
   );
 
   // ------------------------------------------------------------------

@@ -5,9 +5,13 @@ import { Logger } from '../utils/logger.js';
 import { SessionAuditService } from './SessionAuditService.js';
 import {
   applyConsultationPatchToMetadata,
+  isIntakeReadyForSubmission,
   normalizeSlimContactDraft as normalizeSharedSlimContactDraft,
   resolveConsultationState,
 } from '../../src/shared/utils/consultationState';
+
+export type ConversationStatus = 'active' | 'archived' | 'closed';
+export type ConversationLifecycleStatus = 'pending_visibility' | 'visible' | 'archived';
 
 export interface Conversation {
   id: string;
@@ -25,12 +29,22 @@ export interface Conversation {
   participants: string[]; // Array of user IDs
   user_info: Record<string, unknown> | null;
   status: 'active' | 'archived' | 'closed';
+  // Visibility gate. Conversation is excluded from inbox lists unless this is
+  // `'visible'`. Flipped when the backend reports an accepted intake for the
+  // conversation. See project_conversation_visibility memory.
+  lifecycle_status: ConversationLifecycleStatus;
+  intake_accepted_at?: string | null;
   assigned_to?: string | null; // User ID of assigned practice member
   priority?: 'low' | 'normal' | 'high' | 'urgent';
   tags?: string[]; // Array of tag strings
   internal_notes?: string | null; // Internal notes for practice members
   last_message_at?: string | null; // Timestamp of last message
   last_message_content?: string | null; // Content of last message for preview
+  // Populated only when the caller passes `?include=latest_message` on the
+  // list endpoint. List consumers (inbox previews, widget conversation
+  // selector) read this instead of issuing one /messages?source=preview
+  // request per conversation.
+  latest_message?: { content: string; role: 'user' | 'assistant' | 'system'; created_at: string } | null;
   unread_count?: number | null;
   latest_seq?: number;
   first_response_at?: string | null; // Timestamp of first practice member response
@@ -71,6 +85,13 @@ export interface CreateConversationOptions {
   participantUserIds: string[];
   metadata?: Record<string, unknown>;
   skipPracticeValidation?: boolean;
+  /**
+   * Initial lifecycle_status. Defaults to 'pending_visibility' so anonymous
+   * widget chats stay hidden until an intake is accepted. Staff-initiated
+   * chats (e.g. internal DMs, team→client conversations) should pass
+   * 'visible' so they appear in the creator's inbox immediately.
+   */
+  lifecycleStatus?: ConversationLifecycleStatus;
 }
 
 export interface GetMessagesOptions {
@@ -80,6 +101,7 @@ export interface GetMessagesOptions {
   traceId?: string;
   requestSource?: string;
   viewerId?: string | null;
+  viewerIsAnonymous?: boolean;
 }
 
 export interface GetConversationOptions {
@@ -129,6 +151,19 @@ export class ConversationService {
     }
   }
 
+  private async getAssignableTeamMemberIds(
+    practiceId: string,
+    request?: Request
+  ): Promise<Set<string>> {
+    const team = await RemoteApiService.getPracticeTeam(this.env, practiceId, request);
+    return new Set(
+      team.members
+        .filter((member) => member.canAssignToMatter)
+        .map((member) => member.userId)
+        .filter((userId) => typeof userId === 'string' && userId.trim().length > 0)
+    );
+  }
+
   private readTrimmedString(value: unknown): string | null {
     if (typeof value !== 'string') return null;
     const trimmed = value.trim();
@@ -137,6 +172,61 @@ export class ConversationService {
 
   private normalizeSlimContactDraft(value: unknown): { name: string; email: string; phone: string } | null {
     return normalizeSharedSlimContactDraft(value);
+  }
+
+  private shouldCreateFreshCurrentConversation(
+    metadata: Record<string, unknown> | null,
+    updatedAt?: string | null,
+  ): boolean {
+    if (!metadata) return false;
+
+    const consultation = resolveConsultationState(metadata);
+    if (consultation) {
+      if (consultation.status === 'submitted' || consultation.status === 'completed') {
+        return true;
+      }
+
+      if (isIntakeReadyForSubmission(consultation.case)) {
+        return true;
+      }
+
+      // If the conversation has any partial intake state and hasn't been
+      // touched in over 7 days, treat it as stale and start fresh.
+      // This prevents a returning user from inheriting their previous
+      // session's fields (e.g. city/state pre-filled) on a new consultation.
+      const STALE_INTAKE_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
+      const caseObj = consultation.case as unknown as Record<string, unknown> | null | undefined;
+      const intakeKeys = [
+        'description', 'city', 'state', 'practiceServiceUuid',
+        'opposingParty', 'urgency', 'desiredOutcome', 'courtDate',
+        'hasDocuments', 'householdSize', 'customFields',
+      ];
+      const hasPartialIntake = Boolean(caseObj && intakeKeys.some((k) => {
+        const v = (caseObj as Record<string, unknown>)[k];
+        if (v == null) return false;
+        if (typeof v === 'string') return v.trim().length > 0;
+        if (typeof v === 'boolean') return true;
+        if (typeof v === 'number') return Number.isFinite(v);
+        if (typeof v === 'object') return Object.keys(v as Record<string, unknown>).length > 0;
+        return false;
+      }));
+      if (hasPartialIntake && updatedAt) {
+        const lastUpdated = new Date(updatedAt).getTime();
+        if (!Number.isNaN(lastUpdated) && Date.now() - lastUpdated > STALE_INTAKE_MS) {
+          return true;
+        }
+      }
+    }
+
+    if (metadata.intakeSubmitted === true || metadata.intakeCompleted === true) {
+      return true;
+    }
+
+    if (this.readTrimmedString(metadata.intakeUuid)) {
+      return true;
+    }
+
+    return false;
   }
 
   private extractSlimContactDraftFromContent(content: string | null | undefined): { name: string; email: string; phone: string } | null {
@@ -351,7 +441,7 @@ export class ConversationService {
     // Validate that we have at least one participant
     const conversationId = crypto.randomUUID();
     const now = new Date().toISOString();
-    
+
     // Always include the creator in participants.
     const participants = this.normalizeParticipantIds([options.userId, ...options.participantUserIds]);
     if (participants.length === 0) {
@@ -360,11 +450,14 @@ export class ConversationService {
     const participantsJson = JSON.stringify(participants);
     const userInfoJson = options.metadata ? JSON.stringify(options.metadata) : null;
 
+    const lifecycleStatus: ConversationLifecycleStatus =
+      options.lifecycleStatus ?? 'pending_visibility';
+
     const statements = [
       this.env.DB.prepare(`
         INSERT INTO conversations (
-          id, practice_id, user_id, is_anonymous, matter_id, participants, user_info, status, created_at, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, 'active', ?, ?)
+          id, practice_id, user_id, is_anonymous, matter_id, participants, user_info, status, lifecycle_status, created_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, 'active', ?, ?, ?)
       `).bind(
         conversationId,
         options.practiceId,
@@ -373,6 +466,7 @@ export class ConversationService {
         options.matterId || null,
         participantsJson,
         userInfoJson,
+        lifecycleStatus,
         now,
         now
       )
@@ -388,8 +482,40 @@ export class ConversationService {
     }
 
     await this.env.DB.batch(statements);
+    return await this.getConversation(conversationId, options.practiceId);
+  }
 
-    return this.getConversation(conversationId, options.practiceId);
+  /**
+   * Hard-delete a conversation and every row that references it. Confirms the
+   * row exists and belongs to the given practice before deleting (so a
+   * mistargeted call returns 404 instead of silently no-op'ing).
+   *
+   * Cascade: chat_message_reactions (via message_id) → chat_messages →
+   * session_audit_events → conversation_participants → conversation_read_state
+   * → conversations. files / contact_forms / matter_events keep their
+   * conversation_id reference set (they survive the conversation, since they
+   * may be linked to matters or other entities).
+   */
+  async deleteConversation(conversationId: string, practiceId: string): Promise<void> {
+    const existing = await this.env.DB.prepare(
+      'SELECT id FROM conversations WHERE id = ? AND practice_id = ?'
+    ).bind(conversationId, practiceId).first<{ id: string } | null>();
+
+    if (!existing) {
+      throw HttpErrors.notFound('Conversation not found');
+    }
+
+    await this.env.DB.batch([
+      this.env.DB.prepare(`
+        DELETE FROM chat_message_reactions
+        WHERE message_id IN (SELECT id FROM chat_messages WHERE conversation_id = ?)
+      `).bind(conversationId),
+      this.env.DB.prepare('DELETE FROM chat_messages WHERE conversation_id = ?').bind(conversationId),
+      this.env.DB.prepare('DELETE FROM session_audit_events WHERE conversation_id = ?').bind(conversationId),
+      this.env.DB.prepare('DELETE FROM conversation_participants WHERE conversation_id = ?').bind(conversationId),
+      this.env.DB.prepare('DELETE FROM conversation_read_state WHERE conversation_id = ?').bind(conversationId),
+      this.env.DB.prepare('DELETE FROM conversations WHERE id = ? AND practice_id = ?').bind(conversationId, practiceId),
+    ]);
   }
 
   private mapRecordToConversation(record: Record<string, unknown> | null): Conversation {
@@ -406,7 +532,7 @@ export class ConversationService {
         if (value === null || value === undefined) return fallback;
         if (Array.isArray(fallback)) {
           if (Array.isArray(value)) return value as T;
-          console.error(`[ConversationService] Type mismatch [${label}]`, {
+          console.error(`[QuickActionDebug][ConversationService] Type mismatch [${label}]`, {
             expected: 'array',
             actual: Array.isArray(value) ? 'array' : typeof value,
             value
@@ -415,7 +541,7 @@ export class ConversationService {
         }
         if (fallback !== null && typeof fallback !== 'object') {
           if (typeof value === typeof fallback) return value as T;
-          console.error(`[ConversationService] Type mismatch [${label}]`, {
+          console.error(`[QuickActionDebug][ConversationService] Type mismatch [${label}]`, {
             expected: typeof fallback,
             actual: typeof value,
             value
@@ -424,14 +550,14 @@ export class ConversationService {
         }
         if (fallback !== null && typeof fallback === 'object') {
           if (value && typeof value === 'object' && !Array.isArray(value)) return value as T;
-          console.error(`[ConversationService] Type mismatch [${label}]`, {
+          console.error(`[QuickActionDebug][ConversationService] Type mismatch [${label}]`, {
             expected: 'object',
             actual: Array.isArray(value) ? 'array' : typeof value,
             value
           });
           return fallback;
         }
-        console.error(`[ConversationService] Type mismatch [${label}]`, {
+        console.error(`[QuickActionDebug][ConversationService] Type mismatch [${label}]`, {
           expected: 'null',
           actual: Array.isArray(value) ? 'array' : typeof value,
           value
@@ -477,12 +603,34 @@ export class ConversationService {
       participants,
       user_info,
       status: getString(record.status) as Conversation['status'],
+      lifecycle_status: ((): ConversationLifecycleStatus => {
+        const raw = getString(record.lifecycle_status);
+        return raw === 'visible' || raw === 'archived' || raw === 'pending_visibility'
+          ? raw
+          : 'pending_visibility';
+      })(),
+      intake_accepted_at: getNullableString(record.intake_accepted_at),
       assigned_to: getNullableString(record.assigned_to),
       priority: (getString(record.priority) || 'normal') as Conversation['priority'],
       tags,
       internal_notes: getNullableString(record.internal_notes),
       last_message_at: getNullableString(record.last_message_at),
       last_message_content: getNullableString(record.last_message_content),
+      // The latest_msg_* columns only appear on rows produced by the
+      // `?include=latest_message` JOIN. Absent ⇒ leave the field undefined so
+      // callers can tell "not requested" apart from "no message yet".
+      latest_message: (() => {
+        if (!('latest_msg_content' in record)) return undefined;
+        const content = getNullableString(record.latest_msg_content);
+        if (!content) return null;
+        const roleRaw = getNullableString(record.latest_msg_role);
+        if (roleRaw !== 'user' && roleRaw !== 'assistant' && roleRaw !== 'system') {
+          throw new Error(`Invalid latest message role: ${roleRaw}`);
+        }
+        const role = roleRaw;
+        const created_at = getNullableString(record.latest_msg_created_at) ?? '';
+        return { content, role, created_at };
+      })(),
       first_response_at: getNullableString(record.first_response_at),
       closed_at: getNullableString(record.closed_at),
       unread_count: typeof record.unread_count === 'number' ? record.unread_count : null,
@@ -588,6 +736,9 @@ export class ConversationService {
         title: 'Blawby System',
         system_conversation: true
       },
+      // System assistant thread is internal; it should appear immediately in
+      // the creator's inbox rather than waiting on the intake gate.
+      lifecycleStatus: 'visible',
       skipPracticeValidation: options.skipPracticeValidation
     }, request);
   }
@@ -634,7 +785,10 @@ export class ConversationService {
     const existing = await this.env.DB.prepare(query).bind(practiceId, userId).first<Record<string, unknown>>();
 
     if (existing) {
-      return this.mapRecordToConversation(existing);
+      const mapped = this.mapRecordToConversation(existing);
+      if (!this.shouldCreateFreshCurrentConversation(mapped.user_info ?? null, mapped.updated_at)) {
+        return mapped;
+      }
     }
 
     // No existing conversation, create new one.
@@ -650,7 +804,15 @@ export class ConversationService {
   }
 
   /**
-   * List conversations with optional filters
+   * List conversations with optional filters.
+   *
+   * Visibility filter: a conversation row is only returned if its
+   * `lifecycle_status` is `'visible'` OR its id is in `acceptedConversationIds`
+   * (the per-practice set of conversation_ids whose intake the backend reports
+   * as accepted). Pass `null` to disable the filter entirely (only the worker
+   * itself should do that — e.g., debug routes).
+   *
+   * See: project_conversation_visibility memory; worker/utils/intakeVisibility.ts.
    */
   async getConversations(options: {
     practiceId: string;
@@ -660,27 +822,57 @@ export class ConversationService {
     status?: 'active' | 'archived' | 'closed';
     assignedTo?: 'none';
     limit?: number;
+    acceptedConversationIds?: Set<string> | null;
+    /**
+     * When true, the SELECT joins a window-function subquery that pulls the
+     * latest non-system message per conversation in a single SQL round-trip.
+     * Each returned row gains latest_msg_content / latest_msg_role /
+     * latest_msg_created_at, which mapRecordToConversation surfaces as the
+     * `latest_message` field. Off by default — list consumers that need
+     * preview text opt in (it's an extra subquery on every row).
+     */
+    includeLatestMessage?: boolean;
   }): Promise<Conversation[]> {
     const limit = Math.min(options.limit || 50, 100); // Max 100
     const includeReadState = Boolean(options.userId);
+    const latestMessageJoin = options.includeLatestMessage
+      ? `
+      LEFT JOIN chat_messages latest_msg ON latest_msg.id = (
+        SELECT m2.id FROM chat_messages m2
+        WHERE m2.conversation_id = conversations.id
+          AND m2.role <> 'system'
+          AND TRIM(COALESCE(m2.content, '')) <> ''
+        ORDER BY m2.seq DESC
+        LIMIT 1
+      )
+    `
+      : '';
+    const latestMessageCols = options.includeLatestMessage
+      ? `,
+        latest_msg.content AS latest_msg_content,
+        latest_msg.role AS latest_msg_role,
+        latest_msg.created_at AS latest_msg_created_at`
+      : '';
     let query = includeReadState
       ? `
-      SELECT 
+      SELECT
         conversations.*,
         CASE
           WHEN conversations.latest_seq > COALESCE(conversation_read_state.last_read_seq, 0)
             THEN conversations.latest_seq - COALESCE(conversation_read_state.last_read_seq, 0)
           ELSE 0
-        END AS unread_count
+        END AS unread_count${latestMessageCols}
       FROM conversations
       LEFT JOIN conversation_read_state
         ON conversation_read_state.conversation_id = conversations.id
        AND conversation_read_state.user_id = ?
+      ${latestMessageJoin}
       WHERE conversations.practice_id = ?
     `
       : `
-      SELECT conversations.*
+      SELECT conversations.*${latestMessageCols}
       FROM conversations
+      ${latestMessageJoin}
       WHERE conversations.practice_id = ?
     `;
     const bindings: unknown[] = includeReadState
@@ -706,12 +898,38 @@ export class ConversationService {
     }
 
     if (options.status) {
-      query += ' AND conversations.status = ?';
-      bindings.push(options.status);
+      if (Array.isArray(options.status)) {
+        if (options.status.length > 0) {
+          const placeholders = options.status.map(() => '?').join(', ');
+          query += ` AND conversations.status IN (${placeholders})`;
+          bindings.push(...options.status);
+        }
+      } else {
+        query += ' AND conversations.status = ?';
+        bindings.push(options.status);
+      }
     }
 
     if (options.assignedTo === 'none') {
       query += " AND (conversations.assigned_to IS NULL OR conversations.assigned_to = '')";
+    }
+
+    // Visibility gate: only return rows that are already 'visible', or whose
+    // id appears in the per-request accepted-intake set the route handler
+    // fetched from the backend. `undefined` ⇒ unset by caller, treat as the
+    // empty set (lifecycle_status filter only). `null` ⇒ caller is opting out
+    // of the filter (debug paths).
+    if (options.acceptedConversationIds !== null) {
+      const acceptedIds = options.acceptedConversationIds
+        ? Array.from(options.acceptedConversationIds)
+        : [];
+      if (acceptedIds.length === 0) {
+        query += " AND conversations.lifecycle_status = 'visible'";
+      } else {
+        const placeholders = acceptedIds.map(() => '?').join(', ');
+        query += ` AND (conversations.lifecycle_status = 'visible' OR conversations.id IN (${placeholders}))`;
+        bindings.push(...acceptedIds);
+      }
     }
 
     query += ' ORDER BY conversations.updated_at DESC LIMIT ?';
@@ -722,17 +940,56 @@ export class ConversationService {
     return records.results.map(record => this.mapRecordToConversation(record));
   }
 
+  async getConversationsWithMessages(options: {
+    practiceId: string;
+    matterId?: string | null;
+    userId?: string | null;
+    bypassParticipantFilter?: boolean;
+    status?: 'active' | 'archived' | 'closed';
+    assignedTo?: 'none';
+    limit?: number;
+    acceptedConversationIds?: Set<string> | null;
+  }): Promise<Conversation[]> {
+    const conversations = await this.getConversations(options);
+    return conversations.filter((conversation) => Boolean(conversation.last_message_at || conversation.last_message_content));
+  }
+
   /**
-   * List conversations for a user across all practices
+   * List conversations for a user across all practices.
+   *
+   * Cross-practice — the accepted-intake set is per-practice, so this route
+   * applies the strict filter only (`lifecycle_status='visible'`). Conversations
+   * with a recently-accepted intake that hasn't yet been materialized will not
+   * appear here until a per-practice list flips their lifecycle_status.
+   * Acceptable trade-off: the per-practice inbox is the primary read path.
    */
   async getConversationsForUser(options: {
     userId: string;
     status?: 'active' | 'archived' | 'closed';
     limit?: number;
     offset?: number;
+    includeLatestMessage?: boolean;
   }): Promise<Conversation[]> {
     const limit = Math.min(options.limit || 50, 100);
     const offset = Math.max(options.offset || 0, 0);
+    const latestMessageJoin = options.includeLatestMessage
+      ? `
+      LEFT JOIN chat_messages latest_msg ON latest_msg.id = (
+        SELECT m2.id FROM chat_messages m2
+        WHERE m2.conversation_id = conversations.id
+          AND m2.role <> 'system'
+          AND TRIM(COALESCE(m2.content, '')) <> ''
+        ORDER BY m2.seq DESC
+        LIMIT 1
+      )
+    `
+      : '';
+    const latestMessageCols = options.includeLatestMessage
+      ? `,
+        latest_msg.content AS latest_msg_content,
+        latest_msg.role AS latest_msg_role,
+        latest_msg.created_at AS latest_msg_created_at`
+      : '';
     let query = `
       SELECT
         conversations.*,
@@ -741,17 +998,19 @@ export class ConversationService {
           WHEN conversations.latest_seq > COALESCE(conversation_read_state.last_read_seq, 0)
             THEN conversations.latest_seq - COALESCE(conversation_read_state.last_read_seq, 0)
           ELSE 0
-        END AS unread_count
+        END AS unread_count${latestMessageCols}
       FROM conversations
       LEFT JOIN conversation_read_state
         ON conversation_read_state.conversation_id = conversations.id
        AND conversation_read_state.user_id = ?
+      ${latestMessageJoin}
       WHERE EXISTS (
         SELECT 1
         FROM conversation_participants cp
         WHERE cp.conversation_id = conversations.id
           AND cp.user_id = ?
       )
+        AND conversations.lifecycle_status = 'visible'
     `;
     const bindings: unknown[] = [options.userId, options.userId];
 
@@ -841,11 +1100,14 @@ export class ConversationService {
     if (updates.assignedTo !== undefined) {
       if (updates.assignedTo && updates.assignedTo.trim()) {
         const trimmedId = updates.assignedTo.trim();
-        // Verify user is a member of the practice
-        const members = await RemoteApiService.getPracticeMembers(this.env, practiceId, options?.request);
-        const isMember = members.some(m => m.user_id === trimmedId);
-        if (!isMember) {
-          throw HttpErrors.badRequest(`User ${trimmedId} is not a member of practice ${practiceId}`);
+        const assignableMemberIds = await this.getAssignableTeamMemberIds(practiceId, options?.request);
+        Logger.debug('[ConversationService] Assignee team validation', {
+          practiceId,
+          requestedAssigneeUserId: trimmedId,
+          assignableMemberIds: Array.from(assignableMemberIds),
+        });
+        if (!assignableMemberIds.has(trimmedId)) {
+          throw HttpErrors.badRequest(`User ${trimmedId} is not an assignable team member of practice ${practiceId}`);
         }
         updatesList.push('assigned_to = ?');
         bindings.push(trimmedId);
@@ -877,6 +1139,31 @@ export class ConversationService {
       SET ${updatesList.join(', ')}
       WHERE id = ? AND practice_id = ?
     `).bind(...bindings).run();
+
+    // Notify ChatRoom Durable Object to invalidate any cached hideReplies flag
+    try {
+      if (this.env.CHAT_ROOM) {
+        const stub = this.env.CHAT_ROOM.get(this.env.CHAT_ROOM.idFromName(conversationId));
+        const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+        // Await the DO invalidation so we know the ChatRoom instance has seen
+        // the update before returning. Log any failures but do not fail the
+        // conversation update operation.
+        try {
+          await stub.fetch('https://chat-room/internal/invalidate-hide-replies', {
+            method: 'POST',
+            headers,
+            body: JSON.stringify({ conversation_id: conversationId })
+          });
+        } catch (err) {
+          Logger.warn('Failed to notify ChatRoom to invalidate hideReplies cache', {
+            conversationId,
+            error: err instanceof Error ? err.message : String(err)
+          });
+        }
+      }
+    } catch (err) {
+      Logger.warn('ChatRoom invalidation attempt failed', { conversationId, error: err instanceof Error ? err.message : String(err) });
+    }
 
     return this.getConversation(conversationId, practiceId);
   }
@@ -931,23 +1218,15 @@ export class ConversationService {
   async setConversationMentions(
     conversationId: string,
     practiceId: string,
-    mentionUserIds: string[],
-    options?: { request?: Request }
+    mentionUserIds: string[]
   ): Promise<Conversation> {
-    const rawMentionUserIds = Array.from(
+    const normalizedMentionUserIds = Array.from(
       new Set(
         mentionUserIds
           .map((userId) => userId.trim())
           .filter((userId) => userId.length > 0)
       )
     );
-
-    // Fetch practice members to validate mentions
-    const members = await RemoteApiService.getPracticeMembers(this.env, practiceId, options?.request);
-    const memberIds = new Set(members.map(m => m.user_id));
-    
-    // Filter to only include valid members
-    const normalizedMentionUserIds = rawMentionUserIds.filter(id => memberIds.has(id));
 
     const conversation = await this.getConversation(conversationId, practiceId);
     const metadata = { ...(conversation.user_info ?? {}) } as Record<string, unknown>;
@@ -1452,6 +1731,16 @@ export class ConversationService {
   }): Promise<{ messageId: string; seq: number; serverTs: string }> {
     const stub = this.env.CHAT_ROOM.get(this.env.CHAT_ROOM.idFromName(options.conversationId));
     const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    // Pull attachments out of metadata so the ChatRoom DO sees them at the top
+    // level (matches the WS frame shape). Without this, file-only sends sent
+    // through the HTTP route fail validation because the DO checks
+    // `payload.attachments`, not `payload.metadata.attachments`.
+    const metadataObj = options.metadata && typeof options.metadata === 'object'
+      ? (options.metadata as Record<string, unknown>)
+      : null;
+    const metadataAttachments = metadataObj && Array.isArray(metadataObj.attachments)
+      ? metadataObj.attachments
+      : null;
     const payload: Record<string, unknown> = {
       conversation_id: options.conversationId,
       user_id: options.userId,
@@ -1460,6 +1749,9 @@ export class ConversationService {
       metadata: options.metadata ?? null,
       client_id: options.clientId
     };
+    if (metadataAttachments) {
+      payload.attachments = metadataAttachments;
+    }
     if (options.replyToMessageId) {
       payload.reply_to_message_id = options.replyToMessageId;
     }
@@ -1634,8 +1926,10 @@ export class ConversationService {
     practiceId: string,
     options: GetMessagesOptions = {}
   ): Promise<GetMessagesResult> {
-    // Verify conversation exists
-    await this.getConversation(conversationId, practiceId);
+    // Verify conversation exists and read conversation metadata
+    const conversation = await this.getConversation(conversationId, practiceId);
+    const userInfo = conversation.user_info || {};
+    const hideFlag = Boolean((userInfo as Record<string, unknown>).hideReplies ?? (userInfo as Record<string, unknown>).hide_replies);
 
     const limit = Math.min(options.limit || 50, 100); // Max 100
 
@@ -1708,8 +2002,24 @@ export class ConversationService {
         seq: record.seq,
         server_ts: record.server_ts,
         token_count: record.token_count,
-        created_at: record.created_at
+        created_at: record.created_at,
+        reactions: []
       }));
+
+      // If conversation metadata requests hiding assistant replies, apply
+      // a server-side mask for anonymous/widget viewers. We preserve the
+      // message record but strip content and add a hidden marker so the
+      // client can render a placeholder while maintaining sequence IDs.
+      const shouldHideForViewer = hideFlag && (options.viewerIsAnonymous === true || options.requestSource === 'widget');
+      if (shouldHideForViewer) {
+        for (const m of messages) {
+          if (m.role === 'assistant') {
+            m.content = '';
+            m.metadata = { ...(m.metadata || {}), hidden_reply: true } as Record<string, unknown>;
+            m.reactions = [];
+          }
+        }
+      }
 
       await this.attachReactionsToMessages(messages, options.viewerId ?? null);
 
@@ -1788,8 +2098,20 @@ export class ConversationService {
       seq: record.seq,
       server_ts: record.server_ts,
       token_count: record.token_count,
-      created_at: record.created_at
+      created_at: record.created_at,
+      reactions: []
     }));
+
+    const shouldHideForViewer = hideFlag && (options.viewerIsAnonymous === true || options.requestSource === 'widget');
+    if (shouldHideForViewer) {
+      for (const m of messages) {
+        if (m.role === 'assistant') {
+          m.content = '';
+          m.metadata = { ...(m.metadata || {}), hidden_reply: true } as Record<string, unknown>;
+          m.reactions = [];
+        }
+      }
+    }
 
     await this.attachReactionsToMessages(messages, options.viewerId ?? null);
 
@@ -1887,9 +2209,22 @@ export class ConversationService {
 
   private async attachReactionsToMessages(messages: ConversationMessage[], viewerId: string | null): Promise<void> {
     if (messages.length === 0) return;
-    const ids = messages.map((message) => message.id);
+    // Exclude messages that are server-marked as hidden (e.g., assistant
+    // replies masked for anonymous/widget viewers) from reaction lookup.
+    const visibleMessages = messages.filter((message) => {
+      const hidden = message.metadata && (message.metadata as Record<string, unknown>).hidden_reply === true;
+      return !hidden;
+    });
+    const ids = visibleMessages.map((message) => message.id);
     const placeholders = ids.map(() => '?').join(', ');
     const viewer = viewerId ?? '';
+
+    if (ids.length === 0) {
+      // No visible messages to fetch reactions for; ensure hidden messages
+      // have empty reaction arrays and return early.
+      for (const message of messages) message.reactions = message.reactions ?? [];
+      return;
+    }
 
     const query = `
       SELECT
@@ -1924,6 +2259,8 @@ export class ConversationService {
     }
 
     for (const message of messages) {
+      // Hidden messages were excluded above; give them an empty reactions
+      // array to avoid leaking counts to anonymous viewers.
       message.reactions = reactionMap.get(message.id) ?? [];
     }
   }

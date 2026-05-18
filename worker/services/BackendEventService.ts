@@ -1,24 +1,8 @@
 import type { Env } from '../types.js';
 import { Logger } from '../utils/logger.js';
 
-export interface BackendEventPayload {
-  event_type: string;
-  event_id?: string;
-  occurred_at?: string;
-  practice_id?: string;
-  conversation_id?: string;
-  matter_id?: string;
-  intake_id?: string;
-  sender_type?: string;
-  sender_id?: string;
-  contact_identifier?: string;
-  contact_email?: string;
-  message_id?: string;
-  message_preview?: string;
-  file_metadata?: Record<string, unknown>;
-  sla_metadata?: Record<string, unknown>;
-  [key: string]: unknown;
-}
+export type { BackendEventPayload } from '../types/wire/events.js';
+import type { BackendEventPayload } from '../types/wire/events.js';
 
 export class BackendEventService {
   constructor(private env: Env) {}

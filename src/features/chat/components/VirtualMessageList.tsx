@@ -2,21 +2,28 @@ import { FunctionComponent } from 'preact';
 import { useRef, useEffect, useState, useCallback, useLayoutEffect, useMemo } from 'preact/hooks';
 import Message from './Message';
 import { memo } from 'preact/compat';
-import { ChevronDownIcon } from '@heroicons/react/24/outline';
+import { ChevronDown } from 'lucide-preact';
+
 import { Icon } from '@/shared/ui/Icon';
 import { debounce } from '@/shared/utils/debounce';
 import { ErrorBoundary } from '@/app/ErrorBoundary';
 import { ChatMessageUI } from '../../../../worker/types';
+import type { ChatMessageAction } from '@/shared/types/conversation';
 import type { IntakePaymentRequest } from '@/shared/utils/intakePayments';
 import { useSessionContext } from '@/shared/contexts/SessionContext';
 import { useToastContext } from '@/shared/contexts/ToastContext';
-import { postSystemMessage } from '@/shared/lib/conversationApi';
+import { useIntakeContext } from '@/shared/contexts/IntakeContext';
 import { LoadingSpinner } from '@/shared/ui/layout/LoadingSpinner';
 import type { ReplyTarget } from '@/features/chat/types';
-import type { IntakeConversationState } from '@/shared/types/intake';
-import { MessageRowSkeleton } from '@/shared/ui/layout/skeleton-presets/MessageRowSkeleton';
-import { getPracticeIntake, updateIntakeTriageStatus, type PracticeIntakeDetail } from '@/features/intake/api/intakesApi';
+import { isIntakeSubmittable } from '@/shared/utils/consultationState';
+import { MessageRowSkeleton } from '@/shared/ui/layout';
 import { quickActionDebugLog, isQuickActionDebugEnabled } from '@/shared/utils/quickActionDebug';
+import { createBuildBriefAction, createSubmitAction, hasTerminalChatAction, hasBuildBriefAction, normalizeChatActions } from '@/shared/utils/chatActions';
+import { STREAMING_BUBBLE_PREFIX } from '@/shared/hooks/useConversation';
+import { features } from '@/config/features';
+import { useConversationParticipants } from '@/shared/hooks/useConversationParticipants';
+import { HumanTypingIndicator, type TypingParticipant } from './HumanTypingIndicator';
+import type { ReadReceiptReader } from './MessageReadReceipts';
 
 export interface OnboardingActions {
     onSaveAll?: () => void | Promise<void>;
@@ -34,11 +41,12 @@ export interface OnboardingActions {
 interface VirtualMessageListProps {
     messages: ChatMessageUI[];
     conversationTitle?: string | null;
+    conversationContactName?: string | null;
+    viewerContext?: 'practice' | 'client' | 'public';
     practiceConfig?: {
         name: string;
         profileImage: string | null;
         practiceId: string;
-        description?: string | null;
         slug?: string | null;
     };
     isPublicWorkspace?: boolean;
@@ -49,30 +57,11 @@ interface VirtualMessageListProps {
     onToggleReaction?: (messageId: string, emoji: string) => void;
     onRequestReactions?: (messageId: string) => Promise<void> | void;
     onAuthPromptRequest?: () => void;
-    intakeStatus?: {
-        step: string;
-        decision?: string;
-        intakeUuid?: string | null;
-        paymentRequired?: boolean;
-        paymentReceived?: boolean;
-    };
-    intakeConversationState?: IntakeConversationState | null;
     hasSlimContactDraft?: boolean;
-    onIntakeCtaResponse?: (response: 'ready' | 'not_yet') => void;
-    onSubmitNow?: () => void | Promise<void>;
-    onBuildBrief?: () => void;
     onQuickReply?: (text: string) => void;
     modeSelectorActions?: {
         onAskQuestion: () => void;
         onRequestConsultation: () => void;
-    };
-    leadReviewActions?: {
-        practiceId: string;
-        practiceName: string;
-        conversationId: string;
-        canReviewLeads: boolean;
-        mattersBasePath: string;
-        navigateTo: (path: string) => void;
     };
     hasMoreMessages?: boolean;
     isLoadingMoreMessages?: boolean;
@@ -81,6 +70,15 @@ interface VirtualMessageListProps {
     compactLayout?: boolean;
     onboardingActions?: OnboardingActions;
     bottomInsetPx?: number;
+    hideMessageActions?: boolean;
+    /** UserIds (excluding self) currently typing in this conversation. */
+    typingUserIds?: readonly string[];
+    /** Per-user last read seq, used to derive per-message read receipts. */
+    readReceiptsByUser?: ReadonlyMap<string, number>;
+    /** Active conversation ID — required to resolve participants for receipts/typing. */
+    conversationId?: string | null;
+    /** Current user's id — used to filter own messages from typing/read displays. */
+    currentUserId?: string | null;
 }
 
 const BATCH_SIZE = 20;
@@ -90,32 +88,33 @@ const DEBOUNCE_DELAY = 50;
 const DEBUG_PAGINATION = typeof process !== 'undefined' && process.env.NODE_ENV === 'development';
 const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
     messages,
-    conversationTitle,
+    conversationTitle: _conversationTitle,
+    conversationContactName,
+    viewerContext,
     practiceConfig,
     isPublicWorkspace = false,
     onOpenSidebar,
-    onOpenPayment,
     practiceId,
     onReply,
     onToggleReaction,
     onRequestReactions,
     onAuthPromptRequest,
-    intakeStatus: _intakeStatus,
-    intakeConversationState,
     hasSlimContactDraft = false,
-    onIntakeCtaResponse,
-    onSubmitNow,
-    onBuildBrief,
     onQuickReply,
     modeSelectorActions,
-    leadReviewActions,
+
     hasMoreMessages,
     isLoadingMoreMessages,
     onLoadMoreMessages,
     showSkeleton = false,
     compactLayout = false,
     onboardingActions,
-    bottomInsetPx
+    bottomInsetPx,
+    hideMessageActions = false,
+    typingUserIds,
+    readReceiptsByUser,
+    conversationId,
+    currentUserId,
 }) => {
     useEffect(() => {
         if (DEBUG_PAGINATION) {
@@ -123,8 +122,44 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
         }
     }, []);
 
-    const { session, activeMemberRole } = useSessionContext();
-    const { showError, showSuccess } = useToastContext();
+    const { session } = useSessionContext();
+    const { showError } = useToastContext();
+    const intakeContext = useIntakeContext();
+    const intakeStatus = intakeContext.intakeStatus;
+    const intakeConversationState = intakeContext.intakeConversationState;
+
+    const participantsByUserId = useConversationParticipants(practiceId, conversationId);
+
+    const typingParticipants = useMemo<readonly TypingParticipant[]>(() => {
+        if (!typingUserIds || typingUserIds.length === 0) return [];
+        return typingUserIds
+            .filter((uid) => uid && uid !== currentUserId)
+            .map((uid): TypingParticipant => {
+                const p = participantsByUserId.get(uid);
+                return {
+                    userId: uid,
+                    name: p?.name ?? 'Someone',
+                    image: p?.image ?? null,
+                };
+            });
+    }, [typingUserIds, currentUserId, participantsByUserId]);
+
+    const resolveReaders = useCallback((messageSeq: number | undefined): readonly ReadReceiptReader[] => {
+        if (!readReceiptsByUser || readReceiptsByUser.size === 0 || !Number.isFinite(messageSeq) || messageSeq === undefined) {
+            return [];
+        }
+        const readers: ReadReceiptReader[] = [];
+        for (const [userId, lastSeq] of readReceiptsByUser) {
+            if (userId === currentUserId) continue;
+            if (lastSeq < messageSeq) continue;
+            const p = participantsByUserId.get(userId);
+            // Skip readers we can't resolve — rendering "Someone" avatars looks
+            // worse than just dropping them. Counts collapse naturally.
+            if (!p?.name) continue;
+            readers.push({ id: userId, name: p.name, image: p.image ?? null });
+        }
+        return readers;
+    }, [readReceiptsByUser, currentUserId, participantsByUserId]);
     const dedupedMessages = useMemo(() => {
         const seenPaymentConfirm = new Set<string>();
         return messages.filter((message) => {
@@ -143,7 +178,7 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
         });
     }, [messages]);
     const listRef = useRef<HTMLDivElement>(null);
-    const submittingRef = useRef<Record<string, boolean>>({});
+    const _submittingRef = useRef<Record<string, boolean>>({});
     const [startIndex, setStartIndex] = useState(Math.max(0, dedupedMessages.length - BATCH_SIZE));
     const [endIndex, setEndIndex] = useState(dedupedMessages.length);
     const [showScrollToBottom, setShowScrollToBottom] = useState(false);
@@ -151,15 +186,14 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
     const isUserScrollingRef = useRef(false);
     const hasUserScrolledUpRef = useRef(false);
     const isLoadingRef = useRef(false);
-    const loggedNoServerPaginationRef = useRef(false);
+    const _loggedNoServerPaginationRef = useRef(false);
     const _prevHasMoreRef = useRef<boolean | undefined>(hasMoreMessages);
     const sessionUserName = session?.user?.name || session?.user?.email || '';
-    const resolvedConversationName = conversationTitle?.trim() || '';
     const currentUserName = (
         isPublicWorkspace
-        && (session?.user?.isAnonymous === true || !sessionUserName)
-        && resolvedConversationName
-    ) ? resolvedConversationName : (sessionUserName || 'You');
+        && (session?.user?.is_anonymous === true || !sessionUserName)
+        && conversationContactName?.trim()
+    ) ? conversationContactName.trim() : (sessionUserName || 'You');
     const virtualizationEnabled = dedupedMessages.length > BATCH_SIZE * 2;
     const isNearTail = virtualizationEnabled && endIndex >= Math.max(0, dedupedMessages.length - 2);
     const useTailWindow = virtualizationEnabled && (isScrolledToBottomRef.current || isNearTail);
@@ -187,92 +221,13 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
         name: 'Practice'
     };
     const clientProfile = {
-        src: null,
-        name: conversationTitle?.trim() || 'Person'
+        name: conversationContactName?.trim() || 'Contact'
     };
     const blawbyProfile = {
         src: '/blawby-favicon-iframe.png',
         name: 'Blawby'
     };
-    const isPracticeViewer = Boolean(activeMemberRole && activeMemberRole !== 'client');
-    const [leadActionState, setLeadActionState] = useState<Record<string, 'accept' | 'reject'>>({});
-    const [leadTriageStatus, setLeadTriageStatus] = useState<Record<string, string>>({});
-    const [leadIntakeDetails, setLeadIntakeDetails] = useState<Record<string, PracticeIntakeDetail>>({});
-    const triageStatusRequestedRef = useRef(new Set<string>());
-    const isMountedRef = useRef(true);
-
-    useEffect(() => {
-        return () => {
-            isMountedRef.current = false;
-        };
-    }, []);
-
-    useEffect(() => {
-        if (!DEBUG_PAGINATION) return;
-        if (startIndex !== 0) {
-            loggedNoServerPaginationRef.current = false;
-            return;
-        }
-        if (hasMoreMessages) {
-            loggedNoServerPaginationRef.current = false;
-            return;
-        }
-        if (loggedNoServerPaginationRef.current) return;
-        loggedNoServerPaginationRef.current = true;
-        console.info('[VirtualMessageList][pagination] server pagination disabled for current state', {
-            startIndex,
-            hasMoreMessages: Boolean(hasMoreMessages),
-            isLoadingMoreMessages: Boolean(isLoadingMoreMessages),
-            hasOnLoadMoreHandler: Boolean(onLoadMoreMessages)
-        });
-    }, [startIndex, hasMoreMessages, isLoadingMoreMessages, onLoadMoreMessages]);
-
-    useEffect(() => {
-        if (!leadReviewActions || !isPracticeViewer) {
-            return;
-        }
-        const intakeUuids = dedupedMessages
-            .map((message) => {
-                const metadata = message.metadata;
-                if (!metadata || typeof metadata !== 'object') return null;
-                const meta = metadata as Record<string, unknown>;
-                if (meta.intakeSubmitted !== true) return null;
-                return typeof meta.intakeUuid === 'string' ? meta.intakeUuid : null;
-            })
-            .filter((value): value is string => Boolean(value));
-
-        const controllers = new Map<string, AbortController>();
-
-        intakeUuids.forEach((intakeUuid) => {
-            if (leadTriageStatus[intakeUuid]) return;
-            if (triageStatusRequestedRef.current.has(intakeUuid)) return;
-            triageStatusRequestedRef.current.add(intakeUuid);
-
-            const controller = new AbortController();
-            controllers.set(intakeUuid, controller);
-
-            void getPracticeIntake(leadReviewActions.practiceId, intakeUuid, { signal: controller.signal })
-                .then((intake) => {
-                    if (!isMountedRef.current) return;
-                    setLeadIntakeDetails((prev) => ({ ...prev, [intakeUuid]: intake }));
-                    const triageStatus = intake.triage_status;
-                    if (typeof triageStatus === 'string' && triageStatus.length > 0) {
-                        setLeadTriageStatus((prev) => ({ ...prev, [intakeUuid]: triageStatus }));
-                    }
-                })
-                .catch((error) => {
-                    if (error instanceof Error && error.name === 'AbortError') return;
-                    console.warn('[VirtualMessageList] Failed to hydrate intake details', { intakeUuid, error });
-                    if (isMountedRef.current) {
-                        triageStatusRequestedRef.current.delete(intakeUuid);
-                    }
-                });
-        });
-
-        return () => {
-            controllers.forEach((controller) => controller.abort());
-        };
-    }, [dedupedMessages, isPracticeViewer, leadReviewActions, leadTriageStatus]);
+    const resolvedViewerContext = viewerContext ?? (isPublicWorkspace ? 'public' : 'client');
 
     const resolveAvatar = (message: ChatMessageUI) => {
         const mockAvatar = message.metadata?.avatar as { src?: string | null; name: string } | undefined;
@@ -296,7 +251,18 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
         if (message.isUser) {
             return currentUserProfile;
         }
-        return isPracticeViewer ? clientProfile : practiceProfile;
+
+        const senderType = typeof message.metadata?.senderType === 'string'
+            ? message.metadata.senderType
+            : null;
+        if (senderType === 'client') {
+            return clientProfile;
+        }
+        if (senderType === 'team_member') {
+            return practiceProfile;
+        }
+
+        return resolvedViewerContext === 'practice' ? clientProfile : practiceProfile;
     };
 
     const resolveModeSelector = (message: ChatMessageUI) => {
@@ -326,173 +292,6 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
         return undefined;
     };
 
-    const resolveLeadReview = (message: ChatMessageUI) => {
-        if (!leadReviewActions || !isPracticeViewer) {
-            return undefined;
-        }
-        const metadata = message.metadata;
-        if (!metadata || typeof metadata !== 'object') {
-            return undefined;
-        }
-        const meta = metadata as Record<string, unknown>;
-
-        // New trigger: system message written by handleSubmitNow
-        if (meta.intakeSubmitted !== true) {
-            return undefined;
-        }
-        const intakeUuid = typeof meta.intakeUuid === 'string' ? meta.intakeUuid : null;
-        if (!intakeUuid || !leadReviewActions.practiceId || !leadReviewActions.conversationId) {
-            return undefined;
-        }
-        const intakeDetail = leadIntakeDetails[intakeUuid];
-        const intakeMetadata = intakeDetail?.metadata;
-        const triageStatus = typeof meta.triageStatus === 'string'
-            ? meta.triageStatus
-            : (typeof meta.triage_status === 'string' ? meta.triage_status : null);
-
-        const isSubmittingState = Boolean(leadActionState[intakeUuid]);
-        const resolvedTriageStatus = triageStatus ?? leadTriageStatus[intakeUuid] ?? null;
-        const isAccepted = resolvedTriageStatus === 'accepted';
-
-        const runLeadAction = async (action: 'accept' | 'reject') => {
-            if (!leadReviewActions.canReviewLeads || isSubmittingState || submittingRef.current[intakeUuid]) {
-                return;
-            }
-            submittingRef.current[intakeUuid] = true;
-            setLeadActionState((prev) => ({ ...prev, [intakeUuid]: action }));
-            try {
-                const triagePayload = await updateIntakeTriageStatus(
-                    intakeUuid,
-                    {
-                        status: action === 'accept' ? 'accepted' : 'declined',
-                        ...(action === 'reject' ? { reason: 'Declined by practice.' } : {}),
-                    }
-                );
-                let participantAdded = true;
-                if (action === 'accept' && session?.user?.id) {
-                    const responseConversationId =
-                        triagePayload?.conversation_id
-                        ?? triagePayload?.conversationId
-                        ?? leadReviewActions.conversationId;
-                    if (responseConversationId) {
-                        try {
-                            const addParticipantRes = await fetch(
-                                `/api/conversations/${encodeURIComponent(responseConversationId)}/participants?practiceId=${encodeURIComponent(leadReviewActions.practiceId)}`,
-                                {
-                                    method: 'POST',
-                                    credentials: 'include',
-                                    headers: { 'Content-Type': 'application/json' },
-                                    body: JSON.stringify({ participantUserIds: [session.user.id] }),
-                                }
-                            );
-                            if (!addParticipantRes.ok) {
-                                const participantErr = await addParticipantRes.json().catch(() => ({})) as { error?: string; message?: string };
-                                participantAdded = false;
-                                console.error(
-                                    '[VirtualMessageList] Failed to add participant after intake acceptance',
-                                    participantErr.message ?? participantErr.error ?? `HTTP ${addParticipantRes.status}`
-                                );
-                            }
-                        } catch (participantErr) {
-                            participantAdded = false;
-                            const participantMessage = participantErr instanceof Error
-                                ? participantErr.message
-                                : String(participantErr);
-                            console.error('[VirtualMessageList] Failed to add participant after intake acceptance', participantMessage);
-                        }
-                    }
-                }
-                setLeadTriageStatus((prev) => ({
-                    ...prev,
-                    [intakeUuid]: action === 'accept' ? 'accepted' : 'declined',
-                }));
-                setLeadIntakeDetails((prev) => {
-                    const current = prev[intakeUuid];
-                    if (!current) return prev;
-                    return {
-                        ...prev,
-                        [intakeUuid]: {
-                            ...current,
-                            triage_status: action === 'accept' ? 'accepted' : 'declined',
-                            triage_reason: action === 'reject' ? 'Declined by practice.' : current.triage_reason ?? null,
-                        }
-                    };
-                });
-
-                const practiceName = leadReviewActions.practiceName || 'The practice';
-                const content = action === 'accept'
-                    ? `${practiceName} has accepted your consultation request.`
-                    : `${practiceName} was unable to take your request at this time.`;
-
-                let systemMessageFailed = false;
-                try {
-                    await postSystemMessage(
-                        leadReviewActions.conversationId,
-                        leadReviewActions.practiceId,
-                        {
-                            clientId: action === 'accept' ? 'system-lead-accepted' : 'system-lead-declined',
-                            content,
-                            metadata: {
-                                systemMessageKey: action === 'accept' ? 'lead_accepted' : 'lead_declined',
-                                intakeUuid,
-                                triageStatus: action === 'accept' ? 'accepted' : 'declined',
-                                triage_status: action === 'accept' ? 'accepted' : 'declined',
-                            }
-                        }
-                    );
-                } catch (msgErr) {
-                    console.error('[VirtualMessageList] Failed to post system message', msgErr);
-                    systemMessageFailed = true;
-                }
-
-                showSuccess(
-                    action === 'accept' ? 'Intake accepted' : 'Intake declined',
-                    systemMessageFailed
-                            ? 'Status updated; person notification failed.'
-                        : (action === 'accept' && !participantAdded)
-                            ? 'Intake updated; failed to add participant.'
-                            : (action === 'accept' ? 'Person has been notified.' : 'Person has been notified of the decline.')
-                );
-            } catch (err) {
-                const message = err instanceof Error ? err.message : 'Failed to update intake';
-                showError('Action failed', message);
-            } finally {
-                if (isMountedRef.current) {
-                    setLeadActionState((prev) => {
-                        const next = { ...prev };
-                        delete next[intakeUuid];
-                        return next;
-                    });
-                    delete submittingRef.current[intakeUuid];
-                }
-            }
-        };
-
-        return {
-            canReview: leadReviewActions.canReviewLeads,
-            isSubmitting: isSubmittingState,
-            intake: intakeDetail ? {
-                name: typeof intakeMetadata?.name === 'string' ? intakeMetadata.name : undefined,
-                email: typeof intakeMetadata?.email === 'string' ? intakeMetadata.email : undefined,
-                phone: typeof intakeMetadata?.phone === 'string' ? intakeMetadata.phone : undefined,
-                description: typeof intakeMetadata?.description === 'string' ? intakeMetadata.description : undefined,
-                opposingParty: typeof intakeMetadata?.opposing_party === 'string' ? intakeMetadata.opposing_party : undefined,
-                urgency: typeof intakeDetail.urgency === 'string' ? intakeDetail.urgency : undefined,
-                paymentStatus: typeof intakeDetail.status === 'string' ? intakeDetail.status : undefined,
-                triageStatus: resolvedTriageStatus ?? undefined,
-                triageReason: typeof intakeDetail.triage_reason === 'string' ? intakeDetail.triage_reason : undefined,
-                amount: typeof intakeDetail.amount === 'number' ? intakeDetail.amount : undefined,
-                currency: typeof intakeDetail.currency === 'string' ? intakeDetail.currency : undefined,
-                submittedAt: typeof intakeDetail.created_at === 'string' ? intakeDetail.created_at : undefined,
-            } : undefined,
-            onAccept: () => void runLeadAction('accept'),
-            onReject: () => void runLeadAction('reject'),
-            onConvert: isAccepted ? () => {
-                const params = new URLSearchParams({ convertIntake: intakeUuid });
-                leadReviewActions.navigateTo(`${leadReviewActions.mattersBasePath}/new?${params.toString()}`);
-            } : undefined,
-        };
-    };
 
     const resolveAuthCta = useCallback((message: ChatMessageUI) => {
         const metadata = message.metadata;
@@ -608,9 +407,16 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
         startIndex
     ]);
 
-    const debouncedHandleScroll = useMemo(() => {
-        return debounce(handleScrollLoadMore, DEBOUNCE_DELAY);
-    }, [handleScrollLoadMore]);
+    // Keep a stable ref to the latest handleScrollLoadMore so the debounce instance
+    // doesn't need to be recreated each time handleScrollLoadMore changes deps.
+    const handleScrollLoadMoreRef = useRef(handleScrollLoadMore);
+    handleScrollLoadMoreRef.current = handleScrollLoadMore;
+
+    // Single debounce instance for the component lifetime — prevents orphaned calls
+    // when deps of handleScrollLoadMore change mid-scroll.
+    const debouncedHandleScrollRef = useRef(
+        debounce(() => { handleScrollLoadMoreRef.current(); }, DEBOUNCE_DELAY)
+    );
 
     const handleScrollImmediate = useCallback(() => {
         if (!listRef.current) return;
@@ -631,20 +437,21 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
 
         // Dispatch scroll event for navbar visibility
         const scrollDelta = Math.abs(currentScrollTop - previousScrollTop);
-        
+
         if (scrollDelta > 0) {
             window.dispatchEvent(new CustomEvent('chat-scroll', {
                 detail: { scrollTop: currentScrollTop, scrollDelta }
             }));
         }
-        
+
         (element as HTMLElement & { lastScrollTop?: number }).lastScrollTop = currentScrollTop;
 
-        debouncedHandleScroll();
-    }, [checkIfScrolledToBottom, debouncedHandleScroll]);
+        debouncedHandleScrollRef.current();
+    }, [checkIfScrolledToBottom]);
 
     useEffect(() => {
         const list = listRef.current;
+        const debouncedScroll = debouncedHandleScrollRef.current;
         if (list) {
             list.addEventListener('scroll', handleScrollImmediate, { passive: true });
         }
@@ -653,9 +460,9 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
                 list.removeEventListener('scroll', handleScrollImmediate);
             }
             // Cancel any pending debounced calls to prevent delayed state updates after unmount
-            debouncedHandleScroll.cancel();
+            debouncedScroll.cancel();
         };
-    }, [debouncedHandleScroll, handleScrollImmediate]);
+    }, [handleScrollImmediate]);
 
 
 
@@ -699,6 +506,45 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
         return new Map(dedupedMessages.map((message) => [message.id, message]));
     }, [dedupedMessages]);
     const olderMessagesButtonClassName = 'text-xs sm:text-sm lg:text-base text-brand-purple hover:text-brand-purple-dark disabled:opacity-60';
+    const intakeReady = isIntakeSubmittable(intakeConversationState, {
+        paymentRequired: intakeStatus?.paymentRequired ?? null,
+        paymentReceived: intakeStatus?.paymentReceived ?? null,
+    });
+
+    const buildMessageActions = useCallback((
+        baseActions: ChatMessageAction[],
+        message: ChatMessageUI,
+        isLast: boolean
+    ): ChatMessageAction[] => {
+        const messageActions = [...baseActions];
+        const shouldAppendSubmitAction =
+            !message.isUser &&
+            isLast &&
+            intakeReady &&
+            intakeConversationState?.ctaResponse !== 'ready' &&
+            intakeStatus?.step !== 'pending_review' &&
+            intakeStatus?.step !== 'completed';
+        const shouldAppendDecisionActions =
+            !message.isUser &&
+            isLast &&
+            message.metadata?.intakeDecisionPrompt === true &&
+            intakeStatus?.step === 'contact_form_decision';
+
+        if (shouldAppendDecisionActions) {
+            if (!hasTerminalChatAction(messageActions)) {
+                messageActions.push(createSubmitAction(intakeStatus?.paymentRequired ? 'Continue' : 'Submit'));
+            }
+            if (!hasBuildBriefAction(messageActions)) {
+                messageActions.push(createBuildBriefAction('Build a stronger brief'));
+            }
+        } else if (shouldAppendSubmitAction && !hasTerminalChatAction(messageActions)) {
+            messageActions.push(
+                createSubmitAction(intakeStatus?.paymentRequired ? 'Continue' : 'Submit request')
+            );
+        }
+
+        return messageActions;
+    }, [intakeReady, intakeConversationState?.ctaResponse, intakeStatus?.paymentRequired, intakeStatus?.step]);
 
     const scrollToMessage = useCallback((messageId: string) => {
         if (!messageId) {
@@ -742,6 +588,8 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
         }
         
         const requestVisibleReactions = () => {
+            if (!features.enableMessageReactions) return;
+            
             const messagesToRequest = visibleMessagesRef.current.filter(message => {
                 if (!message.id) return false;
                 // Skip if reactions are already loaded on the message object.
@@ -776,39 +624,27 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
         const actionableMessages = visibleMessages
             .map((message, index) => {
                 const isLast = (index + derivedStart) === (dedupedMessages.length - 1);
-                const rawQuickReplies = Array.isArray(message.metadata?.quickReplies)
-                    ? message.metadata.quickReplies.filter((value: unknown): value is string => typeof value === 'string')
-                    : [];
-                const derivedQuickReplies = isLast ? rawQuickReplies : [];
-                const hasSubmitQuickReply = derivedQuickReplies.includes('__submit__');
-                const showSharedIntakeCta =
-                    !message.isUser &&
-                    isLast &&
-                    Boolean(intakeConversationState?.intakeReady) &&
-                    !hasSubmitQuickReply &&
-                    intakeConversationState?.ctaResponse !== 'ready' &&
-                    _intakeStatus?.step !== 'pending_review' &&
-                    _intakeStatus?.step !== 'completed';
+                const rawActions = normalizeChatActions(message.metadata?.actions);
+                const baseActions = isLast ? rawActions : [];
+                const messageActions = buildMessageActions(baseActions, message, isLast);
 
-                const isActionable = isLast || rawQuickReplies.length > 0 || Boolean(message.paymentRequest) || showSharedIntakeCta;
+                const isActionable = isLast || rawActions.length > 0 || Boolean(message.paymentRequest) || messageActions.length > 0;
                 if (!isActionable) return null;
 
                 return {
                     messageId: message.id ?? null,
                     role: message.role,
                     isLast,
-                    rawQuickReplies,
-                    derivedQuickReplies,
-                    hasSubmitQuickReply,
-                    showSharedIntakeCta,
+                    rawActions,
+                    messageActions,
                     hasPaymentRequest: Boolean(message.paymentRequest),
                 };
             })
             .filter((entry): entry is NonNullable<typeof entry> => Boolean(entry));
 
         const snapshot = JSON.stringify({
-            intakeReady: Boolean(intakeConversationState?.intakeReady),
-            intakeStep: _intakeStatus?.step ?? null,
+            intakeReady,
+            intakeStep: intakeStatus?.step ?? null,
             ctaResponse: intakeConversationState?.ctaResponse ?? null,
             actionableMessages,
         });
@@ -819,17 +655,25 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
         quickActionDebugSnapshotRef.current = snapshot;
 
         quickActionDebugLog('VirtualMessageList action gating snapshot', {
-            intakeReady: Boolean(intakeConversationState?.intakeReady),
-            intakeStep: _intakeStatus?.step ?? null,
+            intakeReady,
+            intakeStep: intakeStatus?.step ?? null,
             ctaResponse: intakeConversationState?.ctaResponse ?? null,
             actionableMessages,
         });
-    }, [visibleMessages, derivedStart, dedupedMessages.length, intakeConversationState?.intakeReady, intakeConversationState?.ctaResponse, _intakeStatus?.step]);
+    }, [
+        visibleMessages,
+        derivedStart,
+        dedupedMessages.length,
+        buildMessageActions,
+        intakeReady,
+        intakeConversationState?.ctaResponse,
+        intakeStatus?.step,
+    ]);
 
     return (
         <div className="relative min-h-0 flex flex-1 flex-col">
         <div
-            className={`message-list min-h-0 ${compactLayout ? 'flex-none' : 'flex-1'} overflow-y-auto p-4 ${isPublicWorkspace ? 'pt-0' : 'pt-2'} lg:pt-4 ${compactLayout ? 'pb-4' : 'pb-20'} scroll-smooth w-full scrollbar-thin scrollbar-track-transparent scrollbar-thumb-gray-300 dark:scrollbar-thumb-gray-600`}
+            className={`message-list min-h-0 ${compactLayout ? 'flex-none' : 'flex-1'} overflow-y-auto py-4 ${isPublicWorkspace ? 'pt-0' : 'pt-2'} lg:pt-4 ${compactLayout ? 'pb-4' : 'pb-20'} scroll-smooth w-full scrollbar-thin scrollbar-track-transparent scrollbar-thumb-line-glass/40`}
             ref={listRef}
             style={!compactLayout ? { paddingBottom: `${Math.max(80, bottomInsetPx ?? 80)}px` } : undefined}
         >
@@ -887,17 +731,27 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
                         avatar: replyAvatar,
                         isMissing: !replySource
                     } : null;
-                    const canReply = Boolean(onReply && message.id);
+                    const isViewerAnonymous = session?.user?.is_anonymous === true;
+                    const canReply = Boolean(onReply && message.id && resolvedViewerContext !== 'public' && !isViewerAnonymous);
                     const isLast = (_index + derivedStart) === (dedupedMessages.length - 1);
+                    const isStreamingMessage = Boolean(message.id?.startsWith(STREAMING_BUBBLE_PREFIX));
 
                     const modeSelector = resolveModeSelector(message);
-                    const leadReview = resolveLeadReview(message);
-                    const authCta = resolveAuthCta(message);
 
-                    const quickReplies = isLast && Array.isArray(message.metadata?.quickReplies)
-                        ? message.metadata.quickReplies.filter((value: unknown): value is string => typeof value === 'string')
-                        : undefined;
-                    const hasSubmitQuickReply = Array.isArray(quickReplies) && quickReplies.includes('__submit__');
+    const authCta = resolveAuthCta(message);
+
+                    const intakeStep = intakeStatus?.step ?? null;
+                    const intakeIsTerminal =
+                        ['submitted', 'pending_review', 'completed'].includes(String(intakeStep));
+                    const baseActions = (isLast && !isStreamingMessage)
+                        ? normalizeChatActions(message.metadata?.actions).filter((action) => {
+                            if (!intakeIsTerminal) return true;
+                            return action.type === 'submit'
+                                || action.type === 'continue_payment'
+                                || action.type === 'open_url';
+                        })
+                        : [];
+                    const messageActions = buildMessageActions(baseActions, message, isLast);
                     const onboardingMetaFromMessage = (
                         message.metadata && typeof message.metadata.onboardingProfile === 'object' && message.metadata.onboardingProfile
                     ) ? (message.metadata.onboardingProfile as Record<string, unknown>) : null;
@@ -933,14 +787,6 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
                             onChange: onboardingActions.onLogoChange,
                         } : undefined,
                     } : undefined;
-                    const showSharedIntakeCta =
-                        !message.isUser &&
-                        isLast &&
-                        Boolean(intakeConversationState?.intakeReady) &&
-                        !hasSubmitQuickReply &&
-                        intakeConversationState?.ctaResponse !== 'ready' &&
-                        _intakeStatus?.step !== 'pending_review' &&
-                        _intakeStatus?.step !== 'completed';
                     const stableClientId = typeof message.metadata?.__client_id === 'string'
                         ? message.metadata.__client_id
                         : null;
@@ -951,7 +797,9 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
                     const renderKey = stableClientId
                         ? `client-${stableClientId}`
                         : (message.id ? `message-${message.id}` : fallbackIndexKey);
+                    const isSystemEvent = message.role === 'system' && message.metadata?.source !== 'ai';
 
+                    const readers = message.isUser ? resolveReaders(message.seq) : [];
                     return (
                             <Message
                                 key={renderKey}
@@ -964,25 +812,14 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
                             replyPreview={replyPreview ?? undefined}
                             onReplyPreviewClick={replyPreview ? () => scrollToMessage(replyPreview.messageId) : undefined}
                             reactions={message.reactions}
-                            onReply={canReply ? () => {
-                                if (!onReply) return;
-                                onReply({
-                                    messageId: message.id,
-                                    authorName: avatar?.name || 'Unknown',
-                                    content: message.content,
-                                    avatar
-                                });
-                            } : undefined}
-                            onToggleReaction={onToggleReaction ? (emoji: string) => {
-                                if (!message.id) return;
-                                onToggleReaction(message.id, emoji);
-                            } : undefined}
+                            onReply={canReply ? onReply : undefined}
+                            onToggleReaction={onToggleReaction}
                             matterCanvas={message.matterCanvas}
                             generatedPDF={message.generatedPDF}
                             paymentRequest={message.paymentRequest}
                             practiceConfig={practiceConfig}
                             onOpenSidebar={onOpenSidebar}
-                            onOpenPayment={onOpenPayment}
+                            isStreaming={isStreamingMessage}
                             isLoading={message.isLoading}
                             // REMOVED: aiState - AI functionality removed
                             toolMessage={message.toolMessage}
@@ -990,33 +827,32 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
                             practiceId={practiceId}
                             assistantRetry={message.assistantRetry}
                             modeSelector={modeSelector}
-                            leadReview={leadReview}
-                            authCta={authCta}
+
+                                authCta={authCta}
                                 onAuthPromptRequest={onAuthPromptRequest}
-                                intakeStatus={_intakeStatus}
-                                intakeConversationState={intakeConversationState}
-                                quickReplies={quickReplies}
-                                onQuickReply={onQuickReply}
-                                showIntakeCta={showSharedIntakeCta}
-                                showIntakeDecisionPrompt={message.metadata?.intakeDecisionPrompt === true}
-                                onIntakeCtaResponse={onIntakeCtaResponse}
-                                onSubmitNow={onSubmitNow}
-                                onBuildBrief={onBuildBrief}
+                                actions={messageActions}
+                                onActionReply={onQuickReply}
                                 onboardingProfile={onboardingProfile}
-                                isLast={isLast}
+                                isLast={isLast && !isStreamingMessage}
+                                isSystemEvent={isSystemEvent}
+                                hideMessageActions={hideMessageActions}
+                                readReceipts={readers}
                             />
                         );
                     })}
+                {typingParticipants.length > 0 && (
+                    <HumanTypingIndicator participants={typingParticipants} />
+                )}
             </ErrorBoundary>
         </div>
         {showScrollToBottom && (
             <button
                 type="button"
-                className="absolute bottom-4 left-1/2 z-20 inline-flex h-9 w-9 -translate-x-1/2 items-center justify-center rounded-full bg-accent-500 text-[rgb(var(--accent-foreground))] shadow-lg transition hover:bg-accent-500/90 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-500/40"
+                className="absolute bottom-4 left-1/2 z-20 inline-flex h-9 w-9 -translate-x-1/2 items-center justify-center rounded-full bg-accent-500 text-accent-foreground shadow-lg transition hover:bg-accent-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-utility border border-line-utility"
                 onClick={scrollToBottom}
                 aria-label="Scroll to latest message"
             >
-                <Icon icon={ChevronDownIcon} className="h-5 w-5"  />
+                <Icon icon={ChevronDown} className="h-5 w-5"  />
             </button>
         )}
         </div>

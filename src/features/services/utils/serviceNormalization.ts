@@ -19,11 +19,16 @@ const coerceServiceDetails = (value: unknown): Service[] => {
       const trimmedTitle = rawTitle.trim();
       if (!trimmedTitle) return null;
       const rawId = typeof item.id === 'string' ? item.id.trim() : '';
-      return {
+      const rawDescription = typeof item.description === 'string' ? item.description : '';
+      const trimmedDescription = rawDescription.trim();
+      const service: Service = {
         id: rawId || createServiceId(trimmedTitle),
         title: trimmedTitle,
-        description: typeof item.description === 'string' ? item.description.trim() : ''
-      } as Service;
+      };
+      if (trimmedDescription) {
+        service.description = trimmedDescription;
+      }
+      return service;
     })
     .filter((item): item is Service => item !== null);
 };

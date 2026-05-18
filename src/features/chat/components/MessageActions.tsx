@@ -6,13 +6,17 @@ import { IntakePaymentCard } from '@/features/intake/components/IntakePaymentCar
 import type { IntakePaymentRequest } from '@/shared/utils/intakePayments';
 import DocumentChecklist from '@/features/intake/components/DocumentChecklist';
 import MatterCanvas from '@/features/matters/components/MatterCanvas';
-import { DocumentIcon } from "@heroicons/react/24/outline";
+import { File as FileIcon } from 'lucide-preact';
+
 import { Icon } from '@/shared/ui/Icon';
 import { formatDocumentIconSize } from '@/features/chat/utils/fileUtils';
 import { Button } from '@/shared/ui/Button';
-import type { IntakeConversationState } from '@/shared/types/intake';
+import type { ChatMessageAction } from '@/shared/types/conversation';
 import { SettingsNotice } from '@/features/settings/components/SettingsNotice';
 import { quickActionDebugLog, isQuickActionDebugEnabled } from '@/shared/utils/quickActionDebug';
+import { getChatActionKey } from '@/shared/utils/chatActions';
+import { useNavigation } from '@/shared/utils/navigation';
+import { useIntakeContext } from '@/shared/contexts/IntakeContext';
 
 interface MessageActionsProps {
 	matterCanvas?: {
@@ -23,15 +27,7 @@ interface MessageActionsProps {
 		answers?: Record<string, string>;
 		isExpanded?: boolean;
 	};
-	intakeStatus?: {
-		step?: string;
-		decision?: string;
-		intakeUuid?: string | null;
-		paymentRequired?: boolean;
-		paymentReceived?: boolean;
-	};
 	paymentRequest?: IntakePaymentRequest;
-	onOpenPayment?: (request: IntakePaymentRequest) => void;
 	documentChecklist?: {
 		matterType: string;
 		documents: Array<{
@@ -65,35 +61,8 @@ interface MessageActionsProps {
 		label: string;
 	};
 	onAuthPromptRequest?: () => void;
-	leadReview?: {
-		canReview: boolean;
-		isSubmitting?: boolean;
-		intake?: {
-			name?: string;
-			email?: string;
-			phone?: string;
-			description?: string;
-			opposingParty?: string;
-			urgency?: string;
-			paymentStatus?: string;
-			triageStatus?: string;
-			triageReason?: string;
-			amount?: number;
-			currency?: string;
-			submittedAt?: string;
-		};
-		onAccept: () => void;
-		onReject: () => void;
-		onConvert?: () => void;
-	};
-	intakeConversationState?: IntakeConversationState | null;
-	quickReplies?: string[];
-	onQuickReply?: (text: string) => void;
-	showIntakeCta?: boolean;
-	onIntakeCtaResponse?: (response: 'ready' | 'not_yet') => void;
-	onSubmitNow?: () => void | Promise<void>;
-	showIntakeDecisionPrompt?: boolean;
-	onBuildBrief?: () => void;
+	actions?: ChatMessageAction[];
+	onActionReply?: (text: string) => void;
 	onboardingProfile?: {
 		completionScore?: number;
 		missingFields?: string[];
@@ -113,71 +82,65 @@ interface MessageActionsProps {
 			onChange: (files: FileList | File[]) => void;
 		};
 	};
+	isStreaming?: boolean;
 	isLast?: boolean;
 	className?: string;
 }
 
 export const MessageActions: FunctionComponent<MessageActionsProps> = ({
 	matterCanvas,
-	intakeStatus,
 	documentChecklist,
 	generatedPDF,
 	paymentRequest,
-	onOpenPayment,
 	modeSelector,
 	assistantRetry,
 	authCta,
 	onAuthPromptRequest,
-	leadReview,
-	intakeConversationState,
-	quickReplies,
-	onQuickReply,
-	showIntakeCta,
-	onIntakeCtaResponse,
-	onSubmitNow,
-	showIntakeDecisionPrompt,
-	onBuildBrief,
+	actions,
+	onActionReply,
 	onboardingProfile,
+	isStreaming = false,
 	isLast,
 	className = ''
 }) => {
 	const { showSuccess, showInfo } = useToastContext();
 	const { t } = useTranslation('common');
+	const { navigate } = useNavigation();
+	const intakeContext = useIntakeContext();
 	const quickActionRenderSnapshotRef = useRef('');
+	const resolvedIntakeStatus = intakeContext.intakeStatus;
+	const resolvedOnSubmitNow = intakeContext.onSubmitNow;
+	const resolvedOnBuildBrief = intakeContext.onBuildBrief;
+	const resolvedOnStrengthenCase = intakeContext.onStrengthenCase;
 
-	const isIntakeCompleted = intakeStatus?.step === 'completed';
+	const isIntakeCompleted = resolvedIntakeStatus?.step === 'completed';
 	const shouldShowAuthCta = Boolean(authCta?.label && onAuthPromptRequest && !isIntakeCompleted);
-	const shouldShowDecisionPrompt = Boolean(showIntakeDecisionPrompt && intakeStatus?.step === 'contact_form_decision');
-	const shouldShowPaymentCard = Boolean(paymentRequest && intakeStatus?.paymentReceived !== true);
-	const showCtaButtons = Boolean(showIntakeCta && (onIntakeCtaResponse || onSubmitNow) && intakeConversationState?.ctaResponse !== 'ready');
-	const hasRenderableQuickReply = Boolean(quickReplies?.some((reply) => {
-		if (reply === '__submit__') {
-			return Boolean(onSubmitNow || onIntakeCtaResponse);
+	const shouldShowPaymentCard = Boolean(paymentRequest && resolvedIntakeStatus?.paymentReceived !== true);
+	const renderableActions = (actions ?? []).filter((action) => {
+		switch (action.type) {
+			case 'reply':
+				return Boolean(onActionReply);
+			case 'submit':
+				return Boolean(resolvedOnSubmitNow);
+			case 'continue_payment':
+				return Boolean(paymentRequest?.paymentLinkUrl);
+			case 'open_url':
+				return true;
+			case 'build_brief':
+				return Boolean(resolvedOnBuildBrief);
+			case 'strengthen_case':
+				return Boolean(resolvedOnStrengthenCase);
 		}
-		return Boolean(onQuickReply);
-	}));
-	const leadIntake = leadReview?.intake;
-	const formatLeadAmount = (amount?: number, currency?: string) => {
-		if (typeof amount !== 'number' || !Number.isFinite(amount)) return null;
-		try {
-			return new Intl.NumberFormat(undefined, {
-				style: 'currency',
-				currency: currency || 'USD'
-			}).format(amount / 100);
-		} catch {
-			return `${amount / 100} ${currency || 'USD'}`;
-		}
-	};
-	const paymentAmount = formatLeadAmount(leadIntake?.amount, leadIntake?.currency);
+	});
+
 
 	useEffect(() => {
 		if (!isQuickActionDebugEnabled()) return;
 		const snapshot = JSON.stringify({
 			isLast: Boolean(isLast),
-			quickReplies: quickReplies ?? null,
-			hasRenderableQuickReply,
-			showCtaButtons,
-			shouldShowDecisionPrompt,
+			isStreaming,
+			actions: actions ?? null,
+			renderableActionsCount: renderableActions.length,
 			shouldShowPaymentCard,
 			hasPaymentRequest: Boolean(paymentRequest),
 		});
@@ -185,20 +148,18 @@ export const MessageActions: FunctionComponent<MessageActionsProps> = ({
 		quickActionRenderSnapshotRef.current = snapshot;
 		quickActionDebugLog('MessageActions render gating', {
 			isLast: Boolean(isLast),
-			quickReplies: quickReplies ?? null,
-			hasRenderableQuickReply,
-			showCtaButtons,
-			shouldShowDecisionPrompt,
+			isStreaming,
+			actions: actions ?? null,
+			renderableActionsCount: renderableActions.length,
 			shouldShowPaymentCard,
 			hasPaymentRequest: Boolean(paymentRequest),
 		});
 	}, [
-		hasRenderableQuickReply,
+		actions,
 		isLast,
+		isStreaming,
 		paymentRequest,
-		quickReplies,
-		showCtaButtons,
-		shouldShowDecisionPrompt,
+		renderableActions.length,
 		shouldShowPaymentCard
 	]);
 
@@ -237,154 +198,133 @@ export const MessageActions: FunctionComponent<MessageActionsProps> = ({
 					)}
 				</div>
 			)}
-			{leadReview && (
-				<div className="mt-3">
-					{leadIntake && (
-						<div className="mb-3 rounded-2xl border border-line-glass/40 bg-black/10 p-3 text-sm text-input-text">
-							<div className="flex flex-col gap-2">
-								<div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-									<span className="font-medium text-input-text">{leadIntake.name || t('leadIntake.newIntake')}</span>
-									{leadIntake.email ? <span className="text-input-placeholder">{leadIntake.email}</span> : null}
-									{leadIntake.phone ? <span className="text-input-placeholder">{leadIntake.phone}</span> : null}
-								</div>
-								<div className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-input-placeholder">
-									{leadIntake.urgency ? <span>{t('leadIntake.urgency')}: {leadIntake.urgency.replace(/_/g, ' ')}</span> : null}
-									{leadIntake.paymentStatus ? <span>{t('leadIntake.payment')}: {leadIntake.paymentStatus.replace(/_/g, ' ')}</span> : null}
-									{leadIntake.triageStatus ? <span>{t('leadIntake.triage')}: {leadIntake.triageStatus.replace(/_/g, ' ')}</span> : null}
-									{paymentAmount ? <span>{t('leadIntake.fee')}: {paymentAmount}</span> : null}
-								</div>
-								{leadIntake.opposingParty ? (
-									<div className="text-xs text-input-placeholder">
-										<span className="font-medium text-input-text">{t('leadIntake.opposingParty')}:</span> {leadIntake.opposingParty}
-									</div>
-								) : null}
-								{leadIntake.description ? (
-									<p className="text-sm text-input-text/90">{leadIntake.description}</p>
-								) : null}
-								{leadIntake.triageReason ? (
-									<div className="text-xs text-input-placeholder">
-										<span className="font-medium text-input-text">{t('leadIntake.reason')}:</span> {leadIntake.triageReason}
-									</div>
-								) : null}
-							</div>
-						</div>
-					)}
-					{leadReview.canReview ? (
-						<div className="flex flex-col gap-2 sm:flex-row">
-							{leadReview.onConvert ? (
-								<Button
-									variant="primary"
-									size="sm"
-									onClick={leadReview.onConvert}
-									disabled={leadReview.isSubmitting}
-								>
-									{t('leadReview.convert')}
-								</Button>
-							) : (
-								<>
-									<Button
-										variant="primary"
-										size="sm"
-										onClick={leadReview.onAccept}
-										disabled={leadReview.isSubmitting}
-									>
-										{t('leadReview.accept')}
-									</Button>
-									<Button
-										variant="secondary"
-										size="sm"
-										onClick={leadReview.onReject}
-										disabled={leadReview.isSubmitting}
-									>
-										{t('leadReview.decline')}
-									</Button>
-								</>
-							)}
-						</div>
-					) : (
-						<div className="text-xs text-input-placeholder">
-							{t('leadReview.noPermission')}
-						</div>
-					)}
-				</div>
-			)}
-			{isLast && quickReplies && quickReplies.length > 0 && hasRenderableQuickReply && (
+			{isLast && !isStreaming && renderableActions.length > 0 && (
 				<div className="mt-3 flex gap-2 overflow-x-auto pb-1">
-					{quickReplies.map((reply, idx) => (
-						reply === '__submit__' ? (
-							(onSubmitNow || onIntakeCtaResponse) ? (
+					{renderableActions.map((action, idx) => (
+						action.type === 'continue_payment' ? (
+							(() => {
+								const url = paymentRequest?.paymentLinkUrl;
+								if (!url) return null;
+								try {
+									const parsed = new URL(url);
+									if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return null;
+									return (
+										<a
+											key={getChatActionKey(action, idx)}
+											href={url}
+											target="_blank"
+											rel="noopener noreferrer"
+											className={`btn ${action.variant === 'primary' ? 'btn-primary' : 'btn-secondary'} btn-sm shrink-0 no-underline inline-flex items-center justify-center px-4 rounded-xl font-semibold transition-all hover:opacity-90 active:scale-[0.98] h-8 text-xs`}
+										>
+											{action.label}
+										</a>
+									);
+								} catch { return null; }
+							})()
+						) : action.type === 'submit' ? (
+							resolvedOnSubmitNow ? (
 								<Button
-									key="__submit__"
-									variant="primary"
+									key={getChatActionKey(action, idx)}
+									variant={action.variant === 'primary' ? 'primary' : 'secondary'}
 									size="sm"
 									className="shrink-0"
 									onClick={() => {
-										if (onSubmitNow) {
-											void onSubmitNow();
-										} else {
-											onIntakeCtaResponse?.('ready');
-										}
+										void resolvedOnSubmitNow();
 									}}
 								>
-									{t('chat.submitRequest')}
+									{action.label}
+								</Button>
+							) : null
+						) : action.type === 'open_url' ? (
+							(() => {
+								const isSameOrigin = (urlStr: string) => {
+									try {
+										const url = new URL(urlStr, window.location.origin);
+										return url.origin === window.location.origin;
+									} catch { return false; }
+								};
+								
+								const sameOrigin = isSameOrigin(action.url);
+								
+								return (
+									<a
+										key={getChatActionKey(action, idx)}
+										href={action.url}
+										target={sameOrigin ? undefined : "_blank"}
+										rel={sameOrigin ? undefined : "noopener noreferrer"}
+										className={`btn ${action.variant === 'primary' ? 'btn-primary' : 'btn-secondary'} btn-sm shrink-0 no-underline inline-flex items-center justify-center px-4 rounded-xl font-semibold transition-all hover:opacity-90 active:scale-[0.98] h-8 text-xs`}
+										onClick={(e) => {
+											try {
+												const parsed = new URL(action.url, window.location.origin);
+												if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+													e.preventDefault();
+													console.warn('[MessageActions] Blocked unsafe URL protocol:', parsed.protocol);
+													showInfo('Link Cannot Open', `This link uses an unsafe protocol: ${parsed.protocol}`);
+													return;
+												}
+												
+												if (parsed.origin === window.location.origin) {
+													e.preventDefault();
+													navigate(`${parsed.pathname}${parsed.search}${parsed.hash}`);
+												}
+											} catch {
+												e.preventDefault();
+												console.warn('[MessageActions] Invalid URL format:', action.url);
+												showInfo('Invalid Link', `Cannot open link with invalid URL format: ${action.url}`);
+											}
+										}}
+									>
+										{action.label}
+									</a>
+								);
+							})()
+						) : action.type === 'build_brief' ? (
+							resolvedOnBuildBrief ? (
+								<Button
+									key={getChatActionKey(action, idx)}
+									variant={action.variant === 'primary' ? 'primary' : 'secondary'}
+									size="sm"
+									className="shrink-0"
+									onClick={() => resolvedOnBuildBrief()}
+								>
+									{action.label}
+								</Button>
+							) : null
+						) : action.type === 'strengthen_case' ? (
+							resolvedOnStrengthenCase ? (
+								<Button
+									key={getChatActionKey(action, idx)}
+									variant={action.variant === 'primary' ? 'primary' : 'secondary'}
+									size="sm"
+									className="shrink-0"
+									onClick={() => resolvedOnStrengthenCase()}
+								>
+									{action.label}
 								</Button>
 							) : null
 						) : (
-							onQuickReply ? (
+							onActionReply ? (
 								<Button
-									key={`${reply}-${idx}`}
-									variant="secondary"
+									key={getChatActionKey(action, idx)}
+									variant={action.variant === 'primary' ? 'primary' : 'secondary'}
 									size="sm"
 									className="shrink-0"
-									onClick={() => onQuickReply(reply)}
+									onClick={() => onActionReply(action.value)}
 								>
-									{reply}
+									{action.label}
 								</Button>
 							) : null
 						)
 					))}
 				</div>
 			)}
-			{isLast && onboardingProfile && (
+			{isLast && !isStreaming && onboardingProfile && (
 				<div className="mt-3 space-y-3">
 					{onboardingProfile.saveError && (
 						<SettingsNotice variant="danger">
 							{onboardingProfile.saveError}
 						</SettingsNotice>
 					)}
-				</div>
-			)}
-			{shouldShowDecisionPrompt && (
-				<div className="mt-3 flex flex-col gap-2 sm:flex-row">
-					<Button
-						variant="primary"
-						size="sm"
-						onClick={() => {
-							if (onSubmitNow) {
-								void onSubmitNow();
-								return;
-							}
-							onIntakeCtaResponse?.('ready');
-						}}
-					>
-						{t('chat.continue')}
-					</Button>
-					<Button variant="secondary" size="sm" onClick={() => onBuildBrief?.()}>
-						{t('chat.buildStrongerBrief')}
-					</Button>
-				</div>
-			)}
-			{showCtaButtons && (
-				<div className="mt-3 space-y-3">
-					<Button variant="primary" size="sm" onClick={() => {
-						if (onSubmitNow) {
-							void onSubmitNow();
-							return;
-						}
-						onIntakeCtaResponse?.('ready');
-					}}>
-						{t('chat.submitRequest')}
-					</Button>
 				</div>
 			)}
 			{/* Display matter canvas */}
@@ -399,7 +339,7 @@ export const MessageActions: FunctionComponent<MessageActionsProps> = ({
 			)}
 			
 			{shouldShowPaymentCard && paymentRequest && (
-				<IntakePaymentCard paymentRequest={paymentRequest} onOpenPayment={onOpenPayment} />
+				<IntakePaymentCard paymentRequest={paymentRequest} />
 			)}
 			
 			{/* Display document checklist */}
@@ -427,9 +367,9 @@ export const MessageActions: FunctionComponent<MessageActionsProps> = ({
 			{/* Display generated PDF */}
 			{generatedPDF && (
 				<div className="my-2">
-					<div className="flex items-center gap-2 p-3 rounded-lg glass-panel">
-						<div className="w-8 h-8 rounded bg-white/10 flex items-center justify-center flex-shrink-0">
-							<Icon icon={DocumentIcon} className="w-4 h-4 text-input-text"  />
+					<div className="flex items-center gap-2 p-3 rounded-xl glass-panel">
+						<div className="w-8 h-8 rounded bg-surface-utility/60 dark:bg-surface-utility/10 flex items-center justify-center flex-shrink-0">
+							<Icon icon={FileIcon} className="w-4 h-4 text-input-text"  />
 						</div>
 						<div className="flex-1 min-w-0">
 							<div className="text-sm font-medium text-input-text whitespace-nowrap overflow-hidden text-ellipsis" title={generatedPDF.filename}>

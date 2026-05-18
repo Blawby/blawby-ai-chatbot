@@ -1,24 +1,22 @@
 import { useMemo, useRef, useState, useEffect } from 'preact/hooks';
-import {
-  Bars3BottomLeftIcon,
-  CloudArrowUpIcon,
-  CodeBracketIcon,
-  DocumentTextIcon,
-  LinkIcon,
-  ListBulletIcon,
-  NumberedListIcon
-} from '@heroicons/react/24/outline';
-import { Icon } from '@/shared/ui/Icon';
-import { cn } from '@/shared/utils/cn';
-import { uploadWithProgress, validateFile } from '@/shared/services/upload/UploadTransport';
-import { useUniqueId } from '@/shared/hooks/useUniqueId';
-import remarkGfm from 'remark-gfm';
-import { markdownComponents } from '@/shared/ui/markdown/markdownComponents';
+import { PanelLeft, MoreVertical, FileText, Link, List, CloudUpload, Code, ListOrdered } from 'lucide-preact';
 
-// Custom hook to dynamically import react-markdown on client
+import { Icon } from '@/shared/ui/Icon';
+import { LoadingSpinner } from '@/shared/ui/layout/LoadingSpinner';
+import { cn } from '@/shared/utils/cn';
+import { useUniqueId } from '@/shared/hooks/useUniqueId';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/shared/ui/dropdown';
+import { uploadFileViaBackend } from '@/shared/lib/uploadsApi';
+
+// Lazy-load react-markdown + remark-gfm + the shared markdownComponents map
+// in the same async block so the entire markdown surface stays off the
+// first-load critical path.
 function useReactMarkdown() {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  /* eslint-disable @typescript-eslint/no-explicit-any */
   const [ReactMarkdown, setReactMarkdown] = useState<any>(null);
+  const [remarkGfm, setRemarkGfm] = useState<any>(null);
+  const [components, setComponents] = useState<any>(null);
+  /* eslint-enable @typescript-eslint/no-explicit-any */
   const [error, setError] = useState<string | null>(null);
   const [retryCount, setRetryCount] = useState(0);
 
@@ -27,9 +25,15 @@ function useReactMarkdown() {
 
     const loadMarkdown = async () => {
       try {
-        const mod = await import('react-markdown');
+        const [mod, gfm, comps] = await Promise.all([
+          import('react-markdown'),
+          import('remark-gfm'),
+          import('@/shared/ui/markdown/markdownComponents'),
+        ]);
         if (mounted) {
           setReactMarkdown(() => mod.default);
+          setRemarkGfm(() => gfm.default);
+          setComponents(() => comps.markdownComponents);
           setError(null);
         }
       } catch (err) {
@@ -37,6 +41,8 @@ function useReactMarkdown() {
           const errorMsg = err instanceof Error ? err.message : 'Failed to load markdown preview';
           setError(errorMsg);
           setReactMarkdown(null);
+          setRemarkGfm(null);
+          setComponents(null);
         }
       }
     };
@@ -52,7 +58,7 @@ function useReactMarkdown() {
     setRetryCount((prev) => prev + 1);
   };
 
-  return { component: ReactMarkdown, error, retry };
+  return { component: ReactMarkdown, remarkGfm, components, error, retry };
 }
 
 type UploadState = {
@@ -68,6 +74,7 @@ export interface MarkdownUploadTextareaProps {
   onChange: (value: string) => void;
   practiceId?: string | null;
   conversationId?: string;
+  matterId?: string | null;
   label?: string;
   showLabel?: boolean;
   showTabs?: boolean;
@@ -81,7 +88,6 @@ export interface MarkdownUploadTextareaProps {
 }
 
 const createMarkdownForUpload = (file: File, url: string): string => {
-  // Escape [ ] ( ) in filenames for markdown
   const safeName = file.name.replace(/[[]()]/g, '$&');
   const safeUrl = url.replace(/\)/g, '\\)');
   if (file.type.startsWith('image/')) {
@@ -93,8 +99,9 @@ const createMarkdownForUpload = (file: File, url: string): string => {
 export const MarkdownUploadTextarea = ({
   value,
   onChange,
-  practiceId,
-  conversationId,
+  practiceId: _practiceId,
+  conversationId: _conversationId,
+  matterId,
   label = 'Description',
   showLabel = true,
   showTabs = true,
@@ -106,7 +113,13 @@ export const MarkdownUploadTextarea = ({
   className = '',
   defaultTab = 'write'
 }: MarkdownUploadTextareaProps) => {
-  const { component: ReactMarkdown, error: markdownError, retry: retryMarkdown } = useReactMarkdown();
+  const {
+    component: ReactMarkdown,
+    remarkGfm,
+    components: markdownComponents,
+    error: markdownError,
+    retry: retryMarkdown,
+  } = useReactMarkdown();
 
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -118,6 +131,8 @@ export const MarkdownUploadTextarea = ({
   const [isDragActive, setIsDragActive] = useState(false);
   const [uploadItems, setUploadItems] = useState<UploadState[]>([]);
   const [uploadError, setUploadError] = useState<string | null>(null);
+  const resolvedMatterId = (matterId ?? '').trim();
+  const uploadsEnabled = resolvedMatterId.length > 0;
 
   const isUploading = useMemo(
     () => uploadItems.some((item) => item.status === 'uploading'),
@@ -189,22 +204,14 @@ export const MarkdownUploadTextarea = ({
     const files = Array.from(incoming);
     if (files.length === 0) return;
     if (disabled) return;
-
-    const resolvedPracticeId = (practiceId ?? '').trim();
-    if (!resolvedPracticeId) {
-      setUploadError('Missing practice context. Please refresh and try again.');
+    if (!uploadsEnabled) {
+      setUploadError('File uploads are only available after the matter has been created.');
       return;
     }
 
     setUploadError(null);
 
     for (const file of files) {
-      const validation = validateFile(file);
-      if (!validation.isValid) {
-        setUploadError(validation.error ?? `Unsupported file: ${file.name}`);
-        continue;
-      }
-
       const uploadId = crypto.randomUUID();
       setUploadItems((prev) => [
         ...prev,
@@ -212,14 +219,16 @@ export const MarkdownUploadTextarea = ({
           id: uploadId,
           name: file.name,
           progress: 0,
-          status: 'uploading'
-        }
+          status: 'uploading',
+        },
       ]);
 
       try {
-        const uploaded = await uploadWithProgress(file, {
-          practiceId: resolvedPracticeId,
-          conversationId,
+        const uploaded = await uploadFileViaBackend({
+          file,
+          scopeType: 'matter',
+          scopeId: resolvedMatterId,
+          subContext: 'documents',
           onProgress: (progress) => {
             setUploadItems((prev) =>
               prev.map((item) =>
@@ -228,8 +237,12 @@ export const MarkdownUploadTextarea = ({
                   : item
               )
             );
-          }
+          },
         });
+
+        if (!uploaded.publicUrl) {
+          throw new Error('Matter upload completed without a public URL.');
+        }
 
         setUploadItems((prev) =>
           prev.map((item) =>
@@ -239,7 +252,7 @@ export const MarkdownUploadTextarea = ({
           )
         );
 
-        insertAtCursor(createMarkdownForUpload(file, uploaded.url));
+        insertAtCursor(createMarkdownForUpload(file, uploaded.publicUrl));
       } catch (error) {
         const message = error instanceof Error ? error.message : 'Upload failed';
         setUploadItems((prev) =>
@@ -254,23 +267,23 @@ export const MarkdownUploadTextarea = ({
     }
   };
   return (
-    <div className={cn('space-y-2', className)}>
+    <div className={cn('@container space-y-2', className)}>
       {showLabel ? (
         <label htmlFor={editorId} className="block text-sm font-medium text-input-text">
           {label}
         </label>
       ) : null}
 
-      <div className="overflow-hidden rounded-2xl border border-line-glass/30 bg-surface-overlay/60 backdrop-blur-xl">
+      <div className="overflow-hidden rounded-2xl border border-line-glass/30 bg-surface-panel/80 shadow-glass backdrop-blur-xl dark:bg-surface-overlay/70">
         {showTabs ? (
-          <div className="flex items-center justify-between border-b border-line-glass/30 bg-surface-overlay/70 px-2 py-2">
-            <div className="flex items-center">
+          <div className="flex items-center justify-between gap-3 border-b border-line-glass/30 bg-surface-panel/70 px-2 py-2 dark:bg-surface-overlay/80">
+            <div className="flex min-w-0 items-center gap-2 @xl:flex @xl:flex-none @xl:items-center @xl:gap-1">
               <button
                 type="button"
                 className={cn(
-                  'rounded-lg px-3 py-1.5 text-sm font-medium transition-colors',
+                  'rounded-xl px-3 py-2 text-sm font-medium transition-colors @xl:px-3 @xl:py-1.5',
                   activeTab === 'write'
-                    ? 'text-input-text'
+                    ? 'bg-surface-workspace/90 text-input-text shadow-sm ring-1 ring-line-glass/25 dark:bg-surface-overlay/90'
                     : 'text-input-placeholder hover:text-input-text'
                 )}
                 onClick={() => setActiveTab('write')}
@@ -280,9 +293,9 @@ export const MarkdownUploadTextarea = ({
               <button
                 type="button"
                 className={cn(
-                  'rounded-lg px-3 py-1.5 text-sm font-medium transition-colors',
+                  'rounded-xl px-3 py-2 text-sm font-medium transition-colors @xl:px-3 @xl:py-1.5',
                   activeTab === 'preview'
-                    ? 'text-input-text'
+                    ? 'bg-surface-workspace/90 text-input-text shadow-sm ring-1 ring-line-glass/25 dark:bg-surface-overlay/90'
                     : 'text-input-placeholder hover:text-input-text'
                 )}
                 onClick={() => setActiveTab('preview')}
@@ -290,40 +303,118 @@ export const MarkdownUploadTextarea = ({
                 Preview
               </button>
             </div>
-            <div className="flex items-center gap-2 text-input-placeholder">
+            <div className="ml-auto flex items-center gap-2 @xl:hidden">
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button
+                    type="button"
+                    className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-line-glass/25 bg-surface-overlay/40 text-input-placeholder transition-colors hover:text-input-text"
+                    aria-label="Formatting options"
+                  >
+                    <Icon icon={MoreVertical} className="h-4 w-4" aria-hidden="true" />
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-64 p-1.5">
+                  <DropdownMenuItem
+                    onSelect={() => prependToLine('# ', 'Heading')}
+                    className="flex items-center gap-2 rounded-xl px-3 py-2"
+                  >
+                    <span className="inline-flex h-6 w-6 items-center justify-center rounded-md border border-line-glass/20 bg-surface-overlay/50 text-xs font-semibold">H</span>
+                    <span>Heading</span>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onSelect={() => replaceSelection('**', '**', 'bold text')}
+                    className="flex items-center gap-2 rounded-xl px-3 py-2"
+                  >
+                    <span className="inline-flex h-6 w-6 items-center justify-center rounded-md border border-line-glass/20 bg-surface-overlay/50 text-xs font-semibold">B</span>
+                    <span>Bold</span>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onSelect={() => replaceSelection('*', '*', 'italic text')}
+                    className="flex items-center gap-2 rounded-xl px-3 py-2"
+                  >
+                    <span className="inline-flex h-6 w-6 items-center justify-center rounded-md border border-line-glass/20 bg-surface-overlay/50 text-xs italic font-semibold">I</span>
+                    <span>Italic</span>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onSelect={() => prependToLine('> ', 'Quoted text')}
+                    className="flex items-center gap-2 rounded-xl px-3 py-2"
+                  >
+                    <Icon icon={PanelLeft} className="h-4 w-4" aria-hidden="true" />
+                    <span>Quote</span>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onSelect={() => replaceSelection('```\n', '\n```', 'code')}
+                    className="flex items-center gap-2 rounded-xl px-3 py-2"
+                  >
+                    <Icon icon={Code} className="h-4 w-4" aria-hidden="true" />
+                    <span>Code</span>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onSelect={() => replaceSelection('[', '](https://)', 'link text')}
+                    className="flex items-center gap-2 rounded-xl px-3 py-2"
+                  >
+                    <Icon icon={Link} className="h-4 w-4" aria-hidden="true" />
+                    <span>Link</span>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onSelect={() => prependToLine('- ', 'List item')}
+                    className="flex items-center gap-2 rounded-xl px-3 py-2"
+                  >
+                    <Icon icon={List} className="h-4 w-4" aria-hidden="true" />
+                    <span>Bulleted list</span>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onSelect={() => prependToLine('1. ', 'List item')}
+                    className="flex items-center gap-2 rounded-xl px-3 py-2"
+                  >
+                    <Icon icon={ListOrdered} className="h-4 w-4" aria-hidden="true" />
+                    <span>Numbered list</span>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onSelect={() => prependToLine('- [ ] ', 'Task')}
+                    className="flex items-center gap-2 rounded-xl px-3 py-2"
+                  >
+                    <Icon icon={FileText} className="h-4 w-4" aria-hidden="true" />
+                    <span>Task list</span>
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
+            <div className="hidden items-center gap-2 text-input-placeholder @xl:flex @xl:flex-wrap">
               <div className="flex items-center gap-1">
-                <button type="button" className="rounded p-1 hover:text-input-text" aria-label="Insert heading" onClick={() => prependToLine('# ', 'Heading')}>
+                <button type="button" className="rounded p-1 transition-colors hover:text-input-text" aria-label="Insert heading" onClick={() => prependToLine('# ', 'Heading')}>
                   <span className="text-xs font-semibold leading-none">H</span>
                 </button>
-                <button type="button" className="rounded p-1 hover:text-input-text" aria-label="Bold" onClick={() => replaceSelection('**', '**', 'bold text')}>
+                <button type="button" className="rounded p-1 transition-colors hover:text-input-text" aria-label="Bold" onClick={() => replaceSelection('**', '**', 'bold text')}>
                   <span className="text-xs font-semibold leading-none">B</span>
                 </button>
-                <button type="button" className="rounded p-1 hover:text-input-text" aria-label="Italic" onClick={() => replaceSelection('*', '*', 'italic text')}>
+                <button type="button" className="rounded p-1 transition-colors hover:text-input-text" aria-label="Italic" onClick={() => replaceSelection('*', '*', 'italic text')}>
                   <span className="text-xs italic leading-none">I</span>
                 </button>
-                <button type="button" className="rounded p-1 hover:text-input-text" aria-label="Quote" onClick={() => prependToLine('> ', 'Quoted text')}>
-                  <Icon icon={Bars3BottomLeftIcon} className="h-4 w-4" aria-hidden="true"  />
+                <button type="button" className="rounded p-1 transition-colors hover:text-input-text" aria-label="Quote" onClick={() => prependToLine('> ', 'Quoted text')}>
+                  <Icon icon={PanelLeft} className="h-4 w-4" aria-hidden="true" />
                 </button>
               </div>
               <div className="h-4 w-px bg-line-glass/50" />
               <div className="flex items-center gap-1">
-                <button type="button" className="rounded p-1 hover:text-input-text" aria-label="Code block" onClick={() => replaceSelection('```\n', '\n```', 'code')}>
-                  <Icon icon={CodeBracketIcon} className="h-4 w-4" aria-hidden="true"  />
+                <button type="button" className="rounded p-1 transition-colors hover:text-input-text" aria-label="Code block" onClick={() => replaceSelection('```\n', '\n```', 'code')}>
+                  <Icon icon={Code} className="h-4 w-4" aria-hidden="true" />
                 </button>
-                <button type="button" className="rounded p-1 hover:text-input-text" aria-label="Insert link" onClick={() => replaceSelection('[', '](https://)', 'link text')}>
-                  <Icon icon={LinkIcon} className="h-4 w-4" aria-hidden="true"  />
+                <button type="button" className="rounded p-1 transition-colors hover:text-input-text" aria-label="Insert link" onClick={() => replaceSelection('[', '](https://)', 'link text')}>
+                  <Icon icon={Link} className="h-4 w-4" aria-hidden="true" />
                 </button>
               </div>
               <div className="h-4 w-px bg-line-glass/50" />
               <div className="flex items-center gap-1">
-                <button type="button" className="rounded p-1 hover:text-input-text" aria-label="Bulleted list" onClick={() => prependToLine('- ', 'List item')}>
-                  <Icon icon={ListBulletIcon} className="h-4 w-4" aria-hidden="true"  />
+                <button type="button" className="rounded p-1 transition-colors hover:text-input-text" aria-label="Bulleted list" onClick={() => prependToLine('- ', 'List item')}>
+                  <Icon icon={List} className="h-4 w-4" aria-hidden="true" />
                 </button>
-                <button type="button" className="rounded p-1 hover:text-input-text" aria-label="Numbered list" onClick={() => prependToLine('1. ', 'List item')}>
-                  <Icon icon={NumberedListIcon} className="h-4 w-4" aria-hidden="true"  />
+                <button type="button" className="rounded p-1 transition-colors hover:text-input-text" aria-label="Numbered list" onClick={() => prependToLine('1. ', 'List item')}>
+                  <Icon icon={ListOrdered} className="h-4 w-4" aria-hidden="true" />
                 </button>
-                <button type="button" className="rounded p-1 hover:text-input-text" aria-label="Task list" onClick={() => prependToLine('- [ ] ', 'Task')}>
-                  <Icon icon={DocumentTextIcon} className="h-4 w-4" aria-hidden="true"  />
+                <button type="button" className="rounded p-1 transition-colors hover:text-input-text" aria-label="Task list" onClick={() => prependToLine('- [ ] ', 'Task')}>
+                  <Icon icon={FileText} className="h-4 w-4" aria-hidden="true" />
                 </button>
               </div>
             </div>
@@ -352,7 +443,7 @@ export const MarkdownUploadTextarea = ({
               onInput={(event) => onChange((event.currentTarget as HTMLTextAreaElement).value)}
               onDragOver={(event) => {
                 event.preventDefault();
-                if (!disabled) setIsDragActive(true);
+                if (!disabled && uploadsEnabled) setIsDragActive(true);
               }}
               onDragLeave={(event) => {
                 event.preventDefault();
@@ -364,11 +455,13 @@ export const MarkdownUploadTextarea = ({
               onDrop={(event) => {
                 event.preventDefault();
                 setIsDragActive(false);
-                void handleFiles(event.dataTransfer?.files ?? []);
+                if (uploadsEnabled) {
+                  void handleFiles(event.dataTransfer?.files ?? []);
+                }
               }}
               onPaste={(event) => {
                 const clipboardFiles = event.clipboardData?.files;
-                if (clipboardFiles && clipboardFiles.length > 0) {
+                if (uploadsEnabled && clipboardFiles && clipboardFiles.length > 0) {
                   event.preventDefault();
                   void handleFiles(clipboardFiles);
                 }
@@ -390,18 +483,18 @@ export const MarkdownUploadTextarea = ({
                     <button
                       type="button"
                       onClick={retryMarkdown}
-                      className="rounded bg-red-600 px-2 py-1 text-xs font-medium text-white hover:bg-red-700 dark:bg-red-700 dark:hover:bg-red-600"
+                      className="rounded bg-accent-error px-2 py-1 text-xs font-medium text-[rgb(var(--accent-foreground))] hover:bg-accent-error/80 dark:bg-accent-error/80 dark:hover:bg-accent-error/60"
                     >
                       Retry
                     </button>
                   </div>
-                ) : ReactMarkdown ? (
+                ) : ReactMarkdown && remarkGfm && markdownComponents ? (
                   <ReactMarkdown components={markdownComponents} remarkPlugins={[remarkGfm]}>
                     {value}
                   </ReactMarkdown>
                 ) : (
-                  <div className="mt-2 rounded border border-gray-200 bg-gray-50 p-2 text-sm text-gray-400 dark:border-gray-700 dark:bg-gray-900/40 dark:text-gray-500">
-                    Loading preview…
+                  <div className="mt-2 flex justify-center rounded border border-line-glass/20 bg-surface-panel p-2 dark:border-line-glass/40 dark:bg-surface-panel/40">
+                    <LoadingSpinner size="sm" ariaLabel="Loading preview" />
                   </div>
                 )}
               </div>
@@ -412,42 +505,48 @@ export const MarkdownUploadTextarea = ({
         )}
 
         {showFooter ? (
-          <div className="flex flex-wrap items-center justify-between gap-2 border-t border-line-glass/30 px-4 py-2 text-sm">
+          <div className="flex flex-col gap-2 border-t border-line-glass/30 px-4 py-2 text-sm @xl:flex-row @xl:items-center @xl:justify-between">
             <div className="flex items-center gap-2 text-input-placeholder">
-              <Icon icon={CloudArrowUpIcon} className="h-4 w-4" aria-hidden="true"  />
-              <button
-                type="button"
-                className="hover:text-input-text"
-                onClick={() => fileInputRef.current?.click()}
-                disabled={disabled}
-              >
-                Paste, drop, or click to add files
-              </button>
+              {uploadsEnabled ? (
+                <>
+                  <Icon icon={CloudUpload} className="h-4 w-4" aria-hidden="true"  />
+                  <button
+                    type="button"
+                    className="hover:text-input-text"
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={disabled}
+                  >
+                    Paste, drop, or click to add files
+                  </button>
+                </>
+              ) : null}
             </div>
-            <div className="text-input-placeholder">{value.length}/{maxLength}</div>
+            <div className="text-input-placeholder @xl:text-right">{value.length}/{maxLength}</div>
           </div>
         ) : null}
       </div>
 
-      <input
-        ref={fileInputRef}
-        type="file"
-        className="hidden"
-        multiple
-        onChange={(event) => {
-          const files = event.currentTarget.files;
-          if (files) {
-            void handleFiles(files);
-            event.currentTarget.value = '';
-          }
-        }}
-      />
+      {uploadsEnabled ? (
+        <input
+          ref={fileInputRef}
+          type="file"
+          className="hidden"
+          multiple
+          onChange={(event) => {
+            const files = event.currentTarget.files;
+            if (files) {
+              void handleFiles(files);
+              event.currentTarget.value = '';
+            }
+          }}
+        />
+      ) : null}
 
       {uploadItems.length > 0 && (
         <div className="space-y-1 rounded-xl border border-line-glass/30 bg-surface-overlay/50 px-3 py-2">
           {uploadItems.map((item) => (
             <div key={item.id} className="flex items-center gap-2 text-xs text-input-placeholder">
-              <Icon icon={DocumentTextIcon} className="h-4 w-4" aria-hidden="true"  />
+              <Icon icon={FileText} className="h-4 w-4" aria-hidden="true"  />
               <span className="truncate">{item.name}</span>
               {item.status === 'uploading' && <span>{item.progress}%</span>}
               {item.status === 'uploaded' && <span className="text-emerald-300">uploaded</span>}
@@ -460,9 +559,11 @@ export const MarkdownUploadTextarea = ({
       {uploadError && (
         <p className="text-sm text-red-300">{uploadError}</p>
       )}
-      {isUploading && (
-        <p className="text-xs text-input-placeholder">Uploading files…</p>
-      )}
+      {isUploading ? (
+        <div className="flex justify-center">
+          <LoadingSpinner size="sm" ariaLabel="Uploading files" />
+        </div>
+      ) : null}
     </div>
   );
 };

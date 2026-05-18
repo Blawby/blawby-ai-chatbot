@@ -261,6 +261,7 @@
     "publicIntro": "欢迎提问或向我们提供反馈。",
     "continue": "继续",
     "submitRequest": "提交请求",
+    "payAndSubmit": "Pay & submit",
     "submitNow": "立即提交",
     "buildStrongerBrief": "创建更完善的简报",
     "askQuestion": "提问",
@@ -276,6 +277,9 @@
       "continue": "继续",
       "addMore": "添加更多",
       "notYet": "尚未"
+    },
+    "attachments": {
+      "disabled": "此表单中不支持附件上传。"
     }
   },
   "intake": {

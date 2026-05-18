@@ -15,7 +15,10 @@ export const MessageBubble: FunctionComponent<MessageBubbleProps> = ({
 	className = '',
 	children
 }) => {
-	const baseClasses = 'flex flex-col max-w-full break-words relative';
+	// `gap-1` puts a 4px breathing room between the author/time header line and
+	// the colored bubble (Pencil LymwK / rmTOt), matching the design's stacked
+	// layout instead of the prior tight-pack.
+	const baseClasses = 'flex min-w-0 flex-col max-w-full break-words relative gap-1';
 	
 	const variantClasses = {
 		default: '',
@@ -23,7 +26,9 @@ export const MessageBubble: FunctionComponent<MessageBubbleProps> = ({
 		detailed: 'px-4 py-3'
 	};
 
-	const messageLayoutClasses = 'mr-0 ml-0 w-full';
+	// Sent messages right-align with a content-fit width (Pencil LymwK);
+	// received messages keep the original full-width column layout.
+	const messageLayoutClasses = isUser ? 'mr-0 ml-auto w-fit max-w-full items-end' : 'mr-0 ml-0 w-full';
 
 	const mediaOnlyClasses = hasOnlyMedia ? 'p-0 m-0 bg-transparent' : '';
 

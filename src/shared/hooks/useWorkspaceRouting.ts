@@ -2,7 +2,7 @@
  * useWorkspaceRouting
  *
  * Derives all workspace-scoped identifiers and resolved slugs from raw props
- * and session routing claims.  Centralises the logic that was previously
+ * and Better Auth session state. Centralises the logic that was previously
  * scattered across ~15 useMemo calls at the top of MainApp.tsx.
  *
  * Inputs
@@ -18,8 +18,6 @@
  *  practiceDetails     – richer details from usePracticeDetails
  *  activeMemberRole    – raw role string from SessionContext
  *  session             – current session from SessionContext
- *  routing             – backend-derived RoutingClaims (from session.routing)
- *
  * Outputs  (all stable/memoized)
  * ────────────────────────────────
  *  isPublicWorkspace / isPracticeWorkspace / isClientWorkspace
@@ -30,8 +28,6 @@
  *
  *  resolvedPracticeName    – display name (live practice > config fallback)
  *  resolvedPracticeLogo    – logo URL (live practice > config fallback)
- *  resolvedPracticeDescription
- *
  *  resolvedPublicPracticeSlug   – slug for public workspace
  *  resolvedClientPracticeSlug   – slug for client workspace
  *
@@ -45,24 +41,17 @@
  *  currentUserRole         – normalized role string
  *  canReviewLeads          – whether this user can see lead review actions
  *
- * Backend routing preference
- * ──────────────────────────
- * When `routing` claims are present (injected by the backend PR #101),
- * `default_workspace` is preferred over the frontend workspace prop for
- * resolving access-dependent values.  The frontend workspace prop is still
- * used for layout decisions (which tabs/nav to show) since that is a
- * presentational concern, not an access control one.
  */
 
 import { useMemo } from 'preact/hooks';
 import type { UIPracticeConfig } from '@/shared/hooks/usePracticeConfig';
 import type { WorkspaceType } from '@/shared/types/workspace';
-import type { RoutingClaims } from '@/shared/types/routing';
 import { normalizePracticeRole } from '@/shared/utils/practiceRoles';
 import { hasLeadReviewPermission } from '@/shared/utils/leadPermissions';
-import { getWorkspaceConversationsPath, getWorkspaceMattersPath, getWorkspaceClientsPath } from '@/shared/utils/workspace';
+import { getWorkspaceConversationsPath, getWorkspaceMattersPath, getWorkspaceContactsPath } from '@/shared/utils/workspace';
 import type { LayoutMode } from '@/app/MainApp';
 import { useMobileDetection } from '@/shared/hooks/useMobileDetection';
+import type { AuthSessionPayload } from '@/shared/types/user';
 
 // ─── types ────────────────────────────────────────────────────────────────────
 
@@ -70,18 +59,12 @@ interface CurrentPractice {
   slug?: string | null;
   name?: string | null;
   logo?: string | null;
-  description?: string | null;
   accentColor?: string | null;
   metadata?: Record<string, unknown> | null;
 }
 
 interface PracticeDetails {
-  description?: string | null;
   accentColor?: string | null;
-}
-
-interface Session {
-  user?: { id: string; isAnonymous?: boolean } | null;
 }
 
 export interface UseWorkspaceRoutingOptions {
@@ -98,10 +81,7 @@ export interface UseWorkspaceRoutingOptions {
   currentPractice?: CurrentPractice | null;
   practiceDetails?: PracticeDetails | null;
   activeMemberRole?: string | null;
-  session?: Session | null;
-
-  // Backend routing claims (from session.routing injected by middleware PR #101)
-  routing?: RoutingClaims | null;
+  session?: AuthSessionPayload;
 }
 
 // ─── hook ─────────────────────────────────────────────────────────────────────
@@ -119,7 +99,6 @@ export const useWorkspaceRouting = ({
   practiceDetails,
   activeMemberRole,
   session,
-  routing,
 }: UseWorkspaceRoutingOptions) => {
   const isMobile = useMobileDetection();
 
@@ -129,24 +108,10 @@ export const useWorkspaceRouting = ({
   const isPracticeWorkspace = workspace === 'practice';
   const isClientWorkspace = workspace === 'client';
 
-  /**
-   * When the backend provides routing claims, prefer its `default_workspace`
-   * for access-sensitive checks.  The frontend `workspace` prop is kept for
-   * layout/navigation decisions.
-   */
-  const effectiveWorkspace = useMemo<WorkspaceType>(() => {
-    if (!routing?.default_workspace) return workspace;
-    // Only override if the backend claim is more specific than 'public'
-    if (routing.default_workspace === 'practice' || routing.default_workspace === 'client') {
-      return routing.default_workspace as WorkspaceType;
-    }
-    return workspace;
-  }, [routing?.default_workspace, workspace]);
-
   const isAuthenticatedClient = useMemo(() => Boolean(
     isPublicWorkspace &&
     session?.user &&
-    !session.user.isAnonymous &&
+    !session.user.is_anonymous &&
     normalizePracticeRole(activeMemberRole) === 'client'
   ), [activeMemberRole, isPublicWorkspace, session?.user]);
 
@@ -207,11 +172,6 @@ export const useWorkspaceRouting = ({
     return currentPractice?.logo ?? practiceConfig?.profileImage ?? null;
   }, [currentPractice?.logo, isPublicWorkspace, practiceConfig?.profileImage]);
 
-  const resolvedPracticeDescription = useMemo(
-    () => practiceDetails?.description ?? currentPractice?.description ?? practiceConfig?.description ?? '',
-    [currentPractice?.description, practiceConfig?.description, practiceDetails?.description]
-  );
-
   /**
    * Resolved accent color — used by initializeAccentColor in MainApp.
    * Returned here so MainApp's effect has a single stable value to depend on.
@@ -262,8 +222,8 @@ export const useWorkspaceRouting = ({
     [resolvedPracticeSlug]
   );
   
-  const practiceClientsPath = useMemo(
-    () => getWorkspaceClientsPath('practice', resolvedPracticeSlug ?? null),
+  const practiceContactsPath = useMemo(
+    () => getWorkspaceContactsPath('practice', resolvedPracticeSlug ?? null),
     [resolvedPracticeSlug]
   );
 
@@ -307,25 +267,6 @@ export const useWorkspaceRouting = ({
     return `/public/${encodeURIComponent(resolvedPublicPracticeSlug)}/conversations`;
   }, [resolvedPublicPracticeSlug]);
 
-  // ── backend routing access flags ─────────────────────────────────────────
-
-  /**
-   * Exposes the backend workspace_access claims directly so consumers can
-   * gate features without re-deriving from role strings.
-   * Falls back to frontend-derived values when claims are unavailable.
-   */
-  const workspaceAccess = useMemo(() => {
-    if (routing?.workspace_access) return routing.workspace_access;
-    // Frontend fallback
-    return {
-      practice: isPracticeWorkspace,
-      client: isClientWorkspace || isAuthenticatedClient,
-      public: true,
-    };
-  }, [isAuthenticatedClient, isClientWorkspace, isPracticeWorkspace, routing?.workspace_access]);
-
-  const practiceEntitled = routing?.practice_entitled ?? isPracticeWorkspace;
-
   // ─────────────────────────────────────────────────────────────────────────
 
   return {
@@ -334,7 +275,6 @@ export const useWorkspaceRouting = ({
     isPracticeWorkspace,
     isClientWorkspace,
     isAuthenticatedClient,
-    effectiveWorkspace,
 
     // IDs & slugs
     effectivePracticeId,
@@ -345,7 +285,6 @@ export const useWorkspaceRouting = ({
     // Display values
     resolvedPracticeName,
     resolvedPracticeLogo,
-    resolvedPracticeDescription,
     resolvedAccentColor,
 
     // Navigation
@@ -353,7 +292,7 @@ export const useWorkspaceRouting = ({
     conversationsBasePath,
     conversationBackPath,
     practiceMattersPath,
-    practiceClientsPath,
+    practiceContactsPath,
     publicConversationsBasePath,
     conversationResetKey,
 
@@ -361,9 +300,5 @@ export const useWorkspaceRouting = ({
     layoutMode,
     currentUserRole,
     canReviewLeads,
-
-    // Backend routing claims
-    workspaceAccess,
-    practiceEntitled,
   };
 };

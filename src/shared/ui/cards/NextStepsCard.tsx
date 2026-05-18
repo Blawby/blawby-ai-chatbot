@@ -33,7 +33,7 @@ const getStatusStyles = (status?: NextStepsStatus) => {
   }
   if (status === 'incomplete') {
     return {
-      wrapper: 'border-line-glass/30 text-input-placeholder',
+      wrapper: 'border-line-subtle text-input-placeholder',
       icon: 'circle'
     };
   }
@@ -44,7 +44,7 @@ const getStatusStyles = (status?: NextStepsStatus) => {
 };
 
 export const NextStepsCard = ({ title, subtitle, items, action }: NextStepsCardProps) => (
-  <div className="glass-panel p-6 space-y-4">
+  <div className="panel p-6 space-y-4">
     <div>
       <h2 className="text-lg font-semibold text-input-text">{title}</h2>
       {subtitle && (

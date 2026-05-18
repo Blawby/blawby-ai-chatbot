@@ -34,10 +34,10 @@ export const RadioGroupWithDescriptions = ({
             className={cn(
               'relative flex cursor-pointer items-start gap-3 px-4 py-3 text-left transition-colors',
               !isFirst && 'border-t border-line-glass/20',
-              'focus-within:outline-none focus-within:ring-2 focus-within:ring-accent-500/50 focus-within:ring-inset',
+              'focus-within:outline-none focus-within:ring-2 ring-inset focus-within:ring-accent-500/50 focus-within:ring-inset',
               isSelected
-                ? 'bg-white/[0.10] ring-1 ring-inset ring-accent-500/45 text-input-text'
-                : 'text-input-text hover:bg-white/[0.04]'
+                ? 'bg-surface-panel/40 ring-1 ring-inset ring-accent-500/45 text-input-text'
+                : 'text-input-text hover:bg-surface-panel/10'
             )}
           >
             <input
@@ -54,7 +54,7 @@ export const RadioGroupWithDescriptions = ({
                 'mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full border',
                 isSelected
                   ? 'border-accent-500/50 bg-accent-500/20'
-                  : 'border-line-glass/40 bg-white/[0.10]'
+                  : 'border-line-glass/40 bg-surface-panel/20'
               )}
               aria-hidden="true"
             >

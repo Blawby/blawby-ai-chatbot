@@ -1,4 +1,4 @@
-import type { PracticeDetailsUpdate, UpdatePracticeRequest } from '@/shared/lib/apiClient';
+import type { PracticeDetailsUpdate, UpdatePracticeRequest, SupportedStateEntry } from '@/shared/lib/apiClient';
 import { asMajor, type MajorAmount } from '@/shared/utils/money';
 
 export type PracticeProfileInput = {
@@ -8,7 +8,6 @@ export type PracticeProfileInput = {
   businessEmail?: string | null;
   businessPhone?: string | null;
   consultationFee?: MajorAmount | null;
-  description?: string | null;
   website?: string | null;
   address?: string | null;
   apartment?: string | null;
@@ -17,8 +16,14 @@ export type PracticeProfileInput = {
   postalCode?: string | null;
   country?: string | null;
   accentColor?: string | null;
+  introMessage?: string | null;
+  legalDisclaimer?: string | null;
+  description?: string | null;
   isPublic?: boolean;
   services?: Array<Record<string, unknown>> | null;
+  serviceStates?: string[] | null;
+  servicesByState?: Record<string, string[]> | null;
+  supportedStates?: SupportedStateEntry[] | null;
 };
 
 export type PracticeProfileComparison = Partial<PracticeProfileInput>;
@@ -133,9 +138,16 @@ export const buildPracticeProfilePayloads = (
     detailsPayload.accentColor = accentColor;
   }
 
-  const description = normalizeOptionalText(input.description);
-  if (description !== undefined && shouldInclude(description, normalizeOptionalText(compareTo.description))) {
-    detailsPayload.description = description;
+  // Widget opening message (intro)
+  const introMessage = normalizeOptionalText(input.introMessage);
+  if (introMessage !== undefined && shouldInclude(introMessage, normalizeOptionalText(compareTo.introMessage))) {
+    detailsPayload.introMessage = introMessage;
+  }
+
+  // Legal disclaimer / Firm description
+  const legalDisclaimer = normalizeOptionalText(input.legalDisclaimer !== undefined ? input.legalDisclaimer : input.description);
+  if (legalDisclaimer !== undefined && shouldInclude(legalDisclaimer, normalizeOptionalText(compareTo.legalDisclaimer !== undefined ? compareTo.legalDisclaimer : compareTo.description))) {
+    detailsPayload.legalDisclaimer = legalDisclaimer;
   }
 
   if (typeof input.isPublic === 'boolean') {
@@ -147,6 +159,18 @@ export const buildPracticeProfilePayloads = (
 
   if (Array.isArray(input.services)) {
     detailsPayload.services = input.services;
+  }
+
+  if (input.serviceStates !== undefined) {
+    detailsPayload.serviceStates = input.serviceStates;
+  }
+
+  if (input.supportedStates !== undefined) {
+    detailsPayload.supportedStates = input.supportedStates;
+  }
+
+  if (input.servicesByState !== undefined) {
+    detailsPayload.servicesByState = input.servicesByState;
   }
 
   return { practicePayload, detailsPayload };

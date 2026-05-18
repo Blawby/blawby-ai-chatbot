@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'preact/hooks';
-import { ArrowDownIcon, ArrowUpIcon, PencilIcon, PlusIcon, TrashIcon } from '@heroicons/react/24/outline';
-import Modal from '@/shared/components/Modal';
+import { ArrowDown, ArrowUp, Pencil, Plus, Trash2 } from 'lucide-preact';
+
+import { Dialog, DialogBody, DialogFooter } from '@/shared/ui/dialog';
 import { Button } from '@/shared/ui/Button';
 import { Combobox } from '@/shared/ui/input/Combobox';
 import { CurrencyInput } from '@/shared/ui/input/CurrencyInput';
@@ -9,6 +10,7 @@ import { formatCurrency } from '@/shared/utils/currencyFormatter';
 import { useToastContext } from '@/shared/contexts/ToastContext';
 import { formatDateOnlyUtc } from '@/shared/utils/dateOnly';
 import { asMajor, type MajorAmount } from '@/shared/utils/money';
+import { ListRowSkeleton } from '@/shared/ui/layout';
 import type { MatterDetail, MatterMilestone } from '@/features/matters/data/matterTypes';
 
 type MilestoneStatus = 'pending' | 'in_progress' | 'completed' | 'overdue';
@@ -45,6 +47,10 @@ export const MatterMilestonesPanel = ({
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingMilestone, setEditingMilestone] = useState<MatterMilestone | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<MatterMilestone | null>(null);
+  // `formKey` increments when switching to a different milestone to edit.
+  // `key={formKey}` on the <form> remounts it so the previous record's input
+  // doesn't bleed in. Triggered only by record switch / open / cancel — never
+  // by a tab/mode toggle. See docs/solutions/conventions/form-reset-pattern-2026-05-18.md.
   const [formKey, setFormKey] = useState(0);
   const [formState, setFormState] = useState({
     description: '',
@@ -178,15 +184,15 @@ export const MatterMilestonesPanel = ({
   };
 
   return (
-    <section className="glass-panel">
-      <header className="flex flex-wrap items-center justify-between gap-3 border-b border-line-glass/30 px-6 py-4">
+    <section className="panel">
+      <header className="flex flex-wrap items-center justify-between gap-3 border-b border-line-subtle px-6 py-4">
         <div>
           <h3 className="text-sm font-semibold text-input-text">Milestones</h3>
-          <p className="text-xs text-gray-500 dark:text-gray-400">
+          <p className="text-xs text-input-placeholder">
             {resolvedMilestones.length} milestones tracked
           </p>
         </div>
-        <Button size="sm" icon={PlusIcon} iconClassName="h-4 w-4" onClick={openForm} disabled={!canCreate}>
+        <Button size="sm" icon={Plus} iconClassName="h-4 w-4" onClick={openForm} disabled={!canCreate}>
           Add milestone
         </Button>
       </header>
@@ -196,11 +202,9 @@ export const MatterMilestonesPanel = ({
           {error}
         </div>
       ) : loading && resolvedMilestones.length === 0 ? (
-        <div className="px-6 py-6 text-sm text-gray-500 dark:text-gray-400">
-          Loading milestones...
-        </div>
+        <ListRowSkeleton rows={3} avatar={false} className="divide-y divide-line-default" />
       ) : resolvedMilestones.length === 0 ? (
-        <div className="px-6 py-6 text-sm text-gray-500 dark:text-gray-400">
+        <div className="px-6 py-6 text-sm text-input-placeholder">
           No milestones yet. Add milestones to track key deliverables for this matter.
         </div>
       ) : (
@@ -212,7 +216,7 @@ export const MatterMilestonesPanel = ({
                   <p className="text-sm font-semibold text-input-text">
                     {milestone.description}
                   </p>
-                  <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
+                  <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-input-placeholder">
                     {milestone.dueDate ? (
                       <span>
                         Due <time dateTime={milestone.dueDate}>{formatDateOnlyUtc(milestone.dueDate)}</time>
@@ -231,7 +235,7 @@ export const MatterMilestonesPanel = ({
                       <Button
                         variant="ghost"
                         size="sm"
-                        icon={PencilIcon} iconClassName="h-4 w-4"
+                        icon={Pencil} iconClassName="h-4 w-4"
                         onClick={() => openEditForm(milestone)}
                         aria-label="Edit milestone"
                       />
@@ -240,7 +244,7 @@ export const MatterMilestonesPanel = ({
                       <Button
                         variant="ghost"
                         size="sm"
-                        icon={TrashIcon} iconClassName="h-4 w-4"
+                        icon={Trash2} iconClassName="h-4 w-4"
                         onClick={() => confirmDelete(milestone)}
                         aria-label="Delete milestone"
                       />
@@ -251,14 +255,14 @@ export const MatterMilestonesPanel = ({
                       <Button
                         variant="ghost"
                         size="sm"
-                        icon={ArrowUpIcon} iconClassName="h-4 w-4"
+                        icon={ArrowUp} iconClassName="h-4 w-4"
                         onClick={() => moveMilestone(index, -1)}
                         aria-label="Move milestone up"
                       />
                       <Button
                         variant="ghost"
                         size="sm"
-                        icon={ArrowDownIcon} iconClassName="h-4 w-4"
+                        icon={ArrowDown} iconClassName="h-4 w-4"
                         onClick={() => moveMilestone(index, 1)}
                         aria-label="Move milestone down"
                       />
@@ -272,12 +276,13 @@ export const MatterMilestonesPanel = ({
       )}
 
       {isFormOpen && (
-        <Modal
+        <Dialog
           isOpen={isFormOpen}
           onClose={closeForm}
           title={editingMilestone ? 'Edit milestone' : 'Add milestone'}
           contentClassName="max-w-2xl"
         >
+          <DialogBody>
           <form key={formKey} className="space-y-4" onSubmit={handleSubmit}>
             <Input
               label="Description"
@@ -312,7 +317,7 @@ export const MatterMilestonesPanel = ({
                 value={formState.status}
                 options={statusOptions}
                 onChange={(value) => setFormState((prev) => ({ ...prev, status: value as MilestoneStatus }))}
-                className="w-full justify-between px-3 py-2 text-sm rounded-lg border border-input-border bg-input-bg focus:ring-2 focus:ring-accent-500 focus:border-accent-500"
+                className="w-full"
                 searchable={false}
               />
             </div>
@@ -328,33 +333,34 @@ export const MatterMilestonesPanel = ({
               </Button>
             </div>
           </form>
-        </Modal>
+          </DialogBody>
+        </Dialog>
       )}
 
       {canDelete && deleteTarget && (
-        <Modal
+        <Dialog
           isOpen={Boolean(deleteTarget)}
           onClose={() => setDeleteTarget(null)}
           title="Delete milestone"
           contentClassName="max-w-xl"
         >
-          <div className="space-y-4">
-            <p className="text-sm text-gray-600 dark:text-gray-300">
+          <DialogBody className="space-y-4">
+            <p className="text-sm text-input-placeholder">
               Are you sure you want to delete this milestone? This action cannot be undone.
             </p>
             {deleteError && (
               <p className="text-sm text-red-600 dark:text-red-400">{deleteError}</p>
             )}
-            <div className="flex items-center justify-end gap-3">
-              <Button variant="secondary" onClick={() => setDeleteTarget(null)}>
-                Cancel
-              </Button>
-              <Button variant="danger" onClick={handleDelete} disabled={isSubmitting}>
-                {isSubmitting ? 'Deleting...' : 'Delete milestone'}
-              </Button>
-            </div>
-          </div>
-        </Modal>
+          </DialogBody>
+          <DialogFooter>
+            <Button variant="secondary" onClick={() => setDeleteTarget(null)}>
+              Cancel
+            </Button>
+            <Button variant="danger" onClick={handleDelete} disabled={isSubmitting}>
+              {isSubmitting ? 'Deleting...' : 'Delete milestone'}
+            </Button>
+          </DialogFooter>
+        </Dialog>
       )}
     </section>
   );

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'preact/hooks';
 import { listMatterConversations } from '@/shared/lib/apiClient';
 import { Button } from '@/shared/ui/Button';
 import { useNavigation } from '@/shared/utils/navigation';
+import { ListRowSkeleton } from '@/shared/ui/layout';
 import type { MatterDetail } from '@/features/matters/data/matterTypes';
 import type { Conversation } from '@/shared/types/conversation';
 import { formatRelativeTime } from '@/features/matters/utils/formatRelativeTime';
@@ -53,11 +54,8 @@ export const MatterMessagesPanel = ({ matter, practiceId, conversationBasePath }
 
   const sortedConversations = useMemo(() => (
     [...conversations].sort((a, b) => {
-      const aTime = a.last_message_at ?? a.updated_at;
-      const bTime = b.last_message_at ?? b.updated_at;
-      if (!aTime && !bTime) return 0;
-      if (!aTime) return 1;
-      if (!bTime) return -1;
+      const aTime = a.updated_at;
+      const bTime = b.updated_at;
       return new Date(bTime).getTime() - new Date(aTime).getTime();
     })
   ), [conversations]);
@@ -69,10 +67,10 @@ export const MatterMessagesPanel = ({ matter, practiceId, conversationBasePath }
   ).replace(/\/+$/, '');
 
   return (
-    <section className="glass-panel overflow-hidden">
-      <header className="flex flex-wrap items-center justify-between gap-3 border-b border-line-glass/30 px-6 py-4">
+    <section className="panel overflow-hidden">
+      <header className="flex flex-wrap items-center justify-between gap-3 border-b border-line-subtle px-6 py-4">
         <div>
-          <p className="text-xs font-medium text-gray-500 dark:text-gray-400">Linked conversations</p>
+          <p className="text-xs font-medium text-input-placeholder">Linked conversations</p>
           <h3 className="text-base font-semibold text-input-text">{matter.title}</h3>
         </div>
         <Button
@@ -85,13 +83,13 @@ export const MatterMessagesPanel = ({ matter, practiceId, conversationBasePath }
       </header>
       <div className="p-6">
         {loading && (
-          <div className="text-sm text-gray-500 dark:text-gray-400">Loading conversations…</div>
+          <ListRowSkeleton rows={3} />
         )}
         {!loading && error && (
           <div className="text-sm text-red-600 dark:text-red-400">{error}</div>
         )}
         {!loading && !error && sortedConversations.length === 0 && (
-          <div className="text-sm text-gray-500 dark:text-gray-400">
+          <div className="text-sm text-input-placeholder">
             No conversations are linked to this matter yet.
           </div>
         )}
@@ -103,14 +101,14 @@ export const MatterMessagesPanel = ({ matter, practiceId, conversationBasePath }
                   <p className="text-sm font-medium text-input-text">
                     Conversation {conversation.id.slice(0, 8)}
                   </p>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">
+                  <p className="text-xs text-input-placeholder">
                     {conversation.last_message_at
                       ? `Last message ${formatRelativeTime(conversation.last_message_at)}`
                       : 'No messages yet'}
                   </p>
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                  <span className="text-xs uppercase tracking-wide text-input-placeholder">
                     {conversation.status ?? 'active'}
                   </span>
                   <Button

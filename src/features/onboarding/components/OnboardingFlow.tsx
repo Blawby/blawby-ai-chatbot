@@ -6,71 +6,26 @@ import { getPreferencesCategory, updatePreferencesCategory } from '@/shared/lib/
 import { updateUser, getSession } from '@/shared/lib/authClient';
 import type { OnboardingFormData } from '@/shared/types/onboarding';
 import { sanitizeOnboardingPersonalInfo } from '@/shared/types/onboarding';
-import type { OnboardingPreferences, ProductUsage } from '@/shared/types/preferences';
+import type { OnboardingPreferences } from '@/shared/types/preferences';
 import PersonalInfoStep from './PersonalInfoStep';
+
+// The UseCase step is currently not rendered; we ship a default useCase shape so
+// existing backend consumers keep getting the payload they expect. If a real use-case
+// picker is reintroduced, replace these defaults with collected input.
+const DEFAULT_USE_CASE: OnboardingFormData['useCase'] = {
+  primaryUseCase: 'messaging',
+  productUsage: ['messaging'],
+  additionalInfo: undefined
+};
+
 const createDefaultFormData = (fullName = ''): OnboardingFormData => ({
   personalInfo: {
     fullName,
     birthday: '',
     agreedToTerms: false
   },
-  useCase: {
-    primaryUseCase: 'messaging',
-    productUsage: ['messaging'],
-    additionalInfo: undefined
-  }
+  useCase: DEFAULT_USE_CASE
 });
-
-const resolvePrimaryUseCase = (
-  value: string | undefined
-): OnboardingFormData['useCase']['primaryUseCase'] => {
-  switch (value) {
-    case 'messaging':
-    case 'legal_payments':
-    case 'matter_management':
-    case 'intake_forms':
-    case 'other':
-      return value;
-    case 'personal':
-      return 'messaging';
-    case 'business':
-      return 'legal_payments';
-    case 'research':
-      return 'matter_management';
-    case 'documents':
-      return 'intake_forms';
-    default:
-      return 'other';
-  }
-};
-
-const normalizeProductUsage = (values: unknown): ProductUsage[] => {
-  if (!Array.isArray(values)) return [];
-  const mapped = values
-    .map((value) => {
-      switch (value) {
-        case 'messaging':
-        case 'legal_payments':
-        case 'matter_management':
-        case 'intake_forms':
-        case 'other':
-          return value;
-        case 'communication':
-          return 'messaging';
-        case 'billing':
-          return 'legal_payments';
-        case 'case_management':
-          return 'matter_management';
-        case 'document_management':
-        case 'client_management':
-          return 'intake_forms';
-        default:
-          return null;
-      }
-    })
-    .filter((value): value is ProductUsage => value !== null);
-  return Array.from(new Set(mapped));
-};
 
 interface OnboardingFlowProps {
   onClose: () => void;
@@ -115,20 +70,7 @@ export const OnboardingFlow = ({
               birthday: prefs?.birthday ?? '',
               agreedToTerms: prev.personalInfo.agreedToTerms
             },
-            useCase: {
-              primaryUseCase: prefs?.primary_use_case
-                ? resolvePrimaryUseCase(prefs.primary_use_case)
-                : prev.useCase.primaryUseCase,
-              productUsage: (() => {
-                const fromPrefs = normalizeProductUsage(prefs?.product_usage);
-                if (fromPrefs.length > 0) return fromPrefs;
-                if (prefs?.primary_use_case) {
-                  return [resolvePrimaryUseCase(prefs.primary_use_case)];
-                }
-                return prev.useCase.productUsage;
-              })(),
-              additionalInfo: prefs?.use_case_additional_info ?? prev.useCase.additionalInfo
-            }
+            useCase: prev.useCase
           }));
         } catch (error) {
           console.error('Failed to load onboarding preferences:', error);
@@ -168,6 +110,18 @@ export const OnboardingFlow = ({
         });
       }
 
+      // Save preferences first. If this fails (e.g. backend hasn't initialized
+      // the row yet), the catch block surfaces an error and keeps the user here.
+      // Only on success do we mark onboardingComplete, which updates the session
+      // and triggers the redirect away from onboarding.
+      await updatePreferencesCategory('onboarding', {
+        birthday: sourceData.personalInfo.birthday,
+        primary_use_case: sourceData.useCase.primaryUseCase,
+        use_case_additional_info: sourceData.useCase.additionalInfo,
+        product_usage: sourceData.useCase.productUsage,
+        completed: true
+      });
+
       const trimmedName = sourceData.personalInfo.fullName?.trim() ?? '';
       const updatePayload: Record<string, unknown> = {
         onboardingComplete: true
@@ -181,19 +135,11 @@ export const OnboardingFlow = ({
 
       await updateUser(updatePayload);
 
-      await updatePreferencesCategory('onboarding', {
-        birthday: sourceData.personalInfo.birthday,
-        primary_use_case: sourceData.useCase.primaryUseCase,
-        use_case_additional_info: sourceData.useCase.additionalInfo,
-        product_usage: sourceData.useCase.productUsage,
-        completed: true
-      });
-
       await getSession().catch(() => undefined);
 
       showSuccess(
-        t('onboarding.completed.title', 'Onboarding complete!'),
-        t('onboarding.completed.message', 'Welcome to Blawby AI.')
+        t('onboarding.completed.title', 'Onboarding complete'),
+        t('onboarding.completed.message', 'Welcome to Blawby.')
       );
 
       setOnboardingData(createDefaultFormData(sessionUserName));
@@ -205,8 +151,8 @@ export const OnboardingFlow = ({
       }
 
       showError(
-        t('onboarding.error.title', 'Save failed'),
-        t('onboarding.error.message', 'Unable to save your onboarding data. Please try again.')
+        t('onboarding.error.title', "Couldn't save"),
+        t('onboarding.error.message', "Couldn't save your onboarding. Try again.")
       );
     } finally {
       setIsSubmitting(false);

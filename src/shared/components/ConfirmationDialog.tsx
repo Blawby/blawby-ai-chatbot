@@ -1,9 +1,14 @@
-import { useState, useEffect } from 'preact/hooks';
-import { ExclamationTriangleIcon } from '@heroicons/react/24/outline';
+import { useState } from 'preact/hooks';
+import { useId } from 'preact/hooks';
+import { AlertTriangle } from 'lucide-preact';
+
 import { Icon } from '@/shared/ui/Icon';
-import Modal from '@/shared/components/Modal';
+import { Dialog, DialogBody, DialogFooter, useDialogFormReset } from '@/shared/ui/dialog';
 import { FormActions } from '@/shared/ui/form';
+import { LoadingSpinner } from '@/shared/ui/layout/LoadingSpinner';
 import { handleError } from '@/shared/utils/errorHandler';
+import { useTranslation } from 'react-i18next';
+import { cn } from '@/shared/utils/cn';
 
 interface ConfirmationDialogProps {
   isOpen: boolean;
@@ -42,6 +47,10 @@ export default function ConfirmationDialog({
   passwordPlaceholder = 'Current password',
   passwordMissingMessage = 'Please enter your password to continue.'
 }: ConfirmationDialogProps) {
+  const { t } = useTranslation();
+  const confirmationInputId = useId();
+  const confirmationPasswordId = useId();
+  
   const [inputValue, setInputValue] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -49,15 +58,17 @@ export default function ConfirmationDialog({
   const [passwordError, setPasswordError] = useState<string | null>(null);
 
   // Clear input and error when modal closes
-  useEffect(() => {
-    if (!isOpen) {
+  useDialogFormReset({
+    isOpen,
+    reason: 'Cancelled confirmation — clear typed confirmation text, password, and any errors on close.',
+    reset: () => {
       setInputValue('');
       setError(null);
       setIsLoading(false);
       setPasswordValue('');
       setPasswordError(null);
-    }
-  }, [isOpen]);
+    },
+  });
 
   const handleSubmit = async (e: Event) => {
     e.preventDefault();
@@ -102,77 +113,78 @@ export default function ConfirmationDialog({
   };
 
   return (
-    <Modal
+    <Dialog
       isOpen={isOpen}
       onClose={onClose}
       title={title}
+      description={description}
       showCloseButton={true}
-      type="modal"
       disableBackdropClick={true}
+      contentClassName="max-w-lg"
     >
       <form onSubmit={handleSubmit} noValidate>
-        <div className="space-y-4 pb-4">
-          {/* Warning Content */}
+        <DialogBody className="space-y-4">
           <div className="flex items-start gap-3">
             <div className="flex-shrink-0">
-              <Icon icon={ExclamationTriangleIcon} className="w-6 h-6 text-red-500"  />
+              <Icon icon={AlertTriangle} className="w-6 h-6 text-red-500"  />
             </div>
             <div className="flex-1">
-              <p className="text-sm text-input-text mb-4">
-                {description}
-              </p>
-              
               {/* Warning Items List */}
               {warningItems.length > 0 && (
-                <div className="glass-card p-3 mb-4 border-red-500/20">
-                  <p className="text-sm text-input-text">
-                    <strong>This will permanently delete:</strong>
+                <div className="mb-4 space-y-2">
+                  <p className="text-sm font-medium text-input-text">
+                    This will permanently delete:
                   </p>
-                  <ul className="text-sm text-input-placeholder mt-2 space-y-1">
+                  <ul className="space-y-1 text-sm text-input-placeholder">
                     {warningItems.map((item, idx) => (
                       <li key={idx}>• {item}</li>
                     ))}
                   </ul>
                 </div>
               )}
-              
-              {/* Confirmation Input */}
-              <div className="space-y-2">
-                <label htmlFor="confirmation-input" className="block text-sm font-medium text-input-text">
-                  {confirmationLabel}
-                  <span className="font-mono text-sm bg-white/5 border border-line-glass/30 px-2 py-1 rounded ml-2">
-                    {confirmationValue}
-                  </span>
-                </label>
-                <input
-                  id="confirmation-input"
-                  type="text"
-                  value={inputValue}
-                  onChange={handleInputChange}
-                  onClick={(e) => e.stopPropagation()}
-                  onFocus={(e) => e.stopPropagation()}
-                  onMouseDown={(e) => e.stopPropagation()}
-                  placeholder={`Type "${confirmationValue}" to confirm`}
-                  className={`w-full px-3 py-2 border rounded-lg text-sm bg-input-bg text-input-text placeholder:text-input-placeholder border-input-border focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500 ${
-                    error ? 'border-red-500 focus:ring-red-500 focus:border-red-500' : ''
-                  }`}
-                  disabled={isLoading}
-                />
-                {error && (
-                  <p className="text-sm text-red-600 dark:text-red-400">
-                    {error}
-                  </p>
-                )}
+
+              <div className="space-y-4 pt-2">
+                {/* Confirmation Input */}
+                <div className="space-y-2">
+                  <label htmlFor={confirmationInputId} className="block text-sm font-medium text-input-text">
+                    {confirmationLabel}
+                    <span className="font-mono text-xs font-bold bg-surface-utility/40 border border-line-utility/50 dark:border-white/20 px-2 py-0.5 rounded shadow-sm ml-2 text-input-text inline-flex items-center">
+                      {confirmationValue}
+                    </span>
+                  </label>
+                  <input
+                    id={confirmationInputId}
+                    type="text"
+                    value={inputValue}
+                    onChange={handleInputChange}
+                    onClick={(e) => e.stopPropagation()}
+                    onFocus={(e) => e.stopPropagation()}
+                    onMouseDown={(e) => e.stopPropagation()}
+                    placeholder={`Type "${confirmationValue}" to confirm`}
+                    className={cn(
+                      'glass-input w-full rounded-xl px-3 py-2 text-sm',
+                      error ? 'isError' : ''
+                    )}
+                    aria-invalid={Boolean(error)}
+                    aria-describedby={error ? `${confirmationInputId}-error` : undefined}
+                    disabled={isLoading}
+                  />
+                  {error && (
+                    <p id={`${confirmationInputId}-error`} className="text-sm text-red-600 dark:text-red-400">
+                      {error}
+                    </p>
+                  )}
+                </div>
 
                 {/* Success Message */}
                 {showSuccessMessage && successMessage && (
-                  <div className="mt-4 rounded-lg status-success p-3">
+                  <div className="status-success rounded-xl py-2.5 px-3 text-sm">
                     {successMessage.title && (
-                      <p className="text-sm font-medium text-input-text mb-2">
+                      <p className="mb-1 text-sm font-semibold">
                         {successMessage.title}
                       </p>
                     )}
-                    <p className="text-sm text-input-text">
+                    <p className="text-sm opacity-90">
                       {successMessage.body}
                     </p>
                   </div>
@@ -180,12 +192,12 @@ export default function ConfirmationDialog({
 
                 {/* Password Input */}
                 {requirePassword && (
-                  <div className="space-y-2 pt-4">
-                    <label htmlFor="confirmation-password" className="block text-sm font-medium text-input-text">
+                  <div className="space-y-2">
+                    <label htmlFor={confirmationPasswordId} className="block text-sm font-medium text-input-text">
                       {passwordLabel}
                     </label>
                     <input
-                      id="confirmation-password"
+                      id={confirmationPasswordId}
                       type="password"
                       value={passwordValue}
                       onChange={handlePasswordChange}
@@ -193,14 +205,17 @@ export default function ConfirmationDialog({
                       onFocus={(e) => e.stopPropagation()}
                       onMouseDown={(e) => e.stopPropagation()}
                       placeholder={passwordPlaceholder}
-                      className={`w-full px-3 py-2 border rounded-lg text-sm bg-input-bg text-input-text placeholder:text-input-placeholder border-input-border focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500 ${
-                        passwordError ? 'border-red-500 focus:ring-red-500 focus:border-red-500' : ''
-                      }`}
+                      className={cn(
+                        'glass-input w-full rounded-xl px-3 py-2 text-sm',
+                        passwordError ? 'isError' : ''
+                      )}
+                      aria-invalid={Boolean(passwordError)}
+                      aria-describedby={passwordError ? `${confirmationPasswordId}-error` : undefined}
                       disabled={isLoading}
                       autoComplete="current-password"
                     />
                     {passwordError && (
-                      <p className="text-sm text-red-600 dark:text-red-400">
+                      <p id={`${confirmationPasswordId}-error`} className="text-sm text-red-600 dark:text-red-400">
                         {passwordError}
                       </p>
                     )}
@@ -209,25 +224,36 @@ export default function ConfirmationDialog({
               </div>
             </div>
           </div>
-        </div>
+        </DialogBody>
 
         {/* Action Buttons */}
-        <FormActions
-          className="justify-end border-t border-line-glass/30"
-          size="sm"
-          onCancel={onClose}
-          cancelText={cancelText}
-          submitText={isLoading ? 'Processing...' : confirmText}
-          submitType="submit"
-          submitVariant="danger"
-          submitDisabled={
-            isLoading ||
-            inputValue.trim() !== confirmationValue.trim() ||
-            (requirePassword && !passwordValue)
-          }
-          cancelDisabled={isLoading}
-        />
+        <DialogFooter className="p-0">
+          <FormActions
+            className="w-full justify-end border-0 px-5 py-4 sm:px-6"
+            size="sm"
+            onCancel={onClose}
+            cancelText={cancelText}
+            submitText={isLoading ? (
+              <span className="inline-flex items-center">
+                <LoadingSpinner
+                  size="sm"
+                  className="mr-2"
+                  ariaLabel={t('common.processing')}
+                />
+                {confirmText}
+              </span>
+            ) : confirmText}
+            submitType="submit"
+            submitVariant="danger"
+            submitDisabled={
+              isLoading ||
+              inputValue.trim() !== confirmationValue.trim() ||
+              (requirePassword && !passwordValue)
+            }
+            cancelDisabled={isLoading}
+          />
+        </DialogFooter>
       </form>
-    </Modal>
+    </Dialog>
   );
 }

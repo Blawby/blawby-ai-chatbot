@@ -35,3 +35,8 @@ export type { CurrencyInputProps } from './CurrencyInput';
 export type { URLInputProps } from './URLInput';
 export type { MarkdownUploadTextareaProps } from './MarkdownUploadTextarea';
 export type { SegmentedToggleProps, SegmentedToggleOption } from './SegmentedToggle';
+
+export { Slider } from './Slider';
+export { PINInput } from './PINInput';
+export type { SliderProps } from './Slider';
+export type { PINInputProps } from './PINInput';

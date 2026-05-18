@@ -10,6 +10,7 @@ const mockEnv: Env = {
   CHAT_COUNTER: {} as Env['CHAT_COUNTER'],
   CHAT_ROOM: {} as Env['CHAT_ROOM'],
   MATTER_PROGRESS: {} as Env['MATTER_PROGRESS'],
+  PRESENCE_ROOM: {} as Env['PRESENCE_ROOM'],
   ONESIGNAL_APP_ID: 'test-app',
   ONESIGNAL_REST_API_KEY: 'test-key',
   NODE_ENV: 'production'

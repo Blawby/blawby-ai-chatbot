@@ -1,7 +1,7 @@
 import { FunctionComponent, ComponentChildren, createContext } from "preact"
-import { useState, useContext } from "preact/hooks"
-import { ChevronDownIcon } from "@heroicons/react/24/outline"
+import { useState, useContext, useMemo } from "preact/hooks"
 import { Icon } from '@/shared/ui/Icon'
+import { ChevronDown } from 'lucide-preact';
 
 // Utility function for className merging (following codebase pattern)
 function cn(...classes: (string | undefined | null | false)[]): string {
@@ -105,7 +105,7 @@ const Accordion: FunctionComponent<AccordionProps> = ({
     <AccordionContext.Provider value={contextValue}>
       <div 
         data-slot="accordion" 
-        className={cn("w-full border border-line-glass/30 rounded-lg", className)}
+        className={cn("w-full border border-line-glass/30 rounded-xl", className)}
       >
         {children}
       </div>
@@ -125,9 +125,10 @@ const AccordionItem: FunctionComponent<AccordionItemProps> = ({
   }
 
   const isOpen = context.isItemOpen(value)
+  const itemContextValue = useMemo(() => ({ value }), [value])
 
   return (
-    <AccordionItemContext.Provider value={{ value }}>
+    <AccordionItemContext.Provider value={itemContextValue}>
       <div
         data-slot="accordion-item"
         data-value={value}
@@ -172,14 +173,14 @@ const AccordionTrigger: FunctionComponent<AccordionTriggerProps> = ({
         aria-expanded={isOpen}
         aria-controls={contentId}
         className={cn(
-          "focus-visible:border-ring focus-visible:ring-ring/50 flex flex-1 items-center justify-between gap-4 px-4 py-3 text-left text-sm font-medium transition-all outline-none focus-visible:ring-[3px] disabled:pointer-events-none disabled:opacity-50 rounded-lg",
+          "focus-visible:border-ring focus-visible:ring-ring/50 flex flex-1 items-center justify-between gap-4 px-4 py-3 text-left text-sm font-medium transition-all outline-none focus-visible:ring-[3px] disabled:pointer-events-none disabled:opacity-50 rounded-xl",
           className
         )}
         onClick={handleClick}
         type="button"
       >
         {children}
-        <Icon icon={ChevronDownIcon} className="text-muted-foreground pointer-events-none size-4 shrink-0 transition-transform duration-200" />
+        <Icon icon={ChevronDown} className={cn("text-muted-foreground pointer-events-none size-4 shrink-0 transition-transform duration-200", isOpen && "rotate-180")} />
       </button>
     </div>
   )

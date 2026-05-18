@@ -1,4 +1,5 @@
-import axios, { AxiosHeaders, type AxiosRequestConfig } from 'axios';
+import { queryCache } from '@/shared/lib/queryCache';
+import { policyTtl } from '@/shared/lib/cachePolicy';
 import {
   getSubscriptionBillingPortalEndpoint,
   getSubscriptionCancelEndpoint,
@@ -7,6 +8,7 @@ import {
 } from '@/config/api';
 import type { Conversation } from '@/shared/types/conversation';
 import type { Address } from '@/shared/types/address';
+import type { PracticeTeamResponse } from '@/shared/types/team';
 import { getWorkerApiUrl, isWidgetTokenEligibleRequestUrl } from '@/config/urls';
 import {
   toMajorUnits,
@@ -15,18 +17,18 @@ import {
   assertMinorUnits,
   type MajorAmount
 } from '@/shared/utils/money';
+import { isTeamRole } from '@/shared/types/team';
 import { getWidgetAuthToken } from '@/shared/utils/widgetAuth';
+// authClient is already statically bundled via 13+ direct imports across the app.
+// Keeping this as a static import avoids a Vite warning about dynamic imports
+// being collapsed into the main chunk when a static import already exists.
+import { getClient as getAuthClient } from '@/shared/lib/authClient';
 
 let cachedBaseUrl: string | null = null;
 let isHandling401: Promise<void> | null = null;
-// In-flight deduplicator: prevents concurrent duplicate requests for the same slug.
-const publicPracticeDetailsInFlight = new Map<string, Promise<PublicPracticeDetails | null>>();
-// Persistent result cache: once a slug resolves, reuse the result for the entire session.
-// This is the primary fix for the "Too Many Requests" issue — previously every caller
-// (usePracticeConfig, usePracticeDetails, forms.ts) would fire
-// independent HTTP requests because the in-flight map was cleared after each request.
-const publicPracticeDetailsCache = new Map<string, PublicPracticeDetails | null>();
 const ABSOLUTE_URL_PATTERN = /^(https?:)?\/\//i;
+
+const publicPracticeDetailsKey = (slug: string) => `practice:public:${slug}`;
 
 /**
  * Clear the public practice details cache for a specific slug (or all slugs).
@@ -34,11 +36,9 @@ const ABSOLUTE_URL_PATTERN = /^(https?:)?\/\//i;
  */
 export const clearPublicPracticeDetailsCache = (slug?: string) => {
   if (slug) {
-    publicPracticeDetailsCache.delete(slug.trim());
-    publicPracticeDetailsInFlight.delete(slug.trim());
+    queryCache.invalidate(publicPracticeDetailsKey(slug.trim()));
   } else {
-    publicPracticeDetailsCache.clear();
-    publicPracticeDetailsInFlight.clear();
+    queryCache.invalidate('practice:public:', true);
   }
 };
 
@@ -78,43 +78,507 @@ function ensureApiBaseUrl(): string {
   return cachedBaseUrl;
 }
 
-// Create axios instance without default baseURL
-// We'll set it dynamically in the interceptor to avoid stale base URLs.
-export const apiClient = axios.create({
-  // Don't set baseURL here - let interceptor handle it dynamically
-});
+export class HttpError extends Error {
+  readonly response: { status: number; data: unknown };
+  constructor(status: number, data: unknown, message: string) {
+    super(message);
+    this.name = 'HttpError';
+    this.response = { status, data };
+  }
+}
 
-apiClient.interceptors.request.use(
-  (config) => {
-    // Always get fresh baseURL in development.
-    // Force override any cached baseURL to avoid stale endpoints.
-    const baseUrl = ensureApiBaseUrl();
-    // Always set baseURL fresh - don't rely on existing value
-    if (config.baseURL !== baseUrl) {
-      config.baseURL = baseUrl;
+export const isHttpError = (error: unknown): error is HttpError => error instanceof HttpError;
+export const isAbortError = (error: unknown): boolean =>
+  error instanceof Error && (error.name === 'AbortError' || error.name === 'CanceledError');
+
+export type ApiRequestConfig = { signal?: AbortSignal };
+
+function extractFetchErrorMessage(data: unknown, fallback: string): string {
+  if (typeof data === 'string' && data.trim()) return data.trim();
+  if (data && typeof data === 'object') {
+    const rec = data as Record<string, unknown>;
+    if (typeof rec.message === 'string' && rec.message) return rec.message;
+    if (typeof rec.error === 'string' && rec.error) return rec.error;
+  }
+  return fallback;
+}
+
+type ApiFetchConfig = {
+  signal?: AbortSignal;
+  params?: Record<string, unknown>;
+  headers?: Record<string, string>;
+  /** Abort the request after `timeout` ms. Composes with `signal` if both set. */
+  timeout?: number;
+  /** Statuses outside 2xx that should resolve (not throw). E.g. [304] for conditional GETs. */
+  acceptStatuses?: number[];
+};
+
+const composeAbortSignals = (signal: AbortSignal | undefined, timeout: number | undefined): { signal: AbortSignal | undefined; cleanup: () => void } => {
+  if (timeout == null) return { signal, cleanup: () => {} };
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(new DOMException('Request timed out', 'TimeoutError')), timeout);
+  let unlink: (() => void) | null = null;
+  if (signal) {
+    if (signal.aborted) {
+      clearTimeout(timer);
+      controller.abort(signal.reason);
+    } else {
+      const onAbort = () => controller.abort(signal.reason);
+      signal.addEventListener('abort', onAbort, { once: true });
+      unlink = () => signal.removeEventListener('abort', onAbort);
+    }
+  }
+  return {
+    signal: controller.signal,
+    cleanup: () => {
+      clearTimeout(timer);
+      if (unlink) unlink();
+    },
+  };
+};
+
+async function apiFetch<T>(
+  method: string,
+  url: string,
+  body?: unknown,
+  config?: ApiFetchConfig,
+): Promise<{ data: T; status: number; headers: Headers }> {
+  const { signal: callerSignal, params, headers: extraHeaders, timeout, acceptStatuses } = config ?? {};
+  let fullUrl = /^https?:\/\//.test(url) ? url : `${ensureApiBaseUrl()}${url}`;
+  if (params && Object.keys(params).length > 0) {
+    const qs = new URLSearchParams(
+      Object.entries(params)
+        .filter(([, v]) => v != null)
+        .map(([k, v]) => [k, String(v)])
+    ).toString();
+    fullUrl = `${fullUrl}${fullUrl.includes('?') ? '&' : '?'}${qs}`;
+  }
+  const headers: Record<string, string> = { ...(extraHeaders ?? {}) };
+  if (body !== undefined && !headers['Content-Type'] && !headers['content-type']) {
+    headers['Content-Type'] = 'application/json';
+  }
+  const widgetToken = getWidgetAuthToken();
+  if (widgetToken && isWidgetTokenEligibleRequestUrl(url) && !headers['Authorization'] && !headers['authorization']) {
+    headers['Authorization'] = `Bearer ${widgetToken}`;
+  }
+
+  const { signal, cleanup } = composeAbortSignals(callerSignal, timeout);
+  let response: Response;
+  try {
+    response = await fetch(fullUrl, {
+      method,
+      credentials: 'include',
+      headers,
+      body: body !== undefined ? JSON.stringify(body) : undefined,
+      signal,
+    });
+  } finally {
+    cleanup();
+  }
+
+  if (response.status === 401) {
+    if (!isHandling401) {
+      const doHandle = async () => {
+        try {
+          if (typeof window !== 'undefined') {
+            try {
+              window.dispatchEvent(new CustomEvent('auth:unauthorized'));
+            } catch (eventErr) {
+              console.error('Error dispatching auth:unauthorized event:', eventErr);
+            }
+          }
+        } finally {
+          isHandling401 = null;
+        }
+      };
+      isHandling401 = doHandle();
+    }
+    await isHandling401;
+  }
+
+  const isAccepted = acceptStatuses?.includes(response.status) ?? false;
+  // `response.headers` may be missing in test stubs that fake just `{ ok, json }`;
+  // prefer Headers when present, fall back to an empty Headers instance.
+  const responseHeaders = response.headers ?? new Headers();
+  if (response.status === 304 || response.status === 204) {
+    // 304 Not Modified and 204 No Content carry no body. Don't try to parse.
+    return { data: null as T, status: response.status, headers: responseHeaders };
+  }
+
+  const contentType = responseHeaders.get?.('content-type') ?? '';
+  // Heuristic for environments without a proper Headers instance (some test
+  // mocks): if `json()` is callable, prefer JSON.
+  const preferJson = contentType.includes('application/json') || typeof response.json === 'function';
+  const data: unknown = preferJson
+    ? await response.json() as unknown
+    : await response.text();
+
+  if (!response.ok && !isAccepted) {
+    throw new HttpError(response.status, data, extractFetchErrorMessage(data, `HTTP ${response.status}`));
+  }
+
+  return { data: data as T, status: response.status, headers: responseHeaders };
+}
+
+type FetchConfig = {
+  signal?: AbortSignal;
+  params?: Record<string, unknown>;
+  baseURL?: string;
+  /** Extra request headers (e.g. If-None-Match for conditional GETs). */
+  headers?: Record<string, string>;
+  /** Abort the request after `timeout` ms. Composes with `signal` if both set. */
+  timeout?: number;
+  /** Statuses outside 2xx that should resolve (not throw). E.g. [304] for conditional GETs. */
+  acceptStatuses?: number[];
+  /**
+   * Optional JSON body for DELETE. RFC 7231 allows DELETE-with-body, and the
+   * conversation-tag endpoint relies on it. POST/PUT/PATCH receive their body
+   * via the explicit `body` parameter and ignore this field.
+   */
+  body?: unknown;
+  /**
+   * Cache keys/prefixes to invalidate on a successful (2xx) mutation. Items
+   * are exact keys; items ending in `:` are treated as prefix invalidations.
+   * The wrapper invalidates AFTER the await resolves, so callers don't have
+   * to remember to call `queryCache.invalidate(...)` themselves.
+   */
+  invalidates?: string[];
+};
+
+const applyInvalidations = (invalidates: string[] | undefined): void => {
+  if (!invalidates || invalidates.length === 0) return;
+  for (const key of invalidates) {
+    const isPrefix = key.endsWith(':');
+    queryCache.invalidate(key, isPrefix);
+  }
+};
+
+/**
+ * Backend paths whose mutations affect aggregated sidebar counts
+ * (matters, intakes, invoices, conversations, files). After any successful
+ * non-GET against these, drop the cached `sidebar:counts:` entries so the
+ * Sidebar refetches fresh totals on the next render rather than waiting for
+ * the 30s TTL to elapse.
+ *
+ * Path matching is intentionally broad — false positives just trigger one
+ * extra count refetch, which is cheap; false negatives leave the badge
+ * stale, which is what we're fixing.
+ */
+const SIDEBAR_COUNT_PATH_PREFIXES = [
+  '/api/matters',
+  '/api/practice-client-intakes',
+  '/api/invoices',
+  '/api/conversations',
+  '/api/uploads',
+] as const;
+
+const affectsSidebarCounts = (url: string): boolean => {
+  // `url` may be absolute or relative; only the pathname portion matters.
+  const path = url.startsWith('http') ? new URL(url).pathname : url.split('?')[0];
+  return SIDEBAR_COUNT_PATH_PREFIXES.some((p) => path.startsWith(p));
+};
+
+const PRACTICE_RESOURCE_ALLOWLIST = new Set([
+  'matters',
+  'practice-client-intakes',
+  'invoices',
+]);
+
+/**
+ * Extract the practice id from a URL path. Only extracts for known resources
+ * that carry a practice id as the third segment (e.g. /api/matters/:practiceId).
+ * Returns null for other resources (like /api/conversations/:id) or when the
+ * segment doesn't look like a UUID, allowing the caller to fall back to broad
+ * invalidation.
+ */
+const extractPracticeIdFromPath = (path: string): string | null => {
+  const segments = path.split('/').filter(Boolean);
+  if (segments.length < 3 || segments[0] !== 'api') return null;
+  const resource = segments[1];
+  if (!PRACTICE_RESOURCE_ALLOWLIST.has(resource)) return null;
+  const candidate = segments[2];
+  if (!candidate || !/^[0-9a-fA-F-]{8,}$/.test(candidate)) return null;
+  return candidate;
+};
+
+const invalidateSidebarCountsIfRelevant = (url: string): void => {
+  if (!affectsSidebarCounts(url)) return;
+  const path = url.startsWith('http') ? new URL(url).pathname : url.split('?')[0];
+  const practiceId = extractPracticeIdFromPath(path);
+  if (practiceId) {
+    // Targeted invalidation: only the practice that was actually mutated.
+    // Keeps cached counts intact for the user's other practices.
+    queryCache.invalidate(`sidebar:counts:${practiceId}`, /* prefix */ true);
+    return;
+  }
+  // Fallback: endpoints that don't carry a practice id (or don't follow the
+  // /api/<resource>/<practiceId> shape) still need a broad invalidation so we
+  // don't silently leave the badge stale.
+  queryCache.invalidate('sidebar:counts:', /* prefix */ true);
+};
+
+export type UploadProgress = { loaded: number; total: number; percent: number };
+export type UploadConfig = {
+  signal?: AbortSignal;
+  onProgress?: (progress: UploadProgress) => void;
+};
+
+/**
+ * Upload a `FormData` body via XMLHttpRequest so the caller can observe
+ * real upload progress (which `fetch` doesn't expose without
+ * ReadableStream-based upload, which Safari and several other browsers
+ * still don't support reliably).
+ *
+ * Mirrors `apiClient.post` shape — same `{ data, status }` return,
+ * same widget-token handling, same 401 → `auth:unauthorized` event,
+ * same `HttpError` for non-2xx. The `onProgress` callback fires for
+ * each `upload.onprogress` event with `{ loaded, total, percent }`.
+ *
+ * Replaces hand-rolled XHR + `xhrRef` Map patterns scattered across
+ * file-upload hooks.
+ */
+async function apiUpload<T>(
+  url: string,
+  body: FormData,
+  config?: UploadConfig,
+): Promise<{ data: T; status: number }> {
+  const fullUrl = /^https?:\/\//.test(url) ? url : `${ensureApiBaseUrl()}${url}`;
+  const widgetToken = getWidgetAuthToken();
+  const eligibleForWidgetToken = widgetToken && isWidgetTokenEligibleRequestUrl(url);
+
+  return new Promise<{ data: T; status: number }>((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open('POST', fullUrl, true);
+    xhr.withCredentials = true;
+    if (eligibleForWidgetToken) xhr.setRequestHeader('Authorization', `Bearer ${widgetToken}`);
+    // Don't set Content-Type — the browser injects multipart/form-data with the boundary.
+
+    if (config?.onProgress) {
+      xhr.upload.onprogress = (event) => {
+        if (!event.lengthComputable) return;
+        // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+        config.onProgress!({
+          loaded: event.loaded,
+          total: event.total,
+          percent: Math.max(0, Math.min(100, Math.round((event.loaded / event.total) * 100))),
+        });
+      };
     }
 
-    // Use session cookies for auth; include credentials for cross-origin requests when allowed.
-    config.withCredentials = true;
-    const widgetToken = getWidgetAuthToken();
-    if (widgetToken) {
-      const requestUrl = typeof config.url === 'string' ? config.url : '';
-      if (isWidgetTokenEligibleRequestUrl(requestUrl)) {
-        if (!config.headers) {
-          config.headers = new AxiosHeaders();
-        }
-        if (config.headers instanceof AxiosHeaders) {
-          config.headers.set('Authorization', `Bearer ${widgetToken}`);
-        } else {
-          (config.headers as Record<string, string>).Authorization = `Bearer ${widgetToken}`;
-        }
+    if (config?.signal) {
+      if (config.signal.aborted) {
+        xhr.abort();
+        const err = new Error('Aborted');
+        err.name = 'AbortError';
+        reject(err);
+        return;
       }
+      config.signal.addEventListener('abort', () => xhr.abort(), { once: true });
     }
 
-    return config;
-  },
-  (error) => Promise.reject(error)
-);
+    xhr.onload = () => {
+      const contentType = xhr.getResponseHeader('Content-Type') ?? '';
+      let parsed: unknown = xhr.responseText;
+      if (contentType.includes('application/json')) {
+        try { parsed = xhr.responseText ? JSON.parse(xhr.responseText) : null; } catch { /* keep text */ }
+      }
+      if (xhr.status >= 200 && xhr.status < 300) {
+        invalidateSidebarCountsIfRelevant(url);
+        resolve({ data: parsed as T, status: xhr.status });
+        return;
+      }
+      reject(new HttpError(xhr.status, parsed, extractFetchErrorMessage(parsed, `HTTP ${xhr.status}`)));
+    };
+
+    xhr.onerror = () => reject(new Error('Network error during upload'));
+    xhr.onabort = () => {
+      const err = new Error('Aborted');
+      err.name = 'AbortError';
+      reject(err);
+    };
+
+    xhr.send(body);
+  });
+}
+
+/**
+ * Pull `data` out of a backend `ApiResponse<T>` envelope, throwing on the
+ * error branch.
+ *
+ * The backend (and our worker's `createSuccessResponse`) wrap GET responses
+ * in `{ success: true, data: T }`. Some endpoints additionally nest the
+ * payload under `data.matters` / `data.items` / `data.<resource>`. Callers
+ * pass an optional `pluck` to lift the inner array/object after unwrapping
+ * the envelope.
+ *
+ * Replaces the inline `.data ?? .matters ?? .items ?? recurse` patterns
+ * (`extractMatterArray`, `extractNotesArray`, `requestData`, …) that each
+ * service file used to reinvent.
+ */
+export function unwrapApiResponse<T>(payload: unknown, fallbackMessage = 'Request failed'): T {
+  if (payload && typeof payload === 'object' && 'success' in payload) {
+    const env = payload as { success: boolean; data?: unknown; error?: unknown; message?: unknown };
+    if (env.success === false) {
+      const message = typeof env.error === 'string' && env.error
+        ? env.error
+        : typeof env.message === 'string' && env.message
+          ? env.message
+          : fallbackMessage;
+      throw new Error(message);
+    }
+    if ('data' in env) return env.data as T;
+  }
+  return payload as T;
+}
+
+/**
+ * After unwrapping the envelope, lift a nested collection out of the resource
+ * shape (e.g. `{ matters: [...] }` → `[...]`). Looks at `candidates` keys
+ * first, then falls back to one level of `.data` (handles responses that
+ * still nest inside an extra `data` wrapper after the envelope is stripped).
+ * Returns `[]` if no array can be found.
+ */
+export function pluckCollection<T>(unwrapped: unknown, candidates: string[]): T[] {
+  if (Array.isArray(unwrapped)) return unwrapped as T[];
+  if (!unwrapped || typeof unwrapped !== 'object') return [];
+  const record = unwrapped as Record<string, unknown>;
+  for (const key of candidates) {
+    if (Array.isArray(record[key])) return record[key] as T[];
+  }
+  if (record.data) return pluckCollection<T>(record.data, candidates);
+  return [];
+}
+
+/**
+ * Pluck a single resource record. Looks at `candidates` keys for a single
+ * non-array object, then falls back to one level of `.data`, then to the
+ * unwrapped value itself. Returns `null` if none match.
+ */
+export function pluckRecord<T>(unwrapped: unknown, candidates: string[]): T | null {
+  if (!unwrapped || typeof unwrapped !== 'object') return null;
+  if (Array.isArray(unwrapped)) {
+    return (unwrapped.find((item) => item && typeof item === 'object') ?? null) as T | null;
+  }
+  const record = unwrapped as Record<string, unknown>;
+  for (const key of candidates) {
+    const value = record[key];
+    if (value && typeof value === 'object' && !Array.isArray(value)) return value as T;
+  }
+  if (record.data) return pluckRecord<T>(record.data, candidates);
+  return record as T;
+}
+
+const mutate = async <T>(
+  method: 'POST' | 'PUT' | 'PATCH' | 'DELETE',
+  url: string,
+  body: unknown,
+  config?: FetchConfig,
+): Promise<{ data: T; status: number; headers: Headers }> => {
+  const result = await apiFetch<T>(method, url, body, config);
+  // Invalidate on 2xx only — apiFetch throws HttpError otherwise, so reaching
+  // this line means the mutation succeeded.
+  applyInvalidations(config?.invalidates);
+  invalidateSidebarCountsIfRelevant(url);
+  return result;
+};
+
+type StreamConfig = {
+  signal?: AbortSignal;
+  params?: Record<string, unknown>;
+  headers?: Record<string, string>;
+  body?: unknown;
+};
+
+/**
+ * Issue a request and return the raw `Response` with body intact, so the
+ * caller can branch on `content-type` (JSON short-circuit vs. SSE) and
+ * consume `response.body.getReader()` for streaming.
+ *
+ * Mirrors `apiClient.{get,post}` for header normalization (Content-Type,
+ * widget bearer for allowlisted URLs), URL resolution, and 401 → event
+ * dispatch. Throws `HttpError` on non-2xx so caller's catch sees the same
+ * error contract as the rest of the API surface.
+ */
+async function apiStream(
+  method: 'GET' | 'POST',
+  url: string,
+  config?: StreamConfig,
+): Promise<Response> {
+  const { signal, params, headers: extraHeaders, body } = config ?? {};
+  let fullUrl = /^https?:\/\//.test(url) ? url : `${ensureApiBaseUrl()}${url}`;
+  if (params && Object.keys(params).length > 0) {
+    const qs = new URLSearchParams(
+      Object.entries(params)
+        .filter(([, v]) => v != null)
+        .map(([k, v]) => [k, String(v)])
+    ).toString();
+    fullUrl = `${fullUrl}${fullUrl.includes('?') ? '&' : '?'}${qs}`;
+  }
+  const headers: Record<string, string> = { ...(extraHeaders ?? {}) };
+  if (body !== undefined && !headers['Content-Type'] && !headers['content-type']) {
+    headers['Content-Type'] = 'application/json';
+  }
+  const widgetToken = getWidgetAuthToken();
+  if (widgetToken && isWidgetTokenEligibleRequestUrl(url) && !headers['Authorization'] && !headers['authorization']) {
+    headers['Authorization'] = `Bearer ${widgetToken}`;
+  }
+
+  const response = await fetch(fullUrl, {
+    method,
+    credentials: 'include',
+    headers,
+    body: body !== undefined ? JSON.stringify(body) : undefined,
+    signal,
+  });
+
+  if (response.status === 401) {
+    if (!isHandling401) {
+      const doHandle = async () => {
+        try {
+          if (typeof window !== 'undefined') {
+            try {
+              window.dispatchEvent(new CustomEvent('auth:unauthorized'));
+            } catch (eventErr) {
+              console.error('Error dispatching auth:unauthorized event:', eventErr);
+            }
+          }
+        } finally {
+          isHandling401 = null;
+        }
+      };
+      isHandling401 = doHandle();
+    }
+    await isHandling401;
+  }
+
+  if (!response.ok) {
+    // Drain the body so caller's catch path can read structured error data.
+    const contentType = response.headers.get('content-type') ?? '';
+    const data: unknown = contentType.includes('application/json')
+      ? await response.json().catch(() => null)
+      : await response.text().catch(() => '');
+    throw new HttpError(response.status, data, extractFetchErrorMessage(data, `HTTP ${response.status}`));
+  }
+
+  return response;
+}
+
+export const apiClient = {
+  get: <T>(url: string, config?: FetchConfig) =>
+    apiFetch<T>('GET', url, undefined, config),
+  post: <T>(url: string, body?: unknown, config?: FetchConfig) =>
+    mutate<T>('POST', url, body, config),
+  put: <T>(url: string, body?: unknown, config?: FetchConfig) =>
+    mutate<T>('PUT', url, body, config),
+  patch: <T>(url: string, body?: unknown, config?: FetchConfig) =>
+    mutate<T>('PATCH', url, body, config),
+  delete: <T>(url: string, config?: FetchConfig) =>
+    mutate<T>('DELETE', url, config?.body, config),
+  upload: <T>(url: string, body: FormData, config?: UploadConfig) =>
+    apiUpload<T>(url, body, config),
+  stream: (url: string, config?: StreamConfig & { method?: 'GET' | 'POST' }) =>
+    apiStream(config?.method ?? 'POST', url, config),
+};
 
 type PracticeMetadata = Record<string, unknown> | null | undefined;
 
@@ -151,18 +615,17 @@ export interface Practice {
   config?: {
     ownerEmail?: string;
     metadata?: Record<string, unknown>;
-    description?: string;
     [key: string]: unknown; // Allow additional config properties
   };
   stripeCustomerId?: string | null;
   subscriptionPeriodEnd?: number | null;
-  description?: string;
   isPersonal?: boolean | null;
   betterAuthOrgId?: string;
   businessOnboardingStatus?: 'not_required' | 'pending' | 'completed' | 'skipped';
   businessOnboardingCompletedAt?: number | null;
   businessOnboardingSkipped?: boolean;
   businessOnboardingHasDraft?: boolean;
+  legalDisclaimer?: string | null;
 }
 
 export interface CreatePracticeRequest {
@@ -177,12 +640,16 @@ export interface CreatePracticeRequest {
   calendlyUrl?: string;
 }
 
+export interface SupportedStateEntry {
+  country: string;
+  states?: string[];
+}
+
 export interface PracticeDetailsUpdate {
   businessPhone?: string | null;
   businessEmail?: string | null;
   consultationFee?: MajorAmount | null;
   paymentLinkEnabled?: boolean | null;
-  paymentLinkPrefillAmount?: MajorAmount | null;
   paymentUrl?: string | null;
   calendlyUrl?: string | null;
   billingIncrementMinutes?: number | null;
@@ -195,27 +662,39 @@ export interface PracticeDetailsUpdate {
   country?: string | null;
   primaryColor?: string | null;
   accentColor?: string | null;
-  description?: string | null;
+  introMessage?: string | null;
+  legalDisclaimer?: string | null;
   isPublic?: boolean | null;
   services?: Array<Record<string, unknown>> | null;
-  businessOnboardingStatus?: 'not_required' | 'pending' | 'completed' | 'skipped';
+  serviceStates?: string[] | null;
+  supportedStates?: SupportedStateEntry[] | null;
+  /** Map of state code -> array of service ids offered in that state */
+  servicesByState?: Record<string, string[]> | null;
   businessOnboardingHasDraft?: boolean;
+  businessOnboardingStatus?: 'not_required' | 'pending' | 'completed' | 'skipped';
+  /** Raw JSON string stored in the practice settings column. Passed through as-is. */
+  settings?: string | null;
+  /** Arbitrary practice metadata. */
+  metadata?: Record<string, unknown> | null;
 }
 
-export interface UpdatePracticeRequest extends Partial<CreatePracticeRequest>, PracticeDetailsUpdate {}
+// Fix: Remove conflicting extension, merge manually if needed
+export type UpdatePracticeRequest = Omit<Partial<CreatePracticeRequest>, keyof PracticeDetailsUpdate> & PracticeDetailsUpdate;
 
 export interface PracticeDetails {
   id?: string;
+  name?: string | null;
+  slug?: string | null;
+  logo?: string | null;
   businessPhone?: string | null;
   businessEmail?: string | null;
   consultationFee?: MajorAmount | null;
   paymentLinkEnabled?: boolean | null;
-  paymentLinkPrefillAmount?: MajorAmount | null;
   paymentUrl?: string | null;
   calendlyUrl?: string | null;
   billingIncrementMinutes?: number | null;
   website?: string | null;
-  address?: string | null;
+  address?: string | Record<string, unknown> | null;
   apartment?: string | null;
   city?: string | null;
   state?: string | null;
@@ -223,9 +702,18 @@ export interface PracticeDetails {
   country?: string | null;
   primaryColor?: string | null;
   accentColor?: string | null;
-  description?: string | null;
+  introMessage?: string | null;
+  legalDisclaimer?: string | null;
   isPublic?: boolean | null;
   services?: Array<Record<string, unknown>> | null;
+  serviceStates?: string[] | null;
+  supportedStates?: SupportedStateEntry[] | null;
+  /** Map of state code -> array of service ids offered in that state */
+  servicesByState?: Record<string, string[]> | null;
+  /** Raw JSON string stored in the practice settings column. */
+  settings?: string | null;
+  /** Arbitrary practice metadata. */
+  metadata?: Record<string, unknown> | null;
 }
 
 export interface ConnectedAccountRequest {
@@ -280,6 +768,11 @@ export interface CurrentSubscriptionPlan {
   yearlyPrice?: string | null;
   currency?: string | null;
   features?: string[] | null;
+  limits?: {
+    users?: number | null;
+    storageGb?: number | null;
+    invoicesPerMonth?: number | null;
+  } | null;
   isActive?: boolean | null;
 }
 
@@ -354,7 +847,7 @@ export async function linkConversationToUser(
 export async function updateConversationMatter(
   conversationId: string,
   matterId: string | null,
-  config?: Pick<AxiosRequestConfig, 'signal'>
+  config?: ApiRequestConfig
 ): Promise<Conversation> {
   if (!conversationId) {
     throw new Error('conversationId is required to update a conversation matter');
@@ -376,15 +869,19 @@ export async function updateConversationMatter(
 
 export type ConversationParticipant = {
   userId: string;
-  role?: string | null;
-  name?: string | null;
-  image?: string | null;
+  role: string | null;
+  name: string | null;
+  image: string | null;
+  isTeamMember: boolean;
+  canBeMentionedByTeamMember: boolean;
+  canBeMentionedByClient: boolean;
+  canMentionInternally?: boolean;
 };
 
 export async function getConversationParticipants(
   conversationId: string,
   practiceId: string,
-  config?: Pick<AxiosRequestConfig, 'signal'>
+  config?: ApiRequestConfig
 ): Promise<ConversationParticipant[]> {
   if (!conversationId) {
     throw new Error('conversationId is required');
@@ -408,12 +905,14 @@ export async function getConversationParticipants(
   return rows
     .filter((row): row is Record<string, unknown> => isRecord(row))
     .map((row) => ({
-      userId: typeof row.userId === 'string'
-        ? row.userId
-        : (typeof row.user_id === 'string' ? row.user_id : ''),
+      userId: typeof row.user_id === 'string' ? row.user_id : '',
       role: typeof row.role === 'string' ? row.role : null,
       name: typeof row.name === 'string' ? row.name : null,
       image: typeof row.image === 'string' ? row.image : null,
+      isTeamMember: row.is_team_member === true,
+      canBeMentionedByTeamMember: row.can_be_mentioned_by_team_member === true,
+      canBeMentionedByClient: row.can_be_mentioned_by_client === true,
+      canMentionInternally: row.can_mention_internally === true,
     }))
     .filter((row) => row.userId.trim().length > 0);
 }
@@ -421,7 +920,7 @@ export async function getConversationParticipants(
 export async function listMatterConversations(
   practiceId: string,
   matterId: string,
-  config?: Pick<AxiosRequestConfig, 'signal'>
+  config?: ApiRequestConfig
 ): Promise<Conversation[]> {
   // Legacy/undocumented: this endpoint is not part of the supplied matters contract.
   if (!practiceId) {
@@ -458,11 +957,11 @@ async function postSubscriptionEndpoint(
       data: response.data ?? null
     };
   } catch (error) {
-    if (axios.isAxiosError(error)) {
+    if (isHttpError(error)) {
       return {
         ok: false,
-        status: error.response?.status ?? 0,
-        data: error.response?.data ?? null
+        status: error.response.status,
+        data: error.response.data ?? null
       };
     }
     return {
@@ -481,6 +980,69 @@ function toNullableString(value: unknown): string | null {
   return null;
 }
 
+function toNullableTimestamp(value: unknown): number | null {
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return value;
+  }
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    if (!trimmed) return null;
+    const numeric = Number(trimmed);
+    if (Number.isFinite(numeric)) {
+      return numeric;
+    }
+    const parsed = Date.parse(trimmed);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+  if (value instanceof Date) {
+    const timestamp = value.getTime();
+    return Number.isFinite(timestamp) ? timestamp : null;
+  }
+  return null;
+}
+
+function normalizeInvitationStatus(value: unknown): 'pending' | 'accepted' | 'declined' | null {
+  const normalized = toNullableString(value)?.toLowerCase();
+  if (normalized === 'pending' || normalized === 'accepted') {
+    return normalized;
+  }
+  if (normalized === 'declined' || normalized === 'rejected' || normalized === 'canceled' || normalized === 'cancelled') {
+    return 'declined';
+  }
+  return null;
+}
+
+function normalizePracticeInvitationPayload(payload: unknown): Record<string, unknown> | null {
+  if (!isRecord(payload)) {
+    return null;
+  }
+
+  const id = toNullableString(payload.id);
+  const practiceId = toNullableString(payload.organizationId ?? payload.organization_id);
+  const email = toNullableString(payload.email);
+  const role = toNullableString(payload.role);
+  const status = normalizeInvitationStatus(payload.status);
+  const invitedBy = toNullableString(payload.inviterId ?? payload.inviter_id);
+  const expiresAt = toNullableTimestamp(payload.expiresAt ?? payload.expires_at);
+  const createdAt = toNullableTimestamp(payload.createdAt ?? payload.created_at);
+
+  if (!id || !practiceId || !email || !role || !status || !invitedBy || expiresAt === null || createdAt === null) {
+    return null;
+  }
+
+  return {
+    id,
+    practiceId,
+    practiceName: toNullableString(payload.organizationName ?? payload.organization_name) ?? undefined,
+    email,
+    role,
+    status,
+    invitedBy,
+    expiresAt,
+    createdAt
+  };
+}
+
 function normalizePracticePayload(payload: unknown): Practice {
   if (!isRecord(payload)) {
     throw new Error('Invalid practice payload');
@@ -492,7 +1054,6 @@ function normalizePracticePayload(payload: unknown): Practice {
     record.uuid ??
     record.practice_id ??
     record.practice_uuid ??
-    record.practiceUuid ??
     ''
   );
   const name = String(record.name ?? 'Practice');
@@ -503,21 +1064,30 @@ function normalizePracticePayload(payload: unknown): Practice {
     name,
     slug,
     logo: toNullableString(record.logo),
-    metadata: isRecord(record.metadata) ? record.metadata : undefined,
-    businessPhone: toNullableString(record.businessPhone ?? record.business_phone),
-    businessEmail: toNullableString(record.businessEmail ?? record.business_email),
+    metadata: (() => {
+      if (isRecord(record.metadata)) return record.metadata;
+      if (typeof record.metadata === 'string') {
+        try {
+          const parsed = JSON.parse(record.metadata);
+          return isRecord(parsed) ? parsed : undefined;
+        } catch { return undefined; }
+      }
+      return undefined;
+    })(),
+    businessPhone: toNullableString(record.business_phone),
+    businessEmail: toNullableString(record.business_email),
     consultationFee: (() => {
-      const rawFee = record.consultationFee ?? record.consultation_fee;
+      const rawFee = record.consultation_fee;
       if (typeof rawFee !== 'number') return null;
       assertMinorUnits(rawFee, 'practice.consultationFee');
       return toMajorUnits(Number(rawFee));
-    })(),
-    paymentUrl: toNullableString(record.paymentUrl ?? record.payment_url),
-    calendlyUrl: toNullableString(record.calendlyUrl ?? record.calendly_url),
-    createdAt: toNullableString(record.createdAt ?? record.created_at),
-    updatedAt: toNullableString(record.updatedAt ?? record.updated_at),
+    })() ?? null,
+    paymentUrl: toNullableString(record.payment_url),
+    calendlyUrl: toNullableString(record.calendly_url),
+    createdAt: toNullableString(record.created_at),
+    updatedAt: toNullableString(record.updated_at),
     billingIncrementMinutes: (() => {
-      const value = record.billingIncrementMinutes ?? record.billing_increment_minutes;
+      const value = record.billing_increment_minutes;
       if (value === null || value === undefined) return null;
       if (typeof value === 'number' && Number.isFinite(value)) return value;
       if (typeof value === 'string' && value.trim().length > 0) {
@@ -531,13 +1101,13 @@ function normalizePracticePayload(payload: unknown): Practice {
     apartment: toNullableString(record.apartment ?? record.address_line_2),
     city: toNullableString(record.city),
     state: toNullableString(record.state),
-    postalCode: toNullableString(record.postalCode ?? record.postal_code),
+    postalCode: toNullableString(record.postal_code),
     country: toNullableString(record.country),
-    primaryColor: toNullableString(record.primaryColor ?? record.primary_color),
-    accentColor: toNullableString(record.accentColor ?? record.accent_color),
-    description: toNullableString(record.description ?? record.overview),
-    isPublic: 'isPublic' in record || 'is_public' in record
-      ? Boolean(record.isPublic ?? record.is_public)
+    primaryColor: toNullableString(record.primary_color),
+    accentColor: toNullableString(record.accent_color),
+    legalDisclaimer: toNullableString(record.legal_disclaimer ?? record.overview),
+    isPublic: 'is_public' in record
+      ? Boolean(record.is_public)
       : null,
     services: Array.isArray(record.services)
       ? (record.services as Array<Record<string, unknown>>)
@@ -599,13 +1169,13 @@ function normalizeConnectedAccountResponse(payload: unknown): ConnectedAccountRe
   }
 
   return {
-    practiceUuid: String(payload.practice_uuid ?? payload.practiceUuid ?? ''),
-    stripeAccountId: String(payload.stripe_account_id ?? payload.stripeAccountId ?? ''),
-    clientSecret: toNullableString(payload.client_secret ?? payload.clientSecret),
-    onboardingUrl: toNullableString(payload.onboarding_url ?? payload.onboardingUrl ?? payload.url),
-    chargesEnabled: Boolean(payload.charges_enabled ?? payload.chargesEnabled),
-    payoutsEnabled: Boolean(payload.payouts_enabled ?? payload.payoutsEnabled),
-    detailsSubmitted: Boolean(payload.details_submitted ?? payload.detailsSubmitted)
+    practiceUuid: String(payload.practice_uuid ?? ''),
+    stripeAccountId: String(payload.stripe_account_id ?? ''),
+    clientSecret: toNullableString(payload.client_secret),
+    onboardingUrl: toNullableString(payload.url),
+    chargesEnabled: Boolean(payload.charges_enabled),
+    payoutsEnabled: Boolean(payload.payouts_enabled),
+    detailsSubmitted: Boolean(payload.details_submitted)
   };
 }
 
@@ -616,48 +1186,56 @@ function normalizeOnboardingStatus(payload: unknown): OnboardingStatus {
   }
 
   return {
-    practiceUuid: String(normalized.practice_uuid ?? normalized.practiceUuid ?? ''),
-    stripeAccountId: toNullableString(normalized.stripe_account_id ?? normalized.stripeAccountId),
-    connectedAccountId: toNullableString(normalized.connected_account_id ?? normalized.connectedAccountId),
-    clientSecret: toNullableString(normalized.client_secret ?? normalized.clientSecret),
-    chargesEnabled: Boolean(normalized.charges_enabled ?? normalized.chargesEnabled),
-    payoutsEnabled: Boolean(normalized.payouts_enabled ?? normalized.payoutsEnabled),
-    detailsSubmitted: Boolean(normalized.details_submitted ?? normalized.detailsSubmitted),
+    practiceUuid: String(normalized.practice_uuid ?? ''),
+    stripeAccountId: toNullableString(normalized.stripe_account_id),
+    connectedAccountId: toNullableString(normalized.connected_account_id),
+    clientSecret: toNullableString(normalized.client_secret),
+    chargesEnabled: Boolean(normalized.charges_enabled),
+    payoutsEnabled: Boolean(normalized.payouts_enabled),
+    detailsSubmitted: Boolean(normalized.details_submitted),
     completed: 'completed' in normalized ? Boolean(normalized.completed) : undefined
   };
 }
 
-type ListPracticesOptions = Pick<AxiosRequestConfig, 'signal'> & {
+type ListPracticesOptions = ApiRequestConfig & {
   scope?: 'all' | 'tenant' | 'platform';
 };
 
 export async function listPractices(configOrOptions?: ListPracticesOptions): Promise<Practice[]> {
   const opts = configOrOptions ?? {};
   const scope = opts.scope ?? 'tenant';
-  const response = await apiClient.get('/api/practice/list', {
-    signal: opts.signal
-  });
-  const practices = unwrapPracticeListResponse(response.data);
+  const practices = await queryCache.coalesceGet(
+    'practices:list',
+    async (signal) => {
+      const response = await apiClient.get('/api/practice/list', { signal });
+      return unwrapPracticeListResponse(response.data);
+    },
+    { ttl: 60_000, signal: opts.signal as AbortSignal | undefined }
+  );
   if (scope === 'platform') {
     return [];
   }
   return practices;
 }
 
-export async function getPractice(practiceId: string, config?: Pick<AxiosRequestConfig, 'signal'>): Promise<Practice> {
+export async function getPractice(practiceId: string, config?: ApiRequestConfig): Promise<Practice> {
   if (!practiceId) {
     throw new Error('practiceId is required');
   }
-  const response = await apiClient.get(`/api/practice/${encodeURIComponent(practiceId)}`, {
-    signal: config?.signal
-  });
-  return unwrapPracticeResponse(response.data);
+  return queryCache.coalesceGet(
+    `practice:${practiceId}`,
+    async (signal) => {
+      const response = await apiClient.get(`/api/practice/${encodeURIComponent(practiceId)}`, { signal });
+      return unwrapPracticeResponse(response.data);
+    },
+    { ttl: 60_000, signal: config?.signal as AbortSignal | undefined }
+  );
 }
 
 
 export async function createPractice(
   payload: CreatePracticeRequest,
-  config?: Pick<AxiosRequestConfig, 'signal'>
+  config?: ApiRequestConfig
 ): Promise<Practice> {
   const response = await apiClient.post('/api/practice', payload, {
     signal: config?.signal
@@ -668,7 +1246,7 @@ export async function createPractice(
 export async function updatePractice(
   practiceId: string,
   payload: UpdatePracticeRequest,
-  config?: Pick<AxiosRequestConfig, 'signal'>
+  config?: ApiRequestConfig
 ): Promise<Practice> {
   if (!practiceId) {
     throw new Error('practiceId is required');
@@ -681,22 +1259,27 @@ export async function updatePractice(
     `/api/practice/${encodeURIComponent(practiceId)}`,
     normalized,
     {
-      signal: config?.signal
+      signal: config?.signal,
+      invalidates: [`practice:${practiceId}`, 'practices:list'],
     }
   );
+  // publicPracticeDetailsCache lives under `practice:public:` — also clear.
+  clearPublicPracticeDetailsCache();
   return unwrapPracticeResponse(response.data);
 }
 
 export async function deletePractice(
   practiceId: string,
-  config?: Pick<AxiosRequestConfig, 'signal'>
+  config?: ApiRequestConfig
 ): Promise<void> {
   if (!practiceId) {
     throw new Error('practiceId is required');
   }
   await apiClient.delete(`/api/practice/${encodeURIComponent(practiceId)}`, {
-    signal: config?.signal
+    signal: config?.signal,
+    invalidates: [`practice:${practiceId}`, 'practices:list'],
   });
+  clearPublicPracticeDetailsCache();
 }
 
 export async function setActivePractice(practiceId: string): Promise<void> {
@@ -708,23 +1291,28 @@ export async function setActivePractice(practiceId: string): Promise<void> {
 
 export async function listPracticeInvitations(
   practiceId: string,
-  config?: Pick<AxiosRequestConfig, 'signal'>
+  config?: ApiRequestConfig
 ): Promise<unknown[]> {
   if (!practiceId || practiceId.trim().length === 0) {
     throw new Error('practiceId is required');
   }
   const response = await apiClient.get(
-    `/api/practice/${encodeURIComponent(practiceId)}/invitations`,
-    { signal: config?.signal }
+    '/api/auth/organization/list-invitations',
+    {
+      params: { organizationId: practiceId },
+      signal: config?.signal
+    }
   );
   const payload = unwrapApiData(response.data);
-  if (Array.isArray(payload)) {
-    return payload;
-  }
-  if (isRecord(payload) && Array.isArray(payload.invitations)) {
-    return payload.invitations as unknown[];
-  }
-  return [];
+  const invitations = Array.isArray(payload)
+    ? payload
+    : isRecord(payload) && Array.isArray(payload.invitations)
+      ? payload.invitations
+      : [];
+
+  return invitations
+    .map((invitation) => normalizePracticeInvitationPayload(invitation))
+    .filter((invitation): invitation is Record<string, unknown> => Boolean(invitation));
 }
 
 export async function createPracticeInvitation(
@@ -734,9 +1322,13 @@ export async function createPracticeInvitation(
   if (!practiceId) {
     throw new Error('practiceId is required');
   }
+  const requestBody = {
+    ...payload,
+    organizationId: practiceId
+  };
   const response = await apiClient.post(
-    `/api/practice/${encodeURIComponent(practiceId)}/invitations`,
-    payload
+    '/api/auth/organization/invite-member',
+    requestBody
   );
   const data = unwrapApiData(response.data);
   if (!isRecord(data)) {
@@ -744,13 +1336,15 @@ export async function createPracticeInvitation(
   }
   const inviteUrl = toNullableString(
     data.inviteUrl ??
-    data.invite_url ??
+    data.inviteLink ??
     data.url ??
-    (isRecord(data.invitation) ? (data.invitation as Record<string, unknown>).inviteUrl ?? (data.invitation as Record<string, unknown>).invite_url : null)
+    (isRecord(data.invitation)
+      ? ((data.invitation as Record<string, unknown>).inviteUrl
+        ?? (data.invitation as Record<string, unknown>).inviteLink)
+      : null)
   );
   const invitationId = toNullableString(
     data.invitationId ??
-    data.invitation_id ??
     data.id ??
     (isRecord(data.invitation) ? (data.invitation as Record<string, unknown>).id : null)
   );
@@ -767,28 +1361,74 @@ export async function respondToPracticeInvitation(
   invitationId: string,
   action: 'accept' | 'decline'
 ): Promise<void> {
+  if (!invitationId) {
+    throw new Error('invitationId is required');
+  }
   await apiClient.post(
-    `/api/practice/invitations/${encodeURIComponent(invitationId)}/${action}`
+    action === 'accept'
+      ? '/api/auth/organization/accept-invitation'
+      : '/api/auth/organization/reject-invitation',
+    { invitationId }
   );
 }
 
-export async function listPracticeMembers(practiceId: string): Promise<unknown[]> {
+export async function cancelPracticeInvitation(invitationId: string): Promise<void> {
+  if (!invitationId) {
+    throw new Error('invitationId is required');
+  }
+  await apiClient.post('/api/auth/organization/cancel-invitation', { invitationId });
+}
+
+export async function listPracticeTeam(
+  practiceId: string,
+  config?: ApiRequestConfig
+): Promise<PracticeTeamResponse> {
   if (!practiceId) {
     throw new Error('practiceId is required');
   }
-  const response = await apiClient.get(`/api/practice/${encodeURIComponent(practiceId)}`);
+
+  const response = await apiClient.get(
+    `/api/practice/${encodeURIComponent(practiceId)}/team`,
+    { signal: config?.signal }
+  );
   const payload = unwrapApiData(response.data);
-  const practiceRecord = isRecord(payload) && isRecord(payload.practice) ? payload.practice : payload;
-  if (isRecord(practiceRecord) && Array.isArray(practiceRecord.members)) {
-    return practiceRecord.members as unknown[];
+  if (!isRecord(payload)) {
+    throw new Error('Invalid practice team response');
   }
-  if (Array.isArray(payload)) {
-    return payload;
-  }
-  if (isRecord(payload) && Array.isArray(payload.members)) {
-    return payload.members as unknown[];
-  }
-  return [];
+
+  const members = Array.isArray(payload.members) ? payload.members : [];
+  const rawSummary = isRecord(payload.summary) ? payload.summary : {};
+
+  return {
+    members: members
+      .filter((member): member is Record<string, unknown> => isRecord(member))
+      .map<PracticeTeamResponse['members'][number] | null>((member) => {
+        const role = isTeamRole(member.role) ? member.role : null;
+        if (role === null) {
+          return null;
+        }
+
+        return {
+          userId: typeof member.user_id === 'string' ? member.user_id : '',
+          email: typeof member.email === 'string' ? member.email : '',
+          name: typeof member.name === 'string' ? member.name : undefined,
+          image: typeof member.image === 'string' ? member.image : null,
+          role,
+          createdAt: typeof member.created_at === 'number' ? member.created_at : null,
+          canAssignToMatter: member.can_assign_to_matter === true,
+          canMentionInternally: member.can_mention_internally === true,
+        };
+      })
+      .filter((member): member is PracticeTeamResponse['members'][number] => (
+        member !== null
+        && member !== undefined
+        && member.userId.trim().length > 0
+      )),
+    summary: {
+      seatsIncluded: typeof rawSummary.seats_included === 'number' ? rawSummary.seats_included : 1,
+      seatsUsed: typeof rawSummary.seats_used === 'number' ? rawSummary.seats_used : 0,
+    }
+  };
 }
 
 export async function updatePracticeMemberRole(
@@ -798,7 +1438,11 @@ export async function updatePracticeMemberRole(
   if (!practiceId) {
     throw new Error('practiceId is required');
   }
-  await apiClient.patch(`/api/practice/${encodeURIComponent(practiceId)}/members`, payload);
+  await apiClient.patch(
+    `/api/practice/${encodeURIComponent(practiceId)}/members`,
+    payload,
+    { invalidates: ['practice:team:'] },
+  );
 }
 
 export async function deletePracticeMember(
@@ -809,7 +1453,8 @@ export async function deletePracticeMember(
     throw new Error('practiceId is required');
   }
   await apiClient.delete(
-    `/api/practice/${encodeURIComponent(practiceId)}/members/${encodeURIComponent(userId)}`
+    `/api/practice/${encodeURIComponent(practiceId)}/members/${encodeURIComponent(userId)}`,
+    { invalidates: ['practice:team:'] },
   );
 }
 
@@ -854,7 +1499,7 @@ export async function listUserDetails(
   }
   const { signal, ...queryParams } = params ?? {};
   const response = await apiClient.get(
-    `/api/user-details/${encodeURIComponent(practiceId)}`,
+    `/api/clients/${encodeURIComponent(practiceId)}`,
     { params: queryParams, signal }
   );
   const payload = response.data;
@@ -873,13 +1518,13 @@ export async function listUserDetails(
 export async function getUserDetail(
   practiceId: string,
   userDetailId: string,
-  config?: Pick<AxiosRequestConfig, 'signal'>
+  config?: ApiRequestConfig
 ): Promise<UserDetailRecord | null> {
   if (!practiceId || !userDetailId) {
     throw new Error('practiceId and userDetailId are required');
   }
   const response = await apiClient.get(
-    `/api/user-details/${encodeURIComponent(practiceId)}`,
+    `/api/clients/${encodeURIComponent(practiceId)}`,
     // Backend contract uses `client_id` even though this record is presented as Person in UI.
     { params: { client_id: userDetailId }, signal: config?.signal }
   );
@@ -896,13 +1541,13 @@ export async function getUserDetail(
 export async function getUserDetailAddressById(
   practiceId: string,
   addressId: string,
-  config?: Pick<AxiosRequestConfig, 'signal'>
+  config?: ApiRequestConfig
 ): Promise<Record<string, unknown> | null> {
   if (!practiceId || !addressId) {
     throw new Error('practiceId and addressId are required');
   }
   const response = await apiClient.get(
-    `/api/user-details/${encodeURIComponent(practiceId)}/addresses/${encodeURIComponent(addressId)}`,
+    `/api/clients/${encodeURIComponent(practiceId)}/addresses/${encodeURIComponent(addressId)}`,
     { signal: config?.signal }
   );
   const payload = unwrapApiData(response.data);
@@ -915,13 +1560,7 @@ export async function getUserDetailAddressById(
 }
 
 export type CreateUserDetailPayload = {
-  name: string;
   email: string;
-  phone?: string;
-  status?: UserDetailStatus;
-  currency?: string;
-  address?: Partial<Address>;
-  event_name?: string;
 };
 
 type UserDetailBasePayload = {
@@ -988,23 +1627,22 @@ const normalizeUserDetailPayload = (payload: UserDetailBasePayload): Record<stri
 export async function createUserDetail(
   practiceId: string,
   payload: CreateUserDetailPayload
-): Promise<UserDetailRecord | null> {
+): Promise<void> {
   if (!practiceId) {
     throw new Error('practiceId is required');
   }
 
   const normalizedEmail = payload.email?.trim() || '';
-  const normalizedName = payload.name?.trim() || '';
 
-  if (!normalizedName || !normalizedEmail) {
-    throw new Error('Name and email are required');
+  if (!normalizedEmail) {
+    throw new Error('Email is required');
   }
 
-  // Use Better Auth organization invitation instead of direct user-details creation.
-  const { getClient } = await import('@/shared/lib/authClient');
-  const authClient = getClient();
-
+  // authClient is statically imported at the top of this file; no dynamic
+  // import needed (doing so would produce a Vite warning and no chunk split).
+  let authClient;
   try {
+    authClient = getAuthClient();
     if (import.meta.env.DEV) {
       console.info('[apiClient] inviteMember', {
         organizationId: practiceId,
@@ -1012,12 +1650,16 @@ export async function createUserDetail(
         role: 'client'
       });
     }
-    await authClient.organization.inviteMember({
+    const inviteClient = authClient as unknown as {
+      organization?: {
+        inviteMember?: (payload: { email: string; role: string; organizationId: string }) => Promise<unknown>;
+      };
+    };
+    await inviteClient.organization?.inviteMember?.({
       email: normalizedEmail,
       role: 'client',
       organizationId: practiceId,
     });
-    return null;
   } catch (error) {
     console.error('Failed to invite client:', error);
     throw error;
@@ -1035,8 +1677,9 @@ export async function updateUserDetail(
   const { address, name, email, phone, status, currency, event_name, ...rest } = payload;
   const normalized = normalizeUserDetailPayload({ address, name, email, phone, status, currency, event_name });
   const response = await apiClient.patch(
-    `/api/user-details/${encodeURIComponent(practiceId)}/update/${encodeURIComponent(userDetailId)}`,
-    { ...rest, ...normalized }
+    `/api/clients/${encodeURIComponent(practiceId)}/${encodeURIComponent(userDetailId)}`,
+    { ...rest, ...normalized },
+    { invalidates: ['clients:'] }
   );
   const data = response.data;
   if (isRecord(data) && isRecord(data.data)) {
@@ -1053,7 +1696,8 @@ export async function deleteUserDetail(
     throw new Error('practiceId and userDetailId are required');
   }
   await apiClient.delete(
-    `/api/user-details/${encodeURIComponent(practiceId)}/delete/${encodeURIComponent(userDetailId)}`
+    `/api/clients/${encodeURIComponent(practiceId)}/${encodeURIComponent(userDetailId)}`,
+    { invalidates: ['clients:'] }
   );
 }
 
@@ -1080,7 +1724,7 @@ export async function listUserDetailMemos(
     throw new Error('practiceId and userDetailId are required');
   }
   const response = await apiClient.get(
-    `/api/user-details/${encodeURIComponent(practiceId)}/${encodeURIComponent(userDetailId)}/memos`
+    `/api/clients/${encodeURIComponent(practiceId)}/${encodeURIComponent(userDetailId)}/memos`
   );
   const payload = response.data;
   if (isRecord(payload) && Array.isArray(payload.data)) {
@@ -1101,7 +1745,7 @@ export async function createUserDetailMemo(
     throw new Error('practiceId and userDetailId are required');
   }
   const response = await apiClient.post(
-    `/api/user-details/${encodeURIComponent(practiceId)}/${encodeURIComponent(userDetailId)}/memos`,
+    `/api/clients/${encodeURIComponent(practiceId)}/${encodeURIComponent(userDetailId)}/memos`,
     payload
   );
   const data = response.data;
@@ -1121,7 +1765,7 @@ export async function updateUserDetailMemo(
     throw new Error('practiceId, userDetailId, and memoId are required');
   }
   const response = await apiClient.patch(
-    `/api/user-details/${encodeURIComponent(practiceId)}/${encodeURIComponent(userDetailId)}/memos/update/${encodeURIComponent(memoId)}`,
+    `/api/clients/${encodeURIComponent(practiceId)}/${encodeURIComponent(userDetailId)}/memos/${encodeURIComponent(memoId)}`,
     payload
   );
   const data = response.data;
@@ -1140,13 +1784,13 @@ export async function deleteUserDetailMemo(
     throw new Error('practiceId, userDetailId, and memoId are required');
   }
   await apiClient.delete(
-    `/api/user-details/${encodeURIComponent(practiceId)}/${encodeURIComponent(userDetailId)}/memos/delete/${encodeURIComponent(memoId)}`
+    `/api/clients/${encodeURIComponent(practiceId)}/${encodeURIComponent(userDetailId)}/memos/${encodeURIComponent(memoId)}`
   );
 }
 
 export async function getOnboardingStatus(
   organizationId: string,
-  config?: Pick<AxiosRequestConfig, 'signal'>
+  config?: ApiRequestConfig
 ): Promise<OnboardingStatus> {
   if (!organizationId) {
     throw new Error('organizationId is required');
@@ -1160,16 +1804,23 @@ export async function getOnboardingStatus(
 
 export async function getOnboardingStatusPayload(
   organizationId: string,
-  config?: Pick<AxiosRequestConfig, 'signal'>
+  config?: ApiRequestConfig
 ): Promise<unknown> {
   if (!organizationId) {
     throw new Error('organizationId is required');
   }
-  const response = await apiClient.get(
-    `/api/onboarding/organization/${encodeURIComponent(organizationId)}/status`,
-    { signal: config?.signal }
+  const cacheKey = `onboarding:status:${organizationId}`;
+  return queryCache.coalesceGet(
+    cacheKey,
+    async (signal) => {
+      const response = await apiClient.get(
+        `/api/onboarding/organization/${encodeURIComponent(organizationId)}/status`,
+        { signal }
+      );
+      return response.data;
+    },
+    { ttl: 60_000, signal: config?.signal as AbortSignal | undefined }
   );
-  return response.data;
 }
 
 export async function createConnectedAccount(
@@ -1192,47 +1843,47 @@ export async function createConnectedAccount(
 export async function updatePracticeDetails(
   practiceId: string,
   details: PracticeDetailsUpdate,
-  config?: Pick<AxiosRequestConfig, 'signal'>
+  config?: ApiRequestConfig
 ): Promise<PracticeDetails | null> {
   if (!practiceId) {
     throw new Error('practiceId is required');
   }
   const normalized = normalizePracticeDetailsPayload(details);
-  if (import.meta.env.DEV) {
-    console.info('[apiClient] updatePracticeDetails payload', { practiceId, payload: normalized });
-  }
   const response = await apiClient.put(
     `/api/practice/${encodeURIComponent(practiceId)}/details`,
     normalized,
-    { signal: config?.signal }
+    {
+      signal: config?.signal,
+      invalidates: [`practice:details:${practiceId}`],
+    }
   );
+  clearPublicPracticeDetailsCache();
   return normalizePracticeDetailsResponse(response.data);
 }
 
 export async function getPracticeDetails(
   practiceId: string,
-  config?: Pick<AxiosRequestConfig, 'signal'>
+  config?: ApiRequestConfig
 ): Promise<PracticeDetails | null> {
   if (!practiceId) {
     throw new Error('practiceId is required');
   }
-  try {
-    const response = await apiClient.get(
-      `/api/practice/${encodeURIComponent(practiceId)}/details`,
-      { signal: config?.signal }
-    );
-    return normalizePracticeDetailsResponse(response.data);
-  } catch (error) {
-    if (axios.isAxiosError(error) && error.response?.status === 404) {
-      return null;
-    }
-    throw error;
-  }
+  return queryCache.coalesceGet(
+    `practice:details:${practiceId}`,
+    async (signal) => {
+      const response = await apiClient.get(
+        `/api/practice/${encodeURIComponent(practiceId)}/details`,
+        { signal }
+      );
+      return normalizePracticeDetailsResponse(response.data);
+    },
+    { ttl: 60_000, signal: config?.signal as AbortSignal | undefined }
+  );
 }
 
 export async function getPracticeDetailsBySlug(
   slug: string,
-  config?: Pick<AxiosRequestConfig, 'signal'>
+  config?: ApiRequestConfig
 ): Promise<PracticeDetails | null> {
   if (!slug) {
     throw new Error('practice slug is required');
@@ -1241,18 +1892,11 @@ export async function getPracticeDetailsBySlug(
   if (!normalizedSlug) {
     throw new Error('practice slug is required');
   }
-  try {
-    const response = await apiClient.get(
-      `/api/practice/details/${encodeURIComponent(normalizedSlug)}`,
-      { signal: config?.signal }
-    );
-    return normalizePracticeDetailsResponse(response.data);
-  } catch (error) {
-    if (axios.isAxiosError(error) && error.response?.status === 404) {
-      return null;
-    }
-    throw error;
-  }
+  const response = await apiClient.get(
+    `/api/practice/details/${encodeURIComponent(normalizedSlug)}`,
+    { signal: config?.signal }
+  );
+  return normalizePracticeDetailsResponse(response.data);
 }
 
 export interface PublicPracticeDetails {
@@ -1265,73 +1909,43 @@ export interface PublicPracticeDetails {
 
 export async function getPublicPracticeDetails(
   slug: string,
-  config?: Pick<AxiosRequestConfig, 'signal'>
+  config?: ApiRequestConfig
 ): Promise<PublicPracticeDetails | null> {
   if (!slug) {
     throw new Error('practice slug is required');
   }
   const normalizedSlug = slug.trim();
+  const cacheKey = publicPracticeDetailsKey(normalizedSlug);
 
-  // 1. Return from persistent cache if already resolved (primary dedup across all callers).
-  if (publicPracticeDetailsCache.has(normalizedSlug)) {
-    return publicPracticeDetailsCache.get(normalizedSlug) ?? null;
-  }
-
-  // 2. Return in-flight promise if a request is already underway (concurrent dedup).
-  const existing = publicPracticeDetailsInFlight.get(normalizedSlug);
-  if (existing) {
-    return existing;
-  }
-
-  const requestPromise = (async () => {
-    try {
+  return queryCache.coalesceGet<PublicPracticeDetails | null>(
+    cacheKey,
+    async (signal) => {
       const apiUrl = `${getWorkerApiUrl()}/api/practice/details/${encodeURIComponent(normalizedSlug)}`;
-
-      const response = await axios.get(
-        apiUrl,
-        {
-          signal: config?.signal,
-          withCredentials: true
-        }
-      );
-      const details = normalizePracticeDetailsResponse(response.data);
-      const displayDetails = extractPublicPracticeDisplayDetails(response.data);
-      const practiceId = extractPublicPracticeId(response.data);
-      if (!details) {
-        // Cache null so we don't keep retrying a practice that returned no details.
-        publicPracticeDetailsCache.set(normalizedSlug, null);
-        return null;
-      }
-      const result: PublicPracticeDetails = {
-        practiceId: practiceId ?? undefined,
-        slug: normalizedSlug,
-        details,
-        name: displayDetails.name,
-        logo: displayDetails.logo
-      };
-      publicPracticeDetailsCache.set(normalizedSlug, result);
-      return result;
-    } catch (error) {
-      if (axios.isAxiosError(error)) {
-        if (error.response?.status === 404) {
-          // Cache null for 404 — the practice doesn't exist, no point retrying.
-          publicPracticeDetailsCache.set(normalizedSlug, null);
+      try {
+        const response = await apiFetch<unknown>('GET', apiUrl, undefined, { signal });
+        const details = normalizePracticeDetailsResponse(response.data);
+        if (!details) return null;
+        const displayDetails = extractPublicPracticeDisplayDetails(response.data);
+        const practiceId = extractPublicPracticeId(response.data);
+        return {
+          practiceId: practiceId ?? undefined,
+          slug: normalizedSlug,
+          details,
+          name: displayDetails.name,
+          logo: displayDetails.logo,
+        };
+      } catch (error) {
+        if (isHttpError(error) && error.response.status === 404) {
+          // Cache null on 404 so we don't keep retrying for a missing practice.
           return null;
         }
+        // Re-throw transient errors (rate limit, network) — coalesceGet
+        // doesn't cache thrown values, so callers can retry.
+        throw error;
       }
-      // Do NOT cache transient errors (rate limit, network failure) so callers can retry.
-      throw error;
-    }
-  })();
-
-  publicPracticeDetailsInFlight.set(normalizedSlug, requestPromise);
-  try {
-    return await requestPromise;
-  } finally {
-    if (publicPracticeDetailsInFlight.get(normalizedSlug) === requestPromise) {
-      publicPracticeDetailsInFlight.delete(normalizedSlug);
-    }
-  }
+    },
+    { ttl: policyTtl(cacheKey), signal: config?.signal }
+  );
 }
 
 function normalizePracticeUpdatePayload(payload: UpdatePracticeRequest): Record<string, unknown> {
@@ -1340,7 +1954,9 @@ function normalizePracticeUpdatePayload(payload: UpdatePracticeRequest): Record<
   if ('name' in payload && payload.name !== undefined) normalized.name = payload.name;
   if ('slug' in payload && payload.slug !== undefined) normalized.slug = payload.slug;
   if ('logo' in payload && payload.logo !== undefined) normalized.logo = payload.logo;
-  if ('metadata' in payload && payload.metadata !== undefined) normalized.metadata = payload.metadata;
+  if ('metadata' in payload && payload.metadata !== undefined) {
+    normalized.metadata = payload.metadata;
+  }
 
   return normalized;
 }
@@ -1376,8 +1992,8 @@ function extractPublicPracticeDisplayDetails(
   pushCandidate(payload);
 
   for (const candidate of candidates) {
-    const name = toNullableString(candidate.name ?? candidate.practiceName ?? candidate.practice_name);
-    const rawLogo = toNullableString(candidate.logo ?? candidate.practiceLogo ?? candidate.practice_logo);
+    const name = toNullableString(candidate.name ?? candidate.practice_name);
+    const rawLogo = toNullableString(candidate.logo ?? candidate.practice_logo);
     const logo = normalizePublicFileUrl(rawLogo);
     if (name || logo) {
       return { name, logo };
@@ -1388,53 +2004,56 @@ function extractPublicPracticeDisplayDetails(
 }
 
 function extractPublicPracticeId(payload: unknown): string | null {
-  if (!isRecord(payload)) {
-    return null;
-  }
-
-  const extractFromRecord = (value: Record<string, unknown>): string | null => {
-    const direct = toNullableString(
-      value.practiceId ??
-      value.practice_id ??
-      value.organizationId ??
-      value.organization_id ??
-      value.id
-    );
-    return direct ?? null;
-  };
+  if (!isRecord(payload)) return null;
 
   const candidates: Record<string, unknown>[] = [];
-  const pushCandidate = (value: unknown) => {
-    if (isRecord(value)) {
-      candidates.push(value);
-    }
-  };
-
-  pushCandidate(payload);
-  pushCandidate(payload.organization);
-  pushCandidate(payload.practice);
-
   if ('details' in payload && isRecord(payload.details)) {
-    pushCandidate(payload.details);
-    pushCandidate(payload.details.data);
-    pushCandidate(payload.details.organization);
-    pushCandidate(payload.details.practice);
+    if ('data' in payload.details && isRecord(payload.details.data)) {
+      candidates.push(payload.details.data);
+    }
+    candidates.push(payload.details);
   }
-
   if ('data' in payload && isRecord(payload.data)) {
-    pushCandidate(payload.data);
-    pushCandidate(payload.data.details);
-    pushCandidate(payload.data.organization);
-    pushCandidate(payload.data.practice);
+    if ('details' in payload.data && isRecord(payload.data.details)) {
+      candidates.push(payload.data.details);
+    }
+    candidates.push(payload.data);
   }
+  if ('organization' in payload && isRecord(payload.organization)) {
+    candidates.push(payload.organization);
+  }
+  candidates.push(payload);
 
   for (const candidate of candidates) {
-    const id = extractFromRecord(candidate);
-    if (id) {
-      return id;
+    const id = toNullableString(
+      candidate.organization_id ??
+      candidate.practice_id ??
+      candidate.id
+    );
+    if (id) return id;
+    if ('organization' in candidate && isRecord(candidate.organization)) {
+      const nested = toNullableString(
+        (candidate.organization as Record<string, unknown>).id ??
+        (candidate.organization as Record<string, unknown>).organization_id
+      );
+      if (nested) return nested;
+    }
+    if ('practice' in candidate && isRecord(candidate.practice)) {
+      const practice = candidate.practice as Record<string, unknown>;
+      const practiceId = toNullableString(
+        practice.practice_id ??
+        practice.organization_id ?? practice.id
+      );
+      if (practiceId) return practiceId;
+      if ('organization' in practice && isRecord(practice.organization)) {
+        const nested = toNullableString(
+          (practice.organization as Record<string, unknown>).id ??
+          (practice.organization as Record<string, unknown>).organization_id
+        );
+        if (nested) return nested;
+      }
     }
   }
-
   return null;
 }
 
@@ -1466,14 +2085,6 @@ function normalizePracticeDetailsPayload(payload: PracticeDetailsUpdate): Record
   }
   if ('paymentLinkEnabled' in payload && payload.paymentLinkEnabled !== undefined) {
     normalized.payment_link_enabled = payload.paymentLinkEnabled;
-  }
-  if ('paymentLinkPrefillAmount' in payload && payload.paymentLinkPrefillAmount !== undefined) {
-    if (payload.paymentLinkPrefillAmount === null) {
-      normalized.payment_link_prefill_amount = null;
-    } else if (typeof payload.paymentLinkPrefillAmount === 'number') {
-      assertMajorUnits(payload.paymentLinkPrefillAmount, 'practice.paymentLinkPrefillAmount');
-      normalized.payment_link_prefill_amount = toMinorUnitsValue(payload.paymentLinkPrefillAmount);
-    }
   }
   const paymentUrl = normalizeTextOrUndefined(payload.paymentUrl);
   if (paymentUrl !== undefined) normalized.payment_url = paymentUrl;
@@ -1510,8 +2121,20 @@ function normalizePracticeDetailsPayload(payload: PracticeDetailsUpdate): Record
   if ('accentColor' in payload && payload.accentColor !== undefined) {
     normalized.accent_color = payload.accentColor;
   }
-  const description = normalizeTextOrUndefined(payload.description);
-  if (description !== undefined) normalized.overview = description;
+  if ('legalDisclaimer' in payload) {
+    if (payload.legalDisclaimer === null) {
+      normalized.overview = '';
+    } else if (typeof payload.legalDisclaimer === 'string') {
+      normalized.overview = payload.legalDisclaimer.trim();
+    }
+  }
+  if ('introMessage' in payload) {
+    if (payload.introMessage === null) {
+      normalized.intro_message = '';
+    } else if (typeof payload.introMessage === 'string') {
+      normalized.intro_message = payload.introMessage.trim();
+    }
+  }
   if ('isPublic' in payload && payload.isPublic !== undefined) {
     normalized.is_public = payload.isPublic;
   }
@@ -1530,7 +2153,6 @@ function normalizePracticeDetailsPayload(payload: PracticeDetailsUpdate): Record
           if (!name) {
             return null;
           }
-          const description = toNullableString(service.description);
           const rawKey = toNullableString(service.key);
           const baseKey = rawKey ?? name ?? id;
           const key = baseKey ? normalizeServiceKey(baseKey) : '';
@@ -1540,9 +2162,6 @@ function normalizePracticeDetailsPayload(payload: PracticeDetailsUpdate): Record
           const next: Record<string, unknown> = { name, key };
           if (id) {
             next.id = id;
-          }
-          if (description) {
-            next.description = description;
           }
           return next;
         })
@@ -1559,6 +2178,90 @@ function normalizePracticeDetailsPayload(payload: PracticeDetailsUpdate): Record
     normalized.business_onboarding_has_draft = payload.businessOnboardingHasDraft;
   }
 
+  // Pass settings through as-is — it is an opaque JSON string owned by the caller.
+  if ('settings' in payload && payload.settings !== undefined) {
+    normalized.settings = payload.settings;
+  }
+  if ('metadata' in payload && payload.metadata !== undefined) {
+    normalized.metadata = payload.metadata;
+  }
+
+  if ('serviceStates' in payload && payload.serviceStates !== undefined) {
+    normalized.service_states = Array.isArray(payload.serviceStates)
+      ? payload.serviceStates
+          .filter((state): state is string => typeof state === 'string')
+          .map((state) => state.trim().toUpperCase())
+          .filter(Boolean)
+      : payload.serviceStates;
+  }
+
+  // If callers provided a top-level `servicesByState`, serialize and merge
+  // it into the opaque `settings` JSON so the backend receives the
+  // `services_by_state` key. This preserves the write-time type while
+  // ensuring the data is sent inside `settings` as expected by the API.
+  if ('servicesByState' in payload && payload.servicesByState !== undefined) {
+    const existingSettingsRaw = (payload as Record<string, unknown>).settings;
+    let base: Record<string, unknown> = {};
+    if (typeof existingSettingsRaw === 'string' && existingSettingsRaw.trim().length > 0) {
+      try {
+        const parsed = JSON.parse(existingSettingsRaw);
+        if (!isRecord(parsed)) {
+          throw new Error('Practice settings must be a JSON object when servicesByState is provided.');
+        }
+        base = parsed;
+      } catch (err) {
+        throw new Error(`Invalid JSON in payload.settings: ${err instanceof Error ? err.message : String(err)}`);
+      }
+    }
+    // Only set normalized.settings here if it hasn't already been set, otherwise merge
+    if (typeof normalized.settings === 'string') {
+      try {
+        const current = JSON.parse(normalized.settings);
+        if (isRecord(current)) {
+          base = { ...current, ...base };
+        }
+      } catch {
+        // If normalized.settings is invalid, overwrite with base
+      }
+    }
+    base.services_by_state = payload.servicesByState;
+    normalized.settings = JSON.stringify(base);
+  }
+
+  if ('supportedStates' in payload && payload.supportedStates !== undefined) {
+    if (Array.isArray(payload.supportedStates)) {
+      normalized.supported_states = payload.supportedStates
+        .map((entry) => {
+          if (!isRecord(entry) || typeof entry.country !== 'string') {
+            return null;
+          }
+          const country = entry.country.trim().toUpperCase();
+          if (!country) {
+            return null;
+          }
+          const result: Record<string, unknown> = { country };
+          if (Array.isArray(entry.states)) {
+            const states = entry.states
+              .filter((state): state is string => typeof state === 'string')
+              .map((state) => state.trim().toUpperCase())
+              .filter(Boolean);
+            if (states.length > 0) {
+              result.states = states;
+            }
+          }
+          return result;
+        })
+        .filter((entry): entry is Record<string, unknown> => entry !== null);
+    } else {
+      normalized.supported_states = payload.supportedStates;
+    }
+  }
+
+  // NOTE: Persist `services_by_state` inside `settings` (opaque JSON string).
+  // The frontend MUST set `payload.settings` to a JSON string that contains
+  // a `services_by_state` property when saving per-state services. Do NOT
+  // create a top-level `services_by_state` field — the backend does not accept it.
+
   return normalized;
 }
 
@@ -1567,33 +2270,28 @@ export function normalizePracticeDetailsResponse(payload: unknown): PracticeDeta
     return null;
   }
   const hasMappedDetailKey = (value: Record<string, unknown>): boolean => ([
+    'name',
+    'logo',
+    'slug',
     'overview',
-    'description',
+    'legal_disclaimer',
+    'intro_message',
     'business_phone',
-    'businessPhone',
     'business_email',
-    'businessEmail',
     'consultation_fee',
-    'consultationFee',
     'payment_link_enabled',
-    'paymentLinkEnabled',
-    'payment_link_prefill_amount',
-    'paymentLinkPrefillAmount',
     'billing_increment_minutes',
-    'billingIncrementMinutes',
     'payment_url',
-    'paymentUrl',
     'calendly_url',
-    'calendlyUrl',
     'website',
     'accent_color',
-    'accentColor',
     'primary_color',
-    'primaryColor',
     'is_public',
-    'isPublic',
     'services',
-    'address'
+    'address',
+    'service_states',
+    'supported_states',
+    'settings',
   ].some((key) => key in value));
   const resolveCandidate = (value: unknown): Record<string, unknown> | null =>
     isRecord(value) && hasMappedDetailKey(value) ? value : null;
@@ -1668,12 +2366,15 @@ export function normalizePracticeDetailsResponse(payload: unknown): PracticeDeta
   };
 
   return {
-    id: getOptionalNullableString(container, ['id', 'uuid', 'practice_id', 'practiceId', 'organization_id', 'organizationId']),
-    businessPhone: getOptionalNullableString(container, ['business_phone', 'businessPhone']),
-    businessEmail: getOptionalNullableString(container, ['business_email', 'businessEmail']),
+    id: getOptionalNullableString(container, ['id', 'uuid', 'practice_id', 'organization_id']) ?? undefined,
+    businessPhone: getOptionalNullableString(container, ['business_phone']),
+    businessEmail: getOptionalNullableString(container, ['business_email']),
+    name: getOptionalNullableString(container, ['name', 'practice_name', 'business_name']),
+    logo: normalizePublicFileUrl(getOptionalNullableString(container, ['logo', 'logo_url', 'profile_image'])),
+    slug: getOptionalNullableString(container, ['slug', 'practice_slug']),
     consultationFee: (() => {
-      if ('consultation_fee' in container || 'consultationFee' in container) {
-        const value = container.consultation_fee ?? container.consultationFee;
+      if ('consultation_fee' in container) {
+        const value = container.consultation_fee;
         if (typeof value === 'number') {
           assertMinorUnits(value, 'practice.details.consultationFee');
           return toMajorUnits(value);
@@ -1683,30 +2384,20 @@ export function normalizePracticeDetailsResponse(payload: unknown): PracticeDeta
       return undefined;
     })(),
     paymentLinkEnabled: (() => {
-      if ('payment_link_enabled' in container || 'paymentLinkEnabled' in container) {
-        const value = container.payment_link_enabled ?? container.paymentLinkEnabled;
+      if ('payment_link_enabled' in container) {
+        const value = container.payment_link_enabled;
         return typeof value === 'boolean' ? value : null;
       }
       return undefined;
     })(),
-    paymentLinkPrefillAmount: (() => {
-      if ('payment_link_prefill_amount' in container || 'paymentLinkPrefillAmount' in container) {
-        const value = container.payment_link_prefill_amount ?? container.paymentLinkPrefillAmount;
-        if (typeof value === 'number') {
-          assertMinorUnits(value, 'practice.details.paymentLinkPrefillAmount');
-          return toMajorUnits(value);
-        }
-        return null;
-      }
-      return undefined;
-    })(),
-    paymentUrl: getOptionalNullableString(container, ['payment_url', 'paymentUrl']),
-    calendlyUrl: getOptionalNullableString(container, ['calendly_url', 'calendlyUrl']),
-    billingIncrementMinutes: getOptionalNullableNumber(container, ['billing_increment_minutes', 'billingIncrementMinutes']),
+    paymentUrl: getOptionalNullableString(container, ['payment_url']),
+    calendlyUrl: getOptionalNullableString(container, ['calendly_url']),
+    billingIncrementMinutes: getOptionalNullableNumber(container, ['billing_increment_minutes']),
     website: getOptionalNullableString(container, ['website']),
-    description: getOptionalNullableString(container, ['overview', 'description']),
-    isPublic: 'is_public' in container || 'isPublic' in container
-      ? Boolean(container.is_public ?? container.isPublic)
+    introMessage: getOptionalNullableString(container, ['intro_message']),
+    legalDisclaimer: getOptionalNullableString(container, ['overview', 'legal_disclaimer']),
+    isPublic: 'is_public' in container
+      ? Boolean(container.is_public)
       : undefined,
     services: 'services' in container
       ? (Array.isArray(container.services) ? (container.services as Array<Record<string, unknown>>) : null)
@@ -1715,11 +2406,81 @@ export function normalizePracticeDetailsResponse(payload: unknown): PracticeDeta
     apartment: getOptionalNullableString(address, ['line2', 'apartment']) ?? getOptionalNullableString(container, ['apartment']),
     city: getOptionalNullableString(address, ['city']) ?? getOptionalNullableString(container, ['city']),
     state: getOptionalNullableString(address, ['state']) ?? getOptionalNullableString(container, ['state']),
-    postalCode: getOptionalNullableString(address, ['postal_code', 'postalCode'])
-      ?? getOptionalNullableString(container, ['postalCode', 'postal_code']),
+    postalCode: getOptionalNullableString(address, ['postal_code'])
+      ?? getOptionalNullableString(container, ['postal_code']),
     country: getOptionalNullableString(address, ['country']) ?? getOptionalNullableString(container, ['country']),
-     primaryColor: getOptionalNullableString(container, ['primary_color', 'primaryColor']),
-     accentColor: getOptionalNullableString(container, ['accent_color', 'accentColor'])
+     primaryColor: getOptionalNullableString(container, ['primary_color']),
+     accentColor: getOptionalNullableString(container, ['accent_color']),
+     serviceStates: (() => {
+       const raw = 'service_states' in container ? container.service_states : undefined;
+       if (raw === undefined) return undefined;
+       if (!Array.isArray(raw)) return null;
+       return raw
+         .filter((state): state is string => typeof state === 'string')
+         .map((state) => state.trim().toUpperCase())
+         .filter(Boolean);
+     })(),
+     supportedStates: (() => {
+       const raw = 'supported_states' in container ? container.supported_states : undefined;
+       if (raw === undefined) return undefined;
+       if (!Array.isArray(raw)) return null;
+       const result = raw
+         .map((entry) => {
+           if (!isRecord(entry)) return null;
+           const country = typeof entry.country === 'string' ? entry.country.trim().toUpperCase() : '';
+           if (!country) return null;
+           const states = Array.isArray(entry.states)
+             ? (entry.states as unknown[])
+                 .filter((s): s is string => typeof s === 'string')
+                 .map((s) => s.trim().toUpperCase())
+                 .filter(Boolean)
+             : undefined;
+           const entryResult: SupportedStateEntry = { country };
+           if (states !== undefined) entryResult.states = states;
+           return entryResult;
+         })
+         .filter((e): e is SupportedStateEntry => e !== null);
+       return result;
+     })(),
+    servicesByState: (() => {
+      // Persisted location: `settings.services_by_state` (opaque JSON string).
+      // No fallbacks: if not present in `settings`, treat as undefined.
+      if (!('settings' in container)) return undefined;
+      const rawSettings = container.settings;
+      if (typeof rawSettings !== 'string') return undefined;
+      try {
+        const parsed = JSON.parse(rawSettings);
+        if (!isRecord(parsed) || !('services_by_state' in parsed)) return undefined;
+        const raw = (parsed as Record<string, unknown>).services_by_state;
+        if (!isRecord(raw)) return null;
+        const result: Record<string, string[]> = {};
+        for (const [k, v] of Object.entries(raw)) {
+          if (!Array.isArray(v)) continue;
+          const services = v.filter((s): s is string => typeof s === 'string').map((s) => s.trim()).filter(Boolean);
+          if (services.length > 0) {
+            result[k.trim().toUpperCase()] = services;
+          }
+        }
+        return result;
+      } catch {
+        return undefined;
+      }
+    })(),
+     // Pass settings through as an opaque string so the UI can read/write it.
+     settings: 'settings' in container
+       ? (typeof container.settings === 'string' ? container.settings : null)
+       : undefined,
+     // Pass metadata through, parsing if it's a string
+    metadata: 'metadata' in container
+      ? (typeof container.metadata === 'string'
+          ? (() => {
+              try {
+                const parsed = JSON.parse(container.metadata);
+                return isRecord(parsed) ? parsed : undefined;
+              } catch { return undefined; }
+            })()
+          : isRecord(container.metadata) ? container.metadata : undefined)
+      : undefined,
    };
  }
 
@@ -1734,7 +2495,7 @@ export async function requestBillingPortalSession(
 }
 
 export async function getCurrentSubscription(
-  config?: Pick<AxiosRequestConfig, 'signal'>
+  config?: ApiRequestConfig
 ): Promise<CurrentSubscription | null> {
   const response = await apiClient.get('/api/subscriptions/current', {
     signal: config?.signal
@@ -1752,24 +2513,43 @@ export async function getCurrentSubscription(
     throw new Error('Invalid /api/subscriptions/current payload: subscription must be an object or null.');
   }
 
-  const plan = isRecord(container.plan)
-    ? {
-      id: toNullableString(container.plan.id),
-      name: toNullableString(container.plan.name),
-      displayName: toNullableString(container.plan.display_name),
-      description: toNullableString(container.plan.description),
-      stripeProductId: toNullableString(container.plan.stripe_product_id),
-      stripeMonthlyPriceId: toNullableString(container.plan.stripe_monthly_price_id),
-      stripeYearlyPriceId: toNullableString(container.plan.stripe_yearly_price_id),
-      monthlyPrice: toNullableString(container.plan.monthly_price),
-      yearlyPrice: toNullableString(container.plan.yearly_price),
-      currency: toNullableString(container.plan.currency),
-      features: Array.isArray(container.plan.features)
-        ? container.plan.features.filter((feature): feature is string => typeof feature === 'string')
-        : null,
-      isActive: typeof container.plan.is_active === 'boolean' ? container.plan.is_active : null
-    }
-    : null;
+  if (!isRecord(container.plan)) {
+    throw new Error('Invalid /api/subscriptions/current payload: subscription is missing plan metadata.');
+  }
+
+  const planName = toNullableString(container.plan.name);
+  const planDisplayName = toNullableString(container.plan.display_name);
+  if (!planName && !planDisplayName) {
+    throw new Error('Invalid /api/subscriptions/current payload: subscription plan is missing name metadata.');
+  }
+
+  if (!Array.isArray(container.plan.features)) {
+    throw new Error('Invalid /api/subscriptions/current payload: subscription plan is missing features metadata.');
+  }
+
+  const plan = {
+    id: toNullableString(container.plan.id),
+    name: planName,
+    displayName: planDisplayName,
+    description: toNullableString(container.plan.description),
+    stripeProductId: toNullableString(container.plan.stripe_product_id),
+    stripeMonthlyPriceId: toNullableString(container.plan.stripe_monthly_price_id),
+    stripeYearlyPriceId: toNullableString(container.plan.stripe_yearly_price_id),
+    monthlyPrice: toNullableString(container.plan.monthly_price),
+    yearlyPrice: toNullableString(container.plan.yearly_price),
+    currency: toNullableString(container.plan.currency),
+    features: container.plan.features.filter((feature): feature is string => typeof feature === 'string'),
+    limits: isRecord(container.plan.limits)
+      ? {
+        users: typeof container.plan.limits.users === 'number' ? container.plan.limits.users : null,
+        storageGb: typeof container.plan.limits.storage_gb === 'number' ? container.plan.limits.storage_gb : null,
+        invoicesPerMonth: typeof container.plan.limits.invoices_per_month === 'number'
+          ? container.plan.limits.invoices_per_month
+          : null
+      }
+      : null,
+    isActive: typeof container.plan.is_active === 'boolean' ? container.plan.is_active : null
+  };
 
   return {
     id: toNullableString(container.id),
@@ -1828,7 +2608,7 @@ function normalizeSubscriptionListResponse(payload: unknown): Record<string, unk
 
 export async function listAuthSubscriptions(
   referenceId: string,
-  config?: Pick<AxiosRequestConfig, 'signal'>
+  config?: ApiRequestConfig
 ): Promise<AuthSubscriptionListItem[]> {
   if (!referenceId) {
     throw new Error('referenceId is required');
@@ -1848,7 +2628,7 @@ export async function listAuthSubscriptions(
 
 export async function listSubscriptions(
   referenceId: string,
-  config?: Pick<AxiosRequestConfig, 'signal'>
+  config?: ApiRequestConfig
 ): Promise<SubscriptionListItem[]> {
   if (!referenceId) {
     throw new Error('referenceId is required');
@@ -1868,36 +2648,3 @@ export async function listSubscriptions(
   const data = response.data as SubscriptionListResponse;
   return normalizeSubscriptionListResponse(data) as SubscriptionListItem[];
 }
-
-apiClient.interceptors.response.use(
-  (response) => response,
-  async (error) => {
-    if (error.response?.status === 401) {
-      // Guard against concurrent 401s - only handle once
-      if (!isHandling401) {
-        // Create the handler promise immediately and assign it
-        const handle401 = async () => {
-          try {
-            if (typeof window !== 'undefined') {
-              try {
-                window.dispatchEvent(new CustomEvent('auth:unauthorized'));
-              } catch (eventErr) {
-                console.error('Error dispatching auth:unauthorized event:', eventErr);
-                // Don't rethrow - let the original 401 error be the main error
-              }
-            }
-          } finally {
-            // Reset guard after handling completes, regardless of errors
-            isHandling401 = null;
-          }
-        };
-
-        // Assign the promise immediately before any async work
-        isHandling401 = handle401();
-      }
-      // Wait for the handling to complete (or already in progress)
-      await isHandling401;
-    }
-    return Promise.reject(error);
-  }
-);

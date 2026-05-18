@@ -1,4 +1,4 @@
-import { useMemo } from 'preact/hooks';
+import { useMemo, useState } from 'preact/hooks';
 import { useLocation } from 'preact-iso';
 import { useSessionContext } from '@/shared/contexts/SessionContext';
 import { useWorkspace } from '@/shared/hooks/useWorkspace';
@@ -7,6 +7,10 @@ import { useNavigation } from '@/shared/utils/navigation';
 import { getWorkspaceSettingsPath } from '@/shared/utils/workspace';
 import { Button } from '@/shared/ui/Button';
 import { NextStepsCard, type NextStepsItem } from '@/shared/ui/cards/NextStepsCard';
+import { ClientSidebar } from '@/shared/ui/nav/ClientSidebar';
+import { WorkspaceShellHeader } from '@/shared/ui/layout/WorkspaceShellHeader';
+import { AppShell } from '@/shared/ui/layout/AppShell';
+import { useCommandPalette } from '@/features/search/contexts/CommandPaletteContext';
 
 const ClientHomePage = () => {
   const { session } = useSessionContext();
@@ -14,14 +18,28 @@ const ClientHomePage = () => {
   const { canAccessPractice } = useWorkspace();
   const { currentPractice, practices } = useWorkspaceResolver();
   const { navigate, navigateToPricing } = useNavigation();
-  const name = session?.user?.name || session?.user?.email || 'there';
+  const [desktopCollapsed, setDesktopCollapsed] = useState(false);
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
+
+  const userName = session?.user?.name || session?.user?.email || 'there';
+  const userEmail = session?.user?.email ?? null;
+  const userImage = session?.user?.image ?? null;
   const showUpgrade = !canAccessPractice;
+
+  const clientPracticeSlug = currentPractice?.slug ?? practices[0]?.slug ?? null;
+  const orgName = currentPractice?.name?.trim() || userName;
+  const orgInitial = (orgName.charAt(0) || 'B').toUpperCase();
+
   const settingsPath = useMemo(() => {
     const routeMatch = location.path.match(/^\/(client|practice)\/([^/]+)/);
     if (routeMatch) {
       const workspace = routeMatch[1] as 'client' | 'practice';
       const slug = decodeURIComponent(routeMatch[2]);
-      return getWorkspaceSettingsPath(workspace, slug);
+      const matchesKnownPractice =
+        currentPractice?.slug === slug || practices.some((p) => p.slug === slug);
+      if (matchesKnownPractice) {
+        return getWorkspaceSettingsPath(workspace, slug);
+      }
     }
     const fallbackSlug = currentPractice?.slug ?? practices[0]?.slug ?? null;
     return fallbackSlug ? getWorkspaceSettingsPath('client', fallbackSlug) : null;
@@ -55,13 +73,42 @@ const ClientHomePage = () => {
     return items;
   }, [navigateToPricing, showUpgrade]);
 
-  return (
-    <div className="h-full overflow-y-auto p-6">
-      <div className="max-w-4xl mx-auto space-y-6">
+  const sidebarUser = { name: userName, email: userEmail, image: userImage };
+
+  const renderSidebar = (forceExpanded: boolean) =>
+    clientPracticeSlug ? (
+      <ClientSidebar
+        practiceSlug={clientPracticeSlug}
+        org={{ name: orgName, initial: orgInitial }}
+        user={sidebarUser}
+        collapsed={desktopCollapsed}
+        forceExpanded={forceExpanded}
+        onToggleCollapsed={() => setDesktopCollapsed((v) => !v)}
+        onItemActivate={() => setMobileSidebarOpen(false)}
+        activeItemId="home"
+        workspaceSection="home"
+        showUpgradeItem={showUpgrade}
+        onUpgradeClick={() => navigateToPricing()}
+      />
+    ) : null;
+
+  const { open: openCommandPalette } = useCommandPalette();
+  const header = (
+    <WorkspaceShellHeader
+      orgInitial={orgInitial}
+      title="Home"
+      onMenuClick={() => setMobileSidebarOpen(true)}
+      onSearchClick={() => openCommandPalette()}
+    />
+  );
+
+  const main = (
+    <div className="h-full overflow-y-auto px-6 py-8 md:px-12 md:py-10">
+      <div className="max-w-4xl mx-auto space-y-7">
         <div>
-          <h1 className="text-2xl text-heading">Welcome, {name}</h1>
+          <h1 className="text-2xl text-heading">Welcome back, {userName}</h1>
           <p className="mt-2 text-sm text-secondary">
-            Your client workspace is ready. Keep track of your conversations and return to active matters any time.
+            Here&apos;s an overview of your matter. Check messages, review documents, or pick up where you left off.
           </p>
         </div>
 
@@ -71,19 +118,38 @@ const ClientHomePage = () => {
           items={clientNextStepsItems}
         />
 
-        <div className="glass-card p-6 space-y-4">
+        <div className="glass-panel p-6 space-y-4">
           <div>
             <h2 className="text-lg text-heading">Manage your account</h2>
             <p className="text-sm text-secondary">
               Update your preferences, notifications, and security settings.
             </p>
           </div>
-          <Button variant="secondary" onClick={() => settingsPath && navigate(settingsPath)}>
+          <Button
+            variant="secondary"
+            disabled={!settingsPath}
+            onClick={() => settingsPath && navigate(settingsPath)}
+          >
             Manage account settings
           </Button>
         </div>
       </div>
     </div>
+  );
+
+  return (
+    <AppShell
+      className="bg-transparent h-dvh"
+      accentBackdropVariant="none"
+      header={header}
+      sidebar={renderSidebar(false)}
+      desktopSidebarCollapsed={desktopCollapsed}
+      mobileSidebar={renderSidebar(true)}
+      mobileSidebarOpen={mobileSidebarOpen}
+      onMobileSidebarClose={() => setMobileSidebarOpen(false)}
+      main={main}
+      mainClassName="min-h-0 h-full overflow-hidden"
+    />
   );
 };
 

@@ -35,18 +35,18 @@ const normalizeNumberOrNull = (value: unknown): number | null => (
   typeof value === 'number' && Number.isFinite(value) ? value : null
 );
 
-const normalizeStringArrayOrNull = (value: unknown): string[] | null => {
-  if (!Array.isArray(value)) return null;
-  const next = value
-    .filter((item): item is string => typeof item === 'string')
-    .map((item) => item.trim())
-    .filter(Boolean);
-  return next.length > 0 ? next : null;
-};
-
 const hasNonEmptyString = (value: unknown): boolean => (
   typeof value === 'string' && value.trim().length > 0
 );
+
+export const hasCoreIntakeFields = (
+  state: IntakeConversationState | Partial<IntakeConversationState> | null | undefined
+): boolean => {
+  if (!state) return false;
+  return hasNonEmptyString(state.description)
+    && hasNonEmptyString(state.city)
+    && hasNonEmptyString(state.state);
+};
 
 const isEmptyContact = (value: SlimContactDraft | null | undefined): boolean => !value
   || (!trimString(value.name) && !trimString(value.email) && !trimString(value.phone));
@@ -69,33 +69,29 @@ const mergeIntakeState = (
   source: IntakeConversationState | null | undefined
 ): IntakeConversationState => {
   const fallback = source ?? initialIntakeState;
+  const normalizedCustomFields = normalized.customFields ?? {};
+  const fallbackCustomFields = fallback.customFields ?? {};
+  const customFields = {
+    ...fallbackCustomFields,
+    ...normalizedCustomFields,
+  };
   return {
-    practiceArea: normalized.practiceArea ?? fallback.practiceArea,
-    practiceAreaName: normalized.practiceAreaName ?? fallback.practiceAreaName,
+    practiceServiceUuid: normalized.practiceServiceUuid ?? fallback.practiceServiceUuid,
     description: normalized.description ?? fallback.description,
     urgency: normalized.urgency ?? fallback.urgency,
     opposingParty: normalized.opposingParty ?? fallback.opposingParty,
     city: normalized.city ?? fallback.city,
     state: normalized.state ?? fallback.state,
-    postalCode: normalized.postalCode ?? fallback.postalCode,
-    country: normalized.country ?? fallback.country,
-    addressLine1: normalized.addressLine1 ?? fallback.addressLine1,
-    addressLine2: normalized.addressLine2 ?? fallback.addressLine2,
     desiredOutcome: normalized.desiredOutcome ?? fallback.desiredOutcome,
     courtDate: normalized.courtDate ?? fallback.courtDate,
-    income: normalized.income ?? fallback.income,
-    householdSize: normalized.householdSize ?? fallback.householdSize,
     hasDocuments: normalized.hasDocuments ?? fallback.hasDocuments,
-    eligibilitySignals: normalized.eligibilitySignals?.length ? normalized.eligibilitySignals : fallback.eligibilitySignals,
-    quickReplies: normalized.quickReplies?.length ? normalized.quickReplies : fallback.quickReplies,
-    intakeReady:
-      typeof normalized.intakeReady === 'boolean'
-        ? normalized.intakeReady
-        : (fallback.intakeReady ?? false),
+    householdSize: normalized.householdSize ?? fallback.householdSize,
+    enrichmentMode: normalized.enrichmentMode ?? fallback.enrichmentMode,
     turnCount: normalized.turnCount > 0 ? normalized.turnCount : fallback.turnCount,
     ctaShown: normalized.ctaShown || fallback.ctaShown || false,
     ctaResponse: normalized.ctaResponse ?? fallback.ctaResponse,
     notYetCount: normalized.notYetCount > 0 ? normalized.notYetCount : fallback.notYetCount,
+    ...(Object.keys(customFields).length > 0 ? { customFields } : {}),
   };
 };
 
@@ -112,11 +108,13 @@ const mergeSubmission = (
   const fallbackPaymentReceived = typeof source?.intakePaymentReceived === 'boolean'
     ? source.intakePaymentReceived
     : null;
+  const fallbackCheckoutSessionId = trimString(source?.checkoutSessionId) || null;
   return {
     intakeUuid: normalized.intakeUuid ?? fallbackUuid,
     submittedAt: normalized.submittedAt ?? (trimString(source?.submittedAt) || null),
     paymentRequired: normalized.paymentRequired ?? fallbackPaymentRequired,
     paymentReceived: normalized.paymentReceived ?? fallbackPaymentReceived,
+    checkoutSessionId: normalized.checkoutSessionId ?? fallbackCheckoutSessionId,
   };
 };
 
@@ -145,16 +143,61 @@ export const hasConsultationContact = (value: SlimContactDraft | null | undefine
   value && (trimString(value.name) || trimString(value.email) || trimString(value.phone))
 );
 
-export const isIntakeReadyForSubmission = (
-  state: IntakeConversationState | Partial<IntakeConversationState> | null | undefined
+/**
+ * Resolve whether a field's condition is satisfied given the current intake state.
+ * A field with no condition is always active.
+ */
+const isFieldConditionMet = (
+  field: { condition?: { dependsOn: string; value: string | boolean | number } | null },
+  flatState: Record<string, unknown>,
+  customFields: Record<string, unknown>,
 ): boolean => {
+  if (!field.condition) return true;
+  const { dependsOn, value } = field.condition;
+  // Check standard state first, then customFields bucket
+  const current = dependsOn in flatState ? flatState[dependsOn] : customFields[dependsOn];
+  // Loose string comparison so "true" === true and "1" === 1 are handled
+  return String(current ?? '') === String(value);
+};
+
+export const isIntakeReadyForSubmission = (
+  state: IntakeConversationState | Partial<IntakeConversationState> | null | undefined,
+  requiredFields?: ReadonlyArray<{ key: string; isStandard: boolean; condition?: { dependsOn: string; value: string | boolean | number } | null }> | null
+): boolean => {
+  // No template — fall back to the hardcoded core fields check so existing
+  // conversations without a template continue to work.
+  if (!requiredFields || requiredFields.length === 0) {
+    return hasCoreIntakeFields(state);
+  }
   if (!state) return false;
-  const hasDescription = hasNonEmptyString(state.description);
-  const hasLocation = hasNonEmptyString(state.city) && hasNonEmptyString(state.state);
-  const hasOpposingParty = hasNonEmptyString(state.opposingParty);
-  const hasDesiredOutcome = hasNonEmptyString(state.desiredOutcome);
-  const hasDocumentAnswer = typeof state.hasDocuments === 'boolean';
-  return hasDescription && hasLocation && hasOpposingParty && hasDesiredOutcome && hasDocumentAnswer;
+  const flatState = state as Record<string, unknown>;
+  const customFields = (flatState.customFields && typeof flatState.customFields === 'object' && !Array.isArray(flatState.customFields))
+    ? flatState.customFields as Record<string, unknown>
+    : {};
+  return requiredFields.every((f) => {
+    // Phase 3: required fields whose condition isn't met don't block submission
+    if (!isFieldConditionMet(f, flatState, customFields)) return true;
+    if (f.isStandard) {
+      const value = flatState[f.key];
+      return typeof value === 'string' ? value.trim().length > 0 : (value !== null && value !== undefined);
+    }
+    const value = customFields[f.key];
+    return typeof value === 'string' ? value.trim().length > 0 : (value !== null && value !== undefined);
+  });
+};
+
+export const isIntakeSubmittable = (
+  state: IntakeConversationState | Partial<IntakeConversationState> | null | undefined,
+  submission?: {
+    paymentRequired?: boolean | null;
+    paymentReceived?: boolean | null;
+  } | null,
+  requiredFields?: ReadonlyArray<{ key: string; isStandard: boolean; condition?: { dependsOn: string; value: string | boolean | number } | null }> | null
+): boolean => {
+  if (!isIntakeReadyForSubmission(state, requiredFields)) return false;
+  const paymentRequired = submission?.paymentRequired === true;
+  const paymentReceived = submission?.paymentReceived === true;
+  return !paymentRequired || paymentReceived;
 };
 
 export const normalizeIntakeConversationState = (value: unknown): IntakeConversationState => {
@@ -163,26 +206,31 @@ export const normalizeIntakeConversationState = (value: unknown): IntakeConversa
   }
   const record = value as Record<string, unknown>;
   const urgency = trimString(record.urgency);
+  const customFields = (() => {
+    if (!record.customFields || typeof record.customFields !== 'object' || Array.isArray(record.customFields)) {
+      return undefined;
+    }
+    const normalized: NonNullable<IntakeConversationState['customFields']> = {};
+    for (const [key, value] of Object.entries(record.customFields as Record<string, unknown>)) {
+      if (!key.trim()) continue;
+      if (typeof value === 'string' && value.trim()) normalized[key] = value.trim();
+      if (typeof value === 'number' && Number.isFinite(value)) normalized[key] = value;
+      if (typeof value === 'boolean') normalized[key] = value;
+    }
+    return Object.keys(normalized).length > 0 ? normalized : undefined;
+  })();
   const nextState: IntakeConversationState = {
-    practiceArea: trimString(record.practiceArea) || null,
-    practiceAreaName: trimString(record.practiceAreaName) || null,
+    practiceServiceUuid: trimString(record.practiceServiceUuid) || null,
     description: trimString(record.description) || null,
     urgency: (urgency || null) as IntakeConversationState['urgency'],
     opposingParty: trimString(record.opposingParty) || null,
     city: trimString(record.city) || null,
     state: trimString(record.state) || null,
-    postalCode: trimString(record.postalCode) || null,
-    country: trimString(record.country) || null,
-    addressLine1: trimString(record.addressLine1) || null,
-    addressLine2: trimString(record.addressLine2) || null,
     desiredOutcome: trimString(record.desiredOutcome) || null,
     courtDate: trimString(record.courtDate) || null,
-    income: trimString(record.income) || null,
-    householdSize: normalizeNumberOrNull(record.householdSize),
     hasDocuments: typeof record.hasDocuments === 'boolean' ? record.hasDocuments : null,
-    eligibilitySignals: normalizeStringArrayOrNull(record.eligibilitySignals),
-    quickReplies: normalizeStringArrayOrNull(record.quickReplies),
-    intakeReady: typeof record.intakeReady === 'boolean' ? record.intakeReady : false,
+    householdSize: normalizeNumberOrNull(record.householdSize),
+    enrichmentMode: typeof record.enrichmentMode === 'boolean' ? record.enrichmentMode : null,
     turnCount: normalizeNumberOrNull(record.turnCount) ?? 0,
     ctaShown: typeof record.ctaShown === 'boolean' ? record.ctaShown : false,
     ctaResponse:
@@ -190,8 +238,9 @@ export const normalizeIntakeConversationState = (value: unknown): IntakeConversa
         ? record.ctaResponse
         : null,
     notYetCount: normalizeNumberOrNull(record.notYetCount) ?? 0,
+    ...(customFields ? { customFields } : {}),
   };
-  return { ...nextState, intakeReady: isIntakeReadyForSubmission(nextState) };
+  return nextState;
 };
 
 const normalizeConsultationSubmission = (value: unknown): ConsultationState['submission'] => {
@@ -204,6 +253,7 @@ const normalizeConsultationSubmission = (value: unknown): ConsultationState['sub
     submittedAt: trimString(record.submittedAt) || null,
     paymentRequired: normalizeBooleanOrNull(record.paymentRequired),
     paymentReceived: normalizeBooleanOrNull(record.paymentReceived),
+    checkoutSessionId: trimString(record.checkoutSessionId) || null,
   };
 };
 
@@ -352,6 +402,10 @@ export const mergeConsultationState = (
         patch.submission.paymentReceived === undefined
           ? base.submission.paymentReceived
           : normalizeBooleanOrNull(patch.submission.paymentReceived),
+      checkoutSessionId:
+        patch.submission.checkoutSessionId === undefined
+          ? base.submission.checkoutSessionId ?? null
+          : trimString(patch.submission.checkoutSessionId) || null,
     };
   })();
 
@@ -442,9 +496,10 @@ export const deriveIntakeStatusFromConsultation = (
   const consultation = resolveConsultationState(metadata);
   if (!consultation) {
     return {
-      step: 'contact_form_slim',
+      step: metadata?.disclaimerAcceptedAt ? 'contact_form_slim' : 'disclaimer',
       decision: metadata?.intakeDecision as string | undefined,
       intakeUuid: metadata?.intakeUuid as string | undefined,
+      submittedAt: typeof metadata?.submittedAt === 'string' ? (metadata.submittedAt as string) : undefined,
       paymentRequired: metadata?.intakePaymentRequired as boolean | undefined,
       paymentReceived: metadata?.intakePaymentReceived as boolean | undefined,
     } as const;
@@ -453,15 +508,20 @@ export const deriveIntakeStatusFromConsultation = (
   const step = (() => {
     if (consultation.status === 'completed') return 'completed';
     if (consultation.status === 'submitted') return 'pending_review';
+    if (!metadata?.disclaimerAcceptedAt) return 'disclaimer';
     if (consultation.status === 'collecting_contact') return 'contact_form_slim';
-    if (consultation.case.turnCount <= 0) return 'contact_form_decision';
-    return 'ai_brief';
+    if (consultation.case.ctaResponse === 'ready') return 'ready_to_submit';
+    if (consultation.case.ctaShown === true) return 'contact_form_decision';
+    if (hasCoreIntakeFields(consultation.case)) return 'ai_brief';
+    if (hasConsultationContact(consultation.contact)) return 'collecting_case';
+    return 'contact_form_slim';
   })();
 
   return {
     step,
     decision: metadata?.intakeDecision as string | undefined,
     intakeUuid: consultation.submission.intakeUuid ?? undefined,
+    submittedAt: consultation.submission.submittedAt ?? undefined,
     paymentRequired: consultation.submission.paymentRequired ?? undefined,
     paymentReceived: consultation.submission.paymentReceived ?? undefined,
   } as const;

@@ -1,9 +1,10 @@
 import { useMemo, useState } from 'preact/hooks';
-import { EllipsisVerticalIcon, PlusIcon, TrashIcon, PencilIcon } from '@heroicons/react/24/outline';
+import { MoreVertical, Plus, Trash2, Pencil } from 'lucide-preact';
+
 import { Icon } from '@/shared/ui/Icon';
 import { ulid } from 'ulid';
 import { format, parseISO } from 'date-fns';
-import Modal from '@/shared/components/Modal';
+import { Dialog, DialogBody, DialogFooter } from '@/shared/ui/dialog';
 import { Button } from '@/shared/ui/Button';
 import {
   DropdownMenu,
@@ -12,14 +13,15 @@ import {
   DropdownMenuTrigger
 } from '@/shared/ui/dropdown';
 import { formatCurrency } from '@/shared/utils/currencyFormatter';
+import { ListRowSkeleton, PanelSectionHeader, PanelEmptyState, InteractiveListItem } from '@/shared/ui/layout';
 import type { MatterDetail, MatterExpense } from '@/features/matters/data/matterTypes';
 import { ExpenseForm, type ExpenseFormValues } from './ExpenseForm';
 
 const formatExpenseDate = (dateString: string) => format(parseISO(dateString), 'MMM d, yyyy');
 
 const statusStyles: Record<'billable' | 'nonbillable', string> = {
-  billable: 'text-green-700 bg-green-50 ring-green-600/20 dark:text-green-200 dark:bg-green-500/10',
-  nonbillable: 'text-red-700 bg-red-50 ring-red-600/20 dark:text-red-200 dark:bg-red-500/10'
+  billable: 'text-emerald-700 bg-emerald-50 ring-emerald-600/20 dark:text-emerald-200 dark:bg-emerald-500/10',
+  nonbillable: 'text-rose-700 bg-rose-50 ring-rose-600/20 dark:text-rose-200 dark:bg-rose-500/10'
 };
 
 interface MatterExpensesPanelProps {
@@ -49,6 +51,8 @@ export const MatterExpensesPanel = ({
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingExpense, setEditingExpense] = useState<MatterExpense | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<MatterExpense | null>(null);
+  // Increment-on-record-switch + `key={formKey}` remount. See
+  // docs/solutions/conventions/form-reset-pattern-2026-05-18.md.
   const [formKey, setFormKey] = useState(0);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
@@ -171,46 +175,36 @@ export const MatterExpensesPanel = ({
   };
 
   return (
-    <section className="glass-panel">
-      <header className="flex flex-wrap items-center justify-between gap-3 border-b border-line-glass/30 px-6 py-4">
-        <div>
-          <h3 className="text-sm font-semibold text-input-text">Expenses</h3>
-          <p className="text-xs text-gray-500 dark:text-gray-400">
-            {sortedExpenses.length} recorded · {formatCurrency(totalExpenses)} total · {formatCurrency(billableTotal)} billable
-          </p>
-        </div>
-        <Button size="sm" icon={PlusIcon} iconClassName="h-4 w-4" onClick={openNewExpense} disabled={!canCreate}>
-          Add expense
-        </Button>
-      </header>
+    <section className="panel">
+      <PanelSectionHeader
+        title="Expenses"
+        subtitle={`${sortedExpenses.length} recorded · ${formatCurrency(totalExpenses)} total · ${formatCurrency(billableTotal)} billable`}
+        actions={(
+          <Button size="sm" icon={Plus} iconClassName="h-4 w-4" onClick={openNewExpense} disabled={!canCreate}>
+            Add expense
+          </Button>
+        )}
+      />
 
       {error ? (
         <div className="px-6 py-6 text-sm text-red-600 dark:text-red-400">
           {error}
         </div>
       ) : loading && sortedExpenses.length === 0 ? (
-        <div className="px-6 py-6 text-sm text-gray-500 dark:text-gray-400">
-          Loading expenses...
-        </div>
+        <ListRowSkeleton rows={4} avatar={false} className="divide-y divide-line-default" />
       ) : sortedExpenses.length === 0 ? (
-        <div className="px-6 py-6 text-sm text-gray-500 dark:text-gray-400">
-          No expenses yet. Add receipts, filing fees, or other costs tied to this matter.
-        </div>
+        <PanelEmptyState message="No expenses yet. Add receipts, filing fees, or other costs tied to this matter." />
       ) : (
         <ul className="divide-y divide-line-default">
           {sortedExpenses.map((expense) => {
             const statusClass = expense.billable ? statusStyles.billable : statusStyles.nonbillable;
             return (
-              <li
+              <InteractiveListItem
                 key={expense.id}
-                className="flex flex-wrap items-start justify-between gap-4 px-6 py-4 hover:bg-gray-50 dark:hover:bg-white/5 transition-colors"
+                onClick={() => openEditExpense(expense)}
+                disabled={!canEdit}
               >
-                <button
-                  type="button"
-                  className="min-w-0 text-left flex-1"
-                  onClick={() => openEditExpense(expense)}
-                  disabled={!canEdit}
-                >
+                <div className="min-w-0 flex-1">
                   <div className="min-w-0">
                   <div className="flex flex-wrap items-center gap-2">
                     <p className="text-sm font-semibold text-input-text">
@@ -225,17 +219,17 @@ export const MatterExpensesPanel = ({
                       {expense.billable ? 'Billable' : 'Not billable'}
                     </span>
                   </div>
-                  <div className="mt-1 flex flex-wrap items-center gap-x-2 text-xs leading-5 text-gray-500 dark:text-gray-400">
+                  <div className="mt-1 flex flex-wrap items-center gap-x-2 text-xs leading-5 text-input-placeholder">
                     <span className="whitespace-nowrap">
                       Date: <time dateTime={expense.date}>{formatExpenseDate(expense.date)}</time>
                     </span>
-                    <svg viewBox="0 0 2 2" className="h-0.5 w-0.5 fill-current">
+                    <svg viewBox="0 0 2 2" className="h-0.5 w-0.5 fill-current opacity-30">
                       <circle cx="1" cy="1" r="1" />
                     </svg>
                     <span className="truncate">Amount: {formatCurrency(expense.amount)}</span>
                   </div>
                 </div>
-                </button>
+                </div>
                 {canEdit ? (
                   <div className="flex items-center gap-2">
                   <DropdownMenu>
@@ -244,20 +238,20 @@ export const MatterExpensesPanel = ({
                         variant="ghost"
                         size="sm"
                         aria-label="Open expense actions"
-                        icon={EllipsisVerticalIcon} iconClassName="h-4 w-4"
+                        icon={MoreVertical} iconClassName="h-4 w-4"
                       />
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end" className="w-32">
                       <div className="py-1">
                         <DropdownMenuItem onSelect={() => openEditExpense(expense)}>
                           <span className="flex items-center gap-2">
-                            <Icon icon={PencilIcon} className="h-4 w-4"  />
+                            <Icon icon={Pencil} className="h-4 w-4"  />
                             Edit
                           </span>
                         </DropdownMenuItem>
                         <DropdownMenuItem onSelect={() => confirmDelete(expense)}>
                           <span className="flex items-center gap-2 text-red-600 dark:text-red-400">
-                            <Icon icon={TrashIcon} className="h-4 w-4"  />
+                            <Icon icon={Trash2} className="h-4 w-4"  />
                             Delete
                           </span>
                         </DropdownMenuItem>
@@ -266,59 +260,61 @@ export const MatterExpensesPanel = ({
                   </DropdownMenu>
                 </div>
                 ) : null}
-              </li>
+              </InteractiveListItem>
             );
           })}
         </ul>
       )}
 
       {isFormOpen && (
-        <Modal
+        <Dialog
           isOpen={isFormOpen}
           onClose={closeForm}
           title={editingExpense ? 'Edit expense' : 'Add expense'}
           contentClassName="max-w-2xl"
         >
-          <ExpenseForm
-            key={`${editingExpense?.id ?? 'new'}-${formKey}`}
-            initialExpense={editingExpense ?? undefined}
-            onSubmit={handleSave}
-            onCancel={closeForm}
-            onDelete={canEdit && editingExpense ? () => confirmDelete(editingExpense) : undefined}
-          />
-          {submitError && (
-            <p className="mt-3 text-sm text-red-600 dark:text-red-400">{submitError}</p>
-          )}
-          {isSubmitting && (
-            <p className="mt-3 text-sm text-gray-500 dark:text-gray-400">Saving expense...</p>
-          )}
-        </Modal>
+          <DialogBody>
+            <ExpenseForm
+              key={`${editingExpense?.id ?? 'new'}-${formKey}`}
+              initialExpense={editingExpense ?? undefined}
+              onSubmit={handleSave}
+              onCancel={closeForm}
+              onDelete={canEdit && editingExpense ? () => confirmDelete(editingExpense) : undefined}
+            />
+            {submitError && (
+              <p className="mt-3 text-sm text-red-600 dark:text-red-400">{submitError}</p>
+            )}
+            {isSubmitting && (
+              <p className="mt-3 text-sm text-input-placeholder">Saving expense...</p>
+            )}
+          </DialogBody>
+        </Dialog>
       )}
 
       {canEdit && deleteTarget && (
-        <Modal
+        <Dialog
           isOpen={Boolean(deleteTarget)}
           onClose={() => setDeleteTarget(null)}
           title="Delete expense"
           contentClassName="max-w-xl"
         >
-          <div className="space-y-4">
-            <p className="text-sm text-gray-600 dark:text-gray-300">
+          <DialogBody className="space-y-4">
+            <p className="text-sm text-input-placeholder">
               Are you sure you want to delete this expense? This action cannot be undone.
             </p>
             {deleteError && (
               <p className="text-sm text-red-600 dark:text-red-400">{deleteError}</p>
             )}
-            <div className="flex items-center justify-end gap-3">
-              <Button variant="secondary" onClick={() => setDeleteTarget(null)}>
-                Cancel
-              </Button>
-              <Button variant="danger" onClick={handleDelete} disabled={isSubmitting}>
-                {isSubmitting ? 'Deleting...' : 'Delete expense'}
-              </Button>
-            </div>
-          </div>
-        </Modal>
+          </DialogBody>
+          <DialogFooter>
+            <Button variant="secondary" onClick={() => setDeleteTarget(null)}>
+              Cancel
+            </Button>
+            <Button variant="danger" onClick={handleDelete} disabled={isSubmitting}>
+              {isSubmitting ? 'Deleting...' : 'Delete expense'}
+            </Button>
+          </DialogFooter>
+        </Dialog>
       )}
     </section>
   );

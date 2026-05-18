@@ -1,7 +1,13 @@
 import type { Env } from '../types.js';
 import { HttpError } from '../types.js';
 import { RemoteApiService } from '../services/RemoteApiService.js';
-const CACHE_TTL_SECONDS = 600;
+import { edgeCache } from './edgeCache.js';
+import { policyTtlMs } from './cachePolicy.js';
+
+// KV is the cross-isolate persistence layer (10 min TTL). The in-memory
+// edgeCache tier above uses the shorter `practice:details:` policy TTL.
+// Different layers, different TTLs by design.
+const KV_PRACTICE_DETAILS_TTL_SECONDS = 600;
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -22,8 +28,24 @@ export const invalidatePracticeDetailsCache = async (
   practiceId: string | null | undefined
 ): Promise<void> => {
   const trimmed = typeof practiceId === 'string' ? practiceId.trim() : '';
-  if (!trimmed || !env.CHAT_SESSIONS) return;
-  await env.CHAT_SESSIONS.delete(`practice_details:${trimmed}`);
+  if (!trimmed) return;
+
+  // Drop the in-isolate memoization for this id (and any slug entries — we
+  // don't track the slug here, so wipe the whole prefix to be safe).
+  edgeCache.invalidate('practice:details:', /* prefix */ true);
+
+  if (!env.CHAT_SESSIONS) return;
+  const uuidKey = `practice_details:${trimmed}`;
+  const slugKey = `practice_details:slug:${trimmed}`;
+  await Promise.all([
+    env.CHAT_SESSIONS.delete(uuidKey),
+    env.CHAT_SESSIONS.delete(slugKey)
+  ]);
+};
+
+type PracticeDetailsResult = {
+  details: Record<string, unknown> | null;
+  isPublic: boolean;
 };
 
 export const fetchPracticeDetailsWithCache = async (
@@ -35,55 +57,106 @@ export const fetchPracticeDetailsWithCache = async (
     bypassCache?: boolean;
     preferPracticeIdLookup?: boolean;
   }
-): Promise<{
-  details: Record<string, unknown> | null;
-  isPublic: boolean;
-}> => {
-  if (!practiceId) {
+): Promise<PracticeDetailsResult> => {
+  const trimmedSlug = practiceSlug?.trim() ?? '';
+
+  // Require at least one identifier. Empty practiceId is allowed when slug is present
+  // (anonymous prefetch path — practiceId not yet known).
+  if (!practiceId && !trimmedSlug) {
     return { details: null, isPublic: false };
   }
-  const cacheKey = `practice_details:${practiceId}`;
+
+  // Memoize per-isolate. The KV layer below remains the source of truth across
+  // isolates; this just absorbs repeated reads inside one isolate's lifetime.
+  // bypassCache also skips the in-memory tier so callers can force-refresh.
+  const memoKey = `practice:details:${practiceId || `slug:${trimmedSlug}`}`;
+  if (!options?.bypassCache) {
+    const memoized = edgeCache.get<PracticeDetailsResult>(memoKey);
+    if (memoized) return memoized;
+  }
+  const result = await fetchPracticeDetailsUncached(env, request, practiceId, trimmedSlug, options);
+  if (!options?.bypassCache && result.details) {
+    edgeCache.set(memoKey, result, policyTtlMs(memoKey));
+  }
+  return result;
+};
+
+const fetchPracticeDetailsUncached = async (
+  env: Env,
+  request: Request,
+  practiceId: string,
+  trimmedSlug: string,
+  options?: {
+    bypassCache?: boolean;
+    preferPracticeIdLookup?: boolean;
+  }
+): Promise<PracticeDetailsResult> => {
+
+  // Two cache namespaces:
+  //   UUID key  — used when practiceId is a real UUID (primary, most callers)
+  //   Slug key  — used when only practiceSlug is available (anonymous prefetch)
+  // Reads check UUID first, slug as fallback.
+  // Writes populate both keys whenever payload and both identifiers are available.
+  const uuidKey = practiceId ? `practice_details:${practiceId}` : null;
+  const slugKey = trimmedSlug ? `practice_details:slug:${trimmedSlug}` : null;
+
+  const writeToCache = async (payload: unknown, isPublicResponse: boolean): Promise<void> => {
+    if (options?.bypassCache || !env.CHAT_SESSIONS || !payload) return;
+    const serialized = JSON.stringify({ payload });
+    const ttl = { expirationTtl: KV_PRACTICE_DETAILS_TTL_SECONDS };
+    const writes: Promise<void>[] = [];
+    
+    // Always write to UUID key for authenticated responses
+    if (uuidKey) writes.push(env.CHAT_SESSIONS.put(uuidKey, serialized, ttl));
+    
+    // Only write to slug key for public/canonical responses to prevent
+    // auth-gated payloads from being accessible via slug namespace
+    if (slugKey && isPublicResponse) {
+      writes.push(env.CHAT_SESSIONS.put(slugKey, serialized, ttl));
+    }
+    
+    await Promise.all(writes);
+  };
+
   if (!options?.bypassCache && env.CHAT_SESSIONS) {
-    const cached = await env.CHAT_SESSIONS.get(cacheKey, 'json') as { payload?: unknown } | null;
-    if (cached?.payload) {
-      const details = extractDetailsContainer(cached.payload);
-      if (details) {
-        const isPublic = Boolean(details?.is_public ?? details?.isPublic);
-        return { details, isPublic };
+    // Check UUID key first, then slug key as fallback.
+    const keysToTry = [uuidKey, slugKey].filter((k): k is string => k !== null);
+    for (const key of keysToTry) {
+      const cached = await env.CHAT_SESSIONS.get(key, 'json') as { payload?: unknown } | null;
+      if (cached?.payload) {
+        const details = extractDetailsContainer(cached.payload);
+        if (details) {
+          const isPublic = Boolean(details?.is_public ?? details?.isPublic);
+          return { details, isPublic };
+        }
+        // Stale/corrupt entry — evict and fall through to a fresh fetch.
+        await env.CHAT_SESSIONS.delete(key);
       }
-      // Cached shape is stale/corrupt for current parser; evict and fetch fresh.
-      await env.CHAT_SESSIONS.delete(cacheKey);
     }
   }
 
-  if (options?.preferPracticeIdLookup) {
+  if (options?.preferPracticeIdLookup && practiceId) {
     try {
       const response = await RemoteApiService.getPracticeDetailsById(env, practiceId, request);
       const payload = await response.json().catch(() => null);
       const details = extractDetailsContainer(payload);
       const isPublic = Boolean(details?.is_public ?? details?.isPublic);
-
-      if (!options?.bypassCache && env.CHAT_SESSIONS && payload) {
-        await env.CHAT_SESSIONS.put(cacheKey, JSON.stringify({ payload }), {
-          expirationTtl: CACHE_TTL_SECONDS
-        });
-      }
-
+      await writeToCache(payload, isPublic);
       return { details, isPublic };
     } catch (error) {
-      // fall through to slug lookup when ID lookup fails with auth/not-found errors
+      // Fall through to slug lookup on auth/not-found errors.
       if (!(error instanceof HttpError) || (error.status !== 404 && error.status !== 401 && error.status !== 403)) {
         throw error;
       }
     }
-    // fall through to slug lookup
   }
 
   const isUuid = (value: string): boolean =>
     /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
 
-  let resolvedSlug = practiceSlug?.trim() || practiceId;
-  if (!practiceSlug && isUuid(practiceId)) {
+  // Resolve the slug to use for the public API call.
+  let resolvedSlug = trimmedSlug || practiceId;
+  if (!trimmedSlug && practiceId && isUuid(practiceId)) {
     try {
       const practice = await RemoteApiService.getPractice(env, practiceId, request);
       if (practice?.slug) {
@@ -98,7 +171,7 @@ export const fetchPracticeDetailsWithCache = async (
   try {
     response = await RemoteApiService.getPublicPracticeDetails(env, resolvedSlug, request);
   } catch (error) {
-    if (error instanceof HttpError && resolvedSlug !== practiceId) {
+    if (error instanceof HttpError && resolvedSlug !== practiceId && practiceId) {
       response = await RemoteApiService.getPublicPracticeDetails(env, practiceId, request);
     } else {
       throw error;
@@ -108,12 +181,7 @@ export const fetchPracticeDetailsWithCache = async (
   const payload = await response.json().catch(() => null);
   const details = extractDetailsContainer(payload);
   const isPublic = Boolean(details?.is_public ?? details?.isPublic);
-
-  if (!options?.bypassCache && env.CHAT_SESSIONS && payload) {
-    await env.CHAT_SESSIONS.put(cacheKey, JSON.stringify({ payload }), {
-      expirationTtl: CACHE_TTL_SECONDS
-    });
-  }
+  await writeToCache(payload, isPublic);
 
   return { details, isPublic };
 };

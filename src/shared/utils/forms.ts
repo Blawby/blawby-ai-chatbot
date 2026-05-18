@@ -4,7 +4,7 @@ import {
   getPracticeClientIntakeSettingsEndpoint
 } from '@/config/api';
 import { asMinor, assertMinorUnits, toMinorUnitsValue, type MinorAmount } from '@/shared/utils/money';
-import { getPublicPracticeDetails } from '@/shared/lib/apiClient';
+import { apiClient, getPublicPracticeDetails, isHttpError } from '@/shared/lib/apiClient';
 
 const getTrimmedString = (value: unknown): string | undefined => {
   if (typeof value !== 'string') return undefined;
@@ -25,6 +25,7 @@ export function formatFormData(formData: Record<string, unknown>, practiceSlug: 
     getTrimmedString(formData.matterDescription) ??
     getTrimmedString(formData.description);
   const opposingParty = getTrimmedString(formData.opposingParty);
+  const practiceServiceUuid = getTrimmedString(formData.practiceServiceUuid);
 
   // Handle address field if present
   const address = formData.address as {
@@ -36,39 +37,43 @@ export function formatFormData(formData: Record<string, unknown>, practiceSlug: 
     country?: string;
   } | undefined;
   let addressPayload: {
-    line1: string;
+    line1?: string;
     line2?: string;
-    city: string;
+    city?: string;
     state?: string;
-    postal_code: string;
-    country: string;
+    postal_code?: string;
+    country?: string;
   } | undefined = undefined;
-  
-  if (address) {
+  const topLevelCity = getTrimmedString(formData.city);
+  const topLevelState = getTrimmedString(formData.state);
+
+  if (address || topLevelCity || topLevelState) {
     const trimmedAddress = {
-      address: address.address?.trim(),
-      apartment: address.apartment?.trim(),
-      city: address.city?.trim(),
-      state: address.state?.trim(),
-      postalCode: address.postalCode?.trim(),
-      country: address.country?.trim()
+      address: address?.address?.trim(),
+      apartment: address?.apartment?.trim(),
+      city: address?.city?.trim() || topLevelCity,
+      state: address?.state?.trim() || topLevelState,
+      postalCode: address?.postalCode?.trim(),
+      country: address?.country?.trim()
     };
 
-    const hasRequiredFields = [
+    const hasAddressFields = [
       trimmedAddress.address,
       trimmedAddress.city,
       trimmedAddress.country,
-      trimmedAddress.postalCode
-    ].every(field => field && field.length > 0);
+      trimmedAddress.postalCode,
+      trimmedAddress.state,
+      trimmedAddress.apartment,
+    ].some(field => field && field.length > 0);
     
-    if (hasRequiredFields) {
+    if (hasAddressFields) {
       addressPayload = {
-        line1: trimmedAddress.address,
-        line2: trimmedAddress.apartment,
-        city: trimmedAddress.city,
-        state: trimmedAddress.state,
-        postal_code: trimmedAddress.postalCode,
-        country: trimmedAddress.country
+        ...(trimmedAddress.address ? { line1: trimmedAddress.address } : {}),
+        ...(trimmedAddress.apartment ? { line2: trimmedAddress.apartment } : {}),
+        ...(trimmedAddress.city ? { city: trimmedAddress.city } : {}),
+        ...(trimmedAddress.state ? { state: trimmedAddress.state } : {}),
+        ...(trimmedAddress.postalCode ? { postal_code: trimmedAddress.postalCode } : {}),
+        ...(trimmedAddress.country ? { country: trimmedAddress.country } : {}),
       };
     }
   }
@@ -80,23 +85,32 @@ export function formatFormData(formData: Record<string, unknown>, practiceSlug: 
     ...(phone ? { phone } : {}),
     ...(description ? { description } : {}),
     ...(opposingParty ? { opposing_party: opposingParty } : {}),
+    ...(practiceServiceUuid ? { practice_service_uuid: practiceServiceUuid } : {}),
     ...(addressPayload ? { address: addressPayload } : {}),
   };
 }
 
+type IntakeSettingsRecord = {
+  paymentLinkEnabled?: boolean;
+  payment_link_enabled?: boolean;
+  consultationFee?: number;
+  consultation_fee?: number;
+};
+type IntakeSettingsOrganization = {
+  name?: string;
+  logo?: string;
+};
+// Backend emits the flat shape ({success, settings, organization}); the nested
+// ({data: {settings}}) form was used by an earlier version. The worker-side
+// helper at RemoteApiService.getPracticeClientIntakeSettings already accepts
+// both, and so do we.
 type IntakeSettingsResponse = {
   success?: boolean;
+  organization?: IntakeSettingsOrganization;
+  settings?: IntakeSettingsRecord;
   data?: {
-    organization?: {
-      name?: string;
-      logo?: string;
-    };
-    settings?: {
-      paymentLinkEnabled?: boolean;
-      payment_link_enabled?: boolean;
-      prefillAmount?: number;
-      prefill_amount?: number;
-    };
+    organization?: IntakeSettingsOrganization;
+    settings?: IntakeSettingsRecord;
   };
   error?: string;
 };
@@ -198,48 +212,33 @@ const sanitizeErrorBody = (raw: string): string => {
 
 const createCheckoutSession = async (intakeUuid: string): Promise<{ url?: string; sessionId?: string }> => {
   try {
-    const response = await fetch(getPracticeClientIntakeCheckoutSessionEndpoint(intakeUuid), {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      credentials: 'include'
-    });
-    if (!response.ok) {
-      const errorBody = await response.text();
-      const safeErrorBody = import.meta.env.DEV ? errorBody : sanitizeErrorBody(errorBody);
-      const errorLog = {
-        status: response.status,
-        statusText: response.statusText,
-        errorBody: safeErrorBody,
-        intakeUuid
-      };
-      if (import.meta.env.DEV) {
-        console.warn('[Intake] Checkout session creation failed', errorLog);
-      } else {
-        // Production logging
-        console.error('[Intake] Checkout session creation failed', JSON.stringify(errorLog));
-      }
-      const error = new Error(`Failed to create checkout session: ${response.status} ${response.statusText}`) as LoggedError;
-      error._logged = true;
-      throw error;
-    }
     let result: CheckoutSessionResponse;
     try {
-      result = await response.json() as CheckoutSessionResponse;
-    } catch (parseError) {
-      const errorLog = {
-        status: response.status,
-        statusText: response.statusText,
-        parseError: parseError instanceof Error ? parseError.message : String(parseError),
-        intakeUuid
-      };
-      if (import.meta.env.DEV) {
-        console.warn('[Intake] Failed to parse checkout session JSON', errorLog);
-      } else {
-        console.error('[Intake] Failed to parse checkout session JSON', JSON.stringify(errorLog));
+      const apiResult = await apiClient.post<CheckoutSessionResponse>(
+        getPracticeClientIntakeCheckoutSessionEndpoint(intakeUuid),
+      );
+      result = apiResult.data;
+    } catch (apiError) {
+      if (isHttpError(apiError)) {
+        const errorBody = typeof apiError.response.data === 'string'
+          ? apiError.response.data
+          : JSON.stringify(apiError.response.data ?? {});
+        const safeErrorBody = import.meta.env.DEV ? errorBody : sanitizeErrorBody(errorBody);
+        const errorLog = {
+          status: apiError.response.status,
+          errorBody: safeErrorBody,
+          intakeUuid,
+        };
+        if (import.meta.env.DEV) {
+          console.warn('[Intake] Checkout session creation failed', errorLog);
+        } else {
+          console.error('[Intake] Checkout session creation failed', JSON.stringify(errorLog));
+        }
+        const error = new Error(`Failed to create checkout session: ${apiError.response.status}`) as LoggedError;
+        error._logged = true;
+        throw error;
       }
-      const error = new Error(`Invalid server response (invalid JSON): ${response.status}`) as LoggedError;
-      error._logged = true;
-      throw error;
+      throw apiError;
     }
 
     if (!result.success || !result.data?.url) {
@@ -275,22 +274,14 @@ async function fetchIntakeSettings(
   practiceSlug: string
 ): Promise<IntakeSettingsResponse | null> {
   try {
-    const headers: Record<string, string> = {
-      'Content-Type': 'application/json'
-    };
-    const response = await fetch(getPracticeClientIntakeSettingsEndpoint(practiceSlug), {
-      method: 'GET',
-      headers,
-      credentials: 'include'
-    });
-
-    if (!response.ok) {
-      return null;
-    }
-
-    return await response.json() as IntakeSettingsResponse;
+    const { data } = await apiClient.get<IntakeSettingsResponse>(
+      getPracticeClientIntakeSettingsEndpoint(practiceSlug),
+    );
+    return data;
   } catch (error) {
-    console.warn('[Intake] Failed to fetch intake settings', error);
+    if (!isHttpError(error)) {
+      console.warn('[Intake] Failed to fetch intake settings', error);
+    }
     return null;
   }
 }
@@ -322,11 +313,11 @@ export async function submitContactForm(
     
     const formPayload = formatFormData(formData, practiceSlug);
     const settings = await fetchIntakeSettings(practiceSlug);
-    const settingsRecord = settings?.data?.settings;
-    const prefillAmount = typeof settingsRecord?.prefillAmount === 'number'
-      ? settingsRecord.prefillAmount
-      : typeof settingsRecord?.prefill_amount === 'number'
-        ? settingsRecord.prefill_amount
+    const settingsRecord = settings?.settings ?? settings?.data?.settings;
+    const consultationFee = typeof settingsRecord?.consultationFee === 'number'
+      ? settingsRecord.consultationFee
+      : typeof settingsRecord?.consultation_fee === 'number'
+        ? settingsRecord.consultation_fee
         : undefined;
     const paymentLinkEnabled = typeof settingsRecord?.paymentLinkEnabled === 'boolean'
       ? settingsRecord.paymentLinkEnabled
@@ -337,18 +328,18 @@ export async function submitContactForm(
       console.info('[Intake] Settings resolved', {
         practiceSlug,
         paymentLinkEnabled,
-        prefillAmount,
+        consultationFee,
         rawSettings: settingsRecord
       });
     }
-    let resolvedPrefillAmount = prefillAmount;
-    if ((resolvedPrefillAmount === undefined || resolvedPrefillAmount <= 0) && paymentLinkEnabled) {
+    let resolvedConsultationFee = consultationFee;
+    if ((resolvedConsultationFee === undefined || resolvedConsultationFee <= 0) && paymentLinkEnabled) {
       try {
         const practiceDetails = await getPublicPracticeDetails(practiceSlug);
-        const consultationFee = practiceDetails?.details?.consultationFee;
-        const fallbackMinor = toMinorUnitsValue(consultationFee);
+        const practiceConsultationFee = practiceDetails?.details?.consultationFee;
+        const fallbackMinor = toMinorUnitsValue(practiceConsultationFee);
         if (typeof fallbackMinor === 'number' && fallbackMinor > 0) {
-          resolvedPrefillAmount = fallbackMinor;
+          resolvedConsultationFee = fallbackMinor;
         }
       } catch (error) {
         if (import.meta.env.DEV) {
@@ -358,17 +349,17 @@ export async function submitContactForm(
     }
 
     if (paymentLinkEnabled) {
-      if (typeof resolvedPrefillAmount !== 'number' || !Number.isFinite(resolvedPrefillAmount)) {
+      if (typeof resolvedConsultationFee !== 'number' || !Number.isFinite(resolvedConsultationFee)) {
         throw new Error('Consultation fee is not configured for this practice.');
       }
-      if (resolvedPrefillAmount < 50) {
+      if (resolvedConsultationFee < 50) {
         throw new Error('Consultation fee must be at least $0.50.');
       }
     }
 
     const amount = clampAmount(
-      typeof resolvedPrefillAmount === 'number' && Number.isFinite(resolvedPrefillAmount)
-        ? resolvedPrefillAmount
+      typeof resolvedConsultationFee === 'number' && Number.isFinite(resolvedConsultationFee)
+        ? resolvedConsultationFee
         : 0
     );
     assertMinorUnits(amount, 'intake.create.amount');
@@ -393,24 +384,37 @@ export async function submitContactForm(
       ...(formPayload.phone ? { phone: formPayload.phone } : {}),
       ...(description ? { description } : { description: '' }), // Always include description
       ...(formPayload.opposing_party ? { opposing_party: formPayload.opposing_party } : { opposing_party: '' }), // Always include opposing_party
+      ...(formPayload.practice_service_uuid ? { practice_service_uuid: formPayload.practice_service_uuid } : {}),
       ...(formPayload.address ? { address: formPayload.address } : {}),
       ...(resolvedUserId ? { user_id: resolvedUserId } : {}),
       on_behalf_of: '' // Always include on_behalf_of
     };
 
-    const headers: Record<string, string> = {
-      'Content-Type': 'application/json'
-    };
+    let result: IntakeCreateResponse;
+    try {
+      const apiResult = await apiClient.post<IntakeCreateResponse>(
+        getPracticeClientIntakeCreateEndpoint(),
+        createPayload,
+      );
+      result = apiResult.data;
+    } catch (apiError) {
+      if (isHttpError(apiError)) {
+        const errorBody = typeof apiError.response.data === 'string'
+          ? apiError.response.data
+          : JSON.stringify(apiError.response.data ?? {});
+        console.error('[Forms] Backend error response:', {
+          status: apiError.response.status,
+          errorBody,
+        });
+        const errorData = (apiError.response.data && typeof apiError.response.data === 'object'
+          ? apiError.response.data as { error?: string; message?: string }
+          : {});
+        throw new Error(errorData.error || errorData.message || `Backend error: ${apiError.response.status}`);
+      }
+      throw apiError;
+    }
 
-    const response = await fetch(getPracticeClientIntakeCreateEndpoint(), {
-      method: 'POST',
-      headers,
-      credentials: 'include',
-      body: JSON.stringify(createPayload)
-    });
-
-    if (response.ok) {
-      const result = await response.json() as IntakeCreateResponse;
+    {
       if (result.success === false) {
         throw new Error(result.error || 'Form submission failed');
       }
@@ -464,23 +468,6 @@ export async function submitContactForm(
           organizationLogo: intakeData?.organization?.logo ?? settings?.data?.organization?.logo
         }
       };
-    } else {
-      const errorText = await response.text();
-      console.error('[Forms] Backend error response:', {
-        status: response.status,
-        statusText: response.statusText,
-        errorBody: errorText
-      });
-      
-      // Parse error text once to avoid double consumption
-      let errorData: { error?: string; message?: string } = {};
-      try {
-        errorData = JSON.parse(errorText) as { error?: string; message?: string };
-      } catch {
-        // If parsing fails, errorData remains empty object
-      }
-      
-      throw new Error(errorData.error || errorData.message || `Backend error: ${response.status} ${response.statusText}`);
     }
   } catch (error) {
     console.error('Error submitting form:', error);

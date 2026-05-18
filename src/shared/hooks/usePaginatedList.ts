@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'preact/hooks';
 
 type PageResult<T> = {
   items: T[];
@@ -16,7 +16,9 @@ export type UsePaginatedListResult<T extends { id: string }> = {
   isLoadingMore: boolean;
   error: string | null;
   hasMore: boolean;
+  loadMore: () => void;
   loadMoreRef: { current: HTMLDivElement | null };
+  refetch: () => void;
 };
 
 export function usePaginatedList<T extends { id: string }>(
@@ -47,7 +49,8 @@ export function usePaginatedList<T extends { id: string }>(
     setError(null);
     setIsLoading(true);
     setIsLoadingMore(false);
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- reset dependencies are intentionally supplied by the caller
+    // reset dependencies are intentionally supplied by the caller
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, deps);
 
   useEffect(() => {
@@ -96,12 +99,29 @@ export function usePaginatedList<T extends { id: string }>(
     return () => observer.disconnect();
   }, [canObserve]);
 
+  const loadMore = useCallback(() => {
+    if (!hasMore || isLoading || isLoadingMore) return;
+    setPage((prev) => prev + 1);
+  }, [hasMore, isLoading, isLoadingMore]);
+
+  const refetch = useCallback(() => {
+    setResetCounter((c) => c + 1);
+    setPage(1);
+    setItems([]);
+    setHasMore(true);
+    setError(null);
+    setIsLoading(true);
+    setIsLoadingMore(false);
+  }, []);
+
   return {
     items,
     isLoading,
     isLoadingMore,
     error,
     hasMore,
-    loadMoreRef
+    loadMore,
+    loadMoreRef,
+    refetch,
   };
 }
