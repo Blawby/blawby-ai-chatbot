@@ -19,8 +19,6 @@ import {
   MAX_TOTAL_LENGTH,
   AI_TIMEOUT_MS,
   CONSULTATION_CTA_REGEX,
-  SERVICE_QUESTION_REGEX,
-  HOURS_QUESTION_REGEX,
   LEGAL_INTENT_REGEX,
   createSseResponse,
   consumeAiStream,
@@ -41,8 +39,6 @@ import {
   deriveCaseSavedAcknowledgment,
   mergeIntakeState,
   normalizeServicesForPrompt,
-  extractServiceNames,
-  formatServiceList,
   shouldRequireDisclaimer,
   buildCompactPracticeContextForPrompt,
   executeIntakeTool,
@@ -61,9 +57,6 @@ import { normalizeChatActions } from '../../src/shared/utils/chatActions.js';
 import type { IntakeFieldDefinition } from '../../src/shared/types/intake.js';
 import type { IntakeTemplate } from '../../src/shared/types/intake.js';
 import { DEFAULT_INTAKE_TEMPLATE } from '../../src/shared/constants/intakeTemplates.js';
-
-const normalizeText = (text: string): string =>
-  text.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
 
 const readBooleanField = (record: Record<string, unknown> | null, keys: string[]): boolean | null => {
   if (!record) return null;
@@ -534,7 +527,6 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
   }
 
   const lastUserMessage = [...body.messages].reverse().find((message) => message.role === 'user');
-  const serviceNames = extractServiceNames(details);
   const hasLegalIntent = Boolean(lastUserMessage && LEGAL_INTENT_REGEX.test(lastUserMessage.content));
 
   // ------------------------------------------------------------------
@@ -543,24 +535,21 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
 
   let shortCircuitReply: string | null = null;
   let shortCircuitOnboardingProfile: Record<string, unknown> | null = null;
+  let isSafetyRailReply = false;
 
-  if (lastUserMessage && HOURS_QUESTION_REGEX.test(lastUserMessage.content)) {
-    const phone = readStringField(details, 'business_phone') ?? readStringField(details, 'businessPhone');
-    const email = readStringField(details, 'business_email') ?? readStringField(details, 'businessEmail');
-    const website = readStringField(details, 'website');
-    const contactParts = [phone ? `phone: ${phone}` : null, email ? `email: ${email}` : null, website ? `website: ${website}` : null]
-      .filter((value): value is string => Boolean(value));
-    shortCircuitReply = contactParts.length > 0
-      ? `The practice has not published specific office hours here yet. You can contact them via ${contactParts.join(', ')}.`
-      : 'The practice has not published specific office hours here yet. Please click "Request consultation" to connect with the practice.';
-  } else if (isGeneralQaMode && hasLegalIntent) {
+  // U3: hours-question and services-question regex shortcuts removed —
+  // these silently bypassed the AI and masked failure modes (see issue #596).
+  // Hours questions now route through the AI, which has practice contact details
+  // in PRACTICE_CONTEXT and is instructed via the system prompt to recommend
+  // contacting the practice when hours are not explicitly published. Services
+  // questions are answered from PRACTICE_CONTEXT.services by the model.
+  //
+  // The legal-advice branch is KEPT as a SAFETY RAIL (not a fallback): improvised
+  // legal advice is an unacceptable liability surface for "AI for legal practices".
+  // The safety rail is provenance-tagged so it is loud in the event timeline (U5).
+  if (isGeneralQaMode && hasLegalIntent) {
     shortCircuitReply = LEGAL_DISCLAIMER;
-  } else if (isGeneralQaMode && lastUserMessage && SERVICE_QUESTION_REGEX.test(lastUserMessage.content) && serviceNames.length > 0) {
-    const normalizedQuestion = normalizeText(lastUserMessage.content);
-    const matchedService = serviceNames.find((service) => normalizedQuestion.includes(normalizeText(service)));
-    shortCircuitReply = matchedService
-      ? `Yes — we handle ${matchedService}. Would you like to request a consultation?`
-      : `We currently handle ${formatServiceList(serviceNames)}. Would you like to request a consultation?`;
+    isSafetyRailReply = true;
   }
 
   if (shortCircuitReply !== null) {
