@@ -11,6 +11,17 @@ const SERVICE_QUESTION_REGEX = /(?:\b(?:do you|are you|can you|what|which)\b.*\b
 const HOURS_QUESTION_REGEX = /\b(hours?|opening hours|business hours|office hours|when are you open)\b/i;
 const LEGAL_INTENT_REGEX = /\b(?:legal advice|what are my rights|is it legal|do i need (?:a )?lawyer|(?:should|can|could|would)\s+i\b.*\b(?:sue|lawsuit|liable|liability|contract dispute|charged|settlement|custody|divorce|immigration|criminal)\b)/i;
 
+// Canonical hard-error constants live in src/shared/constants/intakeErrors.ts
+// so the worker SSE event, the conversation envelope, and the widget composer
+// all reference one copy. Re-exported below so existing worker imports from
+// this module continue to resolve. See U6/U8 of
+// docs/plans/2026-05-18-002-feat-strengthen-intake-ai-observability-plan.md.
+import {
+  INTAKE_HARD_ERROR_CODE as HARD_ERROR_CODE,
+  INTAKE_HARD_ERROR_MESSAGE as HARD_ERROR_MESSAGE,
+} from '../../src/shared/constants/intakeErrors';
+const AI_RETRY_BACKOFF_MS = 500;
+
 const encoder = new TextEncoder();
 
 function looksLikeToolLeak(content: string): boolean {
@@ -527,6 +538,9 @@ export {
   SERVICE_QUESTION_REGEX,
   HOURS_QUESTION_REGEX,
   LEGAL_INTENT_REGEX,
+  HARD_ERROR_CODE,
+  HARD_ERROR_MESSAGE,
+  AI_RETRY_BACKOFF_MS,
   encoder,
   sseEvent,
   createSseResponse,

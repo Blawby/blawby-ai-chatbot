@@ -6,6 +6,13 @@ import type { ExecutionContext } from '@cloudflare/workers-types';
 import { ConversationService } from '../services/ConversationService.js';
 import { getAttachedAuthContext } from '../middleware/compose.js';
 import { SessionAuditService } from '../services/SessionAuditService.js';
+import { IntakeEventService, writeIntakeTurn } from '../services/IntakeEventService.js';
+import type { IntakeEventRecordInput } from '../types/intakeEvent.js';
+import {
+  PartialIntakeSubmissionService,
+  type PartialCollectedFields,
+  type PartialSlimContactInput,
+} from '../services/PartialIntakeSubmissionService.js';
 import { createAiClient } from '../utils/aiClient.js';
 import { fetchPracticeDetailsWithCache } from '../utils/practiceDetailsCache.js';
 import { Logger } from '../utils/logger.js';
@@ -18,16 +25,16 @@ import {
   MAX_MESSAGE_LENGTH,
   MAX_TOTAL_LENGTH,
   AI_TIMEOUT_MS,
+  AI_RETRY_BACKOFF_MS,
   CONSULTATION_CTA_REGEX,
-  SERVICE_QUESTION_REGEX,
-  HOURS_QUESTION_REGEX,
   LEGAL_INTENT_REGEX,
+  HARD_ERROR_CODE,
+  HARD_ERROR_MESSAGE,
   createSseResponse,
   consumeAiStream,
   normalizeKeys,
   createAiDebugError,
   isRecord,
-  readStringField,
   readAnyString,
   hasNonEmptyStringField,
   isDebugEnabled,
@@ -41,8 +48,6 @@ import {
   deriveCaseSavedAcknowledgment,
   mergeIntakeState,
   normalizeServicesForPrompt,
-  extractServiceNames,
-  formatServiceList,
   shouldRequireDisclaimer,
   buildCompactPracticeContextForPrompt,
   executeIntakeTool,
@@ -61,9 +66,6 @@ import { normalizeChatActions } from '../../src/shared/utils/chatActions.js';
 import type { IntakeFieldDefinition } from '../../src/shared/types/intake.js';
 import type { IntakeTemplate } from '../../src/shared/types/intake.js';
 import { DEFAULT_INTAKE_TEMPLATE } from '../../src/shared/constants/intakeTemplates.js';
-
-const normalizeText = (text: string): string =>
-  text.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
 
 const readBooleanField = (record: Record<string, unknown> | null, keys: string[]): boolean | null => {
   if (!record) return null;
@@ -171,6 +173,77 @@ const persistMergedIntakeState = async (
     throw metadataError;
   }
 };
+
+/**
+ * Extract the slim contact form payload for U7's partial-intake submission.
+ * Returns null name/email when missing — the submission service handles the
+ * "missing required fields" case by logging and skipping.
+ *
+ * Mirrors the field extraction in submitIntake.ts normalizeSlimContactDraft
+ * without enforcing required-field presence (this runs on the AI failure path
+ * where we want to send whatever we have).
+ */
+export function extractSlimContactForFailure(
+  slimDraft: Record<string, unknown> | null,
+): PartialSlimContactInput {
+  const read = (key: string): string | null => {
+    const value = slimDraft?.[key];
+    return typeof value === 'string' && value.trim().length > 0 ? value.trim() : null;
+  };
+  return {
+    name: read('name'),
+    email: read('email'),
+    phone: read('phone'),
+    city: read('city'),
+    state: read('state'),
+  };
+}
+
+/**
+ * Extract whatever case-detail fields the intake AI collected before failure.
+ * Returns null if no usable fields were collected — keeps the payload tight
+ * and avoids sending all-null fields to the backend.
+ */
+export function extractCollectedFieldsForFailure(
+  state: Record<string, unknown> | null,
+): PartialCollectedFields | null {
+  if (!state) return null;
+  const readString = (key: string): string | null => {
+    const value = state[key];
+    return typeof value === 'string' && value.trim().length > 0 ? value.trim() : null;
+  };
+  const readBool = (key: string): boolean | null => {
+    const value = state[key];
+    return typeof value === 'boolean' ? value : null;
+  };
+  const readNumber = (key: string): number | null => {
+    const value = state[key];
+    return typeof value === 'number' && Number.isFinite(value) ? value : null;
+  };
+
+  const urgencyRaw = typeof state.urgency === 'string' ? state.urgency.trim().toLowerCase() : null;
+  const urgency: PartialCollectedFields['urgency'] =
+    urgencyRaw === 'routine' || urgencyRaw === 'time_sensitive' || urgencyRaw === 'emergency'
+      ? urgencyRaw
+      : null;
+
+  const collected: PartialCollectedFields = {
+    description: readString('description'),
+    urgency,
+    opposingParty: readString('opposingParty'),
+    desiredOutcome: readString('desiredOutcome'),
+    courtDate: readString('courtDate'),
+    hasDocuments: readBool('hasDocuments'),
+    income: readNumber('income'),
+    householdSize: readNumber('householdSize'),
+    practiceServiceUuid: readString('practiceServiceUuid'),
+  };
+
+  const hasValue = Object.values(collected).some(
+    (value) => value !== null && value !== undefined,
+  );
+  return hasValue ? collected : null;
+}
 
 const schedulePostStreamTasks = (
   context: ExecutionContext | undefined,
@@ -353,6 +426,7 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
   const practiceSlug = practiceSlugFromBody || practiceSlugFromConversation || practiceSlugFromMetadata;
 
   const auditService = new SessionAuditService(env);
+  const intakeEventService = new IntakeEventService(env);
 
   // The internal practiceId is the upstream organization_id (the practice/org id),
   // not details.id — see worker/routes/widget.ts. Use the slug-based prefetch as-is
@@ -460,12 +534,90 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
   const intakeBriefActive = consultation
     ? consultation.status === 'collecting_case' || consultation.status === 'ready_to_submit'
     : conversationMetadata?.intakeAiBriefActive === true;
+
+  // Canonical intake-mode signal — see U1 of docs/plans/2026-05-18-002-feat-strengthen-intake-ai-observability-plan.md.
+  // The legacy fallback predicate (effectiveMode + consultation + hasSlimContactDraft + intakeBriefActive)
+  // is replaced by a single timestamp column on conversations. Existing intake conversations were backfilled
+  // by the migration so this transition does not silently route them to general QA mode.
+  const intakeModeSignals = await conversationService.getIntakeModeSignals(body.conversationId, practiceId);
+  const intakeModeActivatedAt = intakeModeSignals.intake_mode_activated_at;
+  const aiFailedAt = intakeModeSignals.ai_failed_at;
   const isIntakeMode = Boolean(
-    (effectiveMode === 'REQUEST_CONSULTATION' || Boolean(consultation) || hasSlimContactDraft || intakeBriefActive) &&
-    body.intakeSubmitted !== true &&
-    isPublic
+    isPublic &&
+    intakeModeActivatedAt &&
+    body.intakeSubmitted !== true
   );
   const isGeneralQaMode = !isIntakeMode && !isOnboardingMode;
+
+  const lastUserMessageContent = body.messages?.[body.messages.length - 1]?.content ?? null;
+
+  // U6: short-circuit when this conversation is already marked AI-failed.
+  // The frontend (U8) renders a disabled composer + inline error in this state,
+  // so a subsequent message hitting the handler is either a stale client or a
+  // reload. Re-invoking the AI would just hit the same failure and risk a
+  // duplicate partial-intake submission. Engineer escape hatch:
+  // ConversationService.clearAiFailed exposed via /api/admin/intake-events
+  // (U9 / U10) unbricks the conversation post-incident.
+  if (isPublic && aiFailedAt) {
+    Logger.info('intake.ai_failed.short_circuit', {
+      conversationId: body.conversationId,
+      practiceId,
+      aiFailedAt,
+    });
+    return new Response(
+      JSON.stringify({
+        error: true,
+        code: HARD_ERROR_CODE,
+        message: HARD_ERROR_MESSAGE,
+        aiFailedAt,
+      }),
+      {
+        status: 503,
+        headers: { 'Content-Type': 'application/json' },
+      },
+    );
+  }
+
+  // U2: structured warning when intake mode resolves false on the public widget path.
+  // Silent routing to QA mode is the bug class that prompted this initiative; making
+  // it loud in logs ensures the next regression surfaces in days, not months.
+  // U5: mirror the warning into the timeline (awaited + retry-once because
+  // mode_unresolved turns ARE the timeline's primary purpose — silently dropping
+  // them recreates the workflow this initiative exists to eliminate).
+  if (isPublic && !isIntakeMode && !isOnboardingMode) {
+    const modeResolutionSnapshot: Record<string, unknown> = {
+      effectiveMode: effectiveMode ?? null,
+      intakeModeActivatedAt: intakeModeActivatedAt ?? null,
+      aiFailedAt: aiFailedAt ?? null,
+      isPublic,
+      hasSlimContactDraft,
+      intakeBriefActive,
+      consultationPresent: Boolean(consultation),
+      consultationStatus: consultation?.status ?? null,
+      intakeSubmitted: body.intakeSubmitted === true,
+    };
+    // Diagnostic log: metadata-only — the full user message is captured in the
+    // intake_events timeline row written below for engineer-only inspection.
+    // Don't ship raw user-entered legal-situation text to log aggregators.
+    Logger.warn('intake.mode.unresolved', {
+      conversationId: body.conversationId,
+      practiceId,
+      ...modeResolutionSnapshot,
+      userMessageLength: lastUserMessageContent?.length ?? 0,
+    });
+    await writeIntakeTurn(
+      intakeEventService,
+      {
+        conversationId: body.conversationId,
+        practiceId,
+        provenance: 'mode_unresolved',
+        modeResolution: modeResolutionSnapshot,
+        userMessage: lastUserMessageContent,
+        failureReason: 'mode_unresolved_on_public_widget',
+      },
+      'await_with_retry',
+    );
+  }
   const shouldSkipPracticeValidation = authContext.isAnonymous === true || isPublic;
 
   Logger.info('AI chat mode resolution', {
@@ -508,7 +660,6 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
   }
 
   const lastUserMessage = [...body.messages].reverse().find((message) => message.role === 'user');
-  const serviceNames = extractServiceNames(details);
   const hasLegalIntent = Boolean(lastUserMessage && LEGAL_INTENT_REGEX.test(lastUserMessage.content));
 
   // ------------------------------------------------------------------
@@ -517,24 +668,21 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
 
   let shortCircuitReply: string | null = null;
   let shortCircuitOnboardingProfile: Record<string, unknown> | null = null;
+  let isSafetyRailReply = false;
 
-  if (lastUserMessage && HOURS_QUESTION_REGEX.test(lastUserMessage.content)) {
-    const phone = readStringField(details, 'business_phone') ?? readStringField(details, 'businessPhone');
-    const email = readStringField(details, 'business_email') ?? readStringField(details, 'businessEmail');
-    const website = readStringField(details, 'website');
-    const contactParts = [phone ? `phone: ${phone}` : null, email ? `email: ${email}` : null, website ? `website: ${website}` : null]
-      .filter((value): value is string => Boolean(value));
-    shortCircuitReply = contactParts.length > 0
-      ? `The practice has not published specific office hours here yet. You can contact them via ${contactParts.join(', ')}.`
-      : 'The practice has not published specific office hours here yet. Please click "Request consultation" to connect with the practice.';
-  } else if (isGeneralQaMode && hasLegalIntent) {
+  // U3: hours-question and services-question regex shortcuts removed —
+  // these silently bypassed the AI and masked failure modes (see issue #596).
+  // Hours questions now route through the AI, which has practice contact details
+  // in PRACTICE_CONTEXT and is instructed via the system prompt to recommend
+  // contacting the practice when hours are not explicitly published. Services
+  // questions are answered from PRACTICE_CONTEXT.services by the model.
+  //
+  // The legal-advice branch is KEPT as a SAFETY RAIL (not a fallback): improvised
+  // legal advice is an unacceptable liability surface for "AI for legal practices".
+  // The safety rail is provenance-tagged so it is loud in the event timeline (U5).
+  if (isGeneralQaMode && hasLegalIntent) {
     shortCircuitReply = LEGAL_DISCLAIMER;
-  } else if (isGeneralQaMode && lastUserMessage && SERVICE_QUESTION_REGEX.test(lastUserMessage.content) && serviceNames.length > 0) {
-    const normalizedQuestion = normalizeText(lastUserMessage.content);
-    const matchedService = serviceNames.find((service) => normalizedQuestion.includes(normalizeText(service)));
-    shortCircuitReply = matchedService
-      ? `Yes — we handle ${matchedService}. Would you like to request a consultation?`
-      : `We currently handle ${formatServiceList(serviceNames)}. Would you like to request a consultation?`;
+    isSafetyRailReply = true;
   }
 
   if (shortCircuitReply !== null) {
@@ -569,6 +717,37 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
       actorType: 'system',
       payload: { conversationId: body.conversationId }
     });
+
+    // U5: record the short-circuit reply on the timeline. Legal-advice intent
+    // gets the safety_rail provenance — distinguishing improvised legal advice
+    // refusal from a normal AI intake turn.
+    if (isSafetyRailReply) {
+      await writeIntakeTurn(
+        intakeEventService,
+        {
+          conversationId: body.conversationId,
+          practiceId: conversation.practice_id,
+          provenance: 'safety_rail.legal_disclaimer',
+          modeResolution: {
+            effectiveMode: effectiveMode ?? null,
+            intakeModeActivatedAt: intakeModeActivatedAt ?? null,
+            aiFailedAt: aiFailedAt ?? null,
+            isPublic,
+            isIntakeMode,
+            isOnboardingMode,
+            isGeneralQaMode,
+            hasLegalIntent,
+          },
+          userMessage: lastUserMessage?.content ?? null,
+          modelResponse: {
+            kind: 'safety_rail',
+            reply: shortCircuitReply,
+            messageId: storedMessage.id,
+          },
+        },
+        'fire_and_forget',
+      );
+    }
 
     return new Response(
       JSON.stringify({
@@ -752,7 +931,7 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
     let onboardingFields: Record<string, unknown> | null = null;
     let emittedAnyToken = false;
     const debugEnabled = isDebugEnabled(env.DEBUG);
-    
+
     // Define debug function for SSE
     const sendSseDebug = (event: string, data: Record<string, unknown>) => {
       if (debugEnabled) {
@@ -763,6 +942,160 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
     const startedAt = Date.now();
     let responseClosed = false;
     let timeoutId: ReturnType<typeof setTimeout> | null = null;
+
+    /**
+     * U6: end-of-conversation failure path for intake mode. ORDER MATTERS:
+     *   1. submit partial intake to backend (preserves "no lead silently
+     *      dropped" invariant — if we crash between submit and mark, the next
+     *      user message re-enters the handler, sees ai_failed_at IS NULL,
+     *      and the submit would already be on file via the prior turn's
+     *      transient short-circuit. The invariant fails ONLY if mark runs
+     *      before submit.)
+     *   2. mark conversation as ai_failed so subsequent turns short-circuit
+     *   3. record `ai_failure` turn on the timeline (awaited + retry-once)
+     *   4. emit hard-error SSE event so the widget renders disabled composer (U8)
+     *   5. close the SSE stream
+     *
+     * `options.persistPartial` is true when we hit CASE 5 (in-stream drop
+     * after some tokens emitted) — the partial assistant message is persisted
+     * with metadata.truncated so engineers can see what the user actually saw.
+     */
+    const handleAiFailure = async (
+      failureReason: string,
+      options?: { persistPartial?: boolean },
+    ): Promise<void> => {
+      if (responseClosed) {
+        Logger.warn('intake.failure_path.skipped_response_closed', {
+          conversationId: body.conversationId,
+          failureReason,
+        });
+        return;
+      }
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+        timeoutId = null;
+      }
+
+      Logger.warn('intake.ai_failure.handling', {
+        conversationId: body.conversationId,
+        practiceId: conversation.practice_id,
+        failureReason,
+        emittedAnyToken,
+        accumulatedReplyLength: accumulatedReply.length,
+      });
+
+      const failureModeResolution: Record<string, unknown> = {
+        effectiveMode: effectiveMode ?? null,
+        intakeModeActivatedAt: intakeModeActivatedAt ?? null,
+        aiFailedAt: aiFailedAt ?? null,
+        isPublic,
+        isIntakeMode,
+        isOnboardingMode,
+        isGeneralQaMode,
+      };
+
+      // Persist truncated assistant message if tokens were already emitted
+      // (CASE 5). Not deleted, not silently abandoned — engineers can see
+      // exactly what the user saw before the drop.
+      if (options?.persistPartial && accumulatedReply.trim()) {
+        try {
+          await conversationService.sendSystemMessage({
+            conversationId: body.conversationId,
+            practiceId: conversation.practice_id,
+            content: accumulatedReply,
+            metadata: {
+              source: 'ai',
+              model,
+              truncated: true,
+              truncationReason: failureReason,
+              ...(body.sourceBubbleId ? { sourceBubbleId: body.sourceBubbleId } : {}),
+            },
+            recipientUserId: authContext.user.id,
+            skipPracticeValidation: shouldSkipPracticeValidation,
+            request,
+          });
+        } catch (persistError) {
+          Logger.warn('Failed to persist truncated assistant message on AI failure', {
+            conversationId: body.conversationId,
+            error: persistError instanceof Error ? persistError.message : String(persistError),
+          });
+        }
+      }
+
+      // Step 1: partial-intake submission to backend (U7).
+      try {
+        const partialService = new PartialIntakeSubmissionService(env, request);
+        const consultationFee =
+          (typeof details?.consultationFee === 'number' && Number.isFinite(details.consultationFee)
+            ? details.consultationFee
+            : null) ??
+          (typeof (details as Record<string, unknown> | null)?.consultation_fee === 'number'
+            ? ((details as Record<string, unknown>).consultation_fee as number)
+            : null) ??
+          0;
+        await partialService.submit({
+          conversationId: body.conversationId,
+          practiceSlug,
+          amountMinor: consultationFee,
+          slimContact: extractSlimContactForFailure(slimDraft),
+          collectedFields: extractCollectedFieldsForFailure(storedIntakeState),
+          failureContext: {
+            reason: failureReason,
+            mode_resolution_trace: failureModeResolution,
+            timeline_ref: body.conversationId,
+          },
+        });
+      } catch (submitError) {
+        // PartialIntakeSubmissionService never throws (best-effort by design),
+        // but defense-in-depth: a thrown exception here must NOT prevent the
+        // mark + timeline + hard-error sequence below from running.
+        Logger.warn('intake.partial_submit_unexpected_throw', {
+          conversationId: body.conversationId,
+          error: submitError instanceof Error ? submitError.message : String(submitError),
+        });
+      }
+
+      // Step 2: mark conversation as AI-failed.
+      try {
+        await conversationService.markAiFailed(
+          body.conversationId,
+          conversation.practice_id,
+          failureReason,
+        );
+      } catch (markError) {
+        Logger.warn('Failed to mark conversation as AI-failed', {
+          conversationId: body.conversationId,
+          error: markError instanceof Error ? markError.message : String(markError),
+        });
+      }
+
+      // Step 3: record ai_failure on the timeline (awaited + retry-once).
+      await writeIntakeTurn(
+        intakeEventService,
+        {
+          conversationId: body.conversationId,
+          practiceId: conversation.practice_id,
+          provenance: 'ai_failure',
+          modeResolution: failureModeResolution,
+          userMessage: lastUserMessage?.content ?? null,
+          modelResponse: accumulatedReply.trim()
+            ? { reply: accumulatedReply, truncated: Boolean(options?.persistPartial) }
+            : null,
+          failureReason,
+        },
+        'await_with_retry',
+      );
+
+      // Step 4 + 5: emit hard-error and close.
+      write({
+        error: true,
+        code: HARD_ERROR_CODE,
+        message: HARD_ERROR_MESSAGE,
+        failureReason,
+      });
+      close();
+      responseClosed = true;
+    };
 
     try {
       if (isIntakeMode || isOnboardingMode) {
@@ -783,47 +1116,157 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
 
       const conversationRequestStartedAt = Date.now();
       let conversationTTFTMs: number | null = null;
-      const controller = new AbortController();
-      timeoutId = setTimeout(() => {
-        controller.abort();
-      }, AI_TIMEOUT_MS);
+      // streamWrite detects token emission in real time so emittedAnyToken
+      // is accurate at every catch point (CASE 5 in-stream-drop detection
+      // depends on this — the variable was previously only assigned post-stream).
       const streamWrite = (payload: Record<string, unknown>) => {
-        if (conversationTTFTMs === null && typeof payload.token === 'string' && payload.token.length > 0) {
-          conversationTTFTMs = Date.now() - conversationRequestStartedAt;
+        if (typeof payload.token === 'string' && payload.token.length > 0) {
+          if (conversationTTFTMs === null) {
+            conversationTTFTMs = Date.now() - conversationRequestStartedAt;
+          }
+          emittedAnyToken = true;
         }
         write(payload);
       };
-      const conversationCallPromise = aiClient.requestChatCompletions(
-        requestPayload,
-        controller.signal,
-        { headers: { 'x-session-affinity': body.conversationId } }
-      );
 
-      const aiResponse = await conversationCallPromise;
-      Logger.info('AI chat timing: conversation upstream headers received', {
-        conversationId: body.conversationId,
-        elapsedMs: Date.now() - conversationRequestStartedAt,
-        totalElapsedMs: Date.now() - requestStartedAt,
-        status: aiResponse.status,
-      });
+      // U6: AI request with bounded retry (1 retry on PRE-stream 5xx/network,
+      // 0 retries on 4xx/timeout). Once any token has emitted, stream errors
+      // are no longer retryable because the user has already seen partial content.
+      let aiResponse: Response | null = null;
+      let preStreamFailureReason: string | null = null;
+      const maxAiAttempts = 2;
+      // U11 affordance: when INTAKE_AI_FORCE_FAILURE=true AND not running in
+      // production, force the AI call to short-circuit as a 5xx-like upstream
+      // failure on every attempt so E2E tests can exercise the failure path
+      // (U6 / U7 / U8) without flaking on real AI behavior. NODE_ENV gating
+      // ensures a config-drift accident in prod is a silent no-op rather than
+      // a permanent intake outage.
+      const forceFailureForE2E =
+        env.NODE_ENV !== 'production' &&
+        String(env.INTAKE_AI_FORCE_FAILURE ?? '').toLowerCase() === 'true';
 
-      if (timeoutId) {
-        clearTimeout(timeoutId);
-        timeoutId = null;
+      for (let attempt = 0; attempt < maxAiAttempts; attempt++) {
+        const controller = new AbortController();
+        timeoutId = setTimeout(() => {
+          controller.abort();
+        }, AI_TIMEOUT_MS);
+
+        try {
+          const candidate = forceFailureForE2E
+            ? new Response('forced failure for E2E', { status: 503 })
+            : await aiClient.requestChatCompletions(
+                requestPayload,
+                controller.signal,
+                { headers: { 'x-session-affinity': body.conversationId } }
+              );
+
+          if (timeoutId) {
+            clearTimeout(timeoutId);
+            timeoutId = null;
+          }
+
+          Logger.info('AI chat timing: conversation upstream headers received', {
+            conversationId: body.conversationId,
+            elapsedMs: Date.now() - conversationRequestStartedAt,
+            totalElapsedMs: Date.now() - requestStartedAt,
+            status: candidate.status,
+            attempt: attempt + 1,
+          });
+
+          if (candidate.ok) {
+            aiResponse = candidate;
+            break;
+          }
+
+          const errorText = await candidate.text().catch(() => '');
+
+          // 4xx: logic error — fail immediately, no retry.
+          if (candidate.status >= 400 && candidate.status < 500) {
+            Logger.warn('AI upstream returned 4xx; no retry', {
+              conversationId: body.conversationId,
+              status: candidate.status,
+              body: errorText,
+              model,
+            });
+            preStreamFailureReason = `upstream_logic_${candidate.status}`;
+            break;
+          }
+
+          // 5xx: transient — retry once if we have attempts left.
+          if (attempt < maxAiAttempts - 1) {
+            Logger.warn('AI upstream returned 5xx; retrying once', {
+              conversationId: body.conversationId,
+              status: candidate.status,
+              body: errorText,
+              model,
+            });
+            await new Promise((resolve) => setTimeout(resolve, AI_RETRY_BACKOFF_MS));
+            continue;
+          }
+
+          Logger.warn('AI upstream 5xx retries exhausted', {
+            conversationId: body.conversationId,
+            status: candidate.status,
+            body: errorText,
+            model,
+          });
+          preStreamFailureReason = `upstream_transient_exhausted_${candidate.status}`;
+          break;
+        } catch (err) {
+          if (timeoutId) {
+            clearTimeout(timeoutId);
+            timeoutId = null;
+          }
+
+          // AbortError fires on AI_TIMEOUT_MS timeout. Retrying a slow upstream
+          // typically makes things worse — treat as immediate failure.
+          if (err instanceof Error && err.name === 'AbortError') {
+            Logger.warn('AI request timed out; no retry', {
+              conversationId: body.conversationId,
+              timeoutMs: AI_TIMEOUT_MS,
+            });
+            preStreamFailureReason = 'upstream_timeout';
+            break;
+          }
+
+          if (attempt < maxAiAttempts - 1) {
+            Logger.warn('AI upstream network error; retrying once', {
+              conversationId: body.conversationId,
+              error: err instanceof Error ? err.message : String(err),
+            });
+            await new Promise((resolve) => setTimeout(resolve, AI_RETRY_BACKOFF_MS));
+            continue;
+          }
+
+          Logger.warn('AI upstream network retries exhausted', {
+            conversationId: body.conversationId,
+            error: err instanceof Error ? err.message : String(err),
+          });
+          preStreamFailureReason = 'upstream_network_exhausted';
+          break;
+        }
       }
 
-      if (!aiResponse.ok) {
-        const errorText = await aiResponse.text().catch(() => '');
-        Logger.warn('AI upstream request failed', {
-          conversationId: body.conversationId,
-          status: aiResponse.status,
-          body: errorText,
-          model,
+      if (preStreamFailureReason || !aiResponse) {
+        if (isIntakeMode) {
+          await handleAiFailure(preStreamFailureReason ?? 'upstream_unknown');
+          return;
+        }
+        // Non-intake (e.g. onboarding) keeps the existing toast-error path so
+        // a brief outage doesn't permanently brick the practice onboarding flow.
+        write({
+          error: true,
+          code: 'ai_request_failed',
+          message: 'AI request failed',
         });
-        throw new Error('AI upstream request failed');
+        return;
       }
 
       if (!aiResponse.body) {
+        if (isIntakeMode) {
+          await handleAiFailure('upstream_missing_body');
+          return;
+        }
         throw new Error('AI upstream request failed: missing body');
       }
 
@@ -922,12 +1365,17 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
       const finalToolResult = lastQuestionResult ?? lastToolResult;
 
       if (!accumulatedReply.trim() && !finalToolResult && !onboardingFields) {
+        if (isIntakeMode) {
+          // CASE 3: AI returned empty content AND no tool calls. Logic error,
+          // not transient. Route through the failure path so the lead is
+          // captured + the conversation is marked + the user sees the hard error.
+          await handleAiFailure('empty_response');
+          return;
+        }
         throw createAiDebugError(
-          isIntakeMode
-            ? 'AI returned no user-facing reply in intake mode.'
-            : isOnboardingMode
-              ? 'AI returned no user-facing reply in onboarding mode.'
-              : 'AI returned an empty reply.',
+          isOnboardingMode
+            ? 'AI returned no user-facing reply in onboarding mode.'
+            : 'AI returned an empty reply.',
           'ai_empty_reply',
           {
             mode: effectiveMode ?? null,
@@ -1009,6 +1457,18 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
           const nextRequiredFieldAfterPatch = mergedIntakeState
             ? resolveNextField(activeTemplate, mergedIntakeState as Record<string, unknown>, 'required')
             : null;
+          // Recompute nextEnrichmentField from POST-merge state so the synthetic
+          // reply doesn't re-ask the field that save_case_details just answered.
+          // intakeSubmissionGate.nextEnrichmentField was computed pre-merge and
+          // is stale the moment a field is answered — see comments in
+          // aiChatIntake.ts (around the resolveCaseDetailsForReadyToSubmit helper)
+          // for the same rationale that drives the post-merge recompute there.
+          const mergedIsEnrichmentMode = Boolean(
+            mergedIntakeState && (mergedIntakeState as Record<string, unknown>).enrichmentMode === true,
+          );
+          const nextEnrichmentFieldAfterPatch = mergedIsEnrichmentMode && mergedIntakeState
+            ? resolveNextField(activeTemplate, mergedIntakeState as Record<string, unknown>, 'enrichment')
+            : null;
           syntheticReply = deriveCaseSavedAcknowledgment(
             finalToolResult,
             intakeSubmissionGate,
@@ -1017,7 +1477,7 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
             consultationFee,
             userName,
             nextRequiredFieldAfterPatch,
-            intakeSubmissionGate.nextEnrichmentField ?? null,
+            nextEnrichmentFieldAfterPatch,
           );
           if (!syntheticReply && typeof finalToolResult.message === 'string' && finalToolResult.message.trim()) {
             syntheticReply = finalToolResult.message.trim();
@@ -1131,11 +1591,107 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
         payload: { conversationId: body.conversationId }
       }));
 
+      // U5: record this AI turn on the intake timeline. Fire-and-forget via
+      // postStreamTasks so the SSE close isn't delayed. Provenance distinguishes
+      // tool-call turns (ai_intake), text-only turns (ai_intake_no_tool_call),
+      // and submission turns (submit_intake — the terminal turn of the intake).
+      if (isIntakeMode) {
+        const submittedIntake = streamResult.toolCalls.some((call) => call.name === 'submit_intake');
+        const turnProvenance: IntakeEventRecordInput['provenance'] = submittedIntake
+          ? 'submit_intake'
+          : streamResult.toolCalls.length > 0
+            ? 'ai_intake'
+            : 'ai_intake_no_tool_call';
+
+        const turnModeResolution: Record<string, unknown> = {
+          effectiveMode: effectiveMode ?? null,
+          intakeModeActivatedAt: intakeModeActivatedAt ?? null,
+          aiFailedAt: aiFailedAt ?? null,
+          isPublic,
+          isIntakeMode,
+          isOnboardingMode,
+          isGeneralQaMode,
+        };
+
+        const turnModelRequest: Record<string, unknown> = {
+          model,
+          temperature: requestPayload.temperature ?? null,
+          systemPromptLength: systemPrompt.length,
+          toolNames: Array.isArray(requestPayload.tools)
+            ? requestPayload.tools
+                .map((tool) => (tool as { function?: { name?: string } }).function?.name ?? null)
+                .filter((name): name is string => Boolean(name))
+            : [],
+          messageCount: body.messages.length,
+        };
+
+        const turnModelResponse: Record<string, unknown> = {
+          reply: finalReply,
+          accumulatedReply,
+          syntheticReply,
+          emittedAnyToken,
+          streamStalled: streamResult.streamStalled,
+          replyLength: streamResult.reply.length,
+          conversationTTFTMs,
+          conversationTotalResponseMs,
+          aigStep,
+        };
+
+        const turnToolCalls = streamResult.toolCalls.length > 0
+          ? streamResult.toolCalls.map((call) => ({
+              name: call.name,
+              argLength: call.arguments.length,
+            }))
+          : null;
+
+        const turnToolResults = (lastToolResult || lastQuestionResult)
+          ? [lastToolResult, lastQuestionResult].filter((value): value is ToolResult => Boolean(value))
+          : null;
+
+        postStreamTasks.push(writeIntakeTurn(
+          intakeEventService,
+          {
+            conversationId: body.conversationId,
+            practiceId: conversation.practice_id,
+            provenance: turnProvenance,
+            modeResolution: turnModeResolution,
+            userMessage: lastUserMessage?.content ?? null,
+            modelRequest: turnModelRequest,
+            modelResponse: turnModelResponse,
+            toolCalls: turnToolCalls,
+            toolResults: turnToolResults,
+          },
+          'fire_and_forget',
+        ));
+      }
+
       schedulePostStreamTasks(ctx, body.conversationId, postStreamTasks);
 
     } catch (error) {
       if (timeoutId) {
         clearTimeout(timeoutId);
+      }
+
+      // U6: any exception that reaches here for an intake conversation routes
+      // through the failure path. Covers CASE 4 (tool execution exception)
+      // and CASE 5 (in-stream drop after emit) — both are logic-level failures
+      // for the intake flow that must not silently lose the lead.
+      if (isIntakeMode && !responseClosed) {
+        const typedError = error as DebuggableAiError;
+        const reason = emittedAnyToken
+          ? 'in_stream_drop_after_emit'
+          : typedError?.code === 'ai_empty_reply'
+            ? 'empty_response'
+            : 'tool_or_stream_exception';
+        Logger.warn('Streaming AI handler error — routing to intake failure path', {
+          conversationId: body.conversationId,
+          error: error instanceof Error ? error.message : String(error),
+          code: typedError?.code ?? null,
+          emittedAnyToken,
+          reason,
+        });
+        await handleAiFailure(reason, { persistPartial: emittedAnyToken });
+        return;
       }
 
       if (error instanceof Error && error.name === 'AbortError') {

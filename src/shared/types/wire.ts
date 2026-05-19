@@ -52,8 +52,8 @@ export {
 } from '../../../worker/types/wire/invoice';
 
 // ── Upload ────────────────────────────────────────────────────────────────
-export type { BackendUploadRecord } from '../../../worker/types/wire/upload';
-export { BackendUploadRecordSchema } from '../../../worker/types/wire/upload';
+export type { BackendUploadRecord, BackendUploadsListResponse } from '../../../worker/types/wire/upload';
+export { BackendUploadRecordSchema, BackendUploadsListResponseSchema } from '../../../worker/types/wire/upload';
 
 // ── Auth ──────────────────────────────────────────────────────────────────
 export type { BackendSession } from '../../../worker/types/wire/auth';

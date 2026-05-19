@@ -99,6 +99,14 @@ export interface ChatContainerProps {
   currentUserId?: string | null;
   /** Send typing.start (true) / typing.stop (false) on the active WS. */
   sendTypingState?: (isTyping: boolean) => void;
+  /**
+   * U8: when set, the composer renders a permanent disabled state with the
+   * `message` as an inline error above the textarea. Distinct from the
+   * transient toast-error path — `hardError` marks end-of-conversation
+   * after an intake AI failure (worker emits this via the SSE stream with
+   * `code: 'ai_failed'`; see U6).
+   */
+  hardError?: { message: string; failureReason?: string | null } | null;
 }
 
 const ChatContainer: FunctionComponent<ChatContainerProps> = ({
@@ -153,6 +161,7 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
   readReceiptsByUser,
   currentUserId,
   sendTypingState,
+  hardError,
 }) => {
   const intakeContext = useIntakeContext();
   const [inputValue, setInputValue] = useState('');
@@ -606,12 +615,13 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
                   isSessionReady={isReady || (!conversationId && !!canChat)}
                   isSocketReady={isReady || (!conversationId && !!canChat)}
                   intakeStatus={isPublicWorkspace ? composerIntakeStatus : undefined}
-                  disabled={isChatInputLocked}
+                  disabled={isChatInputLocked || Boolean(hardError)}
                   replyTo={replyTarget}
                   onCancelReply={handleCancelReply}
                   mentionCandidates={mentionCandidates}
                   hideAttachmentControls={!features.enableFileAttachments}
                   isPublicWorkspace={isPublicWorkspace}
+                  hardError={hardError ?? null}
                 />
             )}
           </div>

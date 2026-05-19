@@ -55,6 +55,8 @@ CREATE TABLE IF NOT EXISTS conversations (
   lifecycle_status TEXT NOT NULL DEFAULT 'pending_visibility'
     CHECK (lifecycle_status IN ('pending_visibility', 'visible', 'archived')),
   intake_accepted_at DATETIME,
+  intake_mode_activated_at TEXT, -- set when conversation enters intake mode (canonical signal; replaces brittle per-message mode body field)
+  ai_failed_at TEXT, -- set when intake AI is marked failed; subsequent turns short-circuit, cleared via admin escape hatch
   assigned_to TEXT,
   priority TEXT DEFAULT 'normal' CHECK (priority IN ('low', 'normal', 'high', 'urgent')),
   tags TEXT, -- JSON array
@@ -232,6 +234,10 @@ CREATE INDEX IF NOT EXISTS idx_conversations_assigned ON conversations(practice_
 CREATE INDEX IF NOT EXISTS idx_conversations_priority ON conversations(practice_id, priority, status);
 CREATE INDEX IF NOT EXISTS idx_conversations_last_message ON conversations(practice_id, last_message_at DESC);
 CREATE INDEX IF NOT EXISTS idx_conversations_lifecycle ON conversations(practice_id, lifecycle_status);
+-- U1/U6: indexes mirroring worker/migrations/20260518_add_intake_mode_columns.sql
+-- so fresh `npm run db:init` environments have the same query plan as migrated DBs.
+CREATE INDEX IF NOT EXISTS idx_conversations_practice_intake_mode ON conversations(practice_id, intake_mode_activated_at);
+CREATE INDEX IF NOT EXISTS idx_conversations_practice_ai_failed ON conversations(practice_id, ai_failed_at);
 
 -- Create indexes for chat_messages
 CREATE INDEX IF NOT EXISTS idx_chat_messages_conversation ON chat_messages(conversation_id, created_at);
@@ -270,6 +276,44 @@ CREATE TABLE IF NOT EXISTS session_audit_events (
 -- Create indexes for session_audit_events
 CREATE INDEX IF NOT EXISTS idx_session_audit_events_conversation ON session_audit_events(conversation_id, created_at);
 CREATE INDEX IF NOT EXISTS idx_session_audit_events_practice ON session_audit_events(practice_id, created_at);
+
+-- Append-only per-turn intake event timeline. See U4 of the strengthen-intake-ai plan.
+-- Every intake turn writes one row capturing the full diagnostic context:
+-- mode resolution trace, user message, model request/response, tool calls/results,
+-- and failure reason. Provenance is closed-enum (CHECK constraint) so new tags
+-- require a schema change rather than a free-text addition.
+CREATE TABLE IF NOT EXISTS intake_events (
+  id TEXT PRIMARY KEY,
+  conversation_id TEXT NOT NULL,
+  practice_id TEXT NOT NULL,
+  turn_seq INTEGER NOT NULL,
+  provenance TEXT NOT NULL CHECK (provenance IN (
+    'ai_intake',
+    'ai_intake_no_tool_call',
+    'safety_rail.legal_disclaimer',
+    'ai_failure',
+    'submit_intake',
+    'mode_unresolved'
+  )),
+  mode_resolution_json TEXT,
+  user_message TEXT,
+  model_request_json TEXT,
+  model_response_json TEXT,
+  tool_calls_json TEXT,
+  tool_results_json TEXT,
+  failure_reason TEXT,
+  created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+  UNIQUE (conversation_id, turn_seq)
+);
+
+CREATE INDEX IF NOT EXISTS idx_intake_events_conversation_seq
+  ON intake_events(conversation_id, turn_seq);
+
+CREATE INDEX IF NOT EXISTS idx_intake_events_practice_created
+  ON intake_events(practice_id, created_at DESC, id DESC);
+
+CREATE INDEX IF NOT EXISTS idx_intake_events_provenance
+  ON intake_events(provenance, created_at DESC);
 
 -- Create indexes for files
 CREATE INDEX IF NOT EXISTS idx_files_practice ON files(practice_id);

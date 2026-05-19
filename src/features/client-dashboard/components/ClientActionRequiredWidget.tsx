@@ -48,7 +48,7 @@ export const ClientActionRequiredWidget = ({
           {error}
         </div>
       ) : items.length === 0 ? (
-        <p className="text-sm text-input-placeholder">You're all caught up. No actions waiting on you right now.</p>
+        <p className="text-sm text-input-placeholder">You&apos;re all caught up. No actions waiting on you right now.</p>
       ) : (
         <div className="space-y-3">
           {items.map((item) => {

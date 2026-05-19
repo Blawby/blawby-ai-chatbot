@@ -38,6 +38,7 @@ import type { UploadingFile } from '@/shared/types/upload';
 import type { IntakeTemplate } from '@/shared/types/intake';
 import type { AuthSessionPayload } from '@/shared/types/user';
 import { DEFAULT_INTAKE_TEMPLATE } from '@/shared/constants/intakeTemplates';
+import { INTAKE_HARD_ERROR_MESSAGE } from '@/shared/constants/intakeErrors';
 
 // Widget mode never supports file uploads — stable references avoid ChatContainer re-renders.
 const EMPTY_FILE_ATTACHMENTS: FileAttachment[] = [];
@@ -211,7 +212,21 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
 
   const { t } = useTranslation('common');
 
-  const handleMessageError = useCallback((error: unknown, _context?: Record<string, unknown>) => {
+  // U8: hard-error state for intake AI failure. Tagged with the conversationId
+  // it belongs to so we never need a useEffect to "reset on conversation
+  // change" — the render-time conversationId comparison below produces the
+  // same behavior without crossing the "when X changes set Y" rule from
+  // AGENTS.md. setSseError is called from handleMessageError; nothing else
+  // mutates the state, and stale entries from prior conversations are simply
+  // ignored at render time.
+  const [sseError, setSseError] = useState<{
+    conversationId: string | null;
+    message: string;
+    failureReason: string | null;
+  } | null>(null);
+  const [clearInputCounter, setClearInputCounter] = useState(0);
+
+  const handleMessageError = useCallback((error: unknown, context?: Record<string, unknown>) => {
     let message: string;
     if (typeof error === 'string') {
       message = error;
@@ -221,8 +236,50 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
       message = t('weHitASnag.sendingMessage');
     }
     if (message.toLowerCase().includes('chat connection closed')) return;
+
+    if (context?.isHardError === true) {
+      // End-of-conversation marker, not a toast. Composer renders disabled
+      // + inline error. We capture the conversationId here so a subsequent
+      // navigation away renders the error gone without a reset effect.
+      const failureReason = typeof context.failureReason === 'string' ? context.failureReason : null;
+      const conversationId = typeof context.conversationId === 'string'
+        ? context.conversationId
+        : effectiveConversationId ?? null;
+      setSseError({ conversationId, message, failureReason });
+      setClearInputCounter((c) => c + 1);
+      return;
+    }
+
     showErrorRef.current?.(message || t('weHitASnag.sendingMessage'));
-  }, [t]);
+  }, [t, effectiveConversationId]);
+
+  // Derive the hard-error signal at render time from two sources:
+  //   1. SSE-triggered state from this session (only used when the
+  //      conversationId still matches the active conversation; otherwise the
+  //      sseError is from a prior conversation and renders as null).
+  //   2. The current conversation's `ai_failed_at` from the envelope, for
+  //      page-reload restoration where the SSE event is long gone.
+  // SSE wins when both are set — it's the more recent signal and may carry a
+  // richer failureReason than the timestamp-only envelope marker.
+  const activeConversationRecord = useMemo(
+    () => conversations.find((c) => c.id === effectiveConversationId) ?? null,
+    [conversations, effectiveConversationId],
+  );
+
+  const hardErrorFromSse =
+    sseError && sseError.conversationId === effectiveConversationId
+      ? { message: sseError.message, failureReason: sseError.failureReason }
+      : null;
+
+  const hardErrorFromConversation = useMemo(
+    () =>
+      activeConversationRecord?.ai_failed_at
+        ? { message: INTAKE_HARD_ERROR_MESSAGE, failureReason: null }
+        : null,
+    [activeConversationRecord?.ai_failed_at],
+  );
+
+  const hardError = hardErrorFromSse ?? hardErrorFromConversation;
 
   const handleConversationMetadataUpdated = useCallback((metadata: ConversationMetadata | null) => {
     if (metadata?.mode) setConversationMode(metadata.mode);
@@ -717,6 +774,8 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
                 readReceiptsByUser={readReceiptsByUser}
                 currentUserId={bootstrapSession?.user?.id ?? null}
                 sendTypingState={sendTypingState}
+                hardError={hardError}
+                clearInput={clearInputCounter}
               />
 
               {isInspectorOpen && activeConversationId && (

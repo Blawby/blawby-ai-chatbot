@@ -49,6 +49,14 @@ interface MessageComposerProps {
     name: string;
     email?: string;
   }>;
+  /**
+   * U8: end-of-conversation marker rendered above the textarea with
+   * role='alert' aria-live='assertive'. Distinct from a transient toast —
+   * `hardError` indicates the intake AI failed and the practice has been
+   * notified. The composer remains visually disabled. See U8 of
+   * docs/plans/2026-05-18-002-feat-strengthen-intake-ai-observability-plan.md.
+   */
+  hardError?: { message: string; failureReason?: string | null } | null;
 }
 
 const MIN_TEXTAREA_HEIGHT = 32;
@@ -81,6 +89,7 @@ const MessageComposer = ({
   hideAttachmentControls = false,
   isPublicWorkspace = false,
   mentionCandidates = [],
+  hardError = null,
 }: MessageComposerProps) => {
   const { t } = useTranslation('common');
   const [isInputExpanded, setIsInputExpanded] = useState(false);
@@ -321,6 +330,16 @@ const MessageComposer = ({
           handleSubmit();
         }}
       >
+        {hardError && (
+          <div
+            role="alert"
+            aria-live="assertive"
+            data-testid="composer-hard-error"
+            className="mb-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-900/40 dark:bg-red-950/30 dark:text-red-200"
+          >
+            {hardError.message}
+          </div>
+        )}
         <div className="message-composer-container">
           {replyTo && (
             <div className="flex items-center justify-between gap-3 rounded-t-2xl bg-surface-utility/40 dark:bg-surface-utility/20 px-4 py-1.5 text-sm text-input-text -mx-2 -mt-1">

@@ -3,6 +3,8 @@ import { defineConfig, devices } from '@playwright/test';
 const PUBLIC_WIDGET_SPECS = [
   /.*widget-diagnose\.spec\.ts/,
   /.*widget-intake-flow\.spec\.ts/,
+  /.*widget-intake-ai-fires\.spec\.ts/,
+  /.*widget-intake-ai-failure\.spec\.ts/,
   /.*widget-embed\.spec\.ts/,
   /.*widget-performance\.spec\.ts/,
   /.*responsive-public\.spec\.ts/,

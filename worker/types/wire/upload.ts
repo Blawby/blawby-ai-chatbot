@@ -28,3 +28,11 @@ export const BackendUploadRecordSchema = z.object({
   uploaded_by: z.string().nullable().optional(),
 }).passthrough();
 export type BackendUploadRecord = z.infer<typeof BackendUploadRecordSchema>;
+
+export const BackendUploadsListResponseSchema = z.object({
+  uploads: z.array(BackendUploadRecordSchema),
+  total: z.number().optional(),
+  page: z.number().optional(),
+  limit: z.number().optional(),
+}).passthrough();
+export type BackendUploadsListResponse = z.infer<typeof BackendUploadsListResponseSchema>;

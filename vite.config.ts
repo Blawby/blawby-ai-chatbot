@@ -67,6 +67,10 @@ const workerEndpoints = [
 	'config',
 	'status',
 	'ai',
+	// U9: admin intake-inspector lives under /api/admin/intake-events/*.
+	// Per AGENTS.md, a new Worker-owned API prefix must be registered here
+	// or Vite proxies it to the backend fallback and produces misleading 404s.
+	'admin/intake-events',
 	'practices',
 	'clients',
 	'onboarding',

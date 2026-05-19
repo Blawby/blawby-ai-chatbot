@@ -158,6 +158,13 @@ export interface Conversation {
   // are already filtered; this field is exposed for diagnostics and ordering.
   lifecycle_status?: ConversationLifecycleStatus;
   intake_accepted_at?: string | null;
+  // U1: timestamp set when the conversation enters intake mode. Used by the
+  // worker's mode-resolution predicate; surfaced here for client diagnostics.
+  intake_mode_activated_at?: string | null;
+  // U6: timestamp set when the intake AI is marked failed. The widget reads
+  // this on mount/page-reload to re-derive the hard-error composer state
+  // without depending on cached client state.
+  ai_failed_at?: string | null;
   // Triage fields (optional, practice workflows only)
   assigned_to?: string | null; // User ID of assigned practice member
   priority?: 'low' | 'normal' | 'high' | 'urgent';
