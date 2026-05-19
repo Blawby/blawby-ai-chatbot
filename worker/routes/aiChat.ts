@@ -8,6 +8,11 @@ import { getAttachedAuthContext } from '../middleware/compose.js';
 import { SessionAuditService } from '../services/SessionAuditService.js';
 import { IntakeEventService, writeIntakeTurn } from '../services/IntakeEventService.js';
 import type { IntakeEventRecordInput } from '../types/intakeEvent.js';
+import {
+  PartialIntakeSubmissionService,
+  type PartialCollectedFields,
+  type PartialSlimContactInput,
+} from '../services/PartialIntakeSubmissionService.js';
 import { createAiClient } from '../utils/aiClient.js';
 import { fetchPracticeDetailsWithCache } from '../utils/practiceDetailsCache.js';
 import { Logger } from '../utils/logger.js';
@@ -20,8 +25,11 @@ import {
   MAX_MESSAGE_LENGTH,
   MAX_TOTAL_LENGTH,
   AI_TIMEOUT_MS,
+  AI_RETRY_BACKOFF_MS,
   CONSULTATION_CTA_REGEX,
   LEGAL_INTENT_REGEX,
+  HARD_ERROR_CODE,
+  HARD_ERROR_MESSAGE,
   createSseResponse,
   consumeAiStream,
   normalizeKeys,
@@ -166,6 +174,77 @@ const persistMergedIntakeState = async (
     throw metadataError;
   }
 };
+
+/**
+ * Extract the slim contact form payload for U7's partial-intake submission.
+ * Returns null name/email when missing — the submission service handles the
+ * "missing required fields" case by logging and skipping.
+ *
+ * Mirrors the field extraction in submitIntake.ts normalizeSlimContactDraft
+ * without enforcing required-field presence (this runs on the AI failure path
+ * where we want to send whatever we have).
+ */
+export function extractSlimContactForFailure(
+  slimDraft: Record<string, unknown> | null,
+): PartialSlimContactInput {
+  const read = (key: string): string | null => {
+    const value = slimDraft?.[key];
+    return typeof value === 'string' && value.trim().length > 0 ? value.trim() : null;
+  };
+  return {
+    name: read('name'),
+    email: read('email'),
+    phone: read('phone'),
+    city: read('city'),
+    state: read('state'),
+  };
+}
+
+/**
+ * Extract whatever case-detail fields the intake AI collected before failure.
+ * Returns null if no usable fields were collected — keeps the payload tight
+ * and avoids sending all-null fields to the backend.
+ */
+export function extractCollectedFieldsForFailure(
+  state: Record<string, unknown> | null,
+): PartialCollectedFields | null {
+  if (!state) return null;
+  const readString = (key: string): string | null => {
+    const value = state[key];
+    return typeof value === 'string' && value.trim().length > 0 ? value.trim() : null;
+  };
+  const readBool = (key: string): boolean | null => {
+    const value = state[key];
+    return typeof value === 'boolean' ? value : null;
+  };
+  const readNumber = (key: string): number | null => {
+    const value = state[key];
+    return typeof value === 'number' && Number.isFinite(value) ? value : null;
+  };
+
+  const urgencyRaw = typeof state.urgency === 'string' ? state.urgency.trim().toLowerCase() : null;
+  const urgency: PartialCollectedFields['urgency'] =
+    urgencyRaw === 'routine' || urgencyRaw === 'time_sensitive' || urgencyRaw === 'emergency'
+      ? urgencyRaw
+      : null;
+
+  const collected: PartialCollectedFields = {
+    description: readString('description'),
+    urgency,
+    opposingParty: readString('opposingParty'),
+    desiredOutcome: readString('desiredOutcome'),
+    courtDate: readString('courtDate'),
+    hasDocuments: readBool('hasDocuments'),
+    income: readNumber('income'),
+    householdSize: readNumber('householdSize'),
+    practiceServiceUuid: readString('practiceServiceUuid'),
+  };
+
+  const hasValue = Object.values(collected).some(
+    (value) => value !== null && value !== undefined,
+  );
+  return hasValue ? collected : null;
+}
 
 const schedulePostStreamTasks = (
   context: ExecutionContext | undefined,
@@ -472,6 +551,33 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
   const isGeneralQaMode = !isIntakeMode && !isOnboardingMode;
 
   const lastUserMessageContent = body.messages?.[body.messages.length - 1]?.content ?? null;
+
+  // U6: short-circuit when this conversation is already marked AI-failed.
+  // The frontend (U8) renders a disabled composer + inline error in this state,
+  // so a subsequent message hitting the handler is either a stale client or a
+  // reload. Re-invoking the AI would just hit the same failure and risk a
+  // duplicate partial-intake submission. Engineer escape hatch:
+  // ConversationService.clearAiFailed exposed via /api/admin/intake-events
+  // (U9 / U10) unbricks the conversation post-incident.
+  if (isPublic && aiFailedAt) {
+    Logger.info('intake.ai_failed.short_circuit', {
+      conversationId: body.conversationId,
+      practiceId,
+      aiFailedAt,
+    });
+    return new Response(
+      JSON.stringify({
+        error: true,
+        code: HARD_ERROR_CODE,
+        message: HARD_ERROR_MESSAGE,
+        aiFailedAt,
+      }),
+      {
+        status: 503,
+        headers: { 'Content-Type': 'application/json' },
+      },
+    );
+  }
 
   // U2: structured warning when intake mode resolves false on the public widget path.
   // Silent routing to QA mode is the bug class that prompted this initiative; making
@@ -823,7 +929,7 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
     let onboardingFields: Record<string, unknown> | null = null;
     let emittedAnyToken = false;
     const debugEnabled = isDebugEnabled(env.DEBUG);
-    
+
     // Define debug function for SSE
     const sendSseDebug = (event: string, data: Record<string, unknown>) => {
       if (debugEnabled) {
@@ -834,6 +940,160 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
     const startedAt = Date.now();
     let responseClosed = false;
     let timeoutId: ReturnType<typeof setTimeout> | null = null;
+
+    /**
+     * U6: end-of-conversation failure path for intake mode. ORDER MATTERS:
+     *   1. submit partial intake to backend (preserves "no lead silently
+     *      dropped" invariant — if we crash between submit and mark, the next
+     *      user message re-enters the handler, sees ai_failed_at IS NULL,
+     *      and the submit would already be on file via the prior turn's
+     *      transient short-circuit. The invariant fails ONLY if mark runs
+     *      before submit.)
+     *   2. mark conversation as ai_failed so subsequent turns short-circuit
+     *   3. record `ai_failure` turn on the timeline (awaited + retry-once)
+     *   4. emit hard-error SSE event so the widget renders disabled composer (U8)
+     *   5. close the SSE stream
+     *
+     * `options.persistPartial` is true when we hit CASE 5 (in-stream drop
+     * after some tokens emitted) — the partial assistant message is persisted
+     * with metadata.truncated so engineers can see what the user actually saw.
+     */
+    const handleAiFailure = async (
+      failureReason: string,
+      options?: { persistPartial?: boolean },
+    ): Promise<void> => {
+      if (responseClosed) {
+        Logger.warn('intake.failure_path.skipped_response_closed', {
+          conversationId: body.conversationId,
+          failureReason,
+        });
+        return;
+      }
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+        timeoutId = null;
+      }
+
+      Logger.warn('intake.ai_failure.handling', {
+        conversationId: body.conversationId,
+        practiceId: conversation.practice_id,
+        failureReason,
+        emittedAnyToken,
+        accumulatedReplyLength: accumulatedReply.length,
+      });
+
+      const failureModeResolution: Record<string, unknown> = {
+        effectiveMode: effectiveMode ?? null,
+        intakeModeActivatedAt: intakeModeActivatedAt ?? null,
+        aiFailedAt: aiFailedAt ?? null,
+        isPublic,
+        isIntakeMode,
+        isOnboardingMode,
+        isGeneralQaMode,
+      };
+
+      // Persist truncated assistant message if tokens were already emitted
+      // (CASE 5). Not deleted, not silently abandoned — engineers can see
+      // exactly what the user saw before the drop.
+      if (options?.persistPartial && accumulatedReply.trim()) {
+        try {
+          await conversationService.sendSystemMessage({
+            conversationId: body.conversationId,
+            practiceId: conversation.practice_id,
+            content: accumulatedReply,
+            metadata: {
+              source: 'ai',
+              model,
+              truncated: true,
+              truncationReason: failureReason,
+              ...(body.sourceBubbleId ? { sourceBubbleId: body.sourceBubbleId } : {}),
+            },
+            recipientUserId: authContext.user.id,
+            skipPracticeValidation: shouldSkipPracticeValidation,
+            request,
+          });
+        } catch (persistError) {
+          Logger.warn('Failed to persist truncated assistant message on AI failure', {
+            conversationId: body.conversationId,
+            error: persistError instanceof Error ? persistError.message : String(persistError),
+          });
+        }
+      }
+
+      // Step 1: partial-intake submission to backend (U7).
+      try {
+        const partialService = new PartialIntakeSubmissionService(env, request);
+        const consultationFee =
+          (typeof details?.consultationFee === 'number' && Number.isFinite(details.consultationFee)
+            ? details.consultationFee
+            : null) ??
+          (typeof (details as Record<string, unknown> | null)?.consultation_fee === 'number'
+            ? ((details as Record<string, unknown>).consultation_fee as number)
+            : null) ??
+          0;
+        await partialService.submit({
+          conversationId: body.conversationId,
+          practiceSlug,
+          amountMinor: consultationFee,
+          slimContact: extractSlimContactForFailure(slimDraft),
+          collectedFields: extractCollectedFieldsForFailure(storedIntakeState),
+          failureContext: {
+            reason: failureReason,
+            mode_resolution_trace: failureModeResolution,
+            timeline_ref: body.conversationId,
+          },
+        });
+      } catch (submitError) {
+        // PartialIntakeSubmissionService never throws (best-effort by design),
+        // but defense-in-depth: a thrown exception here must NOT prevent the
+        // mark + timeline + hard-error sequence below from running.
+        Logger.warn('intake.partial_submit_unexpected_throw', {
+          conversationId: body.conversationId,
+          error: submitError instanceof Error ? submitError.message : String(submitError),
+        });
+      }
+
+      // Step 2: mark conversation as AI-failed.
+      try {
+        await conversationService.markAiFailed(
+          body.conversationId,
+          conversation.practice_id,
+          failureReason,
+        );
+      } catch (markError) {
+        Logger.warn('Failed to mark conversation as AI-failed', {
+          conversationId: body.conversationId,
+          error: markError instanceof Error ? markError.message : String(markError),
+        });
+      }
+
+      // Step 3: record ai_failure on the timeline (awaited + retry-once).
+      await writeIntakeTurn(
+        intakeEventService,
+        {
+          conversationId: body.conversationId,
+          practiceId: conversation.practice_id,
+          provenance: 'ai_failure',
+          modeResolution: failureModeResolution,
+          userMessage: lastUserMessage?.content ?? null,
+          modelResponse: accumulatedReply.trim()
+            ? { reply: accumulatedReply, truncated: Boolean(options?.persistPartial) }
+            : null,
+          failureReason,
+        },
+        'await_with_retry',
+      );
+
+      // Step 4 + 5: emit hard-error and close.
+      write({
+        error: true,
+        code: HARD_ERROR_CODE,
+        message: HARD_ERROR_MESSAGE,
+        failureReason,
+      });
+      close();
+      responseClosed = true;
+    };
 
     try {
       if (isIntakeMode || isOnboardingMode) {
@@ -854,47 +1114,146 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
 
       const conversationRequestStartedAt = Date.now();
       let conversationTTFTMs: number | null = null;
-      const controller = new AbortController();
-      timeoutId = setTimeout(() => {
-        controller.abort();
-      }, AI_TIMEOUT_MS);
+      // streamWrite detects token emission in real time so emittedAnyToken
+      // is accurate at every catch point (CASE 5 in-stream-drop detection
+      // depends on this — the variable was previously only assigned post-stream).
       const streamWrite = (payload: Record<string, unknown>) => {
-        if (conversationTTFTMs === null && typeof payload.token === 'string' && payload.token.length > 0) {
-          conversationTTFTMs = Date.now() - conversationRequestStartedAt;
+        if (typeof payload.token === 'string' && payload.token.length > 0) {
+          if (conversationTTFTMs === null) {
+            conversationTTFTMs = Date.now() - conversationRequestStartedAt;
+          }
+          emittedAnyToken = true;
         }
         write(payload);
       };
-      const conversationCallPromise = aiClient.requestChatCompletions(
-        requestPayload,
-        controller.signal,
-        { headers: { 'x-session-affinity': body.conversationId } }
-      );
 
-      const aiResponse = await conversationCallPromise;
-      Logger.info('AI chat timing: conversation upstream headers received', {
-        conversationId: body.conversationId,
-        elapsedMs: Date.now() - conversationRequestStartedAt,
-        totalElapsedMs: Date.now() - requestStartedAt,
-        status: aiResponse.status,
-      });
+      // U6: AI request with bounded retry (1 retry on PRE-stream 5xx/network,
+      // 0 retries on 4xx/timeout). Once any token has emitted, stream errors
+      // are no longer retryable because the user has already seen partial content.
+      let aiResponse: Response | null = null;
+      let preStreamFailureReason: string | null = null;
+      const maxAiAttempts = 2;
 
-      if (timeoutId) {
-        clearTimeout(timeoutId);
-        timeoutId = null;
+      for (let attempt = 0; attempt < maxAiAttempts; attempt++) {
+        const controller = new AbortController();
+        timeoutId = setTimeout(() => {
+          controller.abort();
+        }, AI_TIMEOUT_MS);
+
+        try {
+          const candidate = await aiClient.requestChatCompletions(
+            requestPayload,
+            controller.signal,
+            { headers: { 'x-session-affinity': body.conversationId } }
+          );
+
+          if (timeoutId) {
+            clearTimeout(timeoutId);
+            timeoutId = null;
+          }
+
+          Logger.info('AI chat timing: conversation upstream headers received', {
+            conversationId: body.conversationId,
+            elapsedMs: Date.now() - conversationRequestStartedAt,
+            totalElapsedMs: Date.now() - requestStartedAt,
+            status: candidate.status,
+            attempt: attempt + 1,
+          });
+
+          if (candidate.ok) {
+            aiResponse = candidate;
+            break;
+          }
+
+          const errorText = await candidate.text().catch(() => '');
+
+          // 4xx: logic error — fail immediately, no retry.
+          if (candidate.status >= 400 && candidate.status < 500) {
+            Logger.warn('AI upstream returned 4xx; no retry', {
+              conversationId: body.conversationId,
+              status: candidate.status,
+              body: errorText,
+              model,
+            });
+            preStreamFailureReason = `upstream_logic_${candidate.status}`;
+            break;
+          }
+
+          // 5xx: transient — retry once if we have attempts left.
+          if (attempt < maxAiAttempts - 1) {
+            Logger.warn('AI upstream returned 5xx; retrying once', {
+              conversationId: body.conversationId,
+              status: candidate.status,
+              body: errorText,
+              model,
+            });
+            await new Promise((resolve) => setTimeout(resolve, AI_RETRY_BACKOFF_MS));
+            continue;
+          }
+
+          Logger.warn('AI upstream 5xx retries exhausted', {
+            conversationId: body.conversationId,
+            status: candidate.status,
+            body: errorText,
+            model,
+          });
+          preStreamFailureReason = `upstream_transient_exhausted_${candidate.status}`;
+          break;
+        } catch (err) {
+          if (timeoutId) {
+            clearTimeout(timeoutId);
+            timeoutId = null;
+          }
+
+          // AbortError fires on AI_TIMEOUT_MS timeout. Retrying a slow upstream
+          // typically makes things worse — treat as immediate failure.
+          if (err instanceof Error && err.name === 'AbortError') {
+            Logger.warn('AI request timed out; no retry', {
+              conversationId: body.conversationId,
+              timeoutMs: AI_TIMEOUT_MS,
+            });
+            preStreamFailureReason = 'upstream_timeout';
+            break;
+          }
+
+          if (attempt < maxAiAttempts - 1) {
+            Logger.warn('AI upstream network error; retrying once', {
+              conversationId: body.conversationId,
+              error: err instanceof Error ? err.message : String(err),
+            });
+            await new Promise((resolve) => setTimeout(resolve, AI_RETRY_BACKOFF_MS));
+            continue;
+          }
+
+          Logger.warn('AI upstream network retries exhausted', {
+            conversationId: body.conversationId,
+            error: err instanceof Error ? err.message : String(err),
+          });
+          preStreamFailureReason = 'upstream_network_exhausted';
+          break;
+        }
       }
 
-      if (!aiResponse.ok) {
-        const errorText = await aiResponse.text().catch(() => '');
-        Logger.warn('AI upstream request failed', {
-          conversationId: body.conversationId,
-          status: aiResponse.status,
-          body: errorText,
-          model,
+      if (preStreamFailureReason || !aiResponse) {
+        if (isIntakeMode) {
+          await handleAiFailure(preStreamFailureReason ?? 'upstream_unknown');
+          return;
+        }
+        // Non-intake (e.g. onboarding) keeps the existing toast-error path so
+        // a brief outage doesn't permanently brick the practice onboarding flow.
+        write({
+          error: true,
+          code: 'ai_request_failed',
+          message: 'AI request failed',
         });
-        throw new Error('AI upstream request failed');
+        return;
       }
 
       if (!aiResponse.body) {
+        if (isIntakeMode) {
+          await handleAiFailure('upstream_missing_body');
+          return;
+        }
         throw new Error('AI upstream request failed: missing body');
       }
 
@@ -993,12 +1352,17 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
       const finalToolResult = lastQuestionResult ?? lastToolResult;
 
       if (!accumulatedReply.trim() && !finalToolResult && !onboardingFields) {
+        if (isIntakeMode) {
+          // CASE 3: AI returned empty content AND no tool calls. Logic error,
+          // not transient. Route through the failure path so the lead is
+          // captured + the conversation is marked + the user sees the hard error.
+          await handleAiFailure('empty_response');
+          return;
+        }
         throw createAiDebugError(
-          isIntakeMode
-            ? 'AI returned no user-facing reply in intake mode.'
-            : isOnboardingMode
-              ? 'AI returned no user-facing reply in onboarding mode.'
-              : 'AI returned an empty reply.',
+          isOnboardingMode
+            ? 'AI returned no user-facing reply in onboarding mode.'
+            : 'AI returned an empty reply.',
           'ai_empty_reply',
           {
             mode: effectiveMode ?? null,
@@ -1281,6 +1645,28 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
     } catch (error) {
       if (timeoutId) {
         clearTimeout(timeoutId);
+      }
+
+      // U6: any exception that reaches here for an intake conversation routes
+      // through the failure path. Covers CASE 4 (tool execution exception)
+      // and CASE 5 (in-stream drop after emit) — both are logic-level failures
+      // for the intake flow that must not silently lose the lead.
+      if (isIntakeMode && !responseClosed) {
+        const typedError = error as DebuggableAiError;
+        const reason = emittedAnyToken
+          ? 'in_stream_drop_after_emit'
+          : typedError?.code === 'ai_empty_reply'
+            ? 'empty_response'
+            : 'tool_or_stream_exception';
+        Logger.warn('Streaming AI handler error — routing to intake failure path', {
+          conversationId: body.conversationId,
+          error: error instanceof Error ? error.message : String(error),
+          code: typedError?.code ?? null,
+          emittedAnyToken,
+          reason,
+        });
+        await handleAiFailure(reason, { persistPartial: emittedAnyToken });
+        return;
       }
 
       if (error instanceof Error && error.name === 'AbortError') {
