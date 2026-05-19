@@ -460,12 +460,38 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
   const intakeBriefActive = consultation
     ? consultation.status === 'collecting_case' || consultation.status === 'ready_to_submit'
     : conversationMetadata?.intakeAiBriefActive === true;
+
+  // Canonical intake-mode signal — see U1 of docs/plans/2026-05-18-002-feat-strengthen-intake-ai-observability-plan.md.
+  // The legacy fallback predicate (effectiveMode + consultation + hasSlimContactDraft + intakeBriefActive)
+  // is replaced by a single timestamp column on conversations. Existing intake conversations were backfilled
+  // by the migration so this transition does not silently route them to general QA mode.
+  const intakeModeSignals = await conversationService.getIntakeModeSignals(body.conversationId, practiceId);
+  const intakeModeActivatedAt = intakeModeSignals.intake_mode_activated_at;
+  const aiFailedAt = intakeModeSignals.ai_failed_at;
   const isIntakeMode = Boolean(
-    (effectiveMode === 'REQUEST_CONSULTATION' || Boolean(consultation) || hasSlimContactDraft || intakeBriefActive) &&
-    body.intakeSubmitted !== true &&
-    isPublic
+    isPublic &&
+    intakeModeActivatedAt &&
+    body.intakeSubmitted !== true
   );
   const isGeneralQaMode = !isIntakeMode && !isOnboardingMode;
+
+  // U2: structured warning when intake mode resolves false on the public widget path.
+  // Silent routing to QA mode is the bug class that prompted this initiative; making
+  // it loud in logs ensures the next regression surfaces in days, not months.
+  if (isPublic && !isIntakeMode && !isOnboardingMode) {
+    Logger.warn('intake.mode.unresolved', {
+      conversationId: body.conversationId,
+      practiceId,
+      effectiveMode: effectiveMode ?? null,
+      intakeModeActivatedAt: intakeModeActivatedAt ?? null,
+      hasSlimContactDraft,
+      intakeBriefActive,
+      consultationPresent: Boolean(consultation),
+      consultationStatus: consultation?.status ?? null,
+      intakeSubmitted: body.intakeSubmitted === true,
+      userMessagePreview: body.messages?.[body.messages.length - 1]?.content?.slice(0, 100) ?? null,
+    });
+  }
   const shouldSkipPracticeValidation = authContext.isAnonymous === true || isPublic;
 
   Logger.info('AI chat mode resolution', {

@@ -55,6 +55,8 @@ CREATE TABLE IF NOT EXISTS conversations (
   lifecycle_status TEXT NOT NULL DEFAULT 'pending_visibility'
     CHECK (lifecycle_status IN ('pending_visibility', 'visible', 'archived')),
   intake_accepted_at DATETIME,
+  intake_mode_activated_at TEXT, -- set when conversation enters intake mode (canonical signal; replaces brittle per-message mode body field)
+  ai_failed_at TEXT, -- set when intake AI is marked failed; subsequent turns short-circuit, cleared via admin escape hatch
   assigned_to TEXT,
   priority TEXT DEFAULT 'normal' CHECK (priority IN ('low', 'normal', 'high', 'urgent')),
   tags TEXT, -- JSON array

@@ -34,6 +34,14 @@ export interface Conversation {
   // conversation. See project_conversation_visibility memory.
   lifecycle_status: ConversationLifecycleStatus;
   intake_accepted_at?: string | null;
+  // Timestamp set when the conversation enters intake mode. Canonical signal
+  // for `isIntakeMode` resolution in worker/routes/aiChat.ts — replaces the
+  // brittle per-message mode body field. See U1 of the strengthen-intake-ai plan.
+  intake_mode_activated_at?: string | null;
+  // Timestamp set when the intake AI is marked failed for this conversation.
+  // Subsequent message turns short-circuit without re-invoking the AI; cleared
+  // via the admin clearAiFailed escape hatch. See U6 of the same plan.
+  ai_failed_at?: string | null;
   assigned_to?: string | null; // User ID of assigned practice member
   priority?: 'low' | 'normal' | 'high' | 'urgent';
   tags?: string[]; // Array of tag strings
@@ -1184,6 +1192,91 @@ export class ConversationService {
     return this.updateConversation(conversationId, practiceId, {
       tags: normalized
     });
+  }
+
+  /**
+   * Mark a conversation as having entered intake mode. Idempotent: only sets
+   * `intake_mode_activated_at` when it is currently NULL — first activation wins
+   * so observability tooling can rely on the timestamp as "when did intake start".
+   *
+   * Called from the PATCH /api/conversations/:id handler when the inbound
+   * metadata transition indicates the slim-contact-form flow completed
+   * (consultation.status === 'collecting_case' or 'ready_to_submit', with
+   * consultation.mode === 'REQUEST_CONSULTATION'). See U1 of the plan.
+   */
+  async markIntakeModeActivated(
+    conversationId: string,
+    practiceId: string
+  ): Promise<void> {
+    const now = new Date().toISOString();
+    await this.env.DB.prepare(`
+      UPDATE conversations
+      SET intake_mode_activated_at = ?
+      WHERE id = ? AND practice_id = ? AND intake_mode_activated_at IS NULL
+    `).bind(now, conversationId, practiceId).run();
+  }
+
+  /**
+   * Mark the intake AI as failed for this conversation. Sets `ai_failed_at`
+   * unconditionally (last write wins — repeated failure attempts overwrite,
+   * which is intentional so the most recent failure reason is captured).
+   * Subsequent message turns short-circuit without re-invoking the AI.
+   * See U6 of the plan.
+   */
+  async markAiFailed(
+    conversationId: string,
+    practiceId: string,
+    _failureReason: string
+  ): Promise<void> {
+    // failure_reason itself is captured in the intake_events timeline row;
+    // the column on conversations is just a presence marker for fast SELECT.
+    const now = new Date().toISOString();
+    await this.env.DB.prepare(`
+      UPDATE conversations
+      SET ai_failed_at = ?
+      WHERE id = ? AND practice_id = ?
+    `).bind(now, conversationId, practiceId).run();
+  }
+
+  /**
+   * Clear the AI-failed marker so subsequent message turns will invoke the AI
+   * again. Engineer escape hatch for unbricking conversations after a transient
+   * outage resolves. Called from the admin intake-inspector route (U9 / U10).
+   */
+  async clearAiFailed(
+    conversationId: string,
+    practiceId: string
+  ): Promise<void> {
+    await this.env.DB.prepare(`
+      UPDATE conversations
+      SET ai_failed_at = NULL
+      WHERE id = ? AND practice_id = ?
+    `).bind(conversationId, practiceId).run();
+  }
+
+  /**
+   * Focused read of just the two intake-mode signals on a conversation row.
+   * Used by aiChat.ts mode resolution to avoid pulling the full Conversation
+   * record on every message turn. Returns nulls when the conversation is not
+   * found (vs. distinguishing "not found" from "found but both NULL" — callers
+   * treat both the same way).
+   */
+  async getIntakeModeSignals(
+    conversationId: string,
+    practiceId: string
+  ): Promise<{ intake_mode_activated_at: string | null; ai_failed_at: string | null }> {
+    const row = await this.env.DB.prepare(`
+      SELECT intake_mode_activated_at, ai_failed_at
+      FROM conversations
+      WHERE id = ? AND practice_id = ?
+    `).bind(conversationId, practiceId).first<{
+      intake_mode_activated_at: string | null;
+      ai_failed_at: string | null;
+    }>();
+    return {
+      intake_mode_activated_at: row?.intake_mode_activated_at ?? null,
+      ai_failed_at: row?.ai_failed_at ?? null,
+    };
   }
 
   async addConversationTag(
