@@ -1455,6 +1455,18 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
           const nextRequiredFieldAfterPatch = mergedIntakeState
             ? resolveNextField(activeTemplate, mergedIntakeState as Record<string, unknown>, 'required')
             : null;
+          // Recompute nextEnrichmentField from POST-merge state so the synthetic
+          // reply doesn't re-ask the field that save_case_details just answered.
+          // intakeSubmissionGate.nextEnrichmentField was computed pre-merge and
+          // is stale the moment a field is answered — see comments in
+          // aiChatIntake.ts (around the resolveCaseDetailsForReadyToSubmit helper)
+          // for the same rationale that drives the post-merge recompute there.
+          const mergedIsEnrichmentMode = Boolean(
+            mergedIntakeState && (mergedIntakeState as Record<string, unknown>).enrichmentMode === true,
+          );
+          const nextEnrichmentFieldAfterPatch = mergedIsEnrichmentMode && mergedIntakeState
+            ? resolveNextField(activeTemplate, mergedIntakeState as Record<string, unknown>, 'enrichment')
+            : null;
           syntheticReply = deriveCaseSavedAcknowledgment(
             finalToolResult,
             intakeSubmissionGate,
@@ -1463,7 +1475,7 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
             consultationFee,
             userName,
             nextRequiredFieldAfterPatch,
-            intakeSubmissionGate.nextEnrichmentField ?? null,
+            nextEnrichmentFieldAfterPatch,
           );
           if (!syntheticReply && typeof finalToolResult.message === 'string' && finalToolResult.message.trim()) {
             syntheticReply = finalToolResult.message.trim();
