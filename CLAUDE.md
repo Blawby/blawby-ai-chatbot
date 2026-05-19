@@ -79,6 +79,40 @@ npm run dev:full
 
 Open `https://local.blawby.com`. Done.
 
+#### Wrangler auth — if `dev:full` fails to start the worker
+
+If you see:
+
+```text
+✘ [ERROR] A request to the Cloudflare API (/accounts/<id>/workers/subdomain/edge-preview) failed.
+  notes: Authentication error [code: 10000]
+```
+
+…the worker is dying because wrangler's stored OAuth token (`~/.config/.wrangler/config/default.toml` on macOS/Linux, `%APPDATA%/xdg.config/.wrangler/config/default.toml` on Windows) doesn't have the right scopes for the AI binding's remote-proxy session, and wrangler prefers the OAuth token over `CLOUDFLARE_API_TOKEN` in `worker/.dev.vars`. `.dev.vars` is loaded into the worker *runtime*, not consumed by the wrangler *CLI*.
+
+Workaround — export the API token in your shell so wrangler picks it up:
+
+```bash
+export CLOUDFLARE_API_TOKEN=<value-from-worker/.dev.vars>
+npm run dev:full
+```
+
+PowerShell:
+
+```powershell
+$env:CLOUDFLARE_API_TOKEN = "<value-from-worker/.dev.vars>"
+npm run dev:full
+```
+
+You can verify a token has the right scope with:
+
+```bash
+curl -s "https://api.cloudflare.com/client/v4/accounts/<account-id>/workers/subdomain/edge-preview" \
+  -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN"
+```
+
+A correct response returns `{ "result": { "exchange_url": ..., "token": ... } }`. A 403 here means the token's permissions are wrong — generate a new one with "Workers Scripts:Edit" scope.
+
 ### Mode B — Local backend
 
 Use this when your change touches the backend, or you need to test the full stack locally.
