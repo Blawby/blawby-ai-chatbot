@@ -6,6 +6,8 @@ import type { ExecutionContext } from '@cloudflare/workers-types';
 import { ConversationService } from '../services/ConversationService.js';
 import { getAttachedAuthContext } from '../middleware/compose.js';
 import { SessionAuditService } from '../services/SessionAuditService.js';
+import { IntakeEventService, writeIntakeTurn } from '../services/IntakeEventService.js';
+import type { IntakeEventRecordInput } from '../types/intakeEvent.js';
 import { createAiClient } from '../utils/aiClient.js';
 import { fetchPracticeDetailsWithCache } from '../utils/practiceDetailsCache.js';
 import { Logger } from '../utils/logger.js';
@@ -346,6 +348,7 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
   const practiceSlug = practiceSlugFromBody || practiceSlugFromConversation || practiceSlugFromMetadata;
 
   const auditService = new SessionAuditService(env);
+  const intakeEventService = new IntakeEventService(env);
 
   // The internal practiceId is the upstream organization_id (the practice/org id),
   // not details.id — see worker/routes/widget.ts. Use the slug-based prefetch as-is
@@ -468,22 +471,44 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
   );
   const isGeneralQaMode = !isIntakeMode && !isOnboardingMode;
 
+  const lastUserMessageContent = body.messages?.[body.messages.length - 1]?.content ?? null;
+
   // U2: structured warning when intake mode resolves false on the public widget path.
   // Silent routing to QA mode is the bug class that prompted this initiative; making
   // it loud in logs ensures the next regression surfaces in days, not months.
+  // U5: mirror the warning into the timeline (awaited + retry-once because
+  // mode_unresolved turns ARE the timeline's primary purpose — silently dropping
+  // them recreates the workflow this initiative exists to eliminate).
   if (isPublic && !isIntakeMode && !isOnboardingMode) {
-    Logger.warn('intake.mode.unresolved', {
-      conversationId: body.conversationId,
-      practiceId,
+    const modeResolutionSnapshot: Record<string, unknown> = {
       effectiveMode: effectiveMode ?? null,
       intakeModeActivatedAt: intakeModeActivatedAt ?? null,
+      aiFailedAt: aiFailedAt ?? null,
+      isPublic,
       hasSlimContactDraft,
       intakeBriefActive,
       consultationPresent: Boolean(consultation),
       consultationStatus: consultation?.status ?? null,
       intakeSubmitted: body.intakeSubmitted === true,
-      userMessagePreview: body.messages?.[body.messages.length - 1]?.content?.slice(0, 100) ?? null,
+    };
+    Logger.warn('intake.mode.unresolved', {
+      conversationId: body.conversationId,
+      practiceId,
+      ...modeResolutionSnapshot,
+      userMessagePreview: lastUserMessageContent?.slice(0, 100) ?? null,
     });
+    await writeIntakeTurn(
+      intakeEventService,
+      {
+        conversationId: body.conversationId,
+        practiceId,
+        provenance: 'mode_unresolved',
+        modeResolution: modeResolutionSnapshot,
+        userMessage: lastUserMessageContent,
+        failureReason: 'mode_unresolved_on_public_widget',
+      },
+      'await_with_retry',
+    );
   }
   const shouldSkipPracticeValidation = authContext.isAnonymous === true || isPublic;
 
@@ -584,6 +609,37 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
       actorType: 'system',
       payload: { conversationId: body.conversationId }
     });
+
+    // U5: record the short-circuit reply on the timeline. Legal-advice intent
+    // gets the safety_rail provenance — distinguishing improvised legal advice
+    // refusal from a normal AI intake turn.
+    if (isSafetyRailReply) {
+      await writeIntakeTurn(
+        intakeEventService,
+        {
+          conversationId: body.conversationId,
+          practiceId: conversation.practice_id,
+          provenance: 'safety_rail.legal_disclaimer',
+          modeResolution: {
+            effectiveMode: effectiveMode ?? null,
+            intakeModeActivatedAt: intakeModeActivatedAt ?? null,
+            aiFailedAt: aiFailedAt ?? null,
+            isPublic,
+            isIntakeMode,
+            isOnboardingMode,
+            isGeneralQaMode,
+            hasLegalIntent,
+          },
+          userMessage: lastUserMessage?.content ?? null,
+          modelResponse: {
+            kind: 'safety_rail',
+            reply: shortCircuitReply,
+            messageId: storedMessage.id,
+          },
+        },
+        'fire_and_forget',
+      );
+    }
 
     return new Response(
       JSON.stringify({
@@ -1145,6 +1201,80 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
         actorType: 'system',
         payload: { conversationId: body.conversationId }
       }));
+
+      // U5: record this AI turn on the intake timeline. Fire-and-forget via
+      // postStreamTasks so the SSE close isn't delayed. Provenance distinguishes
+      // tool-call turns (ai_intake), text-only turns (ai_intake_no_tool_call),
+      // and submission turns (submit_intake — the terminal turn of the intake).
+      if (isIntakeMode) {
+        const submittedIntake = streamResult.toolCalls.some((call) => call.name === 'submit_intake');
+        const turnProvenance: IntakeEventRecordInput['provenance'] = submittedIntake
+          ? 'submit_intake'
+          : streamResult.toolCalls.length > 0
+            ? 'ai_intake'
+            : 'ai_intake_no_tool_call';
+
+        const turnModeResolution: Record<string, unknown> = {
+          effectiveMode: effectiveMode ?? null,
+          intakeModeActivatedAt: intakeModeActivatedAt ?? null,
+          aiFailedAt: aiFailedAt ?? null,
+          isPublic,
+          isIntakeMode,
+          isOnboardingMode,
+          isGeneralQaMode,
+        };
+
+        const turnModelRequest: Record<string, unknown> = {
+          model,
+          temperature: requestPayload.temperature ?? null,
+          systemPromptLength: systemPrompt.length,
+          toolNames: Array.isArray(requestPayload.tools)
+            ? requestPayload.tools
+                .map((tool) => (tool as { function?: { name?: string } }).function?.name ?? null)
+                .filter((name): name is string => Boolean(name))
+            : [],
+          messageCount: body.messages.length,
+        };
+
+        const turnModelResponse: Record<string, unknown> = {
+          reply: finalReply,
+          accumulatedReply,
+          syntheticReply,
+          emittedAnyToken,
+          streamStalled: streamResult.streamStalled,
+          replyLength: streamResult.reply.length,
+          conversationTTFTMs,
+          conversationTotalResponseMs,
+          aigStep,
+        };
+
+        const turnToolCalls = streamResult.toolCalls.length > 0
+          ? streamResult.toolCalls.map((call) => ({
+              name: call.name,
+              argLength: call.arguments.length,
+            }))
+          : null;
+
+        const turnToolResults = (lastToolResult || lastQuestionResult)
+          ? [lastToolResult, lastQuestionResult].filter((value): value is ToolResult => Boolean(value))
+          : null;
+
+        postStreamTasks.push(writeIntakeTurn(
+          intakeEventService,
+          {
+            conversationId: body.conversationId,
+            practiceId: conversation.practice_id,
+            provenance: turnProvenance,
+            modeResolution: turnModeResolution,
+            userMessage: lastUserMessage?.content ?? null,
+            modelRequest: turnModelRequest,
+            modelResponse: turnModelResponse,
+            toolCalls: turnToolCalls,
+            toolResults: turnToolResults,
+          },
+          'fire_and_forget',
+        ));
+      }
 
       schedulePostStreamTasks(ctx, body.conversationId, postStreamTasks);
 

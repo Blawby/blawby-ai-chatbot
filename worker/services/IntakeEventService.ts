@@ -7,6 +7,85 @@ import type {
 } from '../types/intakeEvent.js';
 
 /**
+ * Write semantics chosen by the caller per provenance.
+ * - `fire_and_forget`: log warn on failure but do NOT block user-facing AI response.
+ *   Use for `ai_intake`, `ai_intake_no_tool_call`, `safety_rail.legal_disclaimer`,
+ *   and `submit_intake` — these are routine turns where best-effort recording
+ *   is acceptable.
+ * - `await_with_retry`: await, retry once, emit critical-error with full payload
+ *   if both attempts fail. Use for `ai_failure` and `mode_unresolved` — these turns
+ *   ARE the timeline's primary purpose; silently dropping them recreates the
+ *   "engineer must grep logs" workflow this whole initiative exists to eliminate.
+ * See U5 of docs/plans/2026-05-18-002-feat-strengthen-intake-ai-observability-plan.md.
+ */
+export type IntakeTimelineWritePolicy = 'fire_and_forget' | 'await_with_retry';
+
+/**
+ * Single entry point used by aiChat.ts and friends. Encapsulates the
+ * provenance-dependent write semantics so call sites stay simple — they pick
+ * the policy, the helper handles the retry + critical-log behavior.
+ *
+ * Never throws. Always awaits at least one D1 write attempt before returning.
+ * "Fire-and-forget" means "don't make the user wait" — call sites push the
+ * returned promise into a `ctx.waitUntil`-backed post-stream task list rather
+ * than awaiting inline. On Cloudflare Workers, a Promise that is not pinned
+ * to the request via waitUntil may be cancelled when the response closes, so
+ * the helper itself must always await; the policy controls retry + log severity.
+ *
+ *   - `fire_and_forget`: one attempt; warn on failure; no retry. Use for
+ *     `ai_intake`, `ai_intake_no_tool_call`, `safety_rail.legal_disclaimer`,
+ *     `submit_intake`.
+ *   - `await_with_retry`: one attempt + one retry on failure; critical-log
+ *     with full intended payload if both fail. Use for `ai_failure` and
+ *     `mode_unresolved` — these turns are the timeline's primary purpose.
+ *
+ * See U5 of docs/plans/2026-05-18-002-feat-strengthen-intake-ai-observability-plan.md.
+ */
+export async function writeIntakeTurn(
+  service: IntakeEventService,
+  input: IntakeEventRecordInput,
+  policy: IntakeTimelineWritePolicy,
+): Promise<void> {
+  try {
+    await service.recordTurn(input);
+    return;
+  } catch (firstError) {
+    Logger.warn('intake.timeline.write_failed', {
+      conversationId: input.conversationId,
+      practiceId: input.practiceId,
+      provenance: input.provenance,
+      attempt: 1,
+      error: firstError instanceof Error ? firstError.message : String(firstError),
+    });
+    if (policy === 'fire_and_forget') {
+      return;
+    }
+    try {
+      await service.recordTurn(input);
+    } catch (secondError) {
+      Logger.error('intake.timeline.write_failed_critical', {
+        conversationId: input.conversationId,
+        practiceId: input.practiceId,
+        provenance: input.provenance,
+        attempt: 2,
+        error: secondError instanceof Error ? secondError.message : String(secondError),
+        // Inline the full intended turn payload so diagnostic data is
+        // recoverable from logs even when the timeline row is lost.
+        intendedTurn: {
+          modeResolution: input.modeResolution ?? null,
+          userMessage: input.userMessage ?? null,
+          modelRequest: input.modelRequest ?? null,
+          modelResponse: input.modelResponse ?? null,
+          toolCalls: input.toolCalls ?? null,
+          toolResults: input.toolResults ?? null,
+          failureReason: input.failureReason ?? null,
+        },
+      });
+    }
+  }
+}
+
+/**
  * Append-only timeline for intake turns. Mirrors SessionAuditService's shape
  * (constructor takes Env; methods perform single-statement D1 reads/writes).
  *

@@ -1,5 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { IntakeEventService } from '../../../../worker/services/IntakeEventService.js';
+import {
+  IntakeEventService,
+  writeIntakeTurn,
+} from '../../../../worker/services/IntakeEventService.js';
 import {
   INTAKE_EVENT_PROVENANCES,
   type IntakeEventProvenance,
@@ -313,6 +316,145 @@ describe('IntakeEventService.listByConversation', () => {
 
     expect(rows[0].mode_resolution).toBeNull();
     expect(rows[0].user_message).toBe('hello');
+  });
+});
+
+describe('writeIntakeTurn — fire_and_forget', () => {
+  beforeEach(() => vi.resetAllMocks());
+
+  it('returns after one successful write', async () => {
+    const service = {
+      recordTurn: vi.fn().mockResolvedValue({ id: 'evt-1' }),
+    } as unknown as IntakeEventService;
+
+    await writeIntakeTurn(
+      service,
+      {
+        conversationId: 'c-1',
+        practiceId: 'p-1',
+        provenance: 'ai_intake',
+      },
+      'fire_and_forget',
+    );
+
+    expect((service.recordTurn as ReturnType<typeof vi.fn>).mock.calls).toHaveLength(1);
+  });
+
+  it('logs warn and returns on failure; does NOT retry', async () => {
+    const service = {
+      recordTurn: vi.fn().mockRejectedValue(new Error('D1 boom')),
+    } as unknown as IntakeEventService;
+
+    await writeIntakeTurn(
+      service,
+      {
+        conversationId: 'c-1',
+        practiceId: 'p-1',
+        provenance: 'safety_rail.legal_disclaimer',
+      },
+      'fire_and_forget',
+    );
+
+    // Single attempt — no retry on fire-and-forget.
+    expect((service.recordTurn as ReturnType<typeof vi.fn>).mock.calls).toHaveLength(1);
+  });
+});
+
+describe('writeIntakeTurn — await_with_retry', () => {
+  beforeEach(() => vi.resetAllMocks());
+
+  it('returns after one successful write (no retry needed)', async () => {
+    const service = {
+      recordTurn: vi.fn().mockResolvedValue({ id: 'evt-1' }),
+    } as unknown as IntakeEventService;
+
+    await writeIntakeTurn(
+      service,
+      {
+        conversationId: 'c-1',
+        practiceId: 'p-1',
+        provenance: 'mode_unresolved',
+      },
+      'await_with_retry',
+    );
+
+    expect((service.recordTurn as ReturnType<typeof vi.fn>).mock.calls).toHaveLength(1);
+  });
+
+  it('retries once and succeeds on the second attempt', async () => {
+    const service = {
+      recordTurn: vi.fn()
+        .mockRejectedValueOnce(new Error('transient D1 blip'))
+        .mockResolvedValueOnce({ id: 'evt-1' }),
+    } as unknown as IntakeEventService;
+
+    await writeIntakeTurn(
+      service,
+      {
+        conversationId: 'c-1',
+        practiceId: 'p-1',
+        provenance: 'ai_failure',
+      },
+      'await_with_retry',
+    );
+
+    expect((service.recordTurn as ReturnType<typeof vi.fn>).mock.calls).toHaveLength(2);
+  });
+
+  it('emits critical-error log with intended payload when both attempts fail', async () => {
+    const service = {
+      recordTurn: vi.fn().mockRejectedValue(new Error('D1 permanent failure')),
+    } as unknown as IntakeEventService;
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+    await writeIntakeTurn(
+      service,
+      {
+        conversationId: 'c-1',
+        practiceId: 'p-1',
+        provenance: 'ai_failure',
+        modeResolution: { isIntakeMode: true },
+        userMessage: 'help me with my case',
+        failureReason: 'upstream_transient_exhausted',
+      },
+      'await_with_retry',
+    );
+
+    expect((service.recordTurn as ReturnType<typeof vi.fn>).mock.calls).toHaveLength(2);
+    expect(errorSpy).toHaveBeenCalledWith(
+      expect.stringContaining('intake.timeline.write_failed_critical'),
+      expect.objectContaining({
+        conversationId: 'c-1',
+        practiceId: 'p-1',
+        provenance: 'ai_failure',
+        attempt: 2,
+        intendedTurn: expect.objectContaining({
+          modeResolution: { isIntakeMode: true },
+          userMessage: 'help me with my case',
+          failureReason: 'upstream_transient_exhausted',
+        }),
+      }),
+    );
+
+    errorSpy.mockRestore();
+  });
+
+  it('does not throw — caller can always await safely', async () => {
+    const service = {
+      recordTurn: vi.fn().mockRejectedValue(new Error('D1 permanent failure')),
+    } as unknown as IntakeEventService;
+
+    await expect(
+      writeIntakeTurn(
+        service,
+        {
+          conversationId: 'c-1',
+          practiceId: 'p-1',
+          provenance: 'mode_unresolved',
+        },
+        'await_with_retry',
+      ),
+    ).resolves.toBeUndefined();
   });
 });
 
