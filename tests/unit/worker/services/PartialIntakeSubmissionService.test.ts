@@ -40,7 +40,7 @@ describe('PartialIntakeSubmissionService', () => {
     });
 
     expect(createIntakeSpy).toHaveBeenCalledTimes(1);
-    const [, payload] = createIntakeSpy.mock.calls[0];
+    const [, payload] = createIntakeSpy.mock.calls[0] as [unknown, Record<string, unknown>];
     expect(payload).toMatchObject({
       slug: 'blawby-ai',
       amount: 5000,
@@ -68,9 +68,9 @@ describe('PartialIntakeSubmissionService', () => {
       failureContext: { reason: 'logic_failure', timeline_ref: 'conv-1' },
     });
 
-    const [, payload] = createIntakeSpy.mock.calls[0];
+    const [, payload] = createIntakeSpy.mock.calls[0] as [unknown, Record<string, unknown>];
     expect(payload).not.toHaveProperty('last_user_message');
-    expect(payload.failure_context).not.toHaveProperty('last_user_message');
+    expect(payload.failure_context as Record<string, unknown>).not.toHaveProperty('last_user_message');
   });
 
   it('omits phone when not collected (backend treats phone as optional)', async () => {
@@ -85,7 +85,7 @@ describe('PartialIntakeSubmissionService', () => {
       failureContext: { reason: 'r' },
     });
 
-    const [, payload] = createIntakeSpy.mock.calls[0];
+    const [, payload] = createIntakeSpy.mock.calls[0] as [unknown, Record<string, unknown>];
     expect(payload.phone).toBeUndefined();
   });
 
@@ -105,7 +105,7 @@ describe('PartialIntakeSubmissionService', () => {
       failureContext: { reason: 'r' },
     });
 
-    const [, payload] = createIntakeSpy.mock.calls[0];
+    const [, payload] = createIntakeSpy.mock.calls[0] as [unknown, Record<string, unknown>];
     expect(payload.description).toBe('Contract dispute');
     expect(payload.urgency).toBe('time_sensitive');
   });

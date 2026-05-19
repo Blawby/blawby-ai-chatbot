@@ -1133,6 +1133,15 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
       let aiResponse: Response | null = null;
       let preStreamFailureReason: string | null = null;
       const maxAiAttempts = 2;
+      // U11 affordance: when INTAKE_AI_FORCE_FAILURE=true AND not running in
+      // production, force the AI call to short-circuit as a 5xx-like upstream
+      // failure on every attempt so E2E tests can exercise the failure path
+      // (U6 / U7 / U8) without flaking on real AI behavior. NODE_ENV gating
+      // ensures a config-drift accident in prod is a silent no-op rather than
+      // a permanent intake outage.
+      const forceFailureForE2E =
+        env.NODE_ENV !== 'production' &&
+        String(env.INTAKE_AI_FORCE_FAILURE ?? '').toLowerCase() === 'true';
 
       for (let attempt = 0; attempt < maxAiAttempts; attempt++) {
         const controller = new AbortController();
@@ -1141,11 +1150,13 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
         }, AI_TIMEOUT_MS);
 
         try {
-          const candidate = await aiClient.requestChatCompletions(
-            requestPayload,
-            controller.signal,
-            { headers: { 'x-session-affinity': body.conversationId } }
-          );
+          const candidate = forceFailureForE2E
+            ? new Response('forced failure for E2E', { status: 503 })
+            : await aiClient.requestChatCompletions(
+                requestPayload,
+                controller.signal,
+                { headers: { 'x-session-affinity': body.conversationId } }
+              );
 
           if (timeoutId) {
             clearTimeout(timeoutId);
