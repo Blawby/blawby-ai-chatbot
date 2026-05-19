@@ -618,6 +618,11 @@ export class ConversationService {
           : 'pending_visibility';
       })(),
       intake_accepted_at: getNullableString(record.intake_accepted_at),
+      // U1/U6: surface intake-mode signals + AI-failure marker so the widget
+      // can re-derive the hard-error state on page reload without depending
+      // on cached client state.
+      intake_mode_activated_at: getNullableString(record.intake_mode_activated_at),
+      ai_failed_at: getNullableString(record.ai_failed_at),
       assigned_to: getNullableString(record.assigned_to),
       priority: (getString(record.priority) || 'normal') as Conversation['priority'],
       tags,

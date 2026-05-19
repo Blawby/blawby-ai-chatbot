@@ -38,6 +38,7 @@ import type { UploadingFile } from '@/shared/types/upload';
 import type { IntakeTemplate } from '@/shared/types/intake';
 import type { AuthSessionPayload } from '@/shared/types/user';
 import { DEFAULT_INTAKE_TEMPLATE } from '@/shared/constants/intakeTemplates';
+import { INTAKE_HARD_ERROR_MESSAGE } from '@/shared/constants/intakeErrors';
 
 // Widget mode never supports file uploads — stable references avoid ChatContainer re-renders.
 const EMPTY_FILE_ATTACHMENTS: FileAttachment[] = [];
@@ -211,7 +212,14 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
 
   const { t } = useTranslation('common');
 
-  const handleMessageError = useCallback((error: unknown, _context?: Record<string, unknown>) => {
+  // U8: hard-error state for intake AI failure. Set when the worker emits
+  // { error: true, code: 'ai_failed' } on the SSE stream during this session.
+  // Page-reload restoration is handled separately via `hardErrorFromConversation`
+  // below, which reads `ai_failed_at` from the conversation envelope.
+  const [hardErrorFromSse, setHardErrorFromSse] = useState<{ message: string; failureReason?: string | null } | null>(null);
+  const [clearInputCounter, setClearInputCounter] = useState(0);
+
+  const handleMessageError = useCallback((error: unknown, context?: Record<string, unknown>) => {
     let message: string;
     if (typeof error === 'string') {
       message = error;
@@ -221,8 +229,43 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
       message = t('weHitASnag.sendingMessage');
     }
     if (message.toLowerCase().includes('chat connection closed')) return;
+
+    if (context?.isHardError === true) {
+      // End-of-conversation marker, not a toast. Composer renders disabled
+      // + inline error.
+      const failureReason = typeof context.failureReason === 'string' ? context.failureReason : null;
+      setHardErrorFromSse({ message, failureReason });
+      setClearInputCounter((c) => c + 1);
+      return;
+    }
+
     showErrorRef.current?.(message || t('weHitASnag.sendingMessage'));
   }, [t]);
+
+  // Reset SSE-triggered state on conversation change.
+  useEffect(() => {
+    setHardErrorFromSse(null);
+  }, [effectiveConversationId]);
+
+  // Derive the hard-error signal from the current conversation's `ai_failed_at`
+  // so a page reload (where the SSE event is long gone) re-renders the disabled
+  // composer using the canonical copy. SSE-triggered state wins when both are
+  // set — the SSE event is the more recent signal and may carry a richer
+  // failureReason than the timestamp-only envelope marker.
+  const activeConversationRecord = useMemo(
+    () => conversations.find((c) => c.id === effectiveConversationId) ?? null,
+    [conversations, effectiveConversationId],
+  );
+
+  const hardErrorFromConversation = useMemo(
+    () =>
+      activeConversationRecord?.ai_failed_at
+        ? { message: INTAKE_HARD_ERROR_MESSAGE, failureReason: null }
+        : null,
+    [activeConversationRecord?.ai_failed_at],
+  );
+
+  const hardError = hardErrorFromSse ?? hardErrorFromConversation;
 
   const handleConversationMetadataUpdated = useCallback((metadata: ConversationMetadata | null) => {
     if (metadata?.mode) setConversationMode(metadata.mode);
@@ -717,6 +760,8 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
                 readReceiptsByUser={readReceiptsByUser}
                 currentUserId={bootstrapSession?.user?.id ?? null}
                 sendTypingState={sendTypingState}
+                hardError={hardError}
+                clearInput={clearInputCounter}
               />
 
               {isInspectorOpen && activeConversationId && (

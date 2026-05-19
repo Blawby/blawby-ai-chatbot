@@ -485,18 +485,25 @@ export const useChatComposer = ({
         return;
       }
       if (parsed.error === true) {
+        const code = typeof parsed.code === 'string' ? parsed.code : null;
+        const message = typeof parsed.message === 'string' && parsed.message.trim().length > 0
+          ? parsed.message
+          : 'AI request failed';
         console.error('[useChatComposer] AI stream error', {
-          code: typeof parsed.code === 'string' ? parsed.code : null,
-          message: typeof parsed.message === 'string' ? parsed.message : null,
+          code,
+          message,
           details: parsed.details && typeof parsed.details === 'object' ? parsed.details : null,
         });
         if (isMountedRef.current) {
           removeStreamingBubble(bubbleId);
-          onError?.(
-            typeof parsed.message === 'string' && parsed.message.trim().length > 0
-              ? parsed.message
-              : 'AI request failed'
-          );
+          // U8: pass the SSE error code in the onError context so consumers
+          // (WidgetApp) can distinguish hard failures ('ai_failed') from
+          // transient errors that should still surface as a toast.
+          onError?.(message, {
+            code,
+            isHardError: code === 'ai_failed',
+            failureReason: typeof parsed.failureReason === 'string' ? parsed.failureReason : null,
+          });
         }
         return;
       }
