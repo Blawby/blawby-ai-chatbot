@@ -19,9 +19,13 @@ ALTER TABLE conversations ADD COLUMN ai_failed_at TEXT;
 -- worker/routes/aiChat.ts. The conditions below mirror the legacy fallback
 -- signals (consultation present, slim contact draft present, intake brief
 -- active, stored intake conversation state) that this column replaces.
+-- Guard: json_extract aborts on malformed JSON, so skip rows where user_info
+-- is not valid JSON. NULL user_info is also accepted by short-circuit so the
+-- subsequent json_extract calls are never evaluated on it.
 UPDATE conversations
 SET intake_mode_activated_at = COALESCE(updated_at, created_at)
 WHERE intake_mode_activated_at IS NULL
+  AND (user_info IS NULL OR json_valid(user_info) = 1)
   AND (
     json_extract(user_info, '$.consultation.status') IN ('collecting_case', 'ready_to_submit')
     OR json_extract(user_info, '$.consultation.contact.name') IS NOT NULL

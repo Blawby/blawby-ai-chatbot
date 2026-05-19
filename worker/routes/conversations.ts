@@ -1120,11 +1120,18 @@ export async function handleConversations(request: Request, env: Env): Promise<R
         try {
           await conversationService.markIntakeModeActivated(conversationId, practiceId);
         } catch (error) {
+          // Don't swallow: if intake-mode activation persistence fails, the
+          // next /api/ai/chat turn would log mode_unresolved and route the
+          // user to QA mode — the bug class this whole initiative exists to
+          // eliminate. Propagate so the client sees the failure and can
+          // retry the PATCH (markIntakeModeActivated is idempotent — the
+          // IS NULL guard makes the retry safe).
           Logger.warn('intake.mode.activation_failed', {
             conversationId,
             practiceId,
             error: error instanceof Error ? error.message : String(error),
           });
+          throw error;
         }
       }
     }

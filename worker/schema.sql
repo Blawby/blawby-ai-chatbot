@@ -234,6 +234,10 @@ CREATE INDEX IF NOT EXISTS idx_conversations_assigned ON conversations(practice_
 CREATE INDEX IF NOT EXISTS idx_conversations_priority ON conversations(practice_id, priority, status);
 CREATE INDEX IF NOT EXISTS idx_conversations_last_message ON conversations(practice_id, last_message_at DESC);
 CREATE INDEX IF NOT EXISTS idx_conversations_lifecycle ON conversations(practice_id, lifecycle_status);
+-- U1/U6: indexes mirroring worker/migrations/20260518_add_intake_mode_columns.sql
+-- so fresh `npm run db:init` environments have the same query plan as migrated DBs.
+CREATE INDEX IF NOT EXISTS idx_conversations_practice_intake_mode ON conversations(practice_id, intake_mode_activated_at);
+CREATE INDEX IF NOT EXISTS idx_conversations_practice_ai_failed ON conversations(practice_id, ai_failed_at);
 
 -- Create indexes for chat_messages
 CREATE INDEX IF NOT EXISTS idx_chat_messages_conversation ON chat_messages(conversation_id, created_at);
