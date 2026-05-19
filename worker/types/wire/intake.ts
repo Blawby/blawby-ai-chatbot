@@ -14,6 +14,25 @@ const optionalString = () => z.string().optional();
 const optionalNumber = () => z.number().optional();
 const optionalBoolean = () => z.boolean().optional();
 
+/**
+ * Diagnostic context attached to partial intake submissions that arrive after
+ * an AI failure. The backend silently strips this field today (no
+ * `.passthrough()` on its Zod schema), but the worker sends it anyway so the
+ * data is already in place when the backend gains first-class support. Per
+ * U7 of docs/plans/2026-05-18-002-feat-strengthen-intake-ai-observability-plan.md.
+ *
+ * `last_user_message` is intentionally NOT included — engineers recover it
+ * via `conversation_id` -> admin inspector view, avoiding PII leakage through
+ * the backend's middleware / APM / platform logs that may log raw request
+ * bodies even when Zod strips the field from the validated DTO.
+ */
+export const BackendIntakeFailureContextSchema = z.object({
+  reason: z.string().min(1),
+  mode_resolution_trace: z.record(z.string(), z.unknown()).optional(),
+  timeline_ref: z.string().min(1).optional(),
+});
+export type BackendIntakeFailureContext = z.infer<typeof BackendIntakeFailureContextSchema>;
+
 export const BackendIntakeCreatePayloadSchema = z.object({
   slug: z.string().min(1),
   amount: z.number(),
@@ -40,6 +59,8 @@ export const BackendIntakeCreatePayloadSchema = z.object({
   transcript_summary: optionalString(),
   /** Template attribution and unmapped custom answers. */
   custom_fields: z.record(z.string(), z.union([z.string(), z.number(), z.boolean()])).optional(),
+  /** Set on partial submissions after AI failure; see schema doc above. */
+  failure_context: BackendIntakeFailureContextSchema.optional(),
 });
 export type BackendIntakeCreatePayload = z.infer<typeof BackendIntakeCreatePayloadSchema>;
 
