@@ -1010,7 +1010,6 @@ function ClientPracticeRoute({
   } = useWorkspaceResolver({
     practiceSlug: practiceSlug ?? null,
   });
-  const { navigate } = useNavigation();
 
   const slug = (practiceSlug ?? '').trim();
   const resolvedPracticeId = currentPractice?.id ?? '';
