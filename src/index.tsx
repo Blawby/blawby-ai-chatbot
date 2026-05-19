@@ -65,6 +65,7 @@ const ClientEngagementReviewPage = lazy(() => import('@/features/engagements/pag
 // upload pipeline, presence provider, etc. Lazy so the browser only loads
 // it once the user lands on a route that mounts a workspace.
 const MainApp = lazy(() => import('@/app/MainApp').then((m) => ({ default: m.MainApp })));
+const AdminIntakeInspectorPage = lazy(() => import('@/pages/AdminIntakeInspectorPage'));
 const PracticeMatterCreatePage = lazy(() => import('@/features/matters/pages/PracticeMatterCreatePage').then((m) => ({ default: m.PracticeMatterCreatePage })));
 const PracticeContactEditorPage = lazy(() => import('@/features/clients/pages/PracticeContactEditorPage').then((m) => ({ default: m.PracticeContactEditorPage })));
 const PracticeInvoiceCreatePage = lazy(() => import('@/features/invoices/pages/PracticeInvoiceCreatePage').then((m) => ({ default: m.PracticeInvoiceCreatePage })));
@@ -529,6 +530,19 @@ function AppShell() {
           <Route path="/practice/:practiceSlug/settings/security" component={PracticeAppRoute} workspaceView="settings" settingsView="security" />
           <Route path="/practice/:practiceSlug/settings/help" component={PracticeAppRoute} workspaceView="settings" settingsView="help" />
           <Route path="/p/:practiceSlug" component={({ practiceSlug }: { practiceSlug?: string }) => <PaymentResultPage practiceSlug={practiceSlug} />} />
+          {/* U10: engineer-only intake inspector. The worker route is gated by
+              the engineer email allowlist; this page surfaces a friendly
+              "not authorized" message when the API returns 403. */}
+          <Route path="/admin/intake-inspector" component={() => (
+            <Suspense fallback={<LoadingScreen />}>
+              <AdminIntakeInspectorPage />
+            </Suspense>
+          )} />
+          <Route path="/admin/intake-inspector/:conversationId" component={({ conversationId }: { conversationId?: string }) => (
+            <Suspense fallback={<LoadingScreen />}>
+              <AdminIntakeInspectorPage conversationId={conversationId} />
+            </Suspense>
+          )} />
           <Route path="/" component={RootRoute} />
           <Route default component={App404} />
         </Router>

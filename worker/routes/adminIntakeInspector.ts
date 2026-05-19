@@ -33,10 +33,15 @@ function parsePath(pathname: string): { conversationId: string; action: 'list' |
 async function loadConversationOr404(
   service: ConversationService,
   conversationId: string,
-): Promise<{ id: string; practice_id: string } | null> {
+): Promise<{ id: string; practice_id: string; ai_failed_at: string | null; intake_mode_activated_at: string | null } | null> {
   try {
     const conv = await service.getConversationById(conversationId);
-    return { id: conv.id, practice_id: conv.practice_id };
+    return {
+      id: conv.id,
+      practice_id: conv.practice_id,
+      ai_failed_at: conv.ai_failed_at ?? null,
+      intake_mode_activated_at: conv.intake_mode_activated_at ?? null,
+    };
   } catch (error) {
     if (error instanceof Error && error.message.toLowerCase().includes('not found')) {
       return null;
@@ -88,6 +93,8 @@ export async function handleAdminIntakeInspector(request: Request, env: Env): Pr
       {
         conversation_id: parsed.conversationId,
         practice_id: conversation.practice_id,
+        ai_failed_at: conversation.ai_failed_at,
+        intake_mode_activated_at: conversation.intake_mode_activated_at,
         turns,
       },
       200,
