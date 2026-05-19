@@ -230,6 +230,86 @@ describe('IntakeEventService.recordTurn', () => {
       })
     ).rejects.toThrow(/CHECK constraint failed/);
   });
+
+  it('retries the INSERT on UNIQUE turn_seq collision, succeeds on second attempt', async () => {
+    // Simulate a concurrent-write race: getNextTurnSeq returns the same value
+    // both times (a peer wrote in between), the first INSERT raises UNIQUE,
+    // the second succeeds. We assert recordTurn returns and reports the
+    // updated turn_seq.
+    const prepared: PreparedCall[] = [];
+    const firstResults = [{ max_seq: 0 }, { max_seq: 1 }]; // peer inserted 1 between our reads
+    const first = vi.fn(() => Promise.resolve(firstResults.shift() ?? { max_seq: 0 }));
+    const runResults = [
+      Promise.reject(new Error('D1_ERROR: UNIQUE constraint failed: intake_events.conversation_id, intake_events.turn_seq')),
+      Promise.resolve({ meta: {} }),
+    ];
+    const run = vi.fn(() => runResults.shift() ?? Promise.resolve({ meta: {} }));
+    const bind = vi.fn(() => ({ first, run }));
+    const prepare = vi.fn((sql: string) => {
+      prepared.push({ sql, bindings: [] });
+      return { bind };
+    });
+    const env = {
+      DB: { prepare } as unknown as Env['DB'],
+      CHAT_SESSIONS: {} as Env['CHAT_SESSIONS'],
+    } as Env;
+    const service = new IntakeEventService(env);
+
+    const result = await service.recordTurn({
+      conversationId: 'conv-1',
+      practiceId: 'practice-1',
+      provenance: 'ai_intake',
+    });
+
+    expect(result.turn_seq).toBe(2);
+    // Two SELECT MAX(turn_seq) calls and two INSERT attempts.
+    expect(first).toHaveBeenCalledTimes(2);
+    expect(run).toHaveBeenCalledTimes(2);
+  });
+
+  it('gives up after MAX_TURN_SEQ_RETRIES UNIQUE collisions and propagates the last error', async () => {
+    const first = vi.fn(() => Promise.resolve({ max_seq: 0 }));
+    const run = vi.fn(() => Promise.reject(new Error('D1_ERROR: UNIQUE constraint failed: intake_events.conversation_id, intake_events.turn_seq')));
+    const bind = vi.fn(() => ({ first, run }));
+    const prepare = vi.fn(() => ({ bind }));
+    const env = {
+      DB: { prepare } as unknown as Env['DB'],
+      CHAT_SESSIONS: {} as Env['CHAT_SESSIONS'],
+    } as Env;
+    const service = new IntakeEventService(env);
+
+    await expect(
+      service.recordTurn({
+        conversationId: 'conv-1',
+        practiceId: 'practice-1',
+        provenance: 'ai_intake',
+      }),
+    ).rejects.toThrow(/UNIQUE constraint failed/);
+    // 5 retries (MAX_TURN_SEQ_RETRIES) — five SELECT + five INSERT.
+    expect(first).toHaveBeenCalledTimes(5);
+    expect(run).toHaveBeenCalledTimes(5);
+  });
+
+  it('does NOT retry on non-UNIQUE errors (CHECK constraint propagates immediately)', async () => {
+    const first = vi.fn(() => Promise.resolve({ max_seq: 0 }));
+    const run = vi.fn(() => Promise.reject(new Error('CHECK constraint failed: provenance')));
+    const bind = vi.fn(() => ({ first, run }));
+    const prepare = vi.fn(() => ({ bind }));
+    const env = {
+      DB: { prepare } as unknown as Env['DB'],
+      CHAT_SESSIONS: {} as Env['CHAT_SESSIONS'],
+    } as Env;
+    const service = new IntakeEventService(env);
+
+    await expect(
+      service.recordTurn({
+        conversationId: 'conv-1',
+        practiceId: 'practice-1',
+        provenance: 'ai_intake',
+      }),
+    ).rejects.toThrow(/CHECK constraint failed/);
+    expect(run).toHaveBeenCalledTimes(1);
+  });
 });
 
 describe('IntakeEventService.listByConversation', () => {
@@ -421,6 +501,9 @@ describe('writeIntakeTurn — await_with_retry', () => {
     );
 
     expect((service.recordTurn as ReturnType<typeof vi.fn>).mock.calls).toHaveLength(2);
+    // PII-redacted critical log: userMessage / modelRequest / modelResponse
+    // are summarized (length / keys) instead of inlined so the failure log
+    // doesn't ship user-entered legal text to log aggregators.
     expect(errorSpy).toHaveBeenCalledWith(
       expect.stringContaining('intake.timeline.write_failed_critical'),
       expect.objectContaining({
@@ -430,11 +513,15 @@ describe('writeIntakeTurn — await_with_retry', () => {
         attempt: 2,
         intendedTurn: expect.objectContaining({
           modeResolution: { isIntakeMode: true },
-          userMessage: 'help me with my case',
+          userMessageLength: 'help me with my case'.length,
           failureReason: 'upstream_transient_exhausted',
         }),
       }),
     );
+    const [, criticalPayload] = errorSpy.mock.calls[errorSpy.mock.calls.length - 1] as [unknown, { intendedTurn: Record<string, unknown> }];
+    expect(criticalPayload.intendedTurn).not.toHaveProperty('userMessage');
+    expect(criticalPayload.intendedTurn).not.toHaveProperty('modelRequest');
+    expect(criticalPayload.intendedTurn).not.toHaveProperty('modelResponse');
 
     errorSpy.mockRestore();
   });

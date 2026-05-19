@@ -1,4 +1,4 @@
-import { FunctionComponent } from 'preact';
+import { FunctionComponent, type ComponentChildren } from 'preact';
 import { useCallback, useMemo, useState } from 'preact/hooks';
 import { useQuery } from '@/shared/hooks/useQuery';
 import { apiClient } from '@/shared/lib/apiClient';
@@ -338,7 +338,7 @@ const IntakeTimelineRow: FunctionComponent<IntakeTimelineRowProps> = ({ turn }) 
   );
 };
 
-const ExpandedSection: FunctionComponent<{ label: string; children: preact.ComponentChildren }> = ({
+const ExpandedSection: FunctionComponent<{ label: string; children: ComponentChildren }> = ({
   label,
   children,
 }) => (

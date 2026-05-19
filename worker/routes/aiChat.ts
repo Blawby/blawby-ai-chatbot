@@ -596,11 +596,14 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
       consultationStatus: consultation?.status ?? null,
       intakeSubmitted: body.intakeSubmitted === true,
     };
+    // Diagnostic log: metadata-only — the full user message is captured in the
+    // intake_events timeline row written below for engineer-only inspection.
+    // Don't ship raw user-entered legal-situation text to log aggregators.
     Logger.warn('intake.mode.unresolved', {
       conversationId: body.conversationId,
       practiceId,
       ...modeResolutionSnapshot,
-      userMessagePreview: lastUserMessageContent?.slice(0, 100) ?? null,
+      userMessageLength: lastUserMessageContent?.length ?? 0,
     });
     await writeIntakeTurn(
       intakeEventService,

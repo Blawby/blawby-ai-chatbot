@@ -12,6 +12,7 @@
 
 import type { Env } from '../types.js';
 import { HttpErrors } from '../errorHandler.js';
+import { HttpError } from '../types.js';
 import { Logger } from '../utils/logger.js';
 import { IntakeEventService } from '../services/IntakeEventService.js';
 import { ConversationService } from '../services/ConversationService.js';
@@ -43,7 +44,10 @@ async function loadConversationOr404(
       intake_mode_activated_at: conv.intake_mode_activated_at ?? null,
     };
   } catch (error) {
-    if (error instanceof Error && error.message.toLowerCase().includes('not found')) {
+    // ConversationService.getConversationById throws HttpErrors.notFound (status 404)
+    // when the row is missing. Match on status, not message text, so the check
+    // doesn't drift if the message is reworded.
+    if (error instanceof HttpError && error.status === 404) {
       return null;
     }
     throw error;

@@ -37,20 +37,19 @@ test.describe('Public widget intake — AI failure path (U11)', () => {
     const contactEmail = `e2e-failure-${Date.now()}@example.com`;
     const contactName = 'E2E Failure Test';
 
-    // Observe outbound network — the partial-intake submission goes through
-    // the worker to backend POST /api/practice-client-intakes/create. We
-    // assert it fires with the conversation_id (proves the lead wasn't
-    // silently dropped on AI failure).
-    const partialSubmitRequests: Array<{ url: string; body: string | null }> = [];
-    anonPage.on('request', (request) => {
-      const url = request.url();
-      if (url.includes('/api/practice-client-intakes/create')) {
-        partialSubmitRequests.push({ url, body: request.postData() ?? null });
-      }
-    });
-
     await anonPage.goto(buildWidgetUrl(practiceSlug));
     const { messageInput } = await prepareWidgetComposer(anonPage, contactName, contactEmail);
+
+    // Arm the waiter BEFORE sending the message so we don't miss the
+    // partial-intake POST. Using waitForRequest (instead of an `on('request')`
+    // array capture) gives us a deterministic await with its own timeout
+    // independent of the assertion ordering below.
+    const partialSubmitWaiter = anonPage.waitForRequest(
+      (request) =>
+        request.url().includes('/api/practice-client-intakes/create') &&
+        request.method() === 'POST',
+      { timeout: 60_000 },
+    );
 
     // Send a message — this triggers the AI request which the worker forces
     // to 503 because INTAKE_AI_FORCE_FAILURE is set.
@@ -65,12 +64,11 @@ test.describe('Public widget intake — AI failure path (U11)', () => {
     await expect(hardError).toHaveAttribute('aria-live', 'assertive');
     await expect(messageInput).toBeDisabled();
 
-    // Backend should have received at least one POST /create with the
-    // conversation_id — the worker submits partial intake on AI failure
-    // (U7 / R14 / AE5).
-    expect(partialSubmitRequests.length).toBeGreaterThan(0);
-    const submit = partialSubmitRequests[partialSubmitRequests.length - 1];
-    const parsed = submit.body ? (JSON.parse(submit.body) as Record<string, unknown>) : null;
+    // Backend should have received a POST /create with the conversation_id —
+    // the worker submits partial intake on AI failure (U7 / R14 / AE5).
+    const submitRequest = await partialSubmitWaiter;
+    const body = submitRequest.postData();
+    const parsed = body ? (JSON.parse(body) as Record<string, unknown>) : null;
     expect(parsed).not.toBeNull();
     expect(typeof parsed?.conversation_id).toBe('string');
     expect(typeof parsed?.email).toBe('string');

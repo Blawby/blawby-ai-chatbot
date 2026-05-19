@@ -212,11 +212,18 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
 
   const { t } = useTranslation('common');
 
-  // U8: hard-error state for intake AI failure. Set when the worker emits
-  // { error: true, code: 'ai_failed' } on the SSE stream during this session.
-  // Page-reload restoration is handled separately via `hardErrorFromConversation`
-  // below, which reads `ai_failed_at` from the conversation envelope.
-  const [hardErrorFromSse, setHardErrorFromSse] = useState<{ message: string; failureReason?: string | null } | null>(null);
+  // U8: hard-error state for intake AI failure. Tagged with the conversationId
+  // it belongs to so we never need a useEffect to "reset on conversation
+  // change" — the render-time conversationId comparison below produces the
+  // same behavior without crossing the "when X changes set Y" rule from
+  // AGENTS.md. setSseError is called from handleMessageError; nothing else
+  // mutates the state, and stale entries from prior conversations are simply
+  // ignored at render time.
+  const [sseError, setSseError] = useState<{
+    conversationId: string | null;
+    message: string;
+    failureReason: string | null;
+  } | null>(null);
   const [clearInputCounter, setClearInputCounter] = useState(0);
 
   const handleMessageError = useCallback((error: unknown, context?: Record<string, unknown>) => {
@@ -232,30 +239,37 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
 
     if (context?.isHardError === true) {
       // End-of-conversation marker, not a toast. Composer renders disabled
-      // + inline error.
+      // + inline error. We capture the conversationId here so a subsequent
+      // navigation away renders the error gone without a reset effect.
       const failureReason = typeof context.failureReason === 'string' ? context.failureReason : null;
-      setHardErrorFromSse({ message, failureReason });
+      const conversationId = typeof context.conversationId === 'string'
+        ? context.conversationId
+        : effectiveConversationId ?? null;
+      setSseError({ conversationId, message, failureReason });
       setClearInputCounter((c) => c + 1);
       return;
     }
 
     showErrorRef.current?.(message || t('weHitASnag.sendingMessage'));
-  }, [t]);
+  }, [t, effectiveConversationId]);
 
-  // Reset SSE-triggered state on conversation change.
-  useEffect(() => {
-    setHardErrorFromSse(null);
-  }, [effectiveConversationId]);
-
-  // Derive the hard-error signal from the current conversation's `ai_failed_at`
-  // so a page reload (where the SSE event is long gone) re-renders the disabled
-  // composer using the canonical copy. SSE-triggered state wins when both are
-  // set — the SSE event is the more recent signal and may carry a richer
-  // failureReason than the timestamp-only envelope marker.
+  // Derive the hard-error signal at render time from two sources:
+  //   1. SSE-triggered state from this session (only used when the
+  //      conversationId still matches the active conversation; otherwise the
+  //      sseError is from a prior conversation and renders as null).
+  //   2. The current conversation's `ai_failed_at` from the envelope, for
+  //      page-reload restoration where the SSE event is long gone.
+  // SSE wins when both are set — it's the more recent signal and may carry a
+  // richer failureReason than the timestamp-only envelope marker.
   const activeConversationRecord = useMemo(
     () => conversations.find((c) => c.id === effectiveConversationId) ?? null,
     [conversations, effectiveConversationId],
   );
+
+  const hardErrorFromSse =
+    sseError && sseError.conversationId === effectiveConversationId
+      ? { message: sseError.message, failureReason: sseError.failureReason }
+      : null;
 
   const hardErrorFromConversation = useMemo(
     () =>

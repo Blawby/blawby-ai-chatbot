@@ -69,13 +69,19 @@ export async function writeIntakeTurn(
         provenance: input.provenance,
         attempt: 2,
         error: secondError instanceof Error ? secondError.message : String(secondError),
-        // Inline the full intended turn payload so diagnostic data is
-        // recoverable from logs even when the timeline row is lost.
+        // Diagnostic snapshot — engineering recovery info only. We intentionally
+        // omit `userMessage`, `modelRequest`, and `modelResponse` from the log
+        // because they can carry user-entered legal-situation text + model
+        // outputs that may quote it; the row is lost but the structural data
+        // below (mode resolution, tool calls/results, failure reason, payload
+        // sizes) is enough for engineers to reason about what happened. The
+        // full payload remains in the intake_events row whenever the write
+        // does succeed.
         intendedTurn: {
           modeResolution: input.modeResolution ?? null,
-          userMessage: input.userMessage ?? null,
-          modelRequest: input.modelRequest ?? null,
-          modelResponse: input.modelResponse ?? null,
+          userMessageLength: input.userMessage?.length ?? 0,
+          modelRequestKeys: input.modelRequest ? Object.keys(input.modelRequest) : null,
+          modelResponseKeys: input.modelResponse ? Object.keys(input.modelResponse) : null,
           toolCalls: input.toolCalls ?? null,
           toolResults: input.toolResults ?? null,
           failureReason: input.failureReason ?? null,
@@ -83,6 +89,21 @@ export async function writeIntakeTurn(
       });
     }
   }
+}
+
+// Concurrent writes to the same conversation can race on getNextTurnSeq.
+// The UNIQUE (conversation_id, turn_seq) constraint is the safety net; we
+// retry the loser with a freshly-computed seq up to this many times.
+const MAX_TURN_SEQ_RETRIES = 5;
+const TURN_SEQ_RETRY_BACKOFF_MS = 25;
+
+function isUniqueTurnSeqViolation(error: unknown): boolean {
+  if (!(error instanceof Error)) return false;
+  const message = error.message.toLowerCase();
+  // D1 surfaces SQLITE_CONSTRAINT_UNIQUE as a message containing "unique"
+  // and the offending columns ("intake_events.conversation_id, intake_events.turn_seq").
+  return message.includes('unique') &&
+    (message.includes('turn_seq') || message.includes('intake_events'));
 }
 
 /**
@@ -112,11 +133,14 @@ export class IntakeEventService {
 
   /**
    * Insert one turn. Returns the inserted row as a parsed IntakeEventTurn.
-   * Throws on D1 error or CHECK / UNIQUE violation.
+   * Throws on D1 error or CHECK violation. On concurrent writes to the same
+   * conversation, the (getNextTurnSeq, INSERT) pair is racy — two callers can
+   * read the same MAX and try to INSERT the same (conversation_id, turn_seq),
+   * and the UNIQUE constraint rejects the loser. This method retries on that
+   * specific failure with a freshly-computed seq, up to MAX_TURN_SEQ_RETRIES.
    */
   async recordTurn(input: IntakeEventRecordInput): Promise<IntakeEventTurn> {
     const id = crypto.randomUUID();
-    const turnSeq = await this.getNextTurnSeq(input.conversationId);
     const createdAt = new Date().toISOString();
     const modeResolutionJson = serializeOrNull(input.modeResolution);
     const modelRequestJson = serializeOrNull(input.modelRequest);
@@ -124,28 +148,51 @@ export class IntakeEventService {
     const toolCallsJson = serializeOrNull(input.toolCalls);
     const toolResultsJson = serializeOrNull(input.toolResults);
 
-    await this.env.DB.prepare(`
-      INSERT INTO intake_events (
-        id, conversation_id, practice_id, turn_seq, provenance,
-        mode_resolution_json, user_message, model_request_json,
-        model_response_json, tool_calls_json, tool_results_json,
-        failure_reason, created_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `).bind(
-      id,
-      input.conversationId,
-      input.practiceId,
-      turnSeq,
-      input.provenance,
-      modeResolutionJson,
-      input.userMessage ?? null,
-      modelRequestJson,
-      modelResponseJson,
-      toolCallsJson,
-      toolResultsJson,
-      input.failureReason ?? null,
-      createdAt,
-    ).run();
+    let turnSeq = 0;
+    let lastError: unknown = null;
+    for (let attempt = 0; attempt < MAX_TURN_SEQ_RETRIES; attempt++) {
+      turnSeq = await this.getNextTurnSeq(input.conversationId);
+      try {
+        await this.env.DB.prepare(`
+          INSERT INTO intake_events (
+            id, conversation_id, practice_id, turn_seq, provenance,
+            mode_resolution_json, user_message, model_request_json,
+            model_response_json, tool_calls_json, tool_results_json,
+            failure_reason, created_at
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `).bind(
+          id,
+          input.conversationId,
+          input.practiceId,
+          turnSeq,
+          input.provenance,
+          modeResolutionJson,
+          input.userMessage ?? null,
+          modelRequestJson,
+          modelResponseJson,
+          toolCallsJson,
+          toolResultsJson,
+          input.failureReason ?? null,
+          createdAt,
+        ).run();
+        lastError = null;
+        break;
+      } catch (error) {
+        // Retry only on UNIQUE (conversation_id, turn_seq) violations — those
+        // are the concurrent-write race. CHECK / other constraint failures and
+        // generic D1 errors propagate to the caller.
+        if (!isUniqueTurnSeqViolation(error)) {
+          throw error;
+        }
+        lastError = error;
+        if (attempt < MAX_TURN_SEQ_RETRIES - 1) {
+          await new Promise((resolve) => setTimeout(resolve, TURN_SEQ_RETRY_BACKOFF_MS));
+        }
+      }
+    }
+    if (lastError !== null) {
+      throw lastError;
+    }
 
     return {
       id,
