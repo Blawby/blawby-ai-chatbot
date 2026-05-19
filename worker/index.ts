@@ -28,6 +28,8 @@ import { handlePresence } from './routes/presence.js';
 import { handleAiChat } from './routes/aiChat.js';
 import { handleAiIntent } from './routes/aiIntent.js';
 import { withAuth, withCache, withRateLimit } from './middleware/compose.js';
+import { withEngineerAllowlist } from './middleware/withEngineerAllowlist.js';
+import { handleAdminIntakeInspector } from './routes/adminIntakeInspector.js';
 import { handleWebsiteExtract } from './routes/handleWebsiteExtract.js';
 import { handleSearch } from './routes/handleSearch.js';
 import { handleStatus } from './routes/status.js';
@@ -215,6 +217,18 @@ export const routes: RouteEntry[] = [
     mode: 'owned',
     match: prefix('/api/ai/chat'),
     handler: withAuth(handleAiChat, { required: true }),
+  },
+  {
+    mode: 'owned',
+    // Admin intake-inspector. Gated by Better-Auth session + engineer email
+    // allowlist (INTAKE_INSPECTOR_ENGINEER_EMAILS env var). Two routes:
+    //   GET  /api/admin/intake-events/:conversationId
+    //   POST /api/admin/intake-events/:conversationId/clear-failure
+    // See U9 of docs/plans/2026-05-18-002-feat-strengthen-intake-ai-observability-plan.md.
+    match: prefix('/api/admin/intake-events/'),
+    handler: withEngineerAllowlist(
+      withAuth((req, env) => handleAdminIntakeInspector(req, env), { required: true }),
+    ),
   },
   {
     mode: 'owned',

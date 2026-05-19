@@ -168,6 +168,18 @@ export interface Env {
   ENV_TEST?: string;
   IS_PRODUCTION?: string;
 
+  // Comma-separated allowlist of engineer emails permitted to access the
+  // admin intake-inspector route (U9 of the strengthen-intake-ai plan).
+  // Parsed once at module load — lowercased, trimmed, empty entries dropped.
+  // Empty/missing/whitespace-only value means no engineers have access (fail closed).
+  INTAKE_INSPECTOR_ENGINEER_EMAILS?: string;
+
+  // E2E test affordance — when set to 'true' AND NODE_ENV !== 'production',
+  // forces the intake AI request to fail so the failure path (U6 / U7 / U8)
+  // can be exercised end-to-end. Gated to non-prod so prod config drift can't
+  // silently brick intake. See U11 of the same plan.
+  INTAKE_AI_FORCE_FAILURE?: string;
+
   DEFAULT_PLATFORM_SLUG?: string;
   ALLOWED_WS_ORIGINS?: string;
 

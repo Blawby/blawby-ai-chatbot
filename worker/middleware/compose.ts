@@ -44,6 +44,16 @@ const authContextStore = new WeakMap<Request, AuthContext | null>();
 export const getAttachedAuthContext = (request: Request): AuthContext | null =>
   authContextStore.get(request) ?? null;
 
+/**
+ * Test-only seam for stashing an auth context onto a request without going
+ * through withAuth's session validation. NEVER use this outside of unit tests.
+ * Exported under a `__`-prefixed name so accidental production use stands out
+ * in code review and lint.
+ */
+export const __setAuthContextForTest = (request: Request, context: AuthContext | null): void => {
+  authContextStore.set(request, context);
+};
+
 export const withAuth = (
   handler: RouteHandler,
   opts: { required: boolean } = { required: false },

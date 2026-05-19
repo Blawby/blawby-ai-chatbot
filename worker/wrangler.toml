@@ -171,6 +171,11 @@ RATE_LIMIT_REQUESTS_PER_MINUTE = "60"
 RATE_LIMIT_BURST_SIZE = "10"
 SEARCH_SEMANTIC_ENABLED = "true"
 SEARCH_INDEX_CONCURRENCY = "8"
+# U9: comma-separated allowlist for the admin intake-inspector. Empty in dev
+# by default; engineers add their email here when they need access locally.
+# Prod/staging values must be configured via `wrangler secret put` or the
+# Cloudflare dashboard so they aren't checked into source.
+INTAKE_INSPECTOR_ENGINEER_EMAILS = ""
 
 [env.staging]
 name = "blawby-ai-chatbot-staging"
