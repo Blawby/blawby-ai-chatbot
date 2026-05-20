@@ -10,7 +10,7 @@ type SaltArg = string | null;
 const buildEnv = (salt: SaltArg = 'test-salt'): Env => {
   const env: Record<string, unknown> = { NODE_ENV: 'test' };
   if (salt !== null) env.IDEMPOTENCY_SALT = salt;
-  return env as Env;
+  return env as unknown as Env;
 };
 
 const baseInputs = {

@@ -155,7 +155,20 @@ export interface Env {
   ENABLE_EMAIL_NOTIFICATIONS?: string | boolean;
   ENABLE_PUSH_NOTIFICATIONS?: string | boolean;
 
-  IDEMPOTENCY_SALT?: string;
+  /**
+   * Idempotency salt — required for MCP rollout (U12 of the MCP agent
+   * surface plan). Direct-write and high-risk tools refuse to derive
+   * keys without it, so MCP simply doesn't function while the salt is
+   * unset — that's the desired posture.
+   *
+   * Non-MCP callers (ActivityService cursor signing) fall back to a
+   * placeholder when this is unset; historical behavior preserved.
+   *
+   * Set via `wrangler secret put IDEMPOTENCY_SALT` per env. Rotation
+   * requires a coordinated 24h drain since in-flight idempotency keys
+   * are invalidated immediately.
+   */
+  IDEMPOTENCY_SALT: string;
 
   // MCP server config (U6 scaffolding; U7/U8 activate the rest).
   // MCP_BACKEND_AUDIENCE — canonical resource URL emitted in the
