@@ -362,7 +362,6 @@ const PracticeHomePage = () => {
   return (
     <AppShell
       className="bg-transparent h-dvh"
-      accentBackdropVariant="none"
       header={header}
       sidebar={renderSidebar(false)}
       desktopSidebarCollapsed={desktopCollapsed}

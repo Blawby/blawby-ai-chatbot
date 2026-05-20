@@ -104,7 +104,6 @@ interface WorkspacePageProps {
   workspace?: 'public' | 'practice' | 'client';
   settingsView?: SettingsView;
   settingsAppId?: string;
-  settingsIntakeTemplateSlug?: string;
   routeInvoiceId?: string | null;
   routeReportDeliveryId?: string | null;
   onStartNewConversation: (
@@ -202,9 +201,8 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
   messages,
   layoutMode,
   workspace = 'public',
-  settingsView = 'general',
+  settingsView = 'account/profile',
   settingsAppId,
-  settingsIntakeTemplateSlug,
   routeInvoiceId: _,
   routeReportDeliveryId,
   onStartNewConversation,
@@ -942,12 +940,12 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
     ? buildSidebarConfig(navConfig, workspaceSection)
     : null;
 
-  // Active item resolution for the unified Sidebar:
-  // 1. Settings: match path against secondary items by href.
-  // 2. If the rail item matching the current path has expandable children, use the
-  //    active sub-filter.
-  // 3. Else, use the best-matching rail item id (longest matching prefix, so
-  //    /matters wins over Home's basePath even though both technically match).
+  // Sidebar active item resolution:
+  //  - best-matching rail item id (longest matching prefix, so /matters wins
+  //    over Home's basePath even though both technically match)
+  //  - if that rail item has expandable children, prefer the active sub-filter
+  //  - Settings highlights the rail item only; the in-page scope+section nav
+  //    in SettingsContent carries the sub-navigation.
   const sidebarActiveItemId = (() => {
     let bestRailId: string | null = null;
     let bestRailScore = -1;
@@ -961,26 +959,6 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
           bestRailId = item.id;
         }
       }
-    }
-
-    if (workspaceSection === 'settings' && navConfig.secondary) {
-      // Longest-prefix-match: nested settings (e.g. practice/team) must beat
-      // their parent (practice). Plain startsWith would always pick whichever
-      // item appears first in the array, which is the parent.
-      let bestSettingsId: string | null = null;
-      let bestSettingsScore = -1;
-      for (const section of navConfig.secondary) {
-        for (const item of section.items) {
-          if (!item.href) continue;
-          const matches = activeHref === item.href || activeHref.startsWith(`${item.href}/`);
-          if (!matches) continue;
-          if (item.href.length > bestSettingsScore) {
-            bestSettingsScore = item.href.length;
-            bestSettingsId = item.id;
-          }
-        }
-      }
-      if (bestSettingsId) return bestSettingsId;
     }
 
     const matchedSidebarItem = sidebarConfig?.sections
@@ -1266,7 +1244,6 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
       practiceSlug={practiceSlug}
       view={settingsView}
       appId={settingsAppId}
-      intakeTemplateSlug={settingsIntakeTemplateSlug}
       apps={mockApps}
       className="h-full"
     />
@@ -1546,13 +1523,12 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
   };
 
   // Editor views should be full-page without the persistent app navigation sidebar
-  const isEditorView = (view === 'settings' && settingsView === 'intake-forms-editor') || view === 'invoiceEdit';
+  const isEditorView = isIntakeTemplateEditorRoute || view === 'invoiceEdit';
   
   return (
     <>
       <AppShell
         className="bg-transparent h-dvh"
-        accentBackdropVariant="none"
         header={shellHeader}
         sidebar={isEditorView ? undefined : sidebarNav}
         desktopSidebarCollapsed={isDesktopSidebarCollapsed}

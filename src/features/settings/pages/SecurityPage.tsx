@@ -7,7 +7,6 @@ import { useNavigation } from '@/shared/utils/navigation';
 import { useSessionContext } from '@/shared/contexts/SessionContext';
 import { authClient } from '@/shared/lib/authClient';
 import { useAuthAccounts } from '@/shared/hooks/useAuthAccounts';
-import { Dialog, DialogBody, DialogFooter } from '@/shared/ui/dialog';
 import { AlertTriangle } from 'lucide-preact';
 
 import { Icon } from '@/shared/ui/Icon';
@@ -20,6 +19,7 @@ import { PasswordChangeForm } from '@/features/settings/components/PasswordChang
 import { LoadingBlock } from '@/shared/ui/layout/LoadingBlock';
 import { SettingsDangerButton } from '@/features/settings/components/SettingsDangerButton';
 import { SettingsHelperText } from '@/features/settings/components/SettingsHelperText';
+import { SettingsNotice } from '@/features/settings/components/SettingsNotice';
 import { getPreferencesCategory, updatePreferencesCategory } from '@/shared/lib/preferencesApi';
 import type { SecurityPreferences } from '@/shared/types/preferences';
 import { FormActions } from '@/shared/ui/form';
@@ -179,7 +179,7 @@ export const SecurityPage = ({
       if (!showMfa) return;
       if (value) {
         // Enable MFA: Navigate to enrollment page without updating state
-        navigate(toSettingsPath('mfa-enrollment'));
+        navigate(toSettingsPath('account/security/mfa-enrollment'));
       } else {
         // Disable MFA: Show confirmation dialog
         setShowDisableMFAConfirm(true);
@@ -499,6 +499,34 @@ export const SecurityPage = ({
             id="mfa-toggle"
           />
 
+          {showDisableMFAConfirm ? (
+            <SettingsNotice variant="warning" className="mt-3">
+              <div className="space-y-3">
+                <div className="flex items-start gap-2">
+                  <Icon icon={AlertTriangle} className="mt-0.5 h-5 w-5 text-warning" aria-hidden="true" />
+                  <div className="space-y-1">
+                    <p className="text-sm font-semibold text-input-text">
+                      {t('settings:security.mfa.disable.heading')}
+                    </p>
+                    <p className="text-sm text-input-placeholder">
+                      {t('settings:security.mfa.disable.description')}
+                    </p>
+                  </div>
+                </div>
+                <FormActions
+                  className="justify-end border-0 p-0"
+                  size="sm"
+                  onCancel={handleCancelDisableMFA}
+                  onSubmit={handleConfirmDisableMFA}
+                  submitType="button"
+                  submitVariant="warning"
+                  cancelText={t('settings:security.mfa.disable.cancel')}
+                  submitText={t('settings:security.mfa.disable.confirm')}
+                />
+              </div>
+            </SettingsNotice>
+          ) : null}
+
           <SectionDivider />
         </>
       )}
@@ -545,43 +573,6 @@ export const SecurityPage = ({
         </SettingsDangerButton>
       </SettingRow>
 
-      {showMfa && (
-        <>
-          {/* MFA Disable Confirmation Modal */}
-          <Dialog
-            isOpen={showDisableMFAConfirm}
-            onClose={handleCancelDisableMFA}
-            title={t('settings:security.mfa.disable.modalTitle')}
-            description={t('settings:security.mfa.disable.description')}
-            showCloseButton={true}
-          >
-            <DialogBody className="space-y-4">
-              <div className="flex items-start gap-3">
-                <div className="flex-shrink-0">
-                  <Icon icon={AlertTriangle} className="w-6 h-6 text-orange-500"  />
-                </div>
-                <div className="flex-1">
-                  <h3 className="text-lg font-semibold text-input-text mb-2">
-                    {t('settings:security.mfa.disable.heading')}
-                  </h3>
-                </div>
-              </div>
-            </DialogBody>
-            <DialogFooter className="p-0">
-              <FormActions
-                className="w-full justify-end border-0 px-5 py-4 sm:px-6"
-                size="sm"
-                onCancel={handleCancelDisableMFA}
-                onSubmit={handleConfirmDisableMFA}
-                submitType="button"
-                submitVariant="warning"
-                cancelText={t('settings:security.mfa.disable.cancel')}
-                submitText={t('settings:security.mfa.disable.confirm')}
-              />
-            </DialogFooter>
-          </Dialog>
-        </>
-      )}
     </div>
   );
 };

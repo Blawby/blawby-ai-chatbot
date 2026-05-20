@@ -1,4 +1,4 @@
-import { useMemo, useState, useEffect } from 'preact/hooks';
+import { useMemo, useState, useEffect, useCallback } from 'preact/hooks';
 import { useNavigation } from '@/shared/utils/navigation';
 import { cn } from '@/shared/utils/cn';
 import { type App, mockApps } from './appsData';
@@ -7,35 +7,48 @@ import { useWorkspace } from '@/shared/hooks/useWorkspace';
 import { normalizePracticeRole } from '@/shared/utils/practiceRoles';
 import { GeneralPage } from './GeneralPage';
 import { NotificationsPage } from './NotificationsPage';
-import { AccountPage } from './AccountPage';
+import { AccountProfilePage } from './AccountProfilePage';
+import { PracticeBillingPage } from './PracticeBillingPage';
 import { PayoutsPage } from './PayoutsPage';
 import { SecurityPage } from './SecurityPage';
 import { HelpPage } from './HelpPage';
 import { MFAEnrollmentPage } from './MFAEnrollmentPage';
-import { PracticePage } from './PracticePage';
+import { PracticeGeneralPage } from './PracticeGeneralPage';
+import { PracticeContactPage } from './PracticeContactPage';
 import { PracticeTeamPage } from './PracticeTeamPage';
 import { AppsPage } from './AppsPage';
 import { AppDetailPage } from './AppDetailPage';
-import IntakeTemplatesPage from '@/features/intake/pages/IntakeTemplatesPage';
+import { PracticeCoveragePage } from './PracticeCoveragePage';
+import { MembershipsPage } from './MembershipsPage';
 import { EditorShell } from '@/shared/ui/layout';
-import { getSettingsNavConfig } from '@/shared/config/navConfig';
+import { getSettingsNavConfig, type SettingsScopeNav } from '@/shared/config/navConfig';
 import { useTranslation } from '@/shared/i18n/hooks';
+import {
+  SettingsScopeTabs,
+  SettingsSectionNav,
+  type SettingsScope,
+} from '@/features/settings/components';
 
 export type SettingsView =
-  | 'general'
-  | 'notifications'
-  | 'account'
-  | 'practice'
-  | 'practice-payouts'
-  | 'practice-team'
-  | 'apps'
-  | 'app-detail'
-  | 'intake-forms'
-  | 'intake-forms-editor'
-  | 'security'
-  | 'help'
-  | 'mfa-enrollment'
-  ;
+  | 'account/profile'
+  | 'account/appearance'
+  | 'account/notifications'
+  | 'account/security'
+  | 'account/security/mfa-enrollment'
+  | 'account/memberships'
+  | 'practice/general'
+  | 'practice/contact'
+  | 'practice/coverage'
+  | 'practice/team'
+  | 'practice/billing'
+  | 'practice/payouts'
+  | 'practice/apps'
+  | 'practice/app-detail'
+  | 'help';
+
+const assertNever = (value: never): never => {
+  throw new Error(`Unhandled settings view: ${String(value)}`);
+};
 
 export interface SettingsContentProps {
   isMobile?: boolean;
@@ -45,14 +58,18 @@ export interface SettingsContentProps {
   practiceSlug?: string;
   view?: SettingsView;
   appId?: string;
-  intakeTemplateSlug?: string;
   apps?: App[];
 }
+
+const scopeOfView = (view: SettingsView): SettingsScope => {
+  if (view === 'help') return 'help';
+  if (view.startsWith('practice/')) return 'practice';
+  return 'account';
+};
 
 const SettingsRouter = ({
   view,
   appId,
-  intakeTemplateSlug,
   apps,
   handleAppUpdate,
   toSettingsPath,
@@ -60,7 +77,6 @@ const SettingsRouter = ({
 }: {
   view: SettingsView;
   appId?: string;
-  intakeTemplateSlug?: string;
   apps: App[];
   handleAppUpdate: (targetAppId: string, updates: Partial<App>) => void;
   toSettingsPath: (subPath?: string) => string;
@@ -70,113 +86,91 @@ const SettingsRouter = ({
 
   const renderViewContent = () => {
     switch (view) {
-      case 'general':
+      case 'account/appearance':
         return <GeneralPage />;
-      case 'notifications':
+      case 'account/notifications':
         return <NotificationsPage />;
-      case 'account':
-        return <AccountPage />;
-      case 'practice':
-        return <PracticePage onBack={() => navigate(toSettingsPath('general'))} />;
-      case 'practice-payouts':
-        return <PayoutsPage onBack={() => navigate(toSettingsPath('practice'))} />;
-      case 'practice-team':
-        return <PracticeTeamPage onBack={() => navigate(toSettingsPath('practice'))} />;
-      case 'apps':
+      case 'account/profile':
+        return <AccountProfilePage />;
+      case 'account/security':
+        return <SecurityPage />;
+      case 'account/security/mfa-enrollment':
+        return <MFAEnrollmentPage onBack={() => navigate(toSettingsPath('account/security'))} />;
+      case 'account/memberships':
+        return <MembershipsPage />;
+      case 'practice/general':
+        return <PracticeGeneralPage onBack={() => navigate(toSettingsPath('account/profile'))} />;
+      case 'practice/contact':
+        return <PracticeContactPage onBack={() => navigate(toSettingsPath('practice/general'))} />;
+      case 'practice/coverage':
+        return <PracticeCoveragePage onBack={() => navigate(toSettingsPath('practice/general'))} />;
+      case 'practice/team':
+        return <PracticeTeamPage onBack={() => navigate(toSettingsPath('practice/general'))} />;
+      case 'practice/billing':
+        return <PracticeBillingPage />;
+      case 'practice/payouts':
+        return <PayoutsPage onBack={() => navigate(toSettingsPath('practice/general'))} />;
+      case 'practice/apps':
         return (
           <AppsPage
             apps={apps}
-            onSelect={(selectedAppId) => navigate(toSettingsPath(`apps/${selectedAppId}`))}
+            onSelect={(selectedAppId) => navigate(toSettingsPath(`practice/apps/${selectedAppId}`))}
           />
         );
-      case 'app-detail': {
-        if (!appId) {
-          return (
-            <EditorShell title="Apps" showBack onBack={() => navigate(toSettingsPath('apps'))} contentMaxWidth={null}>
-              <AppsPage apps={apps} onSelect={(id) => navigate(toSettingsPath(`apps/${id}`))} />
-            </EditorShell>
-          );
-        }
-        const currentApp = apps.find((app) => app.id === appId);
+      case 'practice/app-detail': {
+        const currentApp = appId ? apps.find((app) => app.id === appId) : undefined;
         if (!currentApp) {
           return (
-            <EditorShell title="Apps" showBack onBack={() => navigate(toSettingsPath('apps'))} contentMaxWidth={null}>
-              <AppsPage apps={apps} onSelect={(id) => navigate(toSettingsPath(`apps/${id}`))} />
+            <EditorShell title="Apps" showBack onBack={() => navigate(toSettingsPath('practice/apps'))} contentMaxWidth={null}>
+              <AppsPage apps={apps} onSelect={(id) => navigate(toSettingsPath(`practice/apps/${id}`))} />
             </EditorShell>
           );
         }
         return (
           <AppDetailPage
             app={currentApp}
-            onBack={() => navigate(toSettingsPath('apps'))}
+            onBack={() => navigate(toSettingsPath('practice/apps'))}
             onUpdate={handleAppUpdate}
           />
         );
       }
-      case 'intake-forms':
-        return (
-          <IntakeTemplatesPage
-            basePath={toSettingsPath('intake-forms')}
-            routeMode="list"
-          />
-        );
-      case 'intake-forms-editor':
-        return (
-          <IntakeTemplatesPage
-            basePath={toSettingsPath('intake-forms')}
-            routeMode="editor"
-            routeTemplateSlug={intakeTemplateSlug ?? null}
-            onBack={() => navigate(toSettingsPath('intake-forms'))}
-          />
-        );
-      case 'security':
-        return <SecurityPage />;
-      case 'mfa-enrollment':
-        return <MFAEnrollmentPage onBack={() => navigate(toSettingsPath('security'))} />;
       case 'help':
         return <HelpPage />;
       default:
-        return <GeneralPage />;
+        return assertNever(view);
     }
   };
 
-  const isSelfWrappedView = view === 'app-detail'
-    || view === 'practice'
-    || view === 'practice-payouts'
-    || view === 'practice-team'
-    || view === 'intake-forms'
-    || view === 'intake-forms-editor'
-    || view === 'mfa-enrollment'
+  const isSelfWrappedView = view === 'practice/app-detail'
+    || view === 'practice/general'
+    || view === 'practice/contact'
+    || view === 'practice/coverage'
+    || view === 'practice/payouts'
+    || view === 'practice/team'
+    || view === 'account/security/mfa-enrollment';
 
   if (isSelfWrappedView) {
     return renderViewContent();
   }
 
   return (
-    <EditorShell
-      title={viewLabel}
-      contentMaxWidth={null}
-    >
+    <EditorShell title={viewLabel} contentMaxWidth={null}>
       {renderViewContent()}
     </EditorShell>
   );
 };
 
 /**
- * Controller for all settings views.
- *
- * Provides settings routing while keeping list pages and detail/editor pages explicit.
- * Top-level views are wrapped here. Detail/editor views render their own EditorShell
- * so header actions, back behavior, and previews stay local to the editor state.
+ * Controller for all settings views. Renders the scope tabs (Account /
+ * Practice / Help) + section nav strip, then the view content.
  */
 export const SettingsContent = (props: SettingsContentProps) => {
   const {
     className = '',
     workspace = 'practice',
     practiceSlug = 'workspace',
-    view = 'general',
+    view = 'account/profile',
     appId,
-    intakeTemplateSlug,
     apps: initialApps,
   } = props;
 
@@ -189,23 +183,20 @@ export const SettingsContent = (props: SettingsContentProps) => {
   const { canAccessPractice } = useWorkspace();
 
   const settingsBasePath = `/${workspace}/${encodeURIComponent(practiceSlug)}/settings`;
-  const toSettingsPath = (subPath?: string) => {
-    if (!subPath) return settingsBasePath;
-    return `${settingsBasePath}/${subPath.replace(/^\/+/, '')}`;
-  };
+  const toSettingsPath = useCallback(
+    (subPath?: string) => {
+      if (!subPath) return settingsBasePath;
+      return `${settingsBasePath}/${subPath.replace(/^\/+/, '')}`;
+    },
+    [settingsBasePath],
+  );
 
-  const isPracticeScopedView = view === 'practice-payouts'
-    || view === 'practice-team'
-    || view === 'practice'
-    || view === 'apps'
-    || view === 'app-detail'
-    || view === 'intake-forms'
-    || view === 'intake-forms-editor'
+  const isPracticeScopedView = view.startsWith('practice/');
 
   useEffect(() => {
     if (sessionPending) return;
     if (isPracticeScopedView && !canAccessPractice) {
-      navigate(`${settingsBasePath}/general`, true);
+      navigate(`${settingsBasePath}/account/profile`, true);
     }
   }, [canAccessPractice, isPracticeScopedView, navigate, sessionPending, settingsBasePath]);
 
@@ -240,23 +231,41 @@ export const SettingsContent = (props: SettingsContentProps) => {
     });
   }, [activeMemberRole, canAccessPractice, practiceSlug]);
 
+  const scope = scopeOfView(view);
+  const scopeNav: SettingsScopeNav | null = scope === 'account'
+    ? navConfig.scopes.account
+    : scope === 'practice'
+      ? navConfig.scopes.practice ?? null
+      : navConfig.scopes.help;
+
+  const sectionNavItems = useMemo(() => scopeNav?.items ?? [], [scopeNav]);
+  const currentSectionId = view;
+
   const viewLabel = useMemo(() => {
-    if (view === 'app-detail' && currentApp) return currentApp.name;
-    for (const section of navConfig.secondary ?? []) {
-      const item = section.items.find((i) => i.id === view);
-      if (item) return item.label;
-    }
-    if (view === 'practice') return t('settings:practice.title');
-    if (view === 'mfa-enrollment') return t('settings:mfa.title');
-    return t(`settings:${view}.title`);
-  }, [currentApp, navConfig.secondary, t, view]);
+    if (view === 'practice/app-detail' && currentApp) return currentApp.name;
+    const match = sectionNavItems.find((item) => item.id === view);
+    if (match) return match.label;
+    return '';
+  }, [currentApp, sectionNavItems, view]);
 
   return (
-    <div className={cn('h-full min-h-0 overflow-hidden', className)}>
+    <div className={cn('h-full min-h-0 overflow-auto', className)}>
+      <div className="px-4 sm:px-6 lg:px-8">
+        <SettingsScopeTabs
+          scope={scope}
+          basePath={settingsBasePath}
+          canAccessPractice={canAccessPractice}
+          accountLabel={t('settings:scope.account', { defaultValue: 'Account' })}
+          practiceLabel={t('settings:scope.practice', { defaultValue: 'Practice' })}
+          helpLabel={t('settings:scope.help', { defaultValue: 'Help' })}
+        />
+        {sectionNavItems.length > 0 ? (
+          <SettingsSectionNav items={sectionNavItems} currentId={currentSectionId} />
+        ) : null}
+      </div>
       <SettingsRouter
         view={view}
         appId={appId}
-        intakeTemplateSlug={intakeTemplateSlug}
         apps={apps}
         handleAppUpdate={handleAppUpdate}
         toSettingsPath={toSettingsPath}

@@ -5,7 +5,6 @@ import {
   Building2,
   Contact,
   CreditCard,
-  FileText,
   Folder,
   Home,
   LifeBuoy,
@@ -127,13 +126,27 @@ export type NavSection = {
   items: SecondaryNavItem[];
 };
 
+export type SettingsScopeNav = {
+  id: 'account' | 'practice' | 'help';
+  label: string;
+  items: SecondaryNavItem[];
+};
+
+export type SettingsScopes = {
+  account: SettingsScopeNav;
+  practice: SettingsScopeNav | null;
+  help: SettingsScopeNav;
+};
+
 export type NavConfig = {
   rail: NavRailItem[];
   secondary?: NavSection[];
-  /** Pre-computed Settings secondary, always attached to the Settings rail item
-   *  in buildSidebarConfig regardless of current section — so clicking Settings
-   *  expands inline instead of waiting for a navigation to attach children. */
-  settingsChildren?: SidebarChild[];
+  /**
+   * Scope-organised settings nav, used by SettingsContent to render the
+   * Account / Practice / Help scope tabs + per-scope section nav. Populated
+   * by getSettingsNavConfig.
+   */
+  scopes?: SettingsScopes;
 };
 
 export const MATTERS_FILTER_MAP: Record<string, string[]> = {
@@ -258,10 +271,8 @@ const buildPracticeRail = (basePath: string): NavRailItem[] => [
     id: 'settings',
     label: 'Settings',
     icon: SettingsNavIcon,
-    href: `${basePath}/settings/general`,
+    href: `${basePath}/settings/account/profile`,
     matchHrefs: [`${basePath}/settings`, `${basePath}/coverage`],
-    expandable: true,
-    expandOnly: true,
     prefetch: prefetchSettingsLanding,
   },
 ];
@@ -434,56 +445,77 @@ const buildInvoicesSecondary = (basePath: string, workspace: 'practice' | 'clien
   }];
 };
 
+const buildSettingsScopes = (basePath: string, canAccessPractice: boolean): SettingsScopes => {
+  const account: SettingsScopeNav = {
+    id: 'account',
+    label: 'Account',
+    items: [
+      { id: 'account/profile', label: 'Profile', href: `${basePath}/settings/account/profile`, icon: User },
+      { id: 'account/appearance', label: 'Appearance', href: `${basePath}/settings/account/appearance`, icon: Palette },
+      { id: 'account/notifications', label: 'Notifications', href: `${basePath}/settings/account/notifications`, icon: Bell },
+      { id: 'account/security', label: 'Security', href: `${basePath}/settings/account/security`, icon: Shield },
+      { id: 'account/memberships', label: 'Memberships', href: `${basePath}/settings/account/memberships`, icon: Briefcase },
+    ],
+  };
+
+  const practice: SettingsScopeNav | null = canAccessPractice
+    ? {
+        id: 'practice',
+        label: 'Practice',
+        items: [
+          { id: 'practice/general', label: 'General', href: `${basePath}/settings/practice/general`, icon: Building2 },
+          { id: 'practice/contact', label: 'Contact', href: `${basePath}/settings/practice/contact`, icon: Contact },
+          { id: 'practice/coverage', label: 'Coverage', href: `${basePath}/settings/practice/coverage`, icon: Map },
+          { id: 'practice/team', label: 'Team', href: `${basePath}/settings/practice/team`, icon: Users },
+          { id: 'practice/billing', label: 'Billing', href: `${basePath}/settings/practice/billing`, icon: CreditCard },
+          { id: 'practice/payouts', label: 'Payouts', href: `${basePath}/settings/practice/payouts`, icon: CreditCard },
+          { id: 'practice/apps', label: 'Apps', href: `${basePath}/settings/practice/apps`, icon: Puzzle },
+        ],
+      }
+    : null;
+
+  const help: SettingsScopeNav = {
+    id: 'help',
+    label: 'Help',
+    items: [
+      { id: 'help', label: 'Help center', href: `${basePath}/settings/help`, icon: LifeBuoy },
+    ],
+  };
+
+  return { account, practice, help };
+};
+
+// Flat NavSection[] adapter over buildSettingsScopes for callers that read
+// `NavConfig.secondary` (mobile menu visibility, generic workspace nav helpers).
 const buildSettingsSecondary = (basePath: string, canAccessPractice: boolean): NavSection[] => {
-  // Pencil GtRGH > settingsSubItems: PERSONAL / ACCOUNT / PRACTICE / SUPPORT
+  const scopes = buildSettingsScopes(basePath, canAccessPractice);
   const sections: NavSection[] = [
-    {
-      label: 'Personal',
-      items: [
-        { id: 'general', label: 'Appearance', href: `${basePath}/settings/general`, icon: Palette },
-        { id: 'notifications', label: 'Notifications', href: `${basePath}/settings/notifications`, icon: Bell },
-      ],
-    },
-    {
-      label: 'Account',
-      items: [
-        { id: 'security', label: 'Security', href: `${basePath}/settings/security`, icon: Shield },
-        { id: 'account', label: 'Profile', href: `${basePath}/settings/account`, icon: User },
-      ],
-    },
+    { label: scopes.account.label, items: scopes.account.items },
   ];
-
-  if (canAccessPractice) {
-    sections.push({
-      label: 'Practice',
-      items: [
-        { id: 'practice', label: 'Practice', href: `${basePath}/settings/practice`, icon: Building2 },
-        { id: 'practice-payouts', label: 'Payouts', href: `${basePath}/settings/practice/payouts`, icon: CreditCard },
-        { id: 'practice-team', label: 'Team', href: `${basePath}/settings/practice/team`, icon: Users },
-        { id: 'coverage', label: 'Coverage', href: `${basePath}/coverage`, icon: Map },
-        { id: 'intake-forms', label: 'Intake Forms', href: `${basePath}/settings/intake-forms`, icon: FileText },
-        { id: 'apps', label: 'Apps', href: `${basePath}/settings/apps`, icon: Puzzle },
-      ],
-    });
+  if (scopes.practice) {
+    sections.push({ label: scopes.practice.label, items: scopes.practice.items });
   }
-
-  sections.push({
-    label: 'Support',
-    items: [{ id: 'help', label: 'Help', href: `${basePath}/settings/help`, icon: LifeBuoy }],
-  });
-
+  sections.push({ label: scopes.help.label, items: scopes.help.items });
   return sections;
 };
 
-const buildIntakesSecondary = (basePath: string): NavSection[] => [{
-  label: 'Responses',
-  items: [
-    { id: 'all', label: 'All responses', href: `${basePath}/intakes/responses` },
-    { id: 'pending_review', label: 'Pending', href: `${basePath}/intakes/responses` },
-    { id: 'accepted', label: 'Accepted', href: `${basePath}/intakes/responses` },
-    { id: 'declined', label: 'Declined', href: `${basePath}/intakes/responses` },
-  ],
-}];
+const buildIntakesSecondary = (basePath: string): NavSection[] => [
+  {
+    label: 'Responses',
+    items: [
+      { id: 'all', label: 'All responses', href: `${basePath}/intakes/responses` },
+      { id: 'pending_review', label: 'Pending', href: `${basePath}/intakes/responses` },
+      { id: 'accepted', label: 'Accepted', href: `${basePath}/intakes/responses` },
+      { id: 'declined', label: 'Declined', href: `${basePath}/intakes/responses` },
+    ],
+  },
+  {
+    label: 'Templates',
+    items: [
+      { id: 'templates', label: 'All templates', href: `${basePath}/intakes/templates` },
+    ],
+  },
+];
 
 const buildSecondary = (basePath: string, section: WorkspaceSection, workspace: 'practice' | 'client', canAccessPractice: boolean): NavSection[] | undefined => {
   switch (section) {
@@ -513,7 +545,7 @@ export function getPracticeNavConfig(ctx: NavCtx, section: WorkspaceSection = 'h
   return {
     rail: buildPracticeRail(basePath),
     secondary: buildSecondary(basePath, section, 'practice', true),
-    settingsChildren: flattenSecondary(buildSettingsSecondary(basePath, true)),
+    scopes: buildSettingsScopes(basePath, true),
   };
 }
 
@@ -522,7 +554,7 @@ export function getClientNavConfig(ctx: NavCtx, section: WorkspaceSection = 'hom
   return {
     rail: buildClientRail(basePath),
     secondary: buildSecondary(basePath, section, 'client', false),
-    settingsChildren: flattenSecondary(buildSettingsSecondary(basePath, false)),
+    scopes: buildSettingsScopes(basePath, false),
   };
 }
 
@@ -535,7 +567,7 @@ export function getSettingsNavConfig(ctx: NavCtx): NavConfig {
   return {
     rail: usePracticeBase ? buildPracticeRail(basePath) : buildClientRail(basePath),
     secondary: buildSettingsSecondary(basePath, usePracticeBase),
-    settingsChildren: flattenSecondary(buildSettingsSecondary(basePath, usePracticeBase)),
+    scopes: buildSettingsScopes(basePath, usePracticeBase),
   };
 }
 
@@ -639,15 +671,12 @@ export function buildSidebarConfig(navConfig: NavConfig, currentSection: Workspa
   const items: SidebarItem[] = navConfig.rail.map((railItem) => {
     const railSection = RAIL_ID_TO_SECTION[railItem.id];
     const isCurrent = railSection === currentSection;
-    if (isCurrent && secondaryChildren.length) {
+    // Settings is intentionally excluded from the active-section children-expansion
+    // pattern: the in-page scope tabs (SettingsScopeTabs / SettingsSectionNav)
+    // carry the settings nav, so the rail item just navigates to the landing
+    // page when clicked.
+    if (isCurrent && secondaryChildren.length && railItem.id !== 'settings') {
       return { ...railItem, children: secondaryChildren };
-    }
-    // The Settings rail item always carries its full child list so a click
-    // expands the dropdown inline (instead of forcing a navigation just to
-    // reveal the children). Other rail items keep the current behavior:
-    // children only appear once that section is active.
-    if (railItem.id === 'settings' && navConfig.settingsChildren?.length) {
-      return { ...railItem, children: navConfig.settingsChildren };
     }
     return railItem;
   });

@@ -76,12 +76,14 @@ export const getWorkspaceRouteState = ({
   const isIntakeResponsesRoute = view === 'intakes'
     && isPracticeWorkspace
     && (path === intakeResponsesPath || path.startsWith(`${intakeResponsesPath}/`));
+  const intakeTemplatesPath = `${intakesPath}/templates`;
   const isIntakeTemplateRoute = view === 'intakes'
     && isPracticeWorkspace
     && path.startsWith(intakesPath)
     && !isIntakeResponsesRoute;
   const isIntakeTemplateEditorRoute = isIntakeTemplateRoute
-    && path !== intakesPath;
+    && path !== intakesPath
+    && path !== intakeTemplatesPath;
 
   let selectedMatterIdFromPath: string | null = null;
   let isMatterNonListRoute = false;

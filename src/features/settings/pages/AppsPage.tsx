@@ -32,7 +32,7 @@ export const AppsPage = ({ apps, onSelect, className = '' }: AppsPageProps) => {
               label={app.name}
               labelNode={(
                 <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 rounded-xl glass-panel flex items-center justify-center overflow-hidden">
+                  <div className="w-12 h-12 rounded-xl bg-surface-card-hover flex items-center justify-center overflow-hidden">
                     {app.logo ? (
                       <img
                         src={app.logo}

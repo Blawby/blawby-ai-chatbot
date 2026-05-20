@@ -294,7 +294,7 @@ export const PracticeCoveragePage = ({ className, onBack }: PracticeCoveragePage
               Round billable time to this many minutes when entries are created.
             </SettingsHelperText>
           </div>
-          <div className="glass-panel rounded-xl p-4">
+          <div className="rounded-xl border border-line-default bg-surface-card p-4">
             <div className="flex flex-col gap-4 sm:flex-row sm:items-end">
               <div className="w-full max-w-[220px]">
                 <label className="mb-2 block text-sm font-medium text-input-text" htmlFor="billing-increment-minutes">

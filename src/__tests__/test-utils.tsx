@@ -137,8 +137,12 @@ vi.mock('@/features/settings/pages/NotificationsPage', () => ({
   NotificationsPage: () => <div>Notification Settings</div>,
 }));
 
-vi.mock('@/features/settings/pages/AccountPage', () => ({
-  AccountPage: () => <div>Account Settings</div>,
+vi.mock('@/features/settings/pages/AccountProfilePage', () => ({
+  AccountProfilePage: () => <div>Account Profile</div>,
+}));
+
+vi.mock('@/features/settings/pages/PracticeBillingPage', () => ({
+  PracticeBillingPage: () => <div>Practice Billing</div>,
 }));
 
 vi.mock('@/features/settings/pages/SecurityPage', () => ({

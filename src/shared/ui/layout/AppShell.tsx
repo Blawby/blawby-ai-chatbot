@@ -1,13 +1,6 @@
 import type { ComponentChildren, JSX } from 'preact';
 import { cn } from '@/shared/utils/cn';
-import { getAccentBackdropDefaults, type AccentBackdropVariant } from './accentBackdrop';
 import { MobileInspectorOverlay } from '@/shared/ui/inspector/MobileInspectorOverlay';
-
-type AccentBackdropOverrides = {
-  gradientClassName?: string;
-  leftOrbClassName?: string;
-  rightOrbClassName?: string;
-};
 
 export interface AppShellProps {
   header?: ComponentChildren;
@@ -32,8 +25,6 @@ export interface AppShellProps {
   main: ComponentChildren;
   bottomBar?: ComponentChildren;
   backgroundDecor?: ComponentChildren;
-  accentBackdropVariant?: AccentBackdropVariant;
-  accentBackdropOverrides?: AccentBackdropOverrides;
   className?: string;
   headerClassName?: string;
   sidebarClassName?: string;
@@ -57,8 +48,6 @@ export const AppShell = ({
   main,
   bottomBar,
   backgroundDecor,
-  accentBackdropVariant = 'none',
-  accentBackdropOverrides,
   className,
   headerClassName,
   sidebarClassName,
@@ -103,15 +92,6 @@ export const AppShell = ({
     return cols.join(' ');
   })();
   const gridClassName = 'grid-rows-[auto,1fr,auto] lg:grid-cols-[var(--app-grid-cols)] lg:grid-rows-[auto,1fr,auto]';
-  const accentDefaults = getAccentBackdropDefaults(accentBackdropVariant);
-  const showAccentBackdrop = Boolean(accentDefaults);
-  const resolvedAccentClasses = accentDefaults
-    ? {
-      gradientClassName: accentBackdropOverrides?.gradientClassName ?? accentDefaults.gradientClassName,
-      leftOrbClassName: accentBackdropOverrides?.leftOrbClassName ?? accentDefaults.leftOrbClassName,
-      rightOrbClassName: accentBackdropOverrides?.rightOrbClassName ?? accentDefaults.rightOrbClassName
-    }
-    : null;
 
   return (
     <div
@@ -123,14 +103,6 @@ export const AppShell = ({
           {backgroundDecor}
         </div>
       )}
-      {showAccentBackdrop && resolvedAccentClasses && (
-        <div className="pointer-events-none absolute inset-0 overflow-hidden">
-          <div className={resolvedAccentClasses.gradientClassName} />
-          <div className={resolvedAccentClasses.leftOrbClassName} />
-          <div className={resolvedAccentClasses.rightOrbClassName} />
-        </div>
-      )}
-
 
       {hasSidebar && (
         <aside

@@ -37,6 +37,7 @@ const ClientInvoicesPage = lazy(() => import('@/features/invoices/pages/ClientIn
 const ClientInvoiceDetailPage = lazy(() => import('@/features/invoices/pages/ClientInvoiceDetailPage').then(m => ({ default: m.ClientInvoiceDetailPage })));
 const PracticeReportsPage = lazy(() => import('@/features/reports/pages/PracticeReportsPage').then(m => ({ default: m.PracticeReportsPage })));
 const IntakesPage = lazy(() => import('@/features/intake/pages/IntakesPage').then(m => ({ default: m.IntakesPage })));
+const IntakeTemplatesPage = lazy(() => import('@/features/intake/pages/IntakeTemplatesPage'));
 const ClientIntakesView = lazy(() => import('@/features/intake/pages/ClientIntakesView').then(m => ({ default: m.ClientIntakesView })));
 const EngagementsPage = lazy(() => import('@/features/engagements/pages/EngagementsPage').then(m => ({ default: m.EngagementsPage })));
 const PracticeFilesPage = lazy(() => import('@/features/files/pages/PracticeFilesPage').then(m => ({ default: m.PracticeFilesPage })));
@@ -86,6 +87,7 @@ export function MainApp({
   routeSettingsView,
   routeSettingsAppId,
   routeSettingsIntakeTemplateSlug,
+  routeIntakesSubView,
   publicPracticeSlug,
   workspaceView,
   clientPracticeSlug,
@@ -104,6 +106,7 @@ export function MainApp({
   routeSettingsView?: SettingsView;
   routeSettingsAppId?: string;
   routeSettingsIntakeTemplateSlug?: string;
+  routeIntakesSubView?: 'templates' | 'template-editor';
   publicPracticeSlug?: string;
   workspaceView?: WorkspaceView;
   clientPracticeSlug?: string;
@@ -869,7 +872,6 @@ export function MainApp({
       workspace={workspace}
       settingsView={routeSettingsView}
       settingsAppId={routeSettingsAppId}
-      settingsIntakeTemplateSlug={routeSettingsIntakeTemplateSlug}
       onStartNewConversation={handleStartNewConversation}
       activeConversationId={activeConversationId}
       intakeConversationState={intakeConversationState}
@@ -1083,18 +1085,33 @@ export function MainApp({
       }
       intakesView={
         isPracticeWorkspace
-          ? (activeFilter) => (
-            <LazyRouteBoundary>
-              <IntakesPage
-                practiceId={effectivePracticeId ?? practiceId}
-                activeTriageFilter={activeFilter}
-                basePath={practiceIntakesPath ?? '/practice/intakes'}
-                conversationsBasePath={conversationsBasePath}
-                practiceName={resolvedPracticeName}
-                practiceLogo={resolvedPracticeLogo}
-              />
-            </LazyRouteBoundary>
-          )
+          ? routeIntakesSubView === 'templates' || routeIntakesSubView === 'template-editor'
+            ? () => {
+              const templatesBasePath = `${practiceIntakesPath ?? '/practice/intakes'}/templates`;
+              const isEditor = routeIntakesSubView === 'template-editor';
+              return (
+                <LazyRouteBoundary>
+                  <IntakeTemplatesPage
+                    basePath={templatesBasePath}
+                    routeMode={isEditor ? 'editor' : 'list'}
+                    routeTemplateSlug={isEditor ? (routeSettingsIntakeTemplateSlug ?? null) : null}
+                    onBack={isEditor ? () => navigate(templatesBasePath) : undefined}
+                  />
+                </LazyRouteBoundary>
+              );
+            }
+            : (activeFilter) => (
+              <LazyRouteBoundary>
+                <IntakesPage
+                  practiceId={effectivePracticeId ?? practiceId}
+                  activeTriageFilter={activeFilter}
+                  basePath={practiceIntakesPath ?? '/practice/intakes'}
+                  conversationsBasePath={conversationsBasePath}
+                  practiceName={resolvedPracticeName}
+                  practiceLogo={resolvedPracticeLogo}
+                />
+              </LazyRouteBoundary>
+            )
           : isClientWorkspace
             ? () => (
               <LazyRouteBoundary>

@@ -1,5 +1,9 @@
 export { SettingRow } from './SettingRow';
 export { SettingSection } from './SettingSection';
+export { SettingsScopeTabs } from './SettingsScopeTabs';
+export type { SettingsScope } from './SettingsScopeTabs';
+export { SettingsSectionNav } from './SettingsSectionNav';
+export type { SettingsSectionNavItem } from './SettingsSectionNav';
 export { SettingToggle } from './SettingToggle';
 export { SettingSelect } from './SettingSelect';
 export { PasswordChangeForm } from './PasswordChangeForm';

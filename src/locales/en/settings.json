@@ -48,7 +48,8 @@
       "colorAriaLabel": "Brand color",
       "currentColorAria": "Current brand color {{color}}",
       "colorHexAria": "Brand color hex",
-      "colorPlaceholder": "#D4AF37"
+      "colorPlaceholder": "#D4AF37",
+      "colorHelper": "Used for accents, buttons, and links in your client widget."
     },
     "contact": {
       "title": "Contact details",
@@ -58,7 +59,9 @@
       "businessEmailLabel": "Business email",
       "businessEmailPlaceholder": "business@example.com",
       "phoneLabel": "Contact phone",
-      "phonePlaceholder": "+1 (555) 123-4567"
+      "phonePlaceholder": "+1 (555) 123-4567",
+      "pageTitle": "Contact",
+      "pageSubtitle": "How clients reach this practice."
     },
     "address": {
       "title": "Address",
@@ -97,6 +100,10 @@
         "title": "Brand color",
         "body": "Use a valid hex value."
       }
+    },
+    "general": {
+      "title": "General",
+      "subtitle": "Identity and brand for this practice."
     }
   },
   "general": {
@@ -395,6 +402,14 @@
       "label": "Domain",
       "cancel": "Cancel",
       "submit": "Add"
+    },
+    "profile": {
+      "identityTitle": "Identity",
+      "identityDescription": "The name and avatar shown to your practice and clients.",
+      "emailTitle": "Email",
+      "emailDescription": "Used to sign in and receive account notices.",
+      "deleteDescription": "Permanently delete your Blawby account. This cannot be undone.",
+      "currentEmailLabel": "Current email"
     }
   },
   "notifications": {
@@ -669,5 +684,33 @@
         "cta": "View"
       }
     }
+  },
+  "scope": {
+    "account": "Account",
+    "practice": "Practice",
+    "help": "Help"
+  },
+  "billing": {
+    "currentPlanTitle": "Current plan",
+    "planDescription": "Your firm’s subscription to Blawby.",
+    "planIncludesTitle": "Plan includes",
+    "planIncludesDescription": "What’s available on your current plan.",
+    "paymentMethodTitle": "Payment method",
+    "paymentMethodDescription": "How your practice pays Blawby. We use Stripe to handle billing.",
+    "clientNotApplicable": "Billing is managed by your practice. Reach out to them with any plan or payment questions."
+  },
+  "memberships": {
+    "title": "Practice memberships",
+    "description": "The legal practices you belong to on Blawby. Your active practice is highlighted.",
+    "currentBadge": "Active",
+    "leaveAria": "Leave {{name}}",
+    "cannotLeaveCurrent": "Switch to another practice before leaving this one.",
+    "leaveButton": "Leave",
+    "leaveConfirmTitle": "Leave {{name}}?",
+    "leaveConfirmBody": "You will lose access to this practice. An admin will need to invite you back to rejoin.",
+    "leftToastTitle": "Left practice",
+    "leftToastBody": "You are no longer a member of this practice.",
+    "emptyTitle": "No practice memberships yet",
+    "emptyBody": "You belong to a practice when an admin invites you. Accept an invitation to get started."
   }
 }
