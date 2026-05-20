@@ -414,10 +414,96 @@ export const DIRECT_WRITE_TOOLS: McpToolDefinition[] = [
   },
 ];
 
+export const HIGH_RISK_TOOLS: McpToolDefinition[] = [
+  {
+    name: 'send_invoice',
+    description:
+      'Send an invoice to a client. Requires lawyer approval via a browser link (the tool returns pending_action_id and an approval URL). Do NOT auto-retry if rejected — ask the lawyer. Trust-account / IOLTA matters are refused with TRUST_ACCOUNT_NOT_SUPPORTED in v1; use the web UI for those.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        matter_id: idParam('Matter UUID this invoice is associated with.'),
+        client_id: idParam('Recipient client UUID.'),
+        line_items: {
+          type: 'array',
+          minItems: 1,
+          items: {
+            type: 'object',
+            properties: {
+              description: { type: 'string' },
+              quantity: { type: 'number', minimum: 0 },
+              unit_amount_cents: { type: 'integer', minimum: 0 },
+            },
+            required: ['description', 'unit_amount_cents'],
+          },
+        },
+        due_date: { type: 'string', format: 'date', description: 'ISO date.' },
+      },
+      required: ['matter_id', 'client_id', 'line_items'],
+    },
+    requiredScope: 'invoices:send',
+    _meta: {
+      risk_tier: 'high_risk',
+      implementation_status: 'backend_pending',
+      backend_method: 'POST',
+      backend_path: '/api/pending-actions',
+    },
+  },
+  {
+    name: 'record_payment',
+    description:
+      'Record an offline payment received from a client (cash, check, wire). Requires lawyer approval. Returns pending_action_id and approval URL. Trust-account matters refused with TRUST_ACCOUNT_NOT_SUPPORTED.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        matter_id: idParam('Matter UUID this payment applies to.'),
+        client_id: idParam('Payer client UUID.'),
+        amount_cents: { type: 'integer', minimum: 1 },
+        currency: { type: 'string', default: 'usd' },
+        method: { type: 'string', enum: ['cash', 'check', 'wire', 'other'] },
+        memo: optionalString('Optional memo for the audit log.'),
+      },
+      required: ['matter_id', 'client_id', 'amount_cents', 'method'],
+    },
+    requiredScope: 'invoices:send',
+    _meta: {
+      risk_tier: 'high_risk',
+      implementation_status: 'backend_pending',
+      backend_method: 'POST',
+      backend_path: '/api/pending-actions',
+    },
+  },
+  {
+    name: 'refund_payment',
+    description:
+      'Refund a previously-received Stripe payment in whole or in part. Requires lawyer approval. Returns pending_action_id and approval URL. Trust-account matters refused.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        payment_id: idParam("Stripe payment intent id, e.g. 'pi_...'"),
+        amount_cents: {
+          type: 'integer',
+          minimum: 1,
+          description: 'Amount to refund. Defaults to full payment if omitted.',
+        },
+        reason: optionalString('Refund reason recorded with the pending action.'),
+      },
+      required: ['payment_id'],
+    },
+    requiredScope: 'payments:refund',
+    _meta: {
+      risk_tier: 'high_risk',
+      implementation_status: 'backend_pending',
+      backend_method: 'POST',
+      backend_path: '/api/pending-actions',
+    },
+  },
+];
+
 export const ALL_TOOL_DEFINITIONS: McpToolDefinition[] = [
   ...READ_TOOLS,
   ...DIRECT_WRITE_TOOLS,
-  // High-risk lands in U11.
+  ...HIGH_RISK_TOOLS,
 ];
 
 /**

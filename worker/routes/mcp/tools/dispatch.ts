@@ -9,6 +9,7 @@ import { handleReadTool } from './read.js';
 import { handleBriefingTool } from './briefing.js';
 import { handleRevokeMySession } from './revoke.js';
 import { handleDirectWriteTool } from './writes-direct.js';
+import { handleHighRiskTool } from './writes-high-risk.js';
 
 /**
  * Tool dispatch — entry point the McpSession DO calls for tools/list
@@ -96,10 +97,16 @@ export const dispatchToolCall = async (
     if (tool.name === 'get_practice_briefing') return await handleBriefingTool(args, context);
     if (tool.name === 'revoke_my_session') return await handleRevokeMySession(args, context);
 
-    // Risk-tier dispatch: direct writes need tool_call_seq for idempotency
-    // derivation (U10), reads don't.
+    // Risk-tier dispatch: direct writes (U10) and high-risk writes (U11)
+    // both require tool_call_seq for idempotency derivation; reads don't.
     if (tool._meta.risk_tier === 'direct_write') {
       return await handleDirectWriteTool(tool, args, {
+        ...context,
+        tool_call_seq: context.tool_call_seq ?? 'unknown',
+      });
+    }
+    if (tool._meta.risk_tier === 'high_risk') {
+      return await handleHighRiskTool(tool, args, {
         ...context,
         tool_call_seq: context.tool_call_seq ?? 'unknown',
       });
