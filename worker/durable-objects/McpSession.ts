@@ -5,6 +5,7 @@ import type {
   WebSocket as WorkerWebSocket,
 } from '@cloudflare/workers-types';
 import type { Env } from '../types.js';
+import { dispatchToolCall, isOk, listTools } from '../routes/mcp/tools/dispatch.js';
 
 /**
  * McpSession — one Durable Object per authorized MCP session.
@@ -236,13 +237,34 @@ export class McpSession {
     switch (body.method) {
       case 'ping':
         return jsonRpcOk(body.id, {});
-      case 'tools/list':
-        // U9-U11 plug real tools in here. Scaffolding returns an empty list.
-        return jsonRpcOk(body.id, { tools: [] });
-      case 'tools/call':
-        return jsonRpcError(body.id, -32601, 'No tools registered yet', {
-          phase: 'u6_scaffolding',
+      case 'tools/list': {
+        const outcome = listTools();
+        return jsonRpcOk(body.id, outcome.result);
+      }
+      case 'tools/call': {
+        const params = (body.params ?? {}) as Record<string, unknown>;
+        const toolName = typeof params.name === 'string' ? params.name : '';
+        const argsRaw = params.arguments;
+        const args =
+          argsRaw && typeof argsRaw === 'object' && !Array.isArray(argsRaw)
+            ? (argsRaw as Record<string, unknown>)
+            : {};
+        if (!toolName) {
+          return jsonRpcError(body.id, -32602, 'tools/call requires a `name` parameter');
+        }
+        const outcome = await dispatchToolCall(toolName, args, {
+          session_id: metadata.session_id,
+          practice_id: metadata.practice_id,
+          user_id: metadata.user_id,
+          jti: metadata.jti,
+          scopes: new Set(metadata.scopes),
+          env: this.env,
         });
+        if (isOk(outcome)) {
+          return jsonRpcOk(body.id, outcome.result);
+        }
+        return jsonRpcError(body.id, outcome.error.code, outcome.error.message, outcome.error.data);
+      }
       default:
         return jsonRpcError(body.id, -32601, `Method not found: ${body.method}`);
     }
