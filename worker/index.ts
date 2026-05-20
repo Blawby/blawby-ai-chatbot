@@ -33,6 +33,7 @@ import {
   handleMcpInternalEvents,
   handleOAuthProtectedResource,
 } from './routes/mcp/index.js';
+import { withMCPAuth } from './middleware/mcpAuth.js';
 import { withAuth, withCache, withRateLimit } from './middleware/compose.js';
 import { withEngineerAllowlist } from './middleware/withEngineerAllowlist.js';
 import { handleAdminIntakeInspector } from './routes/adminIntakeInspector.js';
@@ -117,14 +118,22 @@ const matchesBackendProxy: RouteMatcher = (path) =>
 // `/api/ai/intent` before `/api/ai/chat`).
 export const routes: RouteEntry[] = [
   { mode: 'proxy', match: prefix('/api/auth'), handler: (req, env) => handleAuthProxy(req, env) },
-  // MCP scaffolding (U6 of the MCP agent surface plan). Order matters here too:
-  // `/api/mcp/internal/events` is a more-specific path than `/api/mcp/ws` and
-  // both are more-specific than `/api/mcp`, so list them in that order.
-  // Auth attaches in U7 via `withMCPAuth`; until then identity headers must
-  // be provided externally or initialize returns -32001.
+  // MCP scaffolding (U6) + auth middleware (U7). Order matters: the more-
+  // specific `/api/mcp/internal/events` and `/api/mcp/ws` must come before
+  // the catch-all `/api/mcp`.
+  //
+  // The internal events route stays UNAUTHENTICATED at the Bearer-JWT layer
+  // — it's service-to-service and uses HMAC+bearer dual-factor auth (U8).
+  // The well-known resource doc is also unauthenticated; the spec requires
+  // it to be publicly discoverable.
+  //
+  // Everything else under `/api/mcp` is wrapped with withMCPAuth: validates
+  // Bearer JWT against backend JWKS, checks audience, scope, revocation
+  // epoch (KV), and jti denylist (KV). On success, sets X-Mcp-* identity
+  // headers that the route handler forwards to the McpSession DO.
   { mode: 'owned', match: exact('/api/mcp/internal/events'), handler: handleMcpInternalEvents },
-  { mode: 'owned', match: exact('/api/mcp/ws'), handler: handleMcpWebSocket },
-  { mode: 'owned', match: exact('/api/mcp'), handler: handleMcp },
+  { mode: 'owned', match: exact('/api/mcp/ws'), handler: withMCPAuth(handleMcpWebSocket) },
+  { mode: 'owned', match: exact('/api/mcp'), handler: withMCPAuth(handleMcp) },
   {
     mode: 'owned',
     match: exact('/.well-known/oauth-protected-resource'),
