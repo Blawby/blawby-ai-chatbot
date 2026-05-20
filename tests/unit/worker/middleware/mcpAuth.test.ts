@@ -132,7 +132,9 @@ const installJwksFetchStub = (keys: TestKeyMaterial): void => {
 
 let keys: TestKeyMaterial;
 const ctx = {} as ExecutionContext;
-const okHandler = vi.fn(async () => new Response('OK', { status: 200 }));
+const okHandler = vi.fn(
+  async (_req: Request, _env: Env, _ctx: ExecutionContext) => new Response('OK', { status: 200 }),
+);
 
 beforeEach(async () => {
   __resetMCPAuthJwksCacheForTest();

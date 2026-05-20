@@ -1,5 +1,6 @@
 import type { Request as WorkerRequest } from '@cloudflare/workers-types';
 import type { Env } from '../../types.js';
+import { McpEventBatchSchema, fanOutEventToSessions } from '../../services/MCPEventBus.js';
 
 /**
  * MCP route handlers — U6 scaffolding.
@@ -218,21 +219,134 @@ export async function handleMcpWebSocket(request: Request, env: Env): Promise<Re
   return (await stub.fetch(doRequest as unknown as WorkerRequest)) as unknown as Response;
 }
 
-export async function handleMcpInternalEvents(request: Request, _env: Env): Promise<Response> {
-  // U6 placeholder — U8 plugs in HMAC+bearer dual-factor auth, validation,
-  // and fan-out to active sessions. Returning 501 here keeps the route
-  // discoverable in the route table without exposing an unauthenticated
-  // event ingest path.
+/**
+ * Backend → Worker event ingest (U8).
+ *
+ * Dual-factor authentication: a constant-time bearer compare against
+ * `MCP_BACKEND_TOKEN` AND an HMAC-SHA256 signature over
+ * `${X-Backend-Timestamp}.${canonical_body}` using `MCP_BACKEND_HMAC_KEY`.
+ * Timestamp must be within ±60s. Both factors required — if the bearer
+ * leaks an attacker still can't forge events without the HMAC key.
+ *
+ * Body validates against `McpEventBatch` (zod). Each event is fanned
+ * out to every active McpSession DO for the practice whose granted
+ * scopes cover the event class. At-least-once delivery; per-session
+ * dedup happens inside the DO via `event_id` PK.
+ *
+ * The return body summarizes delivery so backend's dispatcher can
+ * decide whether to retry. We never throw; per-event errors are
+ * counted and returned 200.
+ */
+const TIMESTAMP_SKEW_MS = 60_000;
+
+const constantTimeEquals = (a: string, b: string): boolean => {
+  if (a.length !== b.length) return false;
+  let diff = 0;
+  for (let i = 0; i < a.length; i++) {
+    diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  }
+  return diff === 0;
+};
+
+const hexEncode = (bytes: Uint8Array): string =>
+  Array.from(bytes)
+    .map((b) => b.toString(16).padStart(2, '0'))
+    .join('');
+
+const computeHmacSha256 = async (key: string, message: string): Promise<string> => {
+  const encoder = new TextEncoder();
+  const cryptoKey = await crypto.subtle.importKey(
+    'raw',
+    encoder.encode(key),
+    { name: 'HMAC', hash: 'SHA-256' },
+    false,
+    ['sign'],
+  );
+  const signature = await crypto.subtle.sign('HMAC', cryptoKey, encoder.encode(message));
+  return hexEncode(new Uint8Array(signature));
+};
+
+export async function handleMcpInternalEvents(request: Request, env: Env): Promise<Response> {
   if (request.method !== 'POST') {
     return new Response('Method not allowed', { status: 405 });
   }
+
+  // 1. Configuration must be present. A misconfigured worker MUST NOT
+  //    accept events even from a valid backend — fail closed.
+  if (!env.MCP_BACKEND_TOKEN || !env.MCP_BACKEND_HMAC_KEY) {
+    return new Response(
+      JSON.stringify({
+        error: 'MCP backend ingest not configured',
+        errorCode: 'CONFIG_MISSING',
+      }),
+      { status: 503, headers: { 'Content-Type': 'application/json' } },
+    );
+  }
+
+  // 2. Bearer factor (constant-time compare to avoid timing attacks).
+  const authHeader = request.headers.get('Authorization');
+  const bearer = authHeader?.startsWith('Bearer ') ? authHeader.slice(7).trim() : '';
+  if (!bearer || !constantTimeEquals(bearer, env.MCP_BACKEND_TOKEN)) {
+    return new Response('Forbidden', { status: 403 });
+  }
+
+  // 3. Timestamp + HMAC factor.
+  const timestampHeader = request.headers.get('X-Backend-Timestamp');
+  const signatureHeader = request.headers.get('X-Backend-Signature');
+  if (!timestampHeader || !signatureHeader) {
+    return new Response('Missing X-Backend-Timestamp or X-Backend-Signature', { status: 400 });
+  }
+  const timestamp = Number.parseInt(timestampHeader, 10);
+  if (!Number.isFinite(timestamp)) {
+    return new Response('Invalid X-Backend-Timestamp', { status: 400 });
+  }
+  if (Math.abs(Date.now() - timestamp) > TIMESTAMP_SKEW_MS) {
+    return new Response('Timestamp skew exceeds tolerance', { status: 403 });
+  }
+
+  // Read body once. crypto signature is computed over the raw bytes
+  // before any JSON parsing so we don't accidentally re-serialize.
+  const bodyText = await request.text();
+  const expectedSignature = await computeHmacSha256(
+    env.MCP_BACKEND_HMAC_KEY,
+    `${timestampHeader}.${bodyText}`,
+  );
+  if (!constantTimeEquals(signatureHeader, expectedSignature)) {
+    return new Response('Forbidden', { status: 403 });
+  }
+
+  // 4. Body validates against the zod schema.
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(bodyText);
+  } catch {
+    return new Response('Invalid JSON', { status: 400 });
+  }
+  const batchResult = McpEventBatchSchema.safeParse(parsed);
+  if (!batchResult.success) {
+    return new Response(
+      JSON.stringify({
+        error: 'Invalid event batch',
+        errorCode: 'INVALID_BATCH',
+        issues: batchResult.error.issues.slice(0, 10),
+      }),
+      { status: 400, headers: { 'Content-Type': 'application/json' } },
+    );
+  }
+
+  // 5. Fan out. Run events in parallel — they're independent. Per-event
+  //    errors are captured in the response so the dispatcher can decide
+  //    which to retry, but we always return 200.
+  const results = await Promise.all(
+    batchResult.data.events.map((event) => fanOutEventToSessions(env, event)),
+  );
+
   return new Response(
     JSON.stringify({
-      error: 'Backend events ingest not yet implemented',
-      errorCode: 'NOT_IMPLEMENTED',
-      phase: 'u8_event_dispatch',
+      accepted_count: batchResult.data.events.length,
+      results,
     }),
-    { status: 501, headers: { 'Content-Type': 'application/json' } },
+    { status: 200, headers: { 'Content-Type': 'application/json' } },
   );
 }
 

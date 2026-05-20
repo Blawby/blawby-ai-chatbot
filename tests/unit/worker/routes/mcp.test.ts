@@ -283,17 +283,19 @@ describe('handleMcpWebSocket', () => {
   });
 });
 
-describe('handleMcpInternalEvents (U8 placeholder)', () => {
-  it('returns 501 with NOT_IMPLEMENTED until U8 plugs in real auth and fan-out', async () => {
+describe('handleMcpInternalEvents (U8)', () => {
+  // Full coverage of HMAC + bearer + fan-out lives in
+  // tests/unit/worker/routes/mcp-internal-events.test.ts. These tests
+  // are the route-table-facing surface checks only.
+  it('returns 503 CONFIG_MISSING when MCP_BACKEND_TOKEN is unset', async () => {
     const env = buildEnv();
     const response = await handleMcpInternalEvents(
       buildRequest('POST', '/api/mcp/internal/events', { body: '{}' }),
       env,
     );
-    expect(response.status).toBe(501);
+    expect(response.status).toBe(503);
     const body = (await response.json()) as Record<string, unknown>;
-    expect(body.errorCode).toBe('NOT_IMPLEMENTED');
-    expect(body.phase).toBe('u8_event_dispatch');
+    expect(body.errorCode).toBe('CONFIG_MISSING');
   });
 
   it('rejects non-POST methods with 405', async () => {
