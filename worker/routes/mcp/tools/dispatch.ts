@@ -8,6 +8,7 @@ import {
 import { handleReadTool } from './read.js';
 import { handleBriefingTool } from './briefing.js';
 import { handleRevokeMySession } from './revoke.js';
+import { handleDirectWriteTool } from './writes-direct.js';
 
 /**
  * Tool dispatch — entry point the McpSession DO calls for tools/list
@@ -32,6 +33,13 @@ export interface McpToolContext {
   jti: string;
   scopes: ReadonlySet<string>;
   env: Env;
+  /**
+   * Set by the DO when invoking via tools/call — the JSON-RPC request
+   * id. Write tools combine this with practice + tool + params to derive
+   * a deterministic Idempotency-Key (plan R14). Optional because read
+   * tools and the briefing don't need it.
+   */
+  tool_call_seq?: string | number;
 }
 
 export type JsonRpcOk = { ok: true; result: unknown };
@@ -84,14 +92,19 @@ export const dispatchToolCall = async (
   if (scopeError) return scopeError;
 
   try {
-    switch (tool.name) {
-      case 'get_practice_briefing':
-        return await handleBriefingTool(args, context);
-      case 'revoke_my_session':
-        return await handleRevokeMySession(args, context);
-      default:
-        return await handleReadTool(tool, args, context);
+    // Synthesis + Worker-only tools dispatched by name.
+    if (tool.name === 'get_practice_briefing') return await handleBriefingTool(args, context);
+    if (tool.name === 'revoke_my_session') return await handleRevokeMySession(args, context);
+
+    // Risk-tier dispatch: direct writes need tool_call_seq for idempotency
+    // derivation (U10), reads don't.
+    if (tool._meta.risk_tier === 'direct_write') {
+      return await handleDirectWriteTool(tool, args, {
+        ...context,
+        tool_call_seq: context.tool_call_seq ?? 'unknown',
+      });
     }
+    return await handleReadTool(tool, args, context);
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Tool execution failed';
     return err(-32603, message, {

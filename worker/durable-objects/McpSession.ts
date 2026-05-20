@@ -259,6 +259,7 @@ export class McpSession {
           jti: metadata.jti,
           scopes: new Set(metadata.scopes),
           env: this.env,
+          tool_call_seq: body.id,
         });
         if (isOk(outcome)) {
           return jsonRpcOk(body.id, outcome.result);

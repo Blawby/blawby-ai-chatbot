@@ -261,9 +261,163 @@ export const READ_TOOLS: McpToolDefinition[] = [
   },
 ];
 
+export const DIRECT_WRITE_TOOLS: McpToolDefinition[] = [
+  {
+    name: 'triage_intake',
+    description:
+      "Mark an intake as accepted or rejected after lawyer review. Sets the intake's triage_status and records the decision in the audit log. Idempotent for 24h on identical params.",
+    inputSchema: {
+      type: 'object',
+      properties: {
+        intake_id: idParam("Intake UUID, e.g. 'intake_01...'"),
+        decision: { type: 'string', enum: ['accepted', 'rejected'] },
+        note: optionalString('Optional reason text recorded in the audit log.'),
+      },
+      required: ['intake_id', 'decision'],
+    },
+    requiredScope: 'intakes:write',
+    _meta: {
+      risk_tier: 'direct_write',
+      implementation_status: 'backend_pending',
+      backend_method: 'POST',
+      backend_path: '/api/practice-client-intakes/:intake_id/triage',
+    },
+  },
+  {
+    name: 'convert_intake_to_matter',
+    description:
+      'Convert an accepted intake into a new matter. Returns the new matter id. Idempotent for 24h — running twice with the same intake_id returns the same matter_id.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        intake_id: idParam('Accepted intake UUID.'),
+        matter_title: optionalString('Optional matter title; defaults to intake summary.'),
+      },
+      required: ['intake_id'],
+    },
+    requiredScope: 'matters:write',
+    _meta: {
+      risk_tier: 'direct_write',
+      implementation_status: 'backend_pending',
+      backend_method: 'POST',
+      backend_path: '/api/practice-client-intakes/:intake_id/convert',
+    },
+  },
+  {
+    name: 'update_matter',
+    description:
+      'Update a matter — title, status, or metadata. Use list_matters then get_matter to locate the matter_id and confirm current state before editing.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        matter_id: idParam('Matter UUID.'),
+        title: optionalString('New title.'),
+        status: { type: 'string', enum: ['draft', 'active', 'closed'] },
+        metadata: { type: 'object', description: 'Optional metadata patch.' },
+      },
+      required: ['matter_id'],
+    },
+    requiredScope: 'matters:write',
+    _meta: {
+      risk_tier: 'direct_write',
+      implementation_status: 'backend_pending',
+      backend_method: 'PATCH',
+      backend_path: '/api/matters/:matter_id',
+    },
+  },
+  {
+    name: 'add_matter_note',
+    description:
+      'Append a note to a matter. The note body is stored in the matter row; the audit log records only a digest of the body (not the raw text) to avoid eDiscovery privilege-waiver risk.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        matter_id: idParam('Matter UUID.'),
+        body: { type: 'string', description: 'Note body (markdown supported).' },
+      },
+      required: ['matter_id', 'body'],
+    },
+    requiredScope: 'matters:write',
+    _meta: {
+      risk_tier: 'direct_write',
+      implementation_status: 'backend_pending',
+      backend_method: 'POST',
+      backend_path: '/api/matters/:matter_id/notes',
+    },
+  },
+  {
+    name: 'log_time_entry',
+    description:
+      'Record a time entry against a matter. Provide minutes and a short description; rate is inferred from the matter or practice default.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        matter_id: idParam('Matter UUID.'),
+        minutes: { type: 'integer', minimum: 1, maximum: 1440 },
+        description: { type: 'string' },
+        occurred_at: optionalString('ISO timestamp; defaults to now.'),
+      },
+      required: ['matter_id', 'minutes', 'description'],
+    },
+    requiredScope: 'matters:write',
+    _meta: {
+      risk_tier: 'direct_write',
+      implementation_status: 'backend_pending',
+      backend_method: 'POST',
+      backend_path: '/api/matters/:matter_id/time-entries',
+    },
+  },
+  {
+    name: 'message_client',
+    description:
+      "Send a message to a client conversation. Content is sent verbatim AS THE PRACTICE — never agent-paraphrase legal content without explicit lawyer review (ABA Rule 5.3 supervision). Only conversations with an accepted intake AND practice-org membership are deliverable; pre-acceptance prospects are unreachable.",
+    inputSchema: {
+      type: 'object',
+      properties: {
+        conversation_id: idParam('Blawby conversation UUID.'),
+        body: { type: 'string', description: 'Message text.' },
+      },
+      required: ['conversation_id', 'body'],
+    },
+    requiredScope: 'messages:send_as_practice',
+    _meta: {
+      risk_tier: 'direct_write',
+      implementation_status: 'backend_pending',
+      backend_method: 'POST',
+      backend_path: '/api/conversations/:conversation_id/messages',
+    },
+  },
+  {
+    name: 'request_documents_from_client',
+    description:
+      "Send a document-request message to a client conversation listing the documents you need. Same conversation-visibility rules as message_client.",
+    inputSchema: {
+      type: 'object',
+      properties: {
+        conversation_id: idParam('Blawby conversation UUID.'),
+        description: { type: 'string', description: 'Plain-text request body.' },
+        documents: {
+          type: 'array',
+          items: { type: 'object', properties: { name: { type: 'string' }, required: { type: 'boolean' } }, required: ['name'] },
+          description: 'List of documents the client should upload.',
+        },
+      },
+      required: ['conversation_id', 'documents'],
+    },
+    requiredScope: 'messages:send_as_practice',
+    _meta: {
+      risk_tier: 'direct_write',
+      implementation_status: 'backend_pending',
+      backend_method: 'POST',
+      backend_path: '/api/conversations/:conversation_id/document-requests',
+    },
+  },
+];
+
 export const ALL_TOOL_DEFINITIONS: McpToolDefinition[] = [
   ...READ_TOOLS,
-  // Direct writes land in U10, high-risk in U11; this array grows then.
+  ...DIRECT_WRITE_TOOLS,
+  // High-risk lands in U11.
 ];
 
 /**
