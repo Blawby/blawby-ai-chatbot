@@ -117,6 +117,26 @@ describe('worker route table', () => {
     expectNoRoute('/api/foo/bar');
   });
 
+  it('MCP scaffolding (U6) registers four routes with the correct specificity ordering', () => {
+    // The internal events ingest is the most-specific MCP path and must
+    // match before the catch-all /api/mcp.
+    expectRoute('/api/mcp/internal/events', 'owned');
+    expectRoute('/api/mcp/ws', 'owned');
+    expectRoute('/api/mcp', 'owned');
+    // exact() matchers: extra path segments must not match.
+    expectNoRoute('/api/mcp/');
+    expectNoRoute('/api/mcp/something');
+    expectNoRoute('/api/mcp/internal');
+    expectNoRoute('/api/mcp/internal/events/extra');
+  });
+
+  it('RFC 9728 protected-resource metadata is owned by the worker', () => {
+    expectRoute('/.well-known/oauth-protected-resource', 'owned');
+    // Other /.well-known paths are not registered.
+    expectNoRoute('/.well-known/openid-configuration');
+    expectNoRoute('/.well-known/something-else');
+  });
+
   it('returns null for non-/api paths (handled by handleRoot fallback)', () => {
     expectNoRoute('/widget');
     expectNoRoute('/something');

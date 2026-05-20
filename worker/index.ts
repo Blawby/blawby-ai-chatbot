@@ -27,6 +27,12 @@ import { handleGlobalSearch } from './routes/search.js';
 import { handlePresence } from './routes/presence.js';
 import { handleAiChat } from './routes/aiChat.js';
 import { handleAiIntent } from './routes/aiIntent.js';
+import {
+  handleMcp,
+  handleMcpWebSocket,
+  handleMcpInternalEvents,
+  handleOAuthProtectedResource,
+} from './routes/mcp/index.js';
 import { withAuth, withCache, withRateLimit } from './middleware/compose.js';
 import { withEngineerAllowlist } from './middleware/withEngineerAllowlist.js';
 import { handleAdminIntakeInspector } from './routes/adminIntakeInspector.js';
@@ -111,6 +117,19 @@ const matchesBackendProxy: RouteMatcher = (path) =>
 // `/api/ai/intent` before `/api/ai/chat`).
 export const routes: RouteEntry[] = [
   { mode: 'proxy', match: prefix('/api/auth'), handler: (req, env) => handleAuthProxy(req, env) },
+  // MCP scaffolding (U6 of the MCP agent surface plan). Order matters here too:
+  // `/api/mcp/internal/events` is a more-specific path than `/api/mcp/ws` and
+  // both are more-specific than `/api/mcp`, so list them in that order.
+  // Auth attaches in U7 via `withMCPAuth`; until then identity headers must
+  // be provided externally or initialize returns -32001.
+  { mode: 'owned', match: exact('/api/mcp/internal/events'), handler: handleMcpInternalEvents },
+  { mode: 'owned', match: exact('/api/mcp/ws'), handler: handleMcpWebSocket },
+  { mode: 'owned', match: exact('/api/mcp'), handler: handleMcp },
+  {
+    mode: 'owned',
+    match: exact('/.well-known/oauth-protected-resource'),
+    handler: handleOAuthProtectedResource,
+  },
   { mode: 'proxy', match: regex(/^\/api\/practice\/[^/]+\/team$/), handler: (req, env) => handlePracticeTeam(req, env) },
   {
     mode: 'owned',
@@ -369,3 +388,4 @@ export { ChatRoom } from './durable-objects/ChatRoom';
 export { ChatCounterObject } from './durable-objects/ChatCounterObject';
 export { MatterProgressRoom } from './durable-objects/MatterProgressRoom';
 export { PresenceRoom } from './durable-objects/PresenceRoom';
+export { McpSession } from './durable-objects/McpSession';

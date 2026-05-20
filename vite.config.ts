@@ -84,6 +84,11 @@ const workerEndpoints = [
 	'widget',
 	'presence',
 	'search',
+	// U6 of MCP plan: /api/mcp, /api/mcp/ws, /api/mcp/internal/events all
+	// proxy to the worker. Register the prefix so local-dev doesn't fall
+	// through to the backend proxy and 404. Auth and tool surface are wired
+	// in U7-U11.
+	'mcp',
 ];
 
 // Proxy configuration types from http-proxy-middleware
@@ -112,6 +117,11 @@ const buildProxyEntries = (): Record<string, ProxyOptions> => {
 	workerEndpoints.forEach((endpoint) => {
 		entries[`/api/${endpoint}`] = createWorkerProxyConfig();
 	});
+
+	// RFC 9728 protected-resource metadata lives outside /api/* — register it
+	// explicitly so the worker handles it rather than letting Vite SPA-fall
+	// through to index.html. U6 of MCP plan.
+	entries['/.well-known/oauth-protected-resource'] = createWorkerProxyConfig();
 
 	return entries;
 };

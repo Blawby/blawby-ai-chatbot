@@ -129,6 +129,11 @@ export interface Env {
   MATTER_PROGRESS: DurableObjectNamespace;
   CHAT_COUNTER: DurableObjectNamespace;
   PRESENCE_ROOM: DurableObjectNamespace;
+  // U6 of MCP plan: per-session DO holding the live MCP transport
+  // (WebSocket-hibernating), per-session event replay buffer in DO SQLite
+  // storage, and the protocol version negotiation state.
+  // See docs/plans/2026-05-15-002-feat-blawby-mcp-agent-surface-plan.md.
+  MCP_SESSION: DurableObjectNamespace;
   FILES_BUCKET?: R2Bucket;
   ADOBE_CLIENT_ID?: string;
   ADOBE_CLIENT_SECRET?: string;
@@ -151,6 +156,20 @@ export interface Env {
   ENABLE_PUSH_NOTIFICATIONS?: string | boolean;
 
   IDEMPOTENCY_SALT?: string;
+
+  // MCP server config (U6 scaffolding; U7/U8 activate the rest).
+  // MCP_BACKEND_AUDIENCE — canonical resource URL emitted in the
+  //   /.well-known/oauth-protected-resource document and enforced as the `aud`
+  //   claim on Bearer JWTs in U7. If unset, the well-known doc derives the
+  //   value from the request URL so local dev works without explicit config.
+  // MCP_BACKEND_TOKEN — service token for the Backend->Worker internal events
+  //   route. Set via `wrangler secret put`; never committed. Activated in U8.
+  // MCP_BACKEND_HMAC_KEY — second factor for the same internal route
+  //   (HMAC-SHA256 over timestamp + canonical body). Activated in U8.
+  MCP_BACKEND_AUDIENCE?: string;
+  MCP_BACKEND_TOKEN?: string;
+  MCP_BACKEND_HMAC_KEY?: string;
+
   CLOUDFLARE_ACCOUNT_ID?: string;
   CLOUDFLARE_API_TOKEN?: string;
   CLOUDFLARE_PUBLIC_URL?: string;
