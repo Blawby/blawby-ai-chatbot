@@ -1087,7 +1087,14 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
   const renderSidebarTree = (forceExpanded: boolean) => {
     if (!sidebarConfig || !sidebarOrg || !practiceSlug) return undefined;
     const commonProps = {
-      org: { name: sidebarOrg.name, initial: sidebarOrg.initial, subtitle: sidebarOrg.plan },
+      org: {
+        id: currentPractice?.id,
+        slug: currentPractice?.slug || practiceSlug,
+        name: sidebarOrg.name,
+        initial: sidebarOrg.initial,
+        subtitle: sidebarOrg.plan,
+        logoUrl: currentPractice?.logo ?? null,
+      },
       user: sidebarUser,
       collapsed: isDesktopSidebarCollapsed,
       forceExpanded,

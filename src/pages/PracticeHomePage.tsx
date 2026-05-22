@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'preact/hooks';
+import { useEffect, useMemo, useState } from 'preact/hooks';
+import { useLocation } from 'preact-iso';
 import { Plus, UserPlus, Check, X, ArrowRight } from 'lucide-preact';
 import { useSessionContext } from '@/shared/contexts/SessionContext';
 import { useWorkspaceResolver } from '@/shared/hooks/useWorkspaceResolver';
@@ -71,7 +72,23 @@ const RECENT_INTAKES: IntakeRow[] = [
 
 const PracticeHomePage = () => {
   const { session } = useSessionContext();
-  const { currentPractice, practices } = useWorkspaceResolver();
+  const location = useLocation();
+  // Read the slug from the URL so the resolver picks `currentPractice` for the
+  // workspace we're on — not the snapshot's last-active practice. Without this,
+  // a switcher-driven navigation to /practice/<other-slug> leaves the sidebar
+  // showing the previous org's name (see feat/org-switcher 2026-05-22).
+  const urlPracticeSlug = useMemo(() => {
+    const match = location.path.match(/^\/practice\/([^/]+)/);
+    if (!match) return null;
+    try {
+      return decodeURIComponent(match[1]);
+    } catch {
+      return null;
+    }
+  }, [location.path]);
+  const { currentPractice, practices } = useWorkspaceResolver({
+    practiceSlug: urlPracticeSlug,
+  });
   const { navigate } = useNavigation();
   const [desktopCollapsed, setDesktopCollapsed] = useState(false);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
@@ -140,7 +157,13 @@ const PracticeHomePage = () => {
     practiceSlug ? (
       <PracticeSidebar
         practiceSlug={practiceSlug}
-        org={{ name: orgName, initial: orgInitial }}
+        org={{
+          id: currentPractice?.id,
+          slug: currentPractice?.slug ?? practiceSlug,
+          name: orgName,
+          initial: orgInitial,
+          logoUrl: currentPractice?.logo ?? null,
+        }}
         user={sidebarUser}
         collapsed={desktopCollapsed}
         forceExpanded={forceExpanded}
