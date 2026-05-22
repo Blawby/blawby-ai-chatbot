@@ -245,7 +245,7 @@ export async function getEngagementForMatter(
   if (!practiceId) throw new Error('practiceId is required');
   if (!matterId) throw new Error('matterId is required');
 
-  const limit = 200;
+  const limit = 100;
   let page = 1;
   // Guard against unbounded loops if backend pagination is malformed.
   const MAX_PAGES = 100;
