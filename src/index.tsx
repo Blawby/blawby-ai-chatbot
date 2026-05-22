@@ -47,7 +47,6 @@ import { lazy } from 'preact/compat';
 // loads its own bundle on demand the first time the matching route renders.
 const AuthPage = lazy(() => import('@/pages/AuthPage'));
 const AcceptInvitationPage = lazy(() => import('@/pages/AcceptInvitationPage'));
-const ClientHomePage = lazy(() => import('@/pages/ClientHomePage'));
 const PracticeHomePage = lazy(() => import('@/pages/PracticeHomePage'));
 const OnboardingPage = lazy(() => import('@/pages/OnboardingPage'));
 const PricingPage = lazy(() => import('@/pages/PricingPage'));
@@ -98,23 +97,17 @@ const describeError = (error: unknown): string => {
 };
 
 const resolveAuthenticatedHomePath = ({
-  defaultWorkspace,
   fallbackSlug,
   hasPracticeMembership,
 }: {
-  defaultWorkspace: 'practice' | 'client' | 'public';
   fallbackSlug: string | null;
   hasPracticeMembership: boolean;
 }): string | null => {
-  if (!hasPracticeMembership) {
-    return '/client/dashboard';
-  }
-
-  if (!fallbackSlug) {
+  if (!hasPracticeMembership || !fallbackSlug) {
     return null;
   }
 
-  return getWorkspaceHomePath(defaultWorkspace, fallbackSlug);
+  return getWorkspaceHomePath('practice', fallbackSlug);
 };
 
 const DevDebugStylesRoute = () => {
@@ -230,10 +223,6 @@ function AppShell() {
     Boolean(session?.user) &&
     !session?.user?.is_anonymous &&
     session?.user?.onboarding_complete !== true;
-  const completedOnboarding =
-    Boolean(session?.user) &&
-    !session?.user?.is_anonymous &&
-    session?.user?.onboarding_complete === true;
   const isPublicRoute = location.path.startsWith('/public/');
   const isAuthRoute = location.path.startsWith('/auth');
   const isPricingRoute = location.path.startsWith('/pricing');
@@ -244,7 +233,6 @@ function AppShell() {
     !isPricingRoute &&
     (!onboardingIncomplete || isClientRoute);
   const {
-    defaultWorkspace,
     currentPractice,
     practices,
     hasPracticeMembership,
@@ -255,7 +243,7 @@ function AppShell() {
   });
 
   // Apply the active org's brand color at the shell level so routes that
-  // bypass MainApp (e.g. PracticeHomePage, ClientHomePage) still get branded.
+  // bypass MainApp (e.g. PracticeHomePage) still get branded.
   // Persist per-org so the next page load can paint the right brand color on
   // the first frame, before currentPractice has a chance to refetch.
   useEffect(() => {
@@ -274,11 +262,10 @@ function AppShell() {
   const authenticatedHomePath = useMemo(() => {
     const fallbackSlug = currentPractice?.slug ?? practices[0]?.slug ?? null;
     return resolveAuthenticatedHomePath({
-      defaultWorkspace,
       fallbackSlug,
       hasPracticeMembership,
     });
-  }, [currentPractice?.slug, defaultWorkspace, hasPracticeMembership, practices]);
+  }, [currentPractice?.slug, hasPracticeMembership, practices]);
 
   useEffect(() => {
     if (sessionPending) return;
@@ -442,7 +429,7 @@ function AppShell() {
           <Route path="/public/:practiceSlug/conversations/:conversationId" component={PublicWorkspaceRoute} />
           <Route path="/public/:practiceSlug/matters" component={PublicWorkspaceRoute} />
           <Route path="/client" component={App404} />
-          <Route path="/client/dashboard" component={ClientDashboardRoute} />
+          <Route path="/client/dashboard" component={App404} />
           <Route path="/client/:practiceSlug" component={ClientPracticeRoute} workspaceView="home" />
           <Route path="/client/:practiceSlug/conversations" component={ClientPracticeRoute} workspaceView="list" />
           <Route path="/client/:practiceSlug/conversations/:conversationId" component={ClientPracticeRoute} workspaceView="conversation" />
@@ -602,7 +589,6 @@ function RootRoute() {
   );
   const shouldFetchRootPractices = Boolean(completedOnboarding);
   const {
-    defaultWorkspace,
     practicesLoading,
     practicesError,
     currentPractice,
@@ -621,11 +607,10 @@ function RootRoute() {
     if (!shouldFetchRootPractices) return null;
     const fallbackSlug = currentPractice?.slug ?? practices[0]?.slug ?? null;
     return resolveAuthenticatedHomePath({
-      defaultWorkspace,
       fallbackSlug,
       hasPracticeMembership,
     });
-  }, [currentPractice?.slug, defaultWorkspace, hasPracticeMembership, practices, shouldFetchRootPractices]);
+  }, [currentPractice?.slug, hasPracticeMembership, practices, shouldFetchRootPractices]);
 
   useEffect(() => {
     return () => {
@@ -932,14 +917,6 @@ function PracticeAppRoute({
       ) : null}
     </>
   );
-}
-
-function ClientDashboardRoute() {
-  const { session, isPending: sessionIsPending } = useSessionContext();
-
-  if (sessionIsPending) return <LoadingScreen />;
-  if (!session?.user) return <AuthPage />;
-  return <ClientHomePage />;
 }
 
 function ClientPracticeRoute({

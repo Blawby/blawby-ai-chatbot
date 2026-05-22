@@ -1658,8 +1658,8 @@ test.describe('Public widget intake flow', () => {
     });
   });
 
-  test('post-submit composer uploads target the scoped intake files endpoint', async ({ anonPage }) => {
-    // Smoke-test that the new scoped path is reachable from the widget page.
+  test('post-submit composer uploads target the uploads endpoint with intake scope', async ({ anonPage }) => {
+    // Smoke-test that the documented uploads path is reachable from the widget page.
     // Drives the routing layer rather than the full UI flow — exercising the
     // full intake → submit → upload chain end-to-end would duplicate the main
     // intake test above and is brittle when the backend isn't seeded. The
@@ -1669,7 +1669,7 @@ test.describe('Public widget intake flow', () => {
     const fakeIntakeUuid = randomUUID();
     let presignSeen = false;
 
-    await anonPage.route(`**/api/practice-client-intakes/${fakeIntakeUuid}/files/presign`, async (route) => {
+    await anonPage.route('**/api/uploads/presign', async (route) => {
       // Only the actual POST is the assertion target — CORS preflights and any
       // unrelated GETs against the same path must fall through so they don't
       // flip presignSeen prematurely.
@@ -1677,19 +1677,21 @@ test.describe('Public widget intake flow', () => {
         await route.fallback();
         return;
       }
+      const body = route.request().postDataJSON() as Record<string, unknown>;
+      if (body.scope_type !== 'intake' || body.scope_id !== fakeIntakeUuid) {
+        await route.fallback();
+        return;
+      }
       presignSeen = true;
       await route.fulfill({
-        status: 200,
+        status: 201,
         contentType: 'application/json',
         body: JSON.stringify({
-          success: true,
-          data: {
-            upload_id: randomUUID(),
-            presigned_url: 'https://r2.example.com/sig',
-            method: 'PUT',
-            storage_key: `intakes/${fakeIntakeUuid}/foo`,
-            expires_at: new Date(Date.now() + 60_000).toISOString(),
-          },
+          upload_id: randomUUID(),
+          presigned_url: 'https://r2.example.com/sig',
+          method: 'PUT',
+          storage_key: `intakes/${fakeIntakeUuid}/foo`,
+          expires_at: new Date(Date.now() + 60_000).toISOString(),
         }),
       });
     });
@@ -1697,17 +1699,24 @@ test.describe('Public widget intake flow', () => {
     await anonPage.goto(buildWidgetUrl(practiceSlug), { waitUntil: 'domcontentloaded' });
     await anonPage.evaluate(async (uuid: string) => {
       try {
-        await fetch(`/api/practice-client-intakes/${uuid}/files/presign`, {
+        await fetch('/api/uploads/presign', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           credentials: 'include',
-          body: JSON.stringify({ file_name: 't.pdf', mime_type: 'application/pdf', file_size: 5 }),
+          body: JSON.stringify({
+            file_name: 't.pdf',
+            mime_type: 'application/pdf',
+            file_size: 5,
+            scope_type: 'intake',
+            scope_id: uuid,
+            is_privileged: true,
+          }),
         });
       } catch {
         // Network failures in this smoke probe are expected when the route handler isn't hit.
       }
     }, fakeIntakeUuid);
 
-    expect(presignSeen, 'Presign call must reach the scoped intake files path').toBe(true);
+    expect(presignSeen, 'Presign call must reach /api/uploads/presign with intake scope').toBe(true);
   });
 });
