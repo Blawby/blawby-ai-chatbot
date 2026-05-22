@@ -61,7 +61,7 @@ const ConversationListEmptyState = ({
 }: { title: string; hint: string }) => (
   <div className="flex h-full flex-1 items-center justify-center px-6 py-10">
     <div className="flex max-w-xs flex-col items-center gap-3 text-center">
-      <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-surface-overlay/60 ring-1 ring-line-glass/20">
+      <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-surface-overlay/60 ring-1 ring-line-subtle">
         <Icon
           icon={MessageSquare}
           className="h-6 w-6 text-input-placeholder"
@@ -115,7 +115,7 @@ const ConversationItem = memo(({ conversation, preview, fallbackName, isActive, 
         src={null}
         name={avatarName}
         size="md"
-        className="ring-1 ring-line-glass/10"
+        className="ring-1 ring-line-subtle"
         status={presence.status}
       />
       <div className="min-w-0 flex-1">
@@ -268,7 +268,7 @@ const ConversationListView: FunctionComponent<ConversationListViewProps> = ({
       )}
 
       {showSendMessageButton ? (
-        <div className="border-t border-line-glass/30 bg-transparent px-4 py-4">
+        <div className="border-t border-line-subtle bg-transparent px-4 py-4">
           <Button
             variant="primary"
             size="lg"

@@ -67,6 +67,7 @@ type IntakesPageProps = {
   practiceId: string | null;
   basePath?: string;
   conversationsBasePath?: string | null;
+  engagementsBasePath?: string | null;
   practiceName: string;
   practiceLogo: string | null;
   activeTriageFilter?: string | null;
@@ -76,6 +77,7 @@ export const IntakesPage: FunctionComponent<IntakesPageProps> = ({
   practiceId,
   basePath = '/practice/intakes',
   conversationsBasePath,
+  engagementsBasePath,
   practiceName,
   practiceLogo,
   activeTriageFilter = 'all',
@@ -204,6 +206,7 @@ export const IntakesPage: FunctionComponent<IntakesPageProps> = ({
         practiceId={practiceId}
         intakeId={selectedIntakeId}
         conversationsBasePath={conversationsBasePath}
+        engagementsBasePath={engagementsBasePath}
         practiceName={practiceName}
         practiceLogo={practiceLogo}
         onBack={handleBack}
@@ -274,7 +277,7 @@ export const IntakesPage: FunctionComponent<IntakesPageProps> = ({
     <div className="flex h-full flex-col min-h-0 bg-surface-workspace">
       {/* Header (desktop only — mobile hides because the workspace shell already
           renders its own mobile header with the section title). */}
-      <header className="hidden md:flex items-center justify-between gap-4 border-b border-card-border px-6 py-5">
+      <header className="hidden md:flex items-center justify-between gap-4 border-b border-line-subtle px-6 py-5">
         <h1 className="text-xl font-semibold text-input-text">All Responses</h1>
         <div className="w-72">
           <Input
@@ -289,7 +292,7 @@ export const IntakesPage: FunctionComponent<IntakesPageProps> = ({
       </header>
 
       {/* Mobile filter tabs */}
-      <div className="md:hidden border-b border-card-border bg-surface-workspace">
+      <div className="md:hidden border-b border-line-subtle bg-surface-workspace">
         <Tabs
           items={tabItems}
           activeId={mobileFilter}
@@ -299,7 +302,7 @@ export const IntakesPage: FunctionComponent<IntakesPageProps> = ({
       </div>
 
       {/* Mobile search */}
-      <div className="md:hidden px-4 py-3 border-b border-card-border">
+      <div className="md:hidden px-4 py-3 border-b border-line-subtle">
         <Input
           type="search"
           placeholder="Search responses…"

@@ -58,7 +58,7 @@ export const UserCard = ({
             {name}
           </p>
           {badge && (
-            <span className="shrink-0 inline-flex items-center rounded-full glass-input px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-[rgb(var(--input-placeholder))]">
+            <span className="shrink-0 inline-flex items-center rounded-full input-surface px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-[rgb(var(--input-placeholder))]">
               {badge}
             </span>
           )}

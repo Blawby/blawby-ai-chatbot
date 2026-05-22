@@ -270,7 +270,7 @@ const PracticeHomePage = () => {
                         <Check className="h-3.5 w-3.5" strokeWidth={3} aria-hidden="true" />
                       </span>
                     ) : (
-                      <span className="flex h-[22px] w-[22px] items-center justify-center rounded-full border border-line-utility text-[10px] font-semibold text-input-text">
+                      <span className="flex h-[22px] w-[22px] items-center justify-center rounded-full border border-line-subtle text-[10px] font-semibold text-input-text">
                         {idx + 1}
                       </span>
                     )}

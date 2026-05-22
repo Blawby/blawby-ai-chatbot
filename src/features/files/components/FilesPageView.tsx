@@ -9,7 +9,7 @@ import { SegmentedFilter } from '@/shared/ui/tabs/SegmentedFilter';
 import { CollectionToolbar } from '@/shared/ui/collection/CollectionToolbar';
 import { useMobileDetection } from '@/shared/hooks/useMobileDetection';
 
-import { FilesGrid } from './FilesGrid';
+import { FilesCollectionPanel } from './FilesCollectionPanel';
 import { FileDetailDrawer } from './FileDetailDrawer';
 import { FilesInspectorPanel } from './FilesInspectorPanel';
 import { UploadDestinationDialog } from './UploadDestinationDialog';
@@ -140,10 +140,12 @@ export const FilesPageView = ({ practiceId, practiceSlug, scope, userId = null }
               description={`No files match ${search ? `"${search}"` : 'the current filter'}.`}
             />
           ) : (
-            <FilesGrid
+            <FilesCollectionPanel
               files={filteredFiles}
               isLoading={isLoading}
               onFileClick={setSelectedFile}
+              showEmptyState={false}
+              showViewToggle={false}
             />
           )}
         </div>

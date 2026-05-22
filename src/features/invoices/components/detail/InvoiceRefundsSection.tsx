@@ -43,7 +43,7 @@ export const InvoiceRefundsSection = ({
           return (
             <div
               key={`request-${request.id}`}
-              className="flex items-start justify-between gap-3 rounded-xl border border-line-glass/20 bg-surface-utility/20 px-4 py-3"
+              className="flex items-start justify-between gap-3 rounded-xl border border-line-subtle bg-surface-utility/20 px-4 py-3"
             >
               <div className="min-w-0">
                 <p className="text-sm font-medium text-input-text">
@@ -71,7 +71,7 @@ export const InvoiceRefundsSection = ({
         {refunds.map((refund) => (
           <div
             key={`refund-${refund.id}`}
-            className="flex items-start justify-between gap-3 rounded-xl border border-line-glass/20 bg-surface-utility/20 px-4 py-3"
+            className="flex items-start justify-between gap-3 rounded-xl border border-line-subtle bg-surface-utility/20 px-4 py-3"
           >
             <div className="min-w-0">
               <p className="text-sm font-medium text-input-text">{formatCurrency(refund.amount)}</p>

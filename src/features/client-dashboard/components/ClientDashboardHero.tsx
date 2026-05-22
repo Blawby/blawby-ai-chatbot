@@ -31,13 +31,13 @@ export const ClientDashboardHero = ({
 }: ClientDashboardHeroProps) => {
   const name = typeof practiceName === 'string' ? practiceName.trim() : '';
   return (
-    <section className="border-b border-line-glass/30 lg:border-t lg:border-t-line-glass/20">
+    <section className="border-b border-line-subtle lg:border-t lg:border-t-line-subtle">
       <div className="mx-auto flex max-w-7xl items-center gap-4 px-4 py-5 sm:px-6 lg:px-8">
         <Avatar
           src={practiceLogo}
           name={name}
           size="md"
-          className="ring-2 ring-line-glass/20"
+          className="ring-2 ring-line-subtle"
         />
         <div className="min-w-0 flex-1">
           <p className="truncate text-xs font-semibold uppercase tracking-[0.16em] text-input-placeholder">Your account</p>
@@ -72,8 +72,8 @@ export const ClientDashboardHero = ({
             <div
               key={stat.id}
               className={cn(
-                idx % 2 === 1 ? 'sm:border-l sm:border-line-glass/20' : idx === 2 ? 'lg:border-l lg:border-line-glass/20' : '',
-                'flex flex-wrap items-baseline justify-between gap-x-4 gap-y-2 border-t border-line-glass/20 px-4 py-10 sm:px-6 lg:border-t-0 xl:px-8'
+                idx % 2 === 1 ? 'sm:border-l sm:border-line-subtle' : idx === 2 ? 'lg:border-l lg:border-line-subtle' : '',
+                'flex flex-wrap items-baseline justify-between gap-x-4 gap-y-2 border-t border-line-subtle px-4 py-10 sm:px-6 lg:border-t-0 xl:px-8'
               )}
             >
               <dt className="text-sm font-medium text-input-placeholder">{stat.label}</dt>

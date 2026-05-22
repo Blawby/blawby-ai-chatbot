@@ -166,7 +166,7 @@ const PricingView: FunctionComponent<PricingViewProps> = ({ className, onUpgrade
           </div>
         ) : null}
 
-        <div className="mt-6 glass-card px-5 py-6 md:px-7 md:py-8">
+        <div className="mt-6 card px-5 py-6 md:px-7 md:py-8">
           <div className="flex flex-col items-start text-left">
             <h1 data-testid="pricing-page-title" className="text-3xl font-semibold tracking-tight text-input-text md:text-4xl">
               {plan.displayName || plan.name}

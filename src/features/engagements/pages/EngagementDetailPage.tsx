@@ -32,7 +32,7 @@ import type { ChatMessageUI } from '../../../../worker/types';
 import { EngagementDetailSkeleton } from '../components/EngagementDetailSkeleton';
 import {
   declineEngagement,
-  patchEngagementProposal,
+  patchEngagementContract,
   sendEngagementToClient,
 } from '../api/engagementsApi';
 import type {
@@ -48,7 +48,7 @@ import { useEngagementDetail } from '../hooks/useEngagementDetail';
 
 const STATUS_VARIANTS: Record<EngagementStatus, { label: string; className: string }> = {
   draft:    { label: 'Draft',    className: 'bg-amber-500/10 text-amber-700 ring-amber-500/20 dark:text-amber-300' },
-  sent:     { label: 'Sent',     className: 'bg-surface-overlay/60 text-input-placeholder ring-line-glass/30' },
+  sent:     { label: 'Sent',     className: 'bg-surface-overlay/60 text-input-placeholder ring-line-subtle' },
   accepted: { label: 'Accepted', className: 'bg-emerald-500/10 text-emerald-700 ring-emerald-500/20 dark:text-emerald-300' },
   declined: { label: 'Declined', className: 'bg-rose-500/10 text-rose-700 ring-rose-500/20 dark:text-rose-300' },
 };
@@ -66,8 +66,8 @@ const CONFLICT_VARIANTS: Record<ConflictStatus, { label: string; className: stri
   clear:             { label: 'Clear',             className: 'bg-emerald-500/10 text-emerald-700 ring-emerald-500/20 dark:text-emerald-300' },
   review_required:   { label: 'Review Required',   className: 'bg-amber-500/10 text-amber-700 ring-amber-500/20 dark:text-amber-300' },
   conflicted:        { label: 'Conflicted',        className: 'bg-rose-500/10 text-rose-700 ring-rose-500/20 dark:text-rose-300' },
-  unknown:           { label: 'Unknown',           className: 'bg-surface-overlay/60 text-input-placeholder ring-line-glass/30' },
-  insufficient_data: { label: 'Insufficient Data', className: 'bg-surface-overlay/60 text-input-placeholder ring-line-glass/30' },
+  unknown:           { label: 'Unknown',           className: 'bg-surface-overlay/60 text-input-placeholder ring-line-subtle' },
+  insufficient_data: { label: 'Insufficient Data', className: 'bg-surface-overlay/60 text-input-placeholder ring-line-subtle' },
 };
 
 // ── Display helpers ──────────────────────────────────────────────────────────
@@ -108,7 +108,7 @@ const SectionCard: FunctionComponent<{
   className?: string;
   action?: ComponentChildren;
 }> = ({ title, children, className, action }) => (
-  <section className={cn('glass-card p-5 sm:p-6 space-y-4', className)}>
+  <section className={cn('card p-5 sm:p-6 space-y-4', className)}>
     <header className="flex items-center justify-between gap-2">
       <h3 className="text-xs font-semibold uppercase tracking-widest text-input-placeholder">{title}</h3>
       {action}
@@ -226,11 +226,23 @@ const FeeStructureCard: FunctionComponent<{ proposal: ProposalData | null }> = (
         ))}
       </dl>
       {fees.fee_notes && (
-        <p className="border-t border-line-glass/10 pt-3 text-sm text-input-text">{fees.fee_notes}</p>
+        <p className="border-t border-line-subtle pt-3 text-sm text-input-text">{fees.fee_notes}</p>
       )}
     </SectionCard>
   );
 };
+
+const ContractBodyCard: FunctionComponent<{ engagement: EngagementDetail }> = ({ engagement }) => (
+  <SectionCard title="Contract body">
+    {engagement.contract_body?.trim() ? (
+      <div className="max-h-[360px] overflow-y-auto whitespace-pre-wrap rounded-lg border border-line-subtle bg-surface-overlay/30 p-3 text-sm leading-relaxed text-input-text">
+        {engagement.contract_body}
+      </div>
+    ) : (
+      <p className="text-sm italic text-input-placeholder">Not yet drafted</p>
+    )}
+  </SectionCard>
+);
 
 // ── View-mode right cards ────────────────────────────────────────────────────
 
@@ -450,7 +462,7 @@ const ConversationPreviewCard: FunctionComponent<ConversationPreviewCardProps> =
   if (isExpanded && isMobile) {
     return (
       <div className="fixed inset-0 z-40 flex flex-col bg-app-background">
-        <header className="flex items-center justify-between border-b border-card-border px-4 py-3">
+        <header className="flex items-center justify-between border-b border-line-subtle px-4 py-3">
           <h2 className="text-base font-semibold text-input-text">Messages</h2>
           <Button variant="ghost" icon={X} onClick={onToggle} aria-label="Close conversation" />
         </header>
@@ -468,7 +480,7 @@ const ConversationPreviewCard: FunctionComponent<ConversationPreviewCardProps> =
           />
         </div>
         {conversationsBasePath && conversationId && (
-          <div className="border-t border-card-border p-3">
+          <div className="border-t border-line-subtle p-3">
             <Button
               variant="secondary"
               className="w-full"
@@ -483,7 +495,7 @@ const ConversationPreviewCard: FunctionComponent<ConversationPreviewCardProps> =
   }
 
   return (
-    <section className="glass-card overflow-hidden">
+    <section className="card overflow-hidden">
       <button
         type="button"
         onClick={onToggle}
@@ -501,7 +513,7 @@ const ConversationPreviewCard: FunctionComponent<ConversationPreviewCardProps> =
         {isExpanded ? <ChevronUp className="h-4 w-4 text-input-placeholder" /> : <ChevronDown className="h-4 w-4 text-input-placeholder" />}
       </button>
       {isExpanded && !isMobile && (
-        <div className="border-t border-line-glass/10">
+        <div className="border-t border-line-subtle">
           <div className="h-[320px] bg-surface-overlay/20">
             <ConversationContent
               isLoading={isLoading}
@@ -516,7 +528,7 @@ const ConversationPreviewCard: FunctionComponent<ConversationPreviewCardProps> =
             />
           </div>
           {conversationsBasePath && conversationId && targetPracticeId && (
-            <div className="border-t border-line-glass/10 p-3">
+            <div className="border-t border-line-subtle p-3">
               <Button
                 variant="secondary"
                 className="w-full"
@@ -579,6 +591,7 @@ const ConversationContent: FunctionComponent<{
 // ── Edit form ────────────────────────────────────────────────────────────────
 
 type EditFormState = {
+  contractBody: string;
   clientName: string;
   matterSummary: string;
   locationSummary: string;
@@ -610,6 +623,7 @@ const buildEditFormState = (engagement: EngagementDetail): EditFormState => {
   const rep = engagement.proposal_data?.representation;
   const fees = engagement.proposal_data?.fees;
   return {
+    contractBody: engagement.contract_body ?? '',
     clientName: summary?.client_name ?? engagement.client_name ?? '',
     matterSummary: summary?.matter_summary ?? '',
     locationSummary: summary?.location_summary ?? '',
@@ -703,7 +717,7 @@ const EditModeView: FunctionComponent<EditModeViewProps> = ({
 
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <header className="flex items-center justify-between gap-3 border-b border-card-border bg-surface-workspace px-4 py-3 sm:px-6">
+      <header className="flex items-center justify-between gap-3 border-b border-line-subtle bg-surface-workspace px-4 py-3 sm:px-6">
         <Button variant="ghost" icon={X} onClick={onCancel} disabled={saving} aria-label="Cancel" />
         <h1 className="text-base font-semibold text-input-text">Edit engagement</h1>
         <div className="flex items-center gap-2">
@@ -723,6 +737,16 @@ const EditModeView: FunctionComponent<EditModeViewProps> = ({
               {saveError}
             </div>
           )}
+
+          <SectionCard title="Contract body">
+            <Textarea
+              label="Engagement contract"
+              value={form.contractBody}
+              onChange={(v) => update('contractBody', v)}
+              rows={12}
+              disabled={saving}
+            />
+          </SectionCard>
 
           <SectionCard title="Client information">
             <div className="space-y-3">
@@ -912,7 +936,11 @@ export const EngagementDetailPage: FunctionComponent<EngagementDetailPageProps> 
   const persistProposalChanges = useCallback(async (form: EditFormState): Promise<EngagementDetail | null> => {
     if (!engagement || !practiceId) return null;
     const merged = mergeEditFormIntoProposal(engagement, form);
-    const updated = await patchEngagementProposal(practiceId, engagement.id, merged);
+    const updated = await patchEngagementContract(practiceId, engagement.id, {
+      contract_body: form.contractBody.trim(),
+      engagement_notes: form.engagementNotes.trim(),
+      proposal_data: merged,
+    });
     if (isMountedRef.current) {
       setEngagementCache(updated);
     }
@@ -940,6 +968,10 @@ export const EngagementDetailPage: FunctionComponent<EngagementDetailPageProps> 
 
   const handleReviewAndSend = useCallback(async (form: EditFormState) => {
     if (isSaving) return;
+    if (!form.contractBody.trim()) {
+      setSaveError('Contract body is required before sending.');
+      return;
+    }
     setIsSaving(true);
     setSaveError(null);
     try {
@@ -1034,7 +1066,7 @@ export const EngagementDetailPage: FunctionComponent<EngagementDetailPageProps> 
       <div className="flex h-full flex-col min-h-0">
         <DetailHeader title="Engagement" showBack onBack={onBack} />
         <div className="p-6">
-          <div className="glass-card p-6 text-sm text-rose-400">
+          <div className="card p-6 text-sm text-rose-400">
             {loadError ?? 'Engagement not found.'}
           </div>
         </div>
@@ -1059,6 +1091,10 @@ export const EngagementDetailPage: FunctionComponent<EngagementDetailPageProps> 
   const clientName = engagement.client_name || 'Unknown Client';
   const matterLabel = getMatterDisplay(engagement);
   const detailTitle = matterLabel !== '—' ? `${clientName} — ${matterLabel}` : clientName;
+  const canSendEngagement = Boolean(engagement.contract_body?.trim());
+  const createdMatterPath = engagement.matter_id
+    ? `${basePath.replace(/\/engagements$/, '/matters')}/${encodeURIComponent(engagement.matter_id)}`
+    : null;
 
   const headerActions = (
     <div className="flex items-center gap-2">
@@ -1068,7 +1104,7 @@ export const EngagementDetailPage: FunctionComponent<EngagementDetailPageProps> 
         </Button>
       )}
       {isDraft && (
-        <Button variant="primary" icon={Send} onClick={() => openDialog('send')} disabled={isSubmitting}>
+        <Button variant="primary" icon={Send} onClick={() => openDialog('send')} disabled={isSubmitting || !canSendEngagement}>
           <span className="hidden sm:inline">Send to client</span>
           <span className="sm:hidden">Send</span>
         </Button>
@@ -1085,7 +1121,7 @@ export const EngagementDetailPage: FunctionComponent<EngagementDetailPageProps> 
   const statusBanner = (() => {
     if (isSent) {
       return (
-        <div className="rounded-xl border border-line-glass/20 bg-surface-overlay/40 p-4 text-sm text-input-text">
+        <div className="rounded-xl border border-line-subtle bg-surface-overlay/40 p-4 text-sm text-input-text">
           <p className="font-medium">Awaiting client response</p>
           <p className="mt-1 text-input-placeholder">The client received this engagement and will accept or decline online.</p>
         </div>
@@ -1094,8 +1130,21 @@ export const EngagementDetailPage: FunctionComponent<EngagementDetailPageProps> 
     if (isAccepted) {
       return (
         <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/10 p-4 text-sm text-emerald-700 dark:text-emerald-300">
-          <p className="font-medium">Engagement active</p>
-          <p className="mt-1 text-emerald-700/80 dark:text-emerald-200/80">The client has accepted this engagement.</p>
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="font-medium">Engagement active</p>
+              <p className="mt-1 text-emerald-700/80 dark:text-emerald-200/80">
+                {createdMatterPath
+                  ? 'The client accepted this engagement and the matter is linked.'
+                  : 'The client accepted this engagement, but the backend response has not linked a matter_id.'}
+              </p>
+            </div>
+            {createdMatterPath ? (
+              <Button variant="secondary" size="sm" onClick={() => navigate(createdMatterPath)}>
+                View matter
+              </Button>
+            ) : null}
+          </div>
         </div>
       );
     }
@@ -1128,6 +1177,7 @@ export const EngagementDetailPage: FunctionComponent<EngagementDetailPageProps> 
           <div className="flex flex-col gap-4">
             {statusBanner}
             <ClientSummaryCard engagement={engagement} />
+            <ContractBodyCard engagement={engagement} />
             <ScopeOfRepresentationCard proposal={proposal} />
             <FeeStructureCard proposal={proposal} />
           </div>

@@ -118,7 +118,7 @@ const ClientHomePage = () => {
           items={clientNextStepsItems}
         />
 
-        <div className="glass-panel p-6 space-y-4">
+        <div className="panel p-6 space-y-4">
           <div>
             <h2 className="text-lg text-heading">Manage your account</h2>
             <p className="text-sm text-secondary">

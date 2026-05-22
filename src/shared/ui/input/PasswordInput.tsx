@@ -95,7 +95,7 @@ export const PasswordInput = forwardRef<HTMLInputElement, PasswordInputProps>(({
   const inputClasses = cn(
     'w-full rounded-xl text-input-text placeholder:text-input-placeholder',
     'focus:outline-none transition-all duration-200',
-    'glass-input border-none',
+    'input-surface border-none',
     sizeClasses[size],
     iconPaddingClasses[size],
     variantClasses[variant],

@@ -27,7 +27,7 @@ import {
 } from '@/features/matters/components/MatterDetailPanel';
 import { type WorkSubTab } from '@/features/matters/components/MatterWorkTab';
 import { type BillingSubTab } from '@/features/matters/components/MatterBillingTab';
-import { createEngagementContract, getEngagementForMatter } from '@/features/engagements/api/engagementsApi';
+import { getEngagementForMatter } from '@/features/engagements/api/engagementsApi';
 import type { EngagementDetail } from '@/features/engagements/types/engagement';
 import { useSessionContext } from '@/shared/contexts/SessionContext';
 import { useToastContext } from '@/shared/contexts/ToastContext';
@@ -463,7 +463,7 @@ export const PracticeMattersPage = ({
   const [engagementLoading, setEngagementLoading] = useState(false);
   const [engagementError, setEngagementError] = useState<string | null>(null);
   const [engagementRetryCount, setEngagementRetryCount] = useState(0);
-  const [engagementCreating, setEngagementCreating] = useState(false);
+  const [engagementCreating] = useState(false);
 
   // ── Person / service / assignee options ───────────────────────────────────
   const [clientOptions, setClientOptions] = useState<MatterOption[]>([]);
@@ -1088,27 +1088,11 @@ export const PracticeMattersPage = ({
       if (selectedMatterId) goToDetail(selectedMatterId, 'billing');
       return;
     }
-    if (!activePracticeId || !selectedMatterId || engagementCreating) return;
-
-    setEngagementCreating(true);
-    setEngagementError(null);
-    try {
-      // TODO(#555): legacy matter-detail create-engagement flow. Under the new contract,
-      // engagements are created from intakes (matter_id is set server-side on acceptance).
-      // This call will fail at runtime if reached, since selectedMatterId is a matter UUID,
-      // not an intake UUID. Per #555 memory, matters always have engagements — this path is
-      // expected to be unreachable in practice and will be removed in a follow-up.
-      const created = await createEngagementContract(activePracticeId, { intake_id: selectedMatterId });
-      setEngagement(created);
-      setEngagementRetryCount((count) => count + 1);
-      showSuccess('Engagement created', 'The engagement agreement is ready to review.');
-    } catch (error) {
-      setEngagementError(error instanceof Error ? error.message : 'Failed to create engagement');
-      showError('Could not create engagement', error instanceof Error ? error.message : 'Please try again.');
-    } finally {
-      setEngagementCreating(false);
-    }
-  }, [activePracticeId, engagement, engagementCreating, goToDetail, selectedMatterId, showError, showSuccess]);
+    if (!selectedMatterId || engagementCreating) return;
+    const message = 'This matter does not have a linked engagement. Accepted intake work now creates matters from accepted engagement contracts.';
+    setEngagementError(message);
+    showError('Missing engagement', message);
+  }, [engagement, engagementCreating, goToDetail, selectedMatterId, showError]);
 
   // ── Matter CRUD ───────────────────────────────────────────────────────────
   const handleUpdateMatter = useCallback(async (values: MatterFormState) => {
@@ -1828,7 +1812,7 @@ export const PracticeMattersPage = ({
             onAddTask: () => goToDetail(selectedMatterDetail.id, 'work', 'tasks'),
             onAddNote: () => goToDetail(selectedMatterDetail.id, 'notes'),
             onUploadFile: () => goToDetail(selectedMatterDetail.id, 'files'),
-            engagementActionLabel: engagement ? 'View engagement' : 'Create engagement',
+            engagementActionLabel: engagement ? 'View engagement' : 'Missing engagement',
             onEngagementAction: () => void handleEngagementPrimaryAction(),
             engagementActionLoading: engagementCreating,
             moreMenuItems: [

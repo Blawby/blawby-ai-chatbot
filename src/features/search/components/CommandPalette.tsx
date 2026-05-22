@@ -154,7 +154,7 @@ export function CommandPalette({
       <div id="command-palette-title" className="sr-only">
         Global search
       </div>
-      <div className="flex items-center gap-2 px-4 border-b border-line-utility">
+      <div className="flex items-center gap-2 px-4 border-b border-line-subtle">
         <Search size={18} className="text-input-text/60" aria-hidden="true" />
         {parsed.scopes.length > 0 ? <ScopePills scopes={parsed.scopes} /> : null}
         <input
@@ -373,7 +373,7 @@ function EmptyState({ message }: { message: string }) {
 
 function Footer() {
   return (
-    <div className="flex items-center justify-between gap-3 px-4 py-2.5 border-t border-line-utility text-[11px] text-input-text/60">
+    <div className="flex items-center justify-between gap-3 px-4 py-2.5 border-t border-line-subtle text-[11px] text-input-text/60">
       <div className="flex gap-3">
         <span>↑↓ navigate</span>
         <span>↵ open</span>

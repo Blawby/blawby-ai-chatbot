@@ -32,7 +32,7 @@ export const UploadQueueRow = ({
   const resolvedProgress = clampProgress(progress);
 
   return (
-    <div className="rounded-xl border border-line-glass/15 bg-surface-utility/35 px-3 py-2">
+    <div className="rounded-xl border border-line-subtle bg-surface-utility/35 px-3 py-2">
       <div className="flex items-start gap-3">
         <FileIcon fileName={fileName} mimeType={mimeType} size="sm" />
         <div className="min-w-0 flex-1">

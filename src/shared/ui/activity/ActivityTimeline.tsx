@@ -177,7 +177,7 @@ export const ActivityTimeline = ({
                   </span>
                 </div>
               ) : (
-                <div className="relative z-10 flex h-8 w-8 items-center justify-center rounded-full bg-surface-overlay text-input-text ring-1 ring-line-glass/30 shadow-sm">
+                <div className="relative z-10 flex h-8 w-8 items-center justify-center rounded-full bg-surface-overlay text-input-text ring-1 ring-line-subtle shadow-sm">
                   {item.type === 'paid' ? (
                     <Icon icon={CheckCircle2} aria-hidden="true" className="h-5 w-5 text-accent-success"  />
                   ) : TYPE_ICONS[item.type] ? (
@@ -351,7 +351,7 @@ export const ActivityTimeline = ({
           name={composerPerson?.name ?? 'You'}
           src={composerPerson?.imageUrl ?? null}
           size="sm"
-          className="ring-1 ring-line-glass/30 bg-surface-utility/10 text-input-text dark:ring-line-glass/40 sm:mt-1"
+          className="ring-1 ring-line-subtle bg-surface-utility/10 text-input-text dark:ring-line-subtle sm:mt-1"
         />
         <form className="flex-auto space-y-2" onSubmit={handleSubmit}>
           <MarkdownUploadTextarea

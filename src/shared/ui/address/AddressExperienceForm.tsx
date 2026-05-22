@@ -309,7 +309,7 @@ export const AddressExperienceForm = ({
   const containerClasses = cn(
     variant === 'plain'
       ? 'w-full'
-      : 'glass-panel rounded-xl p-6',
+      : 'panel rounded-xl p-6',
     className
   );
 

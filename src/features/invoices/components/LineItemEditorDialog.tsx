@@ -107,7 +107,7 @@ export const LineItemEditorDialog = ({
           />
         </div>
 
-        <div className="flex items-center justify-between border-t border-line-glass/20 pt-3">
+        <div className="flex items-center justify-between border-t border-line-subtle pt-3">
           <span className="text-sm text-input-placeholder">Total</span>
           <span className="text-lg font-semibold text-input-text">
             {formatCurrency(formData.line_total ?? asMajor(0))}

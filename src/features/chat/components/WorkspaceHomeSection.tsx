@@ -83,7 +83,7 @@ export const WorkspaceHomeSection: FunctionComponent<WorkspaceHomeSectionProps> 
           onCreateInvoice={onCreateInvoice}
         />
         {practiceBillingError ? (
-          <div className="border-b border-line-glass/30" role="alert">
+          <div className="border-b border-line-subtle" role="alert">
             <div className="mx-auto max-w-7xl px-4 py-3 text-sm text-input-text sm:px-6 lg:px-8">
               {practiceBillingError}
             </div>

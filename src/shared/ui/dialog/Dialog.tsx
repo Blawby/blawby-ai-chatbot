@@ -114,7 +114,7 @@ export const Dialog: FunctionComponent<DialogProps> = ({
         aria-describedby={description ? descriptionId : ariaDescribedBy}
         tabIndex={-1}
         className={cn(
-          'ui-surface-enter glass-card relative flex max-h-[90dvh] w-full max-w-lg flex-col rounded-2xl text-input-text',
+          'ui-surface-enter card relative flex max-h-[90dvh] w-full max-w-lg flex-col rounded-2xl text-input-text',
           contentClassName
         )}
       >

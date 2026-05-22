@@ -6,7 +6,7 @@ export type StatusVariant = 'active' | 'pending' | 'inactive' | 'suspended' | 'c
 const STATUS_CLASSES: Record<StatusVariant, string> = {
   active: 'status-success',
   pending: 'status-warning',
-  inactive: 'glass-input text-input-placeholder',
+  inactive: 'input-surface text-input-placeholder',
   suspended: 'status-error',
   cancelled: 'status-error',
   completed: 'status-info',

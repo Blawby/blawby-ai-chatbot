@@ -374,7 +374,7 @@ export const PhoneInput = forwardRef<HTMLInputElement, PhoneInputProps>(({
   const inputClasses = cn(
     'w-full rounded-xl text-input-text placeholder:text-input-placeholder',
     'focus:outline-none transition-all duration-200',
-    'glass-input border-none',
+    'input-surface border-none',
     sizeClasses[size],
     showCountryCode ? null : iconPaddingClasses[size],
     showValidation && trimmedValue.length > 0 ? rightIconPaddingClasses[size] : null,
@@ -417,7 +417,7 @@ export const PhoneInput = forwardRef<HTMLInputElement, PhoneInputProps>(({
               aria-haspopup="listbox"
               aria-label={`Select country. Current: ${currentCountry.name} (+${currentCountry.callingCode})`}
               className={cn(
-                'inline-flex items-center rounded-l-xl rounded-r-none text-input-text hover:bg-surface-utility/40 focus:outline-none focus:ring-2 ring-inset focus:ring-accent-500 transition-colors glass-input border-r border-line-glass/20',
+                'inline-flex items-center rounded-l-xl rounded-r-none text-input-text hover:bg-surface-utility/40 focus:outline-none focus:ring-2 ring-inset focus:ring-accent-500 transition-colors input-surface border-r border-line-subtle',
                 sizeClasses[size],
                 disabled && 'opacity-50 cursor-not-allowed',
               )}
@@ -429,10 +429,10 @@ export const PhoneInput = forwardRef<HTMLInputElement, PhoneInputProps>(({
 
             {isDropdownOpen && (
               <div
-                className="absolute z-10 glass-panel border border-line-glass/30 rounded-xl shadow-glass w-64 top-full left-0 mt-1"
+                className="absolute z-10 panel border border-line-subtle rounded-xl shadow-glass w-64 top-full left-0 mt-1"
                 role="dialog"
               >
-                <div className="p-2 border-b border-line-glass/20">
+                <div className="p-2 border-b border-line-subtle">
                   <div className="relative">
                     <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-4 h-4 text-input-placeholder" aria-hidden="true" />
                     <input
@@ -446,7 +446,7 @@ export const PhoneInput = forwardRef<HTMLInputElement, PhoneInputProps>(({
                       onKeyDown={handleSearchKeyDown}
                       placeholder="Search country or code"
                       aria-label="Search country"
-                      className="w-full pl-7 pr-2 py-1 text-sm rounded-md glass-input border-none focus:outline-none focus:ring-2 ring-inset focus:ring-accent-500/30"
+                      className="w-full pl-7 pr-2 py-1 text-sm rounded-md input-surface border-none focus:outline-none focus:ring-2 ring-inset focus:ring-accent-500/30"
                     />
                   </div>
                 </div>

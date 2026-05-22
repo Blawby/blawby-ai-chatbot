@@ -25,10 +25,10 @@ export const DashboardHero = ({
   onWindowChange,
   onCreateInvoice
 }: DashboardHeroProps) => (
-  <section className="border-b border-line-glass/30 lg:border-t lg:border-t-line-glass/20">
+  <section className="border-b border-line-subtle lg:border-t lg:border-t-line-glass/20">
     <div className="mx-auto flex max-w-7xl items-center gap-6 px-4 py-5 sm:px-6 lg:px-8">
       <h1 className="shrink-0 text-base font-semibold text-input-text">Cashflow</h1>
-      <div role="group" aria-label="Time window" className="flex shrink-0 gap-x-8 border-l border-line-glass/30 pl-6 text-sm font-semibold">
+      <div role="group" aria-label="Time window" className="flex shrink-0 gap-x-8 border-l border-line-subtle pl-6 text-sm font-semibold">
         {(Object.keys(WINDOW_LABELS) as BillingWindow[]).map((window) => (
           <Button
             key={window}
@@ -64,8 +64,8 @@ export const DashboardHero = ({
           <div
             key={stat.id}
             className={cn(
-              statIdx % 2 === 1 ? 'sm:border-l sm:border-line-glass/20' : statIdx === 2 ? 'lg:border-l lg:border-line-glass/20' : '',
-              'flex flex-wrap items-baseline justify-between gap-x-4 gap-y-2 border-t border-line-glass/20 px-4 py-10 sm:px-6 lg:border-t-0 xl:px-8'
+              statIdx % 2 === 1 ? 'sm:border-l sm:border-line-subtle' : statIdx === 2 ? 'lg:border-l lg:border-line-subtle' : '',
+              'flex flex-wrap items-baseline justify-between gap-x-4 gap-y-2 border-t border-line-subtle px-4 py-10 sm:px-6 lg:border-t-0 xl:px-8'
             )}
           >
             <dt className="text-sm font-medium text-input-placeholder">{stat.label}</dt>

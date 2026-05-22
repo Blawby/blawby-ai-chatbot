@@ -22,7 +22,7 @@ export const InvoiceLineItemsTable = ({ detail }: InvoiceLineItemsTableProps) =>
         <div className="px-5 py-8 text-center text-sm text-input-placeholder">No line items.</div>
       ) : (
         <div className="mt-3 overflow-x-auto">
-          <table className="min-w-full divide-y divide-line-glass/30 text-sm">
+          <table className="min-w-full divide-y divide-line-subtle text-sm">
             <thead>
               <tr className="text-left text-xs uppercase tracking-wider text-input-placeholder bg-surface-utility/30">
                 <th className="px-5 py-3 font-medium">Description</th>
@@ -31,7 +31,7 @@ export const InvoiceLineItemsTable = ({ detail }: InvoiceLineItemsTableProps) =>
                 <th className="px-5 py-3 w-32 text-right font-medium">Amount</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-line-glass/20">
+            <tbody className="divide-y divide-line-subtle">
               {lineItems.map((item) => (
                 <tr key={item.id}>
                   <td className="px-5 py-3 text-input-text">{item.description || <i>No description</i>}</td>

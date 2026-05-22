@@ -47,12 +47,12 @@ export function ContextMenu({ children, items, className }: ContextMenuProps) {
         <div
           ref={menuRef}
           role="menu"
-          className="fixed z-[100] min-w-[160px] rounded-xl glass-panel py-1.5 shadow-lg"
+          className="fixed z-[100] min-w-[160px] rounded-xl panel py-1.5 shadow-lg"
           style={{ top: position.y, left: position.x }}
         >
           {items.map((item, i) => {
             if (item.divider) {
-              return <div key={i} className="my-1 border-t border-line-glass/15" />;
+              return <div key={i} className="my-1 border-t border-line-subtle" />;
             }
             return (
               <button

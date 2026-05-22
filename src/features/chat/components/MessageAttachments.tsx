@@ -103,7 +103,7 @@ const DocumentAttachment: FunctionComponent<DocumentAttachmentProps> = ({ file, 
 
   return (
     <div
-      className="flex items-center gap-2 p-2 rounded-xl glass-panel cursor-pointer my-2 max-w-[300px]"
+      className="flex items-center gap-2 p-2 rounded-xl panel cursor-pointer my-2 max-w-[300px]"
       onClick={() => { void handleClick(); }}
       onKeyDown={handleKeyDown}
       role="button"

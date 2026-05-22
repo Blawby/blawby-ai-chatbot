@@ -68,7 +68,7 @@ export const WidgetPreviewFrame = ({
   return (
     <div className="w-full">
       {showTitle ? <h3 className="mb-3 text-sm font-semibold text-input-text">{title}</h3> : null}
-      <div className="mx-auto w-full max-w-[390px] overflow-hidden rounded-xl border border-line-glass/40 bg-surface-card shadow-glass">
+      <div className="mx-auto w-full max-w-[390px] overflow-hidden rounded-xl border border-line-subtle bg-surface-card shadow-glass">
         <div className={cn('relative w-full overflow-hidden bg-surface-ground', viewportClassName)}>
           <WidgetPreviewApp
             key={previewKey}

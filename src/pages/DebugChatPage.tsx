@@ -198,7 +198,7 @@ export default function DebugChatPage() {
         </p>
       </header>
 
-      <section className="glass-panel space-y-3 rounded-xl p-4">
+      <section className="panel space-y-3 rounded-xl p-4">
         <div className="flex flex-wrap items-center gap-2">
           <Button variant="secondary" size="sm" onClick={resetState}>
             Reset chat

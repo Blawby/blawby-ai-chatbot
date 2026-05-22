@@ -192,7 +192,7 @@ export const UploadDestinationDialog = ({
           </div>
         ) : null}
         {!isLoading && options.length === 0 && !error ? (
-          <div className="flex items-center justify-between gap-3 rounded-xl border border-line-glass/20 bg-surface-panel/50 px-3 py-3 text-sm text-input-placeholder">
+          <div className="flex items-center justify-between gap-3 rounded-xl border border-line-subtle bg-surface-panel/50 px-3 py-3 text-sm text-input-placeholder">
             <span className="min-w-0 flex-1">
               {clientUserId
                 ? "You don't have any matters or intakes yet. Open a conversation with the practice to get started."
@@ -213,7 +213,7 @@ export const UploadDestinationDialog = ({
             emptyStateLabel={null}
           />
         ) : options.length > 0 ? (
-          <p className="rounded-xl border border-line-glass/20 bg-surface-panel/50 px-3 py-4 text-sm text-input-placeholder">
+          <p className="rounded-xl border border-line-subtle bg-surface-panel/50 px-3 py-4 text-sm text-input-placeholder">
             Pick a destination above to enable the upload area.
           </p>
         ) : null}

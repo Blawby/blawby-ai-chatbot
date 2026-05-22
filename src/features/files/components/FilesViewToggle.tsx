@@ -19,7 +19,7 @@ const buttonClass = (active: boolean) => cn(
 
 export const FilesViewToggle = ({ value, onChange }: FilesViewToggleProps) => (
   <div
-    className="inline-flex items-center gap-1 rounded-lg border border-line-glass/30 bg-surface-panel/60 p-1"
+    className="inline-flex items-center gap-1 rounded-lg border border-line-subtle bg-surface-panel/60 p-1"
     role="group"
     aria-label="File view mode"
   >

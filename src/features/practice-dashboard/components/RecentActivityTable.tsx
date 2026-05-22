@@ -36,9 +36,9 @@ const statusClass = (status: ActivityEntry['status']) => {
   const normalized = status.toLowerCase();
   if (normalized === 'paid') return 'bg-emerald-500/10 text-emerald-700 ring-emerald-500/20 dark:text-emerald-300';
   if (normalized === 'overdue') return 'bg-rose-500/10 text-rose-700 ring-rose-500/20 dark:text-rose-300';
-  if (normalized === 'draft') return 'bg-surface-overlay/80 text-input-placeholder ring-line-glass/20';
-  if (normalized === 'sent' || normalized === 'pending') return 'bg-surface-overlay/80 text-input-placeholder ring-line-glass/20';
-  return 'bg-surface-overlay/80 text-input-placeholder ring-line-glass/20';
+  if (normalized === 'draft') return 'bg-surface-overlay/80 text-input-placeholder ring-line-subtle';
+  if (normalized === 'sent' || normalized === 'pending') return 'bg-surface-overlay/80 text-input-placeholder ring-line-subtle';
+  return 'bg-surface-overlay/80 text-input-placeholder ring-line-subtle';
 };
 
 export const RecentActivityTable = ({ days, loading = false, error = null, onOpenInvoice }: RecentActivityTableProps) => (
@@ -49,7 +49,7 @@ export const RecentActivityTable = ({ days, loading = false, error = null, onOpe
       </h2>
     </div>
     {loading ? (
-      <div className="mt-6 border-t border-line-glass/30">
+      <div className="mt-6 border-t border-line-subtle">
         <div className="mx-auto max-w-7xl px-4 py-5 sm:px-6 lg:px-8">
           <div className="space-y-3">
             {[1, 2, 3, 4, 5].map(i => (
@@ -65,13 +65,13 @@ export const RecentActivityTable = ({ days, loading = false, error = null, onOpe
         </div>
       </div>
     ) : error ? (
-      <div className="mt-6 border-t border-line-glass/30">
+      <div className="mt-6 border-t border-line-subtle">
         <div className="mx-auto max-w-7xl px-4 py-5 text-sm text-input-text sm:px-6 lg:px-8">
           {error}
         </div>
       </div>
     ) : (
-      <div className="mt-6 overflow-hidden border-t border-line-glass/30">
+      <div className="mt-6 overflow-hidden border-t border-line-subtle">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <div className="mx-auto max-w-2xl lg:mx-0 lg:max-w-none">
             <table className="w-full text-left">
@@ -98,8 +98,8 @@ export const RecentActivityTable = ({ days, loading = false, error = null, onOpe
                       <tr className="text-sm text-input-text">
                         <th scope="colgroup" colSpan={3} className="relative isolate py-2 font-semibold">
                           <time dateTime={day.isoDate}>{day.label}</time>
-                          <div className="absolute inset-y-0 right-full -z-10 w-screen border-b border-line-glass/30 bg-surface-overlay/70" />
-                          <div className="absolute inset-y-0 left-0 -z-10 w-screen border-b border-line-glass/30 bg-surface-overlay/70" />
+                          <div className="absolute inset-y-0 right-full -z-10 w-screen border-b border-line-subtle bg-surface-overlay/70" />
+                          <div className="absolute inset-y-0 left-0 -z-10 w-screen border-b border-line-subtle bg-surface-overlay/70" />
                         </th>
                       </tr>
                       {day.entries.length === 0 && showEmptyRows ? (

@@ -1,7 +1,7 @@
 import { SkeletonLoader } from '@/shared/ui/layout';
 
 const SectionCardSkeleton = ({ rows = 3, chips = 0 }: { rows?: number; chips?: number }) => (
-  <section className="glass-card p-5 sm:p-6 space-y-4">
+  <section className="card p-5 sm:p-6 space-y-4">
     <header className="flex items-center gap-2">
       <SkeletonLoader variant="text" width="w-32" height="h-3" />
     </header>
@@ -26,7 +26,7 @@ const SectionCardSkeleton = ({ rows = 3, chips = 0 }: { rows?: number; chips?: n
 );
 
 const ConversationCardCollapsedSkeleton = () => (
-  <section className="glass-card p-5 sm:p-6 flex items-center justify-between gap-3">
+  <section className="card p-5 sm:p-6 flex items-center justify-between gap-3">
     <div className="flex items-center gap-3 min-w-0">
       <SkeletonLoader variant="text" width="w-24" height="h-3" />
       <SkeletonLoader variant="text" width="w-16" height="h-3" />

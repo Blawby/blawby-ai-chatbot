@@ -15,9 +15,9 @@ export function Divider({
   className,
 }: DividerProps) {
   const variantClasses = {
-    default: 'border-line-glass/30',
-    subtle: 'border-line-glass/15',
-    strong: 'border-line-glass/40',
+    default: 'border-line-subtle',
+    subtle: 'border-line-subtle/50',
+    strong: 'border-line-subtle',
   };
 
   if (orientation === 'vertical') {

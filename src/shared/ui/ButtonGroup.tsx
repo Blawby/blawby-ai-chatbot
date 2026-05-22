@@ -21,8 +21,8 @@ export function ButtonGroup({
         '[&>*]:rounded-none',
         orientation === 'horizontal' && '[&>*:first-child]:rounded-l-full [&>*:last-child]:rounded-r-full',
         orientation === 'vertical' && '[&>*:first-child]:rounded-t-xl [&>*:last-child]:rounded-b-xl',
-        '[&>*+*]:border-l [&>*+*]:border-line-glass/20',
-        orientation === 'vertical' && '[&>*+*]:border-l-0 [&>*+*]:border-t [&>*+*]:border-line-glass/20',
+        '[&>*+*]:border-l [&>*+*]:border-line-subtle',
+        orientation === 'vertical' && '[&>*+*]:border-l-0 [&>*+*]:border-t [&>*+*]:border-line-subtle',
         className,
       )}
     >

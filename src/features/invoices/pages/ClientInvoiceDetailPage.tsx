@@ -158,27 +158,27 @@ export function ClientInvoiceDetailPage({
         </div>
 
         <div className="grid gap-3 sm:grid-cols-3">
-          <div className="glass-panel p-4">
+          <div className="panel p-4">
             <p className="text-xs uppercase tracking-[0.08em] text-input-placeholder">Total</p>
             <p className="mt-1 text-lg font-semibold text-input-text">{formatCurrency(detail.total)}</p>
           </div>
-          <div className="glass-panel p-4">
+          <div className="panel p-4">
             <p className="text-xs uppercase tracking-[0.08em] text-input-placeholder">Amount paid</p>
             <p className="mt-1 text-lg font-semibold text-input-text">{formatCurrency(detail.amountPaid)}</p>
           </div>
-          <div className="glass-panel p-4">
+          <div className="panel p-4">
             <p className="text-xs uppercase tracking-[0.08em] text-input-placeholder">Amount due</p>
             <p className="mt-1 text-lg font-semibold text-input-text">{formatCurrency(detail.amountDue)}</p>
           </div>
         </div>
 
-        <div className="glass-panel overflow-hidden">
-          <div className="border-b border-line-glass/30 px-4 py-3">
+        <div className="panel overflow-hidden">
+          <div className="border-b border-line-subtle px-4 py-3">
             <h2 className="text-base font-semibold text-input-text">Line items</h2>
           </div>
           <div className="overflow-x-auto">
             <table className="min-w-full text-sm">
-              <thead className="border-b border-line-glass/30 text-xs uppercase tracking-[0.08em] text-input-placeholder">
+              <thead className="border-b border-line-subtle text-xs uppercase tracking-[0.08em] text-input-placeholder">
                 <tr>
                   <th className="px-4 py-3 text-left">Description</th>
                   <th className="px-4 py-3 text-left">Type</th>
@@ -189,7 +189,7 @@ export function ClientInvoiceDetailPage({
               </thead>
               <tbody>
                 {detail.lineItems.map((item) => (
-                  <tr key={item.id} className="border-b border-line-glass/20 last:border-b-0">
+                  <tr key={item.id} className="border-b border-line-subtle last:border-b-0">
                     <td className="px-4 py-3 text-input-text">{item.description || '—'}</td>
                     <td className="px-4 py-3 text-input-text">{item.type}</td>
                     <td className="px-4 py-3 text-right text-input-text">{item.quantity}</td>
@@ -203,14 +203,14 @@ export function ClientInvoiceDetailPage({
         </div>
 
         <div className="grid gap-4 lg:grid-cols-3">
-          <div className="glass-panel p-4">
+          <div className="panel p-4">
             <h3 className="text-sm font-semibold text-input-text">Payment history</h3>
             {detail.payments.length === 0 ? (
               <p className="mt-2 text-sm text-input-placeholder">No payment history available.</p>
             ) : (
               <ul className="mt-2 space-y-2 text-sm">
                 {detail.payments.map((payment) => (
-                  <li key={payment.id} className="rounded-xl border border-line-glass/20 px-3 py-2">
+                  <li key={payment.id} className="rounded-xl border border-line-subtle px-3 py-2">
                     <p className="font-medium text-input-text">{formatCurrency(payment.amount)} • {payment.status}</p>
                     <p className="text-xs text-input-placeholder">{renderEventDate(payment.paidAt)}</p>
                   </li>
@@ -219,14 +219,14 @@ export function ClientInvoiceDetailPage({
             )}
           </div>
 
-          <div className="glass-panel p-4">
+          <div className="panel p-4">
             <h3 className="text-sm font-semibold text-input-text">Refund history</h3>
             {detail.refunds.length === 0 ? (
               <p className="mt-2 text-sm text-input-placeholder">No refunds for this invoice.</p>
             ) : (
               <ul className="mt-2 space-y-2 text-sm">
                 {detail.refunds.map((refund) => (
-                  <li key={refund.id} className="rounded-xl border border-line-glass/20 px-3 py-2">
+                  <li key={refund.id} className="rounded-xl border border-line-subtle px-3 py-2">
                     <p className="font-medium text-input-text">{formatCurrency(refund.amount)} • {refund.status}</p>
                     <p className="text-xs text-input-placeholder">{renderEventDate(refund.createdAt)}</p>
                   </li>
@@ -235,7 +235,7 @@ export function ClientInvoiceDetailPage({
             )}
           </div>
 
-          <div className="glass-panel p-4">
+          <div className="panel p-4">
             <h3 className="text-sm font-semibold text-input-text">Request refund</h3>
             <div className="mt-3 space-y-3">
               <Input
@@ -271,7 +271,7 @@ export function ClientInvoiceDetailPage({
             ) : (
               <ol className="mt-2 space-y-2 text-sm">
                 {detail.refundRequests.map((request) => (
-                  <li key={request.id} className="rounded-xl border border-line-glass/20 px-3 py-2">
+                  <li key={request.id} className="rounded-xl border border-line-subtle px-3 py-2">
                     <p className="font-medium text-input-text">{request.status}</p>
                     <p className="text-xs text-input-placeholder">{renderEventDate(request.createdAt)}</p>
                     {request.reason ? <p className="mt-1 text-xs text-input-placeholder">{request.reason}</p> : null}

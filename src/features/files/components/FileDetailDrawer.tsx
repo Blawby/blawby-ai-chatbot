@@ -142,7 +142,7 @@ export const FileDetailDrawer = ({ file, isOpen, onClose }: FileDetailDrawerProp
           <div className="flex-1 overflow-y-auto px-4 py-6">
             <FileDetailContent file={file} />
           </div>
-          <div className="border-t border-line-glass/30 px-4 py-3">
+          <div className="border-t border-line-subtle px-4 py-3">
             <Actions file={file} onClose={onClose} />
           </div>
         </div>

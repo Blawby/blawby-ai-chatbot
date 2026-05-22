@@ -68,7 +68,7 @@ export const MatterDetailSkeleton = () => (
 
     {/* Case details panel — header + 8 read-only field rows */}
     <section className="card mx-4 mt-4 rounded-2xl">
-      <div className="flex items-center justify-between border-b border-card-border px-6 py-4">
+      <div className="flex items-center justify-between border-b border-line-subtle px-6 py-4">
         <SkeletonLoader variant="text" height="h-3.5" width="w-24" rounded="rounded-md" />
         <div className="skeleton-bar h-px w-8 rounded" />
       </div>

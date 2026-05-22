@@ -999,18 +999,6 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
       handleNavActivate();
       return;
     }
-    // Matters > Engagements is a peer route, not a filter; navigate explicitly.
-    if (workspaceSection === 'matters' && id === 'engagements' && item.href) {
-      navigate(item.href);
-      handleNavActivate();
-      return;
-    }
-    // On /engagements, the Matters sub-items still render (Matters owns the rail
-    // section) but selecting one only flips the filter — it doesn't navigate.
-    // Force a route back to /matters so the filter actually takes effect.
-    if (workspaceSection === 'matters' && view === 'engagements' && item.href) {
-      navigate(item.href);
-    }
     handleSecondaryFilterSelect(id);
     handleNavActivate();
   };
@@ -1227,8 +1215,8 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
   const mattersContent = resolveViewContent(
     mattersView,
     [mattersStatusFilter, workspacePrefetchData, toggleDetailInspector, detailInspectorOpen, desktopCreate] as const,
-    <div className="flex flex-1 flex-col glass-card">
-      <div className="mx-6 my-6 glass-panel p-5">
+    <div className="flex flex-1 flex-col card">
+      <div className="mx-6 my-6 panel p-5">
         <div className="text-sm text-input-placeholder">
           Your active matters will appear here once a practice connects them to your account.
         </div>
@@ -1243,8 +1231,8 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
   const contactsContent = resolveViewContent(
     contactsView,
     [contactsStatusFilter, workspacePrefetchData, toggleDetailInspector, detailInspectorOpen, desktopCreate] as const,
-    <div className="flex flex-1 flex-col glass-card">
-      <div className="mx-6 my-6 glass-panel p-5">
+    <div className="flex flex-1 flex-col card">
+      <div className="mx-6 my-6 panel p-5">
         <p className="text-sm text-input-placeholder">
           Manage contacts and relationship statuses here.
         </p>
@@ -1254,8 +1242,8 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
   const invoicesContent = resolveViewContent(
     invoicesView,
     [invoicesStatusFilter, toggleDetailInspector, detailInspectorOpen, desktopCreate] as const,
-    <div className="flex flex-1 flex-col glass-card">
-      <div className="mx-6 my-6 glass-panel p-5">
+    <div className="flex flex-1 flex-col card">
+      <div className="mx-6 my-6 panel p-5">
         <p className="text-sm text-input-placeholder">
           Invoice details and payments will appear here.
         </p>

@@ -669,7 +669,7 @@ function PreviewSurface({
       style={!isIframe && theme === 'light' ? { backgroundAttachment: 'scroll' } : undefined}
     >
       {onReplay && (
-        <div className="mb-4 flex justify-between items-center border-b border-line-glass/10 pb-2">
+        <div className="mb-4 flex justify-between items-center border-b border-line-subtle pb-2">
           <span className={cn(
             "rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider",
             theme === 'light' ? "bg-accent-500/10 text-accent-600" : "bg-accent-400/20 text-accent-300"
@@ -848,7 +848,7 @@ function GalleryCard({ item, previewNonce }: { item: DialogInventoryItem; previe
   }, [item.previewId]);
 
   return (
-    <article id={`gall-card-${item.previewId}`} className="space-y-4 rounded-3xl glass-panel p-6">
+    <article id={`gall-card-${item.previewId}`} className="space-y-4 rounded-3xl panel p-6">
       <div className="space-y-2">
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-bold text-input-text">{item.name}</h2>
@@ -875,7 +875,7 @@ function GalleryCard({ item, previewNonce }: { item: DialogInventoryItem; previe
           <div className="space-y-2 min-h-[320px]">
             <p className="text-[10px] font-bold uppercase tracking-widest text-input-placeholder">Light Mode</p>
             <div 
-              className="widget-shell-gradient relative overflow-visible rounded-2xl border border-line-glass/10 p-4 shadow-glass" 
+              className="widget-shell-gradient relative overflow-visible rounded-2xl border border-line-subtle p-4 shadow-glass" 
               style={{ backgroundAttachment: 'scroll', isolation: 'isolate' }}
             >
               {isLoaded && frameSrcBase ? (
@@ -897,7 +897,7 @@ function GalleryCard({ item, previewNonce }: { item: DialogInventoryItem; previe
           <div className="space-y-2 min-h-[320px]">
             <p className="text-[10px] font-bold uppercase tracking-widest text-input-placeholder">Dark Mode</p>
             <div 
-              className="relative overflow-visible rounded-2xl border border-line-glass/30 bg-surface-workspace p-4 shadow-glass dark"
+              className="relative overflow-visible rounded-2xl border border-line-subtle bg-surface-workspace p-4 shadow-glass dark"
               style={{ isolation: 'isolate' }}
             >
               {isLoaded && frameSrcBase ? (
@@ -938,7 +938,7 @@ export default function DebugDialogsPage({ previewId }: DebugDialogsPageProps) {
     return (
       <PreviewSurface onReplay={replayAnimations}>
         <div className="mx-auto flex min-h-screen max-w-2xl items-center justify-center p-8">
-          <div className="glass-card w-full p-8 text-center">
+          <div className="card w-full p-8 text-center">
             <p className="text-lg font-semibold text-input-text">Preview not found</p>
             <p className="mt-2 text-sm text-input-placeholder">
               The requested dialog preview does not exist.

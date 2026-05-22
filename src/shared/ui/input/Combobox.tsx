@@ -109,7 +109,7 @@ function Chip({
         compact ? 'min-h-8 px-3 py-1 text-sm' : 'px-2 py-0.5',
         isCustom
           ? 'border-accent-500/25 bg-accent-500/12 text-accent-utility'
-          : 'border-line-utility/10 bg-surface-utility/10 text-input-text'
+          : 'border-line-subtle bg-surface-utility/10 text-input-text'
       )}
     >
       <span className="truncate">{label}</span>
@@ -580,7 +580,7 @@ export function Combobox({
           onClick={() => (isOpen ? close() : open())}
           onKeyDown={handleKeyDown}
           className={cn(
-            'glass-input relative flex w-full gap-2 rounded-xl px-3 py-2.5 transition-all duration-200',
+            'input-surface relative flex w-full gap-2 rounded-xl px-3 py-2.5 transition-all duration-200',
             isOpen && 'isOpen',
             'items-center',
             !disabled && 'cursor-pointer'
@@ -602,13 +602,13 @@ export function Combobox({
           onMouseDown={(e) => e.preventDefault()}
           className={cn(
             'z-[60] w-full overflow-hidden rounded-xl absolute',
-            'bg-surface-overlay shadow-glass border border-line-glass/20',
+            'bg-surface-overlay shadow-glass border border-line-subtle',
             hideTrigger ? 'top-0 mt-1' : (direction === 'up' ? 'bottom-full mb-1 top-auto' : 'top-full mt-1')
           )}
         >
           {/* Search input */}
           {searchable && (
-            <div className="border-b border-line-glass/10 px-2 py-2">
+            <div className="border-b border-line-subtle px-2 py-2">
               <input
                 ref={inputRef}
                 type="text"
@@ -696,11 +696,11 @@ export function Combobox({
           </div>
 
           {resolvedFooter ? (
-            <div className="border-t border-line-glass/10 px-2 py-2">
+            <div className="border-t border-line-subtle px-2 py-2">
               {resolvedFooter}
             </div>
           ) : allowCustomValues && filteredOptions.length === 0 && !showAddRow ? (
-            <div className="flex items-center gap-2 border-t border-line-glass/10 px-3 py-2 text-xs text-input-placeholder">
+            <div className="flex items-center gap-2 border-t border-line-subtle px-3 py-2 text-xs text-input-placeholder">
               <span className="flex h-4 w-4 flex-shrink-0 items-center justify-center rounded bg-accent-500/20 text-accent-utility">
                 <Icon icon={Plus} className="h-3 w-3" />
               </span>

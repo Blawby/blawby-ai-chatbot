@@ -398,7 +398,7 @@ const MessageComposer = ({
               dropped here in favor of inline flex so the icons live inside the
               pill rather than beside it. */}
           <div className="w-full">
-            <div className={`min-w-0 relative flex w-full items-end gap-1 glass-input min-h-12 ${isInputExpanded ? 'rounded-2xl py-2 px-2' : 'rounded-full py-1 px-2'} ${isInputFocused ? 'ring-2 ring-accent-500/40 border-accent-500/40' : ''}`}>
+            <div className={`min-w-0 relative flex w-full items-end gap-1 input-surface min-h-12 ${isInputExpanded ? 'rounded-2xl py-2 px-2' : 'rounded-full py-1 px-2'} ${isInputFocused ? 'ring-2 ring-accent-500/40 border-accent-500/40' : ''}`}>
               {canShowAttachmentMenu && (
                 <div className="flex-shrink-0 self-end">
                   <FileMenu
@@ -480,7 +480,7 @@ const MessageComposer = ({
                 <div 
                   id="mention-listbox"
                   role="listbox"
-                  className="absolute bottom-full left-2 right-2 z-40 mb-2 overflow-hidden rounded-xl border border-line-glass/10 bg-surface-workspace dark:bg-surface-overlay/95 shadow-glass backdrop-blur-2xl"
+                  className="absolute bottom-full left-2 right-2 z-40 mb-2 overflow-hidden rounded-xl border border-line-subtle bg-surface-workspace dark:bg-surface-overlay/95 shadow-glass backdrop-blur-2xl"
                 >
                   <div className="max-h-56 overflow-y-auto py-1">
                     {filteredMentionCandidates.map((candidate, index) => (

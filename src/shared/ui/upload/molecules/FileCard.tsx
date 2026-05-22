@@ -66,8 +66,8 @@ export const FileCard = ({
   if (variant === 'tile') {
     const fileType = getFileTypeConfig(fileName, mimeType);
     const tileClassName = cn(
-      'group relative flex w-full flex-col overflow-hidden rounded-2xl border border-line-glass/30 bg-surface-card text-left transition-all',
-      onClick ? 'cursor-pointer hover:border-line-glass/60 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-accent-500' : '',
+      'group relative flex w-full flex-col overflow-hidden rounded-2xl border border-line-subtle bg-surface-card text-left transition-all',
+      onClick ? 'cursor-pointer hover:border-line-subtle hover:shadow-md focus:outline-none focus:ring-2 focus:ring-accent-500' : '',
       className
     );
     const shouldShowTileStatus = status === 'uploading'
@@ -166,7 +166,7 @@ export const FileCard = ({
     return (
       <div className={cn(
         'relative rounded-2xl overflow-hidden flex-shrink-0',
-        'glass-panel transition-all duration-200',
+        'panel transition-all duration-200',
         // Make images square, matching the height of file cards
         size === 'sm' ? 'w-14 h-14' : size === 'md' ? 'w-16 h-16' : 'w-20 h-20',
         className

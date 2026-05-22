@@ -72,6 +72,9 @@ const prefetchPracticeFilesChunk = prefetchLazyChunk(
 const prefetchClientFilesChunk = prefetchLazyChunk(
   () => import('@/features/files/pages/ClientFilesPage')
 );
+const prefetchEngagementsChunk = prefetchLazyChunk(
+  () => import('@/features/engagements/pages/EngagementsPage')
+);
 
 export type NavCtx = {
   practiceSlug: string;
@@ -198,10 +201,17 @@ const buildPracticeRail = (basePath: string): NavRailItem[] => [
     label: 'Matters',
     icon: Briefcase,
     href: `${basePath}/matters`,
-    // /engagements lives under Matters in the unified sidebar (per Pencil GtRGH).
-    matchHrefs: [`${basePath}/matters`, `${basePath}/engagements`],
+    matchHrefs: [`${basePath}/matters`],
     expandable: true,
     prefetch: prefetchMattersChunk,
+  },
+  {
+    id: 'engagements',
+    label: 'Engagements',
+    icon: FileText,
+    href: `${basePath}/engagements`,
+    matchHrefs: [`${basePath}/engagements`],
+    prefetch: prefetchEngagementsChunk,
   },
   {
     id: 'conversations',
@@ -349,8 +359,6 @@ const buildMattersSecondary = (basePath: string, workspace: 'practice' | 'client
     return [{
       label: 'Stage',
       items: [
-        // Engagements is a peer route but lives under Matters in the unified sidebar (Pencil GtRGH).
-        { id: 'engagements', label: 'Engagements', href: `${basePath}/engagements` },
         { id: 'all', label: 'All', href: `${basePath}/matters` },
         { id: 'new', label: 'New', href: `${basePath}/matters` },
         { id: 'active', label: 'Active', href: `${basePath}/matters` },
@@ -501,8 +509,6 @@ const buildSecondary = (basePath: string, section: WorkspaceSection, workspace: 
       return buildSettingsSecondary(basePath, canAccessPractice);
     case 'home':
       return buildHomeSecondary(basePath, workspace);
-    case 'engagements':
-      return buildMattersSecondary(basePath, workspace);
     default:
       return undefined;
   }

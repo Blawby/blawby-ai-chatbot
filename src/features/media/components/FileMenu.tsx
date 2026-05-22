@@ -144,10 +144,10 @@ const FileMenu: FunctionComponent<FileMenuProps> = ({
         aria-haspopup="menu"
         aria-controls="attachment-menu"
         aria-expanded={isOpen}
-        className={`shadow-lg border disabled:opacity-60 disabled:cursor-not-allowed focus:outline-none focus:ring-0 focus-visible:ring-2 focus-visible:ring-line-glass/30 focus-visible:ring-offset-0 active:scale-100 ${
+        className={`shadow-lg border disabled:opacity-60 disabled:cursor-not-allowed focus:outline-none focus:ring-0 focus-visible:ring-2 focus-visible:ring-line-subtle focus-visible:ring-offset-0 active:scale-100 ${
           isOpen
-            ? 'bg-surface-utility/20 border-line-glass/35'
-            : 'bg-surface-utility/10 border-line-glass/20 hover:bg-surface-utility/20 hover:border-line-glass/30 hover:scale-105'
+            ? 'bg-surface-utility/20 border-line-subtle'
+            : 'bg-surface-utility/10 border-line-subtle hover:bg-surface-utility/20 hover:border-line-subtle hover:scale-105'
         }`}
         icon={Plus} iconClassName="w-5 h-5"
       />
@@ -159,7 +159,7 @@ const FileMenu: FunctionComponent<FileMenuProps> = ({
           aria-labelledby="attachment-menu-button"
           className={`
             absolute bottom-full left-0 mb-2 min-w-[220px]
-            p-1 rounded-xl border border-line-glass/30 bg-surface-overlay/95 backdrop-blur-2xl shadow-glass transition-all duration-200
+            p-1 rounded-xl border border-line-subtle bg-surface-overlay/95 backdrop-blur-2xl shadow-glass transition-all duration-200
             ${isClosing ? 'opacity-0 scale-95 pointer-events-none' : 'opacity-100 scale-100'}
           `}
           style={{ zIndex: THEME.zIndex.fileMenu }}
@@ -183,7 +183,7 @@ const FileMenu: FunctionComponent<FileMenuProps> = ({
               role="menuitem"
               onClick={openCamera}
               onMouseDown={preventPointerFocus}
-              className="file-menu-item py-3 border-t border-line-glass/10 text-xs sm:text-sm"
+              className="file-menu-item py-3 border-t border-line-subtle text-xs sm:text-sm"
             >
               <span>Take Photo</span>
               <Icon icon={Camera} className="w-5 h-5" aria-hidden="true"  />
@@ -196,7 +196,7 @@ const FileMenu: FunctionComponent<FileMenuProps> = ({
       {errorMessage && (
         <div
           role="alert" aria-live="polite"
-          className="absolute bottom-full left-0 mb-2 min-w-[250px] p-3 glass-card border-accent-error/30 bg-accent-error/10"
+          className="absolute bottom-full left-0 mb-2 min-w-[250px] p-3 card border-accent-error/30 bg-accent-error/10"
           style={{ zIndex: THEME.zIndex.fileMenu + 1 }}
         >
           <div className="flex items-start gap-2">
