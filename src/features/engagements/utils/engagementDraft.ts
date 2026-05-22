@@ -145,8 +145,8 @@ export const buildEngagementDraftFormFromIntake = (
   };
 };
 
-const omitNulls = <T extends Record<string, unknown>>(obj: T): { [K in keyof T]: NonNullable<T[K]> } =>
-  Object.fromEntries(Object.entries(obj).filter(([, v]) => v != null)) as { [K in keyof T]: NonNullable<T[K]> };
+const omitNulls = <T extends Record<string, unknown>>(obj: T): Partial<{ [K in keyof T]: NonNullable<T[K]> }> =>
+  Object.fromEntries(Object.entries(obj).filter(([, v]) => v != null)) as Partial<{ [K in keyof T]: NonNullable<T[K]> }>;
 
 export const buildProposalDataFromDraft = (form: EngagementDraftForm): ProposalData => {
   const fees: ProposalFees = {

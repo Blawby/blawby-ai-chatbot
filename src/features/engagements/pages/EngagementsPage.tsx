@@ -261,7 +261,6 @@ export const EngagementsPage: FunctionComponent<EngagementsPageProps> = ({
     return (
       <CreateEngagementPage
         practiceId={practiceId}
-        basePath={basePath}
         initialIntakeId={queryIntakeId}
         practiceName={practiceName}
         onCreated={handleEngagementCreated}

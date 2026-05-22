@@ -212,7 +212,6 @@ const SectionHeading: FunctionComponent<{ title: string }> = ({ title }) => (
 
 type CreateEngagementPageProps = {
   practiceId: string | null;
-  basePath?: string;
   initialIntakeId?: string | null;
   practiceName?: string;
   onCreated: (engagementId: string) => void;
