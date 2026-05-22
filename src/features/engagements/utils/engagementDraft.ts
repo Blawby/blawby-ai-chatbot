@@ -145,6 +145,9 @@ export const buildEngagementDraftFormFromIntake = (
   };
 };
 
+const omitNulls = <T extends Record<string, unknown>>(obj: T): { [K in keyof T]: NonNullable<T[K]> } =>
+  Object.fromEntries(Object.entries(obj).filter(([, v]) => v != null)) as { [K in keyof T]: NonNullable<T[K]> };
+
 export const buildProposalDataFromDraft = (form: EngagementDraftForm): ProposalData => {
   const fees: ProposalFees = {
     billing_type: nullableString(form.billingType),
@@ -178,16 +181,15 @@ export const buildProposalDataFromDraft = (form: EngagementDraftForm): ProposalD
       risk_notes: lines(form.riskNotes),
       open_questions: lines(form.openQuestions),
     },
-    source_snapshot: {
+    source_snapshot: omitNulls({
       intake_uuid: nullableString(form.intakeId),
       conversation_id: nullableString(form.conversationId),
-      matter_id: null,
       practice_area: nullableString(form.practiceArea),
       urgency: nullableString(form.urgency),
       desired_outcome: nullableString(form.desiredOutcome),
       opposing_party: nullableString(form.opposingParty),
       court_date: nullableString(form.courtDate),
-    },
+    }),
     draft_meta: {
       generated_at: new Date().toISOString(),
       generated_by: 'staff',

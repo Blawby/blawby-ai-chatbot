@@ -23,6 +23,7 @@ export default defineConfig({
     /.*intake-invite\.spec\.ts/,
     /.*notifications\.spec\.ts/,
     /.*pricing-gate-membership\.spec\.ts/,
+    /.*engagements-create-page\.spec\.ts/,
     /.*responsive-auth\.spec\.ts/,
     /.*responsive-screenshots\.spec\.ts/,
   ],
