@@ -4,7 +4,6 @@ import { useNavigation } from '@/shared/utils/navigation';
 import { useSessionContext } from '@/shared/contexts/SessionContext';
 import { useGlobalSearch } from '../hooks/useGlobalSearch';
 import { useSearchRecents } from '../hooks/useSearchRecents';
-import { useSearchSuggestions } from '../hooks/useSearchSuggestions';
 import { recordSearchClick } from '../services/searchApi';
 import {
   parseQuery,
@@ -65,7 +64,7 @@ export function CommandPalette({
   const { recents, push: pushRecent } = useSearchRecents(practiceId, userId);
 
   const { envelope, loading, error } = useGlobalSearch(practiceId, query);
-  const suggestions = useSearchSuggestions(practiceId, query);
+  const suggestions = envelope?.suggestions ?? [];
 
   useEffect(() => {
     if (!open) {

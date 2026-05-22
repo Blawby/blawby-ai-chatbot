@@ -22,6 +22,7 @@ import {
   type SearchResultItem,
   type SearchGroup,
   type SearchEnvelope,
+  type SearchSuggestion,
   SEARCH_ENTITY_LABELS,
 } from '../types/search.js';
 
@@ -50,8 +51,79 @@ const SUCCESS = (
 
 const EMPTY_ENVELOPE = (semanticEnabled: boolean): SearchEnvelope => ({
   groups: [],
+  suggestions: [],
   debug: { semanticEnabled, ftsTookMs: 0, vectorTookMs: 0 },
 });
+
+const SUGGESTION_LIMIT = 1;
+
+/**
+ * Returns the top autocomplete suggestions for a prefix, preferring the
+ * user's own history and falling back to practice-wide popular queries.
+ * Total returned suggestions are capped at SUGGESTION_LIMIT per UX feedback.
+ *
+ * Pulled out of handleSuggest so handleSearchQuery can include suggestions
+ * in the same response envelope — one round-trip per keystroke instead of
+ * two. The /suggest route still delegates here for callers that haven't
+ * migrated to the combined response.
+ */
+async function loadSuggestions(
+  env: Env,
+  practiceId: string,
+  userId: string,
+  prefix: string,
+): Promise<SearchSuggestion[]> {
+  const normalized = prefix.trim().toLowerCase();
+  if (normalized.length === 0) return [];
+
+  const userRows = await env.DB.prepare(
+    `SELECT DISTINCT query
+       FROM search_query_log
+      WHERE practice_id = ?
+        AND user_id = ?
+        AND result_count > 0
+        AND lower(query) LIKE ?
+      ORDER BY created_at DESC
+      LIMIT ?`,
+  )
+    .bind(practiceId, userId, `${normalized}%`, SUGGESTION_LIMIT)
+    .all<{ query: string }>();
+
+  const suggestions: SearchSuggestion[] = [];
+  const seen = new Set<string>();
+  for (const r of userRows.results ?? []) {
+    const norm = r.query.trim();
+    if (!norm || seen.has(norm.toLowerCase())) continue;
+    seen.add(norm.toLowerCase());
+    suggestions.push({ query: norm, source: 'user' });
+    if (suggestions.length >= SUGGESTION_LIMIT) break;
+  }
+
+  if (suggestions.length < SUGGESTION_LIMIT) {
+    const practiceRows = await env.DB.prepare(
+      `SELECT query, COUNT(*) as c
+         FROM search_query_log
+        WHERE practice_id = ?
+          AND result_count > 0
+          AND lower(query) LIKE ?
+        GROUP BY query
+        ORDER BY c DESC
+        LIMIT ?`,
+    )
+      .bind(practiceId, `${normalized}%`, SUGGESTION_LIMIT)
+      .all<{ query: string; c: number }>();
+
+    for (const r of practiceRows.results ?? []) {
+      const norm = r.query.trim();
+      if (!norm || seen.has(norm.toLowerCase())) continue;
+      seen.add(norm.toLowerCase());
+      suggestions.push({ query: norm, source: 'practice' });
+      if (suggestions.length >= SUGGESTION_LIMIT) break;
+    }
+  }
+
+  return suggestions;
+}
 
 function pinKey(practiceId: string, userId: string, pinId?: string): string {
   return pinId
@@ -222,11 +294,17 @@ async function handleSearchQuery(
     : Promise.resolve([]);
 
   const ctrPromise = loadCtrBoosts(env, practiceId, terms);
+  // Coalesce the suggestion lookup into the main search request so the
+  // command palette only fires one network call per keystroke instead of
+  // two parallel ones (was: /search + /suggest). The DB read is cheap
+  // and runs in parallel with FTS/vector.
+  const suggestionsPromise = loadSuggestions(env, practiceId, auth.user.id, q);
 
-  const [ftsItems, vectorMatches, ctrByKey] = await Promise.all([
+  const [ftsItems, vectorMatches, ctrByKey, suggestions] = await Promise.all([
     ftsItemsPromise,
     vectorMatchesPromise,
     ctrPromise,
+    suggestionsPromise,
   ]);
   const ftsTookMs = Date.now() - ftsStart;
   const vectorTookMs = Date.now() - vectorStart;
@@ -286,6 +364,7 @@ async function handleSearchQuery(
 
   const envelope: SearchEnvelope = {
     groups: grouped,
+    suggestions,
     debug: { semanticEnabled, ftsTookMs, vectorTookMs },
   };
 
@@ -345,62 +424,8 @@ async function handleSuggest(
   url: URL,
 ): Promise<Response> {
   const auth = await requirePracticeMember(request, env, practiceId, 'paralegal');
-  const prefix = url.searchParams.get('q')?.trim().toLowerCase() ?? '';
-  if (prefix.length === 0) {
-    return SUCCESS({ suggestions: [] });
-  }
-
-  // Total suggestions capped at 1 — per user feedback, more than one entry
-  // here clutters the dropdown. Prefer user history when present; fall
-  // back to the single most-popular practice-wide query otherwise.
-  const SUGGESTION_LIMIT = 1;
-  const userRows = await env.DB.prepare(
-    `SELECT DISTINCT query
-       FROM search_query_log
-      WHERE practice_id = ?
-        AND user_id = ?
-        AND result_count > 0
-        AND lower(query) LIKE ?
-      ORDER BY created_at DESC
-      LIMIT ?`,
-  )
-    .bind(practiceId, auth.user.id, `${prefix}%`, SUGGESTION_LIMIT)
-    .all<{ query: string }>();
-
-  const suggestions: Array<{ query: string; source: 'user' | 'practice' }> = [];
-  const seen = new Set<string>();
-  for (const r of userRows.results ?? []) {
-    const norm = r.query.trim();
-    if (!norm || seen.has(norm.toLowerCase())) continue;
-    seen.add(norm.toLowerCase());
-    suggestions.push({ query: norm, source: 'user' });
-    if (suggestions.length >= SUGGESTION_LIMIT) break;
-  }
-
-  // Only query the practice pool if user history didn't fill the cap.
-  if (suggestions.length < SUGGESTION_LIMIT) {
-    const practiceRows = await env.DB.prepare(
-      `SELECT query, COUNT(*) as c
-         FROM search_query_log
-        WHERE practice_id = ?
-          AND result_count > 0
-          AND lower(query) LIKE ?
-        GROUP BY query
-        ORDER BY c DESC
-        LIMIT ?`,
-    )
-      .bind(practiceId, `${prefix}%`, SUGGESTION_LIMIT)
-      .all<{ query: string; c: number }>();
-
-    for (const r of practiceRows.results ?? []) {
-      const norm = r.query.trim();
-      if (!norm || seen.has(norm.toLowerCase())) continue;
-      seen.add(norm.toLowerCase());
-      suggestions.push({ query: norm, source: 'practice' });
-      if (suggestions.length >= SUGGESTION_LIMIT) break;
-    }
-  }
-
+  const prefix = url.searchParams.get('q') ?? '';
+  const suggestions = await loadSuggestions(env, practiceId, auth.user.id, prefix);
   return SUCCESS(
     { suggestions },
     { headers: { 'Cache-Control': 'private, max-age=60' } },
