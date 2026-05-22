@@ -115,7 +115,7 @@ export const DatePicker = forwardRef<HTMLInputElement, DatePickerProps>(({
   const inputClasses = cn(
     'w-full min-h-[44px] rounded-xl text-input-text placeholder:text-input-placeholder',
     'focus:outline-none transition-all duration-200',
-    'appearance-none glass-input border-none',
+    'appearance-none input-surface border-none',
     sizeClasses[size],
     variantClasses[variant],
     disabled && 'opacity-50 cursor-not-allowed',

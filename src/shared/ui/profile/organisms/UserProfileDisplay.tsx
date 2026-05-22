@@ -144,8 +144,8 @@ export const UserProfileDisplay = ({
   if (loading) {
     return (
       <div className={`flex items-center ${isCollapsed ? 'justify-center py-2' : 'gap-3 px-3 py-2'}`}>
-        <div className="glass-input w-8 h-8 rounded-full animate-pulse" />
-        {!isCollapsed && <div className="glass-input w-20 h-4 rounded animate-pulse" />}
+        <div className="input-surface w-8 h-8 rounded-full animate-pulse" />
+        {!isCollapsed && <div className="input-surface w-20 h-4 rounded animate-pulse" />}
       </div>
     );
   }

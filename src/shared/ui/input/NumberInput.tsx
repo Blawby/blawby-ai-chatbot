@@ -92,7 +92,7 @@ export const NumberInput = forwardRef<HTMLInputElement, NumberInputProps>(({
   const inputClasses = cn(
     'w-full rounded-xl text-input-text placeholder:text-input-placeholder',
     'focus:outline-none transition-all duration-200',
-    'glass-input border-none',
+    'input-surface border-none',
     sizeClasses[size],
     showControls && 'pr-20',
     variantClasses[variant],
@@ -187,7 +187,7 @@ export const NumberInput = forwardRef<HTMLInputElement, NumberInputProps>(({
               disabled={disabled || !canIncrement}
               className={cn(
                 'flex items-center justify-center border-l border-input-border',
-                'glass-input hover:bg-surface-utility/40 focus:outline-none focus:ring-2 ring-inset focus:ring-accent-500',
+                'input-surface hover:bg-surface-utility/40 focus:outline-none focus:ring-2 ring-inset focus:ring-accent-500',
                 'disabled:opacity-50 disabled:cursor-not-allowed',
                 controlSizeClasses[size],
                 'rounded-tr-xl'
@@ -201,7 +201,7 @@ export const NumberInput = forwardRef<HTMLInputElement, NumberInputProps>(({
               disabled={disabled || !canDecrement}
               className={cn(
                 'flex items-center justify-center border-l border-t border-input-border',
-                'glass-input hover:bg-surface-utility/40 focus:outline-none focus:ring-2 ring-inset focus:ring-accent-500',
+                'input-surface hover:bg-surface-utility/40 focus:outline-none focus:ring-2 ring-inset focus:ring-accent-500',
                 'disabled:opacity-50 disabled:cursor-not-allowed',
                 controlSizeClasses[size],
                 'rounded-br-xl'

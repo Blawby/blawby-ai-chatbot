@@ -6,6 +6,7 @@ import {
   ClipboardList,
   Clock,
   CreditCard,
+  FileText,
   Mail,
   MessageSquare,
   Phone,
@@ -23,6 +24,7 @@ import { Dialog, DialogBody, DialogFooter } from '@/shared/ui/dialog';
 import { Textarea } from '@/shared/ui/input';
 import { useToastContext } from '@/shared/contexts/ToastContext';
 import { useSessionContext } from '@/shared/contexts/SessionContext';
+import { useNavigation } from '@/shared/utils/navigation';
 import { apiClient, isHttpError } from '@/shared/lib/apiClient';
 import { cn } from '@/shared/utils/cn';
 import {
@@ -254,7 +256,7 @@ const DetailSkeleton: FunctionComponent<{ onBack: () => void }> = ({ onBack }) =
             <MessageRowSkeleton lineWidths={['w-64', 'w-44']} />
           </div>
         </div>
-        <aside className="hidden xl:block space-y-4 border-l border-card-border bg-surface-panel p-6">
+        <aside className="hidden xl:block space-y-4 border-l border-line-subtle bg-surface-panel p-6">
           <SkeletonLoader variant="button" width="w-full" />
           <SkeletonLoader variant="button" width="w-full" />
           <div className="rounded-xl border border-card-border bg-surface-card p-4 space-y-3">
@@ -278,6 +280,7 @@ type IntakeDetailPageProps = {
   practiceId: string | null;
   intakeId: string;
   conversationsBasePath?: string | null;
+  engagementsBasePath?: string | null;
   practiceName: string;
   practiceLogo: string | null;
   onBack: () => void;
@@ -287,6 +290,7 @@ type IntakeDetailPageProps = {
 export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
   practiceId,
   intakeId,
+  engagementsBasePath,
   practiceName,
   practiceLogo,
   onBack,
@@ -294,6 +298,7 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
 }) => {
   const { showSuccess, showError } = useToastContext();
   const { session } = useSessionContext();
+  const { navigate } = useNavigation();
 
   const {
     data: intakeData,
@@ -804,6 +809,7 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
     name ? `${name} intake` : 'Untitled intake',
   );
   const canReplyInIntake = Boolean(intake.conversation_id && effectiveTriageStatus === 'accepted');
+  const engagementCreatePath = `${engagementsBasePath ?? '/practice/engagements'}?create=1&intakeId=${encodeURIComponent(intake.uuid)}`;
   const enrichmentFields: IntakeFieldDefinition[] = (
     activeTemplate?.fields ?? DEFAULT_INTAKE_TEMPLATE.fields
   ).filter((f) => f.phase === 'enrichment');
@@ -824,14 +830,26 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
   })();
 
   const statusBadge = (
-    <span
-      className={cn(
-        'inline-flex items-center gap-1.5 rounded-md px-3 py-1 text-xs font-medium ring-1 ring-inset',
-        triageBadgeClass(effectiveTriageStatus),
-      )}
-    >
-      {triageLabel(effectiveTriageStatus)}
-    </span>
+    <div className="flex items-center gap-2">
+      <span
+        className={cn(
+          'inline-flex items-center gap-1.5 rounded-md px-3 py-1 text-xs font-medium ring-1 ring-inset',
+          triageBadgeClass(effectiveTriageStatus),
+        )}
+      >
+        {triageLabel(effectiveTriageStatus)}
+      </span>
+      {effectiveTriageStatus === 'accepted' ? (
+        <Button
+          variant="primary"
+          size="sm"
+          icon={FileText}
+          onClick={() => navigate(engagementCreatePath)}
+        >
+          Create engagement
+        </Button>
+      ) : null}
+    </div>
   );
 
   const intakeDetailsCard = (
@@ -917,7 +935,7 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
 
   const conversationCard = intake.conversation_id ? (
     <Card className="flex min-h-[420px] flex-col p-0 overflow-hidden">
-      <div className="border-b border-card-border p-4 sm:px-6 sm:py-5">
+      <div className="border-b border-line-subtle p-4 sm:px-6 sm:py-5">
         <SectionLabel>Conversation</SectionLabel>
         <p className="mt-1 text-xs text-input-placeholder">Continue the client thread from this intake.</p>
       </div>
@@ -956,7 +974,7 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
         )}
       </div>
       {canReplyInIntake ? (
-        <div className="border-t border-card-border px-4 py-4">
+        <div className="border-t border-line-subtle px-4 py-4">
           <MessageComposer
             inputValue={composerValue}
             setInputValue={setComposerValue}
@@ -1052,7 +1070,7 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
         <Avatar
           name={name ?? ''}
           size="md"
-          className="bg-surface-utility/40 text-input-text ring-1 ring-line-glass/20"
+          className="bg-surface-utility/40 text-input-text ring-1 ring-line-subtle"
         />
         <div className="min-w-0">
           <p className="truncate text-sm font-semibold text-input-text">{name ?? 'Unnamed lead'}</p>
@@ -1086,6 +1104,19 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
       ) : null}
     </Card>
   );
+
+  const engagementActionCard = effectiveTriageStatus === 'accepted' ? (
+    <Card className="p-4">
+      <Button
+        variant="primary"
+        className="w-full"
+        icon={FileText}
+        onClick={() => navigate(engagementCreatePath)}
+      >
+        Create engagement
+      </Button>
+    </Card>
+  ) : null;
 
   return (
     <div className="flex h-full flex-col min-h-0 bg-surface-workspace">
@@ -1122,8 +1153,9 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
           </div>
 
           {/* Desktop right panel */}
-          <aside className="hidden xl:flex flex-col gap-4 border-l border-card-border bg-surface-panel p-6">
+          <aside className="hidden xl:flex flex-col gap-4 border-l border-line-subtle bg-surface-panel p-6">
             {isPending ? <div className="flex flex-col gap-3">{triageActions}</div> : null}
+            {engagementActionCard}
             {aboutCard}
           </aside>
         </div>

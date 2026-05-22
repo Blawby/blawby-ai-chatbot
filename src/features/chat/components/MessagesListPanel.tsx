@@ -156,7 +156,7 @@ const MessagesListPanel: FunctionComponent<MessagesListPanelProps> = ({
               src={null}
               name={draftEntry.contactName ?? 'New conversation'}
               size="md"
-              className="ring-1 ring-line-glass/10"
+              className="ring-1 ring-line-subtle"
             />
             <div className="min-w-0 flex-1">
               <div className="flex items-start justify-between gap-3">

@@ -33,7 +33,7 @@ export function WorkspacePracticeDetailsError({
       tabIndex={-1}
       ref={dialogRef}
     >
-    <div className="max-w-lg glass-panel p-6 text-center">
+    <div className="max-w-lg panel p-6 text-center">
         <h1 id="workspace-error-heading" className="text-2xl font-semibold text-input-text">
           {t('workspace.error.title')}
         </h1>

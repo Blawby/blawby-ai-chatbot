@@ -4,7 +4,7 @@ import { useLocation } from 'preact-iso';
 import { Briefcase, Plus, Search } from 'lucide-preact';
 
 import { Button } from '@/shared/ui/Button';
-import { Input, Textarea, Combobox, Switch, EmailInput, type ComboboxOption } from '@/shared/ui/input';
+import { Input, Textarea, Combobox, type ComboboxOption } from '@/shared/ui/input';
 import { Tabs, type TabItem } from '@/shared/ui/tabs/Tabs';
 import { DataTable, type DataTableColumn, type DataTableRow } from '@/shared/ui/table/DataTable';
 import { Dialog, DialogBody, DialogFooter, useDialogFormReset } from '@/shared/ui/dialog';
@@ -14,16 +14,22 @@ import { usePaginatedList } from '@/shared/hooks/usePaginatedList';
 import { cn } from '@/shared/utils/cn';
 import { formatCurrency } from '@/shared/utils/currencyFormatter';
 import { formatRelativeTime } from '@/features/matters/utils/formatRelativeTime';
-import { listIntakes, type IntakeListItem } from '@/features/intake/api/intakesApi';
+import { getPracticeIntake, listIntakes, type IntakeListItem, type PracticeIntakeDetail } from '@/features/intake/api/intakesApi';
 import { resolveIntakeTitle } from '@/features/intake/utils/intakeTitle';
 
-import { createEngagementContract, listEngagements, sendEngagementToClient } from '../api/engagementsApi';
+import { createEngagementContract, listEngagements } from '../api/engagementsApi';
 import type {
   EngagementListItem,
   EngagementStatus,
-  ProposalData,
   ProposalFees,
 } from '../types/engagement';
+import {
+  buildDeterministicContractBody,
+  buildEngagementDraftFormFromIntake,
+  buildProposalDataFromDraft,
+  EMPTY_ENGAGEMENT_DRAFT_FORM,
+  type EngagementDraftForm,
+} from '../utils/engagementDraft';
 import EngagementDetailPage from './EngagementDetailPage';
 
 const PAGE_SIZE = 20;
@@ -47,6 +53,11 @@ const normalizeStatusFilter = (value: string | null | undefined): StatusFilter =
   return 'all';
 };
 
+const resolveQueryValue = (value: string | string[] | null | undefined): string | null => {
+  if (Array.isArray(value)) return value[0] ?? null;
+  return value ?? null;
+};
+
 type StatusVariant = { label: string; className: string };
 
 const engagementStatusBadge = (status: EngagementStatus | string | undefined): StatusVariant => {
@@ -58,9 +69,9 @@ const engagementStatusBadge = (status: EngagementStatus | string | undefined): S
     case 'draft':
       return { label: 'Draft', className: 'bg-amber-500/10 text-amber-700 ring-amber-500/20 dark:text-amber-300' };
     case 'sent':
-      return { label: 'Sent', className: 'bg-surface-overlay/60 text-input-placeholder ring-line-glass/30' };
+      return { label: 'Sent', className: 'bg-surface-overlay/60 text-input-placeholder ring-line-subtle' };
     default:
-      return { label: '—', className: 'bg-surface-overlay/60 text-input-placeholder ring-line-glass/30' };
+      return { label: '—', className: 'bg-surface-overlay/60 text-input-placeholder ring-line-subtle' };
   }
 };
 
@@ -150,119 +161,37 @@ const EngagementMobileCard: FunctionComponent<{
 
 // ── Create Engagement dialog ─────────────────────────────────────────────────
 
-type FeeStructure = 'flat' | 'hourly' | 'contingency' | 'retainer';
-
-const FEE_TABS: ReadonlyArray<{ id: FeeStructure; label: string; banner: string }> = [
-  { id: 'flat', label: 'Flat fee', banner: 'Single fixed fee for the entire scope of representation.' },
-  { id: 'hourly', label: 'Hourly', banner: 'Billed against a retainer at the attorney hourly rate.' },
-  { id: 'contingency', label: 'Contingency', banner: 'Fees recovered as a percentage of any settlement or award.' },
-  { id: 'retainer', label: 'Retainer', banner: 'Recurring retainer held in trust and drawn against work performed.' },
+const BILLING_TYPE_OPTIONS: ComboboxOption[] = [
+  { value: 'fixed', label: 'Fixed fee' },
+  { value: 'hourly', label: 'Hourly' },
+  { value: 'contingency', label: 'Contingency' },
+  { value: 'retainer', label: 'Retainer' },
+  { value: 'pro_bono', label: 'Pro bono' },
 ];
 
-// Templates surface in the dropdown but are not persisted today — the backend
-// template-rendering layer populates contract_body on send. When a templates
-// API exists, swap the static list for a fetched one.
-const TEMPLATE_OPTIONS: ComboboxOption[] = [
-  { value: 'standard', label: 'Standard Engagement Agreement' },
-  { value: 'flat-fee', label: 'Flat Fee Agreement' },
-  { value: 'hourly', label: 'Hourly Engagement Agreement' },
-  { value: 'contingency', label: 'Contingency Fee Agreement' },
-  { value: 'retainer', label: 'Retainer Agreement' },
+const RISK_STATUS_OPTIONS: ComboboxOption[] = [
+  { value: 'unknown', label: 'Unknown' },
+  { value: 'clear', label: 'Clear' },
+  { value: 'review_required', label: 'Review required' },
+  { value: 'conflicted', label: 'Conflicted' },
+  { value: 'insufficient_data', label: 'Insufficient data' },
 ];
 
-const PRACTICE_AREA_OPTIONS: ComboboxOption[] = [
-  { value: 'family', label: 'Family Law' },
-  { value: 'personal-injury', label: 'Personal Injury' },
-  { value: 'estate-planning', label: 'Estate Planning' },
-  { value: 'criminal-defense', label: 'Criminal Defense' },
-  { value: 'business', label: 'Business Law' },
+const JURISDICTION_STATUS_OPTIONS: ComboboxOption[] = [
+  { value: 'unknown', label: 'Unknown' },
+  { value: 'supported', label: 'Supported' },
+  { value: 'unsupported', label: 'Unsupported' },
 ];
 
-const JURISDICTION_OPTIONS: ComboboxOption[] = [
-  { value: 'CA', label: 'California' },
-  { value: 'NY', label: 'New York' },
-  { value: 'TX', label: 'Texas' },
-  { value: 'FL', label: 'Florida' },
-  { value: 'IL', label: 'Illinois' },
-];
+type CreateErrors = Partial<Record<keyof EngagementDraftForm, string>>;
 
-type CreateForm = {
-  intakeId: string;
-  engagementName: string;
-  practiceArea: string;
-  jurisdiction: string;
-  templateId: string;
-  feeStructure: FeeStructure;
-  flatFeeAmount: string;
-  hourlyRate: string;
-  contingencyRate: string;
-  retainerAmount: string;
-  internalNotes: string;
-  sendToClient: boolean;
-  recipientEmail: string;
-  messagePreview: string;
-};
-
-type CreateErrors = Partial<Record<keyof CreateForm, string>>;
-
-const EMPTY_FORM: CreateForm = {
-  intakeId: '',
-  engagementName: '',
-  practiceArea: '',
-  jurisdiction: '',
-  templateId: '',
-  feeStructure: 'flat',
-  flatFeeAmount: '',
-  hourlyRate: '',
-  contingencyRate: '',
-  retainerAmount: '',
-  internalNotes: '',
-  sendToClient: false,
-  recipientEmail: '',
-  messagePreview: '',
-};
-
-const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-
-const validateForm = (form: CreateForm): CreateErrors => {
+const validateForm = (form: EngagementDraftForm): CreateErrors => {
   const errors: CreateErrors = {};
-  if (!form.intakeId) errors.intakeId = 'Client is required';
-  if (!form.engagementName.trim()) errors.engagementName = 'Engagement name is required';
-  if (!form.templateId) errors.templateId = 'Template is required';
-  if (form.sendToClient && !EMAIL_REGEX.test(form.recipientEmail.trim())) {
-    errors.recipientEmail = 'A valid recipient email is required';
-  }
+  if (!form.intakeId) errors.intakeId = 'Accepted intake is required';
+  if (!form.matterSummary.trim()) errors.matterSummary = 'Matter summary is required';
+  if (!form.scopeSummary.trim()) errors.scopeSummary = 'Scope summary is required';
+  if (!form.contractBody.trim()) errors.contractBody = 'Contract body is required before creating an engagement';
   return errors;
-};
-
-const buildProposalData = (form: CreateForm, intake: IntakeListItem | null): ProposalData => {
-  const fees: ProposalFees = {
-    billing_type: form.feeStructure,
-    fixed_fee_amount: form.feeStructure === 'flat' && form.flatFeeAmount ? Number(form.flatFeeAmount) : null,
-    hourly_rate_attorney: form.feeStructure === 'hourly' && form.hourlyRate ? Number(form.hourlyRate) : null,
-    contingency_percentage: form.feeStructure === 'contingency' && form.contingencyRate ? Number(form.contingencyRate) : null,
-    retainer_amount: form.feeStructure === 'retainer' && form.retainerAmount ? Number(form.retainerAmount) : null,
-    fee_notes: null,
-  };
-
-  return {
-    representation: {
-      scope_summary: form.engagementName.trim(),
-    },
-    fees,
-    risk_review: {
-      conflict_status: 'unknown',
-      jurisdiction_status: 'unknown',
-    },
-    client_summary: {
-      client_name: intake?.metadata?.name?.trim() || null,
-      matter_summary: form.engagementName.trim() || null,
-    },
-    draft_meta: {
-      version: 1,
-      generated_at: new Date().toISOString(),
-    },
-  };
 };
 
 interface CreateEngagementDialogProps {
@@ -270,6 +199,7 @@ interface CreateEngagementDialogProps {
   isOpen: boolean;
   onClose: () => void;
   onCreated: (engagementId: string) => void;
+  initialIntakeId?: string | null;
 }
 
 const CreateEngagementDialog: FunctionComponent<CreateEngagementDialogProps> = ({
@@ -277,34 +207,34 @@ const CreateEngagementDialog: FunctionComponent<CreateEngagementDialogProps> = (
   isOpen,
   onClose,
   onCreated,
+  initialIntakeId = null,
 }) => {
-  const [form, setForm] = useState<CreateForm>(EMPTY_FORM);
+  const [form, setForm] = useState<EngagementDraftForm>(EMPTY_ENGAGEMENT_DRAFT_FORM);
   const [errors, setErrors] = useState<CreateErrors>({});
   const [hasAttemptedSubmit, setHasAttemptedSubmit] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
 
   const [intakes, setIntakes] = useState<IntakeListItem[]>([]);
+  const [selectedIntakeDetail, setSelectedIntakeDetail] = useState<PracticeIntakeDetail | null>(null);
   const [isLoadingIntakes, setIsLoadingIntakes] = useState(false);
+  const [isLoadingIntakeDetail, setIsLoadingIntakeDetail] = useState(false);
   const [intakesError, setIntakesError] = useState<string | null>(null);
 
-  // Note: fee-structure tab switches inside this form must NOT clear fields —
-  // those are handled by `updateField('feeStructure', …)` which preserves all
-  // other form state.
   useDialogFormReset({
     isOpen,
     trigger: 'on-open',
     reason: 'Each open starts a fresh draft; clears any stale submit error or in-flight flag from a previously-interrupted attempt.',
     reset: () => {
-      setForm(EMPTY_FORM);
+      setForm({ ...EMPTY_ENGAGEMENT_DRAFT_FORM, intakeId: initialIntakeId ?? '' });
       setErrors({});
       setHasAttemptedSubmit(false);
       setSubmitting(false);
       setSubmitError(null);
+      setSelectedIntakeDetail(null);
     },
   });
 
-  // Fetch accepted intakes (client-side search filtering) on dialog open.
   useEffect(() => {
     if (!isOpen || !practiceId) return;
     const controller = new AbortController();
@@ -320,6 +250,12 @@ const CreateEngagementDialog: FunctionComponent<CreateEngagementDialogProps> = (
       .then((result) => {
         if (controller.signal.aborted) return;
         setIntakes(result.intakes);
+        if (initialIntakeId) {
+          const selected = result.intakes.find((intake) => intake.uuid === initialIntakeId);
+          if (selected) {
+            setForm((prev) => buildEngagementDraftFormFromIntake(selected, prev));
+          }
+        }
       })
       .catch((error) => {
         if (controller.signal.aborted) return;
@@ -330,11 +266,11 @@ const CreateEngagementDialog: FunctionComponent<CreateEngagementDialogProps> = (
       });
 
     return () => controller.abort();
-  }, [isOpen, practiceId]);
+  }, [initialIntakeId, isOpen, practiceId]);
 
   const selectedIntake = useMemo(
-    () => intakes.find((intake) => intake.uuid === form.intakeId) ?? null,
-    [intakes, form.intakeId],
+    () => selectedIntakeDetail ?? intakes.find((intake) => intake.uuid === form.intakeId) ?? null,
+    [intakes, form.intakeId, selectedIntakeDetail],
   );
 
   const intakeOptions = useMemo<ComboboxOption[]>(
@@ -352,16 +288,30 @@ const CreateEngagementDialog: FunctionComponent<CreateEngagementDialogProps> = (
     [intakes],
   );
 
-  // Auto-fill recipient email from selected intake.
   useEffect(() => {
-    if (!selectedIntake) return;
-    const email = selectedIntake.metadata?.email?.trim();
-    if (email) {
-      setForm((prev) => (prev.recipientEmail ? prev : { ...prev, recipientEmail: email }));
+    if (!isOpen || !practiceId || !form.intakeId) {
+      setSelectedIntakeDetail(null);
+      return;
     }
-  }, [selectedIntake]);
+    const controller = new AbortController();
+    setIsLoadingIntakeDetail(true);
+    getPracticeIntake(practiceId, form.intakeId, { signal: controller.signal })
+      .then((detail) => {
+        if (controller.signal.aborted) return;
+        setSelectedIntakeDetail(detail);
+        setForm((prev) => buildEngagementDraftFormFromIntake(detail, prev));
+      })
+      .catch((error) => {
+        if (controller.signal.aborted) return;
+        setSubmitError(error instanceof Error ? error.message : 'Failed to load intake details');
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setIsLoadingIntakeDetail(false);
+      });
+    return () => controller.abort();
+  }, [form.intakeId, isOpen, practiceId]);
 
-  const updateField = useCallback(<K extends keyof CreateForm>(field: K, value: CreateForm[K]) => {
+  const updateField = useCallback(<K extends keyof EngagementDraftForm>(field: K, value: EngagementDraftForm[K]) => {
     setForm((prev) => ({ ...prev, [field]: value }));
     if (hasAttemptedSubmit) {
       setErrors((prev) => {
@@ -373,6 +323,20 @@ const CreateEngagementDialog: FunctionComponent<CreateEngagementDialogProps> = (
     }
   }, [hasAttemptedSubmit]);
 
+  const handleIntakeChange = useCallback((value: string) => {
+    const intake = intakes.find((entry) => entry.uuid === value);
+    setSelectedIntakeDetail(null);
+    setForm((prev) => (
+      intake
+        ? buildEngagementDraftFormFromIntake(intake, { ...prev, intakeId: value, contractBody: '' })
+        : { ...prev, intakeId: value }
+    ));
+  }, [intakes]);
+
+  const refreshContractBody = useCallback(() => {
+    setForm((prev) => ({ ...prev, contractBody: buildDeterministicContractBody(prev) }));
+  }, []);
+
   const handleSubmit = useCallback(async () => {
     setHasAttemptedSubmit(true);
     setSubmitError(null);
@@ -382,22 +346,13 @@ const CreateEngagementDialog: FunctionComponent<CreateEngagementDialogProps> = (
 
     setSubmitting(true);
     try {
-      const proposalData = buildProposalData(form, selectedIntake);
+      const proposalData = buildProposalDataFromDraft(form);
       const created = await createEngagementContract(practiceId, {
         intake_id: form.intakeId,
-        engagement_notes: form.internalNotes.trim() || undefined,
+        contract_body: form.contractBody.trim(),
+        engagement_notes: form.engagementNotes.trim() || undefined,
         proposal_data: proposalData,
       });
-
-      if (form.sendToClient) {
-        try {
-          await sendEngagementToClient(practiceId, created.id, form.messagePreview.trim() || undefined);
-        } catch (error) {
-          setSubmitError(error instanceof Error ? error.message : 'Engagement created, but failed to send.');
-          setSubmitting(false);
-          return;
-        }
-      }
 
       onCreated(created.id);
     } catch (error) {
@@ -405,23 +360,21 @@ const CreateEngagementDialog: FunctionComponent<CreateEngagementDialogProps> = (
     } finally {
       setSubmitting(false);
     }
-  }, [form, practiceId, selectedIntake, onCreated]);
+  }, [form, practiceId, onCreated]);
 
   const handleClose = useCallback(() => {
     if (submitting) return;
     onClose();
   }, [onClose, submitting]);
 
-  const activeFeeTab = FEE_TABS.find((t) => t.id === form.feeStructure) ?? FEE_TABS[0];
-
   return (
     <Dialog
       isOpen={isOpen}
       onClose={handleClose}
       title="Create engagement"
-      description="Start a new engagement agreement from an intake. You can review and edit it before sending."
+      description="Draft an engagement contract from an accepted intake before sending it to the client."
       disableBackdropClick={submitting}
-      contentClassName="max-w-2xl"
+      contentClassName="max-w-4xl"
     >
       <DialogBody className="space-y-5">
         {submitError && (
@@ -430,21 +383,21 @@ const CreateEngagementDialog: FunctionComponent<CreateEngagementDialogProps> = (
           </div>
         )}
 
-        {/* Client section */}
         <section className="space-y-2">
-          <h3 className="text-xs font-semibold uppercase tracking-wide text-input-placeholder">Client</h3>
+          <h3 className="text-xs font-semibold uppercase tracking-wide text-input-placeholder">Source intake</h3>
           {selectedIntake ? (
             <SelectedIntakeCard
               intake={selectedIntake}
+              detailLoading={isLoadingIntakeDetail}
               onClear={() => updateField('intakeId', '')}
             />
           ) : (
             <>
               <Combobox
-                placeholder={isLoadingIntakes ? 'Loading clients…' : 'Search for a client…'}
+                placeholder={isLoadingIntakes ? 'Loading accepted intakes…' : 'Search accepted intakes…'}
                 options={intakeOptions}
                 value={form.intakeId}
-                onChange={(value) => updateField('intakeId', value)}
+                onChange={handleIntakeChange}
                 disabled={submitting || isLoadingIntakes}
                 searchable
               />
@@ -454,124 +407,146 @@ const CreateEngagementDialog: FunctionComponent<CreateEngagementDialogProps> = (
           {intakesError && <p className="text-sm text-rose-400">{intakesError}</p>}
         </section>
 
-        {/* Engagement details */}
-        <section className="space-y-3">
-          <h3 className="text-xs font-semibold uppercase tracking-wide text-input-placeholder">Engagement details</h3>
+        <section className="grid grid-cols-1 gap-4 lg:grid-cols-2">
           <Input
-            label="Engagement name"
-            placeholder="e.g., Personal Injury Representation Agreement"
-            value={form.engagementName}
-            onChange={(value) => updateField('engagementName', value)}
+            label="Client name"
+            value={form.clientName}
+            onChange={(value) => updateField('clientName', value)}
             disabled={submitting}
-            error={errors.engagementName}
+          />
+          <Input
+            label="Practice area"
+            value={form.practiceArea}
+            onChange={(value) => updateField('practiceArea', value)}
+            disabled={submitting}
+          />
+          <Input
+            label="Matter summary"
+            value={form.matterSummary}
+            onChange={(value) => updateField('matterSummary', value)}
+            disabled={submitting}
+            error={errors.matterSummary}
+          />
+          <Input
+            label="Location summary"
+            value={form.locationSummary}
+            onChange={(value) => updateField('locationSummary', value)}
+            disabled={submitting}
+          />
+        </section>
+
+        <section className="space-y-3">
+          <Textarea
+            label="Goals summary"
+            value={form.goalsSummary}
+            onChange={(value) => updateField('goalsSummary', value)}
+            rows={2}
+            disabled={submitting}
+          />
+          <Textarea
+            label="Scope summary"
+            value={form.scopeSummary}
+            onChange={(value) => updateField('scopeSummary', value)}
+            rows={3}
+            disabled={submitting}
+            error={errors.scopeSummary}
+          />
+          <Textarea
+            label="Included services (one per line)"
+            value={form.includedServices}
+            onChange={(value) => updateField('includedServices', value)}
+            rows={3}
+            disabled={submitting}
+          />
+          <Textarea
+            label="Excluded services (one per line)"
+            value={form.excludedServices}
+            onChange={(value) => updateField('excludedServices', value)}
+            rows={3}
+            disabled={submitting}
           />
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <Combobox
-              label="Practice area"
-              placeholder="Select practice area"
-              options={PRACTICE_AREA_OPTIONS}
-              value={form.practiceArea}
-              onChange={(value) => updateField('practiceArea', value)}
+            <Textarea
+              label="Client identity notes"
+              value={form.clientIdentityNotes}
+              onChange={(value) => updateField('clientIdentityNotes', value)}
+              rows={2}
               disabled={submitting}
-              searchable
             />
-            <Combobox
-              label="Jurisdiction"
-              placeholder="Select state"
-              options={JURISDICTION_OPTIONS}
-              value={form.jurisdiction}
-              onChange={(value) => updateField('jurisdiction', value)}
+            <Textarea
+              label="Jurisdiction notes"
+              value={form.jurisdictionNotes}
+              onChange={(value) => updateField('jurisdictionNotes', value)}
+              rows={2}
               disabled={submitting}
-              searchable
             />
-          </div>
-          <div>
-            <Combobox
-              label="Template"
-              placeholder="Select a template…"
-              options={TEMPLATE_OPTIONS}
-              value={form.templateId}
-              onChange={(value) => updateField('templateId', value)}
-              disabled={submitting}
-              searchable
-            />
-            {errors.templateId && <p className="mt-1 text-xs text-rose-400">{errors.templateId}</p>}
           </div>
         </section>
 
-        {/* Fee structure */}
         <section className="space-y-3">
-          <h3 className="text-xs font-semibold uppercase tracking-wide text-input-placeholder">Fee structure</h3>
-          <Tabs
-            items={FEE_TABS.map((t) => ({ id: t.id, label: t.label }))}
-            activeId={form.feeStructure}
-            onChange={(id) => updateField('feeStructure', id as FeeStructure)}
-          />
-          <div className="rounded-lg border border-card-border bg-surface-card px-3 py-2 text-xs text-input-placeholder">
-            {activeFeeTab.banner}
+          <h3 className="text-xs font-semibold uppercase tracking-wide text-input-placeholder">Fees</h3>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            <Combobox label="Billing type" options={BILLING_TYPE_OPTIONS} value={form.billingType} onChange={(value) => updateField('billingType', value)} disabled={submitting} />
+            <Input label="Fixed fee amount" type="number" value={form.fixedFeeAmount} onChange={(value) => updateField('fixedFeeAmount', value)} disabled={submitting} />
+            <Input label="Retainer amount" type="number" value={form.retainerAmount} onChange={(value) => updateField('retainerAmount', value)} disabled={submitting} />
+            <Input label="Attorney hourly rate" type="number" value={form.hourlyRateAttorney} onChange={(value) => updateField('hourlyRateAttorney', value)} disabled={submitting} />
+            <Input label="Admin hourly rate" type="number" value={form.hourlyRateAdmin} onChange={(value) => updateField('hourlyRateAdmin', value)} disabled={submitting} />
+            <Input label="Contingency percentage" type="number" value={form.contingencyPercentage} onChange={(value) => updateField('contingencyPercentage', value)} disabled={submitting} />
           </div>
-          <FeeAmountInput
-            structure={form.feeStructure}
-            flatFee={form.flatFeeAmount}
-            hourly={form.hourlyRate}
-            contingency={form.contingencyRate}
-            retainer={form.retainerAmount}
-            disabled={submitting}
-            onChange={updateField}
-          />
+          <Input label="Payment frequency" value={form.paymentFrequency} onChange={(value) => updateField('paymentFrequency', value)} disabled={submitting} />
+          <Textarea label="Fee notes" value={form.feeNotes} onChange={(value) => updateField('feeNotes', value)} rows={2} disabled={submitting} />
         </section>
 
-        {/* Internal notes */}
-        <section className="space-y-2">
+        <section className="space-y-3">
+          <h3 className="text-xs font-semibold uppercase tracking-wide text-input-placeholder">Risk review</h3>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <Combobox label="Conflict status" options={RISK_STATUS_OPTIONS} value={form.conflictStatus} onChange={(value) => updateField('conflictStatus', value as EngagementDraftForm['conflictStatus'])} disabled={submitting} />
+            <Combobox label="Jurisdiction status" options={JURISDICTION_STATUS_OPTIONS} value={form.jurisdictionStatus} onChange={(value) => updateField('jurisdictionStatus', value as EngagementDraftForm['jurisdictionStatus'])} disabled={submitting} />
+          </div>
+          <Textarea label="Risk notes (one per line)" value={form.riskNotes} onChange={(value) => updateField('riskNotes', value)} rows={2} disabled={submitting} />
+          <Textarea label="Open questions (one per line)" value={form.openQuestions} onChange={(value) => updateField('openQuestions', value)} rows={2} disabled={submitting} />
+        </section>
+
+        <section className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <Input label="Urgency" value={form.urgency} onChange={(value) => updateField('urgency', value)} disabled={submitting} />
+          <Input label="Court date" type="date" value={form.courtDate} onChange={(value) => updateField('courtDate', value)} disabled={submitting} />
+          <Input label="Desired outcome" value={form.desiredOutcome} onChange={(value) => updateField('desiredOutcome', value)} disabled={submitting} />
+          <Input label="Opposing party" value={form.opposingParty} onChange={(value) => updateField('opposingParty', value)} disabled={submitting} />
+        </section>
+
+        <section className="space-y-3">
+          <div className="flex items-center justify-between gap-3">
+            <h3 className="text-xs font-semibold uppercase tracking-wide text-input-placeholder">Contract body</h3>
+            <Button type="button" variant="secondary" size="sm" onClick={refreshContractBody} disabled={submitting}>
+              Regenerate draft
+            </Button>
+          </div>
           <Textarea
-            label="Internal notes (optional)"
-            placeholder="Add internal notes for your team…"
-            value={form.internalNotes}
-            onChange={(value) => updateField('internalNotes', value)}
+            label="Contract body"
+            value={form.contractBody}
+            onChange={(value) => updateField('contractBody', value)}
+            rows={12}
+            disabled={submitting}
+            error={errors.contractBody}
+          />
+          <Textarea
+            label="Engagement notes"
+            value={form.engagementNotes}
+            onChange={(value) => updateField('engagementNotes', value)}
             rows={3}
             disabled={submitting}
           />
         </section>
-
-        {/* Send to client */}
-        <section className="space-y-3 border-t border-card-border pt-4">
-          <Switch
-            label="Send to client after creation"
-            value={form.sendToClient}
-            onChange={(value) => updateField('sendToClient', value)}
-            disabled={submitting}
-          />
-          {form.sendToClient && (
-            <div className="space-y-3 pl-1">
-              <EmailInput
-                label="Recipient email"
-                placeholder="client@example.com"
-                value={form.recipientEmail}
-                onChange={(value) => updateField('recipientEmail', value)}
-                disabled={submitting}
-                error={errors.recipientEmail}
-              />
-              <Textarea
-                label="Message preview"
-                placeholder="Please review the attached engagement agreement…"
-                value={form.messagePreview}
-                onChange={(value) => updateField('messagePreview', value)}
-                rows={3}
-                disabled={submitting}
-              />
-            </div>
-          )}
-        </section>
       </DialogBody>
       <DialogFooter>
         <span className="mr-auto self-center text-xs text-input-placeholder hidden sm:inline">
-          You can edit the engagement before sending.
+          Create the draft first, then review and send from the detail page.
         </span>
         <Button variant="secondary" onClick={handleClose} disabled={submitting}>
           Cancel
         </Button>
         <Button variant="primary" onClick={handleSubmit} disabled={submitting} icon={Plus}>
-          {submitting ? 'Creating…' : (form.sendToClient ? 'Create and send' : 'Create engagement')}
+          {submitting ? 'Creating…' : 'Create engagement'}
         </Button>
       </DialogFooter>
     </Dialog>
@@ -579,9 +554,10 @@ const CreateEngagementDialog: FunctionComponent<CreateEngagementDialogProps> = (
 };
 
 const SelectedIntakeCard: FunctionComponent<{
-  intake: IntakeListItem;
+  intake: IntakeListItem | PracticeIntakeDetail;
+  detailLoading?: boolean;
   onClear: () => void;
-}> = ({ intake, onClear }) => {
+}> = ({ intake, detailLoading = false, onClear }) => {
   const name = intake.metadata?.name?.trim() || 'Anonymous lead';
   const email = intake.metadata?.email?.trim() || '';
   const subject = resolveIntakeTitle(intake.metadata, '');
@@ -591,6 +567,7 @@ const SelectedIntakeCard: FunctionComponent<{
         <p className="truncate font-medium text-input-text">{name}</p>
         <p className="truncate text-sm text-input-placeholder">{email}</p>
         {subject && <p className="mt-1 truncate text-xs text-input-placeholder">{subject}</p>}
+        {detailLoading ? <p className="mt-1 text-xs text-input-placeholder">Loading intake details…</p> : null}
       </div>
       <button
         type="button"
@@ -600,63 +577,6 @@ const SelectedIntakeCard: FunctionComponent<{
         Change
       </button>
     </div>
-  );
-};
-
-const FeeAmountInput: FunctionComponent<{
-  structure: FeeStructure;
-  flatFee: string;
-  hourly: string;
-  contingency: string;
-  retainer: string;
-  disabled: boolean;
-  onChange: <K extends keyof CreateForm>(field: K, value: CreateForm[K]) => void;
-}> = ({ structure, flatFee, hourly, contingency, retainer, disabled, onChange }) => {
-  if (structure === 'flat') {
-    return (
-      <Input
-        label="Flat fee amount"
-        placeholder="$0"
-        type="number"
-        value={flatFee}
-        onChange={(value) => onChange('flatFeeAmount', value)}
-        disabled={disabled}
-      />
-    );
-  }
-  if (structure === 'hourly') {
-    return (
-      <Input
-        label="Hourly rate"
-        placeholder="$0 / hour"
-        type="number"
-        value={hourly}
-        onChange={(value) => onChange('hourlyRate', value)}
-        disabled={disabled}
-      />
-    );
-  }
-  if (structure === 'contingency') {
-    return (
-      <Input
-        label="Contingency rate"
-        placeholder="0%"
-        type="number"
-        value={contingency}
-        onChange={(value) => onChange('contingencyRate', value)}
-        disabled={disabled}
-      />
-    );
-  }
-  return (
-    <Input
-      label="Retainer amount"
-      placeholder="$0"
-      type="number"
-      value={retainer}
-      onChange={(value) => onChange('retainerAmount', value)}
-      disabled={disabled}
-    />
   );
 };
 
@@ -686,6 +606,9 @@ export const EngagementsPage: FunctionComponent<EngagementsPageProps> = ({
   const pathSegments = pathSuffix.replace(/^\/+/, '').split('/').filter(Boolean);
   const selectedEngagementId = pathSegments[0] ? decodeURIComponent(pathSegments[0]) : null;
   const detailMode: 'view' | 'edit' = pathSegments[1] === 'edit' ? 'edit' : 'view';
+  const queryCreate = resolveQueryValue(location.query?.create);
+  const queryIntakeId = resolveQueryValue(location.query?.intakeId);
+  const shouldOpenCreateFromQuery = !selectedEngagementId && (queryCreate === '1' || Boolean(queryIntakeId));
 
   // Tab state — initialized from sidebar prop, page-internal tabs take over.
   const sidebarTab = normalizeStatusFilter(activeStatusFilter);
@@ -705,6 +628,12 @@ export const EngagementsPage: FunctionComponent<EngagementsPageProps> = ({
   // Create dialog
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [refreshCounter, setRefreshCounter] = useState(0);
+
+  useEffect(() => {
+    if (shouldOpenCreateFromQuery) {
+      setIsCreateDialogOpen(true);
+    }
+  }, [shouldOpenCreateFromQuery]);
 
   const {
     items: engagements,
@@ -752,7 +681,10 @@ export const EngagementsPage: FunctionComponent<EngagementsPageProps> = ({
 
   const handleCloseCreate = useCallback(() => {
     setIsCreateDialogOpen(false);
-  }, []);
+    if (shouldOpenCreateFromQuery) {
+      location.route(basePath, true);
+    }
+  }, [basePath, location, shouldOpenCreateFromQuery]);
 
   const handleEngagementCreated = useCallback((engagementId: string) => {
     setIsCreateDialogOpen(false);
@@ -817,7 +749,7 @@ export const EngagementsPage: FunctionComponent<EngagementsPageProps> = ({
   return (
     <div className="flex h-full flex-col min-h-0 bg-surface-workspace">
       {/* Desktop header */}
-      <header className="hidden md:flex items-center justify-between gap-4 border-b border-card-border px-6 py-5">
+      <header className="hidden md:flex items-center justify-between gap-4 border-b border-line-subtle px-6 py-5">
         <h1 className="text-xl font-semibold text-input-text">Engagements</h1>
         <div className="flex items-center gap-3">
           <div className="w-72">
@@ -842,7 +774,7 @@ export const EngagementsPage: FunctionComponent<EngagementsPageProps> = ({
       </header>
 
       {/* Tab row (desktop + mobile) */}
-      <div className="border-b border-card-border bg-surface-workspace">
+      <div className="border-b border-line-subtle bg-surface-workspace">
         <Tabs
           items={tabItems}
           activeId={activeTab}
@@ -852,7 +784,7 @@ export const EngagementsPage: FunctionComponent<EngagementsPageProps> = ({
       </div>
 
       {/* Mobile search */}
-      <div className="md:hidden px-4 py-3 border-b border-card-border">
+      <div className="md:hidden px-4 py-3 border-b border-line-subtle">
         <Input
           type="search"
           placeholder="Search engagements…"
@@ -940,6 +872,7 @@ export const EngagementsPage: FunctionComponent<EngagementsPageProps> = ({
           isOpen={isCreateDialogOpen}
           onClose={handleCloseCreate}
           onCreated={handleEngagementCreated}
+          initialIntakeId={queryIntakeId}
         />
       )}
     </div>

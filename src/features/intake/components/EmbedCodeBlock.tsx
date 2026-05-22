@@ -125,7 +125,7 @@ export function EmbedCodeBlock({ practiceSlug, templateSlug }: EmbedCodeBlockPro
         <p className="text-sm text-input-placeholder">
           Share the direct link or install the widget script on your site.
         </p>
-        <div className="glass-panel rounded-xl px-4 py-3">
+        <div className="panel rounded-xl px-4 py-3">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div className="min-w-0">
               <p className="text-xs font-medium uppercase tracking-widest text-input-placeholder">Public link</p>
@@ -150,7 +150,7 @@ export function EmbedCodeBlock({ practiceSlug, templateSlug }: EmbedCodeBlockPro
           Paste this script into your site&apos;s <code>&lt;head&gt;</code> or before <code>&lt;/body&gt;</code> to load this intake flow.
         </p>
         <div className="relative group">
-          <pre className="bg-elevation-2 overflow-x-auto rounded-xl border border-line-glass/30 p-4 pr-20 text-sm font-mono text-input-text">
+          <pre className="bg-elevation-2 overflow-x-auto rounded-xl border border-line-subtle p-4 pr-20 text-sm font-mono text-input-text">
             {snippet}
           </pre>
           <Button
@@ -176,7 +176,7 @@ export function EmbedCodeBlock({ practiceSlug, templateSlug }: EmbedCodeBlockPro
             ref={textareaRef}
             readOnly
             value={snippet}
-            className="w-full resize-none rounded-md border border-line-glass/20 bg-surface-ground p-3 font-mono text-sm text-input-text"
+            className="w-full resize-none rounded-md border border-line-subtle bg-surface-ground p-3 font-mono text-sm text-input-text"
             rows={6}
             aria-label="Embed snippet"
           />
@@ -236,7 +236,7 @@ export function EmbedCodeDialog({ isOpen, onClose, practiceSlug, templateSlug }:
           ref={textareaRef}
           readOnly
           value={snippet}
-          className="w-full resize-none rounded-md border border-line-glass/20 bg-surface-ground p-3 font-mono text-sm text-input-text"
+          className="w-full resize-none rounded-md border border-line-subtle bg-surface-ground p-3 font-mono text-sm text-input-text"
           rows={6}
           aria-label="Embed snippet"
         />

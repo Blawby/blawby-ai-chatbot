@@ -105,7 +105,7 @@ const Accordion: FunctionComponent<AccordionProps> = ({
     <AccordionContext.Provider value={contextValue}>
       <div 
         data-slot="accordion" 
-        className={cn("w-full border border-line-glass/30 rounded-xl", className)}
+        className={cn("w-full border border-line-subtle rounded-xl", className)}
       >
         {children}
       </div>

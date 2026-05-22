@@ -67,7 +67,7 @@ export const InfoListDialog: FunctionComponent<InfoListDialogProps> = ({
       <DialogHeader onClose={onClose} showCloseButton className="pb-2">
         <div className="flex items-start gap-3">
           {HeaderIcon ? (
-            <div className="glass-input mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl">
+            <div className="input-surface mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl">
               <Icon icon={HeaderIcon} className={headerIconClassName ?? 'h-5 w-5 text-input-text'} aria-hidden="true" />
             </div>
           ) : null}

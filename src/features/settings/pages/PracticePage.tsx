@@ -641,7 +641,7 @@ export const PracticePage = ({ className, onBack }: PracticePageProps) => {
                   }))}
                   disabled={isSaving}
                   aria-label={practiceText.brandColorAriaLabel}
-                  className="h-10 w-16 rounded-xl border border-line-glass bg-surface-card p-1"
+                  className="h-10 w-16 rounded-xl border border-line-subtle bg-surface-card p-1"
                 />
                 <Input
                   aria-label={practiceText.brandColorHexAria}

@@ -487,8 +487,8 @@ export const TagInput = forwardRef<HTMLInputElement, TagInputProps>(({
             id={listboxId}
             role="listbox"
             className={cn(
-              'absolute z-50 w-full mt-1 glass-panel',
-              'border border-line-glass/30 rounded-xl shadow-glass',
+              'absolute z-50 w-full mt-1 panel',
+              'border border-line-subtle rounded-xl shadow-glass',
               'max-h-60 overflow-y-auto'
             )}
           >

@@ -267,7 +267,7 @@ const AuthForm = ({
         </div>
       )}
 
-      <div className={variant === 'card' ? "glass-card py-8 px-4 sm:px-10" : "w-full"}>
+      <div className={variant === 'card' ? "card py-8 px-4 sm:px-10" : "w-full"}>
         {showGoogleSignIn && (
           <div className="mb-6">
             <Button
@@ -295,7 +295,7 @@ const AuthForm = ({
         {showGoogleSignIn && (
           <div className="relative mb-6">
             <div className="absolute inset-0 flex items-center">
-              <div className="w-full border-t border-line-glass/30" />
+              <div className="w-full border-t border-line-subtle" />
             </div>
             <div className="relative flex justify-center text-sm">
               <span className="px-2 bg-[rgb(var(--surface-overlay))] text-input-placeholder font-medium">{t('common.orContinueWithEmail')}</span>
@@ -410,13 +410,13 @@ const AuthForm = ({
           </div>
 
           {error && (
-            <div className="mt-4 rounded-xl glass-panel border-accent-error/20 p-3">
+            <div className="mt-4 rounded-xl panel border-accent-error/20 p-3">
               <p className="text-sm text-accent-error-light">{error}</p>
             </div>
           )}
 
           {message && (
-            <div className="mt-4 rounded-xl glass-panel border-emerald-500/20 p-3">
+            <div className="mt-4 rounded-xl panel border-emerald-500/20 p-3">
               <p className="text-sm text-emerald-400">{message}</p>
             </div>
           )}

@@ -65,7 +65,7 @@ const Chip = ({
     className={`inline-flex items-center gap-1 rounded-full border px-3 py-1 text-xs transition-colors ${
       active
         ? 'border-accent-foreground/50 bg-accent-foreground/10 text-[rgb(var(--accent-foreground))]'
-        : 'border-line-glass/30 bg-surface-utility/30 text-input-placeholder hover:text-input-text'
+        : 'border-line-subtle bg-surface-utility/30 text-input-placeholder hover:text-input-text'
     }`}
   >
     {children}

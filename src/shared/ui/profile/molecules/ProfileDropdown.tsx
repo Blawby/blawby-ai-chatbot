@@ -32,7 +32,7 @@ export const ProfileDropdown = ({
       role="menu"
       aria-orientation="vertical"
       aria-label="Profile menu"
-      className={`absolute bottom-full right-0 mb-2 w-full max-w-xs rounded-xl shadow-glass border border-line-glass/30 py-2 z-50 bg-surface-overlay ${className}`}
+      className={`absolute bottom-full right-0 mb-2 w-full max-w-xs rounded-xl shadow-glass border border-line-subtle py-2 z-50 bg-surface-overlay ${className}`}
     >
       {/* Settings */}
       <ProfileMenuItem
@@ -42,7 +42,7 @@ export const ProfileDropdown = ({
       />
 
       {/* Separator */}
-      <div className="border-t border-line-glass/30 my-1" />
+      <div className="border-t border-line-subtle my-1" />
       
       {/* Help */}
       <ProfileMenuItem
@@ -61,7 +61,7 @@ export const ProfileDropdown = ({
       {/* Error message display */}
       {signOutError && (
         <>
-          <div className="border-t border-line-glass/30 my-1" />
+          <div className="border-t border-line-subtle my-1" />
           <div className="px-3 py-2 text-sm text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 border-l-2 border-red-200 dark:border-red-800">
             {signOutError}
           </div>

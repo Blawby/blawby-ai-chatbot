@@ -6,21 +6,11 @@ import { Button } from '@/shared/ui/Button';
 import { Icon } from '@/shared/ui/Icon';
 import { Dialog, DialogBody, DialogFooter } from '@/shared/ui/dialog';
 import { Textarea } from '@/shared/ui/input';
-import { UploadDropzone } from '@/shared/ui/upload/organisms/UploadDropzone';
-import { UploadQueueRow } from '@/shared/ui/upload/molecules/UploadQueueRow';
 import { useToastContext } from '@/shared/contexts/ToastContext';
-import { WorkspacePlaceholderState } from '@/shared/ui/layout/WorkspacePlaceholderState';
 import { useIntakeFiles } from '@/features/intake/hooks/useIntakeFiles';
 import type { IntakeFile } from '@/features/intake/api/intakeFilesApi';
 
-import { FilesGrid } from '@/features/files/components/FilesGrid';
-import { FilesList } from '@/features/files/components/FilesList';
-import { FilesViewToggle, type FilesViewMode } from '@/features/files/components/FilesViewToggle';
-import { FileDetailDrawer } from '@/features/files/components/FileDetailDrawer';
-import {
-  DROPZONE_INSTRUCTION_TEXT,
-  DROPZONE_VALIDATION_TEXT,
-} from '@/features/files/constants';
+import { FilesCollectionPanel } from '@/features/files/components/FilesCollectionPanel';
 import type { OrgFile } from '@/features/files/utils/fileCategory';
 
 interface IntakeFilesPanelProps {
@@ -72,8 +62,6 @@ export const IntakeFilesPanel: FunctionComponent<IntakeFilesPanelProps> = ({
   const [pendingDelete, setPendingDelete] = useState<IntakeFile | null>(null);
   const [deleteReason, setDeleteReason] = useState('');
   const [isDeleting, setIsDeleting] = useState(false);
-  const [detailFile, setDetailFile] = useState<OrgFile | null>(null);
-  const [viewMode, setViewMode] = useState<FilesViewMode>('grid');
 
   const handleFilesSelected = async (selected: File[]) => {
     if (!canUpload) return;
@@ -117,67 +105,23 @@ export const IntakeFilesPanel: FunctionComponent<IntakeFilesPanelProps> = ({
 
   const orgFiles = useMemo(() => files.map(intakeFileToOrgFile), [files]);
 
-  const emptyState = (
-    <WorkspacePlaceholderState
-      icon={FileText}
-      title="No files uploaded yet"
-      description={canUpload
-        ? 'Drag and drop files into the area above to attach them to this intake.'
-        : 'No files have been attached to this intake.'}
-    />
-  );
-
   return (
     <section
       className={`rounded-xl border border-card-border bg-surface-card p-4 sm:p-6 ${className ?? ''}`}
     >
-      <div className="mb-4 flex items-center justify-between gap-3">
-        <div className="flex min-w-0 items-center gap-2">
-          <Icon icon={FileText} className="h-4 w-4 text-input-placeholder" />
-          <h3 className="text-sm font-semibold text-input-text">Files</h3>
-        </div>
-        <FilesViewToggle value={viewMode} onChange={setViewMode} />
-      </div>
-
-      {canUpload ? (
-        <UploadDropzone
-          onFilesSelected={(selected) => void handleFilesSelected(selected)}
-          instructionText={DROPZONE_INSTRUCTION_TEXT}
-          validationText={DROPZONE_VALIDATION_TEXT}
-          className="mb-4"
-        />
-      ) : null}
-
-      {uploadingFiles.length > 0 ? (
-        <div className="mb-4 space-y-2">
-          {uploadingFiles.map((entry) => (
-            <UploadQueueRow
-              key={entry.id}
-              fileName={entry.file.name}
-              mimeType={entry.file.type || 'application/octet-stream'}
-              fileSize={entry.file.size}
-              status="uploading"
-              progress={entry.progress}
-            />
-          ))}
-        </div>
-      ) : null}
-
-      {viewMode === 'list' ? (
-        <FilesList
-          files={orgFiles}
-          isLoading={false}
-          emptyState={emptyState}
-          onFileClick={(file) => setDetailFile(file)}
-        />
-      ) : (
-        <FilesGrid
-          files={orgFiles}
-          isLoading={false}
-          emptyState={emptyState}
-          onFileClick={(file) => setDetailFile(file)}
-        />
-      )}
+      <FilesCollectionPanel
+        files={orgFiles}
+        canUpload={canUpload}
+        uploadingFiles={uploadingFiles}
+        onFilesSelected={(selected) => void handleFilesSelected(selected)}
+        showEmptyState={false}
+        header={(
+          <div className="flex min-w-0 items-center gap-2">
+            <Icon icon={FileText} className="h-4 w-4 text-input-placeholder" />
+            <h3 className="text-sm font-semibold text-input-text">Files</h3>
+          </div>
+        )}
+      />
 
       {canDelete && orgFiles.length > 0 ? (
         <div className="mt-4 space-y-2 text-xs">
@@ -193,12 +137,6 @@ export const IntakeFilesPanel: FunctionComponent<IntakeFilesPanelProps> = ({
           ))}
         </div>
       ) : null}
-
-      <FileDetailDrawer
-        file={detailFile}
-        isOpen={detailFile !== null}
-        onClose={() => setDetailFile(null)}
-      />
 
       <Dialog
         isOpen={pendingDelete !== null}

@@ -57,7 +57,7 @@ export const ClientMattersGrid = ({
                 onClick={() => onViewMatter?.(matter.id)}
                 className="block w-full text-left transition-colors hover:bg-surface-utility/20"
               >
-                <div className="flex items-start gap-3 border-b border-line-glass/20 bg-surface-overlay/70 p-5">
+                <div className="flex items-start gap-3 border-b border-line-subtle bg-surface-overlay/70 p-5">
                   <div className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-surface-utility/30">
                     <Icon icon={Briefcase} className="h-5 w-5 text-input-placeholder" aria-hidden />
                   </div>
@@ -68,7 +68,7 @@ export const ClientMattersGrid = ({
                     ) : null}
                   </div>
                 </div>
-                <dl className="divide-y divide-line-glass/20 bg-surface-overlay/60 px-5 py-3 text-sm">
+                <dl className="divide-y divide-line-subtle bg-surface-overlay/60 px-5 py-3 text-sm">
                   <div className="flex justify-between gap-x-4 py-2">
                     <dt className="text-input-placeholder">Status</dt>
                     <dd className="text-input-text">{matter.statusLabel ?? '—'}</dd>

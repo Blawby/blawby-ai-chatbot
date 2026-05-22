@@ -127,7 +127,7 @@ export const LogoUploadInput = forwardRef<HTMLInputElement, LogoUploadInputProps
           </svg>
         )}
         <div
-          className="absolute inset-1 overflow-hidden rounded-full glass-panel border-white/10"
+          className="absolute inset-1 overflow-hidden rounded-full panel border-white/10"
           style={{ width: size, height: size, left: 4, top: 4 }}
         >
         {hasImage ? (

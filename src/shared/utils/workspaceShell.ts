@@ -48,9 +48,6 @@ export const getWorkspaceSection = (view: WorkspaceView): WorkspaceSection => {
   if (view === 'invoiceCreate' || view === 'invoiceEdit' || view === 'invoiceDetail') return 'invoices';
   if (view === 'setup' || view === 'contacts') return 'home';
   if (view === 'intakeDetail') return 'intakes';
-  // /engagements lives under Matters in the unified sidebar; route + breadcrumb still drive
-  // the engagements view, but the rail/active state belongs to Matters.
-  if (view === 'engagements') return 'matters';
   // Coverage lives under Settings in the sidebar; route stays at /coverage but the
   // rail/active state belongs to Settings so its dropdown auto-expands.
   if (view === 'coverage') return 'settings';
@@ -199,10 +196,8 @@ export const getWorkspaceDefaultSecondaryFilter = ({
   if (workspaceSection === 'intakes' && isPracticeWorkspace) {
     return 'all';
   }
-  // Matters > Engagements is a peer route rendered as the first sub-item; the default
-  // filter for /matters is the 'all' stage filter, not 'engagements'.
   if (workspaceSection === 'matters' && isPracticeWorkspace) {
-    return view === 'engagements' ? 'engagements' : 'all';
+    return 'all';
   }
   return navSecondary?.[0]?.items[0]?.id ?? null;
 };
@@ -235,11 +230,6 @@ export const getWorkspaceActiveSecondaryFilter = ({
   }
   if (workspaceSection === 'reports' && isPracticeWorkspace) {
     return reportSectionFromPath;
-  }
-  // /engagements is a peer route under the Matters rail item — the active
-  // sub-item must follow the URL, not whatever Matters filter was last picked.
-  if (workspaceSection === 'matters' && view === 'engagements') {
-    return 'engagements';
   }
   return secondaryFilterBySection[workspaceSection] ?? defaultSecondaryFilterId;
 };

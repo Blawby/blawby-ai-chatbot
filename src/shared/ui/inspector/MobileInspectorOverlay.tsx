@@ -79,7 +79,7 @@ export const MobileInspectorOverlay: FunctionComponent<MobileInspectorOverlayPro
         aria-modal="true"
         aria-label="Inspector"
         tabIndex={-1}
-        className="ui-surface-enter-right absolute inset-y-0 right-0 flex w-full max-w-2xl flex-col overflow-visible bg-surface-nav-secondary rounded-r-none rounded-l-2xl shadow-glass ring-1 ring-line-glass/20"
+        className="ui-surface-enter-right absolute inset-y-0 right-0 flex w-full max-w-2xl flex-col overflow-visible bg-surface-nav-secondary rounded-r-none rounded-l-2xl shadow-glass ring-1 ring-line-subtle"
       >
         {/* Visible close button — backdrop click + Escape are kept as fallback
             paths, but a dedicated control matches the rest of our drawer chrome

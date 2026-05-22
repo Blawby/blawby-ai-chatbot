@@ -581,20 +581,40 @@ export function MainApp({
   // widget is left untouched.
   const hideInspectorChrome = layoutMode === 'desktop' && isAuthenticatedWorkspace;
 
+  const acceptedConversationIntakeId = useMemo(() => {
+    const state = resolveConsultationState(conversationMetadata ?? null);
+    const meta = conversationMetadata as Record<string, unknown> | null | undefined;
+    const statusCandidates = [
+      meta?.triageStatus,
+      meta?.triage_status,
+      meta?.intakeTriageStatus,
+    ];
+    const isAccepted = statusCandidates.some((value) => value === 'accepted');
+    const intakeCandidates = [
+      state?.submission?.intakeUuid,
+      meta?.intakeUuid,
+      meta?.intake_uuid,
+      meta?.intakeId,
+      meta?.intake_id,
+    ];
+    const intakeId = intakeCandidates.find((value): value is string => typeof value === 'string' && value.trim().length > 0);
+    return isAccepted && intakeId ? intakeId : null;
+  }, [conversationMetadata]);
+
   // Pencil rxzde detail header: practice viewers see a primary "Create
-  // Engagement" CTA. The CTA jumps to the engagements page where the existing
-  // creation flow lives. Hidden on non-desktop layouts (Pencil d08Mpc keeps the
-  // mobile detail header spartan — only back + title + overflow menu).
+  // Engagement" CTA for active accepted-intake conversations.
   const createEngagementAction = useMemo(() => {
     if (!isPracticeWorkspace) return null;
     if (!practiceEngagementsPath) return null;
     if (layoutMode !== 'desktop') return null;
+    if (!acceptedConversationIntakeId) return null;
+    const target = `${practiceEngagementsPath}?create=1&intakeId=${encodeURIComponent(acceptedConversationIntakeId)}`;
     return (
       <Button
         type="button"
         variant="primary"
         size="sm"
-        onClick={() => navigate(practiceEngagementsPath)}
+        onClick={() => navigate(target)}
         icon={Plus}
         iconClassName="h-4 w-4"
         iconPosition="left"
@@ -602,7 +622,7 @@ export function MainApp({
         Create Engagement
       </Button>
     );
-  }, [isPracticeWorkspace, layoutMode, practiceEngagementsPath, navigate]);
+  }, [acceptedConversationIntakeId, isPracticeWorkspace, layoutMode, practiceEngagementsPath, navigate]);
 
   const conversationHeaderActions = useMemo(() => {
     if (!createEngagementAction) return null;
@@ -702,7 +722,7 @@ export function MainApp({
         src={null}
         name={conversationCaseTitle}
         size="sm"
-        className="ring-1 ring-line-glass/10"
+        className="ring-1 ring-line-subtle"
         status={conversationHeaderPresence.status}
       />
     );
@@ -1090,6 +1110,7 @@ export function MainApp({
                 activeTriageFilter={activeFilter}
                 basePath={practiceIntakesPath ?? '/practice/intakes'}
                 conversationsBasePath={conversationsBasePath}
+                engagementsBasePath={practiceEngagementsPath}
                 practiceName={resolvedPracticeName}
                 practiceLogo={resolvedPracticeLogo}
               />

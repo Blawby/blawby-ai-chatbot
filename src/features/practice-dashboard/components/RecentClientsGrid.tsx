@@ -9,7 +9,7 @@ import { formatCurrency } from '@/shared/utils/currencyFormatter';
 import { formatDate } from '@/shared/utils/dateTime';
 import type { RecentClient } from '@/features/practice-dashboard/hooks/usePracticeBillingData';
 
-const neutralTone = 'ring-line-glass/20 bg-surface-overlay/80 text-input-placeholder';
+const neutralTone = 'ring-line-subtle bg-surface-overlay/80 text-input-placeholder';
 const statusTone: Record<string, string> = {
   paid: 'bg-emerald-500/10 text-emerald-700 ring-emerald-500/20 dark:text-emerald-300',
   overdue: 'bg-rose-500/10 text-rose-700 ring-rose-500/20 dark:text-rose-300',
@@ -64,7 +64,7 @@ export const RecentClientsGrid = ({
               key={client.id}
               className="overflow-hidden rounded-xl bg-surface-overlay/80 outline outline-1 outline-line-glass/40 backdrop-blur-xl"
             >
-              <div className="flex items-center gap-x-4 border-b border-line-glass/20 bg-surface-overlay/70 p-6">
+              <div className="flex items-center gap-x-4 border-b border-line-subtle bg-surface-overlay/70 p-6">
                 <Avatar 
                   src={client.avatarUrl} 
                   name={client.name} 
@@ -93,7 +93,7 @@ export const RecentClientsGrid = ({
                 </DropdownMenu>
               </div>
               {client.lastInvoice ? (
-                <dl className="-my-3 divide-y divide-line-glass/20 bg-surface-overlay/60 px-6 py-4 text-sm">
+                <dl className="-my-3 divide-y divide-line-subtle bg-surface-overlay/60 px-6 py-4 text-sm">
                   <div className="flex justify-between gap-x-4 py-3">
                     <dt className="text-input-placeholder">Last invoice</dt>
                     <dd className="text-input-text">

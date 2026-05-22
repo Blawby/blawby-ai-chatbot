@@ -346,7 +346,7 @@ type StatPillProps = {
 
 function _StatPill({ label, value }: StatPillProps) {
   return (
-    <div className="rounded-xl border border-line-glass/30 bg-surface-card px-3 py-2">
+    <div className="rounded-xl border border-line-subtle bg-surface-card px-3 py-2">
       <p className="text-lg font-semibold text-input-text">{value}</p>
       <p className="text-xs text-input-placeholder">{label}</p>
     </div>
@@ -411,7 +411,7 @@ function SectionCard({ number, icon, title, badge, isActive, isOpen, onToggle, o
     <div
       className={cn(
         'rounded-xl border bg-surface-card transition-colors',
-        isActive ? 'border-line-utility border-l-[3px] border-l-accent-500' : 'border-line-utility',
+        isActive ? 'border-line-subtle border-l-[3px] border-l-accent-500' : 'border-line-subtle',
       )}
     >
       <div className="flex items-center gap-2 p-3.5">
@@ -452,7 +452,7 @@ function SectionCard({ number, icon, title, badge, isActive, isOpen, onToggle, o
         ) : null}
       </div>
       {hasBody && isOpen ? (
-        <div className="border-t border-line-utility/60 px-2.5 pb-2.5 pt-1.5">{children}</div>
+        <div className="border-t border-line-subtle px-2.5 pb-2.5 pt-1.5">{children}</div>
       ) : null}
     </div>
   );
@@ -550,7 +550,7 @@ function QuestionRow({ label, isSelected, isLocked, badgeLabel, onSelect, onRemo
 
 function LockedFieldChip({ label }: { label: string }) {
   return (
-    <span className="inline-flex items-center gap-1 rounded-full border border-line-utility bg-surface-input px-2 py-0.5 text-[11px] font-medium text-input-placeholder">
+    <span className="inline-flex items-center gap-1 rounded-full border border-line-subtle bg-surface-input px-2 py-0.5 text-[11px] font-medium text-input-placeholder">
       <Lock className="h-3 w-3" />
       {label}
     </span>
@@ -563,7 +563,7 @@ function AddInlineButton({ children, onClick, disabled = false }: { children: st
       type="button"
       onClick={onClick}
       disabled={disabled}
-      className="mt-1 flex w-full items-center justify-center gap-1 rounded-lg border border-dashed border-line-utility/70 px-2 py-1.5 text-xs font-medium text-input-placeholder transition-colors hover:border-line-utility hover:text-input-text disabled:cursor-not-allowed disabled:opacity-50"
+      className="mt-1 flex w-full items-center justify-center gap-1 rounded-lg border border-dashed border-line-subtle px-2 py-1.5 text-xs font-medium text-input-placeholder transition-colors hover:border-line-subtle hover:text-input-text disabled:cursor-not-allowed disabled:opacity-50"
     >
       <Plus className="h-3.5 w-3.5" />
       {children}
@@ -626,7 +626,7 @@ function TemplateCard({
   const publicUrl = getPublicFormUrl(practiceSlug, template.slug);
 
   return (
-    <article className="glass-card flex min-h-[230px] flex-col justify-between overflow-hidden rounded-2xl">
+    <article className="card flex min-h-[230px] flex-col justify-between overflow-hidden rounded-2xl">
       <div
         role="button"
         tabIndex={0}
@@ -1090,7 +1090,7 @@ function TemplateEditor({
         onInput={(event) => handleNameChange((event.currentTarget as HTMLInputElement).value)}
         placeholder="New intake form"
         disabled={isSaving}
-        className="w-full min-w-0 rounded-lg border border-transparent bg-transparent px-2 py-1 text-base font-semibold text-input-text outline-none transition-colors placeholder:text-input-placeholder hover:border-line-glass/40 focus:border-line-glass/60 focus:bg-surface-utility/10"
+        className="w-full min-w-0 rounded-lg border border-transparent bg-transparent px-2 py-1 text-base font-semibold text-input-text outline-none transition-colors placeholder:text-input-placeholder hover:border-line-subtle focus:border-line-subtle focus:bg-surface-utility/10"
         aria-label="Form title"
       />
       {slugError ? <p className="mt-1 text-xs text-rose-500">{slugError}</p> : null}
@@ -1462,7 +1462,7 @@ function TemplateEditor({
             <button
               type="button"
               disabled
-              className="flex items-center justify-between rounded-lg border border-line-utility bg-surface-input px-3 py-2 text-left text-sm text-input-text"
+              className="flex items-center justify-between rounded-lg border border-line-subtle bg-surface-input px-3 py-2 text-left text-sm text-input-text"
             >
               <span>Free text</span>
               <ChevronDown className="h-4 w-4 text-input-placeholder" />
@@ -1643,7 +1643,7 @@ function TemplateEditor({
   const showCloseButton = effectiveSelectedItemId !== 'none' && effectiveSelectedItemId !== 'contact';
   const inspectorPanel = (
     <div className="flex h-full flex-col">
-      <div className="flex items-center justify-between border-b border-line-utility px-4 py-3">
+      <div className="flex items-center justify-between border-b border-line-subtle px-4 py-3">
         <p className="text-sm font-semibold text-input-text">{inspectorTitle}</p>
         {showCloseButton ? (
           <button
@@ -1668,7 +1668,7 @@ function TemplateEditor({
         : inspectorTitle;
       return (
         <div className="flex h-full flex-col">
-          <header className="flex items-center gap-2 border-b border-line-utility px-3 py-3">
+          <header className="flex items-center gap-2 border-b border-line-subtle px-3 py-3">
             <Button
               type="button"
               variant="icon"
@@ -1688,7 +1688,7 @@ function TemplateEditor({
     if (mobileView === 'preview') {
       return (
         <div className="flex h-full flex-col">
-          <header className="flex items-center gap-2 border-b border-line-utility px-3 py-3">
+          <header className="flex items-center gap-2 border-b border-line-subtle px-3 py-3">
             <Button
               type="button"
               variant="icon"
@@ -1719,7 +1719,7 @@ function TemplateEditor({
 
     return (
       <div className="flex h-full flex-col">
-        <header className="flex items-center gap-2 border-b border-line-utility px-3 py-3">
+        <header className="flex items-center gap-2 border-b border-line-subtle px-3 py-3">
           <Button
             type="button"
             variant="icon"
@@ -1731,7 +1731,7 @@ function TemplateEditor({
           <h1 className="flex-1 text-center text-sm font-semibold text-input-text">Question Builder</h1>
           <span className="w-8" aria-hidden="true" />
         </header>
-        <div className="flex items-center justify-center gap-2 border-b border-line-utility px-3 py-2">
+        <div className="flex items-center justify-center gap-2 border-b border-line-subtle px-3 py-2">
           <Button
             type="button"
             variant="secondary"
@@ -1810,7 +1810,7 @@ type TemplateListViewProps = {
 function FormCardSkeleton({ titleWidth = 'w-32' }: { titleWidth?: string }) {
   return (
     <div
-      className="glass-card flex min-h-[230px] flex-col rounded-2xl p-5"
+      className="card flex min-h-[230px] flex-col rounded-2xl p-5"
       aria-hidden="true"
     >
       <div className="flex items-start justify-between gap-3">
@@ -1935,9 +1935,9 @@ function TemplateListView({
             type="button"
             onClick={onNew}
             disabled={isSaving}
-            className="glass-card flex min-h-[230px] flex-col items-center justify-center rounded-2xl border border-dashed border-line-glass/50 p-5 text-center transition-colors hover:border-line-glass/80 disabled:cursor-not-allowed disabled:opacity-60"
+            className="card flex min-h-[230px] flex-col items-center justify-center rounded-2xl border border-dashed border-line-subtle p-5 text-center transition-colors hover:border-line-subtle disabled:cursor-not-allowed disabled:opacity-60"
           >
-            <span className="rounded-2xl border border-line-glass/30 bg-surface-card p-3 text-input-text">
+            <span className="rounded-2xl border border-line-subtle bg-surface-card p-3 text-input-text">
               <Plus className="h-6 w-6" />
             </span>
             <span className="mt-4 text-sm font-semibold text-input-text">

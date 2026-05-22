@@ -113,7 +113,7 @@ export function Drawer({
         aria-label={title}
         tabIndex={-1}
         className={cn(
-          'fixed flex flex-col glass-panel rounded-none',
+          'fixed flex flex-col panel rounded-none',
           positionClasses[side],
           sizeMap[side][size],
           side !== 'bottom' && 'h-full',
@@ -124,7 +124,7 @@ export function Drawer({
         )}
       >
         {title && (
-          <div className="flex items-center justify-between px-5 py-4 border-b border-line-glass/15">
+          <div className="flex items-center justify-between px-5 py-4 border-b border-line-subtle">
             <h2 className="text-base font-semibold text-input-text">{title}</h2>
             <button
               type="button"

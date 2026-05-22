@@ -29,7 +29,7 @@ export function StripeCheckpointCard({
   const statusLabel = isInProgress ? 'In progress' : 'Not started';
 
   return (
-    <div className="glass-card mt-4 space-y-4 border border-line-glass/40 p-4 text-input-text">
+    <div className="card mt-4 space-y-4 border border-line-subtle p-4 text-input-text">
       <div className="flex items-start gap-3">
         <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-accent-500/12 text-lg text-[rgb(var(--accent-foreground))]">
           $
@@ -39,7 +39,7 @@ export function StripeCheckpointCard({
           <p className="text-sm text-input-placeholder">{body}</p>
         </div>
       </div>
-      <div className="flex items-center justify-between gap-3 rounded-2xl border border-line-glass/30 bg-surface-utility/10 px-3 py-2">
+      <div className="flex items-center justify-between gap-3 rounded-2xl border border-line-subtle bg-surface-utility/10 px-3 py-2">
         <div>
           <div className="text-[11px] font-semibold uppercase tracking-[0.24em] text-input-placeholder">Stripe status</div>
           <div className="text-sm font-medium">{statusLabel}</div>

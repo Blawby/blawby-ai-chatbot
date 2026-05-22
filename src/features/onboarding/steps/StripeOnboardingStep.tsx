@@ -66,7 +66,7 @@ export function StripeOnboardingStep({
       )}
 
       {showStatus && (
-        <div className="glass-card p-4 space-y-2">
+        <div className="card p-4 space-y-2">
           {statusItems.map((item) => (
             <div key={item.label} className="flex items-center justify-between text-sm">
               <span className="text-input-placeholder">{item.label}</span>

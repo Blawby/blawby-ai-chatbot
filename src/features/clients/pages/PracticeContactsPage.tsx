@@ -114,9 +114,9 @@ const PendingInvitationDetailPanel = ({
           </div>
         </AccentHeroSurface>
 
-        <section className="glass-panel rounded-2xl">
+        <section className="panel rounded-2xl">
           <ResponsiveDefinitionGrid>
-            <dl className="divide-y divide-line-glass/5">
+            <dl className="divide-y divide-line-subtle">
               <div className="px-5 py-4">
                 <dt className="text-sm font-medium text-input-placeholder">Email</dt>
                 <dd className="mt-1 text-sm text-input-text">{invitation.email}</dd>
@@ -126,7 +126,7 @@ const PendingInvitationDetailPanel = ({
                 <dd className="mt-1 text-sm text-input-text">{roleLabel}</dd>
               </div>
             </dl>
-            <dl className="divide-y divide-line-glass/5">
+            <dl className="divide-y divide-line-subtle">
               <div className="px-5 py-4">
                 <dt className="text-sm font-medium text-input-placeholder">Status</dt>
                 <dd className="mt-1 text-sm text-input-text">Pending</dd>
@@ -227,9 +227,9 @@ const ClientDetailPanel = ({
           </div>
         </AccentHeroSurface>
 
-        <section className="glass-panel rounded-2xl">
+        <section className="panel rounded-2xl">
           <ResponsiveDefinitionGrid>
-            <dl className="divide-y divide-line-glass/5">
+            <dl className="divide-y divide-line-subtle">
               <div className="px-5 py-4">
                 <dt className="text-sm font-medium text-input-placeholder">Email</dt>
                 <dd className="mt-1 text-sm text-input-text">{client.email}</dd>
@@ -239,7 +239,7 @@ const ClientDetailPanel = ({
                 <dd className="mt-1 text-sm text-input-text">{isClientRecord ? formatPhoneNumber(client.phone) : 'Not provided'}</dd>
               </div>
             </dl>
-            <dl className="divide-y divide-line-glass/5">
+            <dl className="divide-y divide-line-subtle">
               <div className="px-5 py-4">
                 <dt className="text-sm font-medium text-input-placeholder">Address</dt>
                 <dd className="mt-1 text-sm text-input-text">{client.addressDisplay ?? 'Not provided'}</dd>
@@ -852,7 +852,7 @@ export const PracticeContactsPage = ({
         <ul>
           {letters.map((letter) => (
             <li key={letter} data-letter={letter}>
-              <div className="sticky top-0 z-10 bg-surface-collection/80 backdrop-blur-sm px-4 py-1.5 text-xs font-semibold text-input-placeholder border-y border-line-glass/10">
+              <div className="sticky top-0 z-10 bg-surface-collection/80 backdrop-blur-sm px-4 py-1.5 text-xs font-semibold text-input-placeholder border-y border-line-subtle">
                 {letter}
               </div>
               {groupedClients[letter].map((client) => {
@@ -934,7 +934,7 @@ export const PracticeContactsPage = ({
   const pendingInvitationListPane = (
     <div className="relative h-full min-h-0 overflow-hidden">
       <div className="h-full overflow-y-auto">
-        <ul className="divide-y divide-line-glass/10">
+        <ul className="divide-y divide-line-subtle">
           {sortedPendingInvitations.map((invitation) => {
             const isSelected = invitation.id === selectedPendingInvitationFromList?.id;
             const roleLabel = getPracticeRoleLabel(normalizePracticeRole(invitation.role) ?? 'client');

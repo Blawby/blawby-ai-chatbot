@@ -92,7 +92,7 @@ export const DetailHeader = ({
   if (!secondaryRow) return headerRow;
 
   return (
-    <div className={cn('flex flex-col border-b border-card-border bg-transparent', className)}>
+    <div className={cn('flex flex-col border-b border-line-subtle bg-transparent', className)}>
       {headerRow}
       <div className="flex flex-wrap items-center gap-x-5 gap-y-1 px-4 pb-2 text-xs text-input-placeholder">
         {secondaryRow}

@@ -40,12 +40,12 @@ export const ReportCard: FunctionComponent<ReportCardProps> = ({ definition, onC
       type="button"
       onClick={onClick}
       className={cn(
-        'flex w-full flex-col gap-2 rounded-2xl border border-line-glass/20 bg-surface-utility/5 p-4 text-left transition hover:bg-surface-utility/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-500/50',
+        'flex w-full flex-col gap-2 rounded-2xl border border-line-subtle bg-surface-utility/5 p-4 text-left transition hover:bg-surface-utility/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-500/50',
         className,
       )}
     >
       <div className="flex items-center justify-between">
-        <div className="flex h-9 w-9 items-center justify-center rounded-full border border-line-glass/30 bg-surface-utility/10">
+        <div className="flex h-9 w-9 items-center justify-center rounded-full border border-line-subtle bg-surface-utility/10">
           <Icon className="h-4 w-4 text-input-placeholder" aria-hidden="true" />
         </div>
         {definition.phase === 3 ? (

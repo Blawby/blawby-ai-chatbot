@@ -238,7 +238,7 @@ export const MatterSummaryCards = ({
             )}
           </div>
           <div
-            className={cn(summaryItemBase, '@3xl:border-l @3xl:border-card-border @3xl:pl-6', revealClass)}
+            className={cn(summaryItemBase, '@3xl:border-l @3xl:border-line-subtle @3xl:pl-6', revealClass)}
             style={{ animationDelay: '60ms' }}
           >
             <div className="flex items-center gap-2">
@@ -258,7 +258,7 @@ export const MatterSummaryCards = ({
             )}
           </div>
           <div
-            className={cn(summaryItemBase, '@3xl:border-l @3xl:border-card-border @3xl:pl-6', revealClass)}
+            className={cn(summaryItemBase, '@3xl:border-l @3xl:border-line-subtle @3xl:pl-6', revealClass)}
             style={{ animationDelay: '120ms' }}
           >
             <div className="flex items-center gap-2">

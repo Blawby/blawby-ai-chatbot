@@ -230,7 +230,7 @@ Implemented in `src/index.css` as a single component class system (`.btn` + vari
   - **Card-raised** / **side-card**: stronger contrast, `border-default` border. Used for inspector panes and "this is its own thing" subsections.
   - **Panel** (`.panel`): visually similar but `surface-section` background. The structural container behind cards.
 
-**Legacy gradient overlays.** `.card`, `.card-surface`, and `.glass-card` currently apply two background-image gradients (a 135° highlight, a radial accent-tinted halo) over their solid background. **These violate the Flat-By-Default and No-Decoration rules and are deprecated.** Future `polish` / `distill` passes should strip them and leave the solid `surface-card` color alone.
+**Glass aliases removed.** `.glass-card`, `.glass-panel`, and `.glass-input` are deprecated shims in `index.css` that resolve to `.card`, `.panel`, and `.input-surface` respectively. New code must use the canonical names. The `glass-*` names will be removed in a future cleanup pass.
 
 ### Inputs
 
@@ -291,7 +291,7 @@ Concrete guardrails. The Don'ts here directly mirror PRODUCT.md's anti-reference
 - **Don't** use gradient orbs as background decoration. The current `accentBackdropVariant: 'settings'` and `'workspace'` variants are legacy; remove existing instances and do not add new ones. (Anti-ref: *Generic AI tool template*.)
 - **Don't** use accent-tinted glow shadows on buttons. The current `btn-primary` shadow is legacy and should be flattened. (Rule: *No-Glow*.)
 - **Don't** apply gradient overlays to cards. The current `.card` / `.card-surface` background-image gradients are decorative and conflict with Flat-By-Default; strip them on the next polish pass.
-- **Don't** use glassmorphism as a default treatment. The `btn-inverted` glass-blur variant and `--surface-glass` token are legacy. Glass is permitted only as a deliberate scrim above content (e.g., the mobile sidebar overlay), never as a primary surface treatment.
+- **Don't** use glassmorphism as a default treatment. The `btn-inverted` variant and `--surface-glass` token are removed. The `glass-card`, `glass-panel`, and `glass-input` class names are deprecated aliases — use `card`, `panel`, and `input-surface` instead. The `border-line-glass` Tailwind token is also deprecated; use `border-line-subtle` for dividers and card borders. Glass is permitted only as a deliberate scrim above content (e.g., a fixed overlay), never as a primary surface treatment.
 - **Don't** use `#FFFFFF` or `#000000` literally. All neutrals are tinted slate.
 - **Don't** put Outfit inside the product shell except for a single page-title moment. No Outfit in tables, cards, dialogs, or forms.
 - **Don't** use border-left or border-right greater than 1px as a colored accent stripe. The nav-active indicator uses an inset shadow specifically to avoid this pattern.

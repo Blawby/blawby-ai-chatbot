@@ -11,7 +11,7 @@ import { resolveIntakeTitle } from '@/features/intake/utils/intakeTitle';
 const statusTone: Record<string, string> = {
   accepted: 'bg-emerald-500/10 text-emerald-700 ring-emerald-500/20 dark:text-emerald-300',
   declined: 'bg-rose-500/10 text-rose-700 ring-rose-500/20 dark:text-rose-300',
-  pending_review: 'ring-line-glass/20 bg-surface-overlay/80 text-input-placeholder',
+  pending_review: 'ring-line-subtle bg-surface-overlay/80 text-input-placeholder',
 };
 
 type RecentIntakesGridProps = {
@@ -70,11 +70,11 @@ export const RecentIntakesGrid = ({
             return (
               <li
                 key={intake.uuid}
-                className="glass-card flex flex-col overflow-hidden"
+                className="card flex flex-col overflow-hidden"
               >
                 <button
                   className={
-                    `flex w-full items-center gap-x-4 border-b border-line-glass/20 p-6 text-left ${actionable ? 'cursor-pointer focus-visible:ring-2 focus-visible:ring-accent-400 focus:outline-none' : ''}`
+                    `flex w-full items-center gap-x-4 border-b border-line-subtle p-6 text-left ${actionable ? 'cursor-pointer focus-visible:ring-2 focus-visible:ring-accent-400 focus:outline-none' : ''}`
                   }
                   role={actionable ? 'button' : undefined}
                   tabIndex={actionable ? 0 : -1}
@@ -98,7 +98,7 @@ export const RecentIntakesGrid = ({
                   </div>
                   {/* actions removed — whole card is clickable */}
                 </button>
-                <dl className="-my-3 divide-y divide-line-glass/20 px-6 py-4 text-sm">
+                <dl className="-my-3 divide-y divide-line-subtle px-6 py-4 text-sm">
                   <div className="flex justify-between gap-x-4 py-3">
                     <dt className="text-input-placeholder">Date Submitted</dt>
                     <dd className="text-input-text">

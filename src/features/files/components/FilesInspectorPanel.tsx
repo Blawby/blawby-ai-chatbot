@@ -87,9 +87,9 @@ export const FilesInspectorPanel = ({ file, practiceSlug, scope, onClose }: File
   return (
     <aside
       aria-label="File details"
-      className="flex h-full w-full flex-col overflow-hidden rounded-2xl border border-line-glass/30 bg-surface-card"
+      className="flex h-full w-full flex-col overflow-hidden rounded-2xl border border-line-subtle bg-surface-card"
     >
-      <header className="flex items-center justify-between border-b border-line-glass/30 px-4 py-3">
+      <header className="flex items-center justify-between border-b border-line-subtle px-4 py-3">
         <h2 className="text-sm font-semibold text-input-text">Details</h2>
         <button
           type="button"
@@ -153,7 +153,7 @@ export const FilesInspectorPanel = ({ file, practiceSlug, scope, onClose }: File
         </dl>
       </div>
 
-      <footer className="flex gap-2 border-t border-line-glass/30 px-4 py-3">
+      <footer className="flex gap-2 border-t border-line-subtle px-4 py-3">
         <Button
           variant="secondary"
           size="sm"

@@ -35,9 +35,9 @@ export const DashboardSummaryCards = ({ stats, loading = false }: DashboardSumma
         key={stat.id}
         className={[
           'px-5 py-6 sm:px-6',
-          index > 0 ? 'border-t border-line-glass/20' : '',
-          index % 2 === 1 ? 'sm:border-l sm:border-line-glass/20' : '',
-          index > 1 ? 'sm:border-t sm:border-line-glass/20' : '',
+          index > 0 ? 'border-t border-line-subtle' : '',
+          index % 2 === 1 ? 'sm:border-l sm:border-line-subtle' : '',
+          index > 1 ? 'sm:border-t sm:border-line-subtle' : '',
           'grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto]'
         ].join(' ')}
       >

@@ -227,7 +227,7 @@ const DocumentStatusCard: FunctionComponent<{
   ];
 
   return (
-    <section className="glass-card p-5 space-y-3">
+    <section className="card p-5 space-y-3">
       <header className="flex items-center justify-between gap-2">
         <h3 className="text-sm font-semibold text-input-text">Document Status</h3>
         <span className={cn(
@@ -258,7 +258,7 @@ const SignaturePanel: FunctionComponent<{
   onAgreementChange: (checked: boolean) => void;
   disabled: boolean;
 }> = ({ signatureData, agreementChecked, onSignatureChange, onAgreementChange, disabled }) => (
-  <section className="glass-card p-5 space-y-3">
+  <section className="card p-5 space-y-3">
     <h3 className="text-sm font-semibold text-input-text">Your Signature</h3>
     <SignaturePad onChange={onSignatureChange} disabled={disabled} />
     <Checkbox
@@ -284,6 +284,7 @@ const EngagementLetter: FunctionComponent<{
   practiceName: string;
 }> = ({ engagement, proposal, practiceName }) => {
   const clientName = proposal?.client_summary?.client_name ?? engagement.client_name ?? 'Client';
+  const contractBody = engagement.contract_body?.trim();
   const scope = proposal?.representation?.scope_summary;
   const includedServices = proposal?.representation?.included_services ?? [];
   const feeParagraph = buildFeesParagraph(proposal?.fees);
@@ -292,7 +293,7 @@ const EngagementLetter: FunctionComponent<{
 
   return (
     <article className="rounded-2xl border border-card-border bg-surface-card p-6 sm:p-10 space-y-6 leading-relaxed text-input-text">
-      <header className="text-center space-y-2 border-b border-line-glass/20 pb-6">
+      <header className="text-center space-y-2 border-b border-line-subtle pb-6">
         <h1 className="text-xl font-bold uppercase tracking-widest">Engagement Letter</h1>
         <p className="text-sm font-medium">{practiceName}</p>
         <p className="text-xs uppercase tracking-wider text-input-placeholder">
@@ -302,6 +303,10 @@ const EngagementLetter: FunctionComponent<{
 
       <p className="text-sm">Dear {clientName},</p>
 
+      {contractBody ? (
+        <div className="whitespace-pre-wrap text-sm leading-relaxed">{contractBody}</div>
+      ) : (
+        <>
       <p className="text-sm">
         This letter confirms the terms of engagement between you and {practiceName} for legal representation
         in the matter described below. Please review the terms carefully and sign below to indicate your
@@ -342,8 +347,10 @@ const EngagementLetter: FunctionComponent<{
           <p className="text-sm">{noGuarantee}</p>
         </section>
       )}
+        </>
+      )}
 
-      <footer className="border-t border-line-glass/20 pt-6 text-sm">
+      <footer className="border-t border-line-subtle pt-6 text-sm">
         <p>Sincerely,</p>
         <p className="mt-3 font-medium">{practiceName}</p>
       </footer>
@@ -400,16 +407,18 @@ export const ClientEngagementReviewPage: FunctionComponent<ClientEngagementRevie
     if (!signatureData || !agreementChecked) return;
     setIsAccepting(true);
     try {
-      await acceptEngagement(practiceId, engagement.id);
+      const updated = await acceptEngagement(practiceId, engagement.id);
+      if (!updated.matter_id) {
+        throw new Error('Engagement was accepted, but the backend response did not include a matter_id.');
+      }
       if (!isMountedRef.current) return;
       setAcceptedClick(true);
       showSuccess('Engagement signed', 'Your engagement is confirmed. Redirecting…');
-      if (engagement.conversation_id && conversationsBasePath) {
+      const conversationId = updated.conversation_id ?? engagement.conversation_id;
+      if (conversationId && conversationsBasePath) {
         navigationTimeoutRef.current = setTimeout(() => {
           if (!isMountedRef.current) return;
-          if (engagement.conversation_id) {
-            navigate(`${conversationsBasePath}/${encodeURIComponent(engagement.conversation_id)}`);
-          }
+          navigate(`${conversationsBasePath}/${encodeURIComponent(conversationId)}`);
         }, 1200);
       }
     } catch (err) {
@@ -441,7 +450,7 @@ export const ClientEngagementReviewPage: FunctionComponent<ClientEngagementRevie
   if (loadError || !engagement) {
     return (
       <div className="min-h-dvh flex flex-col items-center justify-center p-6">
-        <div className="glass-card max-w-md w-full p-8 text-center space-y-4">
+        <div className="card max-w-md w-full p-8 text-center space-y-4">
           <AlertTriangle className="w-10 h-10 text-rose-400 mx-auto" />
           <h1 className="text-lg font-bold text-input-text">Unable to load engagement</h1>
           <p className="text-sm text-input-placeholder">{loadError ?? 'This engagement could not be found.'}</p>
@@ -504,7 +513,7 @@ export const ClientEngagementReviewPage: FunctionComponent<ClientEngagementRevie
               />
             )}
             {accepted ? (
-              <div className="glass-card p-5 space-y-2 text-center">
+              <div className="card p-5 space-y-2 text-center">
                 <CheckCircle2 className="mx-auto h-8 w-8 text-emerald-500" />
                 <p className="text-sm font-semibold text-emerald-600 dark:text-emerald-300">Engagement signed</p>
                 <p className="text-xs text-input-placeholder">

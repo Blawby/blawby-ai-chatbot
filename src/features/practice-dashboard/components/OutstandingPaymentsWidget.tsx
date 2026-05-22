@@ -18,7 +18,7 @@ export const OutstandingPaymentsWidget = ({
   onViewInvoices
 }: OutstandingPaymentsWidgetProps) => (
   <Panel className="flex h-full flex-col">
-    <header className="border-b border-line-glass/30 px-5 py-4">
+    <header className="border-b border-line-subtle px-5 py-4">
       <p className="text-sm font-semibold text-input-text">Outstanding Payments</p>
       <p className="text-xs text-input-placeholder">Invoices awaiting payment</p>
     </header>
@@ -52,7 +52,7 @@ export const OutstandingPaymentsWidget = ({
         <p className="text-sm text-input-placeholder">No unpaid invoices.</p>
       )}
     </div>
-    <footer className="border-t border-line-glass/30 px-5 py-4">
+    <footer className="border-t border-line-subtle px-5 py-4">
       <Button size="sm" className="w-full" onClick={() => onViewInvoices?.()}>
         View billing
       </Button>

@@ -28,7 +28,7 @@ export const BillingActionsWidget = ({
 }: BillingActionsWidgetProps) => {
   return (
     <Panel className="flex h-full flex-col">
-      <header className="flex items-center justify-between border-b border-line-glass/30 px-5 py-4">
+      <header className="flex items-center justify-between border-b border-line-subtle px-5 py-4">
         <div>
           <p className="text-sm font-semibold text-input-text">Billing Actions</p>
           <p className="text-xs text-input-placeholder">Matters that need billing attention</p>
@@ -52,7 +52,7 @@ export const BillingActionsWidget = ({
           <div className="space-y-4">
             {actions.map((action) => (
               <Fragment key={action.id}>
-                <div className="rounded-xl border border-line-glass/30 bg-surface px-4 py-3">
+                <div className="rounded-xl border border-line-subtle bg-surface px-4 py-3">
                   <div className="flex items-start justify-between gap-4">
                     <div className="flex gap-3">
                       <div className="text-lg" aria-hidden="true">{ICONS[action.reason]}</div>

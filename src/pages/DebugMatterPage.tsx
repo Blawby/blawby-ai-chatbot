@@ -308,12 +308,12 @@ export default function DebugMatterPage() {
       </header>
 
       <section className="grid gap-6 lg:grid-cols-[360px_minmax(0,1fr)]">
-        <aside className="glass-panel overflow-hidden">
-          <div className="flex items-center justify-between border-b border-line-glass/30 px-4 py-3">
+        <aside className="panel overflow-hidden">
+          <div className="flex items-center justify-between border-b border-line-subtle px-4 py-3">
             <h2 className="text-sm font-semibold text-input-text">Matters</h2>
             <Button size="xs" onClick={() => setEditorState('create')}>New</Button>
           </div>
-          <ul className="divide-y divide-line-glass/20">
+          <ul className="divide-y divide-line-subtle">
             {matters.map((matter) => (
               <MatterListItem
                 key={matter.id}
@@ -356,7 +356,7 @@ export default function DebugMatterPage() {
                   className="px-0 py-0"
                 />
                 <nav
-                  className="flex items-end gap-0 border-b border-line-glass/20 px-5"
+                  className="flex items-end gap-0 border-b border-line-subtle px-5"
                   aria-label="Matter sections"
                 >
                   {detailTabs.map((tab) => {
@@ -394,8 +394,8 @@ export default function DebugMatterPage() {
 
               {activeTab === 'overview' ? (
                 <div className="space-y-4">
-                  <section className="glass-panel overflow-hidden">
-                    <div className="border-b border-line-glass/20 px-6 py-4">
+                  <section className="panel overflow-hidden">
+                    <div className="border-b border-line-subtle px-6 py-4">
                       <h3 className="text-sm font-semibold text-input-text">Matter description</h3>
                     </div>
                     {isDescriptionEditing ? (
@@ -453,13 +453,13 @@ export default function DebugMatterPage() {
               ) : null}
 
               {activeTab === 'messages' ? (
-                <section className="glass-panel p-6 text-sm text-input-placeholder">
+                <section className="panel p-6 text-sm text-input-placeholder">
                   Message thread preview placeholder for UI layout work.
                 </section>
               ) : null}
 
               {activeTab === 'activity' ? (
-                <section className="glass-panel p-6">
+                <section className="panel p-6">
                   <ActivityTimeline
                     items={activityItems}
                     showComposer

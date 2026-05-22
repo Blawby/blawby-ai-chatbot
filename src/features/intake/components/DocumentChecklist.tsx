@@ -91,7 +91,7 @@ const DocumentChecklist: FunctionComponent<DocumentChecklistProps> = ({
   const canComplete = requiredCompleted === requiredCount;
 
   return (
-    <div className="glass-card p-6 max-w-2xl">
+    <div className="card p-6 max-w-2xl">
       {/* Header */}
       <div className="mb-6">
         <h3 className="text-lg font-semibold text-input-text mb-2">
@@ -118,7 +118,7 @@ const DocumentChecklist: FunctionComponent<DocumentChecklistProps> = ({
             className={`border rounded-xl p-4 transition-all duration-300 ${
               dragOverId === doc.id 
                 ? 'border-accent-500 bg-accent-500/10 scale-[1.02]' 
-                : 'border-line-glass/10 bg-surface-utility/5'
+                : 'border-line-subtle bg-surface-utility/5'
             }`}
             onDrop={(e) => handleDrop(doc.id, e)}
             onDragOver={(e) => handleDragOver(doc.id, e)}
@@ -209,7 +209,7 @@ const DocumentChecklist: FunctionComponent<DocumentChecklistProps> = ({
       </div>
 
       {/* Actions */}
-      <div className="flex items-center justify-between pt-4 border-t border-line-default">
+      <div className="flex items-center justify-between pt-4 border-t border-line-subtle">
         <Button
           variant="ghost"
           onClick={onSkip}

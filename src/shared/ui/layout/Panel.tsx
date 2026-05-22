@@ -10,7 +10,7 @@ export const Panel = ({
   children,
   className
 }: PanelProps) => (
-  <div className={cn('glass-panel', className)}>
+  <div className={cn('panel', className)}>
     {children}
   </div>
 );
