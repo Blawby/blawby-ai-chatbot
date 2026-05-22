@@ -346,8 +346,8 @@ export interface FileAttachment {
   url: string;
   storageKey?: string;
   /**
-   * Upload record id for files stored via the scoped uploads API
-   * (e.g. /api/practice-client-intakes/:uuid/files). When set, downloads
+   * Upload record id for files stored via the backend uploads API
+   * (e.g. /api/uploads with an intake scope). When set, downloads
    * should route through `/api/uploads/:uploadId/download` for a signed
    * URL rather than reading `url` directly.
    */
@@ -355,7 +355,7 @@ export interface FileAttachment {
   /**
    * Origin of the file:
    * - 'worker': legacy /api/files/upload pipeline (worker R2 bucket).
-   * - 'intake': scoped intake files API (backend R2, requires download endpoint).
+   * - 'intake': intake-scoped uploads API (backend R2, requires download endpoint).
    */
   source?: 'worker' | 'intake';
 }

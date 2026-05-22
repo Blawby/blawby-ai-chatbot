@@ -37,14 +37,14 @@ import {
 const intakeUuid = 'intake-uuid-1';
 
 const verifiedFilePayload = {
-  id: 'file-1',
-  intake_uuid: intakeUuid,
   upload_id: 'upload-1',
   file_name: 'contract.pdf',
   file_size: 1024,
   mime_type: 'application/pdf',
   status: 'verified',
   public_url: null,
+  scope_type: 'intake',
+  scope_id: intakeUuid,
   storage_key: 'r2-key-1',
   is_privileged: true,
   created_at: '2026-05-11T00:00:00Z',
@@ -58,18 +58,26 @@ describe('intakeFilesApi', () => {
   });
 
   describe('listIntakeFiles', () => {
-    it('hits the scoped intake files endpoint and normalizes results', async () => {
-      mockApiClient.get.mockResolvedValueOnce({ data: { data: [verifiedFilePayload] } });
+    it('lists intake-scoped uploads and normalizes results', async () => {
+      mockApiClient.get.mockResolvedValueOnce({ data: { uploads: [verifiedFilePayload] } });
 
       const files = await listIntakeFiles(intakeUuid);
 
       expect(mockApiClient.get).toHaveBeenCalledWith(
-        `/api/practice-client-intakes/${intakeUuid}/files`,
-        expect.objectContaining({ signal: undefined }),
+        '/api/uploads',
+        expect.objectContaining({
+          params: {
+            scope_type: 'intake',
+            scope_id: intakeUuid,
+            include_deleted: false,
+            limit: 100,
+          },
+          signal: undefined,
+        }),
       );
       expect(files).toEqual([
         expect.objectContaining({
-          id: 'file-1',
+          id: 'upload-1',
           uploadId: 'upload-1',
           fileName: 'contract.pdf',
           status: 'verified',
@@ -100,13 +108,11 @@ describe('intakeFilesApi', () => {
     it('posts to the presign endpoint with snake_case body', async () => {
       mockApiClient.post.mockResolvedValueOnce({
         data: {
-          data: {
-            upload_id: 'upload-2',
-            presigned_url: 'https://r2.example.com/sig',
-            method: 'PUT',
-            storage_key: 'key-2',
-            expires_at: '2026-05-11T01:00:00Z',
-          },
+          upload_id: 'upload-2',
+          presigned_url: 'https://r2.example.com/sig',
+          method: 'PUT',
+          storage_key: 'key-2',
+          expires_at: '2026-05-11T01:00:00Z',
         },
       });
 
@@ -118,8 +124,15 @@ describe('intakeFilesApi', () => {
       });
 
       expect(mockApiClient.post).toHaveBeenCalledWith(
-        `/api/practice-client-intakes/${intakeUuid}/files/presign`,
-        { file_name: 'evidence.png', mime_type: 'image/png', file_size: 2048 },
+        '/api/uploads/presign',
+        {
+          file_name: 'evidence.png',
+          mime_type: 'image/png',
+          file_size: 2048,
+          scope_type: 'intake',
+          scope_id: intakeUuid,
+          is_privileged: true,
+        },
         expect.any(Object),
       );
       expect(response.upload_id).toBe('upload-2');
@@ -127,14 +140,26 @@ describe('intakeFilesApi', () => {
   });
 
   describe('confirmIntakeUpload', () => {
-    it('posts to the confirm endpoint and normalizes the response', async () => {
-      mockApiClient.post.mockResolvedValueOnce({ data: { data: verifiedFilePayload } });
+    it('confirms upload completion, fetches metadata, and normalizes the response', async () => {
+      mockApiClient.post.mockResolvedValueOnce({
+        data: {
+          upload_id: 'upload-1',
+          public_url: null,
+          storage_key: 'r2-key-1',
+          status: 'verified',
+        },
+      });
+      mockApiClient.get.mockResolvedValueOnce({ data: verifiedFilePayload });
 
       const file = await confirmIntakeUpload({ intakeUuid, uploadId: 'upload-1' });
 
       expect(mockApiClient.post).toHaveBeenCalledWith(
-        `/api/practice-client-intakes/${intakeUuid}/files/upload-1/confirm`,
+        '/api/uploads/upload-1/confirm',
         undefined,
+        expect.any(Object),
+      );
+      expect(mockApiClient.get).toHaveBeenCalledWith(
+        '/api/uploads/upload-1',
         expect.any(Object),
       );
       expect(file.status).toBe('verified');
@@ -155,7 +180,7 @@ describe('intakeFilesApi', () => {
       await deleteIntakeFile({ intakeUuid, fileId: 'file-1', reason: 'Wrong file' });
 
       expect(mockApiClient.delete).toHaveBeenCalledWith(
-        `/api/practice-client-intakes/${intakeUuid}/files/file-1`,
+        '/api/uploads/file-1',
         expect.objectContaining({ body: { reason: 'Wrong file' } }),
       );
     });
@@ -171,8 +196,16 @@ describe('intakeFilesApi', () => {
         expires_at: '2026-05-11T01:00:00Z',
       };
       mockApiClient.post
-        .mockResolvedValueOnce({ data: { data: presignedPayload } })
-        .mockResolvedValueOnce({ data: { data: { ...verifiedFilePayload, upload_id: 'upload-x' } } });
+        .mockResolvedValueOnce({ data: presignedPayload })
+        .mockResolvedValueOnce({
+          data: {
+            upload_id: 'upload-x',
+            public_url: null,
+            storage_key: 'key-x',
+            status: 'verified',
+          },
+        });
+      mockApiClient.get.mockResolvedValueOnce({ data: { ...verifiedFilePayload, upload_id: 'upload-x' } });
       mockUploadViaPresignedUrl.mockResolvedValueOnce(undefined);
 
       const file = new File([new Uint8Array([1, 2, 3])], 'doc.pdf', { type: 'application/pdf' });
@@ -180,8 +213,15 @@ describe('intakeFilesApi', () => {
 
       expect(mockApiClient.post).toHaveBeenNthCalledWith(
         1,
-        `/api/practice-client-intakes/${intakeUuid}/files/presign`,
-        { file_name: 'doc.pdf', mime_type: 'application/pdf', file_size: 3 },
+        '/api/uploads/presign',
+        {
+          file_name: 'doc.pdf',
+          mime_type: 'application/pdf',
+          file_size: 3,
+          scope_type: 'intake',
+          scope_id: intakeUuid,
+          is_privileged: true,
+        },
         expect.any(Object),
       );
       expect(mockUploadViaPresignedUrl).toHaveBeenCalledWith(
@@ -193,7 +233,7 @@ describe('intakeFilesApi', () => {
       );
       expect(mockApiClient.post).toHaveBeenNthCalledWith(
         2,
-        `/api/practice-client-intakes/${intakeUuid}/files/upload-x/confirm`,
+        '/api/uploads/upload-x/confirm',
         undefined,
         expect.any(Object),
       );

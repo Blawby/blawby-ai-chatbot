@@ -84,7 +84,7 @@ export const useFileUpload = ({ practiceId, conversationId, enabled, intakeUuid 
 
   // The composer is upload-ready when either:
   //  - we have a practiceId (legacy worker R2 path), OR
-  //  - we have an intakeUuid (scoped intake files API path).
+  //  - we have an intakeUuid (backend uploads API with intake scope).
   // The intake path takes precedence when set.
   const isReadyToUpload = enabled && Boolean(intakeUuid || practiceId);
 

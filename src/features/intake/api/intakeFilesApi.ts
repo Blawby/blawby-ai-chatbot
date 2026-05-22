@@ -1,14 +1,15 @@
 import {
-  intakeFileConfirmPath,
-  intakeFileItemPath,
-  intakeFilePresignPath,
-  intakeFilesPath,
+  uploadConfirmPath,
+  uploadItemPath,
+  uploadPresignPath,
+  uploadsPath,
 } from '@/config/urls';
 import { apiClient, isHttpError } from '@/shared/lib/apiClient';
 import {
   uploadViaPresignedUrl,
   type UploadProgress,
 } from '@/shared/lib/presignedUpload';
+import type { BackendUploadRecord, BackendUploadsListResponse } from '@/shared/types/wire';
 
 export type { UploadProgress };
 
@@ -42,6 +43,13 @@ interface IntakePresignResponse {
   method: string;
   storage_key: string;
   expires_at: string;
+}
+
+interface ConfirmUploadResponse {
+  upload_id: string;
+  public_url: string | null;
+  storage_key: string;
+  status: IntakeFileStatus;
 }
 
 interface ApiEnvelope<T> {
@@ -88,10 +96,11 @@ const normalizeIntakeFile = (raw: unknown): IntakeFile => {
   if (!isRecord(raw)) {
     throw new Error('Invalid intake file payload: expected object.');
   }
+  const uploadId = requiredString(raw.upload_id ?? raw.uploadId, 'upload_id');
   return {
-    id: requiredString(raw.id, 'id'),
-    intakeUuid: requiredString(raw.intake_uuid ?? raw.intakeUuid, 'intake_uuid'),
-    uploadId: requiredString(raw.upload_id ?? raw.uploadId, 'upload_id'),
+    id: uploadId,
+    intakeUuid: requiredString(raw.scope_id, 'scope_id'),
+    uploadId,
     fileName: requiredString(raw.file_name ?? raw.fileName, 'file_name'),
     fileSize: requiredNumber(raw.file_size ?? raw.fileSize, 'file_size'),
     mimeType: optionalString(raw.mime_type ?? raw.mimeType),
@@ -111,11 +120,14 @@ const normalizeIntakeFile = (raw: unknown): IntakeFile => {
   };
 };
 
-const unwrap = <T>(payload: unknown): T => {
-  if (isRecord(payload) && 'data' in payload) {
-    return (payload as ApiEnvelope<T>).data as T;
+const unwrap = <T>(payload: unknown, field?: string): T => {
+  const unwrapped = isRecord(payload) && 'data' in payload
+    ? (payload as ApiEnvelope<T>).data as unknown
+    : payload;
+  if (field && isRecord(unwrapped) && field in unwrapped) {
+    return unwrapped[field] as T;
   }
-  return payload as T;
+  return unwrapped as T;
 };
 
 export interface ListIntakeFilesOptions {
@@ -130,12 +142,20 @@ export const listIntakeFiles = async (
     throw new Error('intakeUuid is required.');
   }
   try {
-    const { data } = await apiClient.get<unknown>(intakeFilesPath(intakeUuid), { signal: options.signal });
-    const unwrapped = unwrap<unknown>(data);
+    const { data } = await apiClient.get<unknown>(uploadsPath(), {
+      params: {
+        scope_type: 'intake',
+        scope_id: intakeUuid,
+        include_deleted: false,
+        limit: 100,
+      },
+      signal: options.signal,
+    });
+    const unwrapped = unwrap<BackendUploadsListResponse | BackendUploadRecord[]>(data);
     const list = Array.isArray(unwrapped)
       ? unwrapped
-      : isRecord(unwrapped) && Array.isArray((unwrapped as { files?: unknown }).files)
-        ? (unwrapped as { files: unknown[] }).files
+      : isRecord(unwrapped) && Array.isArray((unwrapped as { uploads?: unknown }).uploads)
+        ? (unwrapped as { uploads: unknown[] }).uploads
         : [];
     return list.map(normalizeIntakeFile);
   } catch (error) {
@@ -157,11 +177,14 @@ export const presignIntakeUpload = async (
   if (!input.intakeUuid) throw new Error('intakeUuid is required.');
   try {
     const { data } = await apiClient.post<unknown>(
-      intakeFilePresignPath(input.intakeUuid),
+      uploadPresignPath(),
       {
         file_name: input.fileName,
         mime_type: input.mimeType,
         file_size: input.fileSize,
+        scope_type: 'intake',
+        scope_id: input.intakeUuid,
+        is_privileged: true,
       },
       { signal: input.signal },
     );
@@ -187,12 +210,16 @@ export const confirmIntakeUpload = async (
     throw new Error('Missing uploadId');
   }
   try {
-    const { data } = await apiClient.post<unknown>(
-      intakeFileConfirmPath(input.intakeUuid, input.uploadId),
+    await apiClient.post<ConfirmUploadResponse>(
+      uploadConfirmPath(input.uploadId),
       undefined,
       { signal: input.signal },
     );
-    return normalizeIntakeFile(unwrap<unknown>(data));
+    const { data } = await apiClient.get<unknown>(
+      uploadItemPath(input.uploadId),
+      { signal: input.signal },
+    );
+    return normalizeIntakeFile(unwrap<BackendUploadRecord>(data));
   } catch (error) {
     throw new Error(readApiErrorMessage(error, 'Failed to confirm intake upload.'));
   }
@@ -222,7 +249,7 @@ export const deleteIntakeFile = async ({
     throw new Error('A reason is required to delete this file.');
   }
   try {
-    await apiClient.delete<unknown>(intakeFileItemPath(intakeUuid, fileId), {
+    await apiClient.delete<unknown>(uploadItemPath(fileId), {
       body: { reason: trimmedReason },
       signal,
     });

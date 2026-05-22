@@ -225,9 +225,9 @@ export default defineConfig(({ mode }: ConfigEnv) => {
 					skipWaiting: false,
 					clientsClaim: false,
 					cleanupOutdatedCaches: true,
-					// Precache only app shell JS/CSS and PWA icons.
-					// Images, HTML pages, and widget assets are served by Cloudflare Pages directly.
-					globPatterns: ['assets/**/*.{js,css}'],
+					// Precache the SPA shell used by Workbox's navigation fallback plus
+					// app JS/CSS. Widget pages/assets are still excluded by the denylist.
+					globPatterns: ['index.html', 'assets/**/*.{js,css}'],
 					globIgnores: [],
 					navigateFallbackDenylist: [
 						// Never route API or auth requests through the SPA
