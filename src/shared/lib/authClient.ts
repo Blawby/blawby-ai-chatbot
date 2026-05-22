@@ -193,6 +193,22 @@ export const useActiveMemberRole = () => {
   return client.useActiveMemberRole();
 };
 
+// Reactive hook over the user's full membership list. Backed by Better Auth's
+// organization plugin (/api/auth/organization/list); safe to call from the
+// null-active-org state (see useEnsureActiveOrganization).
+export const useListOrganizations = () => {
+  const client = getAuthClient();
+  return client.useListOrganizations();
+};
+
+// Reactive hook over the currently-active organization on the session.
+// Returns null when no org has been activated (a legitimate cold-login state —
+// not a subscription signal).
+export const useActiveOrganization = () => {
+  const client = getAuthClient();
+  return client.useActiveOrganization();
+};
+
 export const getSession = async (...args: Parameters<AuthClientType['getSession']>): Promise<AuthSessionPayload | null> => {
   const result = await getAuthClient().getSession(...args);
   return unwrapSessionData(result);

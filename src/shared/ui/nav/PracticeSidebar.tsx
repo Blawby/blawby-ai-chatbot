@@ -1,5 +1,6 @@
 import { useState } from 'preact/hooks';
 import { Sidebar } from '@/shared/ui/nav/Sidebar';
+import { OrgSwitcherMenu } from '@/shared/ui/nav/OrgSwitcherMenu';
 import { SidebarProfileMenu } from '@/shared/ui/nav/SidebarProfileMenu';
 import { useNavigation } from '@/shared/utils/navigation';
 import { signOut } from '@/shared/utils/auth';
@@ -19,10 +20,16 @@ export interface PracticeSidebarUser {
 }
 
 export interface PracticeSidebarOrg {
+  /** When provided, the org row becomes a switcher anchored on this active org. */
+  id?: string;
   name: string;
   initial: string;
   /** Defaults to "Practice". */
   subtitle?: string;
+  /** Optional slug — present for the switcher to render checkmarks consistently. */
+  slug?: string;
+  /** Optional uploaded logo URL; falls back to the initials badge when absent. */
+  logoUrl?: string | null;
 }
 
 export interface PracticeSidebarProps {
@@ -119,19 +126,33 @@ export const PracticeSidebar = ({
       collapsed={isCollapsed}
       onToggleCollapsed={toggle}
     >
-      <Sidebar.Org
-        name={org.name}
-        subtitle={org.subtitle ?? 'Practice'}
-        logo={
-          <span
-            aria-hidden="true"
-            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-[rgb(var(--accent-500))] text-sm font-bold text-[rgb(var(--accent-foreground))]"
-          >
-            {org.initial}
-          </span>
-        }
-        onCollapseClick={toggle}
-      />
+      {org.id ? (
+        <OrgSwitcherMenu
+          org={{
+            id: org.id,
+            name: org.name,
+            initial: org.initial,
+            subtitle: org.subtitle ?? 'Practice',
+            logoUrl: org.logoUrl ?? null,
+          }}
+          collapsed={isCollapsed}
+          onCollapseClick={toggle}
+        />
+      ) : (
+        <Sidebar.Org
+          name={org.name}
+          subtitle={org.subtitle ?? 'Practice'}
+          logo={
+            <span
+              aria-hidden="true"
+              className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-[rgb(var(--accent-500))] text-sm font-bold text-[rgb(var(--accent-foreground))]"
+            >
+              {org.initial}
+            </span>
+          }
+          onCollapseClick={toggle}
+        />
+      )}
       {sidebarConfig.sections.map((section, idx) => (
         <Sidebar.Section
           key={section.label ?? `section-${idx}`}

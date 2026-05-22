@@ -14,6 +14,7 @@ import { usePracticeConfig } from '@/shared/hooks/usePracticeConfig';
 import type { UIPracticeConfig } from '@/shared/hooks/usePracticeConfig';
 import { handleError as _handleError } from '@/shared/utils/errorHandler';
 import { useWorkspaceResolver } from '@/shared/hooks/useWorkspaceResolver';
+import { useEnsureActiveOrganization } from '@/shared/hooks/useEnsureActiveOrganization';
 import {
   getWorkspaceHomePath,
 } from '@/shared/utils/workspace';
@@ -226,6 +227,12 @@ function AppShell() {
   const location = useLocation();
   const { navigate } = useNavigation();
   const { session, isPending: sessionPending } = useSessionContext();
+  // Recovery for the legitimate null active_organization_id state described in
+  // docs/solutions/conventions/better-auth-active-organization-id-pointer-2026-05-15.md.
+  // Idempotent and gated on completedOnboarding+!activeOrgId, so it no-ops for
+  // first-time users (handled by onboarding) and for users whose org is already
+  // active.
+  useEnsureActiveOrganization();
   const onboardingIncomplete =
     Boolean(session?.user) &&
     !session?.user?.is_anonymous &&
@@ -791,6 +798,24 @@ function PracticeAppRoute({
   useEffect(() => {
     if (isPending || !session?.user || !resolvedPracticeId) return;
 
+    // Only sync when the resolver's currentPractice is for the URL we are on.
+    // Without this gate, a stale practices snapshot (e.g. right after a new
+    // org was created via the switcher) makes currentPractice fall back to a
+    // *different* practice, and we'd PUT setActivePractice with the OLD id —
+    // reverting the switcher's intentional setActive call. See feat/org-switcher
+    // bug investigation 2026-05-22.
+    const resolverMatchesUrl =
+      hasPracticeSlug && currentPractice?.slug === normalizedPracticeSlug;
+    if (!resolverMatchesUrl) return;
+
+    // During a switcher-driven route transition, this OLD route can still be
+    // mounted while `session.active_organization_id` has already been flipped
+    // to the destination org. Its effect would then revert backend to *this*
+    // route's old practice id. Guard by re-checking the live URL against this
+    // route's slug — if the user has already navigated away, do not revert.
+    const liveUrlSegment = `/practice/${encodeURIComponent(normalizedPracticeSlug)}`;
+    if (!location.path.startsWith(liveUrlSegment)) return;
+
     // If the backend session doesn't match the route-selected practice ID,
     // synchronize it to ensure correct permission/role resolution.
     if (resolvedPracticeId && backendActiveOrgId !== resolvedPracticeId) {
@@ -810,7 +835,16 @@ function PracticeAppRoute({
         cancelled = true;
       };
     }
-  }, [resolvedPracticeId, session?.user, isPending, backendActiveOrgId]);
+  }, [
+    resolvedPracticeId,
+    session?.user,
+    isPending,
+    backendActiveOrgId,
+    currentPractice?.slug,
+    normalizedPracticeSlug,
+    hasPracticeSlug,
+    location.path,
+  ]);
 
   // Only block on loading if we have no practice data yet. If currentPractice
   // is already available (from the module cache), proceed immediately —

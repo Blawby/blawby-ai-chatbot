@@ -1,13 +1,14 @@
-import { useEffect, useRef, useState } from 'preact/hooks';
+import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { useTranslation } from '@/shared/i18n/hooks';
 import { useSessionContext } from '@/shared/contexts/SessionContext';
 import { useToastContext } from '@/shared/contexts/ToastContext';
 import { getPreferencesCategory, updatePreferencesCategory } from '@/shared/lib/preferencesApi';
-import { updateUser, getSession } from '@/shared/lib/authClient';
+import { updateUser, getSession, useListOrganizations } from '@/shared/lib/authClient';
 import type { OnboardingFormData } from '@/shared/types/onboarding';
 import { sanitizeOnboardingPersonalInfo } from '@/shared/types/onboarding';
 import type { OnboardingPreferences } from '@/shared/types/preferences';
 import PersonalInfoStep from './PersonalInfoStep';
+import PracticeNameStep from './PracticeNameStep';
 
 // The UseCase step is currently not rendered; we ship a default useCase shape so
 // existing backend consumers keep getting the payload they expect. If a real use-case
@@ -86,15 +87,40 @@ export const OnboardingFlow = ({
   }, [active, sessionUserId, sessionUserName]);
 
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [step, setStep] = useState<'personal' | 'practice'>('personal');
+  // Reactive membership list — empty means we need to collect a practice name
+  // before completing onboarding so checkout can be minted with a real
+  // referenceId (see docs/solutions/conventions/better-auth-active-organization-id-pointer-2026-05-15.md).
+  const orgsHook = useListOrganizations() as { data?: unknown; isPending?: boolean };
+  const memberships = useMemo(() => {
+    const raw = orgsHook?.data;
+    if (Array.isArray(raw)) return raw;
+    if (raw && typeof raw === 'object' && Array.isArray((raw as { data?: unknown }).data)) {
+      return (raw as { data: unknown[] }).data;
+    }
+    return [];
+  }, [orgsHook?.data]);
+  const membershipsLoading = Boolean(orgsHook?.isPending) && memberships.length === 0;
+  const needsPracticeStep = !membershipsLoading && memberships.length === 0;
 
-  const handleStepComplete = async (data: Partial<OnboardingFormData>) => {
+  const handlePersonalInfoComplete = async (data: Partial<OnboardingFormData>) => {
     const mergedData = {
       ...onboardingData,
       ...data
     };
 
     setOnboardingData(mergedData);
+
+    if (needsPracticeStep) {
+      setStep('practice');
+      return;
+    }
+
     await handleComplete(mergedData);
+  };
+
+  const handlePracticeCreated = async () => {
+    await handleComplete(onboardingData);
   };
 
   const handleComplete = async (data?: OnboardingFormData) => {
@@ -161,17 +187,30 @@ export const OnboardingFlow = ({
 
   const resolvedTestId = testId ?? 'onboarding-flow';
 
+  const derivedPracticeName = (() => {
+    const candidate = (onboardingData.personalInfo.fullName ?? sessionUserName).trim();
+    return candidate.length > 0 ? `${candidate}'s Practice` : '';
+  })();
+
   return (
     <div
       className={`h-full bg-transparent flex flex-col ${className}`}
       data-testid={resolvedTestId}
     >
-      <PersonalInfoStep
-        data={onboardingData.personalInfo}
-        isSubmitting={isSubmitting}
-        requireName={requiresNameCollection}
-        onComplete={async (data) => await handleStepComplete({ personalInfo: data })}
-      />
+      {step === 'personal' ? (
+        <PersonalInfoStep
+          data={onboardingData.personalInfo}
+          isSubmitting={isSubmitting}
+          requireName={requiresNameCollection}
+          onComplete={async (data) => await handlePersonalInfoComplete({ personalInfo: data })}
+        />
+      ) : (
+        <PracticeNameStep
+          defaultName={derivedPracticeName}
+          isSubmitting={isSubmitting}
+          onComplete={handlePracticeCreated}
+        />
+      )}
     </div>
   );
 };
