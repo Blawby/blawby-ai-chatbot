@@ -1089,7 +1089,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
     const commonProps = {
       org: {
         id: currentPractice?.id,
-        slug: currentPractice?.slug,
+        slug: currentPractice?.slug || practiceSlug,
         name: sidebarOrg.name,
         initial: sidebarOrg.initial,
         subtitle: sidebarOrg.plan,

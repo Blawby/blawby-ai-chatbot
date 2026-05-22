@@ -82,6 +82,7 @@ export const OrgSwitcherMenu: FunctionComponent<OrgSwitcherMenuProps> = ({
   const [isOpen, setIsOpen] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
   const [switchingId, setSwitchingId] = useState<string | null>(null);
+  const switchingRef = useRef(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const orgsHook = useListOrganizations() as { data?: unknown; isPending?: boolean };
   const memberships = unwrapOrgList(orgsHook?.data);
@@ -132,12 +133,14 @@ export const OrgSwitcherMenu: FunctionComponent<OrgSwitcherMenuProps> = ({
 
   const handleSelect = useCallback(
     async (membership: MembershipRecord) => {
+      if (switchingRef.current) return;
       const targetId = typeof membership.id === 'string' ? membership.id : null;
       if (!targetId) return;
       if (targetId === org.id) {
         setIsOpen(false);
         return;
       }
+      switchingRef.current = true;
       setSwitchingId(targetId);
       try {
         await authClient.organization.setActive({ organizationId: targetId });
@@ -155,6 +158,7 @@ export const OrgSwitcherMenu: FunctionComponent<OrgSwitcherMenuProps> = ({
         // the user can retry without losing context.
         console.warn('[OrgSwitcherMenu] Failed to switch active organization', error);
       } finally {
+        switchingRef.current = false;
         setSwitchingId(null);
       }
     },
@@ -213,7 +217,7 @@ export const OrgSwitcherMenu: FunctionComponent<OrgSwitcherMenuProps> = ({
                 const id = membership.id ?? '';
                 const isActive = id === org.id;
                 const name = membership.name ?? 'Untitled practice';
-                const isSwitching = switchingId === id;
+                const isSwitching = switchingId !== null;
                 return (
                   <li key={id || name}>
                     <button

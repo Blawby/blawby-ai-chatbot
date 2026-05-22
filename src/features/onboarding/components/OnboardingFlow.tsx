@@ -101,7 +101,7 @@ export const OnboardingFlow = ({
     return [];
   }, [orgsHook?.data]);
   const membershipsLoading = Boolean(orgsHook?.isPending) && memberships.length === 0;
-  const needsPracticeStep = !membershipsLoading && memberships.length === 0;
+  const needsPracticeStep = membershipsLoading || memberships.length === 0;
 
   const handlePersonalInfoComplete = async (data: Partial<OnboardingFormData>) => {
     const mergedData = {

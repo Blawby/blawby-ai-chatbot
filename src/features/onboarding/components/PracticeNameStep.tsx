@@ -8,6 +8,7 @@ import { LoadingSpinner } from '@/shared/ui/layout/LoadingSpinner';
 import { z } from 'zod';
 import { authClient, getSession } from '@/shared/lib/authClient';
 import { useToastContext } from '@/shared/contexts/ToastContext';
+import { slugify, unwrapCreated, type CreatedOrg } from '@/shared/lib/orgCreation';
 
 interface PracticeNameData extends FormData {
   practiceName: string;
@@ -19,26 +20,6 @@ const practiceNameSchema = z.object({
     .min(2, 'Practice name must be at least 2 characters')
     .max(120, 'Practice name is too long'),
 });
-
-const slugify = (name: string): string =>
-  name
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '');
-
-type CreatedOrg = { id?: string | null; slug?: string | null; name?: string | null };
-
-const unwrapCreated = (result: unknown): CreatedOrg | null => {
-  if (!result || typeof result !== 'object') return null;
-  const record = result as Record<string, unknown>;
-  const data = (record.data ?? result) as Record<string, unknown> | null;
-  if (!data || typeof data !== 'object') return null;
-  return {
-    id: typeof data.id === 'string' ? data.id : null,
-    slug: typeof data.slug === 'string' ? data.slug : null,
-    name: typeof data.name === 'string' ? data.name : null,
-  };
-};
 
 interface PracticeNameStepProps {
   /** Default value (e.g. derived from the user's full name). */
@@ -56,6 +37,7 @@ const PracticeNameStep = ({
   const { showError } = useToastContext();
   const [localSubmitting, setLocalSubmitting] = useState(false);
   const mountedRef = useRef(true);
+  const submittingRef = useRef(false);
 
   useEffect(() => {
     mountedRef.current = true;
@@ -65,10 +47,15 @@ const PracticeNameStep = ({
   }, []);
 
   const handleSubmit = async (formData: PracticeNameData) => {
-    if (parentSubmitting || localSubmitting) return;
+    if (parentSubmitting || submittingRef.current) return;
+    submittingRef.current = true;
     setLocalSubmitting(true);
     try {
       const name = formData.practiceName.trim();
+      if (!name) {
+        showError('Practice name is required', 'Enter a practice name to continue.');
+        return;
+      }
       const proposedSlug = slugify(name);
       const created = unwrapCreated(
         await authClient.organization.create({
@@ -89,6 +76,7 @@ const PracticeNameStep = ({
       const message = error instanceof Error ? error.message : 'Please try again.';
       showError('Could not create practice', message);
     } finally {
+      submittingRef.current = false;
       if (mountedRef.current) {
         setLocalSubmitting(false);
       }

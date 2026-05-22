@@ -237,10 +237,6 @@ function AppShell() {
     Boolean(session?.user) &&
     !session?.user?.is_anonymous &&
     session?.user?.onboarding_complete !== true;
-  const completedOnboarding =
-    Boolean(session?.user) &&
-    !session?.user?.is_anonymous &&
-    session?.user?.onboarding_complete === true;
   const isPublicRoute = location.path.startsWith('/public/');
   const isAuthRoute = location.path.startsWith('/auth');
   const isPricingRoute = location.path.startsWith('/pricing');

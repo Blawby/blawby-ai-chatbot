@@ -79,7 +79,12 @@ const PracticeHomePage = () => {
   // showing the previous org's name (see feat/org-switcher 2026-05-22).
   const urlPracticeSlug = useMemo(() => {
     const match = location.path.match(/^\/practice\/([^/]+)/);
-    return match ? decodeURIComponent(match[1]) : null;
+    if (!match) return null;
+    try {
+      return decodeURIComponent(match[1]);
+    } catch {
+      return null;
+    }
   }, [location.path]);
   const { currentPractice, practices } = useWorkspaceResolver({
     practiceSlug: urlPracticeSlug,

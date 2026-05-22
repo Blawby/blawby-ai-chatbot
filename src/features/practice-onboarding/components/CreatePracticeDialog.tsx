@@ -1,4 +1,4 @@
-import { useState } from 'preact/hooks';
+import { useRef, useState } from 'preact/hooks';
 import { useToastContext } from '@/shared/contexts/ToastContext';
 import { Dialog } from '@/shared/ui/dialog/Dialog';
 import { DialogBody } from '@/shared/ui/dialog/DialogBody';
@@ -8,30 +8,7 @@ import { Button } from '@/shared/ui/Button';
 import { LoadingSpinner } from '@/shared/ui/layout/LoadingSpinner';
 import { useNavigation } from '@/shared/utils/navigation';
 import { authClient, getSession } from '@/shared/lib/authClient';
-
-type CreatedOrg = {
-  id?: string | null;
-  slug?: string | null;
-  name?: string | null;
-};
-
-const slugify = (name: string): string =>
-  name
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '');
-
-const unwrapCreated = (result: unknown): CreatedOrg | null => {
-  if (!result || typeof result !== 'object') return null;
-  const record = result as Record<string, unknown>;
-  const data = (record.data ?? result) as Record<string, unknown> | null;
-  if (!data || typeof data !== 'object') return null;
-  return {
-    id: typeof data.id === 'string' ? data.id : null,
-    slug: typeof data.slug === 'string' ? data.slug : null,
-    name: typeof data.name === 'string' ? data.name : null,
-  };
-};
+import { slugify, unwrapCreated, type CreatedOrg } from '@/shared/lib/orgCreation';
 
 interface CreatePracticeDialogProps {
   isOpen: boolean;
@@ -45,6 +22,7 @@ export const CreatePracticeDialog = ({ isOpen, onClose, onCreated }: CreatePract
   const { navigate } = useNavigation();
   const [name, setName] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const submittingRef = useRef(false);
 
   const handleClose = () => {
     if (submitting) return;
@@ -54,11 +32,13 @@ export const CreatePracticeDialog = ({ isOpen, onClose, onCreated }: CreatePract
 
   const handleSubmit = async (event?: Event) => {
     event?.preventDefault();
+    if (submittingRef.current) return;
     const trimmed = name.trim();
     if (trimmed.length < 2) {
       showError('Practice name is too short', 'Use at least 2 characters.');
       return;
     }
+    submittingRef.current = true;
     setSubmitting(true);
     try {
       const proposedSlug = slugify(trimmed);
@@ -91,6 +71,7 @@ export const CreatePracticeDialog = ({ isOpen, onClose, onCreated }: CreatePract
       const message = error instanceof Error ? error.message : 'Please try again.';
       showError('Could not create practice', message);
     } finally {
+      submittingRef.current = false;
       setSubmitting(false);
     }
   };
