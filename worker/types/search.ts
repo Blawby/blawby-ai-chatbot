@@ -77,8 +77,14 @@ export type SearchDidYouMean = {
   score: number;
 };
 
+export type SearchSuggestion = {
+  query: string;
+  source: 'user' | 'practice';
+};
+
 export type SearchEnvelope = {
   groups: SearchGroup[];
+  suggestions: SearchSuggestion[];
   queryLogId?: string;
   didYouMean?: SearchDidYouMean;
   debug?: {
