@@ -4,11 +4,11 @@ import { PageHeader } from '@/shared/ui/layout/PageHeader';
 import { Page } from '@/shared/ui/layout/Page';
 import { WorkspacePlaceholderState } from '@/shared/ui/layout/WorkspacePlaceholderState';
 import { Button } from '@/shared/ui/Button';
-import { CurrencyInput, Input } from '@/shared/ui/input';
+import { CurrencyInput, Input, SegmentedToggle } from '@/shared/ui/input';
 import { DataTable, type DataTableColumn, type DataTableRow } from '@/shared/ui/table/DataTable';
 import { type TimelineItem, type TimelinePerson } from '@/shared/ui/activity/ActivityTimeline';
 import { Dialog, DialogBody } from '@/shared/ui/dialog';
-import { Folder, SquarePen, Plus, Search } from 'lucide-preact';
+import { Folder, SquarePen, Plus } from 'lucide-preact';
 import { formatRelativeTime } from '@/features/matters/utils/formatRelativeTime';
 
 import { MATTER_STATUS_LABELS, type MatterStatus } from '@/shared/types/matterStatus';
@@ -36,7 +36,6 @@ import { usePracticeTeam } from '@/shared/hooks/usePracticeTeam';
 import { usePracticeDetails } from '@/shared/hooks/usePracticeDetails';
 import { asMajor, getMajorAmountValue, safeDivide, safeMultiply, type MajorAmount } from '@/shared/utils/money';
 import { formatCurrency } from '@/shared/utils/currencyFormatter';
-import { cn } from '@/shared/utils/cn';
 import {
   deleteMatter,
   getMatter,
@@ -385,27 +384,18 @@ export const PracticeMattersPage = ({
   const [detailError, setDetailError] = useState<string | null>(null);
 
   // ── List view state ──────────────────────────────────────────────────────
-  const [matterSearchQuery, setMatterSearchQuery] = useState('');
   const [matterCategoryFilter, setMatterCategoryFilter] = useState<MatterFilterCategory>('all');
   const [isShortcutsHelpOpen, setIsShortcutsHelpOpen] = useState(false);
 
   // ── Keyboard shortcuts ───────────────────────────────────────────────────
-  // N = new matter, / = focus search, Esc = clear search/filter, ? = show help.
-  // Esc bubbles even from inside the search input (clear-and-blur). Other shortcuts
-  // are skipped while the user is typing so character entry isn't hijacked.
+  // N = new matter, Esc = reset mobile filter, ? = show help. Shortcuts are
+  // skipped while the user is typing so character entry isn't hijacked.
   // Mirrors the Cmd+K pattern in CommandPaletteContext.
   useEffect(() => {
     const handler = (event: KeyboardEvent) => {
       if (event.metaKey || event.ctrlKey || event.altKey) return;
 
       if (event.key === 'Escape') {
-        if (matterSearchQuery) {
-          event.preventDefault();
-          setMatterSearchQuery('');
-          const active = document.activeElement as HTMLElement | null;
-          if (active && active.getAttribute('aria-label') === 'Search matters') active.blur();
-          return;
-        }
         if (matterCategoryFilter !== 'all') {
           event.preventDefault();
           setMatterCategoryFilter('all');
@@ -426,14 +416,6 @@ export const PracticeMattersPage = ({
         navigate(`${basePath}/new?returnTo=${encodeURIComponent(location.url)}`);
         return;
       }
-      if (event.key === '/') {
-        const searchInput = document.querySelector<HTMLInputElement>('input[aria-label="Search matters"]');
-        if (searchInput) {
-          event.preventDefault();
-          searchInput.focus();
-        }
-        return;
-      }
       if (event.key === '?') {
         event.preventDefault();
         setIsShortcutsHelpOpen(true);
@@ -441,7 +423,7 @@ export const PracticeMattersPage = ({
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, [activePracticeId, navigate, basePath, location.url, matterSearchQuery, matterCategoryFilter]);
+  }, [activePracticeId, navigate, basePath, location.url, matterCategoryFilter]);
 
   // ── Activity / notes ──────────────────────────────────────────────────────
   const [activityRecords, setActivityRecords] = useState<BackendMatterActivity[]>([]);
@@ -2117,17 +2099,9 @@ export const PracticeMattersPage = ({
   const handleNewMatter = () => navigate(`${basePath}/new?returnTo=${encodeURIComponent(location.url)}`);
   const showLoading = mattersLoading || clientsLoading;
 
-  const normalizedSearch = matterSearchQuery.trim().toLowerCase();
-  const filteredByCategory = matterCategoryFilter === 'all'
+  const filteredMatterSummaries = matterCategoryFilter === 'all'
     ? sortedMatterSummaries
     : sortedMatterSummaries.filter((matter) => matterStatusCategory(matter.status) === matterCategoryFilter);
-  const filteredMatterSummaries = normalizedSearch
-    ? filteredByCategory.filter((matter) =>
-      matter.title.toLowerCase().includes(normalizedSearch)
-        || matter.clientName.toLowerCase().includes(normalizedSearch)
-        || (matter.practiceArea?.toLowerCase().includes(normalizedSearch) ?? false)
-    )
-    : filteredByCategory;
 
   const headerCellClassName = 'text-xs font-medium text-input-placeholder';
   const tableColumns: DataTableColumn[] = [
@@ -2159,9 +2133,7 @@ export const PracticeMattersPage = ({
 
   const showEmpty = !showLoading && !mattersError && sortedMatterSummaries.length === 0;
   const showFilteredEmpty = !showLoading && !mattersError && sortedMatterSummaries.length > 0 && filteredMatterSummaries.length === 0;
-  const filteredEmptyMessage = normalizedSearch
-    ? `No matters match “${matterSearchQuery}”.`
-    : (() => {
+  const filteredEmptyMessage = (() => {
       switch (matterCategoryFilter) {
         case 'new': return 'No new matters waiting.';
         case 'active': return 'No active matters right now. Quiet day.';
@@ -2188,13 +2160,17 @@ export const PracticeMattersPage = ({
         </div>
       )}
 
-      <header className="flex flex-wrap items-center justify-between gap-3 px-6 py-4">
-        <div className="flex items-baseline gap-2">
-          <h1 className="text-2xl font-semibold tracking-tight text-input-text">Matters</h1>
-          <span className="text-sm tabular-nums text-input-placeholder">
-            {sortedMatterSummaries.length}
-          </span>
-        </div>
+      <header className="flex flex-wrap items-center justify-between gap-3 px-6 py-3">
+        <SegmentedToggle<MatterFilterCategory>
+          value={matterCategoryFilter}
+          options={MATTER_FILTER_CATEGORIES.map((category) => ({
+            value: category.id,
+            label: category.label,
+          }))}
+          onChange={setMatterCategoryFilter}
+          ariaLabel="Filter matters by status"
+          className="w-full sm:w-auto sm:min-w-[32rem]"
+        />
         <div className="flex items-center gap-2">
           <button
             type="button"
@@ -2218,50 +2194,6 @@ export const PracticeMattersPage = ({
           </Button>
         </div>
       </header>
-
-      <div className="flex flex-wrap items-center gap-3 px-6 py-3">
-        <div className="relative min-w-0 flex-1">
-          <Input
-            type="search"
-            placeholder="Search matters..."
-            value={matterSearchQuery}
-            onChange={setMatterSearchQuery}
-            size="sm"
-            className="!pl-9"
-            aria-label="Search matters"
-          />
-          <Search
-            aria-hidden="true"
-            className="pointer-events-none absolute left-3 top-1/2 z-10 h-4 w-4 -translate-y-1/2 text-input-text/80"
-          />
-          <kbd className="pointer-events-none absolute right-3 top-1/2 z-10 hidden -translate-y-1/2 rounded border border-line-utility bg-surface-card-hover px-1.5 py-0.5 text-[10px] font-medium text-input-placeholder md:inline">
-            /
-          </kbd>
-        </div>
-        <div role="tablist" aria-label="Filter matters by status" className="flex flex-wrap items-center gap-1.5">
-          {MATTER_FILTER_CATEGORIES.map((category) => {
-            const isSelected = matterCategoryFilter === category.id;
-            return (
-              <button
-                key={category.id}
-                type="button"
-                role="tab"
-                aria-selected={isSelected}
-                onClick={() => setMatterCategoryFilter(category.id)}
-                className={cn(
-                  'inline-flex items-center rounded-full px-3 py-1.5 text-sm font-medium transition-colors duration-150',
-                  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-500/50',
-                  isSelected
-                    ? 'bg-accent-soft text-input-text shadow-[inset_0_0_0_1px_rgb(var(--accent-border))]'
-                    : 'text-input-placeholder hover:bg-surface-card-hover hover:text-input-text'
-                )}
-              >
-                {category.label}
-              </button>
-            );
-          })}
-        </div>
-      </div>
 
       <div className="min-h-0 flex-1 overflow-auto px-6 pb-6">
         {showEmpty ? (
@@ -2293,8 +2225,7 @@ export const PracticeMattersPage = ({
             <ul className="space-y-2.5">
               {[
                 { key: 'N', desc: 'Create a new matter' },
-                { key: '/', desc: 'Focus search' },
-                { key: 'Esc', desc: 'Clear search or reset filter' },
+                { key: 'Esc', desc: 'Reset mobile filter' },
                 { key: '?', desc: 'Show this help' },
                 { key: '⌘ K', desc: 'Open command palette (or Ctrl + K)' },
               ].map((s) => (

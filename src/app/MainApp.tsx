@@ -85,7 +85,6 @@ export function MainApp({
   routeIntakeId: _routeIntakeId,
   routeSettingsView,
   routeSettingsAppId,
-  routeSettingsIntakeTemplateSlug,
   publicPracticeSlug,
   workspaceView,
   clientPracticeSlug,
@@ -103,7 +102,6 @@ export function MainApp({
   routeIntakeId?: string;
   routeSettingsView?: SettingsView;
   routeSettingsAppId?: string;
-  routeSettingsIntakeTemplateSlug?: string;
   publicPracticeSlug?: string;
   workspaceView?: WorkspaceView;
   clientPracticeSlug?: string;
@@ -878,7 +876,6 @@ export function MainApp({
       workspace={workspace}
       settingsView={routeSettingsView}
       settingsAppId={routeSettingsAppId}
-      settingsIntakeTemplateSlug={routeSettingsIntakeTemplateSlug}
       onStartNewConversation={handleStartNewConversation}
       activeConversationId={activeConversationId}
       intakeConversationState={intakeConversationState}
@@ -1092,11 +1089,10 @@ export function MainApp({
       }
       intakesView={
         isPracticeWorkspace
-          ? (activeFilter) => (
+          ? () => (
             <LazyRouteBoundary>
               <IntakesPage
                 practiceId={practiceId}
-                activeTriageFilter={activeFilter}
                 basePath={practiceIntakesPath ?? '/practice/intakes'}
                 conversationsBasePath={conversationsBasePath}
                 engagementsBasePath={practiceEngagementsPath}
@@ -1118,7 +1114,7 @@ export function MainApp({
       }
       engagementsView={
         isPracticeWorkspace
-          ? (activeFilter) => (
+          ? () => (
             <LazyRouteBoundary>
               <EngagementsPage
                 practiceId={practiceId}
@@ -1126,7 +1122,6 @@ export function MainApp({
                 conversationsBasePath={conversationsBasePath}
                 practiceName={resolvedPracticeName}
                 practiceLogo={resolvedPracticeLogo}
-                activeStatusFilter={activeFilter}
               />
             </LazyRouteBoundary>
           )

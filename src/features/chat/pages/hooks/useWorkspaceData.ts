@@ -9,13 +9,6 @@ import { formatRelativeTime } from '@/features/matters/utils/formatRelativeTime'
 import { listClientInvoices, listInvoices } from '@/features/invoices/services/invoicesService';
 import type { ComboboxOption } from '@/shared/ui/input';
 import type { UserDetailStatus } from '@/shared/lib/apiClient';
-import {
-  CLIENT_INVOICES_FILTER_MAP,
-  CLIENT_MATTERS_FILTER_MAP,
-  MATTERS_FILTER_MAP,
-  PRACTICE_INVOICES_FILTER_MAP,
-} from '@/shared/config/navConfig';
-
 const toBillingTypeLabel = (value?: string | null) => {
   if (!value) return null;
   return value.replace(/_/g, ' ').replace(/\b\w/g, (letter) => letter.toUpperCase());
@@ -39,36 +32,14 @@ export function useWorkspaceData({
   isClientWorkspace,
   view,
   layoutMode,
-  workspaceSection,
-  activeSecondaryFilter,
   selectedMatterIdFromPath,
   sessionUserId,
 }: UseWorkspaceDataInput) {
-  const mattersStatusFilter = useMemo<string[]>(() => {
-    if (workspaceSection !== 'matters') return [];
-    if (!activeSecondaryFilter) return [];
-    if (isPracticeWorkspace) {
-      return MATTERS_FILTER_MAP[activeSecondaryFilter] ?? [];
-    }
-    if (isClientWorkspace) {
-      return CLIENT_MATTERS_FILTER_MAP[activeSecondaryFilter] ?? [];
-    }
-    return [];
-  }, [activeSecondaryFilter, isClientWorkspace, isPracticeWorkspace, workspaceSection]);
+  const mattersStatusFilter = useMemo<string[]>(() => [], []);
 
   const contactsStatusFilter = useMemo<UserDetailStatus | null>(() => null, []);
 
-  const invoicesStatusFilter = useMemo<string[]>(() => {
-    if (workspaceSection !== 'invoices') return [];
-    if (!activeSecondaryFilter) return [];
-    if (isPracticeWorkspace) {
-      return PRACTICE_INVOICES_FILTER_MAP[activeSecondaryFilter] ?? [];
-    }
-    if (isClientWorkspace) {
-      return CLIENT_INVOICES_FILTER_MAP[activeSecondaryFilter] ?? [];
-    }
-    return [];
-  }, [activeSecondaryFilter, isClientWorkspace, isPracticeWorkspace, workspaceSection]);
+  const invoicesStatusFilter = useMemo<string[]>(() => [], []);
 
   // Always fetch the full unfiltered matters list so the inspector can use it.
   // The mattersStore handles deduplication — this fires once and caches.

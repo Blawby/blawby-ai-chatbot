@@ -841,9 +841,9 @@ export function usePracticeManagement(options: UsePracticeManagementOptions = {}
     }
 
     const response = await apiUpdatePractice(id, payload);
-    const mergedResponse: Record<string, unknown> = {
-      ...(existingPractice ?? {}),
-      ...(response as unknown as Record<string, unknown>)
+    const mergedResponse: Practice = {
+      ...(existingPractice ?? response),
+      ...response,
     };
     if (
       existingPractice?.slug &&

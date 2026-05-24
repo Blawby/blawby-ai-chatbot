@@ -117,6 +117,7 @@ export function useWorkspaceNavigation({
     selectedContactIdFromPath,
     contactsRouteKind,
     reportSectionFromPath,
+    intakeSectionFromPath,
   } = useMemo(() => getWorkspaceRouteState({
     view,
     path: location.path,
@@ -178,8 +179,9 @@ export function useWorkspaceNavigation({
     view,
     contactsRouteKind,
     reportSectionFromPath,
+    intakeSectionFromPath,
     navSecondary: navConfig.secondary,
-  }), [workspaceSection, isPracticeWorkspace, view, contactsRouteKind, reportSectionFromPath, navConfig.secondary]);
+  }), [workspaceSection, isPracticeWorkspace, view, contactsRouteKind, reportSectionFromPath, intakeSectionFromPath, navConfig.secondary]);
 
   const activeSecondaryFilter = useMemo(() => getWorkspaceActiveSecondaryFilter({
     workspaceSection,
@@ -187,9 +189,10 @@ export function useWorkspaceNavigation({
     view,
     contactsRouteKind,
     reportSectionFromPath,
+    intakeSectionFromPath,
     secondaryFilterBySection,
     defaultSecondaryFilterId,
-  }), [workspaceSection, isPracticeWorkspace, view, contactsRouteKind, reportSectionFromPath, secondaryFilterBySection, defaultSecondaryFilterId]);
+  }), [workspaceSection, isPracticeWorkspace, view, contactsRouteKind, reportSectionFromPath, intakeSectionFromPath, secondaryFilterBySection, defaultSecondaryFilterId]);
 
   const handleSecondaryFilterSelect = useCallback((id: string) => {
     if (workspaceSection === 'settings') return;
@@ -218,7 +221,7 @@ export function useWorkspaceNavigation({
       return;
     }
     if (workspaceSection === 'intakes') {
-      navigate(`${basePath}/intakes/responses`);
+      navigate(id === 'forms' ? `${basePath}/intakes/forms` : `${basePath}/intakes/responses`);
       setSecondaryFilterBySection((prev) => ({ ...prev, [workspaceSection]: id }));
       return;
     }

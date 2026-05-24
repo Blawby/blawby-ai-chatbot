@@ -1,11 +1,10 @@
 import { FunctionComponent, type ComponentChildren } from 'preact';
-import { useCallback, useEffect, useMemo, useState } from 'preact/hooks';
+import { useCallback, useState } from 'preact/hooks';
 import { useLocation } from 'preact-iso';
-import { Briefcase, Plus, Search } from 'lucide-preact';
+import { Briefcase, Plus } from 'lucide-preact';
 
 import { Button } from '@/shared/ui/Button';
-import { Input } from '@/shared/ui/input';
-import { Tabs, type TabItem } from '@/shared/ui/tabs/Tabs';
+import { SegmentedToggle } from '@/shared/ui/input/SegmentedToggle';
 import { DataTable, type DataTableColumn, type DataTableRow } from '@/shared/ui/table/DataTable';
 import { WorkspacePlaceholderState } from '@/shared/ui/layout/WorkspacePlaceholderState';
 import { InfiniteScroll } from '@/shared/ui/layout/InfiniteScroll';
@@ -38,13 +37,6 @@ const STATUS_FILTERS: ReadonlyArray<{ id: StatusFilter; label: string }> = [
   { id: 'accepted', label: 'Accepted' },
   { id: 'declined', label: 'Declined' },
 ];
-
-const normalizeStatusFilter = (value: string | null | undefined): StatusFilter => {
-  if (value === 'draft' || value === 'sent' || value === 'accepted' || value === 'declined') {
-    return value;
-  }
-  return 'all';
-};
 
 const resolveQueryValue = (value: string | string[] | null | undefined): string | null => {
   if (Array.isArray(value)) return value[0] ?? null;
@@ -106,15 +98,6 @@ const getRetainerLabel = (fees: ProposalFees | null | undefined): string => {
   return '$0';
 };
 
-const matchesSearch = (item: EngagementListItem, query: string): boolean => {
-  if (!query) return true;
-  const q = query.toLowerCase();
-  const name = (item.client_name ?? '').toLowerCase();
-  const email = (item.client_email ?? '').toLowerCase();
-  const matter = getMatterLabel(item).toLowerCase();
-  return name.includes(q) || email.includes(q) || matter.includes(q);
-};
-
 // ── Mobile card ──────────────────────────────────────────────────────────────
 
 const EngagementMobileCard: FunctionComponent<{
@@ -160,7 +143,6 @@ type EngagementsPageProps = {
   conversationsBasePath?: string | null;
   practiceName: string;
   practiceLogo: string | null;
-  activeStatusFilter?: string | null;
 };
 
 export const EngagementsPage: FunctionComponent<EngagementsPageProps> = ({
@@ -169,7 +151,6 @@ export const EngagementsPage: FunctionComponent<EngagementsPageProps> = ({
   conversationsBasePath,
   practiceName,
   practiceLogo,
-  activeStatusFilter = null,
 }) => {
   const location = useLocation();
 
@@ -179,16 +160,7 @@ export const EngagementsPage: FunctionComponent<EngagementsPageProps> = ({
   const detailMode: 'view' | 'edit' = pathSegments[1] === 'edit' ? 'edit' : 'view';
   const queryIntakeId = resolveQueryValue(location.query?.intakeId);
 
-  const sidebarTab = normalizeStatusFilter(activeStatusFilter);
-  const [activeTab, setActiveTab] = useState<StatusFilter>(sidebarTab);
-  useEffect(() => { setActiveTab(sidebarTab); }, [sidebarTab]);
-
-  const [searchInput, setSearchInput] = useState('');
-  const [searchQuery, setSearchQuery] = useState('');
-  useEffect(() => {
-    const timer = setTimeout(() => setSearchQuery(searchInput.trim()), 200);
-    return () => clearTimeout(timer);
-  }, [searchInput]);
+  const [activeTab, setActiveTab] = useState<StatusFilter>('all');
 
   const [refreshCounter, setRefreshCounter] = useState(0);
 
@@ -226,11 +198,6 @@ export const EngagementsPage: FunctionComponent<EngagementsPageProps> = ({
     },
     deps: [practiceId, activeTab, refreshCounter],
   });
-
-  const filteredEngagements = useMemo(
-    () => engagements.filter((item) => matchesSearch(item, searchQuery)),
-    [engagements, searchQuery],
-  );
 
   const handleSelectEngagement = useCallback((engagement: EngagementListItem) => {
     location.route(`${basePath}/${encodeURIComponent(engagement.id)}`);
@@ -304,7 +271,7 @@ export const EngagementsPage: FunctionComponent<EngagementsPageProps> = ({
     { id: 'retainer', label: 'Retainer', headerClassName: headerCellClass, align: 'right' },
   ];
 
-  const rows: DataTableRow[] = filteredEngagements.map((item) => ({
+  const rows: DataTableRow[] = engagements.map((item) => ({
     id: item.id,
     onClick: () => handleSelectEngagement(item),
     cells: {
@@ -317,62 +284,29 @@ export const EngagementsPage: FunctionComponent<EngagementsPageProps> = ({
     },
   }));
 
-  const tabItems: TabItem[] = STATUS_FILTERS.map((f) => ({ id: f.id, label: f.label }));
-
-  const showEmpty = !isLoading && !error && filteredEngagements.length === 0 && !hasMore;
-  const emptyMessage = searchQuery
-    ? `No engagements match "${searchQuery}".`
-    : activeTab === 'all'
-      ? 'When you accept an intake and begin drafting an engagement letter, it will appear here.'
-      : `No ${activeTab} engagements yet.`;
+  const showEmpty = !isLoading && !error && engagements.length === 0 && !hasMore;
+  const emptyMessage = activeTab === 'all'
+    ? 'When you accept an intake and begin drafting an engagement letter, it will appear here.'
+    : `No ${activeTab} engagements yet.`;
 
   return (
     <div className="flex h-full flex-col min-h-0 bg-surface-workspace">
-      {/* Desktop header */}
-      <header className="hidden md:flex items-center justify-between gap-4 border-b border-line-subtle px-6 py-5">
-        <h1 className="text-xl font-semibold text-input-text">Engagements</h1>
-        <div className="flex items-center gap-3">
-          <div className="w-72">
-            <Input
-              type="search"
-              placeholder="Search engagements…"
-              value={searchInput}
-              onChange={setSearchInput}
-              icon={Search}
-              iconClassName="h-4 w-4"
-            />
-          </div>
-          <Button
-            variant="primary"
-            onClick={handleOpenCreate}
-            disabled={!practiceId}
-            icon={Plus}
-          >
-            New Engagement
-          </Button>
-        </div>
-      </header>
-
-      {/* Tab row */}
-      <div className="border-b border-line-subtle bg-surface-workspace">
-        <Tabs
-          items={tabItems}
-          activeId={activeTab}
-          onChange={(id) => setActiveTab(normalizeStatusFilter(id))}
-          className="px-2 md:px-4"
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line-subtle px-4 py-3 md:px-6">
+        <SegmentedToggle<StatusFilter>
+          value={activeTab}
+          options={STATUS_FILTERS.map((filter) => ({ value: filter.id, label: filter.label }))}
+          onChange={setActiveTab}
+          ariaLabel="Filter engagements by status"
+          className="w-full sm:w-auto sm:min-w-[30rem]"
         />
-      </div>
-
-      {/* Mobile search */}
-      <div className="md:hidden px-4 py-3 border-b border-line-subtle">
-        <Input
-          type="search"
-          placeholder="Search engagements…"
-          value={searchInput}
-          onChange={setSearchInput}
-          icon={Search}
-          iconClassName="h-4 w-4"
-        />
+        <Button
+          variant="primary"
+          onClick={handleOpenCreate}
+          disabled={!practiceId}
+          icon={Plus}
+        >
+          New Engagement
+        </Button>
       </div>
 
       {/* List body */}
@@ -382,9 +316,9 @@ export const EngagementsPage: FunctionComponent<EngagementsPageProps> = ({
         ) : showEmpty ? (
           <WorkspacePlaceholderState
             icon={Briefcase}
-            title={searchQuery ? 'No results' : 'No engagements yet'}
+            title="No engagements yet"
             description={emptyMessage}
-            primaryAction={searchQuery ? undefined : { label: 'New Engagement', onClick: handleOpenCreate, icon: Plus, disabled: !practiceId }}
+            primaryAction={{ label: 'New Engagement', onClick: handleOpenCreate, icon: Plus, disabled: !practiceId }}
             className="p-8"
           />
         ) : (
@@ -406,7 +340,7 @@ export const EngagementsPage: FunctionComponent<EngagementsPageProps> = ({
 
             {/* Mobile cards */}
             <div className="md:hidden">
-              {isLoading && filteredEngagements.length === 0 ? (
+              {isLoading && engagements.length === 0 ? (
                 <div className="flex flex-col gap-3 px-4 py-3">
                   {Array.from({ length: 5 }).map((_, i) => (
                     <div key={`skeleton-${i}`} className="h-32 rounded-xl bg-surface-card animate-pulse" />
@@ -419,7 +353,7 @@ export const EngagementsPage: FunctionComponent<EngagementsPageProps> = ({
                   loading={isLoadingMore}
                   onLoadMore={loadMore}
                 >
-                  {filteredEngagements.map((item) => (
+                  {engagements.map((item) => (
                     <EngagementMobileCard
                       key={item.id}
                       item={item}

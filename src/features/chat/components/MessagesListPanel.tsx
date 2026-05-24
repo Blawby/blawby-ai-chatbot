@@ -41,9 +41,7 @@ interface MessagesListPanelProps {
   draftEntry?: { contactName?: string; contactEmail?: string } | null;
   onSelectDraftEntry?: () => void;
   activeConversationId?: string | null;
-  /** Optional segmented filter (mobile tab bar). Pass to render
-   *  segmented tabs above the search input — typically only on mobile where
-   *  the sidebar's secondary-nav filters aren't visible. */
+  /** Optional segmented filter rendered above search. */
   tabs?: MessagesListPanelTabs<string> | null;
 }
 

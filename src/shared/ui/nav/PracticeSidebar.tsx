@@ -88,9 +88,11 @@ export const PracticeSidebar = ({
     return undefined;
   };
 
-  if (workspaceSection === 'reports' || workspaceSection === 'invoices') {
+  if (workspaceSection === 'reports' || workspaceSection === 'intakes') {
     const sections = navConfig.secondary ?? [];
-    const sectionLabel = workspaceSection === 'reports' ? 'Reports' : 'Invoices';
+    const sectionLabel = workspaceSection === 'reports'
+      ? 'Reports'
+      : 'Intakes';
     return (
       <Sidebar
         activeItemId={activeItemId}
@@ -318,4 +320,3 @@ export const PracticeSidebar = ({
     </Sidebar>
   );
 };
-

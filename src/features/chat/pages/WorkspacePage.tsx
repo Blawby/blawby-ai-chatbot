@@ -104,7 +104,6 @@ interface WorkspacePageProps {
   workspace?: 'public' | 'practice' | 'client';
   settingsView?: SettingsView;
   settingsAppId?: string;
-  settingsIntakeTemplateSlug?: string;
   routeInvoiceId?: string | null;
   routeReportDeliveryId?: string | null;
   onStartNewConversation: (
@@ -143,8 +142,8 @@ interface WorkspacePageProps {
   invoicesView?: ComponentChildren | ((statusFilter: string[], onDetailInspector?: (() => void), detailInspectorOpen?: boolean, detailHeaderLeadingAction?: ComponentChildren) => ComponentChildren);
   invoicesListContent?: ComponentChildren | ((statusFilter: string[]) => ComponentChildren);
   reportsView?: ComponentChildren | ((title: string, reportType: string, deliveryId: string | null) => ComponentChildren);
-  intakesView?: ComponentChildren | ((activeFilter: string | null) => ComponentChildren);
-  engagementsView?: ComponentChildren | ((activeFilter: string | null) => ComponentChildren);
+  intakesView?: ComponentChildren | (() => ComponentChildren);
+  engagementsView?: ComponentChildren | (() => ComponentChildren);
   filesView?: ComponentChildren;
   primaryCreateAction?: WorkspacePrimaryCreateAction | null;
   mockConversations?: Conversation[] | null;
@@ -204,7 +203,6 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
   workspace = 'public',
   settingsView = 'general',
   settingsAppId,
-  settingsIntakeTemplateSlug,
   routeInvoiceId: _,
   routeReportDeliveryId,
   onStartNewConversation,
@@ -1036,23 +1034,20 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
     coverage: 'Coverage',
   };
   const baseHeaderTitle = SECTION_TITLES[workspaceSection] ?? 'Home';
+  const sectionHeaderTitle = workspaceSection === 'intakes'
+    ? activeSecondaryFilter === 'forms' ? 'Forms' : 'Responses'
+    : baseHeaderTitle;
   // Reflect draft state in the shell header so the user has a clear visual
   // anchor for "I'm composing a new conversation" — important on mobile where
   // the listPanel isn't visible alongside the draft view.
   const draftHeaderLabel = draftConversation
     ? (draftConversation.contactName?.trim() || 'New conversation')
     : null;
-  const headerTitle = draftHeaderLabel ?? baseHeaderTitle;
-  const headerBreadcrumb = orgDisplayName
-    ? draftHeaderLabel
-      ? [orgDisplayName, baseHeaderTitle, draftHeaderLabel]
-      : [orgDisplayName, baseHeaderTitle]
-    : undefined;
+  const headerTitle = draftHeaderLabel ?? sectionHeaderTitle;
   const shellHeader = sidebarOrg ? (
     <WorkspaceShellHeader
       orgInitial={sidebarOrg.initial}
       title={headerTitle}
-      breadcrumb={headerBreadcrumb}
       onMenuClick={() => setIsMobileNavOpen(true)}
       onSearchClick={() => openCommandPalette()}
     />
@@ -1110,8 +1105,6 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
     workspaceSection,
     view,
     isPracticeWorkspace,
-    selectedMatterIdFromPath,
-    isMatterNonListRoute,
     selectedContactIdFromPath,
   });
   // The global WorkspaceShellHeader provides the mobile menu button now, so the
@@ -1169,12 +1162,8 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
     && !mattersDataForView.isLoading
     && !mattersDataForView.error
     && mattersDataForView.items.length === 0;
-  // Pencil oYsFt mobile tab bar — practice mobile sees segmented filters
-  // (Your Messages / Unassigned / All) above the search input. On desktop the
-  // same filters live in the sidebar's secondary nav, so tabs are mobile-only.
-  const mobileMessageTabs = useMemo(() => {
+  const messageFilterTabs = useMemo(() => {
     if (!isPracticeWorkspace) return null;
-    if (layoutMode === 'desktop') return null;
     // Short single-word labels keep all three tabs visible without truncation
     // on a 390-wide viewport ("Your Messages" + "Unassigned" used to overflow).
     const options = [
@@ -1190,7 +1179,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
       options,
       onChange: (next: string) => handleSecondaryFilterSelect(next),
     };
-  }, [isPracticeWorkspace, layoutMode, activeSecondaryFilter, handleSecondaryFilterSelect]);
+  }, [isPracticeWorkspace, activeSecondaryFilter, handleSecondaryFilterSelect]);
 
   const listContent = (
     <MessagesListPanel
@@ -1207,7 +1196,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
         : null}
       onSelectDraftEntry={handleEnterDraftMode}
       activeConversationId={activeConversationId}
-      tabs={mobileMessageTabs}
+      tabs={messageFilterTabs}
     />
   );
   const desktopCreate = layoutMode === 'desktop' ? desktopCreateButton ?? undefined : undefined;
@@ -1225,8 +1214,8 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
       </div>
     </div>
   );
-  const intakesContent = resolveViewContent(intakesView, [activeSecondaryFilter] as const);
-  const engagementsContent = resolveViewContent(engagementsView, [activeSecondaryFilter] as const);
+  const intakesContent = resolveViewContent(intakesView, [] as const);
+  const engagementsContent = resolveViewContent(engagementsView, [] as const);
   const contactsContent = resolveViewContent(
     contactsView,
     [contactsStatusFilter, workspacePrefetchData, toggleDetailInspector, detailInspectorOpen, desktopCreate] as const,
@@ -1260,7 +1249,6 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
       practiceSlug={practiceSlug}
       view={settingsView}
       appId={settingsAppId}
-      intakeTemplateSlug={settingsIntakeTemplateSlug}
       apps={mockApps}
       className="h-full"
     />
@@ -1300,6 +1288,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
             : null}
           onSelectDraftEntry={handleEnterDraftMode}
           activeConversationId={activeConversationId}
+          tabs={messageFilterTabs}
         />
       </Panel>
     </div>
@@ -1307,49 +1296,9 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
   const conversationListPanel = layoutMode === 'desktop' && (view === 'list' || view === 'conversation')
     ? conversationListView
     : undefined;
-  const mobileSectionTitle = (() => {
-    if (view === 'conversation') return null;
-    if (view === 'reports') {
-      return WORKSPACE_REPORT_SECTION_TITLES[activeSecondaryFilter ?? 'all-reports'] ?? WORKSPACE_REPORT_SECTION_TITLES['all-reports'];
-    }
-    switch (view) {
-      case 'list':
-        return 'Messages';
-      case 'intakes':
-        return 'Intakes';
-      case 'intakeDetail':
-        return null;
-      case 'matters':
-        return selectedMatterIdFromPath || isMatterNonListRoute ? null : 'Matters';
-      case 'contacts':
-        return selectedContactIdFromPath ? null : 'Contacts';
-      case 'invoices':
-        return 'Invoices';
-      case 'invoiceCreate':
-      case 'invoiceEdit':
-      case 'invoiceDetail':
-        return null;
-      case 'engagements':
-        return 'Engagements';
-      case 'files':
-        return 'Files';
-      case 'settings':
-        return 'Settings';
-      case 'coverage':
-        return 'Coverage';
-      case 'home':
-        return 'Home';
-      case 'setup':
-        return 'Setup';
-      default:
-        return null;
-    }
-  })();
-  const mobileSectionTopBar = layoutMode !== 'desktop' && view !== 'conversation' && !isIntakeTemplateEditorRoute && (mobileCreateButton || mobileSectionTitle)
+  const mobileSectionTopBar = layoutMode !== 'desktop' && view !== 'conversation' && !isIntakeTemplateEditorRoute && mobileCreateButton
     ? (
       <WorkspaceListHeader
-        title={mobileSectionTitle ? <h1 className="workspace-header__title">{mobileSectionTitle}</h1> : undefined}
-        centerTitle={Boolean(mobileSectionTitle)}
         controls={mobileCreateButton ?? undefined}
         className="px-1 py-1"
       />
@@ -1540,7 +1489,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
   };
 
   // Editor views should be full-page without the persistent app navigation sidebar
-  const isEditorView = (view === 'settings' && settingsView === 'intake-forms-editor') || view === 'invoiceEdit';
+  const isEditorView = (view === 'intakes' && isIntakeTemplateEditorRoute) || view === 'invoiceEdit';
   
   return (
     <>

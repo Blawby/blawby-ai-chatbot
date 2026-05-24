@@ -15,11 +15,6 @@ import {
 } from '@/features/invoices/config/invoiceCollection';
 import { InvoiceListKpiRow } from '@/features/invoices/components/list/InvoiceListKpiRow';
 import {
-  INVOICE_TAB_STATUS_MAP,
-  InvoiceStatusTabs,
-  type InvoiceTabId,
-} from '@/features/invoices/components/list/InvoiceStatusTabs';
-import {
   InvoiceFilterChips,
   type InvoiceListFilterState,
 } from '@/features/invoices/components/list/InvoiceFilterChips';
@@ -29,6 +24,7 @@ import { Panel } from '@/shared/ui/layout/Panel';
 import { WorkspacePlaceholderState } from '@/shared/ui/layout/WorkspacePlaceholderState';
 import { EntityList } from '@/shared/ui/list/EntityList';
 import { Button } from '@/shared/ui/Button';
+import { SegmentedToggle } from '@/shared/ui/input/SegmentedToggle';
 import { usePaginatedList } from '@/shared/hooks/usePaginatedList';
 import { formatCurrency } from '@/shared/utils/currencyFormatter';
 import { formatLongDate } from '@/shared/utils/dateFormatter';
@@ -37,6 +33,21 @@ import { cn } from '@/shared/utils/cn';
 const PAGE_SIZE = 10;
 const STABLE_EMPTY_ARRAY: string[] = [];
 const EMPTY_FILTERS: InvoiceListFilterState = { statuses: [] };
+type InvoiceTabId = 'all' | 'draft' | 'open' | 'pastDue' | 'paid';
+const INVOICE_TAB_STATUS_MAP: Record<InvoiceTabId, string[]> = {
+  all: [],
+  draft: ['draft'],
+  open: ['sent', 'open', 'pending'],
+  pastDue: ['overdue'],
+  paid: ['paid'],
+};
+const INVOICE_TAB_OPTIONS: ReadonlyArray<{ value: InvoiceTabId; label: string }> = [
+  { value: 'all', label: 'All' },
+  { value: 'draft', label: 'Draft' },
+  { value: 'open', label: 'Open' },
+  { value: 'pastDue', label: 'Past due' },
+  { value: 'paid', label: 'Paid' },
+];
 
 const InvoicesEmptyState = ({
   hasFilters,
@@ -246,17 +257,21 @@ export function PracticeInvoicesPage({
     return (
       <div className="flex min-h-0 flex-1 flex-col gap-4 p-4 sm:p-6">
         <InvoiceListKpiRow aggregates={aggregates} />
-        <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
-          <div>
-            <h1 className="text-3xl font-semibold tracking-tight text-input-text">Invoices</h1>
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            {onCreateInvoice ? (
-              <Button onClick={onCreateInvoice}>New Invoice</Button>
-            ) : null}
-          </div>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <SegmentedToggle<InvoiceTabId>
+            value={activeTab}
+            options={INVOICE_TAB_OPTIONS.map((option) => ({
+              ...option,
+              count: aggregates.tabCounts[option.value],
+            }))}
+            onChange={setActiveTab}
+            ariaLabel="Filter invoices by status"
+            className="w-full sm:w-auto sm:min-w-[28rem]"
+          />
+          {onCreateInvoice ? (
+            <Button onClick={onCreateInvoice}>New Invoice</Button>
+          ) : null}
         </div>
-        <InvoiceStatusTabs activeTab={activeTab} onChange={setActiveTab} aggregates={aggregates} />
         <InvoiceFilterChips
           filters={chipFilters}
           onChange={setChipFilters}
