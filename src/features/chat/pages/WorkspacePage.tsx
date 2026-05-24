@@ -1096,7 +1096,6 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
       <PracticeSidebar
         {...commonProps}
         practiceSlug={practiceSlug}
-        services={practiceDetails?.services ?? currentPractice?.services}
         counts={sidebarCounts}
       />
     ) : (

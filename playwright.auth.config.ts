@@ -21,6 +21,7 @@ export default defineConfig({
     /.*chat-messages\.spec\.ts/,
     /.*clients\.spec\.ts/,
     /.*intake-invite\.spec\.ts/,
+    /.*intake-form-templates\.spec\.ts/,
     /.*notifications\.spec\.ts/,
     /.*pricing-gate-membership\.spec\.ts/,
     /.*engagements-create-page\.spec\.ts/,

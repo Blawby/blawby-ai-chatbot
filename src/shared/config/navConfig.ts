@@ -252,7 +252,6 @@ const buildPracticeRail = (basePath: string): NavRailItem[] => [
     icon: CreditCard,
     href: `${basePath}/invoices`,
     matchHrefs: [`${basePath}/invoices`],
-    expandable: true,
     prefetch: prefetchPracticeInvoicesChunk,
   },
   {
@@ -261,7 +260,6 @@ const buildPracticeRail = (basePath: string): NavRailItem[] => [
     icon: TrendingUp,
     href: `${basePath}/reports`,
     matchHrefs: [`${basePath}/reports`],
-    expandable: true,
     prefetch: prefetchReportsChunk,
   },
   {
@@ -270,8 +268,6 @@ const buildPracticeRail = (basePath: string): NavRailItem[] => [
     icon: SettingsNavIcon,
     href: `${basePath}/settings/general`,
     matchHrefs: [`${basePath}/settings`, `${basePath}/coverage`],
-    expandable: true,
-    expandOnly: true,
     prefetch: prefetchSettingsLanding,
   },
 ];
@@ -659,3 +655,4 @@ export function buildSidebarConfig(navConfig: NavConfig, currentSection: Workspa
   });
   return { sections: [{ label: 'Platform', items }] };
 }
+

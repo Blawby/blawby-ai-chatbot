@@ -128,8 +128,6 @@ const PracticeHomePage = () => {
     practiceSlug,
     false,
   );
-  const services = practiceDetails?.services ?? currentPractice?.services;
-
   useEffect(() => {
     if (!currentPractice?.id || hasDetails) return;
     void fetchDetails();
@@ -171,7 +169,6 @@ const PracticeHomePage = () => {
         onItemActivate={() => setMobileSidebarOpen(false)}
         activeItemId="home"
         workspaceSection="home"
-        services={services}
         counts={sidebarCounts}
       />
     ) : null;

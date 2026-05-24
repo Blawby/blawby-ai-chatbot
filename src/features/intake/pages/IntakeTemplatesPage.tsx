@@ -45,6 +45,7 @@ type IntakeTemplatesPageProps = {
   onBack?: () => void;
   practiceId?: string | null;
   basePath?: string;
+  responsesPath?: string;
   routeTemplateSlug?: string | null;
   routeMode?: 'list' | 'detail' | 'editor';
 };
@@ -1994,6 +1995,7 @@ export default function IntakeTemplatesPage({
   onBack: _onBack,
   practiceId = null,
   basePath = '/practice/intakes',
+  responsesPath = '/practice/intakes/responses',
   routeTemplateSlug = null,
   routeMode = 'list',
 }: IntakeTemplatesPageProps) {
@@ -2069,7 +2071,7 @@ export default function IntakeTemplatesPage({
   };
 
   const handleViewResponses = (template: IntakeTemplate) => {
-    navigate(`${basePath}/responses?template=${encodeURIComponent(template.slug)}`);
+    navigate(`${responsesPath}?template=${encodeURIComponent(template.slug)}`);
   };
 
   const handleEdit = (template: IntakeTemplate) => {

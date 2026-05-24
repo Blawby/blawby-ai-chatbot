@@ -272,9 +272,8 @@ export const useChatComposer = ({
       throw new Error('Message cannot be empty.');
     }
 
-    const effectivePracticeId = (practiceIdRef.current ?? '').trim();
+    if (!practiceIdRef.current?.trim()) throw new Error('practiceId is required');
     const activeConversationId = conversationId?.trim() || await ensureConversationId();
-    if (!effectivePracticeId) throw new Error('practiceId is required');
     if (!activeConversationId) throw new Error('conversationId is required');
 
     const clientId = createClientId();
@@ -703,7 +702,7 @@ export const useChatComposer = ({
       if (!shouldUseAi || trimmedMessage.length === 0) return;
 
       const resolvedPracticeId = (practiceId ?? '').trim();
-      const resolvedPracticeSlug = (practiceSlug ?? '').trim();
+      const practiceSlugStr = (practiceSlug ?? '').trim();
       if (!resolvedPracticeId) return;
 
       // ── intent classification (first message only) ──────────────────────
@@ -781,7 +780,7 @@ export const useChatComposer = ({
             signal: abortController.signal,
             body: {
               conversationId: resolvedConversationId, practiceId: resolvedPracticeId,
-              ...(resolvedPracticeSlug ? { practiceSlug: resolvedPracticeSlug } : {}),
+              ...(practiceSlugStr ? { practiceSlug: practiceSlugStr } : {}),
               mode: effectiveMode, intakeSubmitted, messages: aiMessages,
               additionalContext: options?.additionalContext,
               sourceBubbleId: bubbleId,
@@ -811,7 +810,7 @@ export const useChatComposer = ({
                 conversationId,
                 resolvedConversationId,
                 practiceId: resolvedPracticeId,
-                practiceSlug: resolvedPracticeSlug || null,
+                practiceSlug: practiceSlugStr || null,
                 mode: effectiveMode,
                 intakeSubmitted,
               },

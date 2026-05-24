@@ -1,5 +1,6 @@
-import { useState } from 'preact/hooks';
+import { ArrowLeft } from 'lucide-preact';
 import { Sidebar } from '@/shared/ui/nav/Sidebar';
+import { Icon, type IconComponent } from '@/shared/ui/Icon';
 import { OrgSwitcherMenu } from '@/shared/ui/nav/OrgSwitcherMenu';
 import { SidebarProfileMenu } from '@/shared/ui/nav/SidebarProfileMenu';
 import { useNavigation } from '@/shared/utils/navigation';
@@ -10,8 +11,6 @@ import {
   type SecondaryNavItem,
   type WorkspaceSection,
 } from '@/shared/config/navConfig';
-
-const PRACTICE_AREA_COLORS = ['#10B981', '#06B6D4', '#F59E0B', '#A855F7', '#EF4444'];
 
 export interface PracticeSidebarUser {
   name: string;
@@ -48,29 +47,11 @@ export interface PracticeSidebarProps {
   /** Optional. Called when a secondary sub-item is clicked (filter selection,
    *  settings actions, etc.). When omitted, sub-items navigate via their `href`. */
   onSecondaryItemClick?: (id: string, item: SecondaryNavItem) => void;
-  /** Source list for the Practice Areas section. Strings or `{ name | title }` objects. */
-  services?: unknown[] | null;
   /** Numeric counts keyed by sidebar item id (e.g. `matters`, `intakes`, `pending_review`).
    *  Top-level rail items render the value as a pill badge; sub-items render it as a small
    *  trailing count. Missing/null entries render no number. */
   counts?: Record<string, number | null | undefined>;
 }
-
-const normalizeServiceNames = (services: unknown[] | null | undefined): string[] => {
-  if (!Array.isArray(services)) return [];
-  const names = services
-    .map((entry) => {
-      if (typeof entry === 'string') return entry;
-      if (entry && typeof entry === 'object') {
-        const r = entry as Record<string, unknown>;
-        if (typeof r.name === 'string') return r.name;
-        if (typeof r.title === 'string') return r.title;
-      }
-      return '';
-    })
-    .filter((s): s is string => Boolean(s));
-  return Array.from(new Set(names));
-};
 
 export const PracticeSidebar = ({
   practiceSlug,
@@ -83,7 +64,6 @@ export const PracticeSidebar = ({
   activeItemId,
   workspaceSection = 'home',
   onSecondaryItemClick,
-  services,
   counts,
 }: PracticeSidebarProps) => {
   const { navigate } = useNavigation();
@@ -108,16 +88,116 @@ export const PracticeSidebar = ({
     return undefined;
   };
 
-  const [practiceAreasExpanded, setPracticeAreasExpanded] = useState(false);
-  const uniqueServiceNames = normalizeServiceNames(services);
-  const visibleServiceNames = practiceAreasExpanded
-    ? uniqueServiceNames
-    : uniqueServiceNames.slice(0, 3);
-  const practiceAreas = visibleServiceNames.map((name, i) => ({
-    name,
-    color: PRACTICE_AREA_COLORS[i % PRACTICE_AREA_COLORS.length],
-  }));
-  const hasMorePracticeAreas = uniqueServiceNames.length > 3;
+  if (workspaceSection === 'reports' || workspaceSection === 'invoices') {
+    const sections = navConfig.secondary ?? [];
+    const sectionLabel = workspaceSection === 'reports' ? 'Reports' : 'Invoices';
+    return (
+      <Sidebar
+        activeItemId={activeItemId}
+        onItemActivate={onItemActivate}
+        collapsed={isCollapsed}
+        onToggleCollapsed={toggle}
+      >
+        <Sidebar.Org
+          name={sectionLabel}
+          logo={
+            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-[rgb(var(--sidebar-hover-bg))] text-[rgb(var(--sidebar-text-secondary))]">
+              <Icon icon={ArrowLeft} className="h-4 w-4" />
+            </span>
+          }
+          onClick={() => navigate(basePath)}
+          onCollapseClick={toggle}
+        />
+        {sections.map((section, idx) => (
+          <Sidebar.Section key={section.label ?? `s${idx}`} label={section.label} first={idx === 0}>
+            {section.items.map((item) => (
+              <Sidebar.Item
+                key={item.id}
+                id={item.id}
+                label={item.label}
+                icon={item.icon as IconComponent | undefined}
+                href={item.href}
+                onClick={
+                  onSecondaryItemClick
+                    ? () => {
+                        const matched = findSecondaryItem(item.id) ?? item;
+                        onSecondaryItemClick(item.id, matched);
+                      }
+                    : undefined
+                }
+              />
+            ))}
+          </Sidebar.Section>
+        ))}
+        {user ? (
+          <Sidebar.Footer>
+            <SidebarProfileMenu
+              user={user}
+              collapsed={isCollapsed}
+              onAccount={() => navigate(`${basePath}/settings/account`)}
+              onSettings={() => navigate(`${basePath}/settings/general`)}
+              onSignOut={() => void signOut({ navigate })}
+            />
+          </Sidebar.Footer>
+        ) : null}
+      </Sidebar>
+    );
+  }
+
+  if (workspaceSection === 'settings') {
+    const settingsSections = navConfig.secondary ?? [];
+    return (
+      <Sidebar
+        activeItemId={activeItemId}
+        onItemActivate={onItemActivate}
+        collapsed={isCollapsed}
+        onToggleCollapsed={toggle}
+      >
+        <Sidebar.Org
+          name="Settings"
+          logo={
+            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-[rgb(var(--sidebar-hover-bg))] text-[rgb(var(--sidebar-text-secondary))]">
+              <Icon icon={ArrowLeft} className="h-4 w-4" />
+            </span>
+          }
+          onClick={() => navigate(basePath)}
+          onCollapseClick={toggle}
+        />
+        {settingsSections.map((section, idx) => (
+          <Sidebar.Section key={section.label ?? `s${idx}`} label={section.label} first={idx === 0}>
+            {section.items.map((item) => (
+              <Sidebar.Item
+                key={item.id}
+                id={item.id}
+                label={item.label}
+                icon={item.icon as IconComponent | undefined}
+                href={item.href}
+                onClick={
+                  onSecondaryItemClick
+                    ? () => {
+                        const matched = findSecondaryItem(item.id) ?? item;
+                        onSecondaryItemClick(item.id, matched);
+                      }
+                    : undefined
+                }
+              />
+            ))}
+          </Sidebar.Section>
+        ))}
+        {user ? (
+          <Sidebar.Footer>
+            <SidebarProfileMenu
+              user={user}
+              collapsed={isCollapsed}
+              onAccount={() => navigate(`${basePath}/settings/account`)}
+              onSettings={() => navigate(`${basePath}/settings/general`)}
+              onSignOut={() => void signOut({ navigate })}
+            />
+          </Sidebar.Footer>
+        ) : null}
+      </Sidebar>
+    );
+  }
 
   return (
     <Sidebar
@@ -224,50 +304,6 @@ export const PracticeSidebar = ({
           })}
         </Sidebar.Section>
       ))}
-      {practiceAreas.length > 0 ? (
-        <Sidebar.Section label="Practice Areas">
-          {practiceAreas.map((pa) => (
-            <Sidebar.PracticeAreaItem
-              key={pa.name}
-              label={pa.name}
-              color={pa.color}
-              onClick={() => navigate(`${basePath}/coverage`)}
-            />
-          ))}
-          {hasMorePracticeAreas ? (
-            <button
-              type="button"
-              onClick={() => setPracticeAreasExpanded((v) => !v)}
-              title={practiceAreasExpanded ? 'Less' : 'More'}
-              aria-label={practiceAreasExpanded ? 'Show fewer practice areas' : 'Show more practice areas'}
-              aria-expanded={practiceAreasExpanded}
-              className={
-                isCollapsed
-                  ? 'flex h-9 w-full items-center justify-center rounded-lg text-[rgb(var(--sidebar-text-secondary))] transition-colors hover:bg-[rgb(var(--sidebar-hover-bg))] hover:text-[rgb(var(--sidebar-text))] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-500/50'
-                  : 'flex items-center gap-2.5 rounded-lg px-2.5 py-[9px] text-left text-xs text-[rgb(var(--sidebar-text-secondary))] transition-colors hover:text-[rgb(var(--sidebar-text))] hover:bg-[rgb(var(--sidebar-hover-bg))] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-500/50'
-              }
-            >
-              <svg
-                aria-hidden="true"
-                width="14"
-                height="14"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                className="shrink-0"
-              >
-                <circle cx="5" cy="12" r="1" />
-                <circle cx="12" cy="12" r="1" />
-                <circle cx="19" cy="12" r="1" />
-              </svg>
-              {isCollapsed ? null : <span>{practiceAreasExpanded ? 'Less' : 'More'}</span>}
-            </button>
-          ) : null}
-        </Sidebar.Section>
-      ) : null}
       {user ? (
         <Sidebar.Footer>
           <SidebarProfileMenu
@@ -282,3 +318,4 @@ export const PracticeSidebar = ({
     </Sidebar>
   );
 };
+

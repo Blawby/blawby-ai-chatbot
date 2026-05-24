@@ -10,7 +10,6 @@ import {
   type PracticeDetailsUpdate,
   type PracticeDetails,
   getPracticeDetails,
-  getPracticeDetailsBySlug,
   getOnboardingStatusPayload,
   updatePracticeDetails as apiUpdatePracticeDetails,
   deletePractice as apiDeletePractice,
@@ -18,10 +17,9 @@ import {
   deletePracticeMember as apiDeletePracticeMember,
   clearPublicPracticeDetailsCache
 } from '@/shared/lib/apiClient';
-import { normalizeSubscriptionStatus as normalizePracticeStatus } from '@/shared/utils/subscription';
 import { resetPracticeDetailsStore, setPracticeDetailsEntry } from '@/shared/stores/practiceDetailsStore';
 import { queryCache } from '@/shared/lib/queryCache';
-import { asMajor, type MajorAmount } from '@/shared/utils/money';
+import { type MajorAmount } from '@/shared/utils/money';
 import { type PracticeRole } from '@/shared/utils/practiceRoles';
 
 const isPlainObject = (value: unknown): value is Record<string, unknown> =>
@@ -207,255 +205,12 @@ interface UsePracticeManagementReturn {
   refetch: () => Promise<void>;
 }
 
-function normalizePracticeRecord(raw: Record<string, unknown>): Practice {
-  const id = typeof raw.id === 'string' ? raw.id : String(raw.id ?? '');
-  const slug = typeof raw.slug === 'string' ? raw.slug : id;
-  const name = typeof raw.name === 'string' ? raw.name : 'Practice';
-
-  const rawIsPersonal = typeof raw.isPersonal === 'boolean' ? raw.isPersonal : undefined;
-
-  const rawStatus = typeof raw.subscriptionStatus === 'string' ? raw.subscriptionStatus : undefined;
-
-  const rawKind = typeof raw.kind === 'string' ? raw.kind : undefined;
-  const resolvedKind = rawKind === 'business' || rawKind === 'personal' || rawKind === 'practice'
-    ? rawKind
-    : undefined;
-  const normalizedStatus = normalizePracticeStatus(rawStatus);
-
-  const seats = typeof raw.seats === 'number'
-    ? raw.seats
-    : typeof raw.seats === 'string' && raw.seats.trim().length > 0
-      ? Number.parseInt(raw.seats, 10) || null
-      : null;
-
-  const subscriptionPeriodEnd = (() => {
-    // Preserve explicit null; coalesce camelCase and snake_case; allow undefined if missing
-    const camel = (raw as Record<string, unknown>).subscriptionPeriodEnd;
-    const snake = (raw as Record<string, unknown>).subscription_period_end;
-    const val = camel !== undefined ? camel : snake;
-    if (val === null) return null;
-    if (typeof val === 'number') return val;
-    if (typeof val === 'string' && val.trim().length > 0) {
-      const n = Number.parseInt(val, 10);
-      return Number.isFinite(n) ? n : undefined;
-    }
-    return undefined;
-  })();
-
-  // Parse config once for reuse (may contain profile fields)
-  const cfg = (() => {
-    const c = (raw as Record<string, unknown>).config as unknown;
-    if (c && typeof c === 'object' && !Array.isArray(c)) {
-      return c as Practice['config'];
-    }
-    const metadata = (raw as Record<string, unknown>).metadata;
-    if (metadata && typeof metadata === 'object' && !Array.isArray(metadata)) {
-      return {
-        metadata: metadata as Record<string, unknown>
-      } as Practice['config'];
-    }
-    return undefined as Practice['config'] | undefined;
-  })();
-  const metadataRecord = (() => {
-    const direct = (raw as Record<string, unknown>).metadata;
-    if (typeof direct === 'string') {
-      try {
-        const parsed = JSON.parse(direct);
-        if (isPlainObject(parsed)) return parsed;
-        return null;
-      }
-      catch { return null; }
-    }
-    if (isPlainObject(direct)) {
-      return direct as Record<string, unknown>;
-    }
-    if (cfg && isPlainObject(cfg.metadata)) {
-      return cfg.metadata as Record<string, unknown>;
-    }
-    return null;
-  })();
-  const betterAuthOrgId = (() => {
-    const direct = (raw as Record<string, unknown>).betterAuthOrgId;
-    if (typeof direct === 'string' && direct.trim().length > 0) return direct;
-    const fromCfg = cfg && (cfg as unknown as { betterAuthOrgId?: string }).betterAuthOrgId;
-    if (typeof fromCfg === 'string' && fromCfg.trim().length > 0) return fromCfg;
-    return id; // fallback to our DB id, aligned with backend mapping
-  })();
-
-  const onboardingCompletedAt = (() => {
-    const camel = (raw as Record<string, unknown>).businessOnboardingCompletedAt;
-    const snake = (raw as Record<string, unknown>).business_onboarding_completed_at;
-    const value = camel !== undefined ? camel : snake;
-    if (value === null) return null;
-    if (typeof value === 'number') return value;
-    if (typeof value === 'string' && value.trim().length > 0) {
-      const ts = new Date(value.trim()).getTime();
-      return Number.isFinite(ts) ? ts : null;
-    }
-    return undefined;
-  })();
-
-  const onboardingSkipped = (() => {
-    const camel = (raw as Record<string, unknown>).businessOnboardingSkipped;
-    const snake = (raw as Record<string, unknown>).business_onboarding_skipped;
-    const value = camel !== undefined ? camel : snake;
-    if (typeof value === 'boolean') return value;
-    if (typeof value === 'number') return value === 1;
-    if (typeof value === 'string') {
-      const normalized = value.trim().toLowerCase();
-      return normalized === '1' || normalized === 'true';
-    }
-    return undefined;
-  })();
-
-  const onboardingData = (() => {
-    const camel = (raw as Record<string, unknown>).businessOnboardingData;
-    const snake = (raw as Record<string, unknown>).business_onboarding_data;
-    const value = camel !== undefined ? camel : snake;
-    if (value && typeof value === 'object' && !Array.isArray(value)) {
-      return value as Record<string, unknown>;
-    }
-    if (typeof value === 'string' && value.trim().length > 0) {
-      try {
-        return JSON.parse(value) as Record<string, unknown>;
-      } catch {
-        return null;
-      }
-    }
-    return null;
-  })();
-
-  const onboardingStatus: BusinessOnboardingStatus = (() => {
-    if (resolvedKind === 'personal') {
-      return 'not_required';
-    }
-    if (typeof onboardingCompletedAt === 'number') {
-      return 'completed';
-    }
-    if (onboardingSkipped) {
-      return 'skipped';
-    }
-    return 'pending';
-  })();
-
-  const getDetailString = (camel: string, snake: string): string | null | undefined => {
-    const candidate =
-      (raw as Record<string, unknown>)[camel] ?? (raw as Record<string, unknown>)[snake];
-    if (candidate === null) return null;
-    if (typeof candidate === 'string') {
-      return candidate;
-    }
-    return undefined;
-  };
-
-  const getDetailBoolean = (camel: string, snake: string): boolean | null | undefined => {
-    const candidate =
-      (raw as Record<string, unknown>)[camel] ?? (raw as Record<string, unknown>)[snake];
-    if (candidate === null) return null;
-    if (typeof candidate === 'boolean') return candidate;
-    if (typeof candidate === 'number') return candidate === 1;
-    if (typeof candidate === 'string') {
-      const normalized = candidate.trim().toLowerCase();
-      if (normalized === 'true') return true;
-      if (normalized === 'false') return false;
-    }
-    return undefined;
-  };
-  const getDetailNumber = (camel: string, snake: string): number | null | undefined => {
-    const candidate =
-      (raw as Record<string, unknown>)[camel] ?? (raw as Record<string, unknown>)[snake];
-    if (candidate === null) return null;
-    if (typeof candidate === 'number' && Number.isFinite(candidate)) return candidate;
-    if (typeof candidate === 'string' && candidate.trim().length > 0) {
-      const parsed = Number(candidate);
-      return Number.isFinite(parsed) ? parsed : undefined;
-    }
-    return undefined;
-  };
-
-  const services = (() => {
-    const candidate =
-      (raw as Record<string, unknown>).services ?? (raw as Record<string, unknown>).services_list;
-    if (candidate === null) return null;
-    if (Array.isArray(candidate)) return candidate as Array<Record<string, unknown>>;
-    return undefined;
-  })();
-
-  const legalDisclaimer = (() => {
-    const candidate = raw.legalDisclaimer ?? raw.legal_disclaimer ?? raw.overview;
-    return typeof candidate === 'string' && candidate.trim().length > 0 ? candidate : null;
-  })();
-
-  return {
-    id,
-    slug,
-    name,
-    legalDisclaimer,
-    stripeCustomerId: (() => {
-      const val = (raw.stripeCustomerId ?? raw.stripe_customer_id ?? null);
-      return typeof val === 'string' && val.trim().length > 0 ? val : null;
-    })(),
-    consultationFee: (() => {
-      const val = raw.consultationFee ?? raw.consultation_fee ?? null;
-      if (val === null) return null;
-      if (typeof val === 'number' && Number.isFinite(val)) return asMajor(val);
-      if (typeof val === 'string' && val.trim().length > 0) {
-        const num = Number(val);
-        return Number.isFinite(num) ? asMajor(num) : null;
-      }
-      return null;
-    })(),
-    currency: (typeof raw.currency === 'string' && raw.currency.trim().length > 0)
-      ? raw.currency.trim()
-      : null,
-    paymentUrl: (() => {
-      const val = raw.paymentUrl ?? raw.payment_url ?? null;
-      return typeof val === 'string' && val.trim().length > 0 ? val : null;
-    })(),
-    businessPhone: getDetailString('businessPhone', 'business_phone') ?? null,
-    businessEmail: getDetailString('businessEmail', 'business_email') ?? null,
-    calendlyUrl: getDetailString('calendlyUrl', 'calendly_url') ?? null,
-    logo: getDetailString('logo', 'logo') ?? null,
-    seats,
-    subscriptionStatus: normalizedStatus,
-    subscriptionPeriodEnd,
-    metadata: metadataRecord,
-    config: cfg,
-    betterAuthOrgId,
-    kind: resolvedKind,
-    isPersonal: rawIsPersonal ?? (resolvedKind === 'personal'),
-    businessOnboardingCompletedAt: onboardingCompletedAt,
-    businessOnboardingSkipped: onboardingSkipped,
-    businessOnboardingHasDraft: onboardingData != null && Object.keys(onboardingData).length > 0,
-    businessOnboardingStatus: onboardingStatus,
-    billingIncrementMinutes: getDetailNumber('billingIncrementMinutes', 'billing_increment_minutes') ?? null,
-    website: getDetailString('website', 'website'),
-    address: getDetailString('address', 'address_line_1'),
-    apartment: getDetailString('apartment', 'address_line_2'),
-    city: getDetailString('city', 'city'),
-    state: getDetailString('state', 'state'),
-    postalCode: getDetailString('postalCode', 'postal_code'),
-    country: getDetailString('country', 'country'),
-    primaryColor: getDetailString('primaryColor', 'primary_color'),
-    accentColor: getDetailString('accentColor', 'accent_color'),
-    isPublic: getDetailBoolean('isPublic', 'is_public'),
-    services
-  };
-}
 
 const fetchPracticeDetailsFor = async (
   practice: Practice,
   config?: ApiRequestConfig
 ): Promise<PracticeDetails | null> => {
-  const byId = await getPracticeDetails(practice.id, config);
-  if (byId) {
-    return byId;
-  }
-  const slug = practice.slug?.trim();
-  if (slug) {
-    return getPracticeDetailsBySlug(slug, config);
-  }
-  return null;
+  return getPracticeDetails(practice.id, config);
 };
 
 function mergePracticeDetails(practice: Practice, details: PracticeDetails | null): Practice {
@@ -881,10 +636,7 @@ export function usePracticeManagement(options: UsePracticeManagementOptions = {}
       sharedPracticePromise = (async () => {
         const rawPracticeList = await listPractices({ signal: controller.signal, scope: 'all' });
 
-        const normalizedList = rawPracticeList
-          .filter((item): item is Practice => typeof item === 'object' && item !== null)
-          .map((practice) => normalizePracticeRecord(practice as unknown as Record<string, unknown>))
-          .filter((practice) => practice.id.length > 0);
+        const normalizedList = rawPracticeList.filter((practice) => practice.id.length > 0);
 
         const currentPracticeNext = selectCurrentPracticeFromList(
           normalizedList,
@@ -1004,7 +756,7 @@ export function usePracticeManagement(options: UsePracticeManagementOptions = {}
       }
     }
 
-    const normalized = normalizePracticeRecord(practice as unknown as Record<string, unknown>);
+    const normalized = practice;
     practicesFetchedRef.current = false;
     await fetchPractices();
     return normalized;
@@ -1106,7 +858,7 @@ export function usePracticeManagement(options: UsePracticeManagementOptions = {}
     ) {
       mergedResponse.name = existingPractice.name;
     }
-    const updatedPractice = normalizePracticeRecord(mergedResponse);
+    const updatedPractice = mergedResponse;
 
     // Don't copy businessOnboardingStatus from payload — the API does not
     // accept a canonical status update via this endpoint. The server will

@@ -486,6 +486,7 @@ function AppShell() {
           <Route path="/practice/:practiceSlug/settings/apps/:appId" component={PracticeAppRoute} workspaceView="settings" settingsView="app-detail" />
           <Route path="/practice/:practiceSlug/settings/intake-forms" component={PracticeAppRoute} workspaceView="settings" settingsView="intake-forms" />
           <Route path="/practice/:practiceSlug/settings/intake-forms/new" component={PracticeAppRoute} workspaceView="settings" settingsView="intake-forms-editor" />
+          <Route path="/practice/:practiceSlug/settings/intake-forms/responses" component={PracticeAppRoute} workspaceView="intakes" />
           <Route path="/practice/:practiceSlug/settings/intake-forms/:templateSlug" component={PracticeAppRoute} workspaceView="settings" settingsView="intake-forms-editor" />
           <Route path="/practice/:practiceSlug/settings/intake-forms/:templateSlug/edit" component={PracticeAppRoute} workspaceView="settings" settingsView="intake-forms-editor" />
           <Route path="/practice/:practiceSlug/settings/security" component={PracticeAppRoute} workspaceView="settings" settingsView="security" />

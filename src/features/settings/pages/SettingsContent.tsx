@@ -56,6 +56,7 @@ const SettingsRouter = ({
   apps,
   handleAppUpdate,
   toSettingsPath,
+  intakeResponsesPath,
   viewLabel,
 }: {
   view: SettingsView;
@@ -64,6 +65,7 @@ const SettingsRouter = ({
   apps: App[];
   handleAppUpdate: (targetAppId: string, updates: Partial<App>) => void;
   toSettingsPath: (subPath?: string) => string;
+  intakeResponsesPath: string;
   viewLabel: string;
 }) => {
   const { navigate } = useNavigation();
@@ -117,6 +119,7 @@ const SettingsRouter = ({
         return (
           <IntakeTemplatesPage
             basePath={toSettingsPath('intake-forms')}
+            responsesPath={intakeResponsesPath}
             routeMode="list"
           />
         );
@@ -124,6 +127,7 @@ const SettingsRouter = ({
         return (
           <IntakeTemplatesPage
             basePath={toSettingsPath('intake-forms')}
+            responsesPath={intakeResponsesPath}
             routeMode="editor"
             routeTemplateSlug={intakeTemplateSlug ?? null}
             onBack={() => navigate(toSettingsPath('intake-forms'))}
@@ -189,6 +193,7 @@ export const SettingsContent = (props: SettingsContentProps) => {
   const { canAccessPractice } = useWorkspace();
 
   const settingsBasePath = `/${workspace}/${encodeURIComponent(practiceSlug)}/settings`;
+  const intakeResponsesPath = `/${workspace}/${encodeURIComponent(practiceSlug)}/intakes/responses`;
   const toSettingsPath = (subPath?: string) => {
     if (!subPath) return settingsBasePath;
     return `${settingsBasePath}/${subPath.replace(/^\/+/, '')}`;
@@ -260,6 +265,7 @@ export const SettingsContent = (props: SettingsContentProps) => {
         apps={apps}
         handleAppUpdate={handleAppUpdate}
         toSettingsPath={toSettingsPath}
+        intakeResponsesPath={intakeResponsesPath}
         viewLabel={viewLabel}
       />
     </div>
