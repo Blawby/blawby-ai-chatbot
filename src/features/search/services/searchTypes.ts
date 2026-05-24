@@ -35,8 +35,14 @@ export type SearchDidYouMean = {
   score: number;
 };
 
+export type SearchSuggestion = {
+  query: string;
+  source: 'user' | 'practice';
+};
+
 export type SearchEnvelope = {
   groups: SearchGroup[];
+  suggestions: SearchSuggestion[];
   queryLogId?: string;
   didYouMean?: SearchDidYouMean;
   debug?: {
@@ -44,11 +50,6 @@ export type SearchEnvelope = {
     ftsTookMs: number;
     vectorTookMs: number;
   };
-};
-
-export type SearchSuggestion = {
-  query: string;
-  source: 'user' | 'practice';
 };
 
 export type SearchPin = {
