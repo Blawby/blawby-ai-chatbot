@@ -13,6 +13,8 @@ import { cn } from '@/shared/utils/cn';
 import { formatRelativeTime } from '@/features/matters/utils/formatRelativeTime';
 import { listIntakes, type IntakeListItem } from '../api/intakesApi';
 import { resolveIntakeTitle } from '@/features/intake/utils/intakeTitle';
+import { queryCache } from '@/shared/lib/queryCache';
+import { policyTtl } from '@/shared/lib/cachePolicy';
 import IntakeDetailPage from './IntakeDetailPage';
 
 const InboxIcon: IconComponent = (props) => (
@@ -131,10 +133,23 @@ export const IntakesPage: FunctionComponent<IntakesPageProps> = ({
     const localSeq = ++requestSeqRef.current;
     const triageFilter = mobileFilter !== 'all' ? mobileFilter : undefined;
     try {
-      const result = await listIntakes(
-        practiceId,
-        { page: targetPage, limit: PAGE_SIZE, triage_status: triageFilter },
-        { signal },
+      // Route through queryCache so navigating away and back within the intake
+      // TTL serves the cached page instead of re-hitting the backend. Keyed by
+      // practice + filter + page; invalidated on triage actions below.
+      //
+      // The mount abort signal is deliberately not forwarded into the cached
+      // fetch — letting the request complete warms the cache for the next
+      // visit, and coalesceGet's single-flight must not be tied to a promise
+      // an unmount/refetch could abort. The outer `signal.aborted` guards below
+      // still prevent state updates after this effect is torn down.
+      const cacheKey = `intake:list:${practiceId}:${mobileFilter}:p${targetPage}`;
+      const result = await queryCache.coalesceGet(
+        cacheKey,
+        () => listIntakes(
+          practiceId,
+          { page: targetPage, limit: PAGE_SIZE, triage_status: triageFilter },
+        ),
+        { ttl: policyTtl(cacheKey), swr: false },
       );
       if (signal.aborted || requestSeqRef.current !== localSeq) return;
       setItems((prev) => (targetPage === 1 ? result.intakes : [...prev, ...result.intakes]));
@@ -188,6 +203,9 @@ export const IntakesPage: FunctionComponent<IntakesPageProps> = ({
 
   const handleTriageComplete = useCallback(() => {
     if (!practiceId || !isResponsesRoute) return;
+    // A triage decision changes list contents/status — drop the cached pages
+    // for this practice so the refetch below pulls fresh data.
+    queryCache.invalidate(`intake:list:${practiceId}:`, true);
     const controller = new AbortController();
     setIsLoading(true);
     void fetchPage(1, controller.signal).finally(() => setIsLoading(false));
