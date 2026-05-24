@@ -183,7 +183,6 @@ If any of the three is in doubt, do not invoke the skill — answer normally and
 | "code review my changes", "review this branch / PR", "do a CE code review" | "let me review the diff myself", "I'll review later", "the reviewer said…" | `ce-code-review` |
 | "review the plan doc", "doc review this spec" | "the doc reviewer caught X" | `ce-doc-review` |
 | "commit this", "save my changes as a commit" | "the last commit was bad", "commit history is messy" | `ce-commit` |
-| "ship this", "commit and open a PR", "create a PR for this branch" | "ship date is tomorrow", "the PR description is wrong" | `ce-commit-push-pr` |
 | "resolve the PR feedback", "address the review comments" | "the feedback was useful" | `ce-resolve-pr-feedback` |
 | "compound this learning", "document this as a learning", "save what we learned" | "compound interest", "compound the bug count" | `ce-compound` |
 | "simplify the code I just wrote", "clean up this implementation" | "simple is better", "simplify the design later" | `ce-simplify-code` |
