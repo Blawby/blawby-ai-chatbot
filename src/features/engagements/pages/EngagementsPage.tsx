@@ -331,6 +331,8 @@ export const EngagementsPage: FunctionComponent<EngagementsPageProps> = ({
                 loading={isLoading && rows.length === 0}
                 density="compact"
                 stickyHeader
+                className="panel overflow-hidden"
+                bodyClassName="bg-transparent"
                 rowClassName="transition-colors duration-150 hover:!bg-surface-card-hover"
                 hasMore={hasMore}
                 isLoadingMore={isLoadingMore}

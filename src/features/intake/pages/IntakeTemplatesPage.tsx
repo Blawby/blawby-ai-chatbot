@@ -30,7 +30,7 @@ import { Dialog, DialogBody, DialogFooter } from '@/shared/ui/dialog';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/shared/ui/dropdown';
 import { cn } from '@/shared/utils/cn';
 import { usePracticeManagement } from '@/shared/hooks/usePracticeManagement';
-import { SkeletonLoader } from '@/shared/ui/layout';
+import { DataTable, type DataTableColumn, type DataTableRow } from '@/shared/ui/table/DataTable';
 import { usePracticeDetails } from '@/shared/hooks/usePracticeDetails';
 import { useToastContext } from '@/shared/contexts/ToastContext';
 import { useNavigation } from '@/shared/utils/navigation';
@@ -594,147 +594,6 @@ function ConfigField({
   );
 }
 
-type TemplateCardProps = {
-  template: IntakeTemplate;
-  isDefault?: boolean;
-  isSaving: boolean;
-  responseCount?: number;
-  practiceSlug: string;
-  onOpen?: (template: IntakeTemplate) => void;
-  onViewResponses?: (template: IntakeTemplate) => void;
-  onEdit?: (template: IntakeTemplate) => void;
-  onArchive?: (template: IntakeTemplate) => void;
-};
-
-function TemplateCard({
-  template,
-  isDefault = false,
-  isSaving,
-  responseCount = 0,
-  practiceSlug,
-  onOpen,
-  onViewResponses,
-  onEdit,
-  onArchive,
-}: TemplateCardProps) {
-  const { showSuccess, showError } = useToastContext();
-  const questionPreview = template.fields
-    .map((field) => getFieldCanvasQuestion(field))
-    .filter((question) => question.trim().length > 0)
-    .slice(0, 3);
-  const remainingQuestions = Math.max(template.fields.length - questionPreview.length, 0);
-  const [openEmbedDialog, setOpenEmbedDialog] = useState(false);
-  const publicUrl = getPublicFormUrl(practiceSlug, template.slug);
-
-  return (
-    <article className="card flex min-h-[230px] flex-col justify-between overflow-hidden rounded-2xl">
-      <div
-        role="button"
-        tabIndex={0}
-        onClick={() => {
-          if (onOpen && !isSaving) onOpen(template);
-        }}
-        onKeyDown={(e) => {
-          if ((e.key === 'Enter' || e.key === ' ') && onOpen && !isSaving) {
-            e.preventDefault();
-            onOpen(template);
-          }
-        }}
-        className={`block w-full flex-1 p-5 text-left transition-colors ${
-          !onOpen || isSaving ? 'cursor-default' : 'hover:bg-surface-utility/10 cursor-pointer'
-        }`}
-      >
-        <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0">
-            <p className="text-sm font-semibold text-input-text">{template.name}</p>
-          </div>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <button
-                type="button"
-                onClick={(event) => event.stopPropagation()}
-                disabled={isSaving}
-                aria-label={`Actions for ${template.name}`}
-                className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-input-placeholder transition-colors hover:bg-surface-utility/10 hover:text-input-text disabled:opacity-60"
-              >
-                <MoreVertical className="h-4 w-4" />
-              </button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="min-w-[180px]">
-              <DropdownMenuItem
-                onSelect={() => {
-                  copyTextToClipboard(
-                    publicUrl,
-                    () => showSuccess('Link copied', 'The form URL is ready to share.'),
-                    (message) => showError('Copy failed', message),
-                  );
-                }}
-              >
-                Copy URL
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                onSelect={() => {
-                  setOpenEmbedDialog(true);
-                }}
-              >
-                Copy embed code
-              </DropdownMenuItem>
-              {!isDefault && onEdit ? (
-                <DropdownMenuItem onSelect={() => onEdit(template)}>
-                  Edit
-                </DropdownMenuItem>
-              ) : null}
-              {!isDefault && onArchive ? (
-                <DropdownMenuItem onSelect={() => onArchive(template)}>
-                  Archive
-                </DropdownMenuItem>
-              ) : null}
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
-        <EmbedCodeDialog
-          isOpen={openEmbedDialog}
-          onClose={() => setOpenEmbedDialog(false)}
-          practiceSlug={practiceSlug}
-          templateSlug={template.slug}
-        />
-
-        <div className="mt-5 space-y-2">
-          {questionPreview.map((question, index) => (
-            <p
-              key={`${template.slug}-question-${index}`}
-              className="truncate text-sm text-input-text"
-            >
-              {question}
-            </p>
-          ))}
-          {remainingQuestions > 0 ? (
-            <p className="text-sm text-input-placeholder">
-              +{remainingQuestions} more question{remainingQuestions === 1 ? '' : 's'}
-            </p>
-          ) : null}
-        </div>
-
-        <div className="mt-4 h-px bg-line-glass/30" />
-        <div className="mt-4 flex items-center justify-end gap-3">
-          <Button
-            type="button"
-            variant="link"
-            size="sm"
-            onClick={(event) => {
-              event.stopPropagation();
-              onViewResponses?.(template);
-            }}
-            disabled={!onViewResponses}
-            className="px-0 py-0 text-sm"
-          >
-            {responseCount} response{responseCount === 1 ? '' : 's'}
-          </Button>
-        </div>
-      </div>
-    </article>
-  );
-}
 
 type TemplateEditorProps = {
   initial?: IntakeTemplate;
@@ -1802,33 +1661,12 @@ type TemplateListViewProps = {
   onDelete: (template: IntakeTemplate) => Promise<void>;
 };
 
-/**
- * Placeholder card matching the eventual TemplateCard layout: title row,
- * three preview question lines, footer with the response-count link.
- * Rendered in the same grid as real cards so the swap to data reflows
- * minimally.
- */
-function FormCardSkeleton({ titleWidth = 'w-32' }: { titleWidth?: string }) {
-  return (
-    <div
-      className="card flex min-h-[230px] flex-col rounded-2xl p-5"
-      aria-hidden="true"
-    >
-      <div className="flex items-start justify-between gap-3">
-        <SkeletonLoader variant="text" height="h-4" width={titleWidth} rounded="rounded-md" />
-        <SkeletonLoader variant="text" height="h-4" width="w-1" rounded="rounded" />
-      </div>
-      <div className="mt-4 space-y-2.5">
-        <SkeletonLoader variant="text" height="h-3" width="w-full" rounded="rounded-md" />
-        <SkeletonLoader variant="text" height="h-3" width="w-5/6" rounded="rounded-md" />
-        <SkeletonLoader variant="text" height="h-3" width="w-3/4" rounded="rounded-md" />
-      </div>
-      <div className="mt-auto pt-6">
-        <SkeletonLoader variant="text" height="h-3" width="w-24" rounded="rounded-md" />
-      </div>
-    </div>
-  );
-}
+const TEMPLATE_TABLE_COLUMNS: DataTableColumn[] = [
+  { id: 'name', label: 'Form', isPrimary: true },
+  { id: 'questions', label: 'Questions', align: 'right', hideAt: 'sm' },
+  { id: 'responses', label: 'Responses', align: 'right' },
+  { id: 'actions', label: '', isAction: true, align: 'right' },
+];
 
 function TemplateListView({
   defaultTemplate,
@@ -1842,13 +1680,10 @@ function TemplateListView({
   onEdit,
   onDelete,
 }: TemplateListViewProps) {
+  const { showSuccess, showError } = useToastContext();
   const [deleteTarget, setDeleteTarget] = useState<IntakeTemplate | null>(null);
+  const [embedTarget, setEmbedTarget] = useState<IntakeTemplate | null>(null);
   const [responseCounts, setResponseCounts] = useState<Record<string, number>>({});
-  // Gate the cards on counts having loaded (or definitively failed) so the
-  // skeleton is visible during the fetch — including on warm navigation
-  // when the practice/templates are already cached. Without this, the
-  // page renders cards instantly with placeholder "0 responses" labels
-  // that pop to real counts a moment later.
   const [responseCountsLoaded, setResponseCountsLoaded] = useState(false);
 
   useEffect(() => {
@@ -1861,8 +1696,6 @@ function TemplateListView({
 
     const controller = new AbortController();
 
-    // Known limitation: until the backend supports template-level response
-    // counts, the forms list loads a bounded page and counts client-side.
     listIntakes(practiceId, { page: 1, limit: 100 }, { signal: controller.signal })
       .then((result) => {
         if (controller.signal.aborted) return;
@@ -1886,68 +1719,96 @@ function TemplateListView({
     return () => controller.abort();
   }, [practiceId]);
 
-  if (!responseCountsLoaded) {
-    return (
-      <div className="max-w-7xl mx-auto px-6 py-6">
-        <div className="space-y-6">
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-            <FormCardSkeleton titleWidth="w-24" />
-            <FormCardSkeleton titleWidth="w-36" />
-            <FormCardSkeleton titleWidth="w-28" />
-            <FormCardSkeleton titleWidth="w-32" />
-            <FormCardSkeleton titleWidth="w-40" />
-            <FormCardSkeleton titleWidth="w-24" />
+  const allTemplates = [defaultTemplate, ...existingTemplates];
+
+  const rows: DataTableRow[] = allTemplates.map((template) => {
+    const isDefault = template.slug === defaultTemplate.slug;
+    const publicUrl = getPublicFormUrl(practiceSlug, template.slug);
+    return {
+      id: template.slug,
+      onClick: () => onOpen(template),
+      cells: {
+        name: (
+          <div className="min-w-0">
+            <p className="truncate font-medium text-input-text">{template.name}</p>
+            {isDefault ? <p className="text-xs text-input-placeholder">Default form</p> : null}
           </div>
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div className="max-w-7xl mx-auto px-6 py-6">
-      <div className="space-y-6">
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-          <TemplateCard
-            template={defaultTemplate}
-            isDefault
-            isSaving={isSaving}
-            responseCount={responseCounts[defaultTemplate.slug] ?? 0}
-            practiceSlug={practiceSlug}
-            onOpen={onOpen}
-            onViewResponses={onViewResponses}
-            onEdit={onEdit}
-          />
-
-          {existingTemplates.map((template) => (
-            <TemplateCard
-              key={template.slug}
-              template={template}
-              isSaving={isSaving}
-              responseCount={responseCounts[template.slug] ?? 0}
-              practiceSlug={practiceSlug}
-              onOpen={onOpen}
-              onViewResponses={onViewResponses}
-              onEdit={onEdit}
-              onArchive={setDeleteTarget}
-            />
-          ))}
-
+        ),
+        questions: <span className="tabular-nums">{template.fields.length}</span>,
+        responses: (
           <button
             type="button"
-            onClick={onNew}
-            disabled={isSaving}
-            className="card flex min-h-[230px] flex-col items-center justify-center rounded-2xl border border-dashed border-line-subtle p-5 text-center transition-colors hover:border-line-subtle disabled:cursor-not-allowed disabled:opacity-60"
+            onClick={(e) => { e.stopPropagation(); onViewResponses(template); }}
+            className="tabular-nums hover:underline"
           >
-            <span className="rounded-2xl border border-line-subtle bg-surface-card p-3 text-input-text">
-              <Plus className="h-6 w-6" />
-            </span>
-            <span className="mt-4 text-sm font-semibold text-input-text">
-              New form
-            </span>
+            {responseCounts[template.slug] ?? 0}
           </button>
-        </div>
-      </div>
+        ),
+        actions: (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button
+                type="button"
+                onClick={(e) => e.stopPropagation()}
+                disabled={isSaving}
+                aria-label={`Actions for ${template.name}`}
+                className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-input-placeholder transition-colors hover:bg-surface-utility/10 hover:text-input-text disabled:opacity-60"
+              >
+                <MoreVertical className="h-4 w-4" />
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="min-w-[180px]">
+              <DropdownMenuItem
+                onSelect={() => {
+                  copyTextToClipboard(
+                    publicUrl,
+                    () => showSuccess('Link copied', 'The form URL is ready to share.'),
+                    (message) => showError('Copy failed', message),
+                  );
+                }}
+              >
+                Copy URL
+              </DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => setEmbedTarget(template)}>
+                Copy embed code
+              </DropdownMenuItem>
+              {!isDefault ? (
+                <DropdownMenuItem onSelect={() => onEdit(template)}>Edit</DropdownMenuItem>
+              ) : null}
+              {!isDefault ? (
+                <DropdownMenuItem onSelect={() => setDeleteTarget(template)}>Archive</DropdownMenuItem>
+              ) : null}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        ),
+      },
+    };
+  });
 
+  return (
+    <div className="flex min-h-0 flex-1 flex-col gap-4 p-4 sm:p-6">
+      <div className="flex justify-end">
+        <Button icon={Plus} onClick={onNew} disabled={isSaving}>New form</Button>
+      </div>
+      <DataTable
+        columns={TEMPLATE_TABLE_COLUMNS}
+        rows={rows}
+        loading={!responseCountsLoaded}
+        density="compact"
+        stickyHeader
+        className="panel overflow-hidden"
+        bodyClassName="bg-transparent"
+        rowClassName="transition-colors duration-150 hover:!bg-surface-card-hover"
+        emptyState="No intake forms yet."
+      />
+      {embedTarget ? (
+        <EmbedCodeDialog
+          isOpen
+          onClose={() => setEmbedTarget(null)}
+          practiceSlug={practiceSlug}
+          templateSlug={embedTarget.slug}
+        />
+      ) : null}
       <Dialog
         isOpen={deleteTarget !== null}
         onClose={() => setDeleteTarget(null)}
@@ -1977,7 +1838,6 @@ function TemplateListView({
                 await onDelete(deleteTarget);
                 setDeleteTarget(null);
               } catch (err) {
-                // Keep dialog open so the user can retry; errors are surfaced by onDelete's caller.
                 console.warn('[TemplateListView] Archive failed:', err);
               }
             }}
@@ -2150,24 +2010,15 @@ export default function IntakeTemplatesPage({
   // state instead of a skeleton.
   if (practiceLoading || !currentPractice) {
     return (
-      <div className="max-w-7xl mx-auto px-6 py-6">
-        <div className="space-y-6">
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-            <FormCardSkeleton titleWidth="w-24" />
-            <FormCardSkeleton titleWidth="w-36" />
-            <FormCardSkeleton titleWidth="w-28" />
-            <FormCardSkeleton titleWidth="w-32" />
-            <FormCardSkeleton titleWidth="w-40" />
-            <FormCardSkeleton titleWidth="w-24" />
-          </div>
-        </div>
+      <div className="flex min-h-0 flex-1 flex-col gap-4 p-4 sm:p-6">
+        <DataTable columns={TEMPLATE_TABLE_COLUMNS} rows={[]} loading className="panel overflow-hidden" bodyClassName="bg-transparent" />
       </div>
     );
   }
 
   if (templateNotFound) {
     return (
-      <div className="max-w-7xl mx-auto px-6 py-6">
+      <div className="flex min-h-0 flex-1 flex-col gap-4 p-4 sm:p-6">
         <SettingsNotice variant="warning">This intake form no longer exists.</SettingsNotice>
       </div>
     );

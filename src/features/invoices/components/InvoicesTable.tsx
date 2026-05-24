@@ -294,9 +294,8 @@ export const InvoicesTable: FunctionComponent<InvoicesTableProps> = ({
         ) : undefined}
         loading={loading}
         loadingLabel="Loading invoices"
-        className="panel rounded-xl overflow-hidden"
+        className="panel overflow-hidden"
         tableClassName="text-left text-sm"
-        rowClassName="border-b border-line-subtle last:border-b-0"
         bodyClassName="bg-transparent"
         stickyHeader
         density="compact"

@@ -841,24 +841,10 @@ export function usePracticeManagement(options: UsePracticeManagementOptions = {}
     }
 
     const response = await apiUpdatePractice(id, payload);
-    const mergedResponse: Practice = {
+    const updatedPractice: Practice = {
       ...(existingPractice ?? response),
       ...response,
     };
-    if (
-      existingPractice?.slug &&
-      mergedResponse.slug === mergedResponse.id &&
-      existingPractice.slug !== mergedResponse.slug
-    ) {
-      mergedResponse.slug = existingPractice.slug;
-    }
-    if (
-      existingPractice?.name &&
-      (mergedResponse.name === 'Practice' || !mergedResponse.name)
-    ) {
-      mergedResponse.name = existingPractice.name;
-    }
-    const updatedPractice = mergedResponse;
 
     // Don't copy businessOnboardingStatus from payload — the API does not
     // accept a canonical status update via this endpoint. The server will

@@ -130,7 +130,7 @@ const CLOSING_STATUSES: ReadonlySet<MatterStatus> = new Set(['engagement_pending
 const DECLINED_STATUSES: ReadonlySet<MatterStatus> = new Set(['declined', 'conflicted']);
 
 const matterStatusBadgeClass = (status: MatterStatus): string => {
-  const base = 'inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium';
+  const base = 'inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium whitespace-nowrap';
   if (ACTIVE_STATUSES.has(status)) return `${base} status-success`;
   if (status === 'closed' || DECLINED_STATUSES.has(status)) {
     return `${base} border border-line-subtle bg-surface-card-hover text-input-placeholder`;
@@ -2195,7 +2195,7 @@ export const PracticeMattersPage = ({
         </div>
       </header>
 
-      <div className="min-h-0 flex-1 overflow-auto px-6 pb-6">
+      <div className="min-h-0 flex-1 overflow-auto px-6 pb-6 pt-4">
         {showEmpty ? (
           <EmptyState onCreate={handleNewMatter} disableCreate={!activePracticeId} />
         ) : showFilteredEmpty ? (
@@ -2209,6 +2209,8 @@ export const PracticeMattersPage = ({
             loading={showLoading}
             density="compact"
             stickyHeader
+            className="panel overflow-hidden"
+            bodyClassName="bg-transparent"
             rowClassName="transition-colors duration-150 hover:!bg-surface-card-hover"
           />
         )}

@@ -228,16 +228,16 @@ export const DataTable = ({
       <table className={cn('min-w-full', tableClassName)}>
         {caption ? <caption className="sr-only">{caption}</caption> : null}
         <thead>
-          <tr className={cn(stickyHeader && 'sticky top-0 z-10 bg-surface-workspace')}>
+          <tr className={cn('border-b border-line-subtle', stickyHeader && 'sticky top-0 z-10 bg-surface-workspace')}>
             {columns.map((column, index) => {
               const isPrimary = column.id === primaryColumn?.id || (index === 0 && !primaryColumn);
               const baseHeaderClass = isPrimary
                 ? cn(
-                  'text-left text-sm font-semibold text-input-text sm:pl-0',
+                  'text-left text-sm font-semibold text-input-text',
                   density === 'compact' ? 'py-2.5 pr-3 pl-4' : 'py-3.5 pr-3 pl-4'
                 )
                 : cn(
-                  'text-left text-sm font-semibold text-input-text',
+                  'text-left text-sm font-semibold text-input-text whitespace-nowrap',
                   density === 'compact' ? 'px-3 py-2.5' : 'px-3 py-3.5'
                 );
 
@@ -247,6 +247,7 @@ export const DataTable = ({
                   scope="col"
                   className={cn(
                     baseHeaderClass,
+                    'whitespace-nowrap',
                     ALIGN_CLASS[column.align ?? 'left'],
                     hideClass(column.hideAt),
                     column.headerClassName
@@ -258,7 +259,7 @@ export const DataTable = ({
             })}
           </tr>
         </thead>
-        <tbody className={cn('bg-surface-workspace', bodyClassName)}>
+        <tbody className={cn('bg-surface-workspace divide-y divide-line-subtle', bodyClassName)}>
           {(() => {
             const renderRows = rowsOverride ?? paddedRows;
             const sourceRows = rowsOverride ?? rows;
@@ -288,7 +289,7 @@ export const DataTable = ({
                     const isPrimary = column.id === primaryColumn?.id || (index === 0 && !primaryColumn);
                     const baseCellClass = isPrimary
                       ? cn(
-                        'w-full max-w-0 text-sm font-medium text-input-text sm:w-auto sm:max-w-none sm:pl-0',
+                        'w-full max-w-0 text-sm font-medium text-input-text sm:w-auto sm:max-w-none',
                         density === 'compact' ? 'py-2.5 pr-3 pl-4' : 'py-3 pr-3 pl-4'
                       )
                       : cn(
