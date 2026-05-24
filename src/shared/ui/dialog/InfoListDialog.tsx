@@ -35,6 +35,8 @@ export interface InfoListDialogProps {
   actionFullWidth?: boolean;
   contentClassName?: string;
   showDividers?: boolean;
+  /** Render as a non-blocking overlay (no scrim, click-through). Default false. */
+  nonBlocking?: boolean;
 }
 
 export const InfoListDialog: FunctionComponent<InfoListDialogProps> = ({
@@ -52,6 +54,7 @@ export const InfoListDialog: FunctionComponent<InfoListDialogProps> = ({
   actionFullWidth = true,
   contentClassName = 'max-w-md',
   showDividers = true,
+  nonBlocking = false,
 }) => {
   const HeaderIcon = headerIcon;
   const titleId = `info-list-dialog-title-${useId()}`;
@@ -63,6 +66,7 @@ export const InfoListDialog: FunctionComponent<InfoListDialogProps> = ({
       showCloseButton={false}
       contentClassName={contentClassName}
       ariaLabelledBy={titleId}
+      nonBlocking={nonBlocking}
     >
       <DialogHeader onClose={onClose} showCloseButton className="pb-2">
         <div className="flex items-start gap-3">
