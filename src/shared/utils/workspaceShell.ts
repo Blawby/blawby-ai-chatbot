@@ -251,8 +251,6 @@ export const shouldShowWorkspaceMobileMenuButton = ({
   workspaceSection,
   view,
   isPracticeWorkspace,
-  selectedMatterIdFromPath: _selectedMatterIdFromPath,
-  isMatterNonListRoute: _isMatterNonListRoute,
   selectedContactIdFromPath,
 }: {
   isMobileLayout: boolean;
@@ -260,8 +258,6 @@ export const shouldShowWorkspaceMobileMenuButton = ({
   workspaceSection: WorkspaceSection;
   view: WorkspaceView;
   isPracticeWorkspace: boolean;
-  selectedMatterIdFromPath: string | null;
-  isMatterNonListRoute: boolean;
   selectedContactIdFromPath: string | null;
 }) => {
   if (!isMobileLayout || !hasSecondaryNav) return false;

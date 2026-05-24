@@ -841,9 +841,9 @@ export function usePracticeManagement(options: UsePracticeManagementOptions = {}
     }
 
     const response = await apiUpdatePractice(id, payload);
-    const mergedResponse: Record<string, unknown> = {
-      ...(existingPractice ?? {}),
-      ...(response as unknown as Record<string, unknown>)
+    const mergedResponse: Practice = {
+      ...(existingPractice ?? response),
+      ...response,
     };
     if (
       existingPractice?.slug &&
@@ -858,7 +858,7 @@ export function usePracticeManagement(options: UsePracticeManagementOptions = {}
     ) {
       mergedResponse.name = existingPractice.name;
     }
-    const updatedPractice = mergedResponse as unknown as Practice;
+    const updatedPractice = mergedResponse;
 
     // Don't copy businessOnboardingStatus from payload — the API does not
     // accept a canonical status update via this endpoint. The server will

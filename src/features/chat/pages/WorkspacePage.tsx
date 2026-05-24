@@ -1105,8 +1105,6 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
     workspaceSection,
     view,
     isPracticeWorkspace,
-    selectedMatterIdFromPath,
-    isMatterNonListRoute,
     selectedContactIdFromPath,
   });
   // The global WorkspaceShellHeader provides the mobile menu button now, so the
