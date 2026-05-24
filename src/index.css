@@ -463,7 +463,6 @@
   .glass-panel {
     @apply rounded-2xl border;
     position: relative;
-    overflow: visible;
     background-color: rgb(var(--surface-section));
     border-color: rgb(var(--border-subtle));
     box-shadow: var(--panel-shadow);

@@ -166,6 +166,7 @@ const PracticeHomePage = () => {
       setStripeLoading(false);
       return;
     }
+    setStripeStatus(null);
     const controller = new AbortController();
     setStripeLoading(true);
     setStripeError(null);
@@ -197,6 +198,7 @@ const PracticeHomePage = () => {
       setRecentIntakesLoading(false);
       return;
     }
+    setRecentIntakes([]);
     const controller = new AbortController();
     setRecentIntakesLoading(true);
     setRecentIntakesError(null);

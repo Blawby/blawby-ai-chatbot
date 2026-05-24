@@ -33,6 +33,8 @@ const ExclamationIcon: IconComponent = (props) => (
   <AlertTriangle {...(props as any)} />
 );
 import { WorkspacePlaceholderState } from '@/shared/ui/layout/WorkspacePlaceholderState';
+import { ErrorBoundary } from '@/app/ErrorBoundary';
+import { ChunkLoadFallback } from '@/shared/ui/layout/LazyRouteBoundary';
 import './index.css';
 import { i18n, initI18n } from '@/shared/i18n';
 import { applyAccentColor, initializeAccentColor } from '@/shared/utils/accentColors';
@@ -139,6 +141,41 @@ const DevDebugMatterRoute = () => {
   return <DebugMatterPage />;
 };
 
+
+// Chunk-load failure recovery. Dynamic imports can fail after a deploy when
+// the SW has cached an HTML 404 response for a hashed JS asset (the CDN edge
+// returned HTML during the brief propagation window). These errors surface as
+// unhandled rejections before Preact mounts, so ErrorBoundary can't catch them.
+// We delete the bad SW cache entry for the specific URL, then reload once.
+// sessionStorage guards against an infinite reload loop.
+if (typeof window !== 'undefined') {
+  window.addEventListener('unhandledrejection', (event: PromiseRejectionEvent) => {
+    const msg = String((event.reason as Error | null)?.message ?? event.reason ?? '');
+    if (!msg.includes('dynamically imported module')) return;
+    event.preventDefault();
+
+    const reloadKey = 'chunk-error-reloaded-at';
+    try {
+      const lastAt = Number(sessionStorage.getItem(reloadKey) ?? 0);
+      if (Date.now() - lastAt < 30_000) return;
+      sessionStorage.setItem(reloadKey, String(Date.now()));
+    } catch {
+      // sessionStorage unavailable — reload unconditionally
+    }
+
+    const urlMatch = msg.match(/https?:\/\/\S+\.js/);
+    const badUrl = urlMatch?.[0];
+    const doReload = () => window.location.reload();
+
+    if (badUrl && typeof caches !== 'undefined') {
+      void caches.keys()
+        .then((keys) => Promise.all(keys.map((k) => caches.open(k).then((c) => c.delete(badUrl)))))
+        .finally(doReload);
+    } else {
+      doReload();
+    }
+  });
+}
 
 // Dev Cache Trap Breaker (Development Only)
 //
@@ -919,21 +956,23 @@ function PracticeAppRoute({
 
   return (
     <>
-      <Suspense fallback={<LoadingScreen />}>
-        <MainApp
-          practiceId={resolvedPracticeId}
-          practiceConfig={practiceConfig}
-          isPracticeView={true}
-          workspace="practice"
-          routeConversationId={conversationId}
-          routeInvoiceId={invoiceId}
-          routeReportDeliveryId={reportDeliveryId}
-          routeSettingsView={settingsView}
-          routeSettingsAppId={appId}
-          workspaceView={workspaceView}
-          practiceSlug={normalizedPracticeSlug || undefined}
-        />
-      </Suspense>
+      <ErrorBoundary fallback={<ChunkLoadFallback />}>
+        <Suspense fallback={<LoadingScreen />}>
+          <MainApp
+            practiceId={resolvedPracticeId}
+            practiceConfig={practiceConfig}
+            isPracticeView={true}
+            workspace="practice"
+            routeConversationId={conversationId}
+            routeInvoiceId={invoiceId}
+            routeReportDeliveryId={reportDeliveryId}
+            routeSettingsView={settingsView}
+            routeSettingsAppId={appId}
+            workspaceView={workspaceView}
+            practiceSlug={normalizedPracticeSlug || undefined}
+          />
+        </Suspense>
+      </ErrorBoundary>
       {isMatterCreateRoute ? (
         <Suspense fallback={null}>
           <PracticeMatterCreatePage
@@ -1054,21 +1093,23 @@ function ClientPracticeRoute({
         practiceConfig={practiceConfig}
         currentUrl={currentUrl}
       />
-      <Suspense fallback={<LoadingScreen />}>
-        <MainApp
-          practiceId={resolvedPracticeId}
-          practiceConfig={practiceConfig}
-          isPracticeView={true}
-          workspace="client"
-          clientPracticeSlug={slug || undefined}
-          routeConversationId={conversationId}
-          routeInvoiceId={invoiceId}
-          routeIntakeId={intakeId}
-          routeSettingsView={settingsView}
-          routeSettingsAppId={appId}
-          workspaceView={workspaceView}
-        />
-      </Suspense>
+      <ErrorBoundary fallback={<ChunkLoadFallback />}>
+        <Suspense fallback={<LoadingScreen />}>
+          <MainApp
+            practiceId={resolvedPracticeId}
+            practiceConfig={practiceConfig}
+            isPracticeView={true}
+            workspace="client"
+            clientPracticeSlug={slug || undefined}
+            routeConversationId={conversationId}
+            routeInvoiceId={invoiceId}
+            routeIntakeId={intakeId}
+            routeSettingsView={settingsView}
+            routeSettingsAppId={appId}
+            workspaceView={workspaceView}
+          />
+        </Suspense>
+      </ErrorBoundary>
     </>
   );
 }

@@ -24,30 +24,13 @@ import { Panel } from '@/shared/ui/layout/Panel';
 import { WorkspacePlaceholderState } from '@/shared/ui/layout/WorkspacePlaceholderState';
 import { EntityList } from '@/shared/ui/list/EntityList';
 import { Button } from '@/shared/ui/Button';
-import { SegmentedToggle } from '@/shared/ui/input/SegmentedToggle';
 import { usePaginatedList } from '@/shared/hooks/usePaginatedList';
 import { formatCurrency } from '@/shared/utils/currencyFormatter';
 import { formatLongDate } from '@/shared/utils/dateFormatter';
 import { cn } from '@/shared/utils/cn';
 
 const PAGE_SIZE = 10;
-const STABLE_EMPTY_ARRAY: string[] = [];
-const EMPTY_FILTERS: InvoiceListFilterState = { statuses: [] };
-type InvoiceTabId = 'all' | 'draft' | 'open' | 'pastDue' | 'paid';
-const INVOICE_TAB_STATUS_MAP: Record<InvoiceTabId, string[]> = {
-  all: [],
-  draft: ['draft'],
-  open: ['sent', 'open', 'pending'],
-  pastDue: ['overdue'],
-  paid: ['paid'],
-};
-const INVOICE_TAB_OPTIONS: ReadonlyArray<{ value: InvoiceTabId; label: string }> = [
-  { value: 'all', label: 'All' },
-  { value: 'draft', label: 'Draft' },
-  { value: 'open', label: 'Open' },
-  { value: 'pastDue', label: 'Past due' },
-  { value: 'paid', label: 'Paid' },
-];
+const EMPTY_FILTERS: InvoiceListFilterState = {};
 
 const InvoicesEmptyState = ({
   hasFilters,
@@ -122,27 +105,13 @@ export function PracticeInvoicesPage({
   const { navigate } = useNavigation();
   const { showError, showSuccess } = useToastContext();
   const [visibleOptionalColumns, setVisibleOptionalColumns] = useState<InvoiceColumnKey[]>([]);
-  const [activeTab, setActiveTab] = useState<InvoiceTabId>('all');
   const [chipFilters, setChipFilters] = useState<InvoiceListFilterState>(EMPTY_FILTERS);
   const [pendingVoidInvoice, setPendingVoidInvoice] = useState<InvoiceSummary | null>(null);
   const [isVoidLoading, setIsVoidLoading] = useState(false);
 
   const aggregates = useInvoiceListAggregates(practiceId);
 
-  const effectiveStatusFilter = useMemo((): string[] | null => {
-    const tabStatuses = INVOICE_TAB_STATUS_MAP[activeTab];
-    const fromTab = tabStatuses.length > 0 ? tabStatuses : null;
-    const fromChip = chipFilters.statuses.length > 0 ? chipFilters.statuses : null;
-    const incoming = statusFilter.length > 0 ? statusFilter : null;
-    const candidates = [incoming, fromTab, fromChip].filter((value): value is string[] => value !== null);
-    if (candidates.length === 0) return STABLE_EMPTY_ARRAY;
-    const result = candidates.reduce<string[]>((acc, current) => {
-      if (acc.length === 0) return current;
-      const allowed = new Set(current);
-      return acc.filter((value) => allowed.has(value));
-    }, []);
-    return result.length === 0 ? null : result;
-  }, [activeTab, chipFilters.statuses, statusFilter]);
+  const effectiveStatusFilter = statusFilter.length > 0 ? statusFilter : [];
 
   const chipFilterRules = useMemo(() => buildChipFilterRules(chipFilters), [chipFilters]);
 
@@ -257,21 +226,11 @@ export function PracticeInvoicesPage({
     return (
       <div className="flex min-h-0 flex-1 flex-col gap-4 p-4 sm:p-6">
         <InvoiceListKpiRow aggregates={aggregates} />
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <SegmentedToggle<InvoiceTabId>
-            value={activeTab}
-            options={INVOICE_TAB_OPTIONS.map((option) => ({
-              ...option,
-              count: aggregates.tabCounts[option.value],
-            }))}
-            onChange={setActiveTab}
-            ariaLabel="Filter invoices by status"
-            className="w-full sm:w-auto sm:min-w-[28rem]"
-          />
-          {onCreateInvoice ? (
+        {onCreateInvoice ? (
+          <div className="flex justify-end">
             <Button onClick={onCreateInvoice}>New Invoice</Button>
-          ) : null}
-        </div>
+          </div>
+        ) : null}
         <InvoiceFilterChips
           filters={chipFilters}
           onChange={setChipFilters}

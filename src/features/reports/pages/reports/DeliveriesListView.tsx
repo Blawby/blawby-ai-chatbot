@@ -80,6 +80,11 @@ export const DeliveriesListView: FunctionComponent<DeliveriesListViewProps> = ({
         columns={COLUMNS}
         rows={rows}
         loading={loading && items.length === 0}
+        density="compact"
+        stickyHeader
+        className="panel overflow-hidden"
+        bodyClassName="bg-transparent"
+        rowClassName="transition-colors duration-150 hover:!bg-surface-card-hover"
         hasMore={hasMore}
         isLoadingMore={loading && items.length > 0}
         onLoadMore={loadMore}

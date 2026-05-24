@@ -174,7 +174,6 @@ const buildPracticeRail = (basePath: string): NavRailItem[] => [
     icon: Briefcase,
     href: `${basePath}/matters`,
     matchHrefs: [`${basePath}/matters`],
-    expandable: true,
     prefetch: prefetchMattersChunk,
   },
   {
@@ -186,12 +185,13 @@ const buildPracticeRail = (basePath: string): NavRailItem[] => [
     prefetch: prefetchEngagementsChunk,
   },
   {
-    id: 'conversations',
-    label: 'Messages',
-    icon: MessageSquare,
-    href: `${basePath}/conversations`,
-    matchHrefs: [`${basePath}/conversations`],
+    id: 'intakes',
+    label: 'Intakes',
+    icon: Contact,
+    href: `${basePath}/intakes/responses`,
+    matchHrefs: [`${basePath}/intakes`],
     expandable: true,
+    prefetch: prefetchIntakesChunk,
   },
   {
     id: 'contacts',
@@ -202,13 +202,11 @@ const buildPracticeRail = (basePath: string): NavRailItem[] => [
     prefetch: prefetchPracticeContactsChunk,
   },
   {
-    id: 'intakes',
-    label: 'Intakes',
-    icon: Contact,
-    href: `${basePath}/intakes/responses`,
-    matchHrefs: [`${basePath}/intakes`],
-    expandable: true,
-    prefetch: prefetchIntakesChunk,
+    id: 'conversations',
+    label: 'Messages',
+    icon: MessageSquare,
+    href: `${basePath}/conversations`,
+    matchHrefs: [`${basePath}/conversations`],
   },
   {
     id: 'files',
@@ -234,14 +232,6 @@ const buildPracticeRail = (basePath: string): NavRailItem[] => [
     matchHrefs: [`${basePath}/reports`],
     prefetch: prefetchReportsChunk,
   },
-  {
-    id: 'settings',
-    label: 'Settings',
-    icon: SettingsNavIcon,
-    href: `${basePath}/settings/general`,
-    matchHrefs: [`${basePath}/settings`, `${basePath}/coverage`],
-    prefetch: prefetchSettingsLanding,
-  },
 ];
 
 const buildClientRail = (basePath: string): NavRailItem[] => [
@@ -252,7 +242,6 @@ const buildClientRail = (basePath: string): NavRailItem[] => [
     icon: Briefcase,
     href: `${basePath}/matters`,
     matchHrefs: [`${basePath}/matters`],
-    expandable: true,
     prefetch: prefetchClientMattersChunk,
   },
   {
@@ -261,7 +250,6 @@ const buildClientRail = (basePath: string): NavRailItem[] => [
     icon: MessageSquare,
     href: `${basePath}/conversations`,
     matchHrefs: [`${basePath}/conversations`],
-    expandable: true,
   },
   {
     id: 'intakes',

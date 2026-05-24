@@ -12,18 +12,10 @@ export interface InvoiceListAggregates {
   pastDue: { amount: number; count: number };
   paid30d: { amount: number; count: number };
   drafts: { count: number };
-  tabCounts: {
-    all: number;
-    draft: number;
-    open: number;
-    pastDue: number;
-    paid: number;
-  };
   loading: boolean;
   error: string | null;
 }
 
-const OPEN_STATUSES = new Set(['sent', 'open', 'pending']);
 const PAST_DUE_STATUSES = new Set(['overdue']);
 const PAID_STATUSES = new Set(['paid']);
 const UNPAID_STATUSES = new Set(['sent', 'open', 'pending', 'overdue']);
@@ -36,8 +28,6 @@ const aggregate = (items: InvoiceSummary[]): Omit<InvoiceListAggregates, 'loadin
   let paid30dAmount = 0;
   let paid30dCount = 0;
   let draftCount = 0;
-  let openCount = 0;
-  let paidCount = 0;
 
   const thirtyDaysAgo = Date.now() - 30 * 24 * 60 * 60 * 1000;
 
@@ -52,7 +42,6 @@ const aggregate = (items: InvoiceSummary[]): Omit<InvoiceListAggregates, 'loadin
       pastDueCount += 1;
     }
     if (PAID_STATUSES.has(status)) {
-      paidCount += 1;
       const paidAt = invoice.paidAt ? Date.parse(invoice.paidAt) : NaN;
       if (Number.isFinite(paidAt) && paidAt >= thirtyDaysAgo) {
         paid30dAmount += invoice.amountPaid;
@@ -60,7 +49,6 @@ const aggregate = (items: InvoiceSummary[]): Omit<InvoiceListAggregates, 'loadin
       }
     }
     if (status === 'draft') draftCount += 1;
-    if (OPEN_STATUSES.has(status)) openCount += 1;
   }
 
   return {
@@ -68,13 +56,6 @@ const aggregate = (items: InvoiceSummary[]): Omit<InvoiceListAggregates, 'loadin
     pastDue: { amount: pastDueAmount, count: pastDueCount },
     paid30d: { amount: paid30dAmount, count: paid30dCount },
     drafts: { count: draftCount },
-    tabCounts: {
-      all: items.length,
-      draft: draftCount,
-      open: openCount,
-      pastDue: pastDueCount,
-      paid: paidCount,
-    },
   };
 };
 
@@ -83,7 +64,6 @@ const EMPTY_AGGREGATES: Omit<InvoiceListAggregates, 'loading' | 'error'> = {
   pastDue: { amount: 0, count: 0 },
   paid30d: { amount: 0, count: 0 },
   drafts: { count: 0 },
-  tabCounts: { all: 0, draft: 0, open: 0, pastDue: 0, paid: 0 },
 };
 
 /**

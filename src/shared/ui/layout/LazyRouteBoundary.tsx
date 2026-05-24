@@ -4,7 +4,7 @@ import { ErrorBoundary } from '@/app/ErrorBoundary';
 import { Button } from '@/shared/ui/Button';
 import { RouteFallback } from './RouteFallback';
 
-const ChunkLoadFallback = () => (
+export const ChunkLoadFallback = () => (
   <div className="m-6 rounded-xl border border-accent-error/30 bg-accent-error/5 p-6 text-sm text-input-text">
     <p className="font-semibold">This page failed to load.</p>
     <p className="mt-1 text-input-placeholder">
