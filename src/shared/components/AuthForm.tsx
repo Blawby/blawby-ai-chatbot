@@ -104,6 +104,7 @@ const AuthForm = ({
           email: formData.email,
           password: formData.password,
           name: formData.name || formData.email.split('@')[0] || t('defaults.demoUserName'),
+          ...(callbackURL ? { callbackURL } : {}),
         });
 
         if (result.error) {
@@ -129,6 +130,7 @@ const AuthForm = ({
         const result = await client.signIn.email({
           email: formData.email,
           password: formData.password,
+          ...(callbackURL ? { callbackURL } : {}),
         });
 
         if (result.error) {

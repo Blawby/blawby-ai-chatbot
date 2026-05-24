@@ -6,7 +6,7 @@ import { SEOHead } from '@/app/SEOHead';
 import { ToastProvider } from '@/shared/contexts/ToastContext';
 import { CommandPaletteProvider } from '@/features/search/contexts/CommandPaletteContext';
 import { SessionProvider, useSessionContext } from '@/shared/contexts/SessionContext';
-import { getSession } from '@/shared/lib/authClient';
+import { authClient } from '@/shared/lib/authClient';
 import type { WorkspaceView } from '@/shared/utils/workspaceShell';
 import { PublicWorkspaceRoute } from '@/app/PublicWorkspaceRoute';
 import { useNavigation } from '@/shared/utils/navigation';
@@ -14,7 +14,6 @@ import { usePracticeConfig } from '@/shared/hooks/usePracticeConfig';
 import type { UIPracticeConfig } from '@/shared/hooks/usePracticeConfig';
 import { handleError as _handleError } from '@/shared/utils/errorHandler';
 import { useWorkspaceResolver } from '@/shared/hooks/useWorkspaceResolver';
-import { useEnsureActiveOrganization } from '@/shared/hooks/useEnsureActiveOrganization';
 import {
   getWorkspaceHomePath,
 } from '@/shared/utils/workspace';
@@ -42,7 +41,6 @@ import { UpdateAvailableToast } from '@/shared/ui/UpdateAvailableToast';
 import { consumePostAuthConversationContext } from '@/shared/utils/anonymousIdentity';
 import { isWidgetRuntimeContext as _isWidgetRuntimeContext } from '@/shared/utils/widgetAuth';
 import { useTheme } from '@/shared/hooks/useTheme';
-import { setActivePractice } from '@/shared/lib/apiClient';
 import { lazy } from 'preact/compat';
 // Top-level pages are lazy so they don't bloat the entry chunk. Each page
 // loads its own bundle on demand the first time the matching route renders.
@@ -220,12 +218,6 @@ function AppShell() {
   const location = useLocation();
   const { navigate } = useNavigation();
   const { session, isPending: sessionPending } = useSessionContext();
-  // Recovery for the legitimate null active_organization_id state described in
-  // docs/solutions/conventions/better-auth-active-organization-id-pointer-2026-05-15.md.
-  // Idempotent and gated on completedOnboarding+!activeOrgId, so it no-ops for
-  // first-time users (handled by onboarding) and for users whose org is already
-  // active.
-  useEnsureActiveOrganization();
   const onboardingIncomplete =
     Boolean(session?.user) &&
     !session?.user?.is_anonymous &&
@@ -241,7 +233,6 @@ function AppShell() {
     (!onboardingIncomplete || isClientRoute);
   const {
     currentPractice,
-    practices,
     hasPracticeMembership,
     practicesLoading,
     practicesError,
@@ -267,12 +258,12 @@ function AppShell() {
   }, [currentPractice?.accentColor, currentPractice?.slug]);
 
   const authenticatedHomePath = useMemo(() => {
-    const fallbackSlug = currentPractice?.slug ?? practices[0]?.slug ?? null;
+    const fallbackSlug = currentPractice?.slug ?? null;
     return resolveAuthenticatedHomePath({
       fallbackSlug,
       hasPracticeMembership,
     });
-  }, [currentPractice?.slug, hasPracticeMembership, practices]);
+  }, [currentPractice?.slug, hasPracticeMembership]);
 
   useEffect(() => {
     if (sessionPending) return;
@@ -617,14 +608,12 @@ function RootRoute() {
   const authenticatedHomePath = useMemo(() => {
     if (!shouldFetchRootPractices) return null;
     // On subscription-success return, pin navigation to the org that just
-    // subscribed (from the URL) so we don't race the practices refetch and
-    // briefly land on practices[0] before currentPractice catches up to the
-    // restored active org — which would strand the user on the wrong workspace
-    // (issue #626).
+    // subscribed (from the URL) so we don't race the practices refetch against
+    // the restored active org and strand the user on the wrong workspace.
     const subscribedSlug = subscriptionSuccessPracticeId
       ? practices.find((practice) => practice.id === subscriptionSuccessPracticeId)?.slug ?? null
       : null;
-    const fallbackSlug = subscribedSlug ?? currentPractice?.slug ?? practices[0]?.slug ?? null;
+    const fallbackSlug = subscribedSlug ?? currentPractice?.slug ?? null;
     return resolveAuthenticatedHomePath({
       fallbackSlug,
       hasPracticeMembership,
@@ -650,17 +639,11 @@ function RootRoute() {
 
     void (async () => {
       try {
-        // Restore the org that actually subscribed *before* reading the session.
-        // buildSuccessUrl appends practiceId to the Stripe return URL; if we don't
-        // consume it, RootRoute resolves currentPractice to the first practice and
-        // PracticeAppRoute then syncs the wrong active org, hiding the new
-        // subscription (issue #626).
+        // Restore the org that actually subscribed. buildSuccessUrl appends
+        // practiceId to the Stripe return URL so the session can be aligned
+        // before subscription-gated routes run.
         if (subscriptionSuccessPracticeId) {
-          await setActivePractice(subscriptionSuccessPracticeId);
-        }
-        await getSession();
-        if (typeof window !== 'undefined') {
-          window.dispatchEvent(new CustomEvent('auth:session-updated'));
+          await authClient.organization.setActive({ organizationId: subscriptionSuccessPracticeId });
         }
       } catch (error) {
         if (isMountedRef.current) {
@@ -807,7 +790,7 @@ function PracticeAppRoute({
     // Only sync when the resolver's currentPractice is for the URL we are on.
     // Without this gate, a stale practices snapshot (e.g. right after a new
     // org was created via the switcher) makes currentPractice fall back to a
-    // *different* practice, and we'd PUT setActivePractice with the OLD id —
+    // *different* practice, and we'd set the active org to the OLD id —
     // reverting the switcher's intentional setActive call. See feat/org-switcher
     // bug investigation 2026-05-22.
     const resolverMatchesUrl =
@@ -827,13 +810,9 @@ function PracticeAppRoute({
     if (resolvedPracticeId && backendActiveOrgId !== resolvedPracticeId) {
       let cancelled = false;
 
-      void setActivePractice(resolvedPracticeId)
-        .then(() => getSession())
-        .then(() => {
-          if (cancelled || typeof window === 'undefined') return;
-          window.dispatchEvent(new CustomEvent('auth:session-updated'));
-        })
+      void authClient.organization.setActive({ organizationId: resolvedPracticeId })
         .catch((err) => {
+          if (cancelled) return;
           console.warn('[PracticeAppRoute] Failed to switch active practice context:', err);
         });
 

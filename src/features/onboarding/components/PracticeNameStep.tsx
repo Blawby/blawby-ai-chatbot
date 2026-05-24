@@ -6,7 +6,7 @@ import { Form, FormField, FormItem, FormLabel, FormControl, FormMessage, type Fo
 import { Input } from '@/shared/ui/input';
 import { LoadingSpinner } from '@/shared/ui/layout/LoadingSpinner';
 import { z } from 'zod';
-import { authClient, getSession } from '@/shared/lib/authClient';
+import { authClient } from '@/shared/lib/authClient';
 import { useToastContext } from '@/shared/contexts/ToastContext';
 import { slugify, unwrapCreated, type CreatedOrg } from '@/shared/lib/orgCreation';
 
@@ -67,10 +67,6 @@ const PracticeNameStep = ({
         throw new Error('Practice was not created');
       }
       await authClient.organization.setActive({ organizationId: created.id });
-      await getSession().catch(() => undefined);
-      if (typeof window !== 'undefined') {
-        window.dispatchEvent(new CustomEvent('auth:session-updated'));
-      }
       await onComplete(created);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Please try again.';

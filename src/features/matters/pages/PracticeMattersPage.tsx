@@ -314,7 +314,7 @@ export const PracticeMattersPage = ({
 }: PracticeMattersPageProps) => {
   const location = useLocation();
   const { session, activePracticeId: sessionActivePracticeId } = useSessionContext();
-  const { showError, showSuccess } = useToastContext();
+  const { showError } = useToastContext();
   const activePracticeId = routePracticeId ?? sessionActivePracticeId;
 
   // ── Routing ──────────────────────────────────────────────────────────────

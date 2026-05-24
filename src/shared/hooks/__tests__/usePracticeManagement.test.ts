@@ -213,7 +213,7 @@ describe('usePracticeManagement', () => {
     expect(result.current.currentPractice?.id).toBe('practice-2');
   });
 
-  it('falls back to the first practice when no active org is set', async () => {
+  it('does not choose an arbitrary practice when no active org is set', async () => {
     mockPracticeApi.listPractices.mockResolvedValueOnce([
       { id: 'practice-1', name: 'First Practice', slug: 'first' },
       { id: 'practice-2', name: 'Second Practice', slug: 'second' },
@@ -227,6 +227,6 @@ describe('usePracticeManagement', () => {
       await result.current.refetch();
     });
 
-    expect(result.current.currentPractice?.id).toBe('practice-1');
+    expect(result.current.currentPractice).toBeNull();
   });
 });

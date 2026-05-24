@@ -8,6 +8,7 @@ import { CurrencyInput } from '@/shared/ui/input/CurrencyInput';
 import { RadioGroupWithDescriptions } from '@/shared/ui/input/RadioGroupWithDescriptions';
 import type { DescribedRadioOption } from '@/shared/ui/input/RadioGroupWithDescriptions';
 import { FormGrid } from '@/shared/ui/layout/FormGrid';
+import { LoadingSpinner } from '@/shared/ui/layout/LoadingSpinner';
 import { formatCurrency } from '@/shared/utils/currencyFormatter';
 import { asMajor } from '@/shared/utils/money';
 import type { MajorAmount } from '@/shared/utils/money';
@@ -187,7 +188,11 @@ const SelectedIntakeCard: FunctionComponent<{
         <p className="truncate font-medium text-input-text">{name}</p>
         {email && <p className="truncate text-sm text-input-placeholder">{email}</p>}
         {subject && <p className="mt-0.5 truncate text-xs text-input-placeholder">{subject}</p>}
-        {detailLoading && <p className="mt-1 text-xs text-input-placeholder">Loading intake details…</p>}
+        {detailLoading && (
+          <div className="mt-1">
+            <LoadingSpinner size="sm" ariaLabel="Loading intake details" className="text-input-placeholder" />
+          </div>
+        )}
       </div>
       <button
         type="button"

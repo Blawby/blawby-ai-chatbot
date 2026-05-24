@@ -194,8 +194,7 @@ export const useActiveMemberRole = () => {
 };
 
 // Reactive hook over the user's full membership list. Backed by Better Auth's
-// organization plugin (/api/auth/organization/list); safe to call from the
-// null-active-org state (see useEnsureActiveOrganization).
+// organization plugin (/api/auth/organization/list).
 export const useListOrganizations = () => {
   const client = getAuthClient();
   return client.useListOrganizations();

@@ -25,7 +25,6 @@ import { getWidgetAuthToken } from '@/shared/utils/widgetAuth';
 import { getClient as getAuthClient } from '@/shared/lib/authClient';
 
 let cachedBaseUrl: string | null = null;
-let isHandling401: Promise<void> | null = null;
 const ABSOLUTE_URL_PATTERN = /^(https?:)?\/\//i;
 
 const publicPracticeDetailsKey = (slug: string) => `practice:public:${slug}`;
@@ -176,26 +175,6 @@ async function apiFetch<T>(
     cleanup();
   }
 
-  if (response.status === 401) {
-    if (!isHandling401) {
-      const doHandle = async () => {
-        try {
-          if (typeof window !== 'undefined') {
-            try {
-              window.dispatchEvent(new CustomEvent('auth:unauthorized'));
-            } catch (eventErr) {
-              console.error('Error dispatching auth:unauthorized event:', eventErr);
-            }
-          }
-        } finally {
-          isHandling401 = null;
-        }
-      };
-      isHandling401 = doHandle();
-    }
-    await isHandling401;
-  }
-
   const isAccepted = acceptStatuses?.includes(response.status) ?? false;
   // `response.headers` may be missing in test stubs that fake just `{ ok, json }`;
   // prefer Headers when present, fall back to an empty Headers instance.
@@ -330,8 +309,7 @@ export type UploadConfig = {
  * still don't support reliably).
  *
  * Mirrors `apiClient.post` shape — same `{ data, status }` return,
- * same widget-token handling, same 401 → `auth:unauthorized` event,
- * same `HttpError` for non-2xx. The `onProgress` callback fires for
+ * same widget-token handling, same `HttpError` for non-2xx. The `onProgress` callback fires for
  * each `upload.onprogress` event with `{ loaded, total, percent }`.
  *
  * Replaces hand-rolled XHR + `xhrRef` Map patterns scattered across
@@ -495,8 +473,8 @@ type StreamConfig = {
  * consume `response.body.getReader()` for streaming.
  *
  * Mirrors `apiClient.{get,post}` for header normalization (Content-Type,
- * widget bearer for allowlisted URLs), URL resolution, and 401 → event
- * dispatch. Throws `HttpError` on non-2xx so caller's catch sees the same
+ * widget bearer for allowlisted URLs), and URL resolution.
+ * Throws `HttpError` on non-2xx so caller's catch sees the same
  * error contract as the rest of the API surface.
  */
 async function apiStream(
@@ -530,26 +508,6 @@ async function apiStream(
     body: body !== undefined ? JSON.stringify(body) : undefined,
     signal,
   });
-
-  if (response.status === 401) {
-    if (!isHandling401) {
-      const doHandle = async () => {
-        try {
-          if (typeof window !== 'undefined') {
-            try {
-              window.dispatchEvent(new CustomEvent('auth:unauthorized'));
-            } catch (eventErr) {
-              console.error('Error dispatching auth:unauthorized event:', eventErr);
-            }
-          }
-        } finally {
-          isHandling401 = null;
-        }
-      };
-      isHandling401 = doHandle();
-    }
-    await isHandling401;
-  }
 
   if (!response.ok) {
     // Drain the body so caller's catch path can read structured error data.
@@ -1280,13 +1238,6 @@ export async function deletePractice(
     invalidates: [`practice:${practiceId}`, 'practices:list'],
   });
   clearPublicPracticeDetailsCache();
-}
-
-export async function setActivePractice(practiceId: string): Promise<void> {
-  if (!practiceId) {
-    throw new Error('practiceId is required');
-  }
-  await apiClient.put(`/api/practice/${encodeURIComponent(practiceId)}/active`);
 }
 
 export async function listPracticeInvitations(
