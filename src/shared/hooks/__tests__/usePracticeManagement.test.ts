@@ -33,7 +33,8 @@ global.PointerEvent = dom.window.PointerEvent;
 global.TouchEvent = dom.window.TouchEvent;
 global.WheelEvent = dom.window.WheelEvent;
 
-const { mockApiClient, mockPracticeApi } = vi.hoisted(() => ({
+const { mockApiClient, mockPracticeApi, mockSessionState } = vi.hoisted(() => ({
+  mockSessionState: { activeOrgId: null as string | null },
   mockApiClient: {
     get: vi.fn(),
     post: vi.fn(),
@@ -94,7 +95,13 @@ vi.mock('@/shared/lib/authClient', () => ({
 
 vi.mock('@/shared/contexts/SessionContext', () => ({
   useSessionContext: () => ({
-    session: { session: { id: 'session-1' }, user: { id: 'user-1', email: 'test@test-blawby.com' } },
+    session: {
+      session: {
+        id: 'session-1',
+        ...(mockSessionState.activeOrgId ? { active_organization_id: mockSessionState.activeOrgId } : {}),
+      },
+      user: { id: 'user-1', email: 'test@test-blawby.com' },
+    },
     isPending: false,
     isAnonymous: false,
     activePracticeId: 'practice-1',
@@ -114,6 +121,7 @@ vi.mock('@/config/api', async () => {
 describe('usePracticeManagement', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockSessionState.activeOrgId = null;
     Object.values(mockApiClient).forEach(fn => fn.mockReset());
     Object.values(mockPracticeApi).forEach(fn => fn.mockReset());
     mockPracticeApi.listPractices.mockResolvedValue([]);
@@ -183,5 +191,42 @@ describe('usePracticeManagement', () => {
         await result.current.createPractice({ name: '' });
       })
     ).rejects.toThrow('Practice name is required');
+  });
+
+  it('selects currentPractice by active_organization_id when route-unscoped (issue #626)', async () => {
+    mockSessionState.activeOrgId = 'practice-2';
+    mockPracticeApi.listPractices.mockResolvedValueOnce([
+      { id: 'practice-1', name: 'First Practice', slug: 'first' },
+      { id: 'practice-2', name: 'Second Practice', slug: 'second' },
+    ]);
+
+    const { result } = renderHook(() =>
+      usePracticeManagement({ autoFetchPractices: false })
+    );
+
+    await act(async () => {
+      await result.current.refetch();
+    });
+
+    // With no route slug, currentPractice must follow the backend's active org
+    // pointer (practice-2), not blindly take the first practice (practice-1).
+    expect(result.current.currentPractice?.id).toBe('practice-2');
+  });
+
+  it('falls back to the first practice when no active org is set', async () => {
+    mockPracticeApi.listPractices.mockResolvedValueOnce([
+      { id: 'practice-1', name: 'First Practice', slug: 'first' },
+      { id: 'practice-2', name: 'Second Practice', slug: 'second' },
+    ]);
+
+    const { result } = renderHook(() =>
+      usePracticeManagement({ autoFetchPractices: false })
+    );
+
+    await act(async () => {
+      await result.current.refetch();
+    });
+
+    expect(result.current.currentPractice?.id).toBe('practice-1');
   });
 });

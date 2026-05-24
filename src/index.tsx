@@ -610,14 +610,26 @@ function RootRoute() {
   const [subscriptionSyncPending, setSubscriptionSyncPending] = useState(false);
   const [subscriptionSyncError, setSubscriptionSyncError] = useState<unknown>(null);
   const isSubscriptionSuccessReturn = location.query.subscription === 'success';
+  const subscriptionSuccessPracticeId =
+    isSubscriptionSuccessReturn && typeof location.query.practiceId === 'string'
+      ? location.query.practiceId.trim()
+      : '';
   const authenticatedHomePath = useMemo(() => {
     if (!shouldFetchRootPractices) return null;
-    const fallbackSlug = currentPractice?.slug ?? practices[0]?.slug ?? null;
+    // On subscription-success return, pin navigation to the org that just
+    // subscribed (from the URL) so we don't race the practices refetch and
+    // briefly land on practices[0] before currentPractice catches up to the
+    // restored active org — which would strand the user on the wrong workspace
+    // (issue #626).
+    const subscribedSlug = subscriptionSuccessPracticeId
+      ? practices.find((practice) => practice.id === subscriptionSuccessPracticeId)?.slug ?? null
+      : null;
+    const fallbackSlug = subscribedSlug ?? currentPractice?.slug ?? practices[0]?.slug ?? null;
     return resolveAuthenticatedHomePath({
       fallbackSlug,
       hasPracticeMembership,
     });
-  }, [currentPractice?.slug, hasPracticeMembership, practices, shouldFetchRootPractices]);
+  }, [currentPractice?.slug, hasPracticeMembership, practices, shouldFetchRootPractices, subscriptionSuccessPracticeId]);
 
   useEffect(() => {
     return () => {
@@ -638,6 +650,14 @@ function RootRoute() {
 
     void (async () => {
       try {
+        // Restore the org that actually subscribed *before* reading the session.
+        // buildSuccessUrl appends practiceId to the Stripe return URL; if we don't
+        // consume it, RootRoute resolves currentPractice to the first practice and
+        // PracticeAppRoute then syncs the wrong active org, hiding the new
+        // subscription (issue #626).
+        if (subscriptionSuccessPracticeId) {
+          await setActivePractice(subscriptionSuccessPracticeId);
+        }
         await getSession();
         if (typeof window !== 'undefined') {
           window.dispatchEvent(new CustomEvent('auth:session-updated'));
@@ -650,6 +670,7 @@ function RootRoute() {
         if (typeof window !== 'undefined') {
           const newUrl = new URL(window.location.href);
           newUrl.searchParams.delete('subscription');
+          newUrl.searchParams.delete('practiceId');
           window.history.replaceState({}, '', `${newUrl.pathname}${newUrl.search}${newUrl.hash}`);
         }
         if (isMountedRef.current) {
@@ -657,7 +678,7 @@ function RootRoute() {
         }
       }
     })();
-  }, [isSubscriptionSuccessReturn]);
+  }, [isSubscriptionSuccessReturn, subscriptionSuccessPracticeId]);
 
   useEffect(() => {
     if (subscriptionSyncPending) return;
