@@ -21,6 +21,7 @@ import {
 } from '@/features/matters/data/matterTypes';
 import { MatterEditForm, type MatterFormState } from '@/features/matters/components/MatterForm';
 import { TimeEntryForm, type TimeEntryFormValues } from '@/features/matters/components/time-entries/TimeEntryForm';
+import type { MatterTaskFormValues } from '@/features/matters/components/tasks/MatterTaskForm';
 import {
   MatterDetailPanel,
   type DetailSectionId
@@ -45,6 +46,7 @@ import {
   type BackendMatterActivity,
   type BackendMatterNote,
   type BackendMatterTimeStats,
+  type UpdateMatterTaskPayload,
   createMatterExpense,
   createMatterNote,
   createMatterMilestone,
@@ -57,6 +59,9 @@ import {
   listMatterMilestones,
   listMatterNotes,
   listMatterTasks,
+  createMatterTask,
+  updateMatterTask,
+  deleteMatterTask,
   listMatterTimeEntries,
   reorderMatterMilestones,
   updateMatterExpense,
@@ -334,6 +339,12 @@ export const PracticeMattersPage = ({
   const convertIntakeUuid = useMemo(
     () => resolveQueryValue(location.query?.convertIntake),
     [location.query?.convertIntake]
+  );
+  // The matter overview "Add task" CTA navigates to the Work → Tasks view with
+  // `?compose=task` so the tasks panel auto-opens its create form on arrival.
+  const composeTaskRequested = useMemo(
+    () => resolveQueryValue(location.query?.compose) === 'task',
+    [location.query?.compose]
   );
   const navigate = useCallback((path: string) => location.route(path), [location]);
   const goToList = () => navigate(basePath);
@@ -1382,6 +1393,39 @@ export const PracticeMattersPage = ({
     if (created) setNoteRecords((prev) => [...prev, created]);
   }, [activePracticeId, selectedMatterId]);
 
+  // ── Task handlers ─────────────────────────────────────────────────────────
+  const refreshTasks = useCallback(async () => {
+    if (!activePracticeId || !selectedMatterId) return;
+    const items = await listMatterTasks(activePracticeId, selectedMatterId);
+    setTasks(items.map(toMatterTask));
+  }, [activePracticeId, selectedMatterId]);
+
+  const handleCreateTask = useCallback(async (values: MatterTaskFormValues) => {
+    if (!activePracticeId || !selectedMatterId) throw new Error('IDs required');
+    await createMatterTask(activePracticeId, selectedMatterId, {
+      name: values.name,
+      description: values.description || undefined,
+      assignee_id: values.assigneeId,
+      due_date: values.dueDate,
+      status: values.status,
+      priority: values.priority,
+      stage: values.stage
+    });
+    await refreshTasks();
+  }, [activePracticeId, selectedMatterId, refreshTasks]);
+
+  const handleUpdateTask = useCallback(async (task: MatterTask, patch: UpdateMatterTaskPayload) => {
+    if (!activePracticeId || !selectedMatterId) throw new Error('IDs required');
+    await updateMatterTask(activePracticeId, selectedMatterId, task.id, patch);
+    await refreshTasks();
+  }, [activePracticeId, selectedMatterId, refreshTasks]);
+
+  const handleDeleteTask = useCallback(async (task: MatterTask) => {
+    if (!activePracticeId || !selectedMatterId) throw new Error('IDs required');
+    await deleteMatterTask(activePracticeId, selectedMatterId, task.id);
+    await refreshTasks();
+  }, [activePracticeId, selectedMatterId, refreshTasks]);
+
   // ── Derived list data ─────────────────────────────────────────────────────
   const matterEntries = useMemo(() => matters.map((m) => ({
     summary: toMatterSummary(m, { clientNameById, serviceNameById }),
@@ -1809,12 +1853,9 @@ export const PracticeMattersPage = ({
             responsibleAttorneyLabel,
             assigneeLabel: assigneeLabelComputed,
             onLogTime: () => goToDetail(selectedMatterDetail.id, 'billing', 'time'),
-            onAddTask: () => goToDetail(selectedMatterDetail.id, 'work', 'tasks'),
+            onAddTask: () => navigate(`${basePath}/${encodeURIComponent(selectedMatterDetail.id)}/work?compose=task`),
             onAddNote: () => goToDetail(selectedMatterDetail.id, 'notes'),
             onUploadFile: () => goToDetail(selectedMatterDetail.id, 'files'),
-            engagementActionLabel: engagement ? 'View engagement' : 'Missing engagement',
-            onEngagementAction: () => void handleEngagementPrimaryAction(),
-            engagementActionLoading: engagementCreating,
             moreMenuItems: [
               {
                 label: 'Edit matter',
@@ -1838,8 +1879,6 @@ export const PracticeMattersPage = ({
               setEngagementRetryCount((count) => count + 1);
             },
             onViewEngagement: () => void handleEngagementPrimaryAction(),
-            onCreateEngagement: () => void handleEngagementPrimaryAction(),
-            engagementActionLoading: engagementCreating,
             timelineItems,
             activityLoading,
             activityError,
@@ -1853,6 +1892,7 @@ export const PracticeMattersPage = ({
             onViewTimesheet: () => goToDetail(selectedMatterDetail.id, 'billing', 'time'),
             onViewAllActivity: () => goToDetail(selectedMatterDetail.id, 'activity'),
             onViewTasks: () => goToDetail(selectedMatterDetail.id, 'work', 'tasks'),
+            onAddTask: () => navigate(`${basePath}/${encodeURIComponent(selectedMatterDetail.id)}/work?compose=task`),
             onTaskClick: () => goToDetail(selectedMatterDetail.id, 'work', 'tasks'),
             onUploadFile: () => goToDetail(selectedMatterDetail.id, 'files'),
             onViewFiles: () => goToDetail(selectedMatterDetail.id, 'files')
@@ -1866,6 +1906,12 @@ export const PracticeMattersPage = ({
             tasksError,
             tasksNotImplemented,
             assignees: assigneeOptions,
+            tasksReadOnly: selectedMatterDetail.status === 'closed',
+            onCreateTask: handleCreateTask,
+            onUpdateTask: handleUpdateTask,
+            onDeleteTask: handleDeleteTask,
+            autoComposeTask: composeTaskRequested,
+            onComposeTaskHandled: () => goToDetail(selectedMatterDetail.id, 'work', 'tasks'),
             milestones,
             milestonesLoading,
             milestonesError,

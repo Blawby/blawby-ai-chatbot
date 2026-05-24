@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'preact/hooks';
+import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { MoreVertical, Pencil, Plus, Trash2 } from 'lucide-preact';
 
 import { Icon } from '@/shared/ui/Icon';
@@ -58,6 +58,9 @@ interface MatterTasksPanelProps {
   onCreateTask?: (values: MatterTaskFormValues) => Promise<void>;
   onUpdateTask?: (task: MatterTask, patch: MatterTaskPatch) => Promise<void>;
   onDeleteTask?: (task: MatterTask) => Promise<void>;
+  /** Open the create-task form once on mount (driven by an external CTA). */
+  autoOpenCreate?: boolean;
+  onAutoOpenHandled?: () => void;
 }
 
 const formatDate = (date: string | null) => (date ? formatDateOnlyUtc(date) : 'No due date');
@@ -70,7 +73,9 @@ export const MatterTasksPanel = ({
   readOnly = false,
   onCreateTask,
   onUpdateTask,
-  onDeleteTask
+  onDeleteTask,
+  autoOpenCreate = false,
+  onAutoOpenHandled
 }: MatterTasksPanelProps) => {
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<MatterTask | null>(null);
@@ -112,6 +117,23 @@ export const MatterTasksPanel = ({
     setRequestError(null);
     setIsFormOpen(false);
   };
+
+  // Open the create form once when an external CTA (e.g. the matter overview
+  // "Add task" button) navigates here with the intent to compose a task.
+  const autoOpenHandledRef = useRef(false);
+  useEffect(() => {
+    // Reset once the compose intent clears so a later "Add task" can reopen.
+    if (!autoOpenCreate) {
+      autoOpenHandledRef.current = false;
+      return;
+    }
+    if (!canCreateTask || autoOpenHandledRef.current) return;
+    autoOpenHandledRef.current = true;
+    setEditingTask(null);
+    setRequestError(null);
+    setIsFormOpen(true);
+    onAutoOpenHandled?.();
+  }, [autoOpenCreate, canCreateTask, onAutoOpenHandled]);
 
   const submitForm = async (values: MatterTaskFormValues) => {
     setRequestError(null);

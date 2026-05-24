@@ -54,14 +54,13 @@ export interface MatterOverviewTabProps {
   // Tasks
   tasks: MatterTask[];
 
-  // Engagement
+  // Engagement (view-only — engagements are created from accepted intake
+  // contracts, never from the matter detail, so there is no "create" action here)
   engagement: EngagementDetail | null;
   engagementLoading: boolean;
   engagementError: string | null;
   onEngagementRetry: () => void;
   onViewEngagement: () => void;
-  onCreateEngagement: () => void;
-  engagementActionLoading?: boolean;
 
   // Activity
   timelineItems: TimelineItem[];
@@ -80,6 +79,7 @@ export interface MatterOverviewTabProps {
   onViewTimesheet: () => void;
   onViewAllActivity: () => void;
   onViewTasks: () => void;
+  onAddTask: () => void;
   onTaskClick: () => void;
   onUploadFile: () => void;
   onViewFiles: () => void;
@@ -112,28 +112,24 @@ const OperationalNextStepCard = ({
   engagement,
   engagementLoading,
   engagementError,
-  engagementActionLoading,
-  onCreateEngagement,
   onViewEngagement,
   onEngagementRetry,
-  onViewTasks
+  onAddTask
 }: {
   tasks: MatterTask[];
   engagement: EngagementDetail | null;
   engagementLoading: boolean;
   engagementError: string | null;
-  engagementActionLoading?: boolean;
-  onCreateEngagement: () => void;
   onViewEngagement: () => void;
   onEngagementRetry: () => void;
-  onViewTasks: () => void;
+  onAddTask: () => void;
 }) => {
   const nextTask = [...tasks].filter(isOpenTask).sort(sortByDue)[0] ?? null;
   const hasEngagement = Boolean(engagement);
-  const title = hasEngagement ? 'Review engagement' : 'Create an engagement';
+  const title = hasEngagement ? 'Review engagement' : 'Add your next task';
   const body = hasEngagement
     ? 'Continue from the engagement agreement before advancing client work.'
-    : 'Create and send an engagement agreement before starting work.';
+    : 'Track the work for this matter by adding and assigning tasks.';
 
   return (
     <InfoCard
@@ -158,15 +154,17 @@ const OperationalNextStepCard = ({
         ) : null}
       </div>
       <div className="flex flex-wrap gap-2">
-        <Button
-          size="sm"
-          variant="primary"
-          onClick={hasEngagement ? onViewEngagement : onCreateEngagement}
-          disabled={engagementLoading || engagementActionLoading}
-        >
-          {engagementActionLoading ? 'Creating...' : hasEngagement ? 'View engagement' : 'Create engagement'}
-        </Button>
-        <Button size="sm" variant="secondary" onClick={onViewTasks}>
+        {hasEngagement ? (
+          <Button
+            size="sm"
+            variant="primary"
+            onClick={onViewEngagement}
+            disabled={engagementLoading}
+          >
+            View engagement
+          </Button>
+        ) : null}
+        <Button size="sm" variant={hasEngagement ? 'secondary' : 'primary'} onClick={onAddTask}>
           Add task
         </Button>
       </div>
@@ -180,12 +178,10 @@ const EngagementStatusCard = ({
   engagementLoading,
   engagementError,
   onEngagementRetry,
-  onViewEngagement,
-  onCreateEngagement,
-  engagementActionLoading
+  onViewEngagement
 }: Pick<
   MatterOverviewTabProps,
-  'detail' | 'engagement' | 'engagementLoading' | 'engagementError' | 'onEngagementRetry' | 'onViewEngagement' | 'onCreateEngagement' | 'engagementActionLoading'
+  'detail' | 'engagement' | 'engagementLoading' | 'engagementError' | 'onEngagementRetry' | 'onViewEngagement'
 >) => {
   const billingLabel = BILLING_TYPE_LABEL[detail.billingType];
   const rateLabel = detail.attorneyHourlyRate
@@ -196,15 +192,19 @@ const EngagementStatusCard = ({
   const statusLabel = engagement ? ENGAGEMENT_STATUS_LABEL[engagement.status] : null;
   const summaryParts = [statusLabel, billingLabel, rateLabel].filter((p): p is string => Boolean(p));
 
+  // A matter always has an engagement, so never surface a "missing engagement"
+  // state. Show this card only once an engagement is loaded — or while loading /
+  // on error so the user can retry — and render nothing otherwise.
+  if (!engagement && !engagementLoading && !engagementError) return null;
+
   return (
     <InfoCard icon={Briefcase} title="Engagement" bodyGap="sm">
       {engagementLoading && !engagement ? (
         <LoadingBlock label="Loading engagement" />
       ) : engagementError && !engagement ? (
         <div className="space-y-1">
-          <p className="text-[13px] text-input-text">No engagement yet</p>
+          <p className="text-[13px] text-input-text">Engagement unavailable</p>
           <p className="text-[12px] text-amber-300">
-            Engagement unavailable.{' '}
             <button type="button" className="underline" onClick={onEngagementRetry}>
               Retry
             </button>
@@ -219,24 +219,21 @@ const EngagementStatusCard = ({
             <p className="text-[13px] text-input-placeholder">{summaryParts.join(' · ')}</p>
           ) : null}
         </div>
-      ) : (
-        <div className="space-y-1">
-          <p className="text-[13px] text-input-text">No engagement yet</p>
-          <p className="text-[13px] text-input-placeholder">Create an engagement to get started.</p>
+      ) : null}
+      {engagement ? (
+        <div>
+          <Button
+            size="sm"
+            variant="secondary"
+            icon={ExternalLink}
+            iconPosition="right"
+            onClick={onViewEngagement}
+            disabled={engagementLoading}
+          >
+            View engagement
+          </Button>
         </div>
-      )}
-      <div>
-        <Button
-          size="sm"
-          variant={engagement ? 'secondary' : 'primary'}
-          icon={engagement ? ExternalLink : undefined}
-          iconPosition="right"
-          onClick={engagement ? onViewEngagement : onCreateEngagement}
-          disabled={engagementLoading || engagementActionLoading}
-        >
-          {engagementActionLoading ? 'Creating...' : engagement ? 'View engagement' : 'Create engagement'}
-        </Button>
-      </div>
+      ) : null}
     </InfoCard>
   );
 };
@@ -473,8 +470,6 @@ export const MatterOverviewTab = (props: MatterOverviewTabProps) => {
     engagementError,
     onEngagementRetry,
     onViewEngagement,
-    onCreateEngagement,
-    engagementActionLoading,
     timelineItems,
     activityLoading,
     activityError,
@@ -488,6 +483,7 @@ export const MatterOverviewTab = (props: MatterOverviewTabProps) => {
     onViewTimesheet,
     onViewAllActivity,
     onViewTasks,
+    onAddTask,
     onTaskClick,
     onUploadFile,
     onViewFiles
@@ -502,11 +498,9 @@ export const MatterOverviewTab = (props: MatterOverviewTabProps) => {
             engagement={engagement}
             engagementLoading={engagementLoading}
             engagementError={engagementError}
-            engagementActionLoading={engagementActionLoading}
-            onCreateEngagement={onCreateEngagement}
             onViewEngagement={onViewEngagement}
             onEngagementRetry={onEngagementRetry}
-            onViewTasks={onViewTasks}
+            onAddTask={onAddTask}
           />
           <EngagementStatusCard
             detail={detail}
@@ -515,8 +509,6 @@ export const MatterOverviewTab = (props: MatterOverviewTabProps) => {
             engagementError={engagementError}
             onEngagementRetry={onEngagementRetry}
             onViewEngagement={onViewEngagement}
-            onCreateEngagement={onCreateEngagement}
-            engagementActionLoading={engagementActionLoading}
           />
           {tasks.some(isOpenTask) ? <OpenTasksCard tasks={tasks} onTaskClick={onTaskClick} onViewTasks={onViewTasks} /> : null}
           <RecentActivityCard

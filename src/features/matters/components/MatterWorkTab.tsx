@@ -10,6 +10,8 @@ import type {
   MatterOption,
   MatterTask
 } from '@/features/matters/data/matterTypes';
+import type { MatterTaskFormValues } from '@/features/matters/components/tasks/MatterTaskForm';
+import type { UpdateMatterTaskPayload } from '@/features/matters/services/mattersApi';
 import type { MajorAmount } from '@/shared/utils/money';
 
 export type WorkSubTab = 'tasks' | 'milestones';
@@ -36,6 +38,14 @@ export interface MatterWorkTabProps {
   tasksError: string | null;
   tasksNotImplemented: boolean;
   assignees: MatterOption[];
+  /** When true, the tasks panel is view-only (e.g. closed matters). */
+  tasksReadOnly?: boolean;
+  onCreateTask?: (values: MatterTaskFormValues) => Promise<void>;
+  onUpdateTask?: (task: MatterTask, patch: UpdateMatterTaskPayload) => Promise<void>;
+  onDeleteTask?: (task: MatterTask) => Promise<void>;
+  /** Open the task-create form on mount (driven by the overview "Add task" CTA). */
+  autoComposeTask?: boolean;
+  onComposeTaskHandled?: () => void;
 
   milestones: MatterDetail['milestones'];
   milestonesLoading: boolean;
@@ -55,6 +65,12 @@ export const MatterWorkTab = ({
   tasksError,
   tasksNotImplemented,
   assignees,
+  tasksReadOnly = false,
+  onCreateTask,
+  onUpdateTask,
+  onDeleteTask,
+  autoComposeTask = false,
+  onComposeTaskHandled,
   milestones,
   milestonesLoading,
   milestonesError,
@@ -88,7 +104,12 @@ export const MatterWorkTab = ({
             loading={tasksLoading}
             error={tasksError}
             assignees={assignees}
-            readOnly
+            readOnly={tasksReadOnly}
+            onCreateTask={onCreateTask}
+            onUpdateTask={onUpdateTask}
+            onDeleteTask={onDeleteTask}
+            autoOpenCreate={autoComposeTask}
+            onAutoOpenHandled={onComposeTaskHandled}
           />
         )
       ) : null}
