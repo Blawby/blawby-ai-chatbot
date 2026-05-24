@@ -9,13 +9,15 @@ severity: high
 applies_when:
   - Building routing gates that decide whether a user is "subscribed" or has "no workspace yet"
   - Reading `session.session.active_organization_id` to drive UI decisions
-  - Designing recovery for cold-login or post-checkout flows where the session may be valid but no org is yet active
+  - Handling cold-login or post-checkout flows where the intended organization must be explicit
   - Wiring data fetches that depend on org-scoped backend endpoints (the worker `/api/practice/*` routes that 403 when no active org is set)
 related_components: ["payments", "development_workflow"]
-tags: ["better-auth", "organization-plugin", "session", "active-organization-id", "pricing-gate", "multi-tenant", "recovery-hook"]
+tags: ["better-auth", "organization-plugin", "session", "active-organization-id", "pricing-gate", "multi-tenant", "fail-fast"]
 ---
 
 # Better Auth `active_organization_id` is a session pointer, not a subscription signal
+
+> **2026-05-24 update:** The frontend recovery hook described in older versions of this convention was removed. Do not reintroduce a hook that lists memberships and activates the first org. Better Auth and the backend own the session contract; if a route-unscoped authenticated workspace cannot resolve an active organization, surface the contract failure instead of inventing a frontend recovery path.
 
 ## Context
 
@@ -51,14 +53,13 @@ needsFirstSubscription = completedOnboarding
                          AND !isSubscriptionSuccessReturn
 ```
 
-**When the session is in the `null active_organization_id` state but the user has memberships, recovery is required**, not a redirect. The recovery shape:
+**When route-unscoped code cannot resolve a current workspace, fail visibly.** Do not list memberships and activate the first organization as a frontend recovery. Choosing "first org" is nondeterministic for multi-org users and hides backend/auth contract errors. The only frontend places that should call `authClient.organization.setActive({ organizationId })` are flows that already know the intended organization, such as:
 
-1. List the user's memberships via Better Auth's direct endpoint: `authClient.organization.list()`. **Do not** use the worker's `/api/practice/list` — that endpoint requires an active-org context and 403s from the null state, which defeats the recovery.
-2. If the list is non-empty, activate the first: `authClient.organization.setActive({ organizationId })`. Again — Better Auth's direct endpoint, not the worker's `/api/practice/{id}/active` route (same chicken-and-egg).
-3. Refresh the session via `getSession()` and dispatch `auth:session-updated` so consumers re-render with the new active org populated.
-4. Memoize the recovery per `userId` so it runs at most once per session; reset the memo on `auth:session-cleared`.
+- entering a route-scoped workspace (`/practice/:slug`) after resolving that slug to an organization ID;
+- the org switcher after the user explicitly chooses an organization;
+- post-checkout return handling when the return URL contains the subscribed `practiceId`.
 
-This is implemented in [src/shared/hooks/useEnsureActiveOrganization.ts](src/shared/hooks/useEnsureActiveOrganization.ts).
+Do not refresh the session with `getSession()` or dispatch custom `auth:*` browser events after those calls. Better Auth's client state is the reactive source of truth.
 
 ## Why This Matters
 
@@ -71,7 +72,7 @@ The signal-vs-pointer confusion is a class of bug, not a one-off. The same mista
 Each of those, if shipped, recreates the same hard-redirect or wrong-UI failure mode under the legitimate `null` states above. The convention to internalize:
 
 - **For "does this user have a workspace?"** → check membership presence (`organization.list()` or a cached `practices` array).
-- **For "which workspace is the user currently looking at?"** → read `active_organization_id`.
+- **For "which workspace is the user currently looking at?"** → use the route slug for route-scoped pages, or read `active_organization_id` for route-unscoped pages.
 - **Never conflate the two.**
 
 A secondary trap: the worker's `/api/practice/*` proxy routes themselves require an active-org context (they are middleware-gated on `practiceId` in the URL or active-org in the session). They are NOT a reliable substitute for Better Auth's direct endpoints when bootstrapping from a null state — the brainstorm and original plan for this fix initially chose them and had to be swapped mid-implementation when the live repro returned 403.
@@ -112,31 +113,28 @@ const needsFirstSubscription = Boolean(
 );
 ```
 
-**Bad — recovery via worker endpoints that themselves require active-org:**
+**Bad — recovery by picking an arbitrary first organization:**
 
 ```ts
-// Doesn't work: both endpoints 403 from the null state we're recovering from
-const practices = await listPractices();              // GET /api/practice/list → 403
-await setActivePractice(practices[0].id);             // PUT /api/practice/{id}/active → 403
-```
-
-**Good — recovery via Better Auth direct endpoints:**
-
-```ts
-// src/shared/hooks/useEnsureActiveOrganization.ts
-const result = await authClient.organization.list();              // /api/auth/organization/list
-const orgs = (result as { data?: unknown })?.data ?? result;
-const firstId = Array.isArray(orgs) && typeof orgs[0]?.id === 'string'
-  ? orgs[0].id
-  : null;
+// Wrong: hides a missing/invalid active-org contract and may select
+// the wrong workspace for multi-org users.
+const orgs = await authClient.organization.list();
+const firstId = orgs[0]?.id;
 if (firstId) {
-  await authClient.organization.setActive({ organizationId: firstId });  // /api/auth/organization/set-active
-  await getSession();                                                    // refresh
-  window.dispatchEvent(new CustomEvent('auth:session-updated'));
+  await authClient.organization.setActive({ organizationId: firstId });
 }
 ```
 
-**Gate-evaluation race to avoid** — even with the correct signal, the gate must not fire while the recovery is in flight or while the practices list is mid-refetch. In this codebase, suppress redirects when `isResolving || practicesLoading || subscriptionSyncPending` is true (see [src/index.tsx](src/index.tsx) for the full wait condition). Otherwise a render frame between "recovery succeeded" and "practices refetch lands" can fire `/pricing` or misroute a practice-owner to `/client/dashboard`.
+**Good — route-scoped setActive with a known target:**
+
+```ts
+// PracticeAppRoute has already resolved /practice/:slug to currentPractice.id.
+if (currentPractice?.id && backendActiveOrgId !== currentPractice.id) {
+  await authClient.organization.setActive({ organizationId: currentPractice.id });
+}
+```
+
+**Gate-evaluation race to avoid** — even with the correct signal, the gate must not fire while the practices list or post-checkout synchronization is mid-refetch. In this codebase, suppress redirects when `practicesLoading || subscriptionSyncPending` is true (see [src/index.tsx](src/index.tsx) for the full wait condition). Otherwise a render frame before practice data lands can fire `/pricing` or misroute a practice-owner.
 
 ## Related
 

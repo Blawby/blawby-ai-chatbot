@@ -8,7 +8,6 @@ import { cn } from '@/shared/utils/cn';
 import { useNavigation } from '@/shared/utils/navigation';
 import {
   authClient,
-  getSession,
   useListOrganizations,
 } from '@/shared/lib/authClient';
 import { CreatePracticeDialog } from '@/features/practice-onboarding/components/CreatePracticeDialog';
@@ -144,10 +143,6 @@ export const OrgSwitcherMenu: FunctionComponent<OrgSwitcherMenuProps> = ({
       setSwitchingId(targetId);
       try {
         await authClient.organization.setActive({ organizationId: targetId });
-        await getSession().catch(() => undefined);
-        if (typeof window !== 'undefined') {
-          window.dispatchEvent(new CustomEvent('auth:session-updated'));
-        }
         setIsOpen(false);
         if (membership.slug) {
           navigate(routeFor(membership.slug, membership.role));

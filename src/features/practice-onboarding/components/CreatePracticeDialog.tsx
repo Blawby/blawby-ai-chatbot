@@ -7,7 +7,7 @@ import { Input } from '@/shared/ui/input';
 import { Button } from '@/shared/ui/Button';
 import { LoadingSpinner } from '@/shared/ui/layout/LoadingSpinner';
 import { useNavigation } from '@/shared/utils/navigation';
-import { authClient, getSession } from '@/shared/lib/authClient';
+import { authClient } from '@/shared/lib/authClient';
 import { slugify, unwrapCreated, type CreatedOrg } from '@/shared/lib/orgCreation';
 
 interface CreatePracticeDialogProps {
@@ -54,10 +54,6 @@ export const CreatePracticeDialog = ({ isOpen, onClose, onCreated }: CreatePract
       }
 
       await authClient.organization.setActive({ organizationId: created.id });
-      await getSession().catch(() => undefined);
-      if (typeof window !== 'undefined') {
-        window.dispatchEvent(new CustomEvent('auth:session-updated'));
-      }
 
       showSuccess('Practice created', `${created.name ?? trimmed} is ready to go.`);
       onCreated?.(created);

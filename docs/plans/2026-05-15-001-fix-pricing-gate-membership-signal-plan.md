@@ -2,6 +2,7 @@
 title: "fix: Pricing gate uses practice membership, not active_organization_id"
 status: completed
 created: 2026-05-15
+superseded_by: 2026-05-24 remove frontend active-org recovery/custom auth events
 type: fix
 depth: standard
 origin: docs/brainstorms/2026-05-15-pricing-gate-active-org-signal-requirements.md
@@ -9,6 +10,8 @@ severity: production
 ---
 
 # fix: Pricing gate uses practice membership, not active_organization_id
+
+> **2026-05-24 note:** This plan is retained as implementation history. Its membership-vs-pointer diagnosis remains useful, but the frontend recovery-hook shape was later removed. Current convention is to rely on Better Auth/backend session state, call `authClient.organization.setActive` only when the target org is known, and fail visibly instead of choosing the first membership as a workaround.
 
 Paying customers in production are being hard-redirected to `/pricing` after they've already subscribed. The frontend reads `session.session.active_organization_id` as a "is this user subscribed?" boolean, but Better Auth's organization plugin uses that field as the *currently-selected org pointer*, which is legitimately `null` on fresh login or any session where `setActivePractice(...)` hasn't been called yet. The same wrong-signal pattern exists at the data layer too — `usePracticeManagement` refuses to call `listPractices()` when `active_organization_id` is `null`, so even if the routing gates are fixed they would have no data to gate on.
 

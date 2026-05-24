@@ -36,7 +36,6 @@ const ONESIGNAL_WORKER_PATH = 'OneSignalSDKWorker.js';
 const ONESIGNAL_UPDATER_PATH = 'OneSignalSDKUpdaterWorker.js';
 
 let initStarted = false;
-let pendingOneSignalId: string | null = null;
 let inFlightRegistration: Promise<void> | null = null;
 let lastRegistrationKey: string | null = null;
 
@@ -75,8 +74,6 @@ export function initOneSignal(): void {
     window.OneSignalDeferred = deferred;
   }
 
-  window.addEventListener('auth:session-updated', handleSessionUpdated);
-  window.addEventListener('auth:session-cleared', handleSessionCleared);
 }
 
 export function getNotificationPermissionState(): NotificationPermissionState {
@@ -114,7 +111,6 @@ export async function optInDesktopNotifications(): Promise<OptInResult> {
     return { permission, subscribed: false };
   }
 
-  pendingOneSignalId = onesignalId;
   await registerDestination(onesignalId);
 
   return { permission, subscribed: true };
@@ -127,7 +123,6 @@ export async function optOutDesktopNotifications(): Promise<boolean> {
 
   initOneSignal();
 
-  pendingOneSignalId = null;
   lastRegistrationKey = null;
 
   const sdk = await waitForOneSignalSdk();
@@ -167,17 +162,6 @@ export async function optOutDesktopNotifications(): Promise<boolean> {
   return success;
 }
 
-function handleSessionUpdated(): void {
-  if (!pendingOneSignalId) {
-    return;
-  }
-  void registerDestination(pendingOneSignalId);
-}
-
-function handleSessionCleared(): void {
-  lastRegistrationKey = null;
-}
-
 async function initializeSdk(OneSignal: OneSignalSDK, appId: string): Promise<void> {
   try {
     const initOptions: OneSignalInitOptions = {
@@ -205,7 +189,6 @@ async function initializeSdk(OneSignal: OneSignalSDK, appId: string): Promise<vo
     return;
   }
 
-  pendingOneSignalId = onesignalId;
   await registerDestination(onesignalId);
 }
 

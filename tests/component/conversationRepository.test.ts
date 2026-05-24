@@ -94,7 +94,7 @@ describe('conversationRepository', () => {
     expect(mocks.getConversationParticipantsMock).toHaveBeenCalledTimes(2);
   });
 
-  it('clears cached entries on logout event', async () => {
+  it('clears cached entries through the repository helper', async () => {
     mocks.getConversationParticipantsMock
       .mockResolvedValueOnce([{ userId: 'u1', name: 'First', image: null, role: null, isTeamMember: false, canBeMentionedByTeamMember: true, canBeMentionedByClient: true }])
       .mockResolvedValueOnce([{ userId: 'u1', name: 'Second', image: null, role: null, isTeamMember: false, canBeMentionedByTeamMember: true, canBeMentionedByClient: true }]);
@@ -102,7 +102,7 @@ describe('conversationRepository', () => {
     const repository = await import('@/shared/lib/conversationRepository');
 
     await repository.getParticipants('practice-1', 'conversation-1');
-    window.dispatchEvent(new CustomEvent('auth:session-cleared'));
+    repository.clearParticipants();
     await expect(repository.getParticipants('practice-1', 'conversation-1')).resolves.toEqual([
       expect.objectContaining({ name: 'Second' }),
     ]);

@@ -43,11 +43,6 @@ export function invalidateParticipants(practiceId: string, conversationId?: stri
   queryCache.invalidate(`practice:participants:${normalizedPracticeId}:`, /* prefix */ true);
 }
 
-/**
- * Clear all participant cache entries — used on auth session clear.
- * The `auth:session-cleared` window event is also handled inside
- * `queryCache` itself, so this is now mostly a no-op kept for callers.
- */
 export function clearParticipants(): void {
   queryCache.invalidate('practice:participants:', /* prefix */ true);
 }

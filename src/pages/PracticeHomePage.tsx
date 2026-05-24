@@ -86,7 +86,7 @@ const PracticeHomePage = () => {
       return null;
     }
   }, [location.path]);
-  const { currentPractice, practices } = useWorkspaceResolver({
+  const { currentPractice } = useWorkspaceResolver({
     practiceSlug: urlPracticeSlug,
   });
   const { navigate } = useNavigation();
@@ -116,7 +116,7 @@ const PracticeHomePage = () => {
   const userEmail = session?.user?.email ?? null;
   const userImage = session?.user?.image ?? null;
 
-  const practiceSlug = currentPractice?.slug ?? practices[0]?.slug ?? null;
+  const practiceSlug = currentPractice?.slug ?? null;
   const practiceBasePath = practiceSlug
     ? `/practice/${encodeURIComponent(practiceSlug)}`
     : null;

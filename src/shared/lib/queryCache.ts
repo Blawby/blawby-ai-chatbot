@@ -115,13 +115,6 @@ const pruneOverflow = (maxEntries: number) => {
   cacheStore.set(next);
 };
 
-let authClearListenerRegistered = false;
-const ensureAuthClearListener = () => {
-  if (authClearListenerRegistered || typeof window === 'undefined') return;
-  window.addEventListener('auth:session-cleared', () => queryCache.clear());
-  authClearListenerRegistered = true;
-};
-
 export const queryCache = {
   getStore: () => cacheStore,
 
@@ -188,8 +181,7 @@ export const queryCache = {
   },
 
   /** Clear everything. Bumps the global generation so all in-flight
-   *  responses are dropped on arrival. Used by the `auth:session-cleared`
-   *  window event listener. */
+   *  responses are dropped on arrival. */
   clear(): void {
     globalGeneration += 1;
     cacheStore.set({});
@@ -220,7 +212,6 @@ export const queryCache = {
     fetcher: (signal?: AbortSignal) => Promise<T>,
     opts: { ttl?: number; signal?: AbortSignal; swr?: boolean } = {}
   ): Promise<T> {
-    ensureAuthClearListener();
     hydrateFromStorage();
     pruneExpired(Date.now());
 

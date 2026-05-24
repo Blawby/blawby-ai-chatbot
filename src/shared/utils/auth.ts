@@ -1,4 +1,5 @@
 import { signOut as betterAuthSignOut } from '@/shared/lib/authClient';
+import { queryCache } from '@/shared/lib/queryCache';
 
 /**
  * Centralized sign out utility that handles:
@@ -69,6 +70,7 @@ export async function signOut(options?: {
     console.error('Error signing out:', error);
   } finally {
     clearLocalAuthState();
+    queryCache.clear();
     options?.onSuccess?.();
     routeToAuth();
   }

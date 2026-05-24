@@ -13,18 +13,6 @@ import type {
 
 const preferenceKey = (category: PreferenceCategory) => `preferences:${category}`;
 
-// `auth:session-cleared` is handled by queryCache itself (clears everything).
-// `auth:session-updated` means the user/session changed — preferences belong
-// to the previous user, so we drop just that prefix.
-let sessionUpdatedListenerRegistered = false;
-const ensureSessionUpdatedListener = () => {
-  if (sessionUpdatedListenerRegistered || typeof window === 'undefined') return;
-  window.addEventListener('auth:session-updated', () => {
-    queryCache.invalidate('preferences:', /* prefix */ true);
-  });
-  sessionUpdatedListenerRegistered = true;
-};
-
 const primePreferencesCache = (payload: PreferencesResponse['data'] | null | undefined) => {
   if (!payload) return;
   const ttl = policyTtl('preferences:');
@@ -36,7 +24,6 @@ const primePreferencesCache = (payload: PreferencesResponse['data'] | null | und
 };
 
 export async function getAllPreferences(): Promise<PreferencesResponse['data']> {
-  ensureSessionUpdatedListener();
   const response = await apiClient.get('/api/preferences');
   const data = unwrapApiResponse<PreferencesResponse['data']>(response.data);
   primePreferencesCache(data);
@@ -47,7 +34,6 @@ export async function getPreferencesCategory<T>(
   category: PreferenceCategory,
   options: { force?: boolean } = {}
 ): Promise<T | null> {
-  ensureSessionUpdatedListener();
   const key = preferenceKey(category);
   if (options.force) queryCache.invalidate(key);
   return queryCache.coalesceGet<T | null>(
@@ -64,7 +50,6 @@ export async function updatePreferencesCategory<T extends object>(
   category: PreferenceCategory,
   data: T
 ): Promise<T> {
-  ensureSessionUpdatedListener();
   const response = await apiClient.put(`/api/preferences/${category}`, data);
   const result = unwrapApiResponse<T | null | undefined>(response.data);
   if (result === null || result === undefined) {

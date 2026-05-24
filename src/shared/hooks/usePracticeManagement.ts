@@ -173,7 +173,7 @@ interface UsePracticeManagementOptions {
   /**
    * Optional practice slug to resolve as the active practice.
    * If provided, will search for a matching practice in the list.
-   * Falls back to the first practice if not found or not provided.
+   * Route-unscoped callers use the backend active organization pointer.
    */
   practiceSlug?: string | null;
   /**
@@ -566,14 +566,15 @@ export const updatePracticeDetailsStandalone = async (
  *
  * When a slug is in context (route-scoped), match strictly by slug. Otherwise
  * honor the backend's active organization pointer (`session.active_organization_id`)
- * as the source of truth, falling back to the first practice only when the active
- * org is unset or absent from the list.
+ * as the source of truth. If the active org is unset or absent from the list,
+ * return null so route guards surface the contract failure instead of choosing
+ * an arbitrary workspace.
  *
  * Matching on `practice.id` is deliberate: `PracticeAppRoute` compares
  * `active_organization_id` against `currentPractice.id` to decide whether to
- * re-sync the active org. If "current practice" diverged from the active org
- * here, that route would clobber the active org back to the first practice —
- * the root cause of issue #626 (subscription-success showing no subscription).
+ * re-sync the active org. If "current practice" diverges from the active org
+ * here, route code can clobber the backend-selected organization and strand the
+ * user in the wrong workspace.
  */
 function selectCurrentPracticeFromList(
   list: Practice[],
@@ -591,7 +592,7 @@ function selectCurrentPracticeFromList(
     const byActiveOrg = list.find((practice) => practice.id === activeOrgId);
     if (byActiveOrg) return byActiveOrg;
   }
-  return list[0] ?? null;
+  return null;
 }
 
 export function usePracticeManagement(options: UsePracticeManagementOptions = {}): UsePracticeManagementReturn {
@@ -666,7 +667,7 @@ export function usePracticeManagement(options: UsePracticeManagementOptions = {}
 
   // Store session in a ref so fetchPractices can read it at call-time
   // without closing over it as a reactive dependency, preventing the
-  // re-entrant fetch loop triggered by setActivePractice session mutations.
+  // re-entrant fetch loop triggered by active-organization session mutations.
   const sessionRef = useRef(session);
   sessionRef.current = session;
 
