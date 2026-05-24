@@ -10,6 +10,8 @@ import { DataTable, type DataTableColumn, type DataTableRow } from '@/shared/ui/
 import { WorkspacePlaceholderState } from '@/shared/ui/layout/WorkspacePlaceholderState';
 import { InfiniteScroll } from '@/shared/ui/layout/InfiniteScroll';
 import { usePaginatedList } from '@/shared/hooks/usePaginatedList';
+import { queryCache } from '@/shared/lib/queryCache';
+import { policyTtl } from '@/shared/lib/cachePolicy';
 import { cn } from '@/shared/utils/cn';
 import { formatCurrency } from '@/shared/utils/currencyFormatter';
 import { formatRelativeTime } from '@/features/matters/utils/formatRelativeTime';
@@ -198,12 +200,27 @@ export const EngagementsPage: FunctionComponent<EngagementsPageProps> = ({
     hasMore,
     loadMore,
   } = usePaginatedList<EngagementListItem>({
-    fetchPage: async (page, signal) => {
+    fetchPage: async (page, _signal) => {
       if (!practiceId) return { items: [], hasMore: false };
-      const result = await listEngagements(
-        practiceId,
-        { page, limit: PAGE_SIZE, status: activeTab === 'all' ? undefined : [activeTab] },
-        { signal },
+      // Cache each page so navigating away and back within the engagement TTL
+      // reuses the result instead of re-hitting the backend. Keyed by practice
+      // + status filter + page; invalidated on create/action handlers below.
+      //
+      // We intentionally do NOT forward usePaginatedList's per-mount abort
+      // signal into the cached fetch. usePaginatedList runs its fetch effect
+      // twice on mount (its reset effect bumps a counter), aborting the first
+      // run; coalesceGet's single-flight would then tie the surviving second
+      // call to the first (aborted) promise, leaving the list permanently
+      // empty. Letting the request finish also warms the cache for the next
+      // visit — stale results are ignored by usePaginatedList's requestId guard.
+      const cacheKey = `engagement:list:${practiceId}:${activeTab}:p${page}`;
+      const result = await queryCache.coalesceGet(
+        cacheKey,
+        () => listEngagements(
+          practiceId,
+          { page, limit: PAGE_SIZE, status: activeTab === 'all' ? undefined : [activeTab] },
+        ),
+        { ttl: policyTtl(cacheKey), swr: false },
       );
       return { items: result.items, hasMore: result.total > page * PAGE_SIZE };
     },
@@ -228,14 +245,20 @@ export const EngagementsPage: FunctionComponent<EngagementsPageProps> = ({
   }, [basePath, location]);
 
   const handleEngagementCreated = useCallback((engagementId: string) => {
+    // New engagement isn't in the cached list — drop it so the bumped
+    // refreshCounter refetch (deps) pulls fresh data instead of stale cache.
+    if (practiceId) queryCache.invalidate(`engagement:list:${practiceId}:`, true);
     setRefreshCounter((c) => c + 1);
     location.route(`${basePath}/${encodeURIComponent(engagementId)}`);
-  }, [basePath, location]);
+  }, [basePath, location, practiceId]);
 
   const handleActionComplete = useCallback(() => {
+    // An engagement action (send/accept/decline) changes list status — drop
+    // the cached pages so the refetch reflects it.
+    if (practiceId) queryCache.invalidate(`engagement:list:${practiceId}:`, true);
     setRefreshCounter((c) => c + 1);
     handleBack();
-  }, [handleBack]);
+  }, [handleBack, practiceId]);
 
   // ── Route: detail page ───────────────────────────────────────────────────
 
