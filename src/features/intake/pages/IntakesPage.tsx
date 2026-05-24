@@ -206,11 +206,17 @@ export const IntakesPage: FunctionComponent<IntakesPageProps> = ({
     // A triage decision changes list contents/status — drop the cached pages
     // for this practice so the refetch below pulls fresh data.
     queryCache.invalidate(`intake:list:${practiceId}:`, true);
+    // Also drop the triaged intake's status entry (intake:status:<uuid>, written
+    // by ClientIntakesView) so a same-session client view of this intake doesn't
+    // surface the pre-triage status until the TTL lapses. Cross-session staleness
+    // (a different user's browser) isn't reachable from here — caches are in-memory
+    // per session — so this only covers same-session/multi-role reads.
+    if (selectedIntakeId) queryCache.invalidate(`intake:status:${selectedIntakeId}`);
     const controller = new AbortController();
     setIsLoading(true);
     void fetchPage(1, controller.signal).finally(() => setIsLoading(false));
     handleBack();
-  }, [practiceId, isResponsesRoute, fetchPage, handleBack]);
+  }, [practiceId, isResponsesRoute, selectedIntakeId, fetchPage, handleBack]);
 
   const handleMobileFilterChange = useCallback((id: string) => {
     setMobileFilter(normalizeFilter(id));
