@@ -1,7 +1,7 @@
 import { Inbox } from 'lucide-preact';
 
 import { InfoCard } from '@/shared/ui/cards/InfoCard';
-import { SegmentedFilter } from '@/shared/ui/tabs/SegmentedFilter';
+import { SegmentedToggle } from '@/shared/ui/input/SegmentedToggle';
 import { MatterTasksPanel } from '@/features/matters/components/tasks/MatterTasksPanel';
 import { MatterMilestonesPanel } from '@/features/matters/components/milestones/MatterMilestonesPanel';
 
@@ -16,7 +16,7 @@ import type { MajorAmount } from '@/shared/utils/money';
 
 export type WorkSubTab = 'tasks' | 'milestones';
 
-const WORK_SEGMENTS = [
+const WORK_SEGMENTS: ReadonlyArray<{ id: WorkSubTab; label: string }> = [
   { id: 'tasks', label: 'Tasks' },
   { id: 'milestones', label: 'Milestones' }
 ];
@@ -84,10 +84,12 @@ export const MatterWorkTab = ({
 
   return (
     <div className="space-y-5">
-      <SegmentedFilter
-        items={WORK_SEGMENTS}
-        activeId={subTab}
-        onChange={(id) => onSubTabChange(id as WorkSubTab)}
+      <SegmentedToggle<WorkSubTab>
+        value={subTab}
+        options={WORK_SEGMENTS.map((segment) => ({ value: segment.id, label: segment.label }))}
+        onChange={onSubTabChange}
+        ariaLabel="Work section"
+        className="w-full sm:w-auto sm:min-w-[16rem]"
       />
 
       {subTab === 'tasks' ? (

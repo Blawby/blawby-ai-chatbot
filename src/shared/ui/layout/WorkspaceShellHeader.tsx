@@ -7,17 +7,14 @@ import { cn } from '@/shared/utils/cn';
  * Workspace shell header — Pencil GtRGH-adjacent components `rt13A` (desktop) and
  * `RuuTq` (mobile). Renders as the global app bar above the sidebar/main grid.
  *
- * Composition (desktop): logo + breadcrumb/title + search bar.
- * Composition (mobile): menu button + logo + title + search button.
+ * Composition (desktop): centered page title + search/actions.
+ * Composition (mobile): menu button + logo + centered page title + search button.
  */
 export interface WorkspaceShellHeaderProps {
   /** Single-letter org initial; rendered in an accent-colored square. */
   orgInitial: string;
-  /** Current page title (Inter 18/600 desktop, Inter 16/600 mobile). */
+  /** Current page title, centered in the global app bar. */
   title: string;
-  /** Optional breadcrumb segments rendered above the title on desktop. The last
-   *  segment is treated as the current page. */
-  breadcrumb?: string[];
   /** Mobile only: opens the sidebar drawer. */
   onMenuClick?: () => void;
   /** Mobile only: triggered by the search icon button. */
@@ -48,7 +45,6 @@ const Logo: FunctionComponent<{ initial: string; size: 'sm' | 'md' }> = ({ initi
 export const WorkspaceShellHeader: FunctionComponent<WorkspaceShellHeaderProps> = ({
   orgInitial,
   title,
-  breadcrumb,
   onMenuClick,
   onSearchClick,
   showDesktopSearch = true,
@@ -57,8 +53,6 @@ export const WorkspaceShellHeader: FunctionComponent<WorkspaceShellHeaderProps> 
   desktopActions,
   className,
 }) => {
-  const trail = breadcrumb && breadcrumb.length > 0 ? breadcrumb : null;
-
   return (
     <div
       className={cn(
@@ -67,30 +61,15 @@ export const WorkspaceShellHeader: FunctionComponent<WorkspaceShellHeaderProps> 
       )}
     >
       {/* Desktop variant — Pencil rt13A: 64px, padding [24,14], gap 16 */}
-      <div className="hidden h-16 items-center justify-between gap-4 px-6 lg:flex">
-        <div className="flex min-w-0 items-center gap-4">
+      <div className="relative hidden h-16 grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-4 px-6 lg:grid">
+        <div className="flex min-w-0 items-center gap-4 justify-self-start">
           {/* Hide org logo on desktop, already present in sidebar */}
           {/* <Logo initial={orgInitial} size="md" /> */}
-          <div className="flex min-w-0 flex-col gap-0.5">
-            {trail ? (
-              <div className="flex items-center gap-1.5 text-[11px] font-medium text-[rgb(var(--sidebar-text-secondary))]">
-                {trail.map((segment, idx) => {
-                  const isLast = idx === trail.length - 1;
-                  return (
-                    <span key={`${segment}-${idx}`} className="flex items-center gap-1.5">
-                      {idx > 0 ? <span className="text-[rgb(var(--sidebar-section-label))]">/</span> : null}
-                      <span className={isLast ? 'text-[rgb(var(--sidebar-text-secondary))]' : 'text-[rgb(var(--sidebar-section-label))]'}>
-                        {segment}
-                      </span>
-                    </span>
-                  );
-                })}
-              </div>
-            ) : null}
-            <span className="truncate text-lg font-semibold text-[rgb(var(--sidebar-text))]">{title}</span>
-          </div>
         </div>
-        <div className="flex items-center gap-4">
+        <h1 className="min-w-0 max-w-[42vw] justify-self-center truncate text-center text-sm font-semibold text-[rgb(var(--sidebar-text))]">
+          {title}
+        </h1>
+        <div className="flex items-center gap-4 justify-self-end">
           {showDesktopSearch ? (
             <button
               type="button"
@@ -112,8 +91,8 @@ export const WorkspaceShellHeader: FunctionComponent<WorkspaceShellHeaderProps> 
       </div>
 
       {/* Mobile variant — Pencil RuuTq: 56px, padding [16,12], gap 12 */}
-      <div className="flex h-14 items-center justify-between gap-3 px-3 lg:hidden">
-        <div className="flex min-w-0 items-center gap-3">
+      <div className="grid h-14 grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-3 px-3 lg:hidden">
+        <div className="flex min-w-0 items-center gap-3 justify-self-start">
           {onMenuClick ? (
             <button
               type="button"
@@ -125,9 +104,9 @@ export const WorkspaceShellHeader: FunctionComponent<WorkspaceShellHeaderProps> 
             </button>
           ) : null}
           <Logo initial={orgInitial} size="sm" />
-          <span className="truncate text-base font-semibold text-[rgb(var(--sidebar-text))]">{title}</span>
         </div>
-        <div className="flex items-center gap-2">
+        <h1 className="min-w-0 truncate text-center text-sm font-semibold text-[rgb(var(--sidebar-text))]">{title}</h1>
+        <div className="flex items-center gap-2 justify-self-end">
           {onSearchClick ? (
             <button
               type="button"

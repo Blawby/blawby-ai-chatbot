@@ -54,6 +54,9 @@ const prefetchClientMattersChunk = prefetchLazyChunk(
 const prefetchIntakesChunk = prefetchLazyChunk(
   () => import('@/features/intake/pages/IntakesPage')
 );
+const prefetchIntakeFormsChunk = prefetchLazyChunk(
+  () => import('@/features/intake/pages/IntakeTemplatesPage')
+);
 const prefetchPracticeInvoicesChunk = prefetchLazyChunk(
   () => import('@/features/invoices/pages/PracticeInvoicesPage')
 );
@@ -139,37 +142,6 @@ export type NavConfig = {
   settingsChildren?: SidebarChild[];
 };
 
-export const MATTERS_FILTER_MAP: Record<string, string[]> = {
-  all: [],
-  new: ['first_contact', 'intake_pending', 'conflict_check', 'eligibility'],
-  active: ['consultation_scheduled', 'engagement_pending', 'active', 'pleadings_filed', 'discovery', 'mediation', 'pre_trial', 'trial'],
-  closing: ['order_entered', 'appeal_pending'],
-  closed: ['closed'],
-  declined: ['declined', 'conflicted', 'referred'],
-};
-
-export const CLIENT_MATTERS_FILTER_MAP: Record<string, string[]> = {
-  all: [],
-  active: MATTERS_FILTER_MAP.active,
-  closed: MATTERS_FILTER_MAP.closed,
-};
-
-export const PRACTICE_INVOICES_FILTER_MAP: Record<string, string[]> = {
-  all: [],
-  draft: ['draft'],
-  sent: ['sent'],
-  open: ['open'],
-  overdue: ['overdue'],
-  paid: ['paid'],
-  void: ['void'],
-};
-
-export const CLIENT_INVOICES_FILTER_MAP: Record<string, string[]> = {
-  all: [],
-  unpaid: ['open', 'overdue'],
-  paid: ['paid'],
-};
-
 export type ConversationAssignedToFilter = 'none' | null;
 
 export const PRACTICE_CONVERSATIONS_ASSIGNED_TO_MAP: Record<string, ConversationAssignedToFilter> = {
@@ -234,7 +206,7 @@ const buildPracticeRail = (basePath: string): NavRailItem[] => [
     label: 'Intakes',
     icon: Contact,
     href: `${basePath}/intakes/responses`,
-    matchHrefs: [`${basePath}/intakes/responses`],
+    matchHrefs: [`${basePath}/intakes`],
     expandable: true,
     prefetch: prefetchIntakesChunk,
   },
@@ -328,52 +300,6 @@ const buildClientRail = (basePath: string): NavRailItem[] => [
   },
 ];
 
-const buildConversationsSecondary = (basePath: string, workspace: 'practice' | 'client'): NavSection[] => {
-  if (workspace === 'practice') {
-    return [{
-      label: 'Messages',
-      items: [
-        { id: 'your-inbox', label: 'Your Messages', href: `${basePath}/conversations` },
-        { id: 'assigned-to-me', label: 'Assigned to me', href: `${basePath}/conversations` },
-        { id: 'mentions', label: 'Mentions', href: `${basePath}/conversations` },
-        { id: 'all', label: 'All', href: `${basePath}/conversations` },
-        { id: 'unassigned', label: 'Unassigned', href: `${basePath}/conversations` },
-      ],
-    }];
-  }
-  return [{
-    label: 'Messages',
-    items: [
-      { id: 'your-inbox', label: 'Your Messages', href: `${basePath}/conversations` },
-      { id: 'all', label: 'All', href: `${basePath}/conversations` },
-    ],
-  }];
-};
-
-const buildMattersSecondary = (basePath: string, workspace: 'practice' | 'client'): NavSection[] => {
-  if (workspace === 'practice') {
-    return [{
-      label: 'Stage',
-      items: [
-        { id: 'all', label: 'All', href: `${basePath}/matters` },
-        { id: 'new', label: 'New', href: `${basePath}/matters` },
-        { id: 'active', label: 'Active', href: `${basePath}/matters` },
-        { id: 'closing', label: 'Closing', href: `${basePath}/matters` },
-        { id: 'closed', label: 'Closed', href: `${basePath}/matters` },
-        { id: 'declined', label: 'Declined', href: `${basePath}/matters` },
-      ],
-    }];
-  }
-  return [{
-    label: 'Stage',
-    items: [
-      { id: 'all', label: 'All', href: `${basePath}/matters` },
-      { id: 'active', label: 'Active', href: `${basePath}/matters` },
-      { id: 'closed', label: 'Closed', href: `${basePath}/matters` },
-    ],
-  }];
-};
-
 const buildHomeSecondary = (basePath: string, workspace: 'practice' | 'client'): NavSection[] | undefined => {
   if (workspace !== 'practice') return undefined;
   return [{
@@ -413,31 +339,6 @@ const buildReportsSecondary = (basePath: string, workspace: 'practice' | 'client
   }];
 };
 
-const buildInvoicesSecondary = (basePath: string, workspace: 'practice' | 'client'): NavSection[] => {
-  if (workspace === 'practice') {
-    return [{
-      label: 'Status',
-      items: [
-        { id: 'all', label: 'All', href: `${basePath}/invoices` },
-        { id: 'draft', label: 'Draft', href: `${basePath}/invoices` },
-        { id: 'sent', label: 'Sent', href: `${basePath}/invoices` },
-        { id: 'open', label: 'Open', href: `${basePath}/invoices` },
-        { id: 'overdue', label: 'Overdue', href: `${basePath}/invoices` },
-        { id: 'paid', label: 'Paid', href: `${basePath}/invoices` },
-        { id: 'void', label: 'Void', href: `${basePath}/invoices` },
-      ],
-    }];
-  }
-  return [{
-    label: 'Status',
-    items: [
-      { id: 'all', label: 'All', href: `${basePath}/invoices` },
-      { id: 'unpaid', label: 'Unpaid', href: `${basePath}/invoices` },
-      { id: 'paid', label: 'Paid', href: `${basePath}/invoices` },
-    ],
-  }];
-};
-
 const buildSettingsSecondary = (basePath: string, canAccessPractice: boolean): NavSection[] => {
   // Pencil GtRGH > settingsSubItems: PERSONAL / ACCOUNT / PRACTICE / SUPPORT
   const sections: NavSection[] = [
@@ -465,7 +366,6 @@ const buildSettingsSecondary = (basePath: string, canAccessPractice: boolean): N
         { id: 'practice-payouts', label: 'Payouts', href: `${basePath}/settings/practice/payouts`, icon: CreditCard },
         { id: 'practice-team', label: 'Team', href: `${basePath}/settings/practice/team`, icon: Users },
         { id: 'coverage', label: 'Coverage', href: `${basePath}/coverage`, icon: Map },
-        { id: 'intake-forms', label: 'Intake Forms', href: `${basePath}/settings/intake-forms`, icon: FileText },
         { id: 'apps', label: 'Apps', href: `${basePath}/settings/apps`, icon: Puzzle },
       ],
     });
@@ -479,26 +379,26 @@ const buildSettingsSecondary = (basePath: string, canAccessPractice: boolean): N
   return sections;
 };
 
-const buildIntakesSecondary = (basePath: string): NavSection[] => [{
-  label: 'Responses',
-  items: [
-    { id: 'all', label: 'All responses', href: `${basePath}/intakes/responses` },
-    { id: 'pending_review', label: 'Pending', href: `${basePath}/intakes/responses` },
-    { id: 'accepted', label: 'Accepted', href: `${basePath}/intakes/responses` },
-    { id: 'declined', label: 'Declined', href: `${basePath}/intakes/responses` },
-  ],
-}];
+const buildIntakesSecondary = (basePath: string): NavSection[] => [
+  {
+    label: 'Intakes',
+    items: [
+      { id: 'responses', label: 'Responses', href: `${basePath}/intakes/responses`, icon: Contact },
+      {
+        id: 'forms',
+        label: 'Forms',
+        href: `${basePath}/intakes/forms`,
+        icon: FileText,
+        prefetch: prefetchIntakeFormsChunk,
+      },
+    ],
+  },
+];
 
 const buildSecondary = (basePath: string, section: WorkspaceSection, workspace: 'practice' | 'client', canAccessPractice: boolean): NavSection[] | undefined => {
   switch (section) {
-    case 'conversations':
-      return buildConversationsSecondary(basePath, workspace);
     case 'intakes':
       return workspace === 'practice' ? buildIntakesSecondary(basePath) : undefined;
-    case 'matters':
-      return buildMattersSecondary(basePath, workspace);
-    case 'invoices':
-      return buildInvoicesSecondary(basePath, workspace);
     case 'reports':
       return buildReportsSecondary(basePath, workspace);
     case 'settings':
@@ -655,4 +555,3 @@ export function buildSidebarConfig(navConfig: NavConfig, currentSection: Workspa
   });
   return { sections: [{ label: 'Platform', items }] };
 }
-

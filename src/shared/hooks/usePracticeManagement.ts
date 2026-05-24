@@ -858,7 +858,7 @@ export function usePracticeManagement(options: UsePracticeManagementOptions = {}
     ) {
       mergedResponse.name = existingPractice.name;
     }
-    const updatedPractice = mergedResponse;
+    const updatedPractice = mergedResponse as unknown as Practice;
 
     // Don't copy businessOnboardingStatus from payload — the API does not
     // accept a canonical status update via this endpoint. The server will

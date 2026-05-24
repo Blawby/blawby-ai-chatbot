@@ -24,6 +24,7 @@ type WorkspaceRouteState = {
   isIntakeTemplateRoute: boolean;
   isIntakeTemplateEditorRoute: boolean;
   isIntakeResponsesRoute: boolean;
+  intakeSectionFromPath: 'responses' | 'forms';
   selectedMatterIdFromPath: string | null;
   isMatterNonListRoute: boolean;
   selectedContactIdFromPath: string | null;
@@ -70,15 +71,16 @@ export const getWorkspaceRouteState = ({
   const isWorkspaceWithMattersRouting = isPracticeWorkspace || isClientWorkspace;
   const intakesPath = `${normalizedBase}/intakes`;
   const intakeResponsesPath = `${intakesPath}/responses`;
+  const intakeFormsPath = `${intakesPath}/forms`;
   const isIntakeResponsesRoute = view === 'intakes'
     && isPracticeWorkspace
     && (path === intakeResponsesPath || path.startsWith(`${intakeResponsesPath}/`));
   const isIntakeTemplateRoute = view === 'intakes'
     && isPracticeWorkspace
-    && path.startsWith(intakesPath)
-    && !isIntakeResponsesRoute;
+    && (path === intakeFormsPath || path.startsWith(`${intakeFormsPath}/`));
   const isIntakeTemplateEditorRoute = isIntakeTemplateRoute
-    && path !== intakesPath;
+    && path !== intakeFormsPath;
+  const intakeSectionFromPath = isIntakeTemplateRoute ? 'forms' : 'responses';
 
   let selectedMatterIdFromPath: string | null = null;
   let isMatterNonListRoute = false;
@@ -155,6 +157,7 @@ export const getWorkspaceRouteState = ({
   return {
     isIntakeTemplateRoute,
     isIntakeTemplateEditorRoute,
+    intakeSectionFromPath,
     selectedMatterIdFromPath,
     isMatterNonListRoute,
     isIntakeResponsesRoute,
@@ -170,6 +173,7 @@ export const getWorkspaceDefaultSecondaryFilter = ({
   view,
   contactsRouteKind,
   reportSectionFromPath,
+  intakeSectionFromPath,
   navSecondary,
 }: {
   workspaceSection: WorkspaceSection;
@@ -177,6 +181,7 @@ export const getWorkspaceDefaultSecondaryFilter = ({
   view: WorkspaceView;
   contactsRouteKind: WorkspaceRouteState['contactsRouteKind'];
   reportSectionFromPath: string;
+  intakeSectionFromPath: WorkspaceRouteState['intakeSectionFromPath'];
   navSecondary?: Array<{ items: Array<{ id: string }> }>;
 }) => {
   if (workspaceSection === 'conversations' && isPracticeWorkspace) {
@@ -194,10 +199,7 @@ export const getWorkspaceDefaultSecondaryFilter = ({
     return reportSectionFromPath;
   }
   if (workspaceSection === 'intakes' && isPracticeWorkspace) {
-    return 'all';
-  }
-  if (workspaceSection === 'matters' && isPracticeWorkspace) {
-    return 'all';
+    return intakeSectionFromPath === 'forms' ? 'forms' : 'responses';
   }
   return navSecondary?.[0]?.items[0]?.id ?? null;
 };
@@ -208,6 +210,7 @@ export const getWorkspaceActiveSecondaryFilter = ({
   view,
   contactsRouteKind,
   reportSectionFromPath,
+  intakeSectionFromPath,
   secondaryFilterBySection,
   defaultSecondaryFilterId,
 }: {
@@ -216,6 +219,7 @@ export const getWorkspaceActiveSecondaryFilter = ({
   view: WorkspaceView;
   contactsRouteKind: WorkspaceRouteState['contactsRouteKind'];
   reportSectionFromPath: string;
+  intakeSectionFromPath: WorkspaceRouteState['intakeSectionFromPath'];
   secondaryFilterBySection: Partial<Record<WorkspaceSection, string>>;
   defaultSecondaryFilterId: string | null;
 }) => {
@@ -231,6 +235,13 @@ export const getWorkspaceActiveSecondaryFilter = ({
   if (workspaceSection === 'reports' && isPracticeWorkspace) {
     return reportSectionFromPath;
   }
+  if (workspaceSection === 'intakes' && isPracticeWorkspace && intakeSectionFromPath === 'forms') {
+    return 'forms';
+  }
+  if (workspaceSection === 'intakes' && isPracticeWorkspace) {
+    return 'responses';
+  }
+  if (workspaceSection === 'matters' || workspaceSection === 'invoices') return null;
   return secondaryFilterBySection[workspaceSection] ?? defaultSecondaryFilterId;
 };
 
@@ -240,8 +251,8 @@ export const shouldShowWorkspaceMobileMenuButton = ({
   workspaceSection,
   view,
   isPracticeWorkspace,
-  selectedMatterIdFromPath,
-  isMatterNonListRoute,
+  selectedMatterIdFromPath: _selectedMatterIdFromPath,
+  isMatterNonListRoute: _isMatterNonListRoute,
   selectedContactIdFromPath,
 }: {
   isMobileLayout: boolean;
@@ -256,11 +267,11 @@ export const shouldShowWorkspaceMobileMenuButton = ({
   if (!isMobileLayout || !hasSecondaryNav) return false;
   if (workspaceSection === 'conversations') return view === 'list';
   if (workspaceSection === 'intakes') return view === 'intakes';
-  if (workspaceSection === 'matters') return !selectedMatterIdFromPath && !isMatterNonListRoute;
+  if (workspaceSection === 'matters') return false;
   if (workspaceSection === 'home') {
     return isPracticeWorkspace && (view === 'home' || (view === 'contacts' && !selectedContactIdFromPath));
   }
-  if (workspaceSection === 'invoices') return view === 'invoices';
+  if (workspaceSection === 'invoices') return false;
   if (workspaceSection === 'reports') return true;
   if (workspaceSection === 'settings') return true;
   return false;

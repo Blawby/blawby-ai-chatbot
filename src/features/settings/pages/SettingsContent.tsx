@@ -16,7 +16,6 @@ import { PracticePage } from './PracticePage';
 import { PracticeTeamPage } from './PracticeTeamPage';
 import { AppsPage } from './AppsPage';
 import { AppDetailPage } from './AppDetailPage';
-import IntakeTemplatesPage from '@/features/intake/pages/IntakeTemplatesPage';
 import { EditorShell } from '@/shared/ui/layout';
 import { getSettingsNavConfig } from '@/shared/config/navConfig';
 import { useTranslation } from '@/shared/i18n/hooks';
@@ -30,8 +29,6 @@ export type SettingsView =
   | 'practice-team'
   | 'apps'
   | 'app-detail'
-  | 'intake-forms'
-  | 'intake-forms-editor'
   | 'security'
   | 'help'
   | 'mfa-enrollment'
@@ -45,27 +42,22 @@ export interface SettingsContentProps {
   practiceSlug?: string;
   view?: SettingsView;
   appId?: string;
-  intakeTemplateSlug?: string;
   apps?: App[];
 }
 
 const SettingsRouter = ({
   view,
   appId,
-  intakeTemplateSlug,
   apps,
   handleAppUpdate,
   toSettingsPath,
-  intakeResponsesPath,
   viewLabel,
 }: {
   view: SettingsView;
   appId?: string;
-  intakeTemplateSlug?: string;
   apps: App[];
   handleAppUpdate: (targetAppId: string, updates: Partial<App>) => void;
   toSettingsPath: (subPath?: string) => string;
-  intakeResponsesPath: string;
   viewLabel: string;
 }) => {
   const { navigate } = useNavigation();
@@ -115,24 +107,6 @@ const SettingsRouter = ({
           />
         );
       }
-      case 'intake-forms':
-        return (
-          <IntakeTemplatesPage
-            basePath={toSettingsPath('intake-forms')}
-            responsesPath={intakeResponsesPath}
-            routeMode="list"
-          />
-        );
-      case 'intake-forms-editor':
-        return (
-          <IntakeTemplatesPage
-            basePath={toSettingsPath('intake-forms')}
-            responsesPath={intakeResponsesPath}
-            routeMode="editor"
-            routeTemplateSlug={intakeTemplateSlug ?? null}
-            onBack={() => navigate(toSettingsPath('intake-forms'))}
-          />
-        );
       case 'security':
         return <SecurityPage />;
       case 'mfa-enrollment':
@@ -148,9 +122,7 @@ const SettingsRouter = ({
     || view === 'practice'
     || view === 'practice-payouts'
     || view === 'practice-team'
-    || view === 'intake-forms'
-    || view === 'intake-forms-editor'
-    || view === 'mfa-enrollment'
+    || view === 'mfa-enrollment';
 
   if (isSelfWrappedView) {
     return renderViewContent();
@@ -180,7 +152,6 @@ export const SettingsContent = (props: SettingsContentProps) => {
     practiceSlug = 'workspace',
     view = 'general',
     appId,
-    intakeTemplateSlug,
     apps: initialApps,
   } = props;
 
@@ -193,7 +164,6 @@ export const SettingsContent = (props: SettingsContentProps) => {
   const { canAccessPractice } = useWorkspace();
 
   const settingsBasePath = `/${workspace}/${encodeURIComponent(practiceSlug)}/settings`;
-  const intakeResponsesPath = `/${workspace}/${encodeURIComponent(practiceSlug)}/intakes/responses`;
   const toSettingsPath = (subPath?: string) => {
     if (!subPath) return settingsBasePath;
     return `${settingsBasePath}/${subPath.replace(/^\/+/, '')}`;
@@ -203,9 +173,7 @@ export const SettingsContent = (props: SettingsContentProps) => {
     || view === 'practice-team'
     || view === 'practice'
     || view === 'apps'
-    || view === 'app-detail'
-    || view === 'intake-forms'
-    || view === 'intake-forms-editor'
+    || view === 'app-detail';
 
   useEffect(() => {
     if (sessionPending) return;
@@ -261,11 +229,9 @@ export const SettingsContent = (props: SettingsContentProps) => {
       <SettingsRouter
         view={view}
         appId={appId}
-        intakeTemplateSlug={intakeTemplateSlug}
         apps={apps}
         handleAppUpdate={handleAppUpdate}
         toSettingsPath={toSettingsPath}
-        intakeResponsesPath={intakeResponsesPath}
         viewLabel={viewLabel}
       />
     </div>
