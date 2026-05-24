@@ -561,6 +561,39 @@ export const updatePracticeDetailsStandalone = async (
   return updatedDetails;
 };
 
+/**
+ * Select the "current practice" for a hook instance.
+ *
+ * When a slug is in context (route-scoped), match strictly by slug. Otherwise
+ * honor the backend's active organization pointer (`session.active_organization_id`)
+ * as the source of truth, falling back to the first practice only when the active
+ * org is unset or absent from the list.
+ *
+ * Matching on `practice.id` is deliberate: `PracticeAppRoute` compares
+ * `active_organization_id` against `currentPractice.id` to decide whether to
+ * re-sync the active org. If "current practice" diverged from the active org
+ * here, that route would clobber the active org back to the first practice —
+ * the root cause of issue #626 (subscription-success showing no subscription).
+ */
+function selectCurrentPracticeFromList(
+  list: Practice[],
+  requestedSlug: string | null,
+  session: unknown
+): Practice | null {
+  if (requestedSlug) {
+    return list.find((practice) => practice.slug === requestedSlug) ?? null;
+  }
+  const sessionRecord = (session as { session?: Record<string, unknown> } | null | undefined)?.session;
+  const rawActiveOrgId = sessionRecord?.active_organization_id;
+  const activeOrgId =
+    typeof rawActiveOrgId === 'string' && rawActiveOrgId.trim().length > 0 ? rawActiveOrgId : null;
+  if (activeOrgId) {
+    const byActiveOrg = list.find((practice) => practice.id === activeOrgId);
+    if (byActiveOrg) return byActiveOrg;
+  }
+  return list[0] ?? null;
+}
+
 export function usePracticeManagement(options: UsePracticeManagementOptions = {}): UsePracticeManagementReturn {
   const {
     autoFetchPractices = true,
@@ -595,12 +628,13 @@ export function usePracticeManagement(options: UsePracticeManagementOptions = {}
   useEffect(() => {
     loadingSubscribers.add(setIsLoading);
     const onSnapshot: SnapshotSubscriber = (snapshot, _callerSlug) => {
-      // Re-select currentPractice for this instance's own requested slug.
-      const mySlug = requestedPracticeSlugRef.current;
-      let selectedCurrentPractice = snapshot.currentPractice;
-      if (mySlug) {
-        selectedCurrentPractice = snapshot.practices.find((p) => p.slug === mySlug) ?? null;
-      }
+      // Re-select currentPractice for this instance: by its own requested slug,
+      // or by the active organization pointer when route-unscoped (issue #626).
+      const selectedCurrentPractice = selectCurrentPracticeFromList(
+        snapshot.practices,
+        requestedPracticeSlugRef.current,
+        sessionRef.current
+      );
       setPractices(snapshot.practices);
       setCurrentPractice(selectedCurrentPractice);
     };
@@ -674,10 +708,11 @@ export function usePracticeManagement(options: UsePracticeManagementOptions = {}
         broadcastSnapshot(snapshot, requestedPracticeSlug);
         // Also update this instance's own state directly (the subscriber fires
         // after the effect loop which is too late for the calling instance).
-        let selectedCurrentPractice = snapshot.currentPractice;
-        if (requestedPracticeSlug) {
-          selectedCurrentPractice = snapshot.practices.find((p) => p.slug === requestedPracticeSlug) ?? null;
-        }
+        const selectedCurrentPractice = selectCurrentPracticeFromList(
+          snapshot.practices,
+          requestedPracticeSlug,
+          sessionRef.current
+        );
         setPractices(snapshot.practices);
         setCurrentPractice(selectedCurrentPractice);
         setGlobalLoading(false);
@@ -850,14 +885,11 @@ export function usePracticeManagement(options: UsePracticeManagementOptions = {}
           .map((practice) => normalizePracticeRecord(practice as unknown as Record<string, unknown>))
           .filter((practice) => practice.id.length > 0);
 
-        let currentPracticeNext: Practice | null = null;
-        if (requestedPracticeSlug) {
-          const foundBySlug = normalizedList.find((p) => p.slug === requestedPracticeSlug);
-          currentPracticeNext = foundBySlug || null;
-        }
-        if (!currentPracticeNext && !requestedPracticeSlug) {
-          currentPracticeNext = normalizedList[0] || null;
-        }
+        const currentPracticeNext = selectCurrentPracticeFromList(
+          normalizedList,
+          requestedPracticeSlug,
+          sessionRef.current
+        );
         let details: PracticeDetails | null = null;
         const shouldFetchStripeStatus = fetchOnboardingStatus;
         let stripeDetailsSubmitted: boolean | null = shouldFetchStripeStatus ? null : false;
