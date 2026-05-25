@@ -21,7 +21,7 @@ import type { Env } from '../types.js';
 import { isIntakeReadyForSubmission, resolveConsultationState } from '../../src/shared/utils/consultationState';
 import { fetchPracticeDetailsWithCache } from '../utils/practiceDetailsCache.js';
 import { createAiClient } from '../utils/aiClient.js';
-import type { IntakeFieldDefinition, IntakeTemplate } from '../../src/shared/types/intake.js';
+import type { IntakeEnrichedData, IntakeFieldDefinition, IntakeTemplate } from '../../src/shared/types/intake.js';
 
 // ------------------------------------------------------------------
 // Types
@@ -398,6 +398,173 @@ const persistConversationIntakeTitle = async (
     new Date().toISOString(),
     conversationId
   ).run();
+};
+
+// ------------------------------------------------------------------
+// Intake enrichment — structured AI inference at submission time
+// ------------------------------------------------------------------
+
+const ENRICHMENT_MAX_TOKENS = 600;
+
+const sanitizeFactText = (value: unknown, maxLength: number): string | null => {
+  if (typeof value !== 'string') return null;
+
+  const collapsed = value
+    .replace(/[\r\n\t\f\v]+/g, ' ')
+    .replace(/[`]/g, '')
+    .replace(/-{3,}/g, ' ')
+    .replace(/\r?\n+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  if (!collapsed) return null;
+
+  const deweaponized = collapsed
+    .replace(/\b(ignore|disregard|override|follow\s+these\s+instructions|system\s+prompt|assistant\s+prompt|developer\s+message|act\s+as)\b/gi, '[redacted]')
+    .trim();
+
+  if (!deweaponized) return null;
+  return deweaponized.slice(0, Math.max(1, maxLength));
+};
+
+const generateIntakeEnrichment = async (
+  env: Env,
+  draft: SlimContactDraft,
+  intake: IntakeConversationState | null | undefined,
+  transcriptSummary: string | null,
+  practiceServiceNames: string[],
+): Promise<IntakeEnrichedData | null> => {
+  let aiClient;
+  try {
+    aiClient = createAiClient(env);
+  } catch {
+    return null;
+  }
+
+  const clientName = sanitizeFactText(draft.name, 200);
+  const location = sanitizeFactText(
+    [intake?.city || draft.city, intake?.state || draft.state].filter(Boolean).join(', '),
+    200,
+  );
+  const description = sanitizeFactText(intake?.description, 1200);
+  const opposingParty = sanitizeFactText(intake?.opposingParty, 300);
+  const urgency = sanitizeFactText(intake?.urgency, 80);
+  const desiredOutcome = sanitizeFactText(intake?.desiredOutcome, 600);
+  const courtDate = sanitizeFactText(intake?.courtDate, 120);
+  const income = sanitizeFactText(intake?.income, 200);
+  const practiceServices = sanitizeFactText(practiceServiceNames.join(', '), 400);
+  const sanitizedTranscriptSummary = sanitizeFactText(transcriptSummary, 2000);
+
+  const facts = [
+    clientName ? `Client: ${clientName}` : null,
+    location ? `Location: ${location}` : null,
+    description ? `Description: ${description}` : null,
+    opposingParty ? `Opposing party: ${opposingParty}` : null,
+    urgency ? `Urgency: ${urgency}` : null,
+    desiredOutcome ? `Desired outcome: ${desiredOutcome}` : null,
+    courtDate ? `Court date: ${courtDate}` : null,
+    intake?.hasDocuments != null ? `Has documents: ${intake.hasDocuments}` : null,
+    typeof intake?.householdSize === 'number' ? `Household size: ${intake.householdSize}` : null,
+    income ? `Income: ${income}` : null,
+    practiceServices ? `Practice services: ${practiceServices}` : null,
+    sanitizedTranscriptSummary ? `\nConversation transcript:\n${sanitizedTranscriptSummary.slice(0, 2000)}` : null,
+  ].filter(Boolean).join('\n');
+
+  if (!facts.trim()) return null;
+
+  const systemPrompt = `You are a legal intake analyst. Given intake facts from a potential client, extract structured information.
+
+Respond with ONLY valid JSON matching this exact shape (use null for unknown fields, empty array for unknown names):
+{
+  "practice_area": string | null,
+  "sub_type": string | null,
+  "matter_stage": "pre_litigation" | "active_litigation" | "post_judgment" | "transactional" | null,
+  "client_role": "petitioner" | "respondent" | "plaintiff" | "defendant" | "buyer" | "seller" | "other" | null,
+  "complexity": "simple" | "moderate" | "complex" | null,
+  "conflict_check_names": string[],
+  "sol_risk": boolean | null,
+  "sol_risk_notes": string | null,
+  "emergency_relief_needed": boolean | null,
+  "multi_state": boolean | null,
+  "multi_state_notes": string | null,
+  "legal_aid_eligible": boolean | null,
+  "estimated_value_band": "low" | "medium" | "high" | null,
+  "ai_matter_description": string | null,
+  "ai_scope_suggestion": string | null,
+  "confidence": number
+}
+
+Rules:
+- practice_area: infer from description (e.g. "Family Law", "Criminal Defense", "Immigration", "Estate Planning", "Business/Contract", "Personal Injury", "Real Estate")
+- sub_type: specific matter type within the practice area (e.g. "Custody Modification", "DUI Defense", "Asylum")
+- conflict_check_names: every person, company, or entity mentioned — client name, opposing party, attorneys, businesses, children. Include all names for conflict checking.
+- sol_risk: true if any statute of limitations deadline appears within 90 days based on event dates mentioned
+- emergency_relief_needed: true if facts suggest TRO, emergency custody, or injunction may be needed
+- multi_state: true if the matter spans more than one US state
+- legal_aid_eligible: true only if income + household_size clearly put client below 200% federal poverty line
+- ai_matter_description: 1–2 sentences describing the matter for the engagement letter, written professionally
+- ai_scope_suggestion: brief description of likely representation scope (e.g. "Review existing order, file modification petition, represent at hearing")
+- confidence: 0.0–1.0 reflecting how much usable information was present
+- No markdown, no explanation — raw JSON only`;
+
+  let response: Response;
+  try {
+    response = await aiClient.requestChatCompletions({
+      model: env.AI_MODEL || DEFAULT_AI_MODEL,
+      temperature: 0.1,
+      max_tokens: ENRICHMENT_MAX_TOKENS,
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: facts },
+      ],
+    });
+  } catch (error) {
+    Logger.warn('[submitIntake] Enrichment AI request failed', {
+      error: error instanceof Error ? error.message : String(error),
+    });
+    return null;
+  }
+
+  if (!response.ok) {
+    Logger.warn('[submitIntake] Enrichment AI response not ok', { status: response.status });
+    return null;
+  }
+
+  const payload = await response.json().catch(() => null) as {
+    choices?: Array<{ message?: { content?: string | null } }>;
+  } | null;
+  const raw = payload?.choices?.[0]?.message?.content;
+  if (!raw) return null;
+
+  try {
+    const jsonMatch = raw.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) return null;
+    const parsed = JSON.parse(jsonMatch[0]) as IntakeEnrichedData;
+    if (typeof parsed !== 'object' || parsed === null) return null;
+    return {
+      practice_area: typeof parsed.practice_area === 'string' ? parsed.practice_area : null,
+      sub_type: typeof parsed.sub_type === 'string' ? parsed.sub_type : null,
+      matter_stage: parsed.matter_stage ?? null,
+      client_role: parsed.client_role ?? null,
+      complexity: parsed.complexity ?? null,
+      conflict_check_names: Array.isArray(parsed.conflict_check_names)
+        ? parsed.conflict_check_names.filter((n): n is string => typeof n === 'string')
+        : [],
+      sol_risk: typeof parsed.sol_risk === 'boolean' ? parsed.sol_risk : null,
+      sol_risk_notes: typeof parsed.sol_risk_notes === 'string' ? parsed.sol_risk_notes : null,
+      emergency_relief_needed: typeof parsed.emergency_relief_needed === 'boolean' ? parsed.emergency_relief_needed : null,
+      multi_state: typeof parsed.multi_state === 'boolean' ? parsed.multi_state : null,
+      multi_state_notes: typeof parsed.multi_state_notes === 'string' ? parsed.multi_state_notes : null,
+      legal_aid_eligible: typeof parsed.legal_aid_eligible === 'boolean' ? parsed.legal_aid_eligible : null,
+      estimated_value_band: parsed.estimated_value_band ?? null,
+      ai_matter_description: typeof parsed.ai_matter_description === 'string' ? parsed.ai_matter_description : null,
+      ai_scope_suggestion: typeof parsed.ai_scope_suggestion === 'string' ? parsed.ai_scope_suggestion : null,
+      confidence: typeof parsed.confidence === 'number' ? Math.min(1, Math.max(0, parsed.confidence)) : 0,
+    };
+  } catch {
+    Logger.warn('[submitIntake] Failed to parse enrichment JSON');
+    return null;
+  }
 };
 
 const getMappedIntakeFieldValue = (
@@ -897,8 +1064,37 @@ export async function handleSubmitIntake(
     });
   }
 
-  const intakeTitle = await generateIntakeTitle(env, draft, intake, transcriptSummary);
+  const practiceServiceNames = Array.isArray(practiceDetails?.details?.services)
+    ? (practiceDetails.details.services as Array<{ name?: string; title?: string }>)
+        .map((s) => s?.name?.trim() || s?.title?.trim() || '')
+        .filter(Boolean)
+    : [];
+
+  const [intakeTitle, enrichedData] = await Promise.all([
+    generateIntakeTitle(env, draft, intake, transcriptSummary),
+    generateIntakeEnrichment(env, draft, intake, transcriptSummary, practiceServiceNames),
+  ]);
+
   await persistConversationIntakeTitle(env, conversationId, intakeTitle);
+
+  if (enrichedData) {
+    Logger.info('[submitIntake] Enrichment extracted', {
+      conversationId,
+      practiceArea: enrichedData.practice_area,
+      complexity: enrichedData.complexity,
+      confidence: enrichedData.confidence,
+      conflictNamesCount: enrichedData.conflict_check_names.length,
+    });
+  }
+
+  // Merge enriched data into custom_fields so the backend stores it in
+  // metadata.custom_fields without requiring a new backend column.
+  if (enrichedData) {
+    intakePayload.custom_fields = {
+      ...(intakePayload.custom_fields ?? {}),
+      _enriched_data: JSON.stringify(enrichedData),
+    };
+  }
 
   // Validate the outbound wire shape before sending. In production this
   // logs schema mismatches; in dev/test it throws so bugs surface early.

@@ -31,6 +31,7 @@ import { cn } from '@/shared/utils/cn';
 
 const PAGE_SIZE = 10;
 const EMPTY_FILTERS: InvoiceListFilterState = {};
+const STABLE_EMPTY_ARRAY: string[] = [];
 
 const InvoicesEmptyState = ({
   hasFilters,

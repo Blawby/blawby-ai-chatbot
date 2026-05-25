@@ -13,8 +13,6 @@ export type WorkspaceView =
   | 'contacts'
   | 'files'
   | 'invoices'
-  | 'invoiceCreate'
-  | 'invoiceEdit'
   | 'invoiceDetail'
   | 'reports'
   | 'settings'
@@ -23,12 +21,16 @@ export type WorkspaceView =
 type WorkspaceRouteState = {
   isIntakeTemplateRoute: boolean;
   isIntakeTemplateEditorRoute: boolean;
-  isIntakeResponsesRoute: boolean;
+  isIntakeResponseDetailRoute: boolean;
   intakeSectionFromPath: 'responses' | 'forms';
   selectedMatterIdFromPath: string | null;
   isMatterNonListRoute: boolean;
   selectedContactIdFromPath: string | null;
   contactsRouteKind: 'all' | 'archived' | 'team' | 'clients' | 'pending';
+  isEngagementCreateRoute: boolean;
+  isEngagementDetailRoute: boolean;
+  isEngagementEditRoute: boolean;
+  isReportDeliveryDetailRoute: boolean;
   reportSectionFromPath: string;
 };
 
@@ -46,7 +48,7 @@ const normalizeDecodedSegment = (value: string) => {
 
 export const getWorkspaceSection = (view: WorkspaceView): WorkspaceSection => {
   if (view === 'list' || view === 'conversation') return 'conversations';
-  if (view === 'invoiceCreate' || view === 'invoiceEdit' || view === 'invoiceDetail') return 'invoices';
+  if (view === 'invoiceDetail') return 'invoices';
   if (view === 'setup' || view === 'contacts') return 'home';
   if (view === 'intakeDetail') return 'intakes';
   // Coverage lives under Settings in the sidebar; route stays at /coverage but the
@@ -75,6 +77,8 @@ export const getWorkspaceRouteState = ({
   const isIntakeResponsesRoute = view === 'intakes'
     && isPracticeWorkspace
     && (path === intakeResponsesPath || path.startsWith(`${intakeResponsesPath}/`));
+  const isIntakeResponseDetailRoute = isIntakeResponsesRoute
+    && path.startsWith(`${intakeResponsesPath}/`);
   const isIntakeTemplateRoute = view === 'intakes'
     && isPracticeWorkspace
     && (path === intakeFormsPath || path.startsWith(`${intakeFormsPath}/`));
@@ -142,11 +146,25 @@ export const getWorkspaceRouteState = ({
     }
   }
 
+  const engagementPath = `${normalizedBase}/engagements`;
+  const isEngagementRoute = view === 'engagements'
+    && isPracticeWorkspace
+    && (path === engagementPath || path.startsWith(`${engagementPath}/`));
+  const rawEngagementSubpath = isEngagementRoute && path.startsWith(`${engagementPath}/`)
+    ? path.slice(`${engagementPath}/`.length).split('/').filter(Boolean)
+    : [];
+  const isEngagementCreateRoute = rawEngagementSubpath[0] === 'new';
+  const isEngagementDetailRoute = Boolean(rawEngagementSubpath[0]) && !isEngagementCreateRoute;
+  const isEngagementEditRoute = isEngagementDetailRoute && rawEngagementSubpath[1] === 'edit';
+
   let reportSectionFromPath = 'all-reports';
+  let isReportDeliveryDetailRoute = false;
   if (view === 'reports' && isPracticeWorkspace) {
     const marker = `${normalizedBase}/reports/`;
     if (path.startsWith(marker)) {
-      const raw = path.slice(marker.length).split('/')[0] ?? '';
+      const reportSegments = path.slice(marker.length).split('/').filter(Boolean);
+      isReportDeliveryDetailRoute = reportSegments[0] === 'deliveries' && Boolean(reportSegments[1]);
+      const raw = reportSegments[0] ?? '';
       const candidate = normalizeDecodedSegment(raw);
       if (candidate.length > 0 && REPORT_SECTION_IDS.has(candidate)) {
         reportSectionFromPath = candidate;
@@ -160,9 +178,13 @@ export const getWorkspaceRouteState = ({
     intakeSectionFromPath,
     selectedMatterIdFromPath,
     isMatterNonListRoute,
-    isIntakeResponsesRoute,
+    isIntakeResponseDetailRoute,
     selectedContactIdFromPath,
     contactsRouteKind,
+    isEngagementCreateRoute,
+    isEngagementDetailRoute,
+    isEngagementEditRoute,
+    isReportDeliveryDetailRoute,
     reportSectionFromPath,
   };
 };

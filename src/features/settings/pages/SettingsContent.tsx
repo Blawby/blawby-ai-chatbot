@@ -14,6 +14,7 @@ import { HelpPage } from './HelpPage';
 import { MFAEnrollmentPage } from './MFAEnrollmentPage';
 import { PracticePage } from './PracticePage';
 import { PracticeTeamPage } from './PracticeTeamPage';
+import { EngagementTemplatesPage } from './EngagementTemplatesPage';
 import { AppsPage } from './AppsPage';
 import { AppDetailPage } from './AppDetailPage';
 import { EditorShell } from '@/shared/ui/layout';
@@ -27,6 +28,7 @@ export type SettingsView =
   | 'practice'
   | 'practice-payouts'
   | 'practice-team'
+  | 'engagement-templates'
   | 'apps'
   | 'app-detail'
   | 'security'
@@ -76,6 +78,8 @@ const SettingsRouter = ({
         return <PayoutsPage onBack={() => navigate(toSettingsPath('practice'))} />;
       case 'practice-team':
         return <PracticeTeamPage onBack={() => navigate(toSettingsPath('practice'))} />;
+      case 'engagement-templates':
+        return <EngagementTemplatesPage onBack={() => navigate(toSettingsPath('practice'))} />;
       case 'apps':
         return (
           <AppsPage
@@ -122,6 +126,7 @@ const SettingsRouter = ({
     || view === 'practice'
     || view === 'practice-payouts'
     || view === 'practice-team'
+    || view === 'engagement-templates'
     || view === 'mfa-enrollment';
 
   if (isSelfWrappedView) {
@@ -171,6 +176,7 @@ export const SettingsContent = (props: SettingsContentProps) => {
 
   const isPracticeScopedView = view === 'practice-payouts'
     || view === 'practice-team'
+    || view === 'engagement-templates'
     || view === 'practice'
     || view === 'apps'
     || view === 'app-detail';

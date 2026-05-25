@@ -8,6 +8,7 @@ import { CommandPaletteProvider } from '@/features/search/contexts/CommandPalett
 import { SessionProvider, useSessionContext } from '@/shared/contexts/SessionContext';
 import { authClient } from '@/shared/lib/authClient';
 import type { WorkspaceView } from '@/shared/utils/workspaceShell';
+import type { SettingsView } from '@/features/settings/pages/SettingsContent';
 import { PublicWorkspaceRoute } from '@/app/PublicWorkspaceRoute';
 import { useNavigation } from '@/shared/utils/navigation';
 import { usePracticeConfig } from '@/shared/hooks/usePracticeConfig';
@@ -519,6 +520,7 @@ function AppShell() {
           <Route path="/practice/:practiceSlug/settings/practice" component={PracticeAppRoute} workspaceView="settings" settingsView="practice" />
           <Route path="/practice/:practiceSlug/settings/practice/payouts" component={PracticeAppRoute} workspaceView="settings" settingsView="practice-payouts" />
           <Route path="/practice/:practiceSlug/settings/practice/team" component={PracticeAppRoute} workspaceView="settings" settingsView="practice-team" />
+          <Route path="/practice/:practiceSlug/settings/practice/engagement-templates" component={PracticeAppRoute} workspaceView="settings" settingsView="engagement-templates" />
           <Route path="/practice/:practiceSlug/settings/apps" component={PracticeAppRoute} workspaceView="settings" settingsView="apps" />
           <Route path="/practice/:practiceSlug/settings/apps/:appId" component={PracticeAppRoute} workspaceView="settings" settingsView="app-detail" />
           <Route path="/practice/:practiceSlug/settings/security" component={PracticeAppRoute} workspaceView="settings" settingsView="security" />
@@ -767,7 +769,7 @@ function PracticeAppRoute({
   reportDeliveryId?: string;
   appId?: string;
   workspaceView?: WorkspaceView;
-  settingsView?: 'general' | 'notifications' | 'account' | 'practice' | 'practice-payouts' | 'practice-team' | 'apps' | 'app-detail' | 'security' | 'help';
+  settingsView?: SettingsView;
   practiceSlug?: string;
 }) {
   const location = useLocation();
@@ -1000,7 +1002,7 @@ function ClientPracticeRoute({
   intakeId?: string;
   appId?: string;
   workspaceView?: 'home' | 'list' | 'conversation' | 'matters' | 'invoices' | 'invoiceDetail' | 'intakes' | 'intakeDetail' | 'files' | 'settings';
-  settingsView?: 'general' | 'notifications' | 'account' | 'practice' | 'practice-payouts' | 'practice-team' | 'apps' | 'app-detail' | 'security' | 'help';
+  settingsView?: SettingsView;
 }) {
   const location = useLocation();
   const { session, isPending: sessionIsPending } = useSessionContext();

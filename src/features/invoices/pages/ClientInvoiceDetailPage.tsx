@@ -1,8 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'preact/hooks';
 import { Button } from '@/shared/ui/Button';
 import { Input, Textarea } from '@/shared/ui/input';
-import { EditorShell } from '@/shared/ui/layout';
-import { LoadingSpinner } from '@/shared/ui/layout/LoadingSpinner';
+import { DetailHeader } from '@/shared/ui/layout';
 import { InvoiceDetailSkeleton } from '@/features/invoices/components/InvoiceDetailSkeleton';
 import { formatCurrency } from '@/shared/utils/currencyFormatter';
 import { formatLongDate } from '@/shared/utils/dateFormatter';
@@ -134,30 +133,27 @@ export function ClientInvoiceDetailPage({
   }
 
   return (
-    <EditorShell
-      title={(
-        <span className="inline-flex items-center gap-2">
-          {detail.invoiceNumber}
-          {loading ? <LoadingSpinner size="sm" ariaLabel="Refreshing invoice" announce={false} /> : null}
-        </span>
-      )}
-      subtitle={`Issued ${renderEventDate(detail.issueDate)} • Due ${renderEventDate(detail.dueDate)}`}
-      showBack={effectiveShowBack}
-      onBack={handleBackToList}
-      onInspector={onInspector}
-      inspectorOpen={inspectorOpen}
-      actions={(
-        <div className="flex flex-wrap items-center gap-2">
-          {canPay ? <Button onClick={handleOpenPay}>Pay</Button> : null}
-        </div>
-      )}
-    >
-      <div className="space-y-6">
-        <div className="mt-1">
-          <InvoiceStatusBadge status={detail.status} />
-        </div>
+    <div className="flex h-full min-h-0 flex-col">
+      <DetailHeader
+        title={detail.invoiceNumber}
+        subtitle={`Issued ${renderEventDate(detail.issueDate)} • Due ${renderEventDate(detail.dueDate)}`}
+        showBack={effectiveShowBack}
+        onBack={handleBackToList}
+        onInspector={onInspector}
+        inspectorOpen={inspectorOpen}
+        actions={(
+          <div className="flex flex-wrap items-center gap-2">
+            {canPay ? <Button onClick={handleOpenPay}>Pay</Button> : null}
+          </div>
+        )}
+      />
+      <div className="flex-1 overflow-y-auto">
+        <div className="mx-auto max-w-xl space-y-6 px-6 py-6">
+          <div className="mt-1">
+            <InvoiceStatusBadge status={detail.status} />
+          </div>
 
-        <div className="grid gap-3 sm:grid-cols-3">
+          <div className="grid gap-3 sm:grid-cols-3">
           <div className="panel p-4">
             <p className="text-xs uppercase tracking-[0.08em] text-input-placeholder">Total</p>
             <p className="mt-1 text-lg font-semibold text-input-text">{formatCurrency(detail.total)}</p>
@@ -281,7 +277,8 @@ export function ClientInvoiceDetailPage({
             )}
           </div>
         </div>
+        </div>
       </div>
-    </EditorShell>
+    </div>
   );
 }

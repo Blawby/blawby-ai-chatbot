@@ -27,6 +27,7 @@ import { handleGlobalSearch } from './routes/search.js';
 import { handlePresence } from './routes/presence.js';
 import { handleAiChat } from './routes/aiChat.js';
 import { handleAiIntent } from './routes/aiIntent.js';
+import { handleGenerateEngagement } from './routes/generateEngagement.js';
 import { withAuth, withCache, withRateLimit } from './middleware/compose.js';
 import { withEngineerAllowlist } from './middleware/withEngineerAllowlist.js';
 import { handleAdminIntakeInspector } from './routes/adminIntakeInspector.js';
@@ -216,6 +217,11 @@ export const routes: RouteEntry[] = [
     mode: 'owned',
     match: prefix('/api/search/'),
     handler: (req, env, ctx) => handleGlobalSearch(req, env, ctx),
+  },
+  {
+    mode: 'owned',
+    match: exact('/api/ai/generate-engagement'),
+    handler: withAuth((req, env) => handleGenerateEngagement(req, env), { required: true }),
   },
   {
     mode: 'owned',

@@ -1,7 +1,6 @@
-import { useMemo, useRef, useState, useCallback, useEffect } from 'preact/hooks';
+import { useMemo, useState, useCallback } from 'preact/hooks';
 import { Button } from '@/shared/ui/Button';
 import { Input, LogoUploadInput, EmailInput } from '@/shared/ui/input';
-import { Combobox } from '@/shared/ui/input/Combobox';
 import { AddressExperienceForm } from '@/shared/ui/address/AddressExperienceForm';
 import { FormGrid, SectionDivider, EditorShell } from '@/shared/ui/layout';
 import { SettingSection } from '@/features/settings/components/SettingSection';
@@ -13,11 +12,8 @@ import { useTranslation } from '@/shared/i18n/hooks';
 import type { PracticeDetails } from '@/shared/lib/apiClient';
 import type { Address } from '@/shared/types/address';
 import { buildPracticeProfilePayloads } from '@/shared/utils/practiceProfile';
-import { getPracticeDetails } from '@/shared/lib/apiClient';
 import { applyAccentColor, normalizeAccentColor } from '@/shared/utils/accentColors';
 import { uploadPracticeLogo } from '@/shared/utils/practiceLogoUpload';
-import ServicesByStateEditor from '@/features/services/components/ServicesByStateEditor';
-import { STATE_OPTIONS } from '@/shared/ui/address/AddressFields';
 
 interface PracticePageProps {
   className?: string;
@@ -197,36 +193,11 @@ const resolveContactDraft = (
   return { ...basePractice, ...baseDetails };
 };
 
-/** Parse an opaque settings JSON string safely. */
-const parseSettings = (s?: string | null): Record<string, unknown> => {
-  if (!s) return {};
-  try {
-    const p = JSON.parse(s);
-    return typeof p === 'object' && p !== null ? (p as Record<string, unknown>) : {};
-  } catch {
-    return {};
-  }
-};
-
-/** Merge services_by_state into the opaque settings string. */
-const buildSettingsString = (
-  existingSettings: string | null | undefined,
-  servicesByState: Record<string, string[]>
-): string => {
-  const base = parseSettings(existingSettings);
-  if (Object.keys(servicesByState).length > 0) {
-    base.services_by_state = servicesByState;
-  } else {
-    delete base.services_by_state;
-  }
-  return JSON.stringify(base);
-};
-
 // ─── component ──────────────────────────────────────────────────────────────
 
 export const PracticePage = ({ className, onBack }: PracticePageProps) => {
   const { currentPractice, updatePractice } = usePracticeManagement({ fetchPracticeDetails: true });
-  const { details, updateDetails, setDetails } = usePracticeDetails(currentPractice?.id, currentPractice?.slug, false);
+  const { details, updateDetails } = usePracticeDetails(currentPractice?.id, currentPractice?.slug, false);
   const { showSuccess, showError } = useToastContext();
   const { t } = useTranslation(['settings', 'common']);
 
@@ -235,25 +206,6 @@ export const PracticePage = ({ className, onBack }: PracticePageProps) => {
   const [isSaving, setIsSaving] = useState(false);
   const [logoUploading, setLogoUploading] = useState(false);
   const [logoUploadProgress, setLogoUploadProgress] = useState<number | null>(null);
-
-  // ── services / states draft ───────────────────────────────────────────────
-  // These are the LOCAL source of truth. We never reset them from server
-  // responses because the backend does not echo `settings` back.
-  const [licensedStates, setLicensedStates] = useState<string[]>([]);
-  const [servicesByState, setServicesByState] = useState<Record<string, string[]>>({});
-  // Track whether the user has edited states/services since last save.
-  const [servicesDirty, setServicesDirty] = useState(false);
-
-  // Seed local state once when details first loads. Never again.
-  const lastPracticeIdRef = useRef<string | null>(null);
-  useEffect(() => {
-    if (!details) return;
-    const pid = currentPractice?.id ?? null;
-    if (lastPracticeIdRef.current === pid) return;
-    lastPracticeIdRef.current = pid;
-    setLicensedStates(details.serviceStates ?? []);
-    setServicesByState(details.servicesByState ?? {});
-  }, [details, currentPractice?.id]);
 
   const currentAccentColor =
     normalizeAccentColor(details?.accentColor ?? currentPractice?.accentColor) ?? '#D4AF37';
@@ -273,7 +225,7 @@ export const PracticePage = ({ className, onBack }: PracticePageProps) => {
   // ── i18n ──────────────────────────────────────────────────────────────────
   const practiceText = useMemo(() => ({
     pageTitle: t('settings:practice.page.title', { defaultValue: 'Practice' }),
-    pageSubtitle: t('settings:practice.page.subtitle', { defaultValue: 'Identity, brand, contact, services, and states' }),
+    pageSubtitle: t('settings:practice.page.subtitle', { defaultValue: 'Identity, brand, and contact' }),
     identityTitle: t('settings:practice.identity.title', { defaultValue: 'Identity' }),
     identityDescription: t('settings:practice.identity.description', { defaultValue: 'Practice name and public slug used in the workspace URL.' }),
     practiceNameLabel: t('settings:practice.identity.nameLabel', { defaultValue: 'Practice name' }),
@@ -304,7 +256,6 @@ export const PracticePage = ({ className, onBack }: PracticePageProps) => {
     addressTitle: t('settings:practice.address.title', { defaultValue: 'Address' }),
     addressDescription: t('settings:practice.address.description', { defaultValue: 'Used in public practice details and intake flows.' }),
     addressHelper: t('settings:practice.address.helper', { defaultValue: 'Leave fields blank to clear them.' }),
-    licensedStatesPlaceholder: t('settings:practice.licensedStates.placeholder', { defaultValue: 'Select states' }),
     reset: t('common:forms.actions.reset'),
     save: t('common:forms.actions.save'),
     saving: t('common:forms.actions.saving'),
@@ -317,10 +268,6 @@ export const PracticePage = ({ className, onBack }: PracticePageProps) => {
     logoUploadFailedBody: t('settings:practice.toasts.logoUploadFailed.body', { defaultValue: 'Unable to upload your logo. Please try again.' }),
     brandColorInvalidTitle: t('settings:practice.toasts.brandColorInvalid.title', { defaultValue: 'Brand color' }),
     brandColorInvalidBody: t('settings:practice.toasts.brandColorInvalid.body', { defaultValue: 'Brand color must be a valid hex value.' }),
-    servicesTitle: t('settings:practice.services.title', { defaultValue: 'Services' }),
-    servicesDescription: t('settings:practice.services.description', { defaultValue: 'Add states, then select services offered for each state.' }),
-    addStatesHeading: t('settings:practice.services.addStatesHeading', { defaultValue: 'Add your states' }),
-    servicesPerStateHeading: t('settings:practice.services.servicesPerStateHeading', { defaultValue: 'Services per state' }),
   }), [contactValues.accentColor, currentAccentColor, t]);
 
   // ── hasChanges ────────────────────────────────────────────────────────────
@@ -336,8 +283,8 @@ export const PracticePage = ({ className, onBack }: PracticePageProps) => {
       || (contactValues.logo ?? '').trim() !== (currentPractice?.logo ?? '').trim()
       || normalizeAccentColor(contactValues.accentColor) !== currentAccentColor;
 
-    return contactChanged || servicesDirty;
-  }, [contactValues, currentAccentColor, currentPractice, details, servicesDirty]);
+    return contactChanged;
+  }, [contactValues, currentAccentColor, currentPractice, details]);
 
   // ── logo upload ───────────────────────────────────────────────────────────
   const handleLogoChange = async (files: FileList | File[]) => {
@@ -409,31 +356,6 @@ export const PracticePage = ({ className, onBack }: PracticePageProps) => {
         }
       );
 
-      // Prune servicesByState to only include currently licensed states.
-      const validStates = licensedStates.filter((s) =>
-        STATE_OPTIONS.some((opt) => opt.value === s)
-      );
-      const prunedServicesByState: Record<string, string[]> = {};
-      for (const s of validStates) {
-        if (servicesByState[s]) prunedServicesByState[s] = servicesByState[s];
-      }
-
-      // Always write serviceStates and settings so they're never accidentally
-      // dropped by a contact-only save. Backend doesn't echo `settings` back,
-      // so we are the source of truth for it. To avoid clobbering unrelated
-      // `settings` keys from a stale local `details`, attempt to fetch the
-      // latest details and merge only the `services_by_state` portion.
-      detailsPayload.serviceStates = validStates;
-      try {
-        const freshest = currentPractice?.id ? await getPracticeDetails(currentPractice.id) : null;
-        const baseSettings = freshest?.settings ?? details?.settings ?? null;
-        detailsPayload.settings = buildSettingsString(baseSettings, prunedServicesByState);
-      } catch (fetchError) {
-        // If fetching latest details fails, fall back to local `details`.
-        if (import.meta.env.DEV) console.warn('[PracticePage] Failed to fetch fresh details before saving settings', fetchError);
-        detailsPayload.settings = buildSettingsString(details?.settings ?? null, prunedServicesByState);
-      }
-
       if (Object.keys(practicePayload).length > 0) {
         // Only pass allowed fields and filter out nulls for updatePractice
         const safePracticePayload: {
@@ -464,22 +386,7 @@ export const PracticePage = ({ className, onBack }: PracticePageProps) => {
         await updatePractice(currentPractice.id, safePracticePayload);
       }
 
-      const savedDetails = await updateDetails(detailsPayload);
-
-      // Backend doesn't return `settings`, so patch servicesByState back onto
-      // whatever the server gave us so local state stays consistent.
-      if (savedDetails != null) {
-        setDetails({
-          ...savedDetails,
-          servicesByState: prunedServicesByState,
-          serviceStates: validStates,
-        });
-      }
-
-      // Keep local draft in sync with what we just persisted.
-      setServicesByState(prunedServicesByState);
-      setLicensedStates(validStates);
-      setServicesDirty(false);
+      await updateDetails(detailsPayload);
       setDraft({});
 
       // Apply and cache the new brand color now. updateDetails doesn't refresh
@@ -509,11 +416,8 @@ export const PracticePage = ({ className, onBack }: PracticePageProps) => {
     contactValues,
     currentAccentColor,
     details,
-    licensedStates,
-    servicesByState,
     updatePractice,
     updateDetails,
-    setDetails,
     showError,
     showSuccess,
     practiceText,
@@ -522,11 +426,7 @@ export const PracticePage = ({ className, onBack }: PracticePageProps) => {
   // ── reset ─────────────────────────────────────────────────────────────────
   const handleReset = useCallback(() => {
     setDraft({});
-    // Reset services/states back to what the server last told us.
-    setLicensedStates(details?.serviceStates ?? []);
-    setServicesByState(details?.servicesByState ?? {});
-    setServicesDirty(false);
-  }, [details]);
+  }, []);
 
   // ── render ────────────────────────────────────────────────────────────────
   if (!currentPractice) {
@@ -719,60 +619,6 @@ export const PracticePage = ({ className, onBack }: PracticePageProps) => {
           </SettingsHelperText>
         </SettingSection>
 
-        <SectionDivider />
-
-        <SettingSection
-          title={practiceText.servicesTitle}
-          description={practiceText.servicesDescription}
-        >
-          <div className="space-y-4">
-            <div>
-              <h4 className="text-sm font-medium text-input-text">{practiceText.addStatesHeading}</h4>
-              <div className="mt-2">
-                <Combobox
-                  multiple
-                  options={STATE_OPTIONS}
-                  value={licensedStates}
-                  onChange={(nextStates) => {
-                    setLicensedStates(nextStates);
-                    // Prune servicesByState to only valid states as user removes them.
-                    setServicesByState((prev) => {
-                      const pruned: Record<string, string[]> = {};
-                      for (const s of nextStates) {
-                        if (prev[s]) pruned[s] = prev[s];
-                      }
-                      return pruned;
-                    });
-                    setServicesDirty(true);
-                  }}
-                  placeholder={practiceText.licensedStatesPlaceholder}
-                />
-              </div>
-            </div>
-
-            <div>
-              <h4 className="text-sm font-medium text-input-text">{practiceText.servicesPerStateHeading}</h4>
-              <div className="mt-2">
-                <ServicesByStateEditor
-                  licensedStates={licensedStates}
-                  value={servicesByState}
-                  onChange={(next) => {
-                    setServicesByState(next);
-                    setServicesDirty(true);
-                  }}
-                  onRemove={(stateCode) => {
-                    setServicesByState((prev) => {
-                      const next = { ...prev };
-                      delete next[stateCode];
-                      return next;
-                    });
-                    setServicesDirty(true);
-                  }}
-                />
-              </div>
-            </div>
-          </div>
-        </SettingSection>
       </div>
     </EditorShell>
   );

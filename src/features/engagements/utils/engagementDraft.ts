@@ -1,6 +1,7 @@
 import type { IntakeListItem, PracticeIntakeDetail } from '@/features/intake/api/intakesApi';
 import { resolveIntakeTitle } from '@/features/intake/utils/intakeTitle';
 import type { ProposalData, ProposalFees } from '@/features/engagements/types/engagement';
+import type { IntakeEnrichedData } from '@/shared/types/intake';
 
 export type EngagementDraftForm = {
   intakeId: string;
@@ -116,9 +117,26 @@ export const buildEngagementDraftFormFromIntake = (
     stringValue(address.city),
     stringValue(address.state),
   ].filter(Boolean).join(', ');
-  const matterSummary = resolveIntakeTitle(metadata, firstString(metadata.description, metadata.title, metadata.intake_title, ''));
+
+  // Read AI enrichment stored at submission time. Prefer enriched fields over raw intake values.
+  let enriched: IntakeEnrichedData | null = null;
+  const enrichedRaw = customFields._enriched_data;
+  if (typeof enrichedRaw === 'string') {
+    try { enriched = JSON.parse(enrichedRaw) as IntakeEnrichedData; } catch { /* ignore */ }
+  }
+
+  const matterSummary = firstString(
+    enriched?.ai_matter_description,
+    resolveIntakeTitle(metadata, firstString(metadata.description, metadata.title, metadata.intake_title, '')),
+  );
   const desiredOutcome = firstString((intake as PracticeIntakeDetail).desired_outcome, metadata.desired_outcome);
-  const practiceArea = firstString((intake as PracticeIntakeDetail).practice_area, metadata.practice_area, metadata.practice_service_uuid, customFields.practice_area);
+  const practiceArea = firstString(
+    enriched?.practice_area,
+    (intake as PracticeIntakeDetail).practice_area,
+    metadata.practice_area,
+    customFields.practice_area,
+  );
+  const scopeSuggestion = firstString(enriched?.ai_scope_suggestion, '');
   const urgency = firstString((intake as PracticeIntakeDetail).urgency, metadata.urgency);
   const opposingParty = firstString(metadata.opposing_party, customFields.opposing_party);
   const courtDate = firstString((intake as PracticeIntakeDetail).court_date, metadata.court_date, customFields.court_date);
@@ -130,7 +148,7 @@ export const buildEngagementDraftFormFromIntake = (
     matterSummary: current.matterSummary || matterSummary,
     locationSummary: current.locationSummary || locationSummary,
     goalsSummary: current.goalsSummary || desiredOutcome,
-    scopeSummary: current.scopeSummary || matterSummary,
+    scopeSummary: current.scopeSummary || scopeSuggestion || matterSummary,
     practiceArea: current.practiceArea || practiceArea,
     urgency: current.urgency || urgency,
     desiredOutcome: current.desiredOutcome || desiredOutcome,
