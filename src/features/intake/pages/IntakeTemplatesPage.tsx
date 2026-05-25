@@ -295,13 +295,6 @@ function getDefaultPreviewQuestion(label: string): string {
   return trimmed.endsWith('?') ? trimmed : `${trimmed}?`;
 }
 
-function getFieldCanvasQuestion(field: Pick<IntakeFieldDefinition, 'isStandard' | 'label' | 'previewQuestion'>): string {
-  if (field.isStandard) {
-    return field.previewQuestion?.trim() || field.label;
-  }
-  return field.label;
-}
-
 function inferQuestionType(question: string, options?: string[]): IntakeFieldDefinition['type'] {
   const normalizedOptions = (options ?? []).map((option) => option.trim()).filter(Boolean);
   if (normalizedOptions.length > 0) {

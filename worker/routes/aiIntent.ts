@@ -4,7 +4,7 @@ import type { Env } from '../types.js';
 import { ConversationService } from '../services/ConversationService.js';
 import { getAttachedAuthContext } from '../middleware/compose.js';
 import { SessionAuditService } from '../services/SessionAuditService.js';
-import { createAiClient } from '../utils/aiClient.js';
+import { createWorkersAiClient } from '../utils/workersAiClient.js';
 
 type IntentResult = {
   intent: 'ASK_QUESTION' | 'REQUEST_CONSULTATION' | 'UNCLEAR';
@@ -75,7 +75,7 @@ export async function handleAiIntent(request: Request, env: Env): Promise<Respon
     throw HttpErrors.forbidden('User is not a participant in this conversation');
   }
 
-  const aiClient = createAiClient(env);
+  const aiClient = createWorkersAiClient(env);
   const model = '@cf/zai-org/glm-4.7-flash';
   const response = await aiClient.requestChatCompletions({
     model,

@@ -14,14 +14,17 @@ import { parseJsonBody } from '../utils.js';
 import { HttpErrors } from '../errorHandler.js';
 import type { Env } from '../types.js';
 import { requirePracticeMember } from '../middleware/auth.js';
-import { createAiClient } from '../utils/aiClient.js';
+import { createWorkersAiClient } from '../utils/workersAiClient.js';
 import { Logger } from '../utils/logger.js';
 
 const FETCH_TIMEOUT_MS = 8_000;
 const AI_TIMEOUT_MS   = 10_000;
 const MAX_HTML_CHARS  = 80_000; // trim before sending to AI
 const MAX_TEXT_CHARS  = 12_000; // after strip
-const DEFAULT_WEBSITE_EXTRACT_MODEL = 'gpt-4o-mini';
+// Workers AI model used for function-calling extraction. Must be a `@cf/...`
+// model — the shared client hits the Workers AI endpoint, which rejects
+// provider names like `gpt-4o-mini`. Matches the Worker's default chat model.
+const DEFAULT_WEBSITE_EXTRACT_MODEL = '@cf/zai-org/glm-4.7-flash';
 
 export interface ExtractedPracticeFields {
   name?:         string;
@@ -135,7 +138,7 @@ export async function handleWebsiteExtract(request: Request, env: Env): Promise<
   }
 
   // ── 2. Extract fields via AI ───────────────────────────────────────────────
-  const aiClient = createAiClient(env);
+  const aiClient = createWorkersAiClient(env);
   const model = DEFAULT_WEBSITE_EXTRACT_MODEL;
 
   const extractionTool = {

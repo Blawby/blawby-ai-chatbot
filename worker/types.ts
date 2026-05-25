@@ -154,9 +154,12 @@ export interface Env {
   CLOUDFLARE_ACCOUNT_ID?: string;
   CLOUDFLARE_API_TOKEN?: string;
   CLOUDFLARE_PUBLIC_URL?: string;
+  // Cloudflare API token with Workers AI access. The legacy `CF_AIG_`
+  // ("AI Gateway") name is kept to avoid re-issuing the deployed secret — the
+  // Worker calls the Workers AI REST endpoint directly, not AI Gateway.
   CF_AIG_TOKEN?: string;
-  CF_AIG_GATEWAY_NAME?: string;
-  AI_PROVIDER?: string;
+  // Optional Workers AI model ID override (e.g. `@cf/zai-org/glm-4.7-flash`).
+  // Falls back to the Worker's DEFAULT_AI_MODEL when unset.
   AI_MODEL?: string;
   DOMAIN?: string;
   BETTER_AUTH_URL?: string;
