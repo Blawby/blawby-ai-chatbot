@@ -11,7 +11,6 @@ import { useTranslation } from '@/shared/i18n/hooks';
 import { SectionDivider, EditorShell } from '@/shared/ui/layout';
 
 import { Combobox } from '@/shared/ui/input/Combobox';
-import { Input } from '@/shared/ui/input';
 import { STATE_OPTIONS } from '@/shared/ui/address/AddressFields';
 import { Button } from '@/shared/ui/Button';
 import { SettingsHelperText } from '@/features/settings/components/SettingsHelperText';
@@ -45,9 +44,6 @@ export const PracticeCoveragePage = ({ className, onBack }: PracticeCoveragePage
   const [statesDraftTouched, setStatesDraftTouched] = useState(false);
   // Local-only: bar/admission info keyed by state code
   const [isSavingStates, setIsSavingStates] = useState(false);
-  const [billingIncrementDraft, setBillingIncrementDraft] = useState<number | ''>('');
-  const [billingTouched, setBillingTouched] = useState(false);
-  const [isSavingBilling, setIsSavingBilling] = useState(false);
   const lastSavedKeyRef = useRef<string>('');
   const saveRequestIdRef = useRef(0);
   const pendingSaveSnapshotsRef = useRef(new Map<number, { optimisticDetails: typeof details }>());
@@ -61,14 +57,9 @@ export const PracticeCoveragePage = ({ className, onBack }: PracticeCoveragePage
     [details, currentPractice]
   );
   const savedLicensedStates = useMemo(() => details?.serviceStates ?? [], [details?.serviceStates]);
-  const savedBillingIncrement = useMemo(() => {
-    const raw = details?.billingIncrementMinutes ?? currentPractice?.billingIncrementMinutes ?? null;
-    return typeof raw === 'number' && Number.isFinite(raw) ? raw : 6;
-  }, [currentPractice?.billingIncrementMinutes, details?.billingIncrementMinutes]);
   const displayedLicensedStates = statesDraftTouched || isSavingStates
     ? licensedStatesDraft
     : savedLicensedStates;
-  const displayedBillingIncrement = billingTouched ? billingIncrementDraft : savedBillingIncrement;
 
   const saveServices = useCallback(async (nextServices: Service[]) => {
     if (!currentPractice) return;
@@ -212,35 +203,6 @@ export const PracticeCoveragePage = ({ className, onBack }: PracticeCoveragePage
     }
   };
 
-  const handleSaveBillingIncrement = async () => {
-    if (!currentPractice) return;
-    const nextValue = typeof displayedBillingIncrement === 'number' ? displayedBillingIncrement : Number(displayedBillingIncrement);
-    if (!Number.isInteger(nextValue) || nextValue < 1 || nextValue > 60) {
-      showError(t('settings:billing.invalidIncrement') || 'Billing increment must be a whole number between 1 and 60 minutes.');
-      return;
-    }
-
-    if (nextValue === savedBillingIncrement) {
-      setBillingTouched(false);
-      setBillingIncrementDraft(nextValue);
-      return;
-    }
-
-    setIsSavingBilling(true);
-    try {
-      const savedDetails = await updateDetails({ billingIncrementMinutes: nextValue });
-      if (savedDetails !== undefined) setDetails(savedDetails);
-      setBillingTouched(false);
-      setBillingIncrementDraft(nextValue);
-      showSuccess(t('settings:billing.updated') || 'Billing increment updated.');
-    } catch (err) {
-      const message = err instanceof Error ? err.message : (t('settings:billing.updateFailed') || 'Failed to update billing increment');
-      showError(message);
-    } finally {
-      setIsSavingBilling(false);
-    }
-  };
-
   if (!currentPractice) {
     return (
       <div className="h-full flex items-center justify-center">
@@ -285,48 +247,6 @@ export const PracticeCoveragePage = ({ className, onBack }: PracticeCoveragePage
             onChange={(nextServices) => void saveServices(nextServices)}
             catalog={SERVICE_CATALOG}
           />
-        </section>
-        <SectionDivider />
-        <section className="space-y-4">
-          <div>
-            <h3 className="text-sm font-semibold text-input-text">Time entry billing increment</h3>
-            <SettingsHelperText className="mt-1">
-              Round billable time to this many minutes when entries are created.
-            </SettingsHelperText>
-          </div>
-          <div className="panel rounded-xl p-4">
-            <div className="flex flex-col gap-4 sm:flex-row sm:items-end">
-              <div className="w-full max-w-[220px]">
-                <label className="mb-2 block text-sm font-medium text-input-text" htmlFor="billing-increment-minutes">
-                  Minutes
-                </label>
-                <Input
-                  id="billing-increment-minutes"
-                  type="number"
-                  min={1}
-                  max={60}
-                  step={1}
-                  value={displayedBillingIncrement === '' ? '' : String(displayedBillingIncrement)}
-                  onChange={(value) => {
-                    const trimmed = value.trim();
-                    const parsed = trimmed === '' ? '' : Number(trimmed);
-                    setBillingTouched(true);
-                    setBillingIncrementDraft(Number.isFinite(parsed as number) ? (parsed as number) : '');
-                  }}
-                  disabled={isSavingBilling}
-                  placeholder="6"
-                />
-              </div>
-              <Button
-                type="button"
-                size="sm"
-                onClick={() => void handleSaveBillingIncrement()}
-                disabled={isSavingBilling || (!billingTouched && displayedBillingIncrement === savedBillingIncrement)}
-              >
-                {isSavingBilling ? 'Saving...' : 'Save'}
-              </Button>
-            </div>
-          </div>
         </section>
 
         <SectionDivider />

@@ -73,6 +73,8 @@ export const clientIntakeStatus = (intakeId: string): string =>
 export const clientIntakeInvite = (intakeId: string): string =>
 	`/api/practice-client-intakes/${encodeSegment(intakeId)}/invite`;
 
+export const generateEngagement = '/api/ai/generate-engagement';
+
 
 export const uploadDownloadPath = (uploadId: string): string =>
 	`/api/uploads/${encodeSegment(uploadId)}/download`;

@@ -12,6 +12,7 @@ type WidgetPreviewFrameProps = {
   title?: string;
   showTitle?: boolean;
   viewportClassName?: string;
+  framed?: boolean;
   /** For 'intake-template' scenario, where to open. See WidgetPreviewApp. */
   initialIntakeStep?: 'home' | 'conversation';
 };
@@ -52,6 +53,7 @@ export const WidgetPreviewFrame = ({
   title = 'Widget preview',
   showTitle = true,
   viewportClassName = 'h-[min(720px,calc(100svh-12rem))] min-h-[560px] max-h-[720px]',
+  framed = true,
   initialIntakeStep,
 }: WidgetPreviewFrameProps) => {
   const practiceConfig = useMemo(
@@ -68,7 +70,10 @@ export const WidgetPreviewFrame = ({
   return (
     <div className="w-full">
       {showTitle ? <h3 className="mb-3 text-sm font-semibold text-input-text">{title}</h3> : null}
-      <div className="mx-auto w-full max-w-[390px] overflow-hidden rounded-xl border border-line-subtle bg-surface-card shadow-glass">
+      <div className={cn(
+        'mx-auto w-full max-w-[380px] overflow-hidden bg-surface-card',
+        framed && 'rounded-xl border border-line-subtle shadow-glass',
+      )}>
         <div className={cn('relative w-full overflow-hidden bg-surface-ground', viewportClassName)}>
           <WidgetPreviewApp
             key={previewKey}

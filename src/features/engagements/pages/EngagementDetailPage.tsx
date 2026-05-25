@@ -13,7 +13,7 @@ import {
 } from 'lucide-preact';
 
 import { Button } from '@/shared/ui/Button';
-import { DetailHeader } from '@/shared/ui/layout';
+import { DetailHeader, EditorShell } from '@/shared/ui/layout';
 import { LoadingSpinner } from '@/shared/ui/layout/LoadingSpinner';
 import { Dialog, DialogBody, DialogFooter } from '@/shared/ui/dialog';
 import { Input, Textarea, Combobox, type ComboboxOption } from '@/shared/ui/input';
@@ -716,19 +716,24 @@ const EditModeView: FunctionComponent<EditModeViewProps> = ({
   }, []);
 
   return (
-    <div className="flex h-full min-h-0 flex-col">
-      <header className="flex items-center justify-between gap-3 border-b border-line-subtle bg-surface-workspace px-4 py-3 sm:px-6">
-        <Button variant="ghost" icon={X} onClick={onCancel} disabled={saving} aria-label="Cancel" />
-        <h1 className="text-base font-semibold text-input-text">Edit engagement</h1>
-        <div className="flex items-center gap-2">
+    <EditorShell
+      title="Edit engagement"
+      showBack
+      backVariant="close"
+      onBack={onCancel}
+      contentMaxWidth={null}
+      contentClassName="p-0"
+      actions={(
+        <>
           <Button variant="secondary" onClick={() => onSaveDraft(form)} disabled={saving}>
-            {saving ? 'Saving…' : 'Save draft'}
+            {saving ? 'Saving...' : 'Save draft'}
           </Button>
           <Button variant="primary" icon={Send} iconPosition="right" onClick={() => onReviewAndSend(form)} disabled={saving}>
             Review &amp; send
           </Button>
-        </div>
-      </header>
+        </>
+      )}
+    >
 
       <div className="flex-1 overflow-y-auto">
         <form className="mx-auto max-w-3xl space-y-6 p-4 sm:p-6" onSubmit={(e) => e.preventDefault()}>
@@ -841,7 +846,7 @@ const EditModeView: FunctionComponent<EditModeViewProps> = ({
           </SectionCard>
         </form>
       </div>
-    </div>
+    </EditorShell>
   );
 };
 

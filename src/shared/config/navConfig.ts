@@ -353,6 +353,7 @@ const buildSettingsSecondary = (basePath: string, canAccessPractice: boolean): N
         { id: 'practice', label: 'Practice', href: `${basePath}/settings/practice`, icon: Building2 },
         { id: 'practice-payouts', label: 'Payouts', href: `${basePath}/settings/practice/payouts`, icon: CreditCard },
         { id: 'practice-team', label: 'Team', href: `${basePath}/settings/practice/team`, icon: Users },
+        { id: 'engagement-templates', label: 'Engagement Templates', href: `${basePath}/settings/practice/engagement-templates`, icon: FileText },
         { id: 'coverage', label: 'Coverage', href: `${basePath}/coverage`, icon: Map },
         { id: 'apps', label: 'Apps', href: `${basePath}/settings/apps`, icon: Puzzle },
       ],

@@ -36,7 +36,6 @@ import { useWorkspaceSetup } from './hooks/useWorkspaceSetup';
 import { useWorkspaceData } from './hooks/useWorkspaceData';
 import { useConversationPreviews } from './hooks/useConversationPreviews';
 import { useWorkspaceInspectorActions } from './hooks/useWorkspaceInspectorActions';
-import { useInvoiceBuilderTopBar } from './hooks/useInvoiceBuilderTopBar';
 import { useWorkspaceAutoNavigation } from './hooks/useWorkspaceAutoNavigation';
 import { useRecentMessage } from './hooks/useRecentMessage';
 import { useToastContext } from '@/shared/contexts/ToastContext';
@@ -286,9 +285,14 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
     conversationsPath,
     withWidgetQuery,
     isIntakeTemplateEditorRoute,
+    isIntakeResponseDetailRoute,
     selectedMatterIdFromPath,
     isMatterNonListRoute,
     selectedContactIdFromPath,
+    isEngagementCreateRoute,
+    isEngagementDetailRoute,
+    isEngagementEditRoute,
+    isReportDeliveryDetailRoute,
     previewUrls,
     handleDashboardCreateInvoice,
     workspaceSection,
@@ -910,7 +914,18 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
       onViewIntake={(intakeId) => navigate(`${normalizedBase}/intakes/responses/${encodeURIComponent(intakeId)}`)}
     />
   );
-  const showBottomNav = !isIntakeTemplateEditorRoute && shouldShowWorkspaceBottomNav({
+  const isFullscreenEditorRoute = (view === 'intakes' && isIntakeTemplateEditorRoute)
+    || isEngagementCreateRoute
+    || isEngagementEditRoute;
+  const isLocalDetailHeaderRoute = isIntakeResponseDetailRoute
+    || Boolean(selectedMatterIdFromPath)
+    || Boolean(selectedContactIdFromPath)
+    || view === 'invoiceDetail'
+    || view === 'settings'
+    || view === 'coverage'
+    || (isEngagementDetailRoute && !isEngagementEditRoute)
+    || isReportDeliveryDetailRoute;
+  const showBottomNav = !isFullscreenEditorRoute && shouldShowWorkspaceBottomNav({
     isMobileLayout,
     workspace,
     view,
@@ -936,7 +951,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
     />
   ) : undefined;
 
-  const sidebarConfig = navConfig.rail.length > 0 && !isIntakeTemplateEditorRoute
+  const sidebarConfig = navConfig.rail.length > 0 && !isFullscreenEditorRoute
     ? buildSidebarConfig(navConfig, workspaceSection)
     : null;
 
@@ -1296,7 +1311,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
   const conversationListPanel = layoutMode === 'desktop' && (view === 'list' || view === 'conversation')
     ? conversationListView
     : undefined;
-  const mobileSectionTopBar = layoutMode !== 'desktop' && view !== 'conversation' && !isIntakeTemplateEditorRoute && mobileCreateButton
+  const mobileSectionTopBar = layoutMode !== 'desktop' && view !== 'conversation' && !isFullscreenEditorRoute && mobileCreateButton
     ? (
       <WorkspaceListHeader
         controls={mobileCreateButton ?? undefined}
@@ -1304,14 +1319,6 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
       />
     )
     : undefined;
-  const invoiceBuilderTopBar = useInvoiceBuilderTopBar({
-    view,
-    workspace,
-    practiceSlug,
-    navigate,
-    layoutMode,
-    primaryCreateAction,
-  });
   const sectionContent = (() => {
     // On mobile the listPanel is hidden — when in draft mode we want the
     // draft view to take over the main pane instead of staying on the list.
@@ -1336,8 +1343,6 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
       case 'contacts':
         return contactsContent;
       case 'invoices':
-      case 'invoiceCreate':
-      case 'invoiceEdit':
       case 'invoiceDetail':
         return invoicesContent;
       case 'reports':
@@ -1384,7 +1389,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
     if (view === 'contacts') {
       return { kind: 'full-page', overflow: 'hidden' };
     }
-    if (view === 'invoices' || view === 'invoiceDetail' || view === 'invoiceCreate' || view === 'invoiceEdit') {
+    if (view === 'invoices' || view === 'invoiceDetail') {
       return { kind: 'full-page', overflow: 'auto' };
     }
     if (view === 'reports') {
@@ -1399,7 +1404,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
       content={sectionContent}
       chatView={draftView ?? chatView}
       layout={sectionLayout}
-      topBar={invoiceBuilderTopBar ?? (layoutMode === 'desktop' ? undefined : mobileSectionTopBar)}
+      topBar={layoutMode === 'desktop' ? undefined : mobileSectionTopBar}
       bottomNav={bottomNav}
     />
   );
@@ -1488,19 +1493,18 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
     }
   };
 
-  // Editor views should be full-page without the persistent app navigation sidebar
-  const isEditorView = (view === 'intakes' && isIntakeTemplateEditorRoute) || view === 'invoiceEdit';
+  const shouldRenderShellHeader = !isFullscreenEditorRoute && !isLocalDetailHeaderRoute;
   
   return (
     <>
       <AppShell
         className="bg-transparent h-dvh"
         accentBackdropVariant="none"
-        header={shellHeader}
-        sidebar={isEditorView ? undefined : sidebarNav}
+        header={shouldRenderShellHeader ? shellHeader : undefined}
+        sidebar={isFullscreenEditorRoute ? undefined : sidebarNav}
         desktopSidebarCollapsed={isDesktopSidebarCollapsed}
-        mobileSidebar={isEditorView ? undefined : mobileSidebarNav}
-        listPanel={conversationListPanel ?? matterListPanel ?? contactsListPanel ?? invoicesListPanel}
+        mobileSidebar={isFullscreenEditorRoute ? undefined : mobileSidebarNav}
+        listPanel={isFullscreenEditorRoute ? undefined : (conversationListPanel ?? matterListPanel ?? contactsListPanel ?? invoicesListPanel)}
         inspector={activeInspector ?? undefined}
         inspectorMobileOpen={detailInspectorOpen && isMobileLayout}
         onInspectorMobileClose={() => setIsInspectorOpen(false)}

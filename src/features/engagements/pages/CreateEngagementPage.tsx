@@ -1,12 +1,13 @@
 import { FunctionComponent } from 'preact';
-import { useCallback, useEffect, useMemo, useState } from 'preact/hooks';
-import { ArrowLeft, RefreshCw, Send } from 'lucide-preact';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'preact/hooks';
+import { Send, Sparkles } from 'lucide-preact';
 
 import { Button } from '@/shared/ui/Button';
 import { Input, Textarea, Combobox, type ComboboxOption } from '@/shared/ui/input';
 import { CurrencyInput } from '@/shared/ui/input/CurrencyInput';
 import { RadioGroupWithDescriptions } from '@/shared/ui/input/RadioGroupWithDescriptions';
 import type { DescribedRadioOption } from '@/shared/ui/input/RadioGroupWithDescriptions';
+import { EditorShell } from '@/shared/ui/layout';
 import { FormGrid } from '@/shared/ui/layout/FormGrid';
 import { LoadingSpinner } from '@/shared/ui/layout/LoadingSpinner';
 import { formatCurrency } from '@/shared/utils/currencyFormatter';
@@ -16,6 +17,10 @@ import { formatRelativeTime } from '@/features/matters/utils/formatRelativeTime'
 import { getPracticeIntake, listIntakes } from '@/features/intake/api/intakesApi';
 import type { IntakeListItem, PracticeIntakeDetail } from '@/features/intake/api/intakesApi';
 import { resolveIntakeTitle } from '@/features/intake/utils/intakeTitle';
+import { apiClient } from '@/shared/lib/apiClient';
+import { generateEngagement } from '@/config/urls';
+import { useToastContext } from '@/shared/contexts/ToastContext';
+import { usePracticeDetails } from '@/shared/hooks/usePracticeDetails';
 
 import { createEngagementContract } from '../api/engagementsApi';
 import {
@@ -64,6 +69,90 @@ const PAYMENT_FREQUENCY_OPTIONS: ComboboxOption[] = [
   { value: 'quarterly',     label: 'Quarterly' },
   { value: 'on_completion', label: 'On completion' },
 ];
+
+// ── Engagement template types (mirrors EngagementTemplatesPage.tsx) ──────────
+
+type EngagementLetterTemplate = {
+  id: string;
+  name: string;
+  practiceArea: string;
+  feeType: 'hourly' | 'flat' | 'contingency' | 'pro_bono';
+  hourlyRateCents: number | null;
+  flatFeeCents: number | null;
+  contingencyPct: number | null;
+  retainerCents: number | null;
+  scopeTemplate: string;
+  body: string;
+};
+
+type IntakeEnrichedData = {
+  practice_area: string | null;
+  ai_matter_description: string | null;
+  ai_scope_suggestion: string | null;
+  [key: string]: unknown;
+};
+
+const asRecord = (v: unknown): Record<string, unknown> =>
+  v && typeof v === 'object' && !Array.isArray(v) ? v as Record<string, unknown> : {};
+
+const asNullableNumber = (v: unknown): number | null =>
+  typeof v === 'number' && Number.isFinite(v) ? v : null;
+
+function normalizeTemplate(value: unknown, index: number): EngagementLetterTemplate {
+  const raw = asRecord(value);
+  const feeType = raw.feeType;
+  return {
+    id: typeof raw.id === 'string' ? raw.id : `template-${index}`,
+    name: typeof raw.name === 'string' ? raw.name : '',
+    practiceArea: typeof raw.practiceArea === 'string' ? raw.practiceArea : '',
+    feeType: feeType === 'hourly' || feeType === 'flat' || feeType === 'contingency' || feeType === 'pro_bono'
+      ? feeType
+      : 'hourly',
+    hourlyRateCents: asNullableNumber(raw.hourlyRateCents),
+    flatFeeCents: asNullableNumber(raw.flatFeeCents),
+    contingencyPct: asNullableNumber(raw.contingencyPct),
+    retainerCents: asNullableNumber(raw.retainerCents),
+    scopeTemplate: typeof raw.scopeTemplate === 'string' ? raw.scopeTemplate : '',
+    body: typeof raw.body === 'string' ? raw.body : '',
+  };
+}
+
+function parseEngagementTemplates(practiceDetails: unknown): EngagementLetterTemplate[] {
+  if (!practiceDetails || typeof practiceDetails !== 'object') return [];
+  const meta = asRecord((practiceDetails as Record<string, unknown>).metadata);
+  const raw = meta.engagementLetterTemplates;
+  if (typeof raw === 'string') {
+    try { const p = JSON.parse(raw); return Array.isArray(p) ? p.map(normalizeTemplate) : []; } catch { return []; }
+  }
+  return Array.isArray(raw) ? raw.map(normalizeTemplate) : [];
+}
+
+function parseEnrichedData(metadata: Record<string, unknown>): IntakeEnrichedData | null {
+  const cf = asRecord(metadata.custom_fields ?? metadata.customFields);
+  const raw = cf._enriched_data;
+  if (typeof raw !== 'string') return null;
+  try {
+    const parsed = JSON.parse(raw);
+    return typeof parsed === 'object' && parsed !== null ? parsed as IntakeEnrichedData : null;
+  } catch { return null; }
+}
+
+function autoSelectTemplate(
+  templates: EngagementLetterTemplate[],
+  practiceArea: string | null,
+): EngagementLetterTemplate | null {
+  if (!templates.length) return null;
+  if (!practiceArea) return templates[0];
+  const normalized = practiceArea.toLowerCase().trim();
+  return (
+    templates.find((t) => t.practiceArea.toLowerCase().trim() === normalized) ??
+    templates.find((t) =>
+      normalized.includes(t.practiceArea.toLowerCase().trim()) ||
+      t.practiceArea.toLowerCase().trim().includes(normalized),
+    ) ??
+    templates[0]
+  );
+}
 
 // ── Validation ───────────────────────────────────────────────────────────────
 
@@ -230,6 +319,8 @@ export const CreateEngagementPage: FunctionComponent<CreateEngagementPageProps> 
   onCreated,
   onCancel,
 }) => {
+  const { showError } = useToastContext();
+
   const [form, setForm] = useState<EngagementDraftForm>({
     ...EMPTY_ENGAGEMENT_DRAFT_FORM,
     intakeId: initialIntakeId ?? '',
@@ -244,6 +335,28 @@ export const CreateEngagementPage: FunctionComponent<CreateEngagementPageProps> 
   const [isLoadingIntakes, setIsLoadingIntakes] = useState(false);
   const [isLoadingIntakeDetail, setIsLoadingIntakeDetail] = useState(false);
   const [intakesError, setIntakesError] = useState<string | null>(null);
+
+  const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null);
+  const [isGeneratingBody, setIsGeneratingBody] = useState(false);
+  const isGeneratingBodyRef = useRef(false);
+  const generationTokenRef = useRef(0);
+  const activeGenerationRef = useRef<{ token: number; intakeId: string } | null>(null);
+  const selectedIntakeIdRef = useRef(initialIntakeId ?? '');
+  const lastGeneratedIntakeIdRef = useRef<string | null>(null);
+  const isMountedRef = useRef(true);
+  selectedIntakeIdRef.current = form.intakeId;
+  useEffect(() => { isMountedRef.current = true; return () => { isMountedRef.current = false; }; }, []);
+
+  const {
+    details: practiceDetails,
+    hasDetails: hasPracticeDetails,
+    fetchDetails: fetchPracticeDetails,
+  } = usePracticeDetails(practiceId, null, false);
+
+  useEffect(() => {
+    if (!practiceId || hasPracticeDetails) return;
+    fetchPracticeDetails().catch(() => undefined);
+  }, [practiceId, hasPracticeDetails, fetchPracticeDetails]);
 
   useEffect(() => {
     if (!practiceId) return;
@@ -268,29 +381,6 @@ export const CreateEngagementPage: FunctionComponent<CreateEngagementPageProps> 
 
     return () => controller.abort();
   }, [practiceId, initialIntakeId]);
-
-  useEffect(() => {
-    if (!practiceId || !form.intakeId) {
-      setSelectedIntakeDetail(null);
-      return;
-    }
-    const controller = new AbortController();
-    setIsLoadingIntakeDetail(true);
-
-    getPracticeIntake(practiceId, form.intakeId, { signal: controller.signal })
-      .then((detail) => {
-        if (controller.signal.aborted) return;
-        setSelectedIntakeDetail(detail);
-        setForm((prev) => buildEngagementDraftFormFromIntake(detail, prev));
-      })
-      .catch((err) => {
-        if (controller.signal.aborted) return;
-        setSubmitError(err instanceof Error ? err.message : 'Failed to load intake details');
-      })
-      .finally(() => { if (!controller.signal.aborted) setIsLoadingIntakeDetail(false); });
-
-    return () => controller.abort();
-  }, [form.intakeId, practiceId]);
 
   const selectedIntake = useMemo(
     () => selectedIntakeDetail ?? intakes.find((i) => i.uuid === form.intakeId) ?? null,
@@ -324,6 +414,10 @@ export const CreateEngagementPage: FunctionComponent<CreateEngagementPageProps> 
 
   const handleIntakeChange = useCallback((value: string) => {
     const intake = intakes.find((i) => i.uuid === value);
+    generationTokenRef.current += 1;
+    activeGenerationRef.current = null;
+    isGeneratingBodyRef.current = false;
+    setIsGeneratingBody(false);
     setSelectedIntakeDetail(null);
     setForm((prev) =>
       intake
@@ -332,9 +426,113 @@ export const CreateEngagementPage: FunctionComponent<CreateEngagementPageProps> 
     );
   }, [intakes]);
 
-  const handleRegenerateContract = useCallback(() => {
-    setForm((prev) => ({ ...prev, contractBody: buildDeterministicContractBody(prev) }));
-  }, []);
+  const engagementTemplates = useMemo(() => parseEngagementTemplates(practiceDetails), [practiceDetails]);
+
+  const templateOptions = useMemo<ComboboxOption[]>(
+    () => engagementTemplates.map((t) => ({
+      value: t.id,
+      label: t.name,
+      description: t.practiceArea || undefined,
+    })),
+    [engagementTemplates],
+  );
+
+  const selectedTemplate = useMemo(
+    () => engagementTemplates.find((t) => t.id === selectedTemplateId) ?? null,
+    [engagementTemplates, selectedTemplateId],
+  );
+
+  const generateFromTemplate = useCallback(async (
+    template: EngagementLetterTemplate,
+    intake: PracticeIntakeDetail,
+  ): Promise<boolean> => {
+    if (isGeneratingBodyRef.current) return false;
+    const intakeId = intake.uuid;
+    const localGenerationToken = generationTokenRef.current + 1;
+    generationTokenRef.current = localGenerationToken;
+    activeGenerationRef.current = { token: localGenerationToken, intakeId };
+    isGeneratingBodyRef.current = true;
+    lastGeneratedIntakeIdRef.current = intakeId;
+
+    const isCurrentGeneration = () =>
+      activeGenerationRef.current?.token === localGenerationToken
+      && activeGenerationRef.current.intakeId === intakeId
+      && selectedIntakeIdRef.current === intakeId;
+
+    const meta = asRecord(intake.metadata);
+    const enriched = parseEnrichedData(meta);
+    setIsGeneratingBody(true);
+    try {
+      const result = await apiClient.post<{ contractBody: string }>(generateEngagement, {
+        enrichedData: enriched,
+        template,
+        intakeFields: {
+          clientName: typeof meta.name === 'string' ? meta.name : '',
+          clientEmail: typeof meta.email === 'string' ? meta.email : '',
+          opposingParty: typeof meta.opposing_party === 'string' ? meta.opposing_party : null,
+          description: typeof meta.description === 'string' ? meta.description : null,
+          courtDate: intake.court_date ?? null,
+          practiceName: practiceName ?? null,
+        },
+      });
+      if (!isCurrentGeneration()) return false;
+      if (isMountedRef.current) {
+        setForm((prev) => ({ ...prev, contractBody: result.data.contractBody }));
+      }
+      return true;
+    } catch (error) {
+      if (!isCurrentGeneration()) return false;
+      if (isMountedRef.current) {
+        showError('Generation failed', error instanceof Error ? error.message : 'Failed to generate engagement letter');
+        setForm((prev) => ({ ...prev, contractBody: prev.contractBody || buildDeterministicContractBody(prev) }));
+      }
+      return false;
+    } finally {
+      if (activeGenerationRef.current?.token === localGenerationToken) {
+        activeGenerationRef.current = null;
+        isGeneratingBodyRef.current = false;
+        if (isMountedRef.current) setIsGeneratingBody(false);
+      }
+    }
+  }, [practiceName, showError]);
+
+  useEffect(() => {
+    if (!practiceId || !form.intakeId) {
+      generationTokenRef.current += 1;
+      activeGenerationRef.current = null;
+      isGeneratingBodyRef.current = false;
+      if (isMountedRef.current) setIsGeneratingBody(false);
+      setSelectedIntakeDetail(null);
+      return;
+    }
+    const controller = new AbortController();
+    setIsLoadingIntakeDetail(true);
+
+    getPracticeIntake(practiceId, form.intakeId, { signal: controller.signal })
+      .then((detail) => {
+        if (controller.signal.aborted) return;
+        setSelectedIntakeDetail(detail);
+        setForm((prev) => buildEngagementDraftFormFromIntake(detail, prev));
+
+        if (!engagementTemplates.length) return;
+        if (lastGeneratedIntakeIdRef.current === detail.uuid) return;
+
+        const meta = asRecord(detail.metadata);
+        const enriched = parseEnrichedData(meta);
+        const best = autoSelectTemplate(engagementTemplates, enriched?.practice_area ?? null);
+        if (!best) return;
+
+        setSelectedTemplateId(best.id);
+        void generateFromTemplate(best, detail);
+      })
+      .catch((err) => {
+        if (controller.signal.aborted) return;
+        setSubmitError(err instanceof Error ? err.message : 'Failed to load intake details');
+      })
+      .finally(() => { if (!controller.signal.aborted) setIsLoadingIntakeDetail(false); });
+
+    return () => controller.abort();
+  }, [form.intakeId, practiceId, engagementTemplates, generateFromTemplate]);
 
   const handleSubmit = useCallback(async () => {
     setHasAttemptedSubmit(true);
@@ -367,36 +565,26 @@ export const CreateEngagementPage: FunctionComponent<CreateEngagementPageProps> 
     (v: number | undefined) => updateField(key, v != null ? String(v) : '');
 
   return (
-    <div className="flex h-full min-h-0 flex-col bg-surface-workspace">
-      {/* Sticky page header */}
-      <header className="flex shrink-0 items-center justify-between gap-4 border-b border-line-subtle bg-surface-workspace px-4 py-3 sm:px-6">
-        <button
-          type="button"
-          onClick={onCancel}
-          disabled={submitting}
-          className="flex items-center gap-1.5 text-sm text-input-placeholder transition-colors hover:text-input-text focus:outline-none focus-visible:underline disabled:opacity-50"
+    <EditorShell
+      title="New Engagement"
+      subtitle="Draft the agreement from an accepted intake."
+      showBack
+      backVariant="close"
+      onBack={onCancel}
+      contentMaxWidth={null}
+      contentClassName="p-0"
+      actions={(
+        <Button
+          variant="primary"
+          icon={Send}
+          iconPosition="right"
+          onClick={handleSubmit}
+          disabled={submitting || !practiceId}
         >
-          <ArrowLeft className="h-4 w-4" />
-          <span className="hidden sm:inline">Engagements</span>
-        </button>
-        <h1 className="text-base font-semibold text-input-text">New Engagement</h1>
-        <div className="flex items-center gap-2">
-          <Button variant="secondary" onClick={onCancel} disabled={submitting} className="hidden sm:flex">
-            Cancel
-          </Button>
-          <Button
-            variant="primary"
-            icon={Send}
-            iconPosition="right"
-            onClick={handleSubmit}
-            disabled={submitting || !practiceId}
-          >
-            {submitting ? 'Creating…' : 'Create engagement'}
-          </Button>
-        </div>
-      </header>
-
-      {/* Two-column body */}
+          {submitting ? 'Creating...' : 'Create engagement'}
+        </Button>
+      )}
+    >
       <div className="flex min-h-0 flex-1">
 
         {/* ── Left: form ── */}
@@ -667,25 +855,46 @@ export const CreateEngagementPage: FunctionComponent<CreateEngagementPageProps> 
 
             {/* Contract */}
             <section className="space-y-3">
-              <div className="flex items-center justify-between gap-3">
-                <SectionHeading title="Contract body" />
-                <Button
-                  type="button"
-                  variant="secondary"
-                  size="sm"
-                  icon={RefreshCw}
-                  onClick={handleRegenerateContract}
-                  disabled={submitting}
-                >
-                  Regenerate
-                </Button>
-              </div>
+              <SectionHeading title="Contract body" />
+              {engagementTemplates.length > 0 ? (
+                <div className="flex items-end gap-2">
+                  <div className="flex-1">
+                    <Combobox
+                      label="Engagement template"
+                      options={templateOptions}
+                      value={selectedTemplateId ?? ''}
+                      onChange={(v) => setSelectedTemplateId(v || null)}
+                      disabled={submitting || isGeneratingBody}
+                      searchable={templateOptions.length > 4}
+                    />
+                  </div>
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    size="sm"
+                    icon={isGeneratingBody ? undefined : Sparkles}
+                    onClick={() => {
+                      const template = selectedTemplate ?? engagementTemplates[0];
+                      if (template && selectedIntakeDetail) void generateFromTemplate(template, selectedIntakeDetail);
+                    }}
+                    disabled={submitting || isGeneratingBody || !selectedIntakeDetail}
+                    className="shrink-0 mb-[1px]"
+                  >
+                    {isGeneratingBody ? (
+                      <span className="inline-flex items-center gap-1.5">
+                        <LoadingSpinner size="sm" ariaLabel="Generating" />
+                        Generating…
+                      </span>
+                    ) : 'Generate'}
+                  </Button>
+                </div>
+              ) : null}
               <Textarea
                 label="Contract body"
                 value={form.contractBody}
                 onChange={(v) => updateField('contractBody', v)}
                 rows={14}
-                disabled={submitting}
+                disabled={submitting || isGeneratingBody}
                 error={errors.contractBody}
               />
               <Textarea
@@ -715,7 +924,7 @@ export const CreateEngagementPage: FunctionComponent<CreateEngagementPageProps> 
         </aside>
 
       </div>
-    </div>
+    </EditorShell>
   );
 };
 

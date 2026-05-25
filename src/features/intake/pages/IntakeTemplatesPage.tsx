@@ -5,6 +5,7 @@ import {
   ChevronDown,
   CreditCard,
   Eye,
+  ExternalLink,
   FileText,
   GripVertical,
   Lock,
@@ -25,7 +26,6 @@ import { SettingsNotice } from '@/features/settings/components/SettingsNotice';
 import { WidgetPreviewFrame } from '@/features/settings/components/WidgetPreviewFrame';
 import type { WidgetPreviewConfig } from '@/shared/types/widgetPreview';
 import type { MinorAmount } from '@/shared/utils/money';
-import { IntakePreviewDialog } from '@/features/intake/components/IntakePreviewDialog';
 import { Dialog, DialogBody, DialogFooter } from '@/shared/ui/dialog';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/shared/ui/dropdown';
 import { cn } from '@/shared/utils/cn';
@@ -78,10 +78,10 @@ function slugify(name: string): string {
 }
 
 
-function parseTemplatesFromMetadata(metadata: Record<string, unknown> | null | undefined): IntakeTemplate[] {
+function parseTemplateListFromMetadata(metadata: Record<string, unknown> | null | undefined, key: string): IntakeTemplate[] {
   if (!metadata) return [];
 
-  const raw = metadata.intakeTemplates;
+  const raw = metadata[key];
   if (typeof raw === 'string') {
     try {
       const parsed = JSON.parse(raw);
@@ -91,6 +91,14 @@ function parseTemplatesFromMetadata(metadata: Record<string, unknown> | null | u
     }
   }
   return Array.isArray(raw) ? (raw as IntakeTemplate[]) : [];
+}
+
+function parseTemplatesFromMetadata(metadata: Record<string, unknown> | null | undefined): IntakeTemplate[] {
+  return parseTemplateListFromMetadata(metadata, 'intakeTemplates');
+}
+
+function parseDraftTemplatesFromMetadata(metadata: Record<string, unknown> | null | undefined): IntakeTemplate[] {
+  return parseTemplateListFromMetadata(metadata, 'intakeTemplateDrafts');
 }
 
 function generateFieldKey(label: string, existingKeys: Set<string>): string {
@@ -295,6 +303,15 @@ function getDefaultPreviewQuestion(label: string): string {
   return trimmed.endsWith('?') ? trimmed : `${trimmed}?`;
 }
 
+function getQuestionRowPreview(field: Pick<IntakeFieldDefinition, 'isStandard' | 'label' | 'previewQuestion' | 'promptHint' | 'options'>): string {
+  const prompt = field.previewQuestion?.trim() || field.label.trim();
+  if (prompt) return prompt;
+  const hint = field.promptHint?.trim();
+  if (hint) return hint;
+  if (field.options?.length) return field.options.filter(Boolean).join(', ');
+  return 'Add question';
+}
+
 function inferQuestionType(question: string, options?: string[]): IntakeFieldDefinition['type'] {
   const normalizedOptions = (options ?? []).map((option) => option.trim()).filter(Boolean);
   if (normalizedOptions.length > 0) {
@@ -454,11 +471,11 @@ function SectionCard({ number, icon, title, badge, isActive, isOpen, onToggle, o
 
 type QuestionRowProps = {
   label: string;
+  preview?: string;
   isSelected: boolean;
   isLocked?: boolean;
   badgeLabel?: string;
   onSelect: () => void;
-  onRemove?: () => void;
   onMoveUp?: () => void;
   onMoveDown?: () => void;
   dragHandlers?: {
@@ -468,9 +485,10 @@ type QuestionRowProps = {
   };
 };
 
-function QuestionRow({ label, isSelected, isLocked, badgeLabel, onSelect, onRemove, onMoveUp, onMoveDown, dragHandlers }: QuestionRowProps) {
+function QuestionRow({ label, preview, isSelected, isLocked, badgeLabel, onSelect, onMoveUp, onMoveDown, dragHandlers }: QuestionRowProps) {
   const draggable = !isLocked && Boolean(dragHandlers);
   const displayLabel = label.trim() || 'Untitled question';
+  const previewText = preview?.trim();
 
   const handleGripKey = (event: JSX.TargetedKeyboardEvent<HTMLButtonElement>) => {
     if (event.key === 'ArrowUp' && onMoveUp) {
@@ -511,32 +529,13 @@ function QuestionRow({ label, isSelected, isLocked, badgeLabel, onSelect, onRemo
       <button
         type="button"
         onClick={onSelect}
-        className="min-w-0 flex-1 truncate text-left text-input-text focus-visible:outline-none"
+        className="min-w-0 flex-1 text-left focus-visible:outline-none"
       >
-        {displayLabel}
+        <span className="block truncate text-input-text">{displayLabel}</span>
+        {previewText ? <span className="block truncate text-xs text-input-placeholder">{previewText}</span> : null}
       </button>
       {badgeLabel ? (
         <span className="shrink-0 text-[11px] font-medium text-input-placeholder">{badgeLabel}</span>
-      ) : null}
-      <button
-        type="button"
-        onClick={onSelect}
-        className="shrink-0 text-[11px] font-medium text-accent-500 hover:underline"
-      >
-        Edit
-      </button>
-      {onRemove && !isLocked ? (
-        <button
-          type="button"
-          onClick={(event) => {
-            event.stopPropagation();
-            onRemove();
-          }}
-          aria-label={`Delete ${displayLabel}`}
-          className="shrink-0 rounded text-input-placeholder transition-colors hover:text-rose-500"
-        >
-          <Trash2 className="h-3.5 w-3.5" />
-        </button>
       ) : null}
     </div>
   );
@@ -590,6 +589,7 @@ function ConfigField({
 
 type TemplateEditorProps = {
   initial?: IntakeTemplate;
+  hasSavedDraft?: boolean;
   existingTemplates: IntakeTemplate[];
   practiceSlug: string;
   practiceOrganizationId?: string | null;
@@ -603,11 +603,14 @@ type TemplateEditorProps = {
     accentColor?: string;
   };
   onCancel: () => void;
-  onSave: (template: IntakeTemplate) => Promise<void>;
+  onSaveDraft: (template: IntakeTemplate) => Promise<void>;
+  onPublish: (template: IntakeTemplate) => Promise<void>;
+  onDiscardDraft: (slug: string) => Promise<void>;
 };
 
 function TemplateEditor({
   initial,
+  hasSavedDraft: initialHasSavedDraft = false,
   existingTemplates,
   practiceSlug,
   practiceOrganizationId = null,
@@ -617,7 +620,9 @@ function TemplateEditor({
   currencyCode,
   practicePreviewConfig,
   onCancel,
-  onSave,
+  onSaveDraft,
+  onPublish,
+  onDiscardDraft,
 }: TemplateEditorProps) {
   const { showError, showSuccess } = useToastContext();
   const { navigate } = useNavigation();
@@ -630,9 +635,12 @@ function TemplateEditor({
   const initialState = useMemo(() => buildEditorState(initial, editorDefaults), [editorDefaults, initial]);
   const initialSnapshot = useMemo(() => serializeTemplate(editorStateToTemplate(initialState)), [initialState]);
   const [state, setState] = useState<EditorState>(initialState);
+  const [savedSnapshot, setSavedSnapshot] = useState(initialSnapshot);
+  const [hasSavedDraft, setHasSavedDraft] = useState(initialHasSavedDraft);
+  const [discardPending, setDiscardPending] = useState(false);
   const [slugError, setSlugError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
-  const [showPreviewDialog, setShowPreviewDialog] = useState(false);
+  const [isPublishing, setIsPublishing] = useState(false);
   const [stripeStatus, setStripeStatus] = useState<StripeConnectStatus | null>(null);
   const [isStripeLoading, setIsStripeLoading] = useState(false);
   const [selectedItemId, setSelectedItemId] = useState<BuilderSelectionId>('contact');
@@ -643,7 +651,7 @@ function TemplateEditor({
 
   const draftTemplate = useMemo(() => editorStateToTemplate(state), [state]);
   const draftSnapshot = useMemo(() => serializeTemplate(draftTemplate), [draftTemplate]);
-  const hasChanges = draftSnapshot !== initialSnapshot;
+  const hasChanges = draftSnapshot !== savedSnapshot;
   const practiceCanvasName = practicePreviewConfig.name?.trim() || 'Blawby Messenger';
   const practiceCanvasLogo = practicePreviewConfig.profileImage ?? null;
   const hasStripeAccount = Boolean(stripeStatus?.stripe_account_id);
@@ -907,16 +915,62 @@ function TemplateEditor({
     return true;
   };
 
-  const handlePreviewAndPublish = () => {
-    if (!validatePublish(state)) return;
-    setShowPreviewDialog(true);
-  };
+  const handleSaveDraft = async () => {
+    if (!state.name.trim()) {
+      showError('Form name is required.');
+      return;
+    }
+    if (!validateSlug(state.slug)) return;
 
-  const handlePublishFromDialog = async () => {
     setIsSaving(true);
     try {
-      await onSave(editorStateToTemplate(state));
-      setShowPreviewDialog(false);
+      const template = editorStateToTemplate(state);
+      await onSaveDraft(template);
+      setSavedSnapshot(serializeTemplate(template));
+      setHasSavedDraft(true);
+      setDiscardPending(false);
+      showSuccess('Draft saved', `"${template.name}" draft saved.`);
+    } catch {
+      // Parent handler surfaces the API/source-of-truth error.
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handlePublish = async () => {
+    if (!validatePublish(state)) return;
+
+    setIsPublishing(true);
+    try {
+      const template = editorStateToTemplate(state);
+      await onPublish(template);
+      setSavedSnapshot(serializeTemplate(template));
+      setHasSavedDraft(false);
+      setDiscardPending(false);
+      showSuccess('Published', `"${template.name}" is live.`);
+    } catch {
+      // Parent handler surfaces the API/source-of-truth error.
+    } finally {
+      setIsPublishing(false);
+    }
+  };
+
+  const handleDiscardDraft = async () => {
+    if (!hasChanges && !hasSavedDraft) return;
+    if (!discardPending) {
+      setDiscardPending(true);
+      return;
+    }
+
+    setIsSaving(true);
+    try {
+      await onDiscardDraft(state.slug || initial?.slug || draftTemplate.slug);
+      setHasSavedDraft(false);
+      setDiscardPending(false);
+      showSuccess('Draft discarded', 'Draft changes were removed.');
+      onCancel();
+    } catch {
+      // Parent handler surfaces the API/source-of-truth error.
     } finally {
       setIsSaving(false);
     }
@@ -1006,19 +1060,24 @@ function TemplateEditor({
     if (!isDesktop) setMobileView('config');
   }, [isDesktop, selectBuilderItem]);
 
+  const publishDisabled = isSaving || isPublishing || (!hasChanges && !hasSavedDraft);
   const draftStatusLabel = hasChanges
-    ? 'Draft changes ready to publish'
-    : 'Published — no draft changes';
+    ? 'Unsaved changes'
+    : hasSavedDraft
+      ? 'Draft saved'
+      : 'Live';
   const headerActions = (
-    <div className="flex items-center gap-3">
-      <span className="hidden items-center gap-2 text-xs text-input-placeholder sm:flex">
-        <span
-          className={cn(
-            'inline-block h-1.5 w-1.5 rounded-full',
-            hasChanges ? 'bg-amber-500' : 'bg-emerald-500',
-          )}
-          aria-hidden="true"
-        />
+    <div className="flex items-center gap-2">
+      <span
+        className={cn(
+          'hidden rounded-full border px-2.5 py-1 text-xs font-medium sm:inline-flex',
+          hasChanges
+            ? 'border-amber-500/25 bg-amber-500/10 text-amber-700 dark:text-amber-300'
+            : hasSavedDraft
+              ? 'border-line-subtle bg-surface-input text-input-placeholder'
+              : 'border-emerald-500/20 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300',
+        )}
+      >
         {draftStatusLabel}
       </span>
       {!isDesktop ? (
@@ -1035,11 +1094,20 @@ function TemplateEditor({
       ) : null}
       <Button
         type="button"
+        variant="secondary"
         size="sm"
-        onClick={() => void handlePreviewAndPublish()}
-        disabled={isSaving}
+        onClick={() => void handleSaveDraft()}
+        disabled={isSaving || isPublishing || !hasChanges}
       >
-        {isSaving ? 'Publishing...' : 'Preview and Publish'}
+        {isSaving ? 'Saving...' : 'Save draft'}
+      </Button>
+      <Button
+        type="button"
+        size="sm"
+        onClick={() => void handlePublish()}
+        disabled={publishDisabled}
+      >
+        {isPublishing ? 'Publishing...' : 'Publish'}
       </Button>
     </div>
   );
@@ -1048,6 +1116,42 @@ function TemplateEditor({
   const formStructure = (
     <div className="flex flex-col gap-3 overflow-visible">
       <SectionHeaderLabel>FORM STRUCTURE</SectionHeaderLabel>
+      {discardPending ? (
+        <div className="rounded-xl border border-rose-500/20 bg-rose-500/10 p-3">
+          <p className="text-sm font-semibold text-input-text">Discard draft changes?</p>
+          <div className="mt-3 flex gap-2">
+            <Button
+              type="button"
+              variant="danger"
+              size="sm"
+              onClick={() => void handleDiscardDraft()}
+              disabled={isSaving}
+            >
+              Discard
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={() => setDiscardPending(false)}
+              disabled={isSaving}
+            >
+              Cancel
+            </Button>
+          </div>
+        </div>
+      ) : hasChanges || hasSavedDraft ? (
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          onClick={() => void handleDiscardDraft()}
+          disabled={isSaving || isPublishing}
+          className="justify-start"
+        >
+          Discard changes
+        </Button>
+      ) : null}
 
       <SectionCard
         number={1}
@@ -1101,6 +1205,7 @@ function TemplateEditor({
             <QuestionRow
               key={field.key}
               label={field.label}
+              preview={getQuestionRowPreview(field)}
               isSelected={effectiveSelectedItemId === `required:${field.key}`}
               isLocked
               badgeLabel="Required"
@@ -1111,10 +1216,10 @@ function TemplateEditor({
             <QuestionRow
               key={field._id}
               label={field.label}
+              preview={getQuestionRowPreview(field)}
               isSelected={effectiveSelectedItemId === `required:${field.key}`}
               badgeLabel="Required"
               onSelect={() => selectItem(`required:${field.key}`)}
-              onRemove={() => removeField(field.key, 'required')}
               onMoveUp={index > 0 ? () => moveRequiredField(index, index - 1) : undefined}
               onMoveDown={
                 index < movableRequiredFields.length - 1
@@ -1153,9 +1258,9 @@ function TemplateEditor({
             <QuestionRow
               key={field._id}
               label={field.label}
+              preview={getQuestionRowPreview(field)}
               isSelected={effectiveSelectedItemId === `enrichment:${field.key}`}
               onSelect={() => selectItem(`enrichment:${field.key}`)}
-              onRemove={() => removeField(field.key, 'enrichment')}
               onMoveUp={index > 0 ? () => moveEnrichmentField(index, index - 1) : undefined}
               onMoveDown={
                 index < state.enrichmentFields.length - 1
@@ -1208,6 +1313,10 @@ function TemplateEditor({
     currency: currencyCode,
     intakeTemplate: draftTemplate,
   }), [practiceCanvasName, practiceCanvasLogo, practicePreviewConfig.accentColor, draftTemplate, currencyCode]);
+  const publicFormUrl = useMemo(
+    () => getPublicFormUrl(practiceSlug, draftTemplate.slug),
+    [draftTemplate.slug, practiceSlug],
+  );
 
   // Parent-overlay highlight: when the sidebar selection changes, briefly ring
   // the preview frame as a visual ping. The real widget DOM isn't ours to
@@ -1225,28 +1334,42 @@ function TemplateEditor({
   }, [effectiveSelectedItemId]);
 
   const livePreview = (
-    <div className="flex h-full flex-col items-center gap-4 py-4">
-      <SectionHeaderLabel>LIVE PREVIEW</SectionHeaderLabel>
-      <div className="relative mx-auto w-full max-w-[390px]">
-        <WidgetPreviewFrame
-          practiceSlug={practiceSlug}
-          scenario="intake-template"
-          config={previewConfig}
-          showTitle={false}
-          viewportClassName="h-[580px]"
-          initialIntakeStep="conversation"
-        />
-        <div
-          aria-hidden="true"
-          className={cn(
-            'pointer-events-none absolute inset-0 rounded-xl ring-2 ring-accent-500 transition-opacity duration-500',
-            showPreviewPing ? 'opacity-100' : 'opacity-0',
-          )}
-        />
+    <div className="flex h-full flex-col items-center py-4">
+      <div className="w-full max-w-[380px] overflow-hidden rounded-xl border border-line-subtle bg-surface-card shadow-glass">
+        <div className="flex h-11 items-center justify-between border-b border-line-subtle bg-surface-utility/50 px-3">
+          <div className="min-w-0">
+            <p className="text-sm font-semibold text-input-text">Widget preview</p>
+            <p className="truncate text-xs text-input-placeholder">{practiceSlug || 'public form'} / {draftTemplate.slug || 'new'}</p>
+          </div>
+          <a
+            href={publicFormUrl}
+            target="_blank"
+            rel="noreferrer"
+            aria-label="Open public form preview"
+            className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-input-placeholder transition-colors hover:bg-surface-input hover:text-input-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-500/40"
+          >
+            <ExternalLink className="h-4 w-4" aria-hidden="true" />
+          </a>
+        </div>
+        <div className="relative">
+          <WidgetPreviewFrame
+            practiceSlug={practiceSlug}
+            scenario="intake-template"
+            config={previewConfig}
+            showTitle={false}
+            viewportClassName="h-[640px] max-h-[calc(100svh-12rem)] min-h-[560px]"
+            initialIntakeStep="conversation"
+            framed={false}
+          />
+          <div
+            aria-hidden="true"
+            className={cn(
+              'pointer-events-none absolute inset-0 rounded-b-xl ring-2 ring-accent-500 transition-opacity duration-500',
+              showPreviewPing ? 'opacity-100' : 'opacity-0',
+            )}
+          />
+        </div>
       </div>
-      <p className="text-center text-xs text-input-placeholder">
-        Updates as you edit — this is exactly what clients will see.
-      </p>
     </div>
   );
 
@@ -1489,6 +1612,9 @@ function TemplateEditor({
     if (effectiveSelectedItemId === 'contact') return 'Contact info';
     return 'Settings';
   })();
+  const inspectorBreadcrumb = selectedFieldContext
+    ? `Intake form / ${selectedFieldContext.phase === 'required' ? 'Intake questions' : 'AI-assisted follow-up'} / ${selectedFieldContext.field.label.trim() || 'Untitled question'}`
+    : `Intake form / ${inspectorTitle}`;
 
   // Hide the close X when the inspector has no editable controls (none /
   // contact) — those states are themselves "collapsed", so there's nothing
@@ -1497,7 +1623,10 @@ function TemplateEditor({
   const inspectorPanel = (
     <div className="flex h-full flex-col">
       <div className="flex items-center justify-between border-b border-line-subtle px-4 py-3">
-        <p className="text-sm font-semibold text-input-text">{inspectorTitle}</p>
+        <div className="min-w-0">
+          <p className="text-sm font-semibold text-input-text">{inspectorTitle}</p>
+          <p className="truncate text-xs text-input-placeholder">{inspectorBreadcrumb}</p>
+        </div>
         {showCloseButton ? (
           <button
             type="button"
@@ -1598,10 +1727,19 @@ function TemplateEditor({
           <Button
             type="button"
             size="sm"
-            onClick={() => void handlePreviewAndPublish()}
-            disabled={isSaving}
+            variant="secondary"
+            onClick={() => void handleSaveDraft()}
+            disabled={isSaving || isPublishing || !hasChanges}
           >
-            {isSaving ? 'Publishing...' : 'Preview and Publish'}
+            {isSaving ? 'Saving...' : 'Save draft'}
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            onClick={() => void handlePublish()}
+            disabled={publishDisabled}
+          >
+            {isPublishing ? 'Publishing...' : 'Publish'}
           </Button>
         </div>
         <div className="min-h-0 flex-1 overflow-y-auto p-3">{formStructure}</div>
@@ -1625,18 +1763,6 @@ function TemplateEditor({
       actions={headerActions}
     >
       {livePreview}
-      <IntakePreviewDialog
-        isOpen={showPreviewDialog}
-        template={draftTemplate}
-        practiceSlug={practiceSlug}
-        practiceName={practiceCanvasName}
-        practiceLogo={practiceCanvasLogo}
-        practiceAccentColor={practicePreviewConfig.accentColor}
-        currencyCode={currencyCode}
-        onConfirm={handlePublishFromDialog}
-        onCancel={() => setShowPreviewDialog(false)}
-        loading={isSaving}
-      />
     </EditorShell>
   );
 }
@@ -1644,6 +1770,7 @@ function TemplateEditor({
 type TemplateListViewProps = {
   defaultTemplate: IntakeTemplate;
   existingTemplates: IntakeTemplate[];
+  draftTemplates: IntakeTemplate[];
   practiceId: string | null;
   practiceSlug: string;
   isSaving: boolean;
@@ -1664,6 +1791,7 @@ const TEMPLATE_TABLE_COLUMNS: DataTableColumn[] = [
 function TemplateListView({
   defaultTemplate,
   existingTemplates,
+  draftTemplates,
   practiceId,
   practiceSlug,
   isSaving,
@@ -1712,19 +1840,40 @@ function TemplateListView({
     return () => controller.abort();
   }, [practiceId]);
 
-  const allTemplates = [defaultTemplate, ...existingTemplates];
+  const draftBySlug = useMemo(
+    () => new Map(draftTemplates.map((template) => [template.slug, template])),
+    [draftTemplates],
+  );
+  const publishedSlugs = useMemo(
+    () => new Set([defaultTemplate.slug, ...existingTemplates.map((template) => template.slug)]),
+    [defaultTemplate.slug, existingTemplates],
+  );
+  const draftOnlyTemplates = useMemo(
+    () => draftTemplates.filter((template) => !publishedSlugs.has(template.slug)),
+    [draftTemplates, publishedSlugs],
+  );
+  const allTemplates = [defaultTemplate, ...existingTemplates, ...draftOnlyTemplates];
 
   const rows: DataTableRow[] = allTemplates.map((template) => {
     const isDefault = template.slug === defaultTemplate.slug;
+    const hasDraft = draftBySlug.has(template.slug);
+    const isDraftOnly = !publishedSlugs.has(template.slug);
     const publicUrl = getPublicFormUrl(practiceSlug, template.slug);
     return {
       id: template.slug,
-      onClick: () => onOpen(template),
+      onClick: () => isDraftOnly ? onEdit(template) : onOpen(template),
       cells: {
         name: (
           <div className="min-w-0">
-            <p className="truncate font-medium text-input-text">{template.name}</p>
-            {isDefault ? <p className="text-xs text-input-placeholder">Default form</p> : null}
+            <div className="flex min-w-0 items-center gap-2">
+              <p className="truncate font-medium text-input-text">{template.name}</p>
+              {hasDraft ? (
+                <span className="shrink-0 rounded-full border border-amber-500/25 bg-amber-500/10 px-2 py-0.5 text-[11px] font-medium text-amber-700 dark:text-amber-300">
+                  Draft
+                </span>
+              ) : null}
+            </div>
+            {isDefault ? <p className="text-xs text-input-placeholder">Default form</p> : isDraftOnly ? <p className="text-xs text-input-placeholder">Not published yet</p> : null}
           </div>
         ),
         questions: <span className="tabular-nums">{template.fields.length}</span>,
@@ -1751,20 +1900,24 @@ function TemplateListView({
               </button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="min-w-[180px]">
-              <DropdownMenuItem
-                onSelect={() => {
-                  copyTextToClipboard(
-                    publicUrl,
-                    () => showSuccess('Link copied', 'The form URL is ready to share.'),
-                    (message) => showError('Copy failed', message),
-                  );
-                }}
-              >
-                Copy URL
-              </DropdownMenuItem>
-              <DropdownMenuItem onSelect={() => setEmbedTarget(template)}>
-                Copy embed code
-              </DropdownMenuItem>
+              {!isDraftOnly ? (
+                <DropdownMenuItem
+                  onSelect={() => {
+                    copyTextToClipboard(
+                      publicUrl,
+                      () => showSuccess('Link copied', 'The form URL is ready to share.'),
+                      (message) => showError('Copy failed', message),
+                    );
+                  }}
+                >
+                  Copy URL
+                </DropdownMenuItem>
+              ) : null}
+              {!isDraftOnly ? (
+                <DropdownMenuItem onSelect={() => setEmbedTarget(template)}>
+                  Copy embed code
+                </DropdownMenuItem>
+              ) : null}
               {!isDefault ? (
                 <DropdownMenuItem onSelect={() => onEdit(template)}>Edit</DropdownMenuItem>
               ) : null}
@@ -1863,7 +2016,11 @@ export default function IntakeTemplatesPage({
   const [isSaving, setIsSaving] = useState(false);
 
   const existingTemplates = useMemo(
-    () => parseTemplatesFromMetadata(currentPractice?.metadata ?? practiceDetails?.metadata),
+    () => parseTemplatesFromMetadata(practiceDetails?.metadata ?? currentPractice?.metadata),
+    [currentPractice?.metadata, practiceDetails?.metadata],
+  );
+  const draftTemplates = useMemo(
+    () => parseDraftTemplatesFromMetadata(practiceDetails?.metadata ?? currentPractice?.metadata),
     [currentPractice?.metadata, practiceDetails?.metadata],
   );
   const defaultTemplate = useMemo(
@@ -1882,21 +2039,32 @@ export default function IntakeTemplatesPage({
     },
     [customTemplates, defaultTemplate, routeTemplateSlug],
   );
-  const templateNotFound = Boolean(routeTemplateSlug && routeTemplateSlug !== 'new' && !editTarget);
+  const draftEditTarget = useMemo(
+    () => {
+      if (!routeTemplateSlug || routeTemplateSlug === 'new') return undefined;
+      return draftTemplates.find((template) => template.slug === routeTemplateSlug);
+    },
+    [draftTemplates, routeTemplateSlug],
+  );
+  const templateNotFound = Boolean(routeTemplateSlug && routeTemplateSlug !== 'new' && !editTarget && !draftEditTarget);
 
-  const persistTemplates = useCallback(async (nextTemplates: IntakeTemplate[]) => {
+  const persistTemplateMetadata = useCallback(async (nextTemplates: IntakeTemplate[], nextDraftTemplates: IntakeTemplate[]) => {
     if (!currentPractice) return;
 
     const currentMetadata = (() => {
       try {
-        const raw = currentPractice?.metadata ?? practiceDetails?.metadata;
+        const raw = practiceDetails?.metadata ?? currentPractice?.metadata;
         if (typeof raw === 'string') return JSON.parse(raw) as Record<string, unknown>;
         if (raw && typeof raw === 'object') return raw as Record<string, unknown>;
         return {};
       } catch { return {}; }
     })();
 
-    const nextMetadata = { ...currentMetadata, intakeTemplates: JSON.stringify(nextTemplates) };
+    const nextMetadata = {
+      ...currentMetadata,
+      intakeTemplates: JSON.stringify(nextTemplates),
+      intakeTemplateDrafts: JSON.stringify(nextDraftTemplates),
+    };
 
     // Snapshot BEFORE optimistic update
     const snapshot = practiceDetails;
@@ -1935,7 +2103,27 @@ export default function IntakeTemplatesPage({
     navigate(basePath);
   };
 
-  const handleSave = async (template: IntakeTemplate) => {
+  const handleSaveDraft = async (template: IntakeTemplate) => {
+    setIsSaving(true);
+    try {
+      const previousSlug = draftEditTarget?.slug ?? editTarget?.slug ?? template.slug;
+      const nextDraftTemplates = [
+        ...draftTemplates.filter((existing) => existing.slug !== previousSlug && existing.slug !== template.slug),
+        template,
+      ];
+      await persistTemplateMetadata(existingTemplates, nextDraftTemplates);
+      if (routeTemplateSlug === 'new' || !routeTemplateSlug) {
+        navigate(`${basePath}/${encodeURIComponent(template.slug)}/edit`);
+      }
+    } catch (error) {
+      showError('Draft save failed', error instanceof Error ? error.message : 'Unable to save draft.');
+      throw error;
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handlePublishTemplate = async (template: IntakeTemplate) => {
     setIsSaving(true);
     try {
       // Prevent renaming if there are existing intake responses tied to the
@@ -1947,20 +2135,14 @@ export default function IntakeTemplatesPage({
           const hasResponses = result.intakes.some((i) => getResponseTemplateSlug(i) === editTarget.slug);
           if (!hasResponses && result.total > 100) {
             // Too many to check client-side — block rename conservatively
-            showError('Rename check failed', 'Unable to verify whether this form has existing responses. Rename aborted.');
-            setIsSaving(false);
-            return;
+            throw new Error('Unable to verify whether this form has existing responses. Rename aborted.');
           }
           if (hasResponses) {
-            showError('Rename not allowed', 'This form has existing responses and cannot be renamed.');
-            setIsSaving(false);
-            return;
+            throw new Error('This form has existing responses and cannot be renamed.');
           }
         } catch (_err) {
           // If the check fails, be conservative and prevent rename to avoid accidental orphaning.
-          showError('Rename check failed', 'Unable to verify whether this form has existing responses. Rename aborted.');
-          setIsSaving(false);
-          return;
+          throw new Error(_err instanceof Error ? _err.message : 'Unable to verify whether this form has existing responses. Rename aborted.');
         }
       }
 
@@ -1971,11 +2153,25 @@ export default function IntakeTemplatesPage({
         ...existingTemplates.filter((existing) => existing.slug !== (editTarget?.slug ?? template.slug) && existing.slug !== template.slug),
         template,
       ];
-      await persistTemplates(nextTemplates);
-      showSuccess(editTarget ? 'Form updated' : 'Form created', `"${template.name}" saved.`);
+      const nextDraftTemplates = draftTemplates.filter((existing) => existing.slug !== (draftEditTarget?.slug ?? editTarget?.slug ?? template.slug) && existing.slug !== template.slug);
+      await persistTemplateMetadata(nextTemplates, nextDraftTemplates);
       navigate(`${basePath}/${encodeURIComponent(template.slug)}`);
     } catch (error) {
-      showError('Save failed', error instanceof Error ? error.message : 'Unable to save form.');
+      showError('Publish failed', error instanceof Error ? error.message : 'Unable to publish form.');
+      throw error;
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleDiscardDraft = async (slug: string) => {
+    setIsSaving(true);
+    try {
+      const nextDraftTemplates = draftTemplates.filter((existing) => existing.slug !== slug && existing.slug !== draftEditTarget?.slug);
+      await persistTemplateMetadata(existingTemplates, nextDraftTemplates);
+    } catch (error) {
+      showError('Discard failed', error instanceof Error ? error.message : 'Unable to discard draft.');
+      throw error;
     } finally {
       setIsSaving(false);
     }
@@ -1984,7 +2180,10 @@ export default function IntakeTemplatesPage({
   const handleDelete = async (template: IntakeTemplate) => {
     setIsSaving(true);
     try {
-      await persistTemplates(existingTemplates.filter((existing) => existing.slug !== template.slug));
+      await persistTemplateMetadata(
+        existingTemplates.filter((existing) => existing.slug !== template.slug),
+        draftTemplates.filter((existing) => existing.slug !== template.slug),
+      );
       showSuccess('Form deleted', `"${template.name}" has been removed.`);
     } catch (error) {
       showError('Delete failed', error instanceof Error ? error.message : 'Unable to delete form.');
@@ -2021,7 +2220,8 @@ export default function IntakeTemplatesPage({
     return (
       <TemplateEditor
         key={editTarget?.slug ?? routeTemplateSlug ?? 'new'}
-        initial={editTarget}
+        initial={draftEditTarget ?? editTarget}
+        hasSavedDraft={Boolean(draftEditTarget)}
         existingTemplates={customTemplates}
         practiceSlug={currentPractice.slug ?? ''}
         practiceOrganizationId={currentPractice.betterAuthOrgId ?? currentPractice.id}
@@ -2035,7 +2235,9 @@ export default function IntakeTemplatesPage({
           accentColor: practiceDetails?.accentColor ?? currentPractice.accentColor ?? undefined,
         }}
         onCancel={handleCancel}
-        onSave={handleSave}
+        onSaveDraft={handleSaveDraft}
+        onPublish={handlePublishTemplate}
+        onDiscardDraft={handleDiscardDraft}
       />
     );
   }
@@ -2044,6 +2246,7 @@ export default function IntakeTemplatesPage({
     <TemplateListView
       defaultTemplate={defaultTemplate}
       existingTemplates={customTemplates}
+      draftTemplates={draftTemplates}
       practiceId={practiceId ?? currentPractice.id}
       practiceSlug={currentPractice.slug ?? ''}
       isSaving={isSaving}

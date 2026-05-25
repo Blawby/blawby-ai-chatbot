@@ -198,3 +198,26 @@ export interface DerivedIntakeStatus {
   paymentReceived?: boolean;
   templateSlug?: string | null;
 }
+
+/**
+ * Structured data extracted from an intake submission by AI enrichment.
+ * Mirrors worker/routes/submitIntake.ts:IntakeEnrichedData
+ */
+export interface IntakeEnrichedData {
+  practice_area: string | null;
+  sub_type: string | null;
+  matter_stage: 'pre_litigation' | 'active_litigation' | 'post_judgment' | 'transactional' | null;
+  client_role: 'petitioner' | 'respondent' | 'plaintiff' | 'defendant' | 'buyer' | 'seller' | 'other' | null;
+  complexity: 'simple' | 'moderate' | 'complex' | null;
+  conflict_check_names: string[];
+  sol_risk: boolean | null;
+  sol_risk_notes: string | null;
+  emergency_relief_needed: boolean | null;
+  multi_state: boolean | null;
+  multi_state_notes: string | null;
+  legal_aid_eligible: boolean | null;
+  estimated_value_band: 'low' | 'medium' | 'high' | null;
+  ai_matter_description: string | null;
+  ai_scope_suggestion: string | null;
+  confidence: number;
+}

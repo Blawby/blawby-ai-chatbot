@@ -317,6 +317,7 @@ const MessageComposer = ({
   // Public widget hides file upload entirely — public users cannot upload.
   // Authenticated client/practice workspaces keep the attachment menu.
   const canShowAttachmentMenu = !hideAttachmentControls && !isPublicWorkspace && !isRecording && !isComposerDisabled && Boolean(isReadyToUpload);
+  const canShowAudioRecording = features.enableAudioRecording && !isPublicWorkspace && !isComposerDisabled;
 
   const textareaClasses = "w-full min-h-8 py-2 m-0 text-sm sm:text-base leading-[1.45] text-input-text bg-transparent border-none resize-none outline-none overflow-hidden box-border placeholder:text-input-placeholder transition-all duration-200";
 
@@ -411,7 +412,7 @@ const MessageComposer = ({
               {showScrollFade && (
                 <div
                   className={`pointer-events-none absolute top-2 h-4 bg-gradient-to-b from-surface-app-frame/60 dark:from-black/20 to-transparent z-10
-                    ${canShowAttachmentMenu ? (features.enableAudioRecording && !isRecording ? 'right-20 left-12' : 'right-12 left-12') : (features.enableAudioRecording && !isRecording ? 'right-20 left-2' : 'right-12 left-2')}
+                    ${canShowAttachmentMenu ? (canShowAudioRecording && !isRecording ? 'right-20 left-12' : 'right-12 left-12') : (canShowAudioRecording && !isRecording ? 'right-20 left-2' : 'right-12 left-2')}
                   `}
                 />
               )}
@@ -504,7 +505,7 @@ const MessageComposer = ({
                   </div>
                 </div>
               ) : null}
-              {features.enableAudioRecording && !isComposerDisabled ? (
+              {canShowAudioRecording ? (
                 <div className="flex-shrink-0 self-end">
                   <MediaControls onMediaCapture={handleMediaCapture} onRecordingStateChange={setIsRecording} />
                 </div>
