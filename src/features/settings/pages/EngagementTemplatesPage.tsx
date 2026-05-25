@@ -193,7 +193,7 @@ function TemplateEditor({ initial, serviceOptions, onSave, onDelete, onBack, isS
                   className={cn(
                     'rounded-full border px-3 py-1 text-sm font-medium transition-colors',
                     template.feeType === type
-                      ? 'border-accent-500 bg-accent-500/10 text-accent-500'
+                      ? 'border-accent-500 bg-accent-500/10 text-[rgb(var(--accent-foreground))]'
                       : 'border-line-subtle text-input-placeholder hover:border-line-subtle hover:text-input-text',
                   )}
                 >

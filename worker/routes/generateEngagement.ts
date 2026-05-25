@@ -40,6 +40,8 @@ type EngagementLetterTemplate = {
   body: string;
 };
 
+const SUPPORTED_FEE_TYPES = ['hourly', 'flat', 'contingency', 'pro_bono'] as const;
+
 type IntakeFields = {
   clientName: string;
   clientEmail: string;
@@ -113,7 +115,15 @@ const generateContractBody = async (
   intake: IntakeFields,
   template: EngagementLetterTemplate,
 ): Promise<string> => {
-  const aiClient = createAiClient(env);
+  let aiClient;
+  try {
+    aiClient = createAiClient(env);
+  } catch (error) {
+    Logger.warn('[generateEngagement] AI client unavailable', {
+      error: error instanceof Error ? error.message : String(error),
+    });
+    return partialBody;
+  }
 
   const contextFacts = [
     `Client: ${intake.clientName}`,
@@ -195,7 +205,8 @@ const isValidTemplate = (v: unknown): v is EngagementLetterTemplate => {
   const o = v as Record<string, unknown>;
   return typeof o.id === 'string'
     && typeof o.body === 'string'
-    && typeof o.feeType === 'string';
+    && typeof o.feeType === 'string'
+    && SUPPORTED_FEE_TYPES.includes(o.feeType as EngagementFeeType);
 };
 
 // ---------------------------------------------------------------------------

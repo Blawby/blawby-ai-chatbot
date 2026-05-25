@@ -18,6 +18,7 @@ import { getPracticeIntake, listIntakes } from '@/features/intake/api/intakesApi
 import type { IntakeListItem, PracticeIntakeDetail } from '@/features/intake/api/intakesApi';
 import { resolveIntakeTitle } from '@/features/intake/utils/intakeTitle';
 import { apiClient } from '@/shared/lib/apiClient';
+import { generateEngagement } from '@/config/urls';
 import { useToastContext } from '@/shared/contexts/ToastContext';
 import { usePracticeDetails } from '@/shared/hooks/usePracticeDetails';
 
@@ -94,14 +95,36 @@ type IntakeEnrichedData = {
 const asRecord = (v: unknown): Record<string, unknown> =>
   v && typeof v === 'object' && !Array.isArray(v) ? v as Record<string, unknown> : {};
 
+const asNullableNumber = (v: unknown): number | null =>
+  typeof v === 'number' && Number.isFinite(v) ? v : null;
+
+function normalizeTemplate(value: unknown, index: number): EngagementLetterTemplate {
+  const raw = asRecord(value);
+  const feeType = raw.feeType;
+  return {
+    id: typeof raw.id === 'string' ? raw.id : `template-${index}`,
+    name: typeof raw.name === 'string' ? raw.name : '',
+    practiceArea: typeof raw.practiceArea === 'string' ? raw.practiceArea : '',
+    feeType: feeType === 'hourly' || feeType === 'flat' || feeType === 'contingency' || feeType === 'pro_bono'
+      ? feeType
+      : 'hourly',
+    hourlyRateCents: asNullableNumber(raw.hourlyRateCents),
+    flatFeeCents: asNullableNumber(raw.flatFeeCents),
+    contingencyPct: asNullableNumber(raw.contingencyPct),
+    retainerCents: asNullableNumber(raw.retainerCents),
+    scopeTemplate: typeof raw.scopeTemplate === 'string' ? raw.scopeTemplate : '',
+    body: typeof raw.body === 'string' ? raw.body : '',
+  };
+}
+
 function parseEngagementTemplates(practiceDetails: unknown): EngagementLetterTemplate[] {
   if (!practiceDetails || typeof practiceDetails !== 'object') return [];
   const meta = asRecord((practiceDetails as Record<string, unknown>).metadata);
   const raw = meta.engagementLetterTemplates;
   if (typeof raw === 'string') {
-    try { const p = JSON.parse(raw); return Array.isArray(p) ? p as EngagementLetterTemplate[] : []; } catch { return []; }
+    try { const p = JSON.parse(raw); return Array.isArray(p) ? p.map(normalizeTemplate) : []; } catch { return []; }
   }
-  return Array.isArray(raw) ? raw as EngagementLetterTemplate[] : [];
+  return Array.isArray(raw) ? raw.map(normalizeTemplate) : [];
 }
 
 function parseEnrichedData(metadata: Record<string, unknown>): IntakeEnrichedData | null {
@@ -315,6 +338,7 @@ export const CreateEngagementPage: FunctionComponent<CreateEngagementPageProps> 
 
   const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null);
   const [isGeneratingBody, setIsGeneratingBody] = useState(false);
+  const isGeneratingBodyRef = useRef(false);
   const lastGeneratedIntakeIdRef = useRef<string | null>(null);
   const isMountedRef = useRef(true);
   useEffect(() => { isMountedRef.current = true; return () => { isMountedRef.current = false; }; }, []);
@@ -353,29 +377,6 @@ export const CreateEngagementPage: FunctionComponent<CreateEngagementPageProps> 
 
     return () => controller.abort();
   }, [practiceId, initialIntakeId]);
-
-  useEffect(() => {
-    if (!practiceId || !form.intakeId) {
-      setSelectedIntakeDetail(null);
-      return;
-    }
-    const controller = new AbortController();
-    setIsLoadingIntakeDetail(true);
-
-    getPracticeIntake(practiceId, form.intakeId, { signal: controller.signal })
-      .then((detail) => {
-        if (controller.signal.aborted) return;
-        setSelectedIntakeDetail(detail);
-        setForm((prev) => buildEngagementDraftFormFromIntake(detail, prev));
-      })
-      .catch((err) => {
-        if (controller.signal.aborted) return;
-        setSubmitError(err instanceof Error ? err.message : 'Failed to load intake details');
-      })
-      .finally(() => { if (!controller.signal.aborted) setIsLoadingIntakeDetail(false); });
-
-    return () => controller.abort();
-  }, [form.intakeId, practiceId]);
 
   const selectedIntake = useMemo(
     () => selectedIntakeDetail ?? intakes.find((i) => i.uuid === form.intakeId) ?? null,
@@ -437,12 +438,13 @@ export const CreateEngagementPage: FunctionComponent<CreateEngagementPageProps> 
     template: EngagementLetterTemplate,
     intake: PracticeIntakeDetail,
   ) => {
-    if (isGeneratingBody) return;
+    if (isGeneratingBodyRef.current) return;
     const meta = asRecord(intake.metadata);
     const enriched = parseEnrichedData(meta);
+    isGeneratingBodyRef.current = true;
     setIsGeneratingBody(true);
     try {
-      const result = await apiClient.post<{ contractBody: string }>('/api/ai/generate-engagement', {
+      const result = await apiClient.post<{ contractBody: string }>(generateEngagement, {
         enrichedData: enriched,
         template,
         intakeFields: {
@@ -463,24 +465,45 @@ export const CreateEngagementPage: FunctionComponent<CreateEngagementPageProps> 
         setForm((prev) => ({ ...prev, contractBody: prev.contractBody || buildDeterministicContractBody(prev) }));
       }
     } finally {
+      isGeneratingBodyRef.current = false;
       if (isMountedRef.current) setIsGeneratingBody(false);
     }
-  }, [isGeneratingBody, practiceName, showError]);
+  }, [practiceName, showError]);
 
-  // Auto-select template and generate body when a new intake is selected.
   useEffect(() => {
-    if (!selectedIntakeDetail || !engagementTemplates.length) return;
-    if (lastGeneratedIntakeIdRef.current === selectedIntakeDetail.uuid) return;
-    lastGeneratedIntakeIdRef.current = selectedIntakeDetail.uuid;
+    if (!practiceId || !form.intakeId) {
+      setSelectedIntakeDetail(null);
+      return;
+    }
+    const controller = new AbortController();
+    setIsLoadingIntakeDetail(true);
 
-    const meta = asRecord(selectedIntakeDetail.metadata);
-    const enriched = parseEnrichedData(meta);
-    const best = autoSelectTemplate(engagementTemplates, enriched?.practice_area ?? null);
-    if (!best) return;
+    getPracticeIntake(practiceId, form.intakeId, { signal: controller.signal })
+      .then((detail) => {
+        if (controller.signal.aborted) return;
+        setSelectedIntakeDetail(detail);
+        setForm((prev) => buildEngagementDraftFormFromIntake(detail, prev));
 
-    setSelectedTemplateId(best.id);
-    void generateFromTemplate(best, selectedIntakeDetail);
-  }, [selectedIntakeDetail, engagementTemplates, generateFromTemplate]);
+        if (!engagementTemplates.length) return;
+        if (lastGeneratedIntakeIdRef.current === detail.uuid) return;
+        lastGeneratedIntakeIdRef.current = detail.uuid;
+
+        const meta = asRecord(detail.metadata);
+        const enriched = parseEnrichedData(meta);
+        const best = autoSelectTemplate(engagementTemplates, enriched?.practice_area ?? null);
+        if (!best) return;
+
+        setSelectedTemplateId(best.id);
+        void generateFromTemplate(best, detail);
+      })
+      .catch((err) => {
+        if (controller.signal.aborted) return;
+        setSubmitError(err instanceof Error ? err.message : 'Failed to load intake details');
+      })
+      .finally(() => { if (!controller.signal.aborted) setIsLoadingIntakeDetail(false); });
+
+    return () => controller.abort();
+  }, [form.intakeId, practiceId, engagementTemplates, generateFromTemplate]);
 
   const handleSubmit = useCallback(async () => {
     setHasAttemptedSubmit(true);

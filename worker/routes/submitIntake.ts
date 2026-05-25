@@ -406,6 +406,35 @@ const persistConversationIntakeTitle = async (
 
 const ENRICHMENT_MAX_TOKENS = 600;
 
+const ALLOWED_MATTER_STAGES = new Set<NonNullable<IntakeEnrichedData['matter_stage']>>([
+  'pre_litigation',
+  'active_litigation',
+  'post_judgment',
+  'transactional',
+]);
+const ALLOWED_CLIENT_ROLES = new Set<NonNullable<IntakeEnrichedData['client_role']>>([
+  'petitioner',
+  'respondent',
+  'plaintiff',
+  'defendant',
+  'buyer',
+  'seller',
+  'other',
+]);
+const ALLOWED_COMPLEXITIES = new Set<NonNullable<IntakeEnrichedData['complexity']>>([
+  'simple',
+  'moderate',
+  'complex',
+]);
+const ALLOWED_ESTIMATED_VALUE_BANDS = new Set<NonNullable<IntakeEnrichedData['estimated_value_band']>>([
+  'low',
+  'medium',
+  'high',
+]);
+
+const allowedEnumValue = <T extends string>(value: unknown, allowed: Set<T>): T | null =>
+  typeof value === 'string' && allowed.has(value as T) ? value as T : null;
+
 const sanitizeFactText = (value: unknown, maxLength: number): string | null => {
   if (typeof value !== 'string') return null;
 
@@ -544,9 +573,9 @@ Rules:
     return {
       practice_area: typeof parsed.practice_area === 'string' ? parsed.practice_area : null,
       sub_type: typeof parsed.sub_type === 'string' ? parsed.sub_type : null,
-      matter_stage: parsed.matter_stage ?? null,
-      client_role: parsed.client_role ?? null,
-      complexity: parsed.complexity ?? null,
+      matter_stage: allowedEnumValue(parsed.matter_stage, ALLOWED_MATTER_STAGES),
+      client_role: allowedEnumValue(parsed.client_role, ALLOWED_CLIENT_ROLES),
+      complexity: allowedEnumValue(parsed.complexity, ALLOWED_COMPLEXITIES),
       conflict_check_names: Array.isArray(parsed.conflict_check_names)
         ? parsed.conflict_check_names.filter((n): n is string => typeof n === 'string')
         : [],
@@ -556,7 +585,7 @@ Rules:
       multi_state: typeof parsed.multi_state === 'boolean' ? parsed.multi_state : null,
       multi_state_notes: typeof parsed.multi_state_notes === 'string' ? parsed.multi_state_notes : null,
       legal_aid_eligible: typeof parsed.legal_aid_eligible === 'boolean' ? parsed.legal_aid_eligible : null,
-      estimated_value_band: parsed.estimated_value_band ?? null,
+      estimated_value_band: allowedEnumValue(parsed.estimated_value_band, ALLOWED_ESTIMATED_VALUE_BANDS),
       ai_matter_description: typeof parsed.ai_matter_description === 'string' ? parsed.ai_matter_description : null,
       ai_scope_suggestion: typeof parsed.ai_scope_suggestion === 'string' ? parsed.ai_scope_suggestion : null,
       confidence: typeof parsed.confidence === 'number' ? Math.min(1, Math.max(0, parsed.confidence)) : 0,

@@ -27,6 +27,7 @@ import { useToastContext } from '@/shared/contexts/ToastContext';
 import { useSessionContext } from '@/shared/contexts/SessionContext';
 import { useNavigation } from '@/shared/utils/navigation';
 import { apiClient, isHttpError } from '@/shared/lib/apiClient';
+import { generateEngagement } from '@/config/urls';
 import { cn } from '@/shared/utils/cn';
 import {
   fetchConversationMessages,
@@ -87,9 +88,39 @@ function parseEnrichedData(meta: Record<string, unknown>): IntakeEnrichedData | 
   const raw = cf._enriched_data;
   if (typeof raw !== 'string') return null;
   try {
-    const parsed = JSON.parse(raw) as IntakeEnrichedData;
+    const parsed = JSON.parse(raw) as Record<string, unknown>;
     if (typeof parsed !== 'object' || parsed === null) return null;
-    return parsed;
+    const conflictNames = Array.isArray(parsed.conflict_check_names)
+      ? parsed.conflict_check_names
+      : parsed.conflict_check_names == null
+        ? []
+        : [parsed.conflict_check_names];
+    return {
+      practice_area: typeof parsed.practice_area === 'string' ? parsed.practice_area : null,
+      sub_type: typeof parsed.sub_type === 'string' ? parsed.sub_type : null,
+      matter_stage: parsed.matter_stage === 'pre_litigation' || parsed.matter_stage === 'active_litigation' || parsed.matter_stage === 'post_judgment' || parsed.matter_stage === 'transactional'
+        ? parsed.matter_stage
+        : null,
+      client_role: parsed.client_role === 'petitioner' || parsed.client_role === 'respondent' || parsed.client_role === 'plaintiff' || parsed.client_role === 'defendant' || parsed.client_role === 'buyer' || parsed.client_role === 'seller' || parsed.client_role === 'other'
+        ? parsed.client_role
+        : null,
+      complexity: parsed.complexity === 'simple' || parsed.complexity === 'moderate' || parsed.complexity === 'complex'
+        ? parsed.complexity
+        : null,
+      conflict_check_names: conflictNames.filter((name): name is string => typeof name === 'string'),
+      sol_risk: typeof parsed.sol_risk === 'boolean' ? parsed.sol_risk : null,
+      sol_risk_notes: typeof parsed.sol_risk_notes === 'string' ? parsed.sol_risk_notes : null,
+      emergency_relief_needed: typeof parsed.emergency_relief_needed === 'boolean' ? parsed.emergency_relief_needed : null,
+      multi_state: typeof parsed.multi_state === 'boolean' ? parsed.multi_state : null,
+      multi_state_notes: typeof parsed.multi_state_notes === 'string' ? parsed.multi_state_notes : null,
+      legal_aid_eligible: typeof parsed.legal_aid_eligible === 'boolean' ? parsed.legal_aid_eligible : null,
+      estimated_value_band: parsed.estimated_value_band === 'low' || parsed.estimated_value_band === 'medium' || parsed.estimated_value_band === 'high'
+        ? parsed.estimated_value_band
+        : null,
+      ai_matter_description: typeof parsed.ai_matter_description === 'string' ? parsed.ai_matter_description : null,
+      ai_scope_suggestion: typeof parsed.ai_scope_suggestion === 'string' ? parsed.ai_scope_suggestion : null,
+      confidence: typeof parsed.confidence === 'number' ? Math.min(1, Math.max(0, parsed.confidence)) : 0,
+    };
   } catch {
     return null;
   }
@@ -804,7 +835,7 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
     setGenerateLoading(true);
     setGeneratedBody(null);
     try {
-      const result = await apiClient.post<{ contractBody: string }>('/api/ai/generate-engagement', {
+      const result = await apiClient.post<{ contractBody: string }>(generateEngagement, {
         enrichedData: enriched,
         template,
         intakeFields: {
@@ -1377,7 +1408,7 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
                     className={cn(
                       'flex items-center gap-2 rounded-lg border px-3 py-2 text-left text-sm transition-colors',
                       generateTemplateId === t.id
-                        ? 'border-accent bg-accent/10 text-input-text'
+                        ? 'border-accent bg-accent/10 text-[rgb(var(--accent-foreground))]'
                         : 'border-card-border bg-surface-card text-input-text hover:bg-surface-overlay/40',
                     )}
                     onClick={() => setGenerateTemplateId(t.id)}

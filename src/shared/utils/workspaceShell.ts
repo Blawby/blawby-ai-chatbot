@@ -74,7 +74,8 @@ export const getWorkspaceRouteState = ({
   const intakesPath = `${normalizedBase}/intakes`;
   const intakeResponsesPath = `${intakesPath}/responses`;
   const intakeFormsPath = `${intakesPath}/forms`;
-  const isIntakeResponsesRoute = view === 'intakes'
+  const isIntakeResponsesView = view === 'intakes' || view === 'intakeDetail';
+  const isIntakeResponsesRoute = isIntakeResponsesView
     && isPracticeWorkspace
     && (path === intakeResponsesPath || path.startsWith(`${intakeResponsesPath}/`));
   const isIntakeResponseDetailRoute = isIntakeResponsesRoute
