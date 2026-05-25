@@ -339,8 +339,12 @@ export const CreateEngagementPage: FunctionComponent<CreateEngagementPageProps> 
   const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null);
   const [isGeneratingBody, setIsGeneratingBody] = useState(false);
   const isGeneratingBodyRef = useRef(false);
+  const generationTokenRef = useRef(0);
+  const activeGenerationRef = useRef<{ token: number; intakeId: string } | null>(null);
+  const selectedIntakeIdRef = useRef(initialIntakeId ?? '');
   const lastGeneratedIntakeIdRef = useRef<string | null>(null);
   const isMountedRef = useRef(true);
+  selectedIntakeIdRef.current = form.intakeId;
   useEffect(() => { isMountedRef.current = true; return () => { isMountedRef.current = false; }; }, []);
 
   const {
@@ -410,6 +414,10 @@ export const CreateEngagementPage: FunctionComponent<CreateEngagementPageProps> 
 
   const handleIntakeChange = useCallback((value: string) => {
     const intake = intakes.find((i) => i.uuid === value);
+    generationTokenRef.current += 1;
+    activeGenerationRef.current = null;
+    isGeneratingBodyRef.current = false;
+    setIsGeneratingBody(false);
     setSelectedIntakeDetail(null);
     setForm((prev) =>
       intake
@@ -437,11 +445,22 @@ export const CreateEngagementPage: FunctionComponent<CreateEngagementPageProps> 
   const generateFromTemplate = useCallback(async (
     template: EngagementLetterTemplate,
     intake: PracticeIntakeDetail,
-  ) => {
-    if (isGeneratingBodyRef.current) return;
+  ): Promise<boolean> => {
+    if (isGeneratingBodyRef.current) return false;
+    const intakeId = intake.uuid;
+    const localGenerationToken = generationTokenRef.current + 1;
+    generationTokenRef.current = localGenerationToken;
+    activeGenerationRef.current = { token: localGenerationToken, intakeId };
+    isGeneratingBodyRef.current = true;
+    lastGeneratedIntakeIdRef.current = intakeId;
+
+    const isCurrentGeneration = () =>
+      activeGenerationRef.current?.token === localGenerationToken
+      && activeGenerationRef.current.intakeId === intakeId
+      && selectedIntakeIdRef.current === intakeId;
+
     const meta = asRecord(intake.metadata);
     const enriched = parseEnrichedData(meta);
-    isGeneratingBodyRef.current = true;
     setIsGeneratingBody(true);
     try {
       const result = await apiClient.post<{ contractBody: string }>(generateEngagement, {
@@ -456,22 +475,33 @@ export const CreateEngagementPage: FunctionComponent<CreateEngagementPageProps> 
           practiceName: practiceName ?? null,
         },
       });
+      if (!isCurrentGeneration()) return false;
       if (isMountedRef.current) {
         setForm((prev) => ({ ...prev, contractBody: result.data.contractBody }));
       }
+      return true;
     } catch (error) {
+      if (!isCurrentGeneration()) return false;
       if (isMountedRef.current) {
         showError('Generation failed', error instanceof Error ? error.message : 'Failed to generate engagement letter');
         setForm((prev) => ({ ...prev, contractBody: prev.contractBody || buildDeterministicContractBody(prev) }));
       }
+      return false;
     } finally {
-      isGeneratingBodyRef.current = false;
-      if (isMountedRef.current) setIsGeneratingBody(false);
+      if (activeGenerationRef.current?.token === localGenerationToken) {
+        activeGenerationRef.current = null;
+        isGeneratingBodyRef.current = false;
+        if (isMountedRef.current) setIsGeneratingBody(false);
+      }
     }
   }, [practiceName, showError]);
 
   useEffect(() => {
     if (!practiceId || !form.intakeId) {
+      generationTokenRef.current += 1;
+      activeGenerationRef.current = null;
+      isGeneratingBodyRef.current = false;
+      if (isMountedRef.current) setIsGeneratingBody(false);
       setSelectedIntakeDetail(null);
       return;
     }
@@ -486,7 +516,6 @@ export const CreateEngagementPage: FunctionComponent<CreateEngagementPageProps> 
 
         if (!engagementTemplates.length) return;
         if (lastGeneratedIntakeIdRef.current === detail.uuid) return;
-        lastGeneratedIntakeIdRef.current = detail.uuid;
 
         const meta = asRecord(detail.metadata);
         const enriched = parseEnrichedData(meta);
