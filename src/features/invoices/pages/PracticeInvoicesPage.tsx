@@ -31,6 +31,10 @@ import { cn } from '@/shared/utils/cn';
 
 const PAGE_SIZE = 10;
 const EMPTY_FILTERS: InvoiceListFilterState = {};
+// Stable identity for the default `statusFilter` prop so it keeps the same
+// reference across renders (used in fetch deps). Restored after an earlier
+// refactor removed the definition but left the usage below.
+const STABLE_EMPTY_ARRAY: string[] = [];
 
 const InvoicesEmptyState = ({
   hasFilters,
