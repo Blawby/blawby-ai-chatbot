@@ -16,7 +16,7 @@ import { parseJsonBody } from '../utils.js';
 import { HttpErrors } from '../errorHandler.js';
 import { withPracticeContext, getPracticeId } from '../middleware/practiceContext.js';
 import { requirePracticeMember } from '../middleware/auth.js';
-import { createAiClient } from '../utils/aiClient.js';
+import { createWorkersAiClient } from '../utils/workersAiClient.js';
 import { Logger } from '../utils/logger.js';
 import type { Env } from '../types.js';
 import type { IntakeEnrichedData } from '../../src/shared/types/intake.js';
@@ -117,7 +117,7 @@ const generateContractBody = async (
 ): Promise<string> => {
   let aiClient;
   try {
-    aiClient = createAiClient(env);
+    aiClient = createWorkersAiClient(env);
   } catch (error) {
     Logger.warn('[generateEngagement] AI client unavailable', {
       error: error instanceof Error ? error.message : String(error),

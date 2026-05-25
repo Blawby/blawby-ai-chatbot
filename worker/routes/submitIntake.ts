@@ -20,7 +20,7 @@ import { Logger } from '../utils/logger.js';
 import type { Env } from '../types.js';
 import { isIntakeReadyForSubmission, resolveConsultationState } from '../../src/shared/utils/consultationState';
 import { fetchPracticeDetailsWithCache } from '../utils/practiceDetailsCache.js';
-import { createAiClient } from '../utils/aiClient.js';
+import { createWorkersAiClient } from '../utils/workersAiClient.js';
 import type { IntakeEnrichedData, IntakeFieldDefinition, IntakeTemplate } from '../../src/shared/types/intake.js';
 
 // ------------------------------------------------------------------
@@ -306,7 +306,7 @@ const generateIntakeTitle = async (
   const fallbackTitle = buildFallbackIntakeTitle(draft, intake);
   let aiClient;
   try {
-    aiClient = createAiClient(env);
+    aiClient = createWorkersAiClient(env);
   } catch (error) {
     Logger.warn('[submitIntake] AI client unavailable for intake title generation', {
       error: error instanceof Error ? error.message : String(error),
@@ -465,7 +465,7 @@ const generateIntakeEnrichment = async (
 ): Promise<IntakeEnrichedData | null> => {
   let aiClient;
   try {
-    aiClient = createAiClient(env);
+    aiClient = createWorkersAiClient(env);
   } catch {
     return null;
   }

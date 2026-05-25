@@ -7,19 +7,17 @@
 # Required for local Worker development; must match VITE_BACKEND_API_URL when set
 BACKEND_API_URL=your_backend_api_url_here
 
-# AI routing
-# Use AI Gateway dynamic routes for provider failover, e.g. OpenAI -> Workers AI
-AI_PROVIDER=cloudflare_gateway
-AI_MODEL=dynamic/blawby-chat-failover
-
-# Optional: if your code-level fallback path is enabled, override fallback model
-# AI_GATEWAY_WORKERS_MODEL=workers-ai/@cf/meta/llama-3.3-70b-instruct-fp8-fast
+# AI model (Workers AI)
+# The Worker calls the Workers AI OpenAI-compatible endpoint directly (not AI
+# Gateway). AI_MODEL must be a Workers AI model ID (`@cf/...`). Optional — falls
+# back to the Worker's DEFAULT_AI_MODEL when unset.
+AI_MODEL=@cf/zai-org/glm-4.7-flash
 
 # API Keys and Tokens (SENSITIVE)
 CLOUDFLARE_API_TOKEN=your_cloudflare_api_token_here
-CF_AIG_TOKEN=your_cloudflare_ai_gateway_token_here
-CF_AIG_GATEWAY_NAME=your_gateway_name_here
-OPENAI_TOKEN=your_openai_api_token_here
+# Cloudflare API token with Workers AI access — the bearer token for chat
+# completions. Legacy CF_AIG_ name retained; the Worker does not use AI Gateway.
+CF_AIG_TOKEN=your_cloudflare_workers_ai_token_here
 ONESIGNAL_APP_ID=your_onesignal_app_id_here
 ONESIGNAL_REST_API_KEY=your_onesignal_rest_api_key_here
 GEOAPIFY_API_KEY=your_geoapify_api_key_here

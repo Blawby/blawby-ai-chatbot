@@ -13,7 +13,7 @@ import {
   type PartialCollectedFields,
   type PartialSlimContactInput,
 } from '../services/PartialIntakeSubmissionService.js';
-import { createAiClient } from '../utils/aiClient.js';
+import { createWorkersAiClient } from '../utils/workersAiClient.js';
 import { fetchPracticeDetailsWithCache } from '../utils/practiceDetailsCache.js';
 import { Logger } from '../utils/logger.js';
 import { resolveConsultationState } from '../../src/shared/utils/consultationState';
@@ -766,7 +766,7 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
   // ------------------------------------------------------------------
 
   const aiPromptContext = buildCompactPracticeContextForPrompt(details);
-  const aiClient = createAiClient(env);
+  const aiClient = createWorkersAiClient(env);
   const model = DEFAULT_AI_MODEL;
 
   const servicesForPrompt = normalizeServicesForPrompt(details);
