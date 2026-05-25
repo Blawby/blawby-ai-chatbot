@@ -17,6 +17,7 @@ import { PracticeTeamPage } from './PracticeTeamPage';
 import { EngagementTemplatesPage } from './EngagementTemplatesPage';
 import { AppsPage } from './AppsPage';
 import { AppDetailPage } from './AppDetailPage';
+import { McpAccessPage } from './McpAccessPage';
 import { EditorShell } from '@/shared/ui/layout';
 import { getSettingsNavConfig } from '@/shared/config/navConfig';
 import { useTranslation } from '@/shared/i18n/hooks';
@@ -101,6 +102,14 @@ const SettingsRouter = ({
             <EditorShell title="Apps" showBack onBack={() => navigate(toSettingsPath('apps'))} contentMaxWidth={null}>
               <AppsPage apps={apps} onSelect={(id) => navigate(toSettingsPath(`apps/${id}`))} />
             </EditorShell>
+          );
+        }
+        if (currentApp.id === 'claude-mcp') {
+          return (
+            <McpAccessPage
+              app={currentApp}
+              onBack={() => navigate(toSettingsPath('apps'))}
+            />
           );
         }
         return (

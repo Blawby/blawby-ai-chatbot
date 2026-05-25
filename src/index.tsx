@@ -53,6 +53,8 @@ const PracticeHomePage = lazy(() => import('@/pages/PracticeHomePage'));
 const OnboardingPage = lazy(() => import('@/pages/OnboardingPage'));
 const PricingPage = lazy(() => import('@/pages/PricingPage'));
 const PaymentResultPage = lazy(() => import('@/pages/PaymentResultPage'));
+const OAuthConsentPage = lazy(() => import('@/pages/OAuthConsentPage'));
+const ApproveActionPage = lazy(() => import('@/pages/ApproveActionPage'));
 // Debug pages — never used in real flows but were eating into the entry
 // chunk because of the static imports. Lazy is the cheapest way to keep
 // them mounted-by-route while excluding their code from first-load.
@@ -537,6 +539,16 @@ function AppShell() {
           <Route path="/admin/intake-inspector/:conversationId" component={({ conversationId }: { conversationId?: string }) => (
             <Suspense fallback={<LoadingScreen />}>
               <AdminIntakeInspectorPage conversationId={conversationId} />
+            </Suspense>
+          )} />
+          <Route path="/oauth/consent" component={(props) => (
+            <Suspense fallback={<LoadingScreen />}>
+              <OAuthConsentPage {...props} />
+            </Suspense>
+          )} />
+          <Route path="/approve/:jwt" component={({ jwt }: { jwt?: string }) => (
+            <Suspense fallback={<LoadingScreen />}>
+              <ApproveActionPage jwt={jwt} />
             </Suspense>
           )} />
           <Route path="/" component={RootRoute} />
