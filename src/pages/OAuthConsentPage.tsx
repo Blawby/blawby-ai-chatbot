@@ -8,32 +8,28 @@ import { LoadingScreen } from '@/shared/ui/layout/LoadingScreen';
 import { useNavigation } from '@/shared/utils/navigation';
 import { useSessionContext } from '@/shared/contexts/SessionContext';
 import { useToastContext } from '@/shared/contexts/ToastContext';
-import { getClient } from '@/shared/lib/authClient';
+import { getWorkerApiUrl } from '@/config/urls';
 import { parseScopeString, groupMcpScopes } from '@/shared/config/mcpScopes';
 
 /**
  * OAuth consent screen for Better Auth's configured `consentPage` URL.
  *
- * Better Auth's OIDC/MCP provider redirects the authenticated user here with
- * `consent_code`, `client_id`, and `scope` query params, then expects the
- * decision submitted to `POST /oauth2/consent` (via `authClient.oauth2.consent`).
- * On success the provider returns a `redirectURI` that resumes the OAuth flow.
- *
- * The provider plugin lands in Blawby/blawby-backend#282. Until then the submit
- * makes the real call and surfaces the real error — it does not fake success.
+ * Better Auth's OAuth provider redirects the authenticated user here with the
+ * signed authorization query, then expects the decision submitted to
+ * `/api/auth/oauth2/consent`. The provider returns the callback URL that resumes
+ * the OAuth flow.
  */
 
-// Better Auth's oauth2 actions are server-plugin endpoints; the backend types
-// aren't importable here, so narrow the client surface we use.
-interface OAuth2ConsentResult {
-  data?: { redirectURI?: string } | null;
-  error?: { message?: string } | null;
+interface OAuthConsentResponse {
+  url?: string;
+  redirect_uri?: string;
+  redirectURI?: string;
 }
-interface OAuth2Capable {
-  oauth2: {
-    consent: (input: { accept: boolean; consent_code?: string; scope?: string }) => Promise<OAuth2ConsentResult>;
-  };
-}
+
+const getOAuthQuery = (): string => {
+  if (typeof window === 'undefined') return '';
+  return window.location.search.replace(/^\?/, '');
+};
 
 export default function OAuthConsentPage() {
   const location = useLocation();
@@ -43,13 +39,12 @@ export default function OAuthConsentPage() {
   const [submitting, setSubmitting] = useState<'accept' | 'deny' | null>(null);
 
   const query = location.query as Record<string, string | undefined>;
-  const consentCode = query.consent_code ?? null;
+  const oauthQuery = getOAuthQuery();
   const clientId = query.client_id ?? null;
   const scopeParam = query.scope ?? null;
 
   const requestedScopes = useMemo(() => parseScopeString(scopeParam), [scopeParam]);
   const scopeGroups = useMemo(() => groupMcpScopes(requestedScopes), [requestedScopes]);
-  const hasMoneyAction = requestedScopes.some((scope) => scope.category === 'money');
   const appName = clientId?.trim() || 'An application';
 
   // Consent requires an authenticated, non-anonymous user. Better Auth only
@@ -70,20 +65,36 @@ export default function OAuthConsentPage() {
   }
 
   const submitConsent = async (accept: boolean) => {
-    if (!consentCode) {
+    if (!oauthQuery) {
       showError('Invalid request', 'This consent link is missing required information.');
       return;
     }
     setSubmitting(accept ? 'accept' : 'deny');
     try {
-      const client = getClient() as unknown as OAuth2Capable;
-      const result = await client.oauth2.consent({ accept, consent_code: consentCode });
-      if (result?.error) {
-        showError('Consent failed', result.error.message || 'Could not complete the request. Try again.');
+      const response = await fetch(`${getWorkerApiUrl()}/api/auth/oauth2/consent`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          accept,
+          scope: scopeParam ?? '',
+          oauth_query: oauthQuery,
+        }),
+      });
+      const payload = await response.json().catch(() => null) as OAuthConsentResponse | { message?: string; error?: { message?: string } } | null;
+      if (!response.ok) {
+        const message =
+          (payload && 'error' in payload ? payload.error?.message : undefined)
+          ?? (payload && 'message' in payload ? payload.message : undefined)
+          ?? `Authorization server returned ${response.status}`;
+        showError('Consent failed', message);
         setSubmitting(null);
         return;
       }
-      const redirectURI = result?.data?.redirectURI;
+      const redirectURI =
+        payload && 'url' in payload
+          ? payload.url ?? payload.redirect_uri ?? payload.redirectURI
+          : undefined;
       if (redirectURI) {
         window.location.href = redirectURI;
         return;
@@ -105,11 +116,11 @@ export default function OAuthConsentPage() {
           </div>
           <h1 className="text-lg font-semibold text-input-text">Authorize access</h1>
           <p className="mt-1 text-sm text-input-placeholder">
-            <span className="font-medium text-input-text">{appName}</span> wants access to your practice on Blawby.
+            <span className="font-medium text-input-text">{appName}</span> wants to connect to your Blawby account.
           </p>
         </div>
 
-        {!consentCode ? (
+        {!oauthQuery ? (
           <Alert variant="error" title="This request is invalid or expired" className="mt-6">
             Start the connection again from the application that sent you here.
           </Alert>
@@ -137,13 +148,6 @@ export default function OAuthConsentPage() {
               )}
             </div>
 
-            {hasMoneyAction && (
-              <Alert variant="warning" title="Money actions always need your approval" className="mt-5">
-                Refunds and invoice sends won&apos;t run on their own. The approval threshold is $0, so every
-                money action waits for you to approve it.
-              </Alert>
-            )}
-
             <div className="mt-6 flex gap-3">
               <Button
                 variant="secondary"
@@ -164,7 +168,7 @@ export default function OAuthConsentPage() {
             </div>
 
             <p className="mt-4 text-center text-xs text-input-placeholder">
-              You can revoke this access anytime in Settings → Apps → Claude Desktop.
+              This authorizes identity access only. Practice data access is not granted by this screen.
             </p>
           </>
         )}

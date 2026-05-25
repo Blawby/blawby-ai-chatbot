@@ -7,7 +7,7 @@ import { SettingsBadge } from '@/features/settings/components/SettingsBadge';
 import { Alert } from '@/shared/ui/feedback/Alert';
 import { EmptyState } from '@/shared/ui/feedback/EmptyState';
 import { Icon } from '@/shared/ui/Icon';
-import { Plug, Server, CircleDollarSign, Laptop, History } from 'lucide-preact';
+import { Plug, Server, Laptop, History } from 'lucide-preact';
 import { MCP_SCOPES, groupMcpScopes } from '@/shared/config/mcpScopes';
 
 interface McpAccessPageProps {
@@ -18,13 +18,9 @@ interface McpAccessPageProps {
 /**
  * Practice settings detail for Claude Desktop / MCP access.
  *
- * Dedicated page (not the Clio `AppDetailPage`) because MCP access is modelled
- * around OAuth scopes, sessions, money-action approvals, and an audit log —
- * not the Clio shape of REST endpoint "actions" + developer metadata.
- *
- * Backend MCP contracts (DCR connect, live sessions, editable threshold, audit
- * log) land in Blawby/blawby-backend#282. Until then this page shows accurate
- * status and disabled/empty states rather than pretending those work.
+ * Dedicated page (not the Clio `AppDetailPage`) because Claude Desktop access
+ * uses Blawby's backend Better Auth OAuth provider, not a third-party REST app
+ * connection. The frontend only presents the backend-owned client/scopes.
  */
 export const McpAccessPage = ({ app, onBack }: McpAccessPageProps) => {
   const scopeGroups = groupMcpScopes(MCP_SCOPES);
@@ -51,19 +47,16 @@ export const McpAccessPage = ({ app, onBack }: McpAccessPageProps) => {
               </div>
             )}
           >
-            {/* Real connect uses Claude Desktop dynamic client registration, which
-                is gated on backend MCP support. Disabled until that lands so we
-                never claim a working connect flow. */}
+            {/* Connect needs the backend-registered Claude Desktop OAuth client id. */}
             <Button variant="secondary" size="sm" disabled>
               Connect
             </Button>
           </SettingRow>
         </div>
 
-        <Alert variant="info" title="Connecting Claude Desktop is coming soon">
-          Claude Desktop connects to your practice over the Model Context Protocol (MCP) using OAuth.
-          Dynamic registration becomes available once MCP server support is enabled for your practice —
-          the scopes and approval rules below describe what that access will allow.
+        <Alert variant="info" title="Waiting on Claude Desktop client registration">
+          Blawby&apos;s backend OAuth provider handles sign-in and consent. Once staging has a Claude Desktop
+          OAuth client id registered, this page can start that standard authorize flow.
         </Alert>
 
         <SectionDivider />
@@ -80,17 +73,17 @@ export const McpAccessPage = ({ app, onBack }: McpAccessPageProps) => {
                 <span className="text-sm font-medium text-input-text">Server URL</span>
               </div>
             )}
-            description="Provided automatically when your practice's MCP server is provisioned."
+            description="Provided by the backend once MCP server access is available."
           >
-            <span className="text-sm text-input-placeholder">Not configured yet</span>
+            <span className="text-sm text-input-placeholder">Not available yet</span>
           </SettingRow>
         </SettingSection>
 
         <SectionDivider />
 
         <SettingSection
-          title="Access scopes"
-          description="What Claude Desktop can do with your practice data once you authorize it."
+          title="OAuth scopes"
+          description="The identity scopes currently expected by the backend OAuth provider."
         >
           <div className="space-y-6">
             {scopeGroups.map((group) => (
@@ -116,38 +109,11 @@ export const McpAccessPage = ({ app, onBack }: McpAccessPageProps) => {
           </div>
         </SettingSection>
 
-        <SectionDivider />
-
-        <SettingSection
-          title="Money-action approvals"
-          description="Actions that move money always ask for your approval before they run."
-        >
-          <SettingRow
-            label="Approval threshold"
-            labelNode={(
-              <div className="flex items-center gap-3">
-                <Icon icon={CircleDollarSign} className="h-5 w-5 text-input-placeholder" aria-hidden="true" />
-                <span className="text-sm font-medium text-input-text">Approval threshold</span>
-              </div>
-            )}
-            description="Money actions above this amount require your approval. The default is $0, so every refund or invoice send needs explicit approval. Editing unlocks with MCP support."
-          >
-            <div className="flex items-center gap-3">
-              <span className="text-sm font-medium text-input-text">$0</span>
-              <Button variant="secondary" size="sm" disabled>
-                Edit
-              </Button>
-            </div>
-          </SettingRow>
-        </SettingSection>
-
-        <SectionDivider />
-
         <SettingSection title="Active sessions">
           <EmptyState
             icon={<Icon icon={Laptop} className="h-8 w-8" aria-hidden="true" />}
             title="No active sessions"
-            description="Connected Claude Desktop sessions, their granted scopes, and revoke controls appear here once MCP support is enabled."
+            description="Connected Claude Desktop sessions can appear here once the backend exposes a session listing endpoint."
           />
         </SettingSection>
 
@@ -157,7 +123,7 @@ export const McpAccessPage = ({ app, onBack }: McpAccessPageProps) => {
           <EmptyState
             icon={<Icon icon={History} className="h-8 w-8" aria-hidden="true" />}
             title="No activity yet"
-            description="Agent actions taken through Claude Desktop will be recorded here once your practice is connected."
+            description="Claude Desktop activity can appear here once the backend exposes an audit log endpoint."
           />
         </SettingSection>
       </div>
