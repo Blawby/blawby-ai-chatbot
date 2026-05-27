@@ -156,6 +156,8 @@ export function parseAuthSessionPayload(
   const activeOrganizationId =
     typeof session.activeOrganizationId === 'string' ? session.activeOrganizationId :
     typeof session.active_organization_id === 'string' ? session.active_organization_id :
+    typeof responseRecord.activeOrganizationId === 'string' ? responseRecord.activeOrganizationId :
+    typeof responseRecord.active_organization_id === 'string' ? responseRecord.active_organization_id :
     null;
 
   const routingRecord = (
@@ -166,9 +168,11 @@ export function parseAuthSessionPayload(
 
   const activeMembershipRole =
     typeof routingRecord?.active_membership_role === 'string' ? routingRecord.active_membership_role :
-    typeof session.activeMembershipRole === 'string' ? session.activeMembershipRole :
-    typeof session.active_membership_role === 'string' ? session.active_membership_role :
+    typeof session?.activeMembershipRole === 'string' ? session.activeMembershipRole :
+    typeof session?.active_membership_role === 'string' ? session.active_membership_role :
+    typeof responseRecord.active_membership_role === 'string' ? responseRecord.active_membership_role :
     null;
+
 
   const previousAnonUserId =
     typeof session.previousAnonUserId === 'string' ? session.previousAnonUserId :

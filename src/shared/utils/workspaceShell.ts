@@ -16,7 +16,8 @@ export type WorkspaceView =
   | 'invoiceDetail'
   | 'reports'
   | 'settings'
-  | 'coverage';
+  | 'coverage'
+  | 'assistant';
 
 type WorkspaceRouteState = {
   isIntakeTemplateRoute: boolean;

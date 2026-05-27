@@ -381,6 +381,38 @@ export const useConversation = ({
       }
     }
 
+    const toolProgress = (() => {
+      if (!metadataRecord || !Array.isArray(metadataRecord.progress)) return undefined;
+
+      const validStatus = new Set(['queued', 'running', 'completed', 'failed', 'cancelled']);
+      const normalized = metadataRecord.progress
+        .map((item) => {
+          if (!item || typeof item !== 'object' || Array.isArray(item)) return null;
+          const record = item as Record<string, unknown>;
+          const toolUseId = typeof record.toolUseId === 'string' ? record.toolUseId.trim() : '';
+          const toolName = typeof record.toolName === 'string' ? record.toolName.trim() : '';
+          const label = typeof record.label === 'string' ? record.label.trim() : '';
+          const status = typeof record.status === 'string' ? record.status : '';
+
+          if (!toolUseId || !toolName || !label || !validStatus.has(status)) return null;
+
+          return {
+            toolUseId,
+            toolName,
+            label,
+            status: status as 'queued' | 'running' | 'completed' | 'failed' | 'cancelled',
+          };
+        })
+        .filter((item): item is {
+          toolUseId: string;
+          toolName: string;
+          label: string;
+          status: 'queued' | 'running' | 'completed' | 'failed' | 'cancelled';
+        } => item !== null);
+
+      return normalized.length > 0 ? normalized : undefined;
+    })();
+
     return {
       id: msg.id,
       role: normalizedRole,
@@ -406,6 +438,7 @@ export const useConversation = ({
         : [],
       isUser,
       seq: msg.seq,
+      toolProgress,
     };
   }, [currentUserId]);
 

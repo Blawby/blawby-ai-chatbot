@@ -66,7 +66,10 @@ export function useWorkspaceConversations({
     // request per conversation on mount.
     includeLatestMessage: true,
   });
-  const resolvedConversations = mockConversations ?? conversations;
+  const resolvedConversations = useMemo(
+    () => mockConversations ?? conversations,
+    [conversations, mockConversations],
+  );
   const resolvedConversationsLoading = mockConversations ? false : isConversationsLoading;
   const resolvedConversationsError = mockConversations ? null : conversationsError;
 

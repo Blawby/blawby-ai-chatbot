@@ -34,6 +34,7 @@ export type EngagementDraftForm = {
   opposingParty: string;
   courtDate: string;
   conversationId: string;
+  matterId: string;
 };
 
 type IntakeLike = IntakeListItem | PracticeIntakeDetail;
@@ -69,6 +70,7 @@ export const EMPTY_ENGAGEMENT_DRAFT_FORM: EngagementDraftForm = {
   opposingParty: '',
   courtDate: '',
   conversationId: '',
+  matterId: '',
 };
 
 const asRecord = (value: unknown): Record<string, unknown> =>
@@ -163,8 +165,6 @@ export const buildEngagementDraftFormFromIntake = (
   };
 };
 
-const omitNulls = <T extends Record<string, unknown>>(obj: T): Partial<{ [K in keyof T]: NonNullable<T[K]> }> =>
-  Object.fromEntries(Object.entries(obj).filter(([, v]) => v != null)) as Partial<{ [K in keyof T]: NonNullable<T[K]> }>;
 
 export const buildProposalDataFromDraft = (form: EngagementDraftForm): ProposalData => {
   const fees: ProposalFees = {
@@ -199,15 +199,16 @@ export const buildProposalDataFromDraft = (form: EngagementDraftForm): ProposalD
       risk_notes: lines(form.riskNotes),
       open_questions: lines(form.openQuestions),
     },
-    source_snapshot: omitNulls({
+    source_snapshot: {
       intake_uuid: nullableString(form.intakeId),
       conversation_id: nullableString(form.conversationId),
+      matter_id: nullableString(form.matterId),
       practice_area: nullableString(form.practiceArea),
       urgency: nullableString(form.urgency),
       desired_outcome: nullableString(form.desiredOutcome),
       opposing_party: nullableString(form.opposingParty),
       court_date: nullableString(form.courtDate),
-    }),
+    },
     draft_meta: {
       generated_at: new Date().toISOString(),
       generated_by: 'staff',

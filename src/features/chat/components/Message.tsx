@@ -91,6 +91,12 @@ interface MessageProps {
 	isStreaming?: boolean;
 	isLoading?: boolean;
 	toolMessage?: string;
+	toolProgress?: Array<{
+		toolUseId: string;
+		toolName: string;
+		label: string;
+		status: 'queued' | 'running' | 'completed' | 'failed' | 'cancelled';
+	}>;
 	id?: string;
 	practiceId?: string;
 	actions?: ChatMessageAction[];
@@ -150,8 +156,9 @@ const Message: FunctionComponent<MessageProps> = memo(({
 	isStreaming = false,
 	isLoading,
 	toolMessage,
+	toolProgress,
 	id: _id,
-	practiceId: _practiceId,
+		practiceId,
 	className = '',
 	actions,
 	onActionReply,
@@ -317,11 +324,14 @@ const Message: FunctionComponent<MessageProps> = memo(({
 					/>
 				)}
 				
-				{/* Loading Indicator */}
-				{shouldShowIndicator && (
+				{/* Loading / Tooling Progress Indicator */}
+				{((isLoading) || (toolProgress && toolProgress.length > 0)) && (
 					<AIThinkingIndicator 
 						variant="thinking" 
 						toolMessage={toolMessage}
+						toolProgress={toolProgress}
+						isCompleted={!isLoading}
+						className="mb-2"
 					/>
 				)}
 				
@@ -335,9 +345,10 @@ const Message: FunctionComponent<MessageProps> = memo(({
 					assistantRetry={assistantRetry}
 					authCta={authCta}
 					onAuthPromptRequest={onAuthPromptRequest}
-				actions={actions}
-				onActionReply={onActionReply}
-				onboardingProfile={onboardingProfile}
+					actions={actions}
+					onActionReply={onActionReply}
+					practiceId={practiceId}
+					onboardingProfile={onboardingProfile}
 				isStreaming={isStreaming}
 				isLast={isLast}
 			/>

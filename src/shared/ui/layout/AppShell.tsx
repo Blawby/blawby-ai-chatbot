@@ -80,29 +80,42 @@ export const AppShell = ({
   const sidebarColWidth = desktopSidebarCollapsed ? '64px' : '260px';
 
   const leftPanelCount = (hasSidebar ? 1 : 0) + (hasListPanel ? 1 : 0);
-  const mainColStartClass = leftPanelCount === 0
-    ? 'col-start-1 lg:col-start-1'
-    : leftPanelCount === 1
-      ? 'col-start-1 lg:col-start-2'
-      : 'col-start-1 lg:col-start-3';
-  const listPanelColStartClass = hasSidebar ? 'lg:col-start-2' : 'lg:col-start-1';
-  const inspectorColStartClass = leftPanelCount === 0
-    ? 'lg:col-start-2'
-    : leftPanelCount === 1
-      ? 'lg:col-start-3'
-      : 'lg:col-start-4';
 
-  // Build the grid columns dynamically; expose via CSS var so Tailwind's arbitrary-value
-  // class can pick it up at the lg breakpoint without a permutation explosion.
+  // md (768px): tablet 2-col — [listPanel? | main], sidebar stays as drawer.
+  // lg (1024px): desktop — [sidebar? | listPanel? | main].
+  // xl (1280px): desktop+inspector — [sidebar? | listPanel? | main | inspector?].
+  const mdMainColStart = hasListPanel ? 'md:col-start-2' : 'md:col-start-1';
+  const lgMainColStart = leftPanelCount === 0
+    ? 'lg:col-start-1'
+    : leftPanelCount === 1
+      ? 'lg:col-start-2'
+      : 'lg:col-start-3';
+  const mainColStartClass = `col-start-1 ${mdMainColStart} ${lgMainColStart}`;
+
+  const listPanelColStartClass = `md:col-start-1 ${hasSidebar ? 'lg:col-start-2' : 'lg:col-start-1'}`;
+
+  const inspectorColStartClass = leftPanelCount === 0
+    ? 'xl:col-start-2'
+    : leftPanelCount === 1
+      ? 'xl:col-start-3'
+      : 'xl:col-start-4';
+
+  // md grid: listPanel + main only (no sidebar, no inspector at this breakpoint).
+  const mdGridCols = hasListPanel ? '260px 1fr' : '1fr';
+
+  // lg grid: sidebar + listPanel + main (inspector moves to fixed column only at xl).
   const lgGridCols = ((): string => {
     const cols: string[] = [];
     if (hasSidebar) cols.push(sidebarColWidth);
     if (hasListPanel) cols.push('280px');
     cols.push('1fr');
-    if (hasInspector) cols.push('336px');
     return cols.join(' ');
   })();
-  const gridClassName = 'grid-rows-[auto,1fr,auto] lg:grid-cols-[var(--app-grid-cols)] lg:grid-rows-[auto,1fr,auto]';
+
+  // xl grid: adds the inspector column.
+  const xlGridCols = hasInspector ? `${lgGridCols} 336px` : lgGridCols;
+
+  const gridClassName = 'grid-rows-[auto,1fr,auto] md:grid-cols-[var(--app-md-grid-cols)] lg:grid-cols-[var(--app-lg-grid-cols)] xl:grid-cols-[var(--app-xl-grid-cols)]';
   const accentDefaults = getAccentBackdropDefaults(accentBackdropVariant);
   const showAccentBackdrop = Boolean(accentDefaults);
   const resolvedAccentClasses = accentDefaults
@@ -116,7 +129,7 @@ export const AppShell = ({
   return (
     <div
       className={cn('relative grid h-full min-h-full w-full bg-surface-app-frame', gridClassName, className)}
-      style={{ '--app-grid-cols': lgGridCols } as JSX.CSSProperties}
+      style={{ '--app-md-grid-cols': mdGridCols, '--app-lg-grid-cols': lgGridCols, '--app-xl-grid-cols': xlGridCols } as JSX.CSSProperties}
     >
       {backgroundDecor && (
         <div className="pointer-events-none absolute inset-0 overflow-hidden">
@@ -168,7 +181,7 @@ export const AppShell = ({
       {hasListPanel && (
         <aside
           className={cn(
-            'relative z-10 p-2 row-start-2 min-h-0 overflow-y-auto bg-surface-collection hidden lg:block',
+            'relative z-10 p-2 row-start-2 min-h-0 overflow-y-auto bg-surface-collection hidden md:block',
             listPanelColStartClass,
             listPanelClassName
           )}
@@ -190,7 +203,7 @@ export const AppShell = ({
       {hasInspector && (
         <aside
           className={cn(
-            'relative z-10 row-start-2 min-h-0 overflow-y-auto bg-surface-nav-secondary hidden lg:block',
+            'relative z-10 row-start-2 min-h-0 overflow-y-auto bg-surface-nav-secondary hidden xl:block',
             inspectorColStartClass,
             inspectorClassName
           )}

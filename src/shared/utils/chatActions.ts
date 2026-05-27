@@ -85,6 +85,14 @@ export const normalizeChatActions = (value: unknown): ChatMessageAction[] => {
         return label ? [{ type: 'build_brief', label, variant }] : [];
       case 'strengthen_case':
         return label ? [{ type: 'strengthen_case', label, variant }] : [];
+      case 'practice_assistant_decision': {
+        const actionId = typeof record.actionId === 'string' ? record.actionId.trim() : '';
+        const decision = record.decision === 'approve' || record.decision === 'reject'
+          ? record.decision
+          : null;
+        if (!label || !actionId || !decision) return [];
+        return [{ type: 'practice_assistant_decision', label, actionId, decision, variant }];
+      }
       case 'open_url': {
         const url = typeof record.url === 'string' ? record.url.trim() : '';
         if (!label || !url) return [];
@@ -116,14 +124,17 @@ export const getChatActionKey = (action: ChatMessageAction, index: number): stri
       return `build-brief-${index}`;
     case 'strengthen_case':
       return `strengthen-case-${index}`;
+    case 'practice_assistant_decision':
+      return `practice-assistant-decision-${action.actionId}-${action.decision}-${index}`;
   }
 };
 
 export const hasTerminalChatAction = (actions: ChatMessageAction[]): boolean =>
   actions.some((action) =>
     action.type === 'submit'
-    || action.type === 'continue_payment'
-    || action.type === 'open_url');
+      || action.type === 'continue_payment'
+      || action.type === 'open_url'
+      || action.type === 'practice_assistant_decision');
 
 export const hasBuildBriefAction = (actions: ChatMessageAction[]): boolean =>
   actions.some((action) => action.type === 'build_brief');

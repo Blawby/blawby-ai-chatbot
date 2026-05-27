@@ -1,6 +1,7 @@
 import type { ComponentType } from 'preact';
 import {
   Bell,
+  Bot,
   Briefcase,
   Building2,
   Contact,
@@ -85,7 +86,7 @@ export type NavCtx = {
   canAccessPractice: boolean;
 };
 
-export type WorkspaceSection = 'home' | 'conversations' | 'intakes' | 'engagements' | 'matters' | 'files' | 'invoices' | 'reports' | 'settings' | 'coverage';
+export type WorkspaceSection = 'home' | 'conversations' | 'intakes' | 'engagements' | 'matters' | 'files' | 'invoices' | 'reports' | 'settings' | 'coverage' | 'assistant';
 
 
 
@@ -207,6 +208,14 @@ const buildPracticeRail = (basePath: string): NavRailItem[] => [
     icon: MessageSquare,
     href: `${basePath}/conversations`,
     matchHrefs: [`${basePath}/conversations`],
+  },
+  {
+    id: 'assistant',
+    label: 'Assistant',
+    icon: Bot,
+    href: `${basePath}/assistant`,
+    matchHrefs: [`${basePath}/assistant`],
+    expandable: true,
   },
   {
     id: 'files',

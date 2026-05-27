@@ -40,7 +40,8 @@ export interface UseConversationSetupResult {
     mode: ConversationMode,
     conversationId: string,
     source: 'intro_gate' | 'composer_footer' | 'home_cta' | 'chat_intro' | 'slim_form_dismiss' | 'chat_selector',
-    startConsultFlow: (id: string) => void
+    startConsultFlow: (id: string) => void,
+    additionalMetadata?: Record<string, unknown>
   ) => Promise<void>;
 }
 
@@ -254,13 +255,15 @@ export function useConversationSetup({
     nextMode: ConversationMode,
     convId: string,
     source: 'intro_gate' | 'composer_footer' | 'home_cta' | 'chat_intro' | 'slim_form_dismiss' | 'chat_selector',
-    startConsultFlow: (id: string) => void
+    startConsultFlow: (id: string) => void,
+    additionalMetadata?: Record<string, unknown>
   ) => {
     if (!practiceId) return;
-    const nextMetadata =
+    const modeMetadata =
       nextMode === 'REQUEST_CONSULTATION'
         ? { mode: nextMode }
         : clearConsultationMetadata({ mode: nextMode }, nextMode);
+    const nextMetadata = { ...(additionalMetadata ?? {}), ...modeMetadata };
 
     // Attempt to persist the mode to the backend, but don't block the UI
     // if the server is temporarily unavailable (503, network flap, etc.).

@@ -203,11 +203,69 @@ const consumeAiStream = async (
 
       const choice = chunk.choices?.[0];
       const delta = choice?.delta;
+      if (requestId && diagnostics.parsedChunkCount <= 12) {
+        const message = choice?.message as Record<string, unknown> | undefined;
+        const messageToolCalls = Array.isArray(message?.tool_calls) ? message.tool_calls : [];
+        Logger.info('ai.stream.chunk_shape', {
+          requestId,
+          conversationId,
+          chunkIndex: diagnostics.parsedChunkCount,
+          hasChoice: Boolean(choice),
+          hasDelta: Boolean(delta),
+          hasDeltaContent: typeof delta?.content === 'string' && delta.content.length > 0,
+          deltaContentLength: typeof delta?.content === 'string' ? delta.content.length : null,
+          deltaToolCallCount: Array.isArray(delta?.tool_calls) ? delta.tool_calls.length : 0,
+          hasMessage: Boolean(message),
+          hasMessageContent: typeof message?.content === 'string' && message.content.length > 0,
+          messageContentLength: typeof message?.content === 'string' ? message.content.length : null,
+          messageToolCallCount: messageToolCalls.length,
+          finishReason: choice?.finish_reason ?? null,
+        });
+      }
       if (typeof choice?.finish_reason === 'string' && choice.finish_reason.length > 0) {
         diagnostics.finishReasons.push(choice.finish_reason);
       }
-      if (!delta && choice?.message && diagnostics.sampleUnexpectedChunks.length < 3) {
-        diagnostics.sampleUnexpectedChunks.push(JSON.stringify(choice.message).slice(0, 240));
+      if (!delta && choice?.message) {
+        // Some Workers AI models return tool calls in choice.message (non-streaming
+        // shape) even when stream:true. Extract them so the practice assistant
+        // tool-calling path works regardless of model streaming format.
+        const msgRecord = choice.message as Record<string, unknown>;
+        const msgContent = typeof msgRecord.content === 'string' ? msgRecord.content : null;
+        if (msgContent) {
+          localReply += msgContent;
+          if (looksLikeToolLeak(msgContent)) {
+            blockedByPotentialToolLeak = true;
+            streamStalled = true;
+            diagnostics.failClosedReason = 'potential_tool_leak';
+          }
+          if (emitTokens && !blockedByPotentialToolLeak) {
+            write({ token: msgContent });
+            localEmittedToken = true;
+          }
+        }
+        const msgToolCalls = Array.isArray(msgRecord.tool_calls) ? msgRecord.tool_calls as Array<{
+          id?: string;
+          index?: number;
+          function?: { name?: string; arguments?: string };
+        }> : null;
+        if (msgToolCalls) {
+          msgToolCalls.forEach((tc, idx) => {
+            if (typeof tc.function?.name === 'string') {
+              const key = typeof tc.index === 'number' ? tc.index : idx;
+              const existing = localToolCallsByIndex.get(key);
+              if (!existing) {
+                localToolCallsByIndex.set(key, {
+                  name: tc.function.name,
+                  arguments: tc.function.arguments ?? '{}',
+                });
+              }
+            }
+          });
+        }
+        if (!msgContent && !msgToolCalls && diagnostics.sampleUnexpectedChunks.length < 3) {
+          diagnostics.sampleUnexpectedChunks.push(JSON.stringify(choice.message).slice(0, 240));
+        }
+        continue;
       }
       if (!delta) continue;
 
@@ -314,8 +372,30 @@ const consumeAiStream = async (
               content?: string | null;
               tool_calls?: Array<{ index?: number; function?: { name?: string; arguments?: string } }>;
             };
+            message?: Record<string, unknown>;
+            finish_reason?: string | null;
           }>;
         };
+        if (requestId) {
+          const choice = chunk.choices?.[0];
+          const message = choice?.message as Record<string, unknown> | undefined;
+          const delta = choice?.delta;
+          const messageToolCalls = Array.isArray(message?.tool_calls) ? message.tool_calls : [];
+          Logger.info('ai.stream.final_buffer_shape', {
+            requestId,
+            conversationId,
+            hasChoice: Boolean(choice),
+            hasDelta: Boolean(delta),
+            hasDeltaContent: typeof delta?.content === 'string' && delta.content.length > 0,
+            deltaContentLength: typeof delta?.content === 'string' ? delta.content.length : null,
+            deltaToolCallCount: Array.isArray(delta?.tool_calls) ? delta.tool_calls.length : 0,
+            hasMessage: Boolean(message),
+            hasMessageContent: typeof message?.content === 'string' && message.content.length > 0,
+            messageContentLength: typeof message?.content === 'string' ? message.content.length : null,
+            messageToolCallCount: messageToolCalls.length,
+            finishReason: choice?.finish_reason ?? null,
+          });
+        }
         const token = chunk.choices?.[0]?.delta?.content;
         if (typeof token === 'string' && token.length > 0) {
           localReply += token;

@@ -380,6 +380,33 @@ export const useChatComposer = ({
         appendStreamingToken(bubbleId, parsed.token);
         return;
       }
+      if (parsed.type === 'tool_progress' && parsed.progress && typeof parsed.progress === 'object') {
+        const item = parsed.progress as {
+          toolUseId: string;
+          toolName: string;
+          label: string;
+          status: 'queued' | 'running' | 'completed' | 'failed' | 'cancelled';
+        };
+        if (item.toolUseId && item.toolName) {
+          setMessages(prev => prev.map(msg => {
+            if (msg.id !== bubbleId) return msg;
+            const currentProgress = msg.toolProgress || [];
+            const idx = currentProgress.findIndex(p => p.toolUseId === item.toolUseId);
+            const nextProgress = [...currentProgress];
+            if (idx >= 0) {
+              nextProgress[idx] = item;
+            } else {
+              nextProgress.push(item);
+            }
+            return {
+              ...msg,
+              toolProgress: nextProgress,
+              toolMessage: item.label
+            } as ChatMessageUI;
+          }));
+        }
+        return;
+      }
       if (parsed.done === true) {
         const doneReply = typeof parsed.reply === 'string' ? parsed.reply : null;
         finalDoneReply = doneReply;
@@ -644,6 +671,7 @@ export const useChatComposer = ({
           effectiveMode === 'ASK_QUESTION' ||
           effectiveMode === 'REQUEST_CONSULTATION' ||
           effectiveMode === 'PRACTICE_ONBOARDING' ||
+          effectiveMode === 'PRACTICE_ASSISTANT' ||
           (effectiveMode === 'CONVERSATION' &&
             conversationMetadataRef.current?.intakeConversationState?.enrichmentMode === true)
         );

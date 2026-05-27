@@ -90,4 +90,13 @@ export const createWorkersAiClient = (env: WorkersAiClientEnv, options: WorkersA
   };
 };
 
+export const resolveWorkersAiModel = (
+  env: Pick<Env, 'AI_MODEL'>,
+  fallbackModel: string,
+): string => {
+  const configured = env.AI_MODEL?.trim();
+  if (!configured) return fallbackModel;
+  return configured.startsWith('@cf/') ? configured : fallbackModel;
+};
+
 export type { WorkersAiClient, WorkersAiClientEnv };

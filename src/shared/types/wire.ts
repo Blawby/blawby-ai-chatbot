@@ -119,14 +119,24 @@ export { BackendSidebarCountsSchema } from '../../../worker/types/wire/sidebarCo
 
 // ── Activity ──────────────────────────────────────────────────────────────
 export type {
-  BackendActivityEvent,
-  BackendActivityActorType,
-  BackendActivityEventType,
+  BackendActivityLog,
   BackendActivityListResponse,
 } from '../../../worker/types/wire/activity';
 export {
-  BackendActivityEventSchema,
-  BackendActivityActorTypeSchema,
-  BackendActivityEventTypeSchema,
+  BackendActivityLogSchema,
   BackendActivityListResponseSchema,
 } from '../../../worker/types/wire/activity';
+
+// ── Practice Assistant ────────────────────────────────────────────────────
+export type {
+  PracticeAssistantSource,
+  PracticeAssistantProgress,
+  PracticeAssistantActionStatus,
+  PracticeAssistantActionSummary,
+} from '../../../worker/types/wire/practiceAssistant';
+export {
+  PracticeAssistantSourceSchema,
+  PracticeAssistantProgressSchema,
+  PracticeAssistantActionStatusSchema,
+  PracticeAssistantActionSummarySchema,
+} from '../../../worker/types/wire/practiceAssistant';
