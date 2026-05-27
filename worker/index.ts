@@ -129,14 +129,13 @@ export const routes: RouteEntry[] = [
   // the catch-all `/api/mcp`.
   //
   // The internal events route stays UNAUTHENTICATED at the Bearer-JWT layer
-  // — it's service-to-service and uses HMAC+bearer dual-factor auth (U8).
+  // — it's service-to-service and uses x-worker-secret single-factor auth.
   // The well-known resource doc is also unauthenticated; the spec requires
   // it to be publicly discoverable.
   //
   // Everything else under `/api/mcp` is wrapped with withMCPAuth: validates
-  // Bearer JWT against backend JWKS, checks audience, scope, revocation
-  // epoch (KV), and jti denylist (KV). On success, sets X-Mcp-* identity
-  // headers that the route handler forwards to the McpSession DO.
+  // Bearer JWT against backend JWKS, checks audience and scope, then sets
+  // X-Mcp-* identity headers forwarded to the McpSession DO.
   { mode: 'owned', match: exact('/api/mcp/internal/events'), handler: handleMcpInternalEvents },
   { mode: 'owned', match: exact('/api/mcp/ws'), handler: withMCPAuth(handleMcpWebSocket) },
   { mode: 'owned', match: exact('/api/mcp'), handler: withMCPAuth(handleMcp) },

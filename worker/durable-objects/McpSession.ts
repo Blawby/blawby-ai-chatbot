@@ -149,12 +149,6 @@ export class McpSession {
     const params = (body.params ?? {}) as Record<string, unknown>;
     const requested = typeof params.protocolVersion === 'string' ? params.protocolVersion : '';
     const negotiated = negotiateProtocolVersion(requested);
-    if (!negotiated) {
-      return jsonRpcError(body.id, -32602, 'Unsupported protocol version', {
-        supported: SUPPORTED_PROTOCOL_VERSIONS,
-        requested,
-      });
-    }
 
     // U6 scaffolding: identity comes from headers planted by the route
     // handler (which in turn will be planted by U7's withMCPAuth). For now,
@@ -592,7 +586,7 @@ export class McpSession {
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value);
 
-export const negotiateProtocolVersion = (requested: string): McpProtocolVersion | null => {
+export const negotiateProtocolVersion = (requested: string): McpProtocolVersion => {
   if ((SUPPORTED_PROTOCOL_VERSIONS as readonly string[]).includes(requested)) {
     return requested as McpProtocolVersion;
   }

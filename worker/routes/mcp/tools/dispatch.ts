@@ -126,6 +126,10 @@ const validateInputSchema = (
       errors.push({ field, message: 'must be a number' });
     } else if (type === 'boolean' && typeof value !== 'boolean') {
       errors.push({ field, message: 'must be a boolean' });
+    } else if (type === 'object' && (typeof value !== 'object' || value === null || Array.isArray(value))) {
+      errors.push({ field, message: 'must be an object' });
+    } else if (type === 'array' && !Array.isArray(value)) {
+      errors.push({ field, message: 'must be an array' });
     }
 
     if (typeof value === 'number' && !Number.isNaN(value)) {

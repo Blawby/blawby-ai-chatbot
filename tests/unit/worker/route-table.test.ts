@@ -117,7 +117,7 @@ describe('worker route table', () => {
     expectNoRoute('/api/foo/bar');
   });
 
-  it('MCP scaffolding (U6) registers four routes with the correct specificity ordering', () => {
+  it('MCP scaffolding (U6) registers three routes with the correct specificity ordering', () => {
     // The internal events ingest is the most-specific MCP path and must
     // match before the catch-all /api/mcp.
     expectRoute('/api/mcp/internal/events', 'owned');

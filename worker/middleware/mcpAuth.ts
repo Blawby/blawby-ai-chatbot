@@ -193,9 +193,8 @@ export const withMCPAuth = (handler: RouteHandler): RouteHandler => {
       if (error instanceof joseErrors.JWSSignatureVerificationFailed) {
         return unauthorizedResponse(env, request, 'invalid_token', 'Signature verification failed', 'SIGNATURE_INVALID');
       }
-      // Surface jose error messages but never raw stack traces.
-      const message = error instanceof Error ? error.message : 'Token validation failed';
-      return unauthorizedResponse(env, request, 'invalid_token', message, 'TOKEN_INVALID');
+      console.error('MCP token validation error:', error);
+      return unauthorizedResponse(env, request, 'invalid_token', 'Token validation failed', 'TOKEN_INVALID');
     }
 
     const payload = verification.payload;

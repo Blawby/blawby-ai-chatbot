@@ -152,8 +152,21 @@ export const handleDirectWriteTool = async (
     } catch {
       // body unreadable — keep null
     }
-    return toolErr(-32602, 'Idempotency-Key payload mismatch', {
-      code: 'IDEMPOTENCY_KEY_MISMATCH',
+    const isIdempotencyMismatch =
+      detail !== null &&
+      typeof detail === 'object' &&
+      'code' in (detail as object) &&
+      (detail as Record<string, unknown>).code === 'IDEMPOTENCY_KEY_MISMATCH';
+    if (isIdempotencyMismatch) {
+      return toolErr(-32602, 'Idempotency-Key payload mismatch', {
+        code: 'IDEMPOTENCY_KEY_MISMATCH',
+        retryable: false,
+        http_status: 422,
+        detail,
+      });
+    }
+    return toolErr(-32602, 'Validation error', {
+      code: 'VALIDATION_ERROR',
       retryable: false,
       http_status: 422,
       detail,

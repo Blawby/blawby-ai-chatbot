@@ -175,8 +175,8 @@ describe('dispatchToolCall — direct writes — error envelopes', () => {
     expect(outcome.error.data?.http_status).toBe(409);
   });
 
-  it('IDEMPOTENCY_KEY_MISMATCH on backend 422', async () => {
-    stubFetchOnce({ error: 'mismatch' }, { status: 422 });
+  it('IDEMPOTENCY_KEY_MISMATCH on backend 422 with matching code signal', async () => {
+    stubFetchOnce({ code: 'IDEMPOTENCY_KEY_MISMATCH', detail: 'payload differs' }, { status: 422 });
     const outcome = await dispatchToolCall(
       'add_matter_note',
       { matter_id: 'mat_01', body: 'note' },
@@ -184,6 +184,18 @@ describe('dispatchToolCall — direct writes — error envelopes', () => {
     );
     if (isOk(outcome)) throw new Error('expected error');
     expect(outcome.error.data?.code).toBe('IDEMPOTENCY_KEY_MISMATCH');
+    expect(outcome.error.data?.retryable).toBe(false);
+  });
+
+  it('VALIDATION_ERROR on backend 422 without idempotency signal', async () => {
+    stubFetchOnce({ error: 'invalid input' }, { status: 422 });
+    const outcome = await dispatchToolCall(
+      'add_matter_note',
+      { matter_id: 'mat_01', body: 'note' },
+      buildContext(),
+    );
+    if (isOk(outcome)) throw new Error('expected error');
+    expect(outcome.error.data?.code).toBe('VALIDATION_ERROR');
     expect(outcome.error.data?.retryable).toBe(false);
   });
 
