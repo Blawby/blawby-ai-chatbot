@@ -5,6 +5,8 @@ import type { Env } from '../types.js';
 import type { ExecutionContext } from '@cloudflare/workers-types';
 import { ConversationService } from '../services/ConversationService.js';
 import { getAttachedAuthContext } from '../middleware/compose.js';
+import { requirePracticeMemberRole } from '../middleware/auth.js';
+import { runPracticeAssistantTurn } from './practiceAssistant.js';
 import { SessionAuditService } from '../services/SessionAuditService.js';
 import { IntakeEventService, writeIntakeTurn } from '../services/IntakeEventService.js';
 import type { IntakeEventRecordInput } from '../types/intakeEvent.js';
@@ -341,7 +343,7 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
   const body = await parseJsonBody(request) as {
     conversationId?: string;
     practiceSlug?: string;
-    mode?: 'ASK_QUESTION' | 'REQUEST_CONSULTATION' | 'PRACTICE_ONBOARDING';
+    mode?: 'ASK_QUESTION' | 'REQUEST_CONSULTATION' | 'PRACTICE_ONBOARDING' | 'PRACTICE_ASSISTANT';
     intakeSubmitted?: boolean;
     messages?: Array<{ role: 'user' | 'assistant'; content: string }>;
     additionalContext?: string;
@@ -414,7 +416,6 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
   const conversationMetadata = isRecord(conversation.user_info) ? conversation.user_info : null;
   const storedMode = typeof conversationMetadata?.mode === 'string' ? conversationMetadata.mode : null;
   const effectiveMode = body.mode ?? storedMode;
-
   const practiceSlugFromConversation =
     conversation.practice && typeof conversation.practice.slug === 'string'
       ? conversation.practice.slug.trim()
@@ -424,6 +425,26 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
       ? conversationMetadata.practiceSlug.trim()
       : '';
   const practiceSlug = practiceSlugFromBody || practiceSlugFromConversation || practiceSlugFromMetadata;
+
+  if (effectiveMode === 'PRACTICE_ASSISTANT') {
+    const auth = await requirePracticeMemberRole(request, env, practiceId, 'paralegal', { authContext });
+    const lastUserMsg = [...body.messages].reverse().find(m => m.role === 'user');
+    if (!lastUserMsg) throw HttpErrors.badRequest('No user message in conversation');
+    if (lastUserMsg.content.length > 6000) {
+      throw HttpErrors.badRequest('User message exceeds 6000 characters');
+    }
+    return runPracticeAssistantTurn({
+      conversationId: body.conversationId,
+      practiceId,
+      practiceSlug,
+      userMessage: lastUserMsg.content,
+      userId: auth.user.id,
+      auth,
+      env,
+      request,
+      messages: body.messages.map((message) => ({ role: message.role, content: message.content })),
+    });
+  }
 
   const auditService = new SessionAuditService(env);
   const intakeEventService = new IntakeEventService(env);

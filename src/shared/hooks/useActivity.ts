@@ -1,31 +1,20 @@
 import { useState, useEffect, useCallback, useRef } from 'preact/hooks';
-import { features } from '@/config/features';
-import { apiClient, isHttpError } from '@/shared/lib/apiClient';
+import { apiClient } from '@/shared/lib/apiClient';
 
 export interface ActivityEvent {
   id: string;
-  uid: string;
-  type: 'matter_event' | 'conversation_event';
-  eventType: string;
-  title: string;
+  matter_id: string;
+  user_id: string | null;
+  action: string;
   description: string;
-  eventDate: string;
-  actorType?: 'user' | 'lawyer' | 'system';
-  actorId?: string;
-  metadata?: Record<string, unknown>;
-  createdAt: string;
+  metadata: Record<string, unknown> | null;
+  created_at: string;
 }
 
 export interface UseActivityOptions {
   matterId?: string;
-  conversationId?: string;
   practiceId?: string;
-  limit?: number; // default 25, max 50
-  since?: string; // ISO 8601 timestamp
-  until?: string; // ISO 8601 timestamp
-  type?: string[]; // event types to filter by
-  actorType?: 'user' | 'lawyer' | 'system';
-  enablePagination?: boolean; // default true
+  limit?: number;
 }
 
 export interface UseActivityResult {
@@ -33,123 +22,57 @@ export interface UseActivityResult {
   isLoading: boolean;
   error: string | null;
   hasMore: boolean;
-  total?: number;
   refresh: () => Promise<void>;
-  loadMore: () => Promise<void>; // Load next page using cursor
-  reset: () => void; // Reset to first page
-  // Caching support
-  etag?: string;
-  lastModified?: string;
+  loadMore: () => Promise<void>;
+  reset: () => void;
 }
 
 export function useActivity(options: UseActivityOptions): UseActivityResult {
-  const {
-    matterId,
-    conversationId,
-    practiceId,
-    limit = 25,
-    since,
-    until,
-    type,
-    actorType
-  } = options;
+  const { matterId, practiceId, limit = 50 } = options;
 
   const [events, setEvents] = useState<ActivityEvent[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [hasMore, setHasMore] = useState(false);
-  const [total, setTotal] = useState<number | undefined>();
-  const [etag, setEtag] = useState<string | undefined>();
-  const [lastModified, setLastModified] = useState<string | undefined>();
-  
-  const nextCursorRef = useRef<string | undefined>();
+
+  const offsetRef = useRef(0);
   const activeFetchControllerRef = useRef<AbortController | null>(null);
-  const enabled = features.enableActivity;
 
-  const buildQueryParams = useCallback(() => {
-    const params = new URLSearchParams();
-    
-    if (practiceId) params.set('practiceId', practiceId);
-    if (matterId) params.set('matterId', matterId);
-    if (conversationId) params.set('conversationId', conversationId);
-    if (limit) params.set('limit', limit.toString());
-    if (since) params.set('since', since);
-    if (until) params.set('until', until);
-    if (type && type.length > 0) params.set('type', type.join(','));
-    if (actorType) params.set('actorType', actorType);
-    if (nextCursorRef.current) params.set('cursor', nextCursorRef.current);
-    
-    return params.toString();
-  }, [practiceId, matterId, conversationId, limit, since, until, type, actorType]);
-
-  const fetchActivity = useCallback(async (isLoadMore = false, signal?: AbortSignal) => {
-    if (!enabled) {
-      // Feature-flagged off: Activity is not yet migrated to staging-api.
-      // TODO(activity): switch to staging-api endpoint and remove this guard.
-      return;
-    }
-    if (!practiceId) {
-      return;
-    }
+  const fetchActivity = useCallback(async (isLoadMore = false, signal?: AbortSignal): Promise<boolean> => {
+    if (!practiceId || !matterId) return false;
 
     setIsLoading(true);
     setError(null);
 
     try {
-      const queryParams = buildQueryParams();
-      const headers: Record<string, string> = {};
-      if (etag && !isLoadMore) headers['If-None-Match'] = etag;
-      if (lastModified && !isLoadMore) headers['If-Modified-Since'] = lastModified;
-
-      const response = await apiClient.get<{
-        success: boolean;
-        error?: string;
-        data: { items: ActivityEvent[]; hasMore: boolean; total?: number; nextCursor?: string };
-      }>(`/api/activity?${queryParams}`, {
-        headers,
-        signal,
-        acceptStatuses: [304],
+      const params = new URLSearchParams({
+        limit: limit.toString(),
+        offset: offsetRef.current.toString(),
       });
+      const response = await apiClient.get<{ activities: ActivityEvent[] }>(
+        `/api/matters/${practiceId}/${matterId}/activity?${params}`,
+        { signal }
+      );
 
-      if (response.status === 304) return;
-
-      const data = response.data;
-      if (!data.success) {
-        throw new Error(data.error || 'Failed to fetch activity');
-      }
-
-      const result = data.data;
-      const newEtag = response.headers.get('ETag');
-      const newLastModified = response.headers.get('Last-Modified');
-      if (newEtag) setEtag(newEtag);
-      if (newLastModified) setLastModified(newLastModified);
-
+      const { activities } = response.data;
       if (isLoadMore) {
-        setEvents(prev => [...prev, ...result.items]);
+        setEvents(prev => [...prev, ...activities]);
       } else {
-        setEvents(result.items);
+        setEvents(activities);
       }
-      setHasMore(result.hasMore);
-      setTotal(result.total);
-      nextCursorRef.current = result.nextCursor;
-
+      setHasMore(activities.length === limit);
+      return true;
     } catch (err) {
-      if (err instanceof Error && err.name === 'AbortError') return;
-      if (isHttpError(err) && err.response.status === 429) {
-        const errorData = err.response.data as { retryAfter?: number } | undefined;
-        const retryAfter = errorData?.retryAfter || 60;
-        setError(`Rate limit exceeded. Please try again in ${retryAfter} seconds.`);
-        return;
-      }
-      const errorMessage = err instanceof Error ? err.message : 'Failed to fetch activity';
-      setError(errorMessage);
+      if (err instanceof Error && err.name === 'AbortError') return false;
+      setError(err instanceof Error ? err.message : 'Failed to fetch activity');
+      return false;
     } finally {
       setIsLoading(false);
     }
-  }, [enabled, practiceId, buildQueryParams, etag, lastModified]);
+  }, [practiceId, matterId, limit]);
 
   const refresh = useCallback(async () => {
-    nextCursorRef.current = undefined;
+    offsetRef.current = 0;
     activeFetchControllerRef.current?.abort();
     const controller = new AbortController();
     activeFetchControllerRef.current = controller;
@@ -157,44 +80,37 @@ export function useActivity(options: UseActivityOptions): UseActivityResult {
   }, [fetchActivity]);
 
   const loadMore = useCallback(async () => {
-    if (hasMore && !isLoading && nextCursorRef.current) {
-      activeFetchControllerRef.current?.abort();
-      const controller = new AbortController();
-      activeFetchControllerRef.current = controller;
-      await fetchActivity(true, controller.signal);
+    if (!hasMore || isLoading) return;
+    const previousOffset = offsetRef.current;
+    offsetRef.current += limit;
+    activeFetchControllerRef.current?.abort();
+    const controller = new AbortController();
+    activeFetchControllerRef.current = controller;
+    const success = await fetchActivity(true, controller.signal);
+    if (!success) {
+      offsetRef.current = previousOffset;
+      if (activeFetchControllerRef.current === controller) {
+        activeFetchControllerRef.current = null;
+      }
     }
-  }, [hasMore, isLoading, fetchActivity]);
+  }, [hasMore, isLoading, limit, fetchActivity]);
 
   const reset = useCallback(() => {
     setEvents([]);
     setError(null);
     setHasMore(false);
-    setTotal(undefined);
-    nextCursorRef.current = undefined;
-    setEtag(undefined);
-    setLastModified(undefined);
+    offsetRef.current = 0;
   }, []);
 
-  // Initial load
   useEffect(() => {
-    if (!enabled || !practiceId) return;
+    if (!practiceId || !matterId) return;
+    offsetRef.current = 0;
     activeFetchControllerRef.current?.abort();
     const controller = new AbortController();
     activeFetchControllerRef.current = controller;
     void fetchActivity(false, controller.signal);
     return () => controller.abort();
-  }, [enabled, practiceId, fetchActivity]);
+  }, [practiceId, matterId, fetchActivity]);
 
-  return {
-    events,
-    isLoading,
-    error,
-    hasMore,
-    total,
-    refresh,
-    loadMore,
-    reset,
-    etag,
-    lastModified
-  };
+  return { events, isLoading, error, hasMore, refresh, loadMore, reset };
 }

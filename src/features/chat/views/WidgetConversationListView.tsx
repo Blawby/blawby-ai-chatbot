@@ -196,7 +196,7 @@ const WidgetConversationListView: FunctionComponent<WidgetConversationListViewPr
                     </div>
                     {isTyping ? (
                       <div className="flex items-center gap-1.5 text-sm italic text-accent-utility">
-                        <span className="ai-thinking-indicator__dot" aria-hidden="true" />
+                        <span className="human-typing-indicator__dot" aria-hidden="true" />
                         <span>{t('workspace.conversationList.typing', { defaultValue: 'typing…' })}</span>
                       </div>
                     ) : (

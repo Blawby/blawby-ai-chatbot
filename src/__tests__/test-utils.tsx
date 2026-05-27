@@ -124,7 +124,6 @@ vi.mock('@/config/features', () => ({
     enableAccountLinks: false,
     enableMfa: false,
     enablePlusTier: false,
-    enableActivity: false,
   }
 }));
 

@@ -103,12 +103,6 @@ interface FeatureFlags {
      *
      * Default: false
      *
-     * NOTE: Activity is currently backed by the Worker + D1 and is not fully
-     * migrated to staging-api. Keep this disabled until the remote API is the
-     * source of truth for activity events.
-     */
-    enableActivity: boolean;
-
     /**
      * Enable message reactions feature
      * When false, reaction UI and functionality will be hidden from messages
@@ -134,7 +128,6 @@ const baseFeatureConfig: FeatureFlags = {
     enableMfa: false, // Hide MFA until the backend/auth flow is ready end-to-end
 
     enablePlusTier: false, // Hide Plus plan by default (not available at launch)
-    enableActivity: false, // Disabled until activity is migrated off Worker/D1
     enableMessageReactions: false, // Disable message reactions for MVP
 };
 

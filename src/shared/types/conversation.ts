@@ -30,7 +30,7 @@ export type ConversationLifecycleStatus = 'pending_visibility' | 'visible' | 'ar
  */
 export type MessageRole = 'user' | 'assistant' | 'system';
 
-export type ConversationMode = 'ASK_QUESTION' | 'REQUEST_CONSULTATION' | 'PRACTICE_ONBOARDING' | 'CONVERSATION';
+export type ConversationMode = 'ASK_QUESTION' | 'REQUEST_CONSULTATION' | 'PRACTICE_ONBOARDING' | 'PRACTICE_ASSISTANT' | 'CONVERSATION';
 
 export type ChatMessageActionVariant = 'primary' | 'secondary';
 
@@ -65,6 +65,13 @@ export type ChatMessageAction =
   | {
       type: 'strengthen_case';
       label: string;
+      variant?: ChatMessageActionVariant;
+    }
+  | {
+      type: 'practice_assistant_decision';
+      label: string;
+      actionId: string;
+      decision: 'approve' | 'reject';
       variant?: ChatMessageActionVariant;
     };
 

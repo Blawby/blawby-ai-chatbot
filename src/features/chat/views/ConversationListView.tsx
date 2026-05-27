@@ -147,7 +147,7 @@ const ConversationItem = memo(({ conversation, preview, fallbackName, isActive, 
         </div>
         {isTyping ? (
           <div className="mt-0.5 flex items-center gap-1.5 text-xs leading-5 text-accent-utility">
-            <span className="ai-thinking-indicator__dot" aria-hidden="true" />
+            <span className="human-typing-indicator__dot" aria-hidden="true" />
             <span className="italic">{t('workspace.conversationList.typing', { defaultValue: 'typing…' })}</span>
           </div>
         ) : previewText ? (

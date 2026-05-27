@@ -251,7 +251,8 @@ export function MainApp({
   const shouldEnableConversationTransport = workspace === 'public'
     || workspaceView === 'conversation'
     || workspaceView === 'list'
-    || workspaceView === 'home';
+    || workspaceView === 'home'
+    || workspaceView === 'assistant';
   const liveConversationId = shouldEnableConversationTransport ? activeConversationId : null;
 
   // ── message handling ───────────────────────────────────────────────────────
@@ -358,7 +359,7 @@ export function MainApp({
       if (!options?.forceCreate) {
         const reusableConversationId = preferredConversationId ?? activeConversationId ?? null;
         if (reusableConversationId) {
-          await applyConversationMode(nextMode, reusableConversationId, 'home_cta', startConsultFlow);
+          await applyConversationMode(nextMode, reusableConversationId, 'home_cta', startConsultFlow, options?.additionalMetadata);
           return reusableConversationId;
         }
       }
@@ -384,7 +385,7 @@ export function MainApp({
         return Promise.reject(new SessionNotReadyError());
       }
 
-      await applyConversationMode(nextMode, newConversationId, 'home_cta', startConsultFlow);
+      await applyConversationMode(nextMode, newConversationId, 'home_cta', startConsultFlow, options?.additionalMetadata);
       return newConversationId;
     } catch (error) {
       console.warn('[MainApp] Failed to start new conversation', error);
@@ -401,9 +402,9 @@ export function MainApp({
   ) => {
     await sendMessage(message, attachments, replyToMessageId ?? null, {
       mentionedUserIds: options?.mentionedUserIds,
-      suppressAi: isPracticeWorkspace,
+      suppressAi: isPracticeWorkspace && conversationMetadata?.mode !== 'PRACTICE_ASSISTANT',
     });
-  }, [sendMessage, isPracticeWorkspace]);
+  }, [conversationMetadata?.mode, sendMessage, isPracticeWorkspace]);
 
   const { mentionCandidates } = useMentionCandidates(practiceId, liveConversationId);
 

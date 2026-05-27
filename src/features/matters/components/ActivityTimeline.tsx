@@ -10,7 +10,6 @@ interface ActivityTimelineProps {
   className?: string;
   practiceId?: string;
   matterId?: string;
-  conversationId?: string;
   limit?: number;
 }
 
@@ -60,19 +59,16 @@ function formatRelativeTime(dateString: string): string {
   return date.toLocaleDateString();
 }
 
-const ActivityTimeline: FunctionComponent<ActivityTimelineProps> = ({ 
+const ActivityTimeline: FunctionComponent<ActivityTimelineProps> = ({
   className = '',
   practiceId,
   matterId,
-  conversationId,
-  limit = 25
+  limit = 50
 }) => {
-  // Use the activity hook to fetch real data
   const { events, isLoading: _isLoading, error, hasMore, loadMore, refresh } = useActivity({
     practiceId,
     matterId,
-    conversationId,
-    limit
+    limit,
   });
 
   return (
@@ -103,37 +99,27 @@ const ActivityTimeline: FunctionComponent<ActivityTimelineProps> = ({
 
               {/* Events list */}
               {events.map((event, index) => {
-                const IconComponent = EVENT_ICONS[event.eventType] || EVENT_ICONS.default;
+                const IconComponent = EVENT_ICONS[event.action] || EVENT_ICONS.default;
                 return (
                   <div key={event.id} className="relative flex items-start gap-3">
-                    {/* Timeline line */}
                     {index < events.length - 1 && (
                       <div className="absolute left-3 top-8 bottom-0 w-px bg-line-default" />
                     )}
-                    
-                    {/* Icon */}
                     <div className="input-surface relative flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center">
                       <IconComponent className="w-3 h-3 text-input-placeholder" />
                     </div>
-                    
-                    {/* Content */}
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center justify-between">
                         <h5 className="text-xs sm:text-sm font-medium text-input-text">
-                          {event.title}
+                          {event.action.replace(/_/g, ' ')}
                         </h5>
                         <span className="text-xs text-input-placeholder">
-                          {formatRelativeTime(event.eventDate)}
+                          {formatRelativeTime(event.created_at)}
                         </span>
                       </div>
                       <p className="text-xs sm:text-sm text-input-placeholder mt-1">
                         {event.description}
                       </p>
-                      {event.actorType && (
-                        <div className="text-xs text-input-placeholder mt-1">
-                          by {event.actorType}
-                        </div>
-                      )}
                     </div>
                   </div>
                 );
