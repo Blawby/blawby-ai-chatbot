@@ -318,7 +318,6 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
     normalizedRole,
   });
   const {
-    conversations,
     isConversationsLoading,
     refreshConversations,
     resolvedConversations,
@@ -830,11 +829,11 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
     });
     if (newConversationId && postFailed) {
       showError('Conversation created, but the first message did not send', 'Try sending it again from the thread.');
-      // Keep the draft alive so the user's typed message + attachments don't
-      // vanish — the conversation now exists, but the composer state still
-      // belongs to the draft view until the user retries successfully.
-      return;
+      // Throw so DraftConversationView's catch fires and keeps the composer
+      // text + attachments alive — the user can retry from the same draft view.
+      throw new Error('first-message-post-failed');
     }
+
     if (newConversationId) {
       setDraftConversation(null);
     }

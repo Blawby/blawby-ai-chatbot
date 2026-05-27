@@ -1,4 +1,4 @@
-import { HttpErrors } from '../../errorHandler.js';
+
 import type {
   PracticeAssistantContext,
   PracticeAssistantRole,

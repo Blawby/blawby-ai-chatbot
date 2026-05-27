@@ -268,11 +268,18 @@ export function getTrustedHosts(): string[] {
 /**
  * Centralized API endpoint helpers
  */
+export const practiceAssistantDecision = (
+	actionId: string,
+	decision: 'approve' | 'reject',
+): string =>
+	`/api/ai/practice-assistant/actions/${encodeSegment(actionId)}/${decision}`;
+
 export const urls = {
 	clientIntakes,
 	clientIntake,
 	clientIntakeStatus,
 	clientIntakeInvite,
+	practiceAssistantDecision,
 	invoices: (practiceId: string) => `/api/invoices/${encodeURIComponent(practiceId)}`,
 	invoice: (practiceId: string, invoiceId: string) => `/api/invoices/${encodeURIComponent(practiceId)}/${encodeURIComponent(invoiceId)}`,
 	createInvoice: (practiceId: string) => `/api/invoices/${encodeURIComponent(practiceId)}`,

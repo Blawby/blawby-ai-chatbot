@@ -43,7 +43,8 @@ export function runPracticeAssistantTurn(params: PracticeAssistantTurnParams): R
     messageCount: messages?.length ?? null,
     userMessageLength: userMessage.length,
   });
-  queueMicrotask(async () => {
+  void Promise.resolve().then(async () => {
+
     Logger.info('practice_assistant.producer.started', {
       conversationId,
       practiceId,

@@ -370,7 +370,7 @@ export const ENTITY_REGISTRY: Record<string, EntityConfig> = {
         action: "convert",
         description: "Convert intake to a matter or engagement.",
         method: "POST",
-        route: ({ id }) => `/api/practice-client-intakes/${enc(id!)}/convert`,
+        route: ({ practiceId, id }) => `/api/practice-client-intakes/${enc(practiceId)}/${enc(id!)}/convert`,
         inputSchema: z.object({
           target: z.enum(["matter", "engagement"]),
           title: z.string().min(1).optional(),
@@ -380,7 +380,7 @@ export const ENTITY_REGISTRY: Record<string, EntityConfig> = {
         action: "update_status",
         description: "Update triage status of an intake.",
         method: "PUT",
-        route: ({ id }) => `/api/practice-client-intakes/${enc(id!)}/status`,
+        route: ({ practiceId, id }) => `/api/practice-client-intakes/${enc(practiceId)}/${enc(id!)}/status`,
         inputSchema: z.object({
           status: z.string().min(1),
         }),
@@ -843,7 +843,7 @@ export const verifyOperations = (
       } else {
         const identityKey = fieldConfig?.setIdentityKey;
         const contains = actual.some((item) =>
-          identityKey && item && typeof item === 'object'
+          identityKey && item && typeof item === 'object' && typeof op.value === 'object' && op.value !== null
             ? (item as Record<string, unknown>)[identityKey] === (op.value as Record<string, unknown>)[identityKey]
             : item === op.value,
         );
@@ -857,7 +857,7 @@ export const verifyOperations = (
       if (Array.isArray(actual)) {
         const identityKey = fieldConfig?.setIdentityKey;
         const stillPresent = actual.some((item) =>
-          identityKey && item && typeof item === 'object'
+          identityKey && item && typeof item === 'object' && typeof op.value === 'object' && op.value !== null
             ? (item as Record<string, unknown>)[identityKey] === (op.value as Record<string, unknown>)[identityKey]
             : item === op.value,
         );

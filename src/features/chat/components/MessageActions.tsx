@@ -18,6 +18,7 @@ import { getChatActionKey } from '@/shared/utils/chatActions';
 import { useNavigation } from '@/shared/utils/navigation';
 import { useIntakeContext } from '@/shared/contexts/IntakeContext';
 import { apiClient, isHttpError } from '@/shared/lib/apiClient';
+import { practiceAssistantDecision } from '@/config/urls';
 
 interface MessageActionsProps {
 	matterCanvas?: {
@@ -151,7 +152,7 @@ export const MessageActions: FunctionComponent<MessageActionsProps> = ({
 			setPendingPracticeAssistantDecision(pendingKey);
 			try {
 				await apiClient.post(
-					`/api/ai/practice-assistant/actions/${encodeURIComponent(actionId)}/${decision}`,
+					practiceAssistantDecision(actionId, decision),
 					{ practiceId },
 				);
 				setResolvedPracticeAssistantActionIds((prev) => new Set(prev).add(actionId));
@@ -274,48 +275,35 @@ export const MessageActions: FunctionComponent<MessageActionsProps> = ({
 								</Button>
 							) : null
 						) : action.type === 'open_url' ? (
-							(() => {
-								const isSameOrigin = (urlStr: string) => {
-									try {
-										const url = new URL(urlStr, window.location.origin);
-										return url.origin === window.location.origin;
-									} catch { return false; }
-								};
-
-								const sameOrigin = isSameOrigin(action.url);
-
+						(() => {
+							try {
+								const parsed = new URL(action.url, window.location.origin);
+								if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return null;
+								if (parsed.origin === window.location.origin) {
+									return (
+										<button
+											key={getChatActionKey(action, idx)}
+											type="button"
+											className={`btn ${action.variant === 'primary' ? 'btn-primary' : 'btn-secondary'} btn-sm shrink-0 no-underline inline-flex items-center justify-center px-4 rounded-xl font-semibold transition-all hover:opacity-90 active:scale-[0.98] h-8 text-xs`}
+											onClick={() => navigate(`${parsed.pathname}${parsed.search}${parsed.hash}`)}
+										>
+											{action.label}
+										</button>
+									);
+								}
 								return (
 									<a
 										key={getChatActionKey(action, idx)}
 										href={action.url}
-										target={sameOrigin ? undefined : "_blank"}
-										rel={sameOrigin ? undefined : "noopener noreferrer"}
+										target="_blank"
+										rel="noopener noreferrer"
 										className={`btn ${action.variant === 'primary' ? 'btn-primary' : 'btn-secondary'} btn-sm shrink-0 no-underline inline-flex items-center justify-center px-4 rounded-xl font-semibold transition-all hover:opacity-90 active:scale-[0.98] h-8 text-xs`}
-										onClick={(e) => {
-											try {
-												const parsed = new URL(action.url, window.location.origin);
-												if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
-													e.preventDefault();
-													console.warn('[MessageActions] Blocked unsafe URL protocol:', parsed.protocol);
-													showInfo('Link Cannot Open', `This link uses an unsafe protocol: ${parsed.protocol}`);
-													return;
-												}
-
-												if (parsed.origin === window.location.origin) {
-													e.preventDefault();
-													navigate(`${parsed.pathname}${parsed.search}${parsed.hash}`);
-												}
-											} catch {
-												e.preventDefault();
-												console.warn('[MessageActions] Invalid URL format:', action.url);
-												showInfo('Invalid Link', `Cannot open link with invalid URL format: ${action.url}`);
-											}
-										}}
 									>
 										{action.label}
 									</a>
 								);
-							})()
+							} catch { return null; }
+						})()
 						) : action.type === 'build_brief' ? (
 							resolvedOnBuildBrief ? (
 								<Button

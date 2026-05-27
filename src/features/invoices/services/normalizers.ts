@@ -1,4 +1,4 @@
-import { fromMinorUnits, getMajorAmountValue } from '@/shared/utils/money';
+import { fromMinorUnits } from '@/shared/utils/money';
 import type { Invoice } from '@/features/matters/types/billing.types';
 import type {
   InvoiceDetail,

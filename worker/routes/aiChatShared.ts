@@ -233,7 +233,15 @@ const consumeAiStream = async (
         const msgContent = typeof msgRecord.content === 'string' ? msgRecord.content : null;
         if (msgContent) {
           localReply += msgContent;
-          if (emitTokens) { write({ token: msgContent }); localEmittedToken = true; }
+          if (looksLikeToolLeak(msgContent)) {
+            blockedByPotentialToolLeak = true;
+            streamStalled = true;
+            diagnostics.failClosedReason = 'potential_tool_leak';
+          }
+          if (emitTokens && !blockedByPotentialToolLeak) {
+            write({ token: msgContent });
+            localEmittedToken = true;
+          }
         }
         const msgToolCalls = Array.isArray(msgRecord.tool_calls) ? msgRecord.tool_calls as Array<{
           id?: string;

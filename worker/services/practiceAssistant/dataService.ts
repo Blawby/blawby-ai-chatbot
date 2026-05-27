@@ -277,7 +277,7 @@ const matchesFilter = (record: unknown, filter: PracticeFilter): boolean => {
     case 'on_or_after':
       return Boolean(actual && expected && Date.parse(String(actual)) >= Date.parse(String(expected)));
     case 'exists':
-      return Boolean(filter.value) ? actual !== undefined && actual !== null : actual === undefined || actual === null;
+      return filter.value ? actual !== undefined && actual !== null : actual === undefined || actual === null;
     default:
       return true;
   }
