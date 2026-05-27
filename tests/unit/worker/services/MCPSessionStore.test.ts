@@ -149,7 +149,7 @@ describe('MCPSessionStore.getBySessionId', () => {
     expect(result?.scopes).toEqual([]);
   });
 
-  it('throws when a row contains an unsupported protocol version', async () => {
+  it('returns null (and does not throw) when a row contains an unsupported protocol version', async () => {
     const spy = createSpyEnv();
     spy.setFirstResult({
       session_id: 'sess-1',
@@ -164,7 +164,8 @@ describe('MCPSessionStore.getBySessionId', () => {
       last_seen: '2026-05-20T00:00:00.000Z',
     });
     const store = new MCPSessionStore(spy.env);
-    await expect(store.getBySessionId('sess-1')).rejects.toThrow(/Invalid MCP protocol version/);
+    const result = await store.getBySessionId('sess-1');
+    expect(result).toBeNull();
   });
 });
 

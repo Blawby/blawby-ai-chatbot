@@ -11,7 +11,7 @@
  * presentation-only.
  */
 
-export type McpScopeCategory = 'identity' | 'session' | 'other';
+export type McpScopeCategory = 'matters' | 'clients' | 'invoices' | 'other';
 
 export interface McpScope {
   /** Canonical scope id as issued by the backend OAuth provider. */
@@ -25,38 +25,51 @@ export interface McpScope {
 
 export const MCP_SCOPES: McpScope[] = [
   {
-    id: 'openid',
-    title: 'Sign you in',
-    description: 'Confirm your Blawby identity with the authorization server.',
-    category: 'identity',
+    id: 'matters:read',
+    title: 'View matters',
+    description: 'Allows read-only access to matter details.',
+    category: 'matters',
   },
   {
-    id: 'profile',
-    title: 'View your profile',
-    description: 'Read basic profile details such as your name.',
-    category: 'identity',
+    id: 'matters:write',
+    title: 'Create and update matters',
+    description: 'Allows creating and editing matters.',
+    category: 'matters',
   },
   {
-    id: 'email',
-    title: 'View your email address',
-    description: 'Read the email address on your Blawby account.',
-    category: 'identity',
+    id: 'clients:read',
+    title: 'View clients',
+    description: 'Allows read-only access to client records.',
+    category: 'clients',
   },
   {
-    id: 'offline_access',
-    title: 'Stay connected',
-    description: 'Use a refresh token so you do not have to reconnect every time.',
-    category: 'session',
+    id: 'clients:write',
+    title: 'Create and update clients',
+    description: 'Allows creating and editing client records.',
+    category: 'clients',
+  },
+  {
+    id: 'invoices:read',
+    title: 'View invoices',
+    description: 'Allows read-only access to invoices.',
+    category: 'invoices',
+  },
+  {
+    id: 'invoices:write',
+    title: 'Create and update invoices',
+    description: 'Allows creating and editing invoices.',
+    category: 'invoices',
   },
 ];
 
 export const MCP_SCOPE_CATEGORY_LABELS: Record<McpScopeCategory, string> = {
-  identity: 'Identity access',
-  session: 'Session access',
+  matters: 'Matter access',
+  clients: 'Client access',
+  invoices: 'Invoice access',
   other: 'Additional access',
 };
 
-const CATEGORY_ORDER: McpScopeCategory[] = ['identity', 'session', 'other'];
+const CATEGORY_ORDER: McpScopeCategory[] = ['matters', 'clients', 'invoices', 'other'];
 
 const MCP_SCOPE_BY_ID = new Map<string, McpScope>(MCP_SCOPES.map((scope) => [scope.id, scope]));
 

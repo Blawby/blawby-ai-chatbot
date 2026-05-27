@@ -51,9 +51,12 @@ interface MCPSessionRow {
 const isValidProtocolVersion = (value: string): value is McpProtocolVersion =>
   (SUPPORTED_PROTOCOL_VERSIONS as readonly string[]).includes(value);
 
-const rowToRecord = (row: MCPSessionRow): MCPSessionRecord => {
+const rowToRecord = (row: MCPSessionRow): MCPSessionRecord | null => {
   if (!isValidProtocolVersion(row.protocol_version)) {
-    throw new Error(`Invalid MCP protocol version in session row: ${row.protocol_version}`);
+    console.warn(
+      `MCPSessionStore: skipping session ${row.session_id} — unknown protocol_version "${row.protocol_version}"`,
+    );
+    return null;
   }
 
   return {
@@ -140,7 +143,7 @@ export class MCPSessionStore {
       .prepare(`SELECT * FROM mcp_sessions WHERE session_id = ?`)
       .bind(sessionId)
       .first<MCPSessionRow>();
-    return row ? rowToRecord(row) : null;
+    return row ? rowToRecord(row) ?? null : null;
   }
 
   async listByPractice(practiceId: string): Promise<MCPSessionRecord[]> {
@@ -149,7 +152,7 @@ export class MCPSessionStore {
       .bind(practiceId)
       .all<MCPSessionRow>();
     const rows = result.results ?? [];
-    return rows.map(rowToRecord);
+    return rows.map(rowToRecord).filter((r): r is MCPSessionRecord => r !== null);
   }
 
   async listByUser(userId: string, practiceId: string): Promise<MCPSessionRecord[]> {
@@ -160,7 +163,7 @@ export class MCPSessionStore {
       .bind(userId, practiceId)
       .all<MCPSessionRow>();
     const rows = result.results ?? [];
-    return rows.map(rowToRecord);
+    return rows.map(rowToRecord).filter((r): r is MCPSessionRecord => r !== null);
   }
 
   async deleteSession(sessionId: string): Promise<void> {
