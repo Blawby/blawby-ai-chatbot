@@ -290,15 +290,18 @@ export class McpSession {
       last_activity_at: Date.now(),
     };
     server.serializeAttachment(attachment);
-    this.state.acceptWebSocket(server as unknown as WebSocket, ['mcp']);
-    await this.scheduleIdleAlarm();
 
     // Replay any events newer than the cursor the client supplied via
     // Last-Event-ID. With no cursor, start fresh — live events only.
+    // acceptWebSocket is deferred until after replay so the socket is
+    // not visible to getWebSockets('mcp') during fan-out while we're
+    // still writing buffered events to it.
     const cursorHeader = request.headers.get('Last-Event-ID');
     if (cursorHeader) {
       await this.replayBufferedEvents(server, cursorHeader);
     }
+    this.state.acceptWebSocket(server as unknown as WebSocket, ['mcp']);
+    await this.scheduleIdleAlarm();
 
     return new Response(null, { status: 101, webSocket: client as unknown as WebSocket });
   }
@@ -358,6 +361,12 @@ export class McpSession {
     await this.ensureReplaySchema();
     const payloadJson = JSON.stringify(payload);
     const now = Date.now();
+    const existingRow = this.state.storage.sql
+      .exec<{ event_id: number }>(
+        `SELECT event_id FROM event_replay_buffer WHERE event_id = ? LIMIT 1`,
+        eventIdRaw,
+      )
+      .toArray()[0];
 
     // INSERT OR IGNORE makes the buffer write idempotent. Backend's dispatcher
     // may re-POST a batch after a Worker 5xx, and the PK conflict drops
@@ -380,7 +389,7 @@ export class McpSession {
       payload,
     };
     const encoded = JSON.stringify(frame);
-    if (encoded.length <= MAX_FRAME_BYTES) {
+    if (!existingRow && encoded.length <= MAX_FRAME_BYTES) {
       for (const ws of this.state.getWebSockets('mcp')) {
         try {
           ws.send(encoded);
@@ -467,20 +476,32 @@ export class McpSession {
     await this.ensureReplaySchema();
 
     const cutoff = Date.now() - REPLAY_BUFFER_TTL_MS;
-    const oldestRow = this.state.storage.sql
+    const oldestOverallRow = this.state.storage.sql
       .exec<{ event_id: number; created_at: number }>(
         `SELECT event_id, created_at FROM event_replay_buffer ORDER BY event_id ASC LIMIT 1`,
+      )
+      .toArray()[0];
+    const oldestRow = this.state.storage.sql
+      .exec<{ event_id: number; created_at: number }>(
+        `SELECT event_id, created_at FROM event_replay_buffer WHERE created_at >= ? ORDER BY event_id ASC LIMIT 1`,
+        cutoff,
       )
       .toArray()[0];
 
     // If the client's cursor is older than the oldest buffered event AND that
     // oldest event predates the 7-day window's start, the gap is unrecoverable
     // — emit a single truncation marker before replaying.
-    if (oldestRow && cursor < oldestRow.event_id && oldestRow.created_at < cutoff) {
+    if (
+      oldestOverallRow
+      && oldestRow
+      && cursor < oldestOverallRow.event_id
+      && oldestOverallRow.created_at < cutoff
+    ) {
       const skippedRow = this.state.storage.sql
         .exec<{ count: number }>(
-          `SELECT COUNT(*) as count FROM event_replay_buffer WHERE event_id <= ?`,
+          `SELECT COUNT(*) as count FROM event_replay_buffer WHERE event_id <= ? AND created_at >= ?`,
           oldestRow.event_id - 1,
+          cutoff,
         )
         .toArray()[0];
       const truncationFrame = {
@@ -499,10 +520,11 @@ export class McpSession {
       .exec<ReplayEventRow>(
         `SELECT event_id, event_type, payload, created_at
          FROM event_replay_buffer
-         WHERE event_id > ?
+         WHERE event_id > ? AND created_at >= ?
          ORDER BY event_id ASC
          LIMIT ?`,
         cursor,
+        cutoff,
         MAX_REPLAY_PAGE,
       )
       .toArray();

@@ -56,13 +56,13 @@ export const handleRevokeMySession = async (
     content: [
       {
         type: 'text',
-        text: `Session revoked. Subsequent tool calls from this session will return SESSION_REVOKED within 30 seconds.${reason ? ` Reason recorded: ${reason}` : ''}`,
+        text: 'Session revoked. Subsequent tool calls from this session will return SESSION_REVOKED within 30 seconds.',
       },
     ],
     structuredContent: {
       revoked: true,
       session_id: context.session_id,
-      reason: reason ?? null,
+      reason,
       propagation_ms: 30_000,
     },
   });

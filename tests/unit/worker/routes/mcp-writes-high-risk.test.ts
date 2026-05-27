@@ -163,27 +163,31 @@ describe('dispatchToolCall — high-risk — TRUST_ACCOUNT refusal (R16)', () =>
 
 describe('dispatchToolCall — high-risk — idempotency bucket', () => {
   it('two identical calls within the same minute reuse the idempotency key', async () => {
-    stubFetchOnce({
-      pending_action_id: 'pa_01',
-      approval_url: 'https://app.blawby.com/approve/xxx',
-    });
-    stubFetchOnce({
-      pending_action_id: 'pa_01',
-      approval_url: 'https://app.blawby.com/approve/xxx',
-    });
-    const ctx = buildContext();
-    await dispatchToolCall('send_invoice', sampleInvoiceArgs, ctx);
-    await dispatchToolCall('send_invoice', sampleInvoiceArgs, ctx);
-    const fetchSpy = vi.mocked(globalThis.fetch);
-    const k1 = ((fetchSpy.mock.calls[0][1] as RequestInit).headers as Record<string, string>)[
-      'Idempotency-Key'
-    ];
-    const k2 = ((fetchSpy.mock.calls[1][1] as RequestInit).headers as Record<string, string>)[
-      'Idempotency-Key'
-    ];
-    // Both calls happen within ms of each other — same wall-clock bucket
-    // → same key. Backend will return the cached create-pending response.
-    expect(k1).toBe(k2);
+    vi.useFakeTimers();
+    try {
+      vi.setSystemTime(new Date('2026-01-01T12:00:30.000Z'));
+      stubFetchOnce({
+        pending_action_id: 'pa_01',
+        approval_url: 'https://app.blawby.com/approve/xxx',
+      });
+      stubFetchOnce({
+        pending_action_id: 'pa_01',
+        approval_url: 'https://app.blawby.com/approve/xxx',
+      });
+      const ctx = buildContext();
+      await dispatchToolCall('send_invoice', sampleInvoiceArgs, ctx);
+      await dispatchToolCall('send_invoice', sampleInvoiceArgs, ctx);
+      const fetchSpy = vi.mocked(globalThis.fetch);
+      const k1 = ((fetchSpy.mock.calls[0][1] as RequestInit).headers as Record<string, string>)[
+        'Idempotency-Key'
+      ];
+      const k2 = ((fetchSpy.mock.calls[1][1] as RequestInit).headers as Record<string, string>)[
+        'Idempotency-Key'
+      ];
+      expect(k1).toBe(k2);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });
 

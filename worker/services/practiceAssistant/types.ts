@@ -2,7 +2,6 @@ import type { z } from 'zod';
 import type { Env } from '../../types.js';
 import type { AuthContext } from '../../middleware/auth.js';
 import type {
-  PracticeAssistantActionStatus,
   PracticeAssistantActionSummary,
   PracticeAssistantProgress,
   PracticeAssistantSource,

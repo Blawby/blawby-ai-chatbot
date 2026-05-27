@@ -213,8 +213,11 @@ const defaultRouter = async (request: Request, router: MockRouter): Promise<Resp
   // Idempotency cache for write paths — replay the cached response if
   // the same Idempotency-Key was used before.
   const idemKey = request.headers.get('Idempotency-Key');
-  if (idemKey && (request.method === 'POST' || request.method === 'PATCH')) {
-    const cached = state.idempotency.get(idemKey);
+  const idemCacheKey = idemKey
+    ? `${request.method}:${new URL(request.url).pathname}:${idemKey}`
+    : null;
+  if (idemCacheKey && (request.method === 'POST' || request.method === 'PATCH')) {
+    const cached = state.idempotency.get(idemCacheKey);
     if (cached) return json(cached.body, cached.status);
   }
 
@@ -288,7 +291,7 @@ const defaultRouter = async (request: Request, router: MockRouter): Promise<Resp
     const body = (await request.json()) as { decision: string };
     (intake as Record<string, unknown>).triage_status = body.decision;
     const responseBody = { ...intake };
-    if (idemKey) state.idempotency.set(idemKey, { status: 200, body: responseBody });
+    if (idemCacheKey) state.idempotency.set(idemCacheKey, { status: 200, body: responseBody });
     return json(responseBody);
   }
 
@@ -306,7 +309,7 @@ const defaultRouter = async (request: Request, router: MockRouter): Promise<Resp
     const notes = ((matter as Record<string, unknown>).notes ?? []) as Array<unknown>;
     notes.push(note);
     (matter as Record<string, unknown>).notes = notes;
-    if (idemKey) state.idempotency.set(idemKey, { status: 201, body: note });
+    if (idemCacheKey) state.idempotency.set(idemCacheKey, { status: 201, body: note });
     return json(note, 201);
   }
 
@@ -324,7 +327,7 @@ const defaultRouter = async (request: Request, router: MockRouter): Promise<Resp
       body: body.body,
       sender: 'practice',
     };
-    if (idemKey) state.idempotency.set(idemKey, { status: 201, body: message });
+    if (idemCacheKey) state.idempotency.set(idemCacheKey, { status: 201, body: message });
     return json(message, 201);
   }
 
@@ -368,7 +371,7 @@ const defaultRouter = async (request: Request, router: MockRouter): Promise<Resp
       approval_url: action.approval_url,
       expires_at: action.expires_at,
     };
-    if (idemKey) state.idempotency.set(idemKey, { status: 201, body: responseBody });
+    if (idemCacheKey) state.idempotency.set(idemCacheKey, { status: 201, body: responseBody });
     return json(responseBody, 201);
   }
   const paMatch = /^\/api\/pending-actions\/([^/]+)$/.exec(path);
@@ -383,19 +386,13 @@ const defaultRouter = async (request: Request, router: MockRouter): Promise<Resp
   return json({ error: `Mock backend: no route for ${request.method} ${path}` }, 501);
 };
 
-const NULL_FETCH = (): Promise<Response> => {
-  throw new Error('Original fetch not captured — mock not installed cleanly');
-};
-
-let originalFetch: typeof fetch = NULL_FETCH as typeof fetch;
-
 export const installBackendMock = async (): Promise<InstalledBackendMock> => {
   const keys = await generateBackendKeys();
   const state = newMockState();
   const router: MockRouter = { state, overrides: [] };
   const calls: MockCallRecord[] = [];
 
-  originalFetch = globalThis.fetch;
+  const originalFetch = globalThis.fetch;
   const fetchSpy = vi.spyOn(globalThis, 'fetch').mockImplementation(async (input, init) => {
     const url =
       typeof input === 'string'
@@ -444,11 +441,9 @@ export const installBackendMock = async (): Promise<InstalledBackendMock> => {
     const now = Math.floor(Date.now() / 1000);
     const claims = {
       sub: 'user-1',
-      practice_id: 'practice-1',
-      jti: `jti-${crypto.randomUUID().slice(0, 8)}`,
+      organization_id: 'practice-1',
       scope:
         'intakes:read intakes:write matters:read matters:write invoices:read invoices:send invoices:refund clients:read conversations:read messages:send_as_practice payments:read payments:refund team:read events:subscribe',
-      practice_revocation_epoch_at_issue: 0,
       ...claimsOverrides,
     };
     return new SignJWT(claims)

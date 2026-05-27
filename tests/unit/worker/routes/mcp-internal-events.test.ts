@@ -4,18 +4,13 @@ import { MCPSessionStore } from '../../../../worker/services/MCPSessionStore.js'
 import type { Env } from '../../../../worker/types.js';
 
 /**
- * U8 — Backend->Worker event ingest tests.
+ * Backend->Worker event ingest tests.
  *
- * Covers the dual-factor auth (bearer + HMAC), timestamp skew, body
+ * Auth: single-factor `x-worker-secret` header. Covers auth, body
  * validation, scope filtering, and per-event delivery counts.
- *
- * The DO namespace is faked and records each fanned-out call. The
- * MCPSessionStore is spied (not stubbed against real D1) so the fan-out
- * decision tree is observable.
  */
 
-const BEARER = 'backend-token-test-value';
-const HMAC_KEY = 'hmac-secret-test-value';
+const SECRET = 'worker-event-secret-test';
 
 interface FakeStub {
   fetch: ReturnType<typeof vi.fn>;
@@ -49,34 +44,11 @@ const buildEnv = (
 ): Env =>
   ({
     NODE_ENV: 'test',
-    MCP_BACKEND_TOKEN: BEARER,
-    MCP_BACKEND_HMAC_KEY: HMAC_KEY,
+    WORKER_EVENT_SECRET: SECRET,
     MCP_SESSION: namespace as unknown as Env['MCP_SESSION'],
     DB: {} as Env['DB'],
     ...overrides,
   } as Env);
-
-const hex = (bytes: Uint8Array): string =>
-  Array.from(bytes)
-    .map((b) => b.toString(16).padStart(2, '0'))
-    .join('');
-
-const signRequestBody = async (timestamp: number, body: string): Promise<string> => {
-  const encoder = new TextEncoder();
-  const key = await crypto.subtle.importKey(
-    'raw',
-    encoder.encode(HMAC_KEY),
-    { name: 'HMAC', hash: 'SHA-256' },
-    false,
-    ['sign'],
-  );
-  const sig = await crypto.subtle.sign(
-    'HMAC',
-    key,
-    encoder.encode(`${timestamp}.${body}`),
-  );
-  return hex(new Uint8Array(sig));
-};
 
 const buildEvent = (overrides: Record<string, unknown> = {}) => ({
   event_id: 42,
@@ -87,25 +59,19 @@ const buildEvent = (overrides: Record<string, unknown> = {}) => ({
   ...overrides,
 });
 
-const buildRequest = async (
+const buildRequest = (
   body: { events: unknown[] },
-  headers: Partial<Record<'Authorization' | 'X-Backend-Timestamp' | 'X-Backend-Signature', string>> = {},
-): Promise<Request> => {
-  const bodyText = JSON.stringify(body);
-  const timestamp = Date.now();
-  const signature = await signRequestBody(timestamp, bodyText);
-  return new Request('https://mcp.test/api/mcp/internal/events', {
+  headerOverrides: Record<string, string> = {},
+): Request =>
+  new Request('https://mcp.test/api/mcp/internal/events', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      Authorization: `Bearer ${BEARER}`,
-      'X-Backend-Timestamp': String(timestamp),
-      'X-Backend-Signature': signature,
-      ...headers,
+      'x-worker-secret': SECRET,
+      ...headerOverrides,
     },
-    body: bodyText,
+    body: JSON.stringify(body),
   });
-};
 
 const stubSessionList = (sessions: Parameters<typeof MCPSessionStore.prototype.listByPractice> extends infer _T ? Awaited<ReturnType<typeof MCPSessionStore.prototype.listByPractice>> : never) => {
   return vi
@@ -117,58 +83,31 @@ beforeEach(() => {
   vi.restoreAllMocks();
 });
 
-describe('handleMcpInternalEvents — auth factor (bearer + HMAC)', () => {
-  it('rejects with 503 when MCP_BACKEND_TOKEN is unconfigured', async () => {
-    const env = buildEnv({ MCP_BACKEND_TOKEN: undefined });
-    const response = await handleMcpInternalEvents(await buildRequest({ events: [] }), env);
+describe('handleMcpInternalEvents — auth', () => {
+  it('rejects with 503 when WORKER_EVENT_SECRET is unconfigured', async () => {
+    const env = buildEnv({ WORKER_EVENT_SECRET: undefined });
+    const response = await handleMcpInternalEvents(buildRequest({ events: [buildEvent()] }), env);
     expect(response.status).toBe(503);
+    const body = (await response.json()) as { errorCode: string };
+    expect(body.errorCode).toBe('CONFIG_MISSING');
   });
 
-  it('rejects 403 when bearer mismatches', async () => {
+  it('rejects 403 when x-worker-secret mismatches', async () => {
     const env = buildEnv();
-    const request = await buildRequest(
-      { events: [buildEvent()] },
-      { Authorization: 'Bearer wrong-bearer' },
+    const response = await handleMcpInternalEvents(
+      buildRequest({ events: [buildEvent()] }, { 'x-worker-secret': 'wrong-secret' }),
+      env,
     );
-    const response = await handleMcpInternalEvents(request, env);
     expect(response.status).toBe(403);
   });
 
-  it('rejects 400 when timestamp header is absent', async () => {
+  it('rejects 403 when x-worker-secret header is absent', async () => {
     const env = buildEnv();
-    const request = await buildRequest(
-      { events: [buildEvent()] },
-      { 'X-Backend-Timestamp': '' },
-    );
-    const response = await handleMcpInternalEvents(request, env);
-    expect(response.status).toBe(400);
-  });
-
-  it('rejects 403 when timestamp is older than ±60s tolerance', async () => {
-    const env = buildEnv();
-    const stale = Date.now() - 61_000;
-    const body = JSON.stringify({ events: [buildEvent()] });
-    const sig = await signRequestBody(stale, body);
     const request = new Request('https://mcp.test/api/mcp/internal/events', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${BEARER}`,
-        'X-Backend-Timestamp': String(stale),
-        'X-Backend-Signature': sig,
-      },
-      body,
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ events: [buildEvent()] }),
     });
-    const response = await handleMcpInternalEvents(request, env);
-    expect(response.status).toBe(403);
-  });
-
-  it('rejects 403 when HMAC signature is forged', async () => {
-    const env = buildEnv();
-    const request = await buildRequest(
-      { events: [buildEvent()] },
-      { 'X-Backend-Signature': '00'.repeat(32) },
-    );
     const response = await handleMcpInternalEvents(request, env);
     expect(response.status).toBe(403);
   });
@@ -177,18 +116,13 @@ describe('handleMcpInternalEvents — auth factor (bearer + HMAC)', () => {
 describe('handleMcpInternalEvents — body validation', () => {
   it('rejects 400 on malformed JSON', async () => {
     const env = buildEnv();
-    const bodyText = 'not json {';
-    const timestamp = Date.now();
-    const sig = await signRequestBody(timestamp, bodyText);
     const request = new Request('https://mcp.test/api/mcp/internal/events', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${BEARER}`,
-        'X-Backend-Timestamp': String(timestamp),
-        'X-Backend-Signature': sig,
+        'x-worker-secret': SECRET,
       },
-      body: bodyText,
+      body: 'not json {',
     });
     const response = await handleMcpInternalEvents(request, env);
     expect(response.status).toBe(400);
@@ -196,8 +130,7 @@ describe('handleMcpInternalEvents — body validation', () => {
 
   it('rejects 400 when events array is empty (must be at least one)', async () => {
     const env = buildEnv();
-    const request = await buildRequest({ events: [] });
-    const response = await handleMcpInternalEvents(request, env);
+    const response = await handleMcpInternalEvents(buildRequest({ events: [] }), env);
     expect(response.status).toBe(400);
     const body = (await response.json()) as { errorCode: string };
     expect(body.errorCode).toBe('INVALID_BATCH');
@@ -206,8 +139,7 @@ describe('handleMcpInternalEvents — body validation', () => {
   it('rejects 400 when an event is missing required fields', async () => {
     const env = buildEnv();
     const bad = { event_id: 1 }; // missing event_type, practice_id, payload, created_at
-    const request = await buildRequest({ events: [bad] });
-    const response = await handleMcpInternalEvents(request, env);
+    const response = await handleMcpInternalEvents(buildRequest({ events: [bad] }), env);
     expect(response.status).toBe(400);
   });
 });
@@ -242,10 +174,7 @@ describe('handleMcpInternalEvents — fan-out', () => {
         last_seen: '2026-05-20T00:00:00.000Z',
       },
     ]);
-    const response = await handleMcpInternalEvents(
-      await buildRequest({ events: [buildEvent()] }),
-      env,
-    );
+    const response = await handleMcpInternalEvents(buildRequest({ events: [buildEvent()] }), env);
     expect(response.status).toBe(200);
     const body = (await response.json()) as { results: Array<Record<string, unknown>> };
     expect(body.results[0].delivered_to).toBe(1);
@@ -257,10 +186,7 @@ describe('handleMcpInternalEvents — fan-out', () => {
   it('reports skipped_no_session=true when no sessions exist for the practice', async () => {
     const env = buildEnv();
     stubSessionList([]);
-    const response = await handleMcpInternalEvents(
-      await buildRequest({ events: [buildEvent()] }),
-      env,
-    );
+    const response = await handleMcpInternalEvents(buildRequest({ events: [buildEvent()] }), env);
     expect(response.status).toBe(200);
     const body = (await response.json()) as { results: Array<Record<string, unknown>> };
     expect(body.results[0].skipped_no_session).toBe(true);
@@ -304,10 +230,7 @@ describe('handleMcpInternalEvents — fan-out', () => {
         outcome: 'executed',
       },
     });
-    const response = await handleMcpInternalEvents(
-      await buildRequest({ events: [event] }),
-      env,
-    );
+    const response = await handleMcpInternalEvents(buildRequest({ events: [event] }), env);
     expect(response.status).toBe(200);
     const body = (await response.json()) as { results: Array<Record<string, unknown>> };
     // send_invoice -> invoices:send. The refund session does NOT get it.
@@ -333,21 +256,15 @@ describe('handleMcpInternalEvents — fan-out', () => {
         last_seen: '2026-05-20T00:00:00.000Z',
       },
     ]);
-    // Make the stub for this session reject.
     const stub: FakeStub = { fetch: vi.fn().mockRejectedValue(new Error('DO unreachable')) };
     namespace.__stubs.set('broken-session', stub);
-    // namespace.get currently creates a fresh stub on first call — replace
-    // with one that returns ours when asked for this id.
     (namespace.get as unknown as ReturnType<typeof vi.fn>).mockImplementation(
       (id: { name: string }) => {
         if (id.name === 'broken-session') return stub;
         return { fetch: vi.fn().mockResolvedValue(new Response('{}', { status: 200 })) };
       },
     );
-    const response = await handleMcpInternalEvents(
-      await buildRequest({ events: [buildEvent()] }),
-      env,
-    );
+    const response = await handleMcpInternalEvents(buildRequest({ events: [buildEvent()] }), env);
     expect(response.status).toBe(200);
     const body = (await response.json()) as { results: Array<Record<string, unknown>> };
     expect(body.results[0].errors).toBe(1);

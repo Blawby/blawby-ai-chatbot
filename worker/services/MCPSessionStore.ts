@@ -1,6 +1,9 @@
 import type { D1Database } from '@cloudflare/workers-types';
 import type { Env } from '../types.js';
-import type { McpProtocolVersion } from '../durable-objects/McpSession.js';
+import {
+  SUPPORTED_PROTOCOL_VERSIONS,
+  type McpProtocolVersion,
+} from '../durable-objects/McpSession.js';
 
 /**
  * MCPSessionStore — D1-backed cross-isolate session lookup.
@@ -45,18 +48,27 @@ interface MCPSessionRow {
   last_seen: string;
 }
 
-const rowToRecord = (row: MCPSessionRow): MCPSessionRecord => ({
-  session_id: row.session_id,
-  practice_id: row.practice_id,
-  user_id: row.user_id,
-  jti: row.jti,
-  scopes: parseScopes(row.scopes_json),
-  protocol_version: row.protocol_version as McpProtocolVersion,
-  client_name: row.client_name,
-  last_event_id: row.last_event_id,
-  created_at: row.created_at,
-  last_seen: row.last_seen,
-});
+const isValidProtocolVersion = (value: string): value is McpProtocolVersion =>
+  (SUPPORTED_PROTOCOL_VERSIONS as readonly string[]).includes(value);
+
+const rowToRecord = (row: MCPSessionRow): MCPSessionRecord => {
+  if (!isValidProtocolVersion(row.protocol_version)) {
+    throw new Error(`Invalid MCP protocol version in session row: ${row.protocol_version}`);
+  }
+
+  return {
+    session_id: row.session_id,
+    practice_id: row.practice_id,
+    user_id: row.user_id,
+    jti: row.jti,
+    scopes: parseScopes(row.scopes_json),
+    protocol_version: row.protocol_version,
+    client_name: row.client_name,
+    last_event_id: row.last_event_id,
+    created_at: row.created_at,
+    last_seen: row.last_seen,
+  };
+};
 
 const parseScopes = (json: string): string[] => {
   try {
@@ -84,6 +96,8 @@ export class MCPSessionStore {
           (session_id, practice_id, user_id, jti, scopes_json, protocol_version, client_name, last_event_id, created_at, last_seen)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
          ON CONFLICT(session_id) DO UPDATE SET
+           practice_id = excluded.practice_id,
+           user_id = excluded.user_id,
            jti = excluded.jti,
            scopes_json = excluded.scopes_json,
            protocol_version = excluded.protocol_version,
@@ -158,12 +172,9 @@ export class MCPSessionStore {
 
   async deleteByJti(jti: string): Promise<string[]> {
     const result = await this.db
-      .prepare(`SELECT session_id FROM mcp_sessions WHERE jti = ?`)
+      .prepare(`DELETE FROM mcp_sessions WHERE jti = ? RETURNING session_id`)
       .bind(jti)
       .all<{ session_id: string }>();
-    const sessionIds = (result.results ?? []).map((r) => r.session_id);
-    if (sessionIds.length === 0) return [];
-    await this.db.prepare(`DELETE FROM mcp_sessions WHERE jti = ?`).bind(jti).run();
-    return sessionIds;
+    return (result.results ?? []).map((r) => r.session_id);
   }
 }

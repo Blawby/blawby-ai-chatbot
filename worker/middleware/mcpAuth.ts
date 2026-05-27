@@ -1,44 +1,31 @@
 import { createRemoteJWKSet, errors as joseErrors, jwtVerify } from 'jose';
 import type { JWTPayload, JWTVerifyResult } from 'jose';
 import type { Env } from '../types.js';
-import { MCPRevocationCache } from '../services/MCPRevocationCache.js';
 
 /**
- * withMCPAuth — Bearer JWT validation, audience binding, scope check,
- * revocation epoch + jti denylist check.
+ * withMCPAuth — Bearer JWT validation, audience binding, scope check.
  *
- * Plan R1, R2, R4. The Worker is the OAuth Resource Server; Backend
- * (Better Auth + @better-auth/oauth-provider) is the Authorization
- * Server. We never call Backend per-request — we verify the JWT
- * signature against Backend's JWKS (30s isolate cache) and read the
- * revocation epoch from KV (30s isolate cache via MCPRevocationCache).
+ * The Worker is the OAuth Resource Server; Backend (Better Auth +
+ * @better-auth/oauth-provider) is the Authorization Server. JWT
+ * signature is verified against Backend's JWKS (30s isolate cache).
  *
- * On success the middleware sets four request headers that the existing
- * U6 route surface already forwards to the McpSession DO:
- *   X-Mcp-Practice-Id
+ * Backend issues tokens with claims: sub, organization_id, scope.
+ * No jti or practice_revocation_epoch_at_issue claims are present.
+ *
+ * On success the middleware sets three request headers forwarded to
+ * the McpSession DO:
+ *   X-Mcp-Practice-Id  (populated from organization_id claim)
  *   X-Mcp-User-Id
- *   X-Mcp-Jti
  *   X-Mcp-Scopes (comma-separated)
- * and attaches an MCPAuthContext via WeakMap (same pattern as
- * middleware/compose.ts).
  *
- * Routes that need the resource discovery doc (`.well-known/oauth-
- * protected-resource`) must remain UNAUTHENTICATED — wrap only the
- * `/api/mcp` routes, not the well-known endpoint.
- *
- * Internal events route (`/api/mcp/internal/events`) is service-to-
- * service and authenticates via HMAC + bearer in U8, not via this
- * middleware.
- *
- * See docs/plans/2026-05-15-002-feat-blawby-mcp-agent-surface-plan.md.
+ * Internal events route (`/api/mcp/internal/events`) uses x-worker-secret
+ * single-factor auth, not this middleware.
  */
 
 export interface MCPAuthContext {
   practice_id: string;
   user_id: string;
-  jti: string;
   scopes: Set<string>;
-  revocation_epoch_at_issue: number;
   raw_claims: JWTPayload;
 }
 
@@ -125,15 +112,6 @@ const readScopes = (payload: JWTPayload): Set<string> => {
   return new Set();
 };
 
-const readRevocationEpoch = (payload: JWTPayload): number => {
-  // Backend U1 embeds practice_revocation_epoch_at_issue on token mint.
-  // If absent (older backend revision), treat as 0 — the KV epoch is
-  // also 0 by default, so the comparison is a no-op until backend
-  // starts emitting the claim.
-  const v = payload.practice_revocation_epoch_at_issue;
-  if (typeof v === 'number' && Number.isFinite(v) && v >= 0) return v;
-  return 0;
-};
 
 export class MCPAuthError extends Error {
   constructor(
@@ -182,14 +160,11 @@ const unauthorizedResponse = (
 type RouteHandler = (request: Request, env: Env, ctx: ExecutionContext) => Promise<Response>;
 
 /**
- * Wraps a handler with MCP Bearer-JWT auth. Authoritative validation
- * sequence — order matters, each step is a fast-fail:
+ * Wraps a handler with MCP Bearer-JWT auth. Validation sequence:
  *   1. Extract Bearer
  *   2. Verify JWT signature, audience, expiry via jose+JWKS
- *   3. Read required claims (sub/practice/jti/scope)
- *   4. Check practice revocation epoch (KV)
- *   5. Check jti denylist (KV)
- *   6. Attach context + forward X-Mcp-* headers to inner handler
+ *   3. Read required claims (sub, organization_id, scope)
+ *   4. Attach context + forward X-Mcp-* headers to inner handler
  */
 export const withMCPAuth = (handler: RouteHandler): RouteHandler => {
   return async (request, env, ctx) => {
@@ -224,45 +199,22 @@ export const withMCPAuth = (handler: RouteHandler): RouteHandler => {
     }
 
     const payload = verification.payload;
-    const jti = readStringClaim(payload, ['jti']);
     const subject = readStringClaim(payload, ['sub']);
     const practiceId = readStringClaim(payload, [
+      'organization_id',
       'practice_id',
       'org_id',
       'reference_id',
       'activeOrganizationId',
     ]);
 
-    if (!jti || !subject || !practiceId) {
+    if (!subject || !practiceId) {
       return unauthorizedResponse(
         env,
         request,
         'invalid_token',
-        'Token missing required claims (jti, sub, practice_id)',
+        'Token missing required claims (sub, organization_id)',
         'CLAIMS_INCOMPLETE',
-      );
-    }
-
-    const cache = new MCPRevocationCache(env);
-    const tokenEpoch = readRevocationEpoch(payload);
-    const currentEpoch = await cache.getPracticeEpoch(practiceId);
-    if (currentEpoch > tokenEpoch) {
-      return unauthorizedResponse(
-        env,
-        request,
-        'invalid_token',
-        'Session revoked',
-        'SESSION_REVOKED',
-      );
-    }
-
-    if (await cache.isJtiRevoked(jti)) {
-      return unauthorizedResponse(
-        env,
-        request,
-        'invalid_token',
-        'Token has been revoked',
-        'JTI_REVOKED',
       );
     }
 
@@ -270,9 +222,7 @@ export const withMCPAuth = (handler: RouteHandler): RouteHandler => {
     const context: MCPAuthContext = {
       practice_id: practiceId,
       user_id: subject,
-      jti,
       scopes,
-      revocation_epoch_at_issue: tokenEpoch,
       raw_claims: payload,
     };
     authContextStore.set(request, context);
@@ -283,7 +233,6 @@ export const withMCPAuth = (handler: RouteHandler): RouteHandler => {
     const forwarded = new Request(request, request);
     forwarded.headers.set('X-Mcp-Practice-Id', context.practice_id);
     forwarded.headers.set('X-Mcp-User-Id', context.user_id);
-    forwarded.headers.set('X-Mcp-Jti', context.jti);
     forwarded.headers.set('X-Mcp-Scopes', Array.from(context.scopes).join(','));
     authContextStore.set(forwarded, context);
 

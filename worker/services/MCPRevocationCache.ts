@@ -45,12 +45,26 @@ const stats: CacheStats = { epochHits: 0, epochMisses: 0, jtiHits: 0, jtiMisses:
 
 const now = (): number => Date.now();
 
+const MAX_CACHE_SIZE = 1000;
+
+const pruneCache = <T>(cache: Map<string, CacheEntry<T>>): void => {
+  const nowMs = now();
+  for (const [key, entry] of cache) {
+    if (entry.expiresAt <= nowMs) cache.delete(key);
+  }
+  // Evict oldest entries (insertion order) when still over the limit.
+  while (cache.size > MAX_CACHE_SIZE) {
+    cache.delete(cache.keys().next().value!);
+  }
+};
+
 const getKv = (env: Env): KVNamespace => env.CHAT_SESSIONS;
 
 export class MCPRevocationCache {
   constructor(private readonly env: Env) {}
 
   async getPracticeEpoch(practiceId: string): Promise<number> {
+    pruneCache(epochCache);
     const key = `${EPOCH_KEY_PREFIX}${practiceId}`;
     const cached = epochCache.get(key);
     if (cached && cached.expiresAt > now()) {
@@ -66,6 +80,7 @@ export class MCPRevocationCache {
   }
 
   async isJtiRevoked(jti: string): Promise<boolean> {
+    pruneCache(jtiCache);
     const key = `${JTI_KEY_PREFIX}${jti}`;
     const cached = jtiCache.get(key);
     if (cached && cached.expiresAt > now()) {
@@ -85,6 +100,7 @@ export class MCPRevocationCache {
    * Bumps the cached value and KV in one go.
    */
   async incrementPracticeEpoch(practiceId: string): Promise<number> {
+    pruneCache(epochCache);
     const key = `${EPOCH_KEY_PREFIX}${practiceId}`;
     const current = await this.getPracticeEpoch(practiceId);
     const next = current + 1;
@@ -99,6 +115,7 @@ export class MCPRevocationCache {
    * explicitly killed.
    */
   async revokeJti(jti: string, ttlSeconds = 3600): Promise<void> {
+    pruneCache(jtiCache);
     const key = `${JTI_KEY_PREFIX}${jti}`;
     await getKv(this.env).put(key, '1', { expirationTtl: ttlSeconds });
     jtiCache.set(key, { value: true, expiresAt: now() + CACHE_TTL_MS });

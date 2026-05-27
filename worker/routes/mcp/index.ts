@@ -72,10 +72,13 @@ const isMcpOriginAllowed = (origin: string | null, env: Env): boolean => {
 
 const getResourceMetadataUrl = (request: Request, env: Env): string => {
   if (env.MCP_BACKEND_AUDIENCE) {
-    return `${env.MCP_BACKEND_AUDIENCE.replace(/\/$/, '')}/.well-known/oauth-protected-resource`;
+    try {
+      return `${new URL(env.MCP_BACKEND_AUDIENCE).origin}/.well-known/oauth-protected-resource`;
+    } catch {
+      // Malformed audience — fall through to request origin.
+    }
   }
-  const url = new URL(request.url);
-  return `${url.origin}/.well-known/oauth-protected-resource`;
+  return `${new URL(request.url).origin}/.well-known/oauth-protected-resource`;
 };
 
 const unauthorizedResponse = (request: Request, env: Env, message = 'Unauthorized'): Response =>
@@ -102,13 +105,15 @@ const buildDoRequest = (
   init?: { method?: string; body?: BodyInit | null },
 ): Request => {
   const headers = new Headers();
-  // Pass through identity headers (set by U7's withMCPAuth — absent in U6).
+  // Pass through identity headers (set by withMCPAuth).
   for (const name of ['X-Mcp-Practice-Id', 'X-Mcp-User-Id', 'X-Mcp-Jti', 'X-Mcp-Scopes']) {
     const value = request.headers.get(name);
     if (value) headers.set(name, value);
   }
   // Pass through MCP transport headers.
   for (const name of [
+    'Mcp-Protocol-Version',
+    'Mcp-Session-Id',
     'Last-Event-ID',
     'Upgrade',
     'Connection',
@@ -220,25 +225,17 @@ export async function handleMcpWebSocket(request: Request, env: Env): Promise<Re
 }
 
 /**
- * Backend → Worker event ingest (U8).
+ * Backend → Worker event ingest.
  *
- * Dual-factor authentication: a constant-time bearer compare against
- * `MCP_BACKEND_TOKEN` AND an HMAC-SHA256 signature over
- * `${X-Backend-Timestamp}.${canonical_body}` using `MCP_BACKEND_HMAC_KEY`.
- * Timestamp must be within ±60s. Both factors required — if the bearer
- * leaks an attacker still can't forge events without the HMAC key.
+ * Single-factor auth: `x-worker-secret` header matched constant-time
+ * against `WORKER_EVENT_SECRET`. Backend sends this header; no HMAC,
+ * no timestamp — the shared secret is the only gate.
  *
  * Body validates against `McpEventBatch` (zod). Each event is fanned
  * out to every active McpSession DO for the practice whose granted
  * scopes cover the event class. At-least-once delivery; per-session
  * dedup happens inside the DO via `event_id` PK.
- *
- * The return body summarizes delivery so backend's dispatcher can
- * decide whether to retry. We never throw; per-event errors are
- * counted and returned 200.
  */
-const TIMESTAMP_SKEW_MS = 60_000;
-
 const constantTimeEquals = (a: string, b: string): boolean => {
   if (a.length !== b.length) return false;
   let diff = 0;
@@ -248,80 +245,30 @@ const constantTimeEquals = (a: string, b: string): boolean => {
   return diff === 0;
 };
 
-const hexEncode = (bytes: Uint8Array): string =>
-  Array.from(bytes)
-    .map((b) => b.toString(16).padStart(2, '0'))
-    .join('');
-
-const computeHmacSha256 = async (key: string, message: string): Promise<string> => {
-  const encoder = new TextEncoder();
-  const cryptoKey = await crypto.subtle.importKey(
-    'raw',
-    encoder.encode(key),
-    { name: 'HMAC', hash: 'SHA-256' },
-    false,
-    ['sign'],
-  );
-  const signature = await crypto.subtle.sign('HMAC', cryptoKey, encoder.encode(message));
-  return hexEncode(new Uint8Array(signature));
-};
-
 export async function handleMcpInternalEvents(request: Request, env: Env): Promise<Response> {
   if (request.method !== 'POST') {
     return new Response('Method not allowed', { status: 405 });
   }
 
-  // 1. Configuration must be present. A misconfigured worker MUST NOT
-  //    accept events even from a valid backend — fail closed.
-  if (!env.MCP_BACKEND_TOKEN || !env.MCP_BACKEND_HMAC_KEY) {
+  if (!env.WORKER_EVENT_SECRET) {
     return new Response(
-      JSON.stringify({
-        error: 'MCP backend ingest not configured',
-        errorCode: 'CONFIG_MISSING',
-      }),
+      JSON.stringify({ error: 'Event ingest not configured', errorCode: 'CONFIG_MISSING' }),
       { status: 503, headers: { 'Content-Type': 'application/json' } },
     );
   }
 
-  // 2. Bearer factor (constant-time compare to avoid timing attacks).
-  const authHeader = request.headers.get('Authorization');
-  const bearer = authHeader?.startsWith('Bearer ') ? authHeader.slice(7).trim() : '';
-  if (!bearer || !constantTimeEquals(bearer, env.MCP_BACKEND_TOKEN)) {
+  const secret = request.headers.get('x-worker-secret') ?? '';
+  if (!constantTimeEquals(secret, env.WORKER_EVENT_SECRET)) {
     return new Response('Forbidden', { status: 403 });
   }
 
-  // 3. Timestamp + HMAC factor.
-  const timestampHeader = request.headers.get('X-Backend-Timestamp');
-  const signatureHeader = request.headers.get('X-Backend-Signature');
-  if (!timestampHeader || !signatureHeader) {
-    return new Response('Missing X-Backend-Timestamp or X-Backend-Signature', { status: 400 });
-  }
-  const timestamp = Number.parseInt(timestampHeader, 10);
-  if (!Number.isFinite(timestamp)) {
-    return new Response('Invalid X-Backend-Timestamp', { status: 400 });
-  }
-  if (Math.abs(Date.now() - timestamp) > TIMESTAMP_SKEW_MS) {
-    return new Response('Timestamp skew exceeds tolerance', { status: 403 });
-  }
-
-  // Read body once. crypto signature is computed over the raw bytes
-  // before any JSON parsing so we don't accidentally re-serialize.
-  const bodyText = await request.text();
-  const expectedSignature = await computeHmacSha256(
-    env.MCP_BACKEND_HMAC_KEY,
-    `${timestampHeader}.${bodyText}`,
-  );
-  if (!constantTimeEquals(signatureHeader, expectedSignature)) {
-    return new Response('Forbidden', { status: 403 });
-  }
-
-  // 4. Body validates against the zod schema.
   let parsed: unknown;
   try {
-    parsed = JSON.parse(bodyText);
+    parsed = await request.json();
   } catch {
     return new Response('Invalid JSON', { status: 400 });
   }
+
   const batchResult = McpEventBatchSchema.safeParse(parsed);
   if (!batchResult.success) {
     return new Response(
@@ -334,18 +281,12 @@ export async function handleMcpInternalEvents(request: Request, env: Env): Promi
     );
   }
 
-  // 5. Fan out. Run events in parallel — they're independent. Per-event
-  //    errors are captured in the response so the dispatcher can decide
-  //    which to retry, but we always return 200.
   const results = await Promise.all(
     batchResult.data.events.map((event) => fanOutEventToSessions(env, event)),
   );
 
   return new Response(
-    JSON.stringify({
-      accepted_count: batchResult.data.events.length,
-      results,
-    }),
+    JSON.stringify({ accepted_count: batchResult.data.events.length, results }),
     { status: 200, headers: { 'Content-Type': 'application/json' } },
   );
 }

@@ -104,11 +104,11 @@ describe('dispatchToolCall — direct writes — URL + headers + idempotency', (
     const [url, init] = fetchSpy.mock.calls[0];
     expect(String(url)).toBe('https://backend.test/api/practice-client-intakes/intake_01/triage');
     expect((init as RequestInit).method).toBe('POST');
-    const headers = (init as RequestInit).headers as Record<string, string>;
-    expect(headers.Authorization).toBe('Bearer svc-token');
-    expect(headers['X-Mcp-Practice-Id']).toBe('practice-1');
-    expect(headers['Idempotency-Key']).toMatch(/^[0-9a-f]{64}$/);
-    expect(headers['Content-Type']).toBe('application/json');
+    const headers = new Headers((init as RequestInit).headers as HeadersInit);
+    expect(headers.get('Authorization')).toBe('Bearer svc-token');
+    expect(headers.get('X-Mcp-Practice-Id')).toBe('practice-1');
+    expect(headers.get('Idempotency-Key')).toMatch(/^[0-9a-f]{64}$/);
+    expect(headers.get('Content-Type')).toBe('application/json');
     const body = JSON.parse((init as RequestInit).body as string);
     expect(body.decision).toBe('accepted');
     expect(body.note).toBe('ok');
@@ -139,12 +139,8 @@ describe('dispatchToolCall — direct writes — URL + headers + idempotency', (
     await dispatchToolCall('add_matter_note', args, ctx);
     await dispatchToolCall('add_matter_note', args, ctx);
     const fetchSpy = vi.mocked(globalThis.fetch);
-    const k1 = ((fetchSpy.mock.calls[0][1] as RequestInit).headers as Record<string, string>)[
-      'Idempotency-Key'
-    ];
-    const k2 = ((fetchSpy.mock.calls[1][1] as RequestInit).headers as Record<string, string>)[
-      'Idempotency-Key'
-    ];
+    const k1 = new Headers((fetchSpy.mock.calls[0][1] as RequestInit).headers as HeadersInit).get('Idempotency-Key');
+    const k2 = new Headers((fetchSpy.mock.calls[1][1] as RequestInit).headers as HeadersInit).get('Idempotency-Key');
     expect(k1).toBe(k2);
   });
 

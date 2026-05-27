@@ -11,17 +11,14 @@ import {
   __resetMCPAuthJwksCacheForTest,
   requireScope,
 } from '../../../../worker/middleware/mcpAuth.js';
-import { __resetMCPRevocationCacheForTest } from '../../../../worker/services/MCPRevocationCache.js';
 import type { Env } from '../../../../worker/types.js';
 
 /**
- * U7 auth middleware tests.
+ * withMCPAuth unit tests.
  *
- * We mint real RS256 JWTs against a per-test keypair and serve the JWK
- * via a stubbed fetch (jose's createRemoteJWKSet pulls over HTTPS; we
- * intercept it at the global fetch boundary). Tests cover the
- * happy-path verify, audience binding, expiry, claim shape, scope
- * derivation, and the two KV-backed revocation signals.
+ * Mint real RS256 JWTs against a per-test keypair; intercept fetch at the
+ * global boundary to serve the JWK. Backend issues tokens with:
+ *   sub, organization_id, scope — no jti, no revocation epoch.
  */
 
 interface TestKeyMaterial {
@@ -55,57 +52,27 @@ const mintToken = async (
 ): Promise<string> => {
   const claims = {
     sub: 'user-1',
-    practice_id: 'practice-1',
-    jti: 'jti-1',
+    organization_id: 'practice-1',
     scope: 'intakes:read events:subscribe',
-    practice_revocation_epoch_at_issue: 0,
     ...opts.claims,
   };
   const expiresIn = opts.expiresInSeconds ?? 300;
   const now = Math.floor(Date.now() / 1000);
-  const jwt = await new SignJWT(claims)
+  return new SignJWT(claims)
     .setProtectedHeader({ alg: 'RS256', kid: keys.kid })
-    .setIssuedAt(now + (opts.notBefore ?? 0))
+    .setIssuedAt(now)
+    .setNotBefore(now + (opts.notBefore ?? 0))
     .setExpirationTime(now + expiresIn)
     .setAudience(opts.audience ?? 'https://mcp.test/api/mcp')
     .setIssuer(opts.issuer ?? 'https://backend.test')
     .sign(keys.privateKey);
-  return jwt;
 };
 
-const createFakeKv = (
-  initial: Record<string, string> = {},
-): { kv: Env['CHAT_SESSIONS']; setRaw: (key: string, value: string | null) => void } => {
-  const store = new Map<string, string>(Object.entries(initial));
-  const kv = {
-    get: vi.fn(async (key: string) => store.get(key) ?? null),
-    put: vi.fn(async (key: string, value: string) => {
-      store.set(key, value);
-    }),
-    delete: vi.fn(async (key: string) => {
-      store.delete(key);
-    }),
-    list: vi.fn(async () => ({ keys: [] })),
-    getWithMetadata: vi.fn(),
-  } as unknown as Env['CHAT_SESSIONS'];
-  return {
-    kv,
-    setRaw: (key, value) => {
-      if (value === null) store.delete(key);
-      else store.set(key, value);
-    },
-  };
-};
-
-const buildEnv = (
-  overrides: Partial<Env> = {},
-  kv: Env['CHAT_SESSIONS'] = createFakeKv().kv,
-): Env =>
+const buildEnv = (overrides: Partial<Env> = {}): Env =>
   ({
     NODE_ENV: 'test',
     BACKEND_API_URL: 'https://backend.test',
     MCP_BACKEND_AUDIENCE: 'https://mcp.test/api/mcp',
-    CHAT_SESSIONS: kv,
     ...overrides,
   } as Env);
 
@@ -138,7 +105,6 @@ const okHandler = vi.fn(
 
 beforeEach(async () => {
   __resetMCPAuthJwksCacheForTest();
-  __resetMCPRevocationCacheForTest();
   vi.restoreAllMocks();
   keys = await generateTestKeys();
   installJwksFetchStub(keys);
@@ -160,7 +126,7 @@ describe('withMCPAuth — happy path', () => {
     const forwarded = okHandler.mock.calls[0][0] as Request;
     expect(forwarded.headers.get('X-Mcp-Practice-Id')).toBe('practice-1');
     expect(forwarded.headers.get('X-Mcp-User-Id')).toBe('user-1');
-    expect(forwarded.headers.get('X-Mcp-Jti')).toBe('jti-1');
+    expect(forwarded.headers.get('X-Mcp-Jti')).toBeNull();
     expect(forwarded.headers.get('X-Mcp-Scopes')?.split(',').sort()).toEqual(
       ['events:subscribe', 'intakes:read'].sort(),
     );
@@ -240,7 +206,7 @@ describe('withMCPAuth — failure modes', () => {
   });
 
   it('returns 401 CLAIMS_INCOMPLETE when required claims are missing', async () => {
-    const token = await mintToken(keys, { claims: { jti: '', practice_id: '' } });
+    const token = await mintToken(keys, { claims: { organization_id: '' } });
     const env = buildEnv();
     const response = await withMCPAuth(okHandler)(
       buildRequest({ Authorization: `Bearer ${token}` }),
@@ -250,52 +216,6 @@ describe('withMCPAuth — failure modes', () => {
     expect(response.status).toBe(401);
     const body = (await response.json()) as { error: { data: { code: string } } };
     expect(body.error.data.code).toBe('CLAIMS_INCOMPLETE');
-  });
-});
-
-describe('withMCPAuth — revocation', () => {
-  it('rejects when the practice revocation epoch advanced past the token', async () => {
-    const token = await mintToken(keys, {
-      claims: { practice_revocation_epoch_at_issue: 5 },
-    });
-    const { kv } = createFakeKv({ 'mcp:rev:practice-1': '7' });
-    const env = buildEnv({}, kv);
-    const response = await withMCPAuth(okHandler)(
-      buildRequest({ Authorization: `Bearer ${token}` }),
-      env,
-      ctx,
-    );
-    expect(response.status).toBe(401);
-    const body = (await response.json()) as { error: { data: { code: string } } };
-    expect(body.error.data.code).toBe('SESSION_REVOKED');
-  });
-
-  it('passes when the token epoch equals the current epoch (not strictly less)', async () => {
-    const token = await mintToken(keys, {
-      claims: { practice_revocation_epoch_at_issue: 5 },
-    });
-    const { kv } = createFakeKv({ 'mcp:rev:practice-1': '5' });
-    const env = buildEnv({}, kv);
-    const response = await withMCPAuth(okHandler)(
-      buildRequest({ Authorization: `Bearer ${token}` }),
-      env,
-      ctx,
-    );
-    expect(response.status).toBe(200);
-  });
-
-  it('rejects when the jti is on the denylist', async () => {
-    const token = await mintToken(keys);
-    const { kv } = createFakeKv({ 'mcp:jti:jti-1': '1' });
-    const env = buildEnv({}, kv);
-    const response = await withMCPAuth(okHandler)(
-      buildRequest({ Authorization: `Bearer ${token}` }),
-      env,
-      ctx,
-    );
-    expect(response.status).toBe(401);
-    const body = (await response.json()) as { error: { data: { code: string } } };
-    expect(body.error.data.code).toBe('JTI_REVOKED');
   });
 });
 

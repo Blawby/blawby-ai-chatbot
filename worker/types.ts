@@ -167,20 +167,19 @@ export interface Env {
    * requires a coordinated 24h drain since in-flight idempotency keys
    * are invalidated immediately.
    */
-  IDEMPOTENCY_SALT: string;
+  IDEMPOTENCY_SALT?: string;
 
-  // MCP server config (U6 scaffolding; U7/U8 activate the rest).
-  // MCP_BACKEND_AUDIENCE — canonical resource URL emitted in the
-  //   /.well-known/oauth-protected-resource document and enforced as the `aud`
-  //   claim on Bearer JWTs in U7. If unset, the well-known doc derives the
-  //   value from the request URL so local dev works without explicit config.
-  // MCP_BACKEND_TOKEN — service token for the Backend->Worker internal events
-  //   route. Set via `wrangler secret put`; never committed. Activated in U8.
-  // MCP_BACKEND_HMAC_KEY — second factor for the same internal route
-  //   (HMAC-SHA256 over timestamp + canonical body). Activated in U8.
+  // MCP server config.
+  // MCP_BACKEND_AUDIENCE — canonical resource URL for the
+  //   /.well-known/oauth-protected-resource document and JWT `aud` enforcement.
+  //   If unset, derived from the request URL (local dev).
+  // MCP_BACKEND_TOKEN — service token the Worker sends when calling backend
+  //   REST endpoints from MCP tool handlers.
+  // WORKER_EVENT_SECRET — secret backend sends in `x-worker-secret` header
+  //   on the /api/mcp/internal/events ingest route.
   MCP_BACKEND_AUDIENCE?: string;
   MCP_BACKEND_TOKEN?: string;
-  MCP_BACKEND_HMAC_KEY?: string;
+  WORKER_EVENT_SECRET?: string;
 
   CLOUDFLARE_ACCOUNT_ID?: string;
   CLOUDFLARE_API_TOKEN?: string;

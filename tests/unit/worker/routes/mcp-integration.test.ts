@@ -6,7 +6,6 @@ import { MCPSessionStore } from '../../../../worker/services/MCPSessionStore.js'
 import {
   __resetMCPAuthJwksCacheForTest,
 } from '../../../../worker/middleware/mcpAuth.js';
-import { __resetMCPRevocationCacheForTest } from '../../../../worker/services/MCPRevocationCache.js';
 import {
   installBackendMock,
   type InstalledBackendMock,
@@ -26,7 +25,7 @@ import { vi } from 'vitest';
  *   - high-risk tools route to /api/pending-actions and return the
  *     approval envelope
  *   - trust-account refusal propagates verbatim
- *   - revoke_my_session bumps the KV epoch
+ *   - revoke_my_session terminates the session
  */
 
 let mock: InstalledBackendMock;
@@ -91,12 +90,11 @@ const callDirectly = async (
   // tool call directly. We skip the DO routing path because that
   // requires a working DurableObjectStub; the dispatcher reads the same
   // identity the DO would.
-  let attached: { practice_id: string; user_id: string; jti: string; scopes: Set<string> } | null = null;
+  let attached: { practice_id: string; user_id: string; scopes: Set<string> } | null = null;
   const inner = async (forwarded: Request) => {
     attached = {
       practice_id: forwarded.headers.get('X-Mcp-Practice-Id') ?? '',
       user_id: forwarded.headers.get('X-Mcp-User-Id') ?? '',
-      jti: forwarded.headers.get('X-Mcp-Jti') ?? '',
       scopes: new Set(
         (forwarded.headers.get('X-Mcp-Scopes') ?? '').split(',').filter(Boolean),
       ),
@@ -112,7 +110,7 @@ const callDirectly = async (
     session_id: 'sess-1',
     practice_id: attached.practice_id,
     user_id: attached.user_id,
-    jti: attached.jti,
+    jti: '',
     scopes: attached.scopes,
     env,
     tool_call_seq: id,
@@ -122,7 +120,6 @@ const callDirectly = async (
 
 beforeEach(async () => {
   __resetMCPAuthJwksCacheForTest();
-  __resetMCPRevocationCacheForTest();
   mock = await installBackendMock();
 });
 
@@ -131,7 +128,7 @@ afterEach(() => {
 });
 
 describe('MCP transport — end-to-end against backend mock', () => {
-  it('OAuth handshake → tools/list returns the 27-tool catalog', async () => {
+  it('OAuth handshake → withMCPAuth propagates identity headers', async () => {
     const env = buildEnv();
     const token = await mock.mintToken();
 
@@ -289,7 +286,7 @@ describe('MCP transport — end-to-end against backend mock', () => {
 
   it('expired token is rejected at withMCPAuth before reaching the dispatcher', async () => {
     const env = buildEnv();
-    const expired = await mock.mintToken();
+    await mock.mintToken();
     // Manually mint an expired token by overriding exp via a custom JWT.
     // Easier: call withMCPAuth with a token whose `exp` is in the past.
     const { SignJWT } = await import('jose');
@@ -306,7 +303,6 @@ describe('MCP transport — end-to-end against backend mock', () => {
       .setExpirationTime(now - 60)
       .setAudience('https://mcp.test/api/mcp')
       .sign(mock.keys.privateKey);
-    void expired;
 
     const request = new Request('https://mcp.test/api/mcp', {
       method: 'POST',
@@ -320,31 +316,6 @@ describe('MCP transport — end-to-end against backend mock', () => {
     expect(body.error.data.code).toBe('TOKEN_EXPIRED');
   });
 
-  it('revoke_my_session bumps the KV epoch; a subsequent call with the old token is rejected', async () => {
-    const env = buildEnv();
-    const token = await mock.mintToken({
-      practice_revocation_epoch_at_issue: 0,
-    });
-    // Stub D1 deletion so revoke handler succeeds end-to-end.
-    vi.spyOn(MCPSessionStore.prototype, 'deleteSession').mockResolvedValue(undefined);
-
-    const r1 = await callDirectly(env, token, { name: 'revoke_my_session', args: {} });
-    if ('authFailed' in r1) throw new Error('auth failed');
-    expect(isOk(r1.outcome)).toBe(true);
-
-    // The KV epoch was bumped; now any token issued at epoch=0 is
-    // SESSION_REVOKED.
-    const request = new Request('https://mcp.test/api/mcp', {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${token}` },
-      body: '{}',
-    });
-    const guarded = withMCPAuth(async () => new Response('OK', { status: 200 }));
-    const response = await guarded(request, env, ctx);
-    expect(response.status).toBe(401);
-    const body = (await response.json()) as { error: { data: { code: string } } };
-    expect(body.error.data.code).toBe('SESSION_REVOKED');
-  });
 });
 
 // Avoid unused-import warning for handleMcp — kept around for future

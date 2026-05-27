@@ -123,6 +123,28 @@ describe('dispatchToolCall — scope enforcement', () => {
   });
 });
 
+describe('dispatchToolCall — input schema validation', () => {
+  it('treats blank required strings as missing', async () => {
+    const outcome = await dispatchToolCall('get_matter', { matter_id: '   ' }, buildContext());
+    expect(isOk(outcome)).toBe(false);
+    if (isOk(outcome)) throw new Error('expected error');
+    expect(outcome.error.code).toBe(-32602);
+    expect(outcome.error.data?.code).toBe('INVALID_PARAMS');
+    expect(outcome.error.data?.details).toEqual(
+      expect.arrayContaining([expect.objectContaining({ field: 'matter_id', message: 'required' })]),
+    );
+  });
+
+  it('enforces numeric min/max constraints from the tool schema', async () => {
+    const outcome = await dispatchToolCall('list_intakes', { limit: 101 }, buildContext());
+    expect(isOk(outcome)).toBe(false);
+    if (isOk(outcome)) throw new Error('expected error');
+    expect(outcome.error.data?.details).toEqual(
+      expect.arrayContaining([expect.objectContaining({ field: 'limit', message: 'must be <= 100' })]),
+    );
+  });
+});
+
 describe('dispatchToolCall — read tool proxy', () => {
   it('list_intakes builds the backend URL with practice_id query', async () => {
     stubFetchOnce({ results: [] });
@@ -280,6 +302,8 @@ describe('dispatchToolCall — revoke_my_session', () => {
     const ctx = buildContext({ env });
     const outcome = await dispatchToolCall('revoke_my_session', { reason: 'paste injection' }, ctx);
     expect(isOk(outcome)).toBe(true);
+    if (!isOk(outcome)) throw new Error('expected success');
+    expect((outcome.result as { structuredContent: { reason: string | null } }).structuredContent.reason).toBe('paste injection');
 
     const kv = env.CHAT_SESSIONS as unknown as { put: ReturnType<typeof vi.fn> };
     const putCalls = kv.put.mock.calls;

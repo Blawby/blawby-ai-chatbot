@@ -14,6 +14,7 @@ import {
   type FieldValidator,
   type WritableField,
 } from '../../../worker/services/practiceAssistant/EntityRegistry.js';
+import type { PracticeAssistantSource } from '../../../worker/types/wire/practiceAssistant.js';
 
 afterEach(() => {
   vi.restoreAllMocks();
@@ -664,7 +665,7 @@ describe('practice assistant message adapter', () => {
       { type: 'intake', id: 'i1', label: 'Intake 1' },
       { type: 'intake', id: 'i1', label: 'Intake 1 duplicate' },
       { type: 'matter', id: 'm1', label: 'Matter 1' },
-    ]);
+    ]) as PracticeAssistantSource[];
 
     expect(sources).toEqual([
       { type: 'intake', id: 'i1', label: 'Intake 1' },

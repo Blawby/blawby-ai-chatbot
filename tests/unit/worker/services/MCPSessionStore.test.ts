@@ -148,31 +148,48 @@ describe('MCPSessionStore.getBySessionId', () => {
     const result = await store.getBySessionId('sess-1');
     expect(result?.scopes).toEqual([]);
   });
+
+  it('throws when a row contains an unsupported protocol version', async () => {
+    const spy = createSpyEnv();
+    spy.setFirstResult({
+      session_id: 'sess-1',
+      practice_id: 'practice-1',
+      user_id: 'user-1',
+      jti: 'jti-1',
+      scopes_json: JSON.stringify(['matters:read']),
+      protocol_version: '2024-01-01',
+      client_name: null,
+      last_event_id: 0,
+      created_at: '2026-05-20T00:00:00.000Z',
+      last_seen: '2026-05-20T00:00:00.000Z',
+    });
+    const store = new MCPSessionStore(spy.env);
+    await expect(store.getBySessionId('sess-1')).rejects.toThrow(/Invalid MCP protocol version/);
+  });
 });
 
 describe('MCPSessionStore.deleteByJti', () => {
   beforeEach(() => vi.resetAllMocks());
 
-  it('returns the deleted session_ids and issues a DELETE', async () => {
+  it('returns the deleted session_ids in a single atomic DELETE ... RETURNING', async () => {
     const spy = createSpyEnv();
     spy.setAllResults([{ session_id: 's1' }, { session_id: 's2' }]);
     const store = new MCPSessionStore(spy.env);
     const result = await store.deleteByJti('jti-target');
     expect(result).toEqual(['s1', 's2']);
-    // Two prepared calls: one SELECT to find session_ids, one DELETE.
-    expect(spy.prepared).toHaveLength(2);
-    expect(spy.prepared[0].sql).toContain('SELECT session_id');
-    expect(spy.prepared[1].sql).toContain('DELETE FROM mcp_sessions');
+    expect(spy.prepared).toHaveLength(1);
+    expect(spy.prepared[0].sql).toContain('DELETE FROM mcp_sessions');
+    expect(spy.prepared[0].sql).toContain('RETURNING session_id');
   });
 
-  it('returns an empty array and does not issue DELETE when no rows match', async () => {
+  it('returns an empty array when no rows match', async () => {
     const spy = createSpyEnv();
     spy.setAllResults([]);
     const store = new MCPSessionStore(spy.env);
     const result = await store.deleteByJti('jti-absent');
     expect(result).toEqual([]);
     expect(spy.prepared).toHaveLength(1);
-    expect(spy.prepared[0].sql).toContain('SELECT session_id');
+    expect(spy.prepared[0].sql).toContain('DELETE FROM mcp_sessions');
   });
 });
 

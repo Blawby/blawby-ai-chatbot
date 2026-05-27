@@ -134,9 +134,11 @@ export const handleHighRiskTool = async (
     } catch {
       // body unreadable; keep empty detail
     }
-    const data = detail as { code?: string; description?: string };
-    if (data.code === 'TRUST_ACCOUNT_NOT_SUPPORTED') {
-      return toolErr(-32603, data.description ?? 'Trust-account matter not supported by MCP', {
+    const data = detail as { code?: string; description?: string; data?: { code?: string; description?: string } };
+    const code = data.code ?? data.data?.code;
+    const description = data.description ?? data.data?.description;
+    if (code === 'TRUST_ACCOUNT_NOT_SUPPORTED') {
+      return toolErr(-32603, description ?? 'Trust-account matter not supported by MCP', {
         code: 'TRUST_ACCOUNT_NOT_SUPPORTED',
         retryable: false,
         http_status: 422,

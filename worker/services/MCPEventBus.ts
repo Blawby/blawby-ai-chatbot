@@ -112,7 +112,7 @@ export const fanOutEventToSessions = async (
       delivered_to: 0,
       skipped_no_scope: sessions.length,
       skipped_no_session: false,
-      errors: 0,
+      errors: 1,
     };
   }
 

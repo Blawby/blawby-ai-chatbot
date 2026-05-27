@@ -283,11 +283,10 @@ describe('handleMcpWebSocket', () => {
   });
 });
 
-describe('handleMcpInternalEvents (U8)', () => {
-  // Full coverage of HMAC + bearer + fan-out lives in
-  // tests/unit/worker/routes/mcp-internal-events.test.ts. These tests
-  // are the route-table-facing surface checks only.
-  it('returns 503 CONFIG_MISSING when MCP_BACKEND_TOKEN is unset', async () => {
+describe('handleMcpInternalEvents', () => {
+  // Full auth + fan-out coverage lives in mcp-internal-events.test.ts.
+  // These tests are the route-table surface checks only.
+  it('returns 503 CONFIG_MISSING when WORKER_EVENT_SECRET is unset', async () => {
     const env = buildEnv();
     const response = await handleMcpInternalEvents(
       buildRequest('POST', '/api/mcp/internal/events', { body: '{}' }),
