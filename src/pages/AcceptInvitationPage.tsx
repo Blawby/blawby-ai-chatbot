@@ -160,7 +160,7 @@ const Card = ({ tone = 'default', children }: { tone?: 'default' | 'error'; chil
         "mx-auto max-w-xl rounded-2xl border p-6 text-sm",
         tone === 'error'
           ? "border-accent-error/30 bg-accent-error/5 text-accent-error-foreground backdrop-blur-xl"
-          : "glass-card text-input-text"
+          : "card text-input-text"
       )}
     >
       {children}

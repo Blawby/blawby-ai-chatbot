@@ -19,7 +19,7 @@ export const ResponsiveDefinitionGrid = ({
   return (
     <div
       className={cn(
-        'grid grid-cols-1 divide-y divide-line-glass/5 @2xl:grid-cols-2 @2xl:divide-x @2xl:divide-y-0 @2xl:divide-line-glass/5',
+        'grid grid-cols-1 divide-y divide-line-subtle @2xl:grid-cols-2 @2xl:divide-x @2xl:divide-y-0 @2xl:divide-line-subtle',
         className
       )}
     >

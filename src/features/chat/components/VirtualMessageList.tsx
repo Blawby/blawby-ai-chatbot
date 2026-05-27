@@ -128,7 +128,14 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
     const intakeStatus = intakeContext.intakeStatus;
     const intakeConversationState = intakeContext.intakeConversationState;
 
-    const participantsByUserId = useConversationParticipants(practiceId, conversationId);
+    const shouldResolveParticipantProfiles = Boolean(
+        (typingUserIds && typingUserIds.length > 0) ||
+        (readReceiptsByUser && readReceiptsByUser.size > 0)
+    );
+    const participantsByUserId = useConversationParticipants(
+        shouldResolveParticipantProfiles ? practiceId : null,
+        shouldResolveParticipantProfiles ? conversationId : null
+    );
 
     const typingParticipants = useMemo<readonly TypingParticipant[]>(() => {
         if (!typingUserIds || typingUserIds.length === 0) return [];

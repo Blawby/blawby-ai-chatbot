@@ -19,6 +19,13 @@ export interface DialogProps {
   contentClassName?: string;
   ariaLabelledBy?: string;
   ariaDescribedBy?: string;
+  /**
+   * Render as a non-blocking overlay: no backdrop scrim, the app behind stays
+   * interactive (clicks fall through), body scroll is not locked, and focus is
+   * not trapped. For non-modal announcements like the post-onboarding welcome
+   * that must not intercept the user's first navigation click. Default false.
+   */
+  nonBlocking?: boolean;
 }
 
 export const Dialog: FunctionComponent<DialogProps> = ({
@@ -32,6 +39,7 @@ export const Dialog: FunctionComponent<DialogProps> = ({
   contentClassName,
   ariaLabelledBy,
   ariaDescribedBy,
+  nonBlocking = false,
 }) => {
   const dialogRef = useRef<HTMLDivElement | null>(null);
   const previousFocusRef = useRef<HTMLElement | null>(null);
@@ -50,7 +58,9 @@ export const Dialog: FunctionComponent<DialogProps> = ({
     const dialog = dialogRef.current;
     previousFocusRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     registerModal(dialogId);
-    lockBodyScroll();
+    // Non-blocking dialogs don't lock scroll or trap focus — the app behind
+    // must stay fully usable while they're shown.
+    if (!nonBlocking) lockBodyScroll();
     if (dialog) {
       dialog.setAttribute('data-dialog-open', 'true');
       focusInitialElement(dialog);
@@ -71,7 +81,7 @@ export const Dialog: FunctionComponent<DialogProps> = ({
         return;
       }
 
-      if (e.key === 'Tab' && dialogRef.current) {
+      if (!nonBlocking && e.key === 'Tab' && dialogRef.current) {
         trapFocusWithin(e, dialogRef.current);
       }
     };
@@ -82,39 +92,50 @@ export const Dialog: FunctionComponent<DialogProps> = ({
       document.removeEventListener('keydown', handleEscape);
       dialog?.removeAttribute('data-dialog-open');
       unregisterModal(dialogId);
-      unlockBodyScroll();
+      if (!nonBlocking) unlockBodyScroll();
       if (previousFocusRef.current?.isConnected) {
         previousFocusRef.current.focus();
       }
       previousFocusRef.current = null;
     };
-  }, [dialogId, isOpen]);
+  }, [dialogId, isOpen, nonBlocking]);
 
   if (!isOpen) return null;
 
   return createPortal(
     <div
-      className="fixed inset-0 flex items-center justify-center p-4"
+      className={cn(
+        'fixed inset-0 flex items-center justify-center p-4',
+        // Non-blocking: let clicks fall through to the app behind so the nav
+        // rail and other chrome stay usable while the dialog is shown.
+        nonBlocking && 'pointer-events-none'
+      )}
       style={{ zIndex: THEME.zIndex.modal }}
     >
-      {/* Backdrop Scrim */}
-      <div
-        role="presentation"
-        // eslint-disable-next-line custom/no-hardcoded-colors
-        className="ui-overlay-enter fixed inset-0 bg-black/30 backdrop-blur-[2px] dark:bg-black/40"
-        style={{ zIndex: -1 }}
-        onClick={disableBackdropClick ? undefined : () => onCloseRef.current()}
-      />
+      {/* Backdrop Scrim — omitted when non-blocking so the app behind stays
+          fully visible and interactive. */}
+      {!nonBlocking && (
+        <div
+          role="presentation"
+          // eslint-disable-next-line custom/no-hardcoded-colors
+          className="ui-overlay-enter fixed inset-0 bg-black/30 backdrop-blur-[2px] dark:bg-black/40"
+          style={{ zIndex: -1 }}
+          onClick={disableBackdropClick ? undefined : () => onCloseRef.current()}
+        />
+      )}
 
       <div
         ref={dialogRef}
         role="dialog"
-        aria-modal="true"
+        aria-modal={nonBlocking ? 'false' : 'true'}
         aria-labelledby={title ? titleId : ariaLabelledBy}
         aria-describedby={description ? descriptionId : ariaDescribedBy}
         tabIndex={-1}
         className={cn(
-          'ui-surface-enter glass-card relative flex max-h-[90dvh] w-full max-w-lg flex-col rounded-2xl text-input-text',
+          'ui-surface-enter card relative flex max-h-[90dvh] w-full max-w-lg flex-col rounded-2xl text-input-text',
+          // Re-enable pointer events on the card; the non-blocking wrapper
+          // above turns them off for click-through.
+          nonBlocking && 'pointer-events-auto',
           contentClassName
         )}
       >

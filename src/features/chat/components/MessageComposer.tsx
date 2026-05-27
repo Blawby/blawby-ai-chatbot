@@ -317,6 +317,7 @@ const MessageComposer = ({
   // Public widget hides file upload entirely — public users cannot upload.
   // Authenticated client/practice workspaces keep the attachment menu.
   const canShowAttachmentMenu = !hideAttachmentControls && !isPublicWorkspace && !isRecording && !isComposerDisabled && Boolean(isReadyToUpload);
+  const canShowAudioRecording = features.enableAudioRecording && !isPublicWorkspace && !isComposerDisabled;
 
   const textareaClasses = "w-full min-h-8 py-2 m-0 text-sm sm:text-base leading-[1.45] text-input-text bg-transparent border-none resize-none outline-none overflow-hidden box-border placeholder:text-input-placeholder transition-all duration-200";
 
@@ -398,7 +399,7 @@ const MessageComposer = ({
               dropped here in favor of inline flex so the icons live inside the
               pill rather than beside it. */}
           <div className="w-full">
-            <div className={`min-w-0 relative flex w-full items-end gap-1 glass-input min-h-12 ${isInputExpanded ? 'rounded-2xl py-2 px-2' : 'rounded-full py-1 px-2'} ${isInputFocused ? 'ring-2 ring-accent-500/40 border-accent-500/40' : ''}`}>
+            <div className={`min-w-0 relative flex w-full items-end gap-1 input-surface min-h-12 ${isInputExpanded ? 'rounded-2xl py-2 px-2' : 'rounded-full py-1 px-2'} ${isInputFocused ? 'ring-2 ring-accent-500/40 border-accent-500/40' : ''}`}>
               {canShowAttachmentMenu && (
                 <div className="flex-shrink-0 self-end">
                   <FileMenu
@@ -411,7 +412,7 @@ const MessageComposer = ({
               {showScrollFade && (
                 <div
                   className={`pointer-events-none absolute top-2 h-4 bg-gradient-to-b from-surface-app-frame/60 dark:from-black/20 to-transparent z-10
-                    ${canShowAttachmentMenu ? (features.enableAudioRecording && !isRecording ? 'right-20 left-12' : 'right-12 left-12') : (features.enableAudioRecording && !isRecording ? 'right-20 left-2' : 'right-12 left-2')}
+                    ${canShowAttachmentMenu ? (canShowAudioRecording && !isRecording ? 'right-20 left-12' : 'right-12 left-12') : (canShowAudioRecording && !isRecording ? 'right-20 left-2' : 'right-12 left-2')}
                   `}
                 />
               )}
@@ -480,7 +481,7 @@ const MessageComposer = ({
                 <div 
                   id="mention-listbox"
                   role="listbox"
-                  className="absolute bottom-full left-2 right-2 z-40 mb-2 overflow-hidden rounded-xl border border-line-glass/10 bg-surface-workspace dark:bg-surface-overlay/95 shadow-glass backdrop-blur-2xl"
+                  className="absolute bottom-full left-2 right-2 z-40 mb-2 overflow-hidden rounded-xl border border-line-subtle bg-surface-workspace dark:bg-surface-overlay/95 shadow-glass backdrop-blur-2xl"
                 >
                   <div className="max-h-56 overflow-y-auto py-1">
                     {filteredMentionCandidates.map((candidate, index) => (
@@ -504,7 +505,7 @@ const MessageComposer = ({
                   </div>
                 </div>
               ) : null}
-              {features.enableAudioRecording && !isComposerDisabled ? (
+              {canShowAudioRecording ? (
                 <div className="flex-shrink-0 self-end">
                   <MediaControls onMediaCapture={handleMediaCapture} onRecordingStateChange={setIsRecording} />
                 </div>

@@ -1,12 +1,6 @@
 import { useState } from 'preact/hooks';
 import { ChevronDown, Download } from 'lucide-preact';
 import { Button } from '@/shared/ui/Button';
-import {
-  DropdownMenu,
-  DropdownMenuCheckboxItem,
-  DropdownMenuContent,
-  DropdownMenuTrigger,
-} from '@/shared/ui/dropdown';
 import { Dialog, DialogBody, DialogFooter } from '@/shared/ui/dialog';
 import { CurrencyInput, Input } from '@/shared/ui/input';
 import { useToastContext } from '@/shared/contexts/ToastContext';
@@ -23,7 +17,6 @@ const PRACTICE_COLUMN_OPTIONS: ColumnEditorOption[] = [
 ];
 
 export interface InvoiceListFilterState {
-  statuses: string[];
   createdFrom?: string;
   createdTo?: string;
   dueFrom?: string;
@@ -39,16 +32,6 @@ interface InvoiceFilterChipsProps {
   onVisibleColumnsChange: (next: InvoiceColumnKey[]) => void;
 }
 
-const STATUS_OPTIONS: Array<{ value: string; label: string }> = [
-  { value: 'draft', label: 'Draft' },
-  { value: 'sent', label: 'Sent' },
-  { value: 'open', label: 'Open' },
-  { value: 'pending', label: 'Pending' },
-  { value: 'overdue', label: 'Overdue' },
-  { value: 'paid', label: 'Paid' },
-  { value: 'void', label: 'Void' },
-  { value: 'cancelled', label: 'Cancelled' },
-];
 
 const Chip = ({
   active,
@@ -65,7 +48,7 @@ const Chip = ({
     className={`inline-flex items-center gap-1 rounded-full border px-3 py-1 text-xs transition-colors ${
       active
         ? 'border-accent-foreground/50 bg-accent-foreground/10 text-[rgb(var(--accent-foreground))]'
-        : 'border-line-glass/30 bg-surface-utility/30 text-input-placeholder hover:text-input-text'
+        : 'border-line-subtle bg-surface-utility/30 text-input-placeholder hover:text-input-text'
     }`}
   >
     {children}
@@ -107,37 +90,8 @@ export const InvoiceFilterChips = ({
     setTotalOpen(false);
   };
 
-  const toggleStatus = (value: string, next: boolean) => {
-    const set = new Set(filters.statuses);
-    if (next) set.add(value);
-    else set.delete(value);
-    onChange({ ...filters, statuses: Array.from(set) });
-  };
-
   return (
     <div className="flex flex-wrap items-center gap-2">
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Chip active={filters.statuses.length > 0}>
-            <ChipLabel
-              label="Status"
-              value={filters.statuses.length > 0 ? `${filters.statuses.length}` : undefined}
-            />
-          </Chip>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="start" className="w-56 p-2">
-          {STATUS_OPTIONS.map((option) => (
-            <DropdownMenuCheckboxItem
-              key={option.value}
-              checked={filters.statuses.includes(option.value)}
-              onCheckedChange={(next) => toggleStatus(option.value, next)}
-            >
-              {option.label}
-            </DropdownMenuCheckboxItem>
-          ))}
-        </DropdownMenuContent>
-      </DropdownMenu>
-
       <Chip
         active={Boolean(filters.createdFrom || filters.createdTo)}
         onClick={() => openDialog('created')}

@@ -288,15 +288,14 @@ export const InvoicesTable: FunctionComponent<InvoicesTableProps> = ({
         toolbar={toolbar}
         emptyState={emptyMessage ?? 'No invoices found'}
         errorState={error ? (
-          <div className="glass-panel rounded-xl p-4 text-sm text-red-300">
+          <div className="panel rounded-xl p-4 text-sm text-red-300">
             Failed to load invoices: {error}
           </div>
         ) : undefined}
         loading={loading}
         loadingLabel="Loading invoices"
-        className="glass-panel rounded-xl overflow-hidden"
+        className="panel overflow-hidden"
         tableClassName="text-left text-sm"
-        rowClassName="border-b border-line-glass/20 last:border-b-0"
         bodyClassName="bg-transparent"
         stickyHeader
         density="compact"
@@ -305,7 +304,7 @@ export const InvoicesTable: FunctionComponent<InvoicesTableProps> = ({
         onLoadMore={onLoadMore}
       />
       {footer ? (
-        <div className="border-t border-line-glass/30 px-4 py-3 text-sm text-input-placeholder">
+        <div className="border-t border-line-subtle px-4 py-3 text-sm text-input-placeholder">
           <div>{footer}</div>
         </div>
       ) : null}

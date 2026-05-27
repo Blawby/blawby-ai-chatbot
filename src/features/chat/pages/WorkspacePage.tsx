@@ -36,7 +36,6 @@ import { useWorkspaceSetup } from './hooks/useWorkspaceSetup';
 import { useWorkspaceData } from './hooks/useWorkspaceData';
 import { useConversationPreviews } from './hooks/useConversationPreviews';
 import { useWorkspaceInspectorActions } from './hooks/useWorkspaceInspectorActions';
-import { useInvoiceBuilderTopBar } from './hooks/useInvoiceBuilderTopBar';
 import { useWorkspaceAutoNavigation } from './hooks/useWorkspaceAutoNavigation';
 import { useRecentMessage } from './hooks/useRecentMessage';
 import { useToastContext } from '@/shared/contexts/ToastContext';
@@ -104,7 +103,6 @@ interface WorkspacePageProps {
   workspace?: 'public' | 'practice' | 'client';
   settingsView?: SettingsView;
   settingsAppId?: string;
-  settingsIntakeTemplateSlug?: string;
   routeInvoiceId?: string | null;
   routeReportDeliveryId?: string | null;
   onStartNewConversation: (
@@ -143,8 +141,8 @@ interface WorkspacePageProps {
   invoicesView?: ComponentChildren | ((statusFilter: string[], onDetailInspector?: (() => void), detailInspectorOpen?: boolean, detailHeaderLeadingAction?: ComponentChildren) => ComponentChildren);
   invoicesListContent?: ComponentChildren | ((statusFilter: string[]) => ComponentChildren);
   reportsView?: ComponentChildren | ((title: string, reportType: string, deliveryId: string | null) => ComponentChildren);
-  intakesView?: ComponentChildren | ((activeFilter: string | null) => ComponentChildren);
-  engagementsView?: ComponentChildren | ((activeFilter: string | null) => ComponentChildren);
+  intakesView?: ComponentChildren | (() => ComponentChildren);
+  engagementsView?: ComponentChildren | (() => ComponentChildren);
   filesView?: ComponentChildren;
   primaryCreateAction?: WorkspacePrimaryCreateAction | null;
   mockConversations?: Conversation[] | null;
@@ -204,7 +202,6 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
   workspace = 'public',
   settingsView = 'general',
   settingsAppId,
-  settingsIntakeTemplateSlug,
   routeInvoiceId: _,
   routeReportDeliveryId,
   onStartNewConversation,
@@ -288,9 +285,14 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
     conversationsPath,
     withWidgetQuery,
     isIntakeTemplateEditorRoute,
+    isIntakeResponseDetailRoute,
     selectedMatterIdFromPath,
     isMatterNonListRoute,
     selectedContactIdFromPath,
+    isEngagementCreateRoute,
+    isEngagementDetailRoute,
+    isEngagementEditRoute,
+    isReportDeliveryDetailRoute,
     previewUrls,
     handleDashboardCreateInvoice,
     workspaceSection,
@@ -912,7 +914,18 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
       onViewIntake={(intakeId) => navigate(`${normalizedBase}/intakes/responses/${encodeURIComponent(intakeId)}`)}
     />
   );
-  const showBottomNav = !isIntakeTemplateEditorRoute && shouldShowWorkspaceBottomNav({
+  const isFullscreenEditorRoute = (view === 'intakes' && isIntakeTemplateEditorRoute)
+    || isEngagementCreateRoute
+    || isEngagementEditRoute;
+  const isLocalDetailHeaderRoute = isIntakeResponseDetailRoute
+    || Boolean(selectedMatterIdFromPath)
+    || Boolean(selectedContactIdFromPath)
+    || view === 'invoiceDetail'
+    || view === 'settings'
+    || view === 'coverage'
+    || (isEngagementDetailRoute && !isEngagementEditRoute)
+    || isReportDeliveryDetailRoute;
+  const showBottomNav = !isFullscreenEditorRoute && shouldShowWorkspaceBottomNav({
     isMobileLayout,
     workspace,
     view,
@@ -938,7 +951,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
     />
   ) : undefined;
 
-  const sidebarConfig = navConfig.rail.length > 0 && !isIntakeTemplateEditorRoute
+  const sidebarConfig = navConfig.rail.length > 0 && !isFullscreenEditorRoute
     ? buildSidebarConfig(navConfig, workspaceSection)
     : null;
 
@@ -999,18 +1012,6 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
       handleNavActivate();
       return;
     }
-    // Matters > Engagements is a peer route, not a filter; navigate explicitly.
-    if (workspaceSection === 'matters' && id === 'engagements' && item.href) {
-      navigate(item.href);
-      handleNavActivate();
-      return;
-    }
-    // On /engagements, the Matters sub-items still render (Matters owns the rail
-    // section) but selecting one only flips the filter — it doesn't navigate.
-    // Force a route back to /matters so the filter actually takes effect.
-    if (workspaceSection === 'matters' && view === 'engagements' && item.href) {
-      navigate(item.href);
-    }
     handleSecondaryFilterSelect(id);
     handleNavActivate();
   };
@@ -1048,23 +1049,20 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
     coverage: 'Coverage',
   };
   const baseHeaderTitle = SECTION_TITLES[workspaceSection] ?? 'Home';
+  const sectionHeaderTitle = workspaceSection === 'intakes'
+    ? activeSecondaryFilter === 'forms' ? 'Forms' : 'Responses'
+    : baseHeaderTitle;
   // Reflect draft state in the shell header so the user has a clear visual
   // anchor for "I'm composing a new conversation" — important on mobile where
   // the listPanel isn't visible alongside the draft view.
   const draftHeaderLabel = draftConversation
     ? (draftConversation.contactName?.trim() || 'New conversation')
     : null;
-  const headerTitle = draftHeaderLabel ?? baseHeaderTitle;
-  const headerBreadcrumb = orgDisplayName
-    ? draftHeaderLabel
-      ? [orgDisplayName, baseHeaderTitle, draftHeaderLabel]
-      : [orgDisplayName, baseHeaderTitle]
-    : undefined;
+  const headerTitle = draftHeaderLabel ?? sectionHeaderTitle;
   const shellHeader = sidebarOrg ? (
     <WorkspaceShellHeader
       orgInitial={sidebarOrg.initial}
       title={headerTitle}
-      breadcrumb={headerBreadcrumb}
       onMenuClick={() => setIsMobileNavOpen(true)}
       onSearchClick={() => openCommandPalette()}
     />
@@ -1087,7 +1085,14 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
   const renderSidebarTree = (forceExpanded: boolean) => {
     if (!sidebarConfig || !sidebarOrg || !practiceSlug) return undefined;
     const commonProps = {
-      org: { name: sidebarOrg.name, initial: sidebarOrg.initial, subtitle: sidebarOrg.plan },
+      org: {
+        id: currentPractice?.id,
+        slug: currentPractice?.slug || practiceSlug,
+        name: sidebarOrg.name,
+        initial: sidebarOrg.initial,
+        subtitle: sidebarOrg.plan,
+        logoUrl: currentPractice?.logo ?? null,
+      },
       user: sidebarUser,
       collapsed: isDesktopSidebarCollapsed,
       forceExpanded,
@@ -1101,7 +1106,6 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
       <PracticeSidebar
         {...commonProps}
         practiceSlug={practiceSlug}
-        services={practiceDetails?.services ?? currentPractice?.services}
         counts={sidebarCounts}
       />
     ) : (
@@ -1116,8 +1120,6 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
     workspaceSection,
     view,
     isPracticeWorkspace,
-    selectedMatterIdFromPath,
-    isMatterNonListRoute,
     selectedContactIdFromPath,
   });
   // The global WorkspaceShellHeader provides the mobile menu button now, so the
@@ -1175,12 +1177,8 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
     && !mattersDataForView.isLoading
     && !mattersDataForView.error
     && mattersDataForView.items.length === 0;
-  // Pencil oYsFt mobile tab bar — practice mobile sees segmented filters
-  // (Your Messages / Unassigned / All) above the search input. On desktop the
-  // same filters live in the sidebar's secondary nav, so tabs are mobile-only.
-  const mobileMessageTabs = useMemo(() => {
+  const messageFilterTabs = useMemo(() => {
     if (!isPracticeWorkspace) return null;
-    if (layoutMode === 'desktop') return null;
     // Short single-word labels keep all three tabs visible without truncation
     // on a 390-wide viewport ("Your Messages" + "Unassigned" used to overflow).
     const options = [
@@ -1196,7 +1194,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
       options,
       onChange: (next: string) => handleSecondaryFilterSelect(next),
     };
-  }, [isPracticeWorkspace, layoutMode, activeSecondaryFilter, handleSecondaryFilterSelect]);
+  }, [isPracticeWorkspace, activeSecondaryFilter, handleSecondaryFilterSelect]);
 
   const listContent = (
     <MessagesListPanel
@@ -1213,15 +1211,15 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
         : null}
       onSelectDraftEntry={handleEnterDraftMode}
       activeConversationId={activeConversationId}
-      tabs={mobileMessageTabs}
+      tabs={messageFilterTabs}
     />
   );
   const desktopCreate = layoutMode === 'desktop' ? desktopCreateButton ?? undefined : undefined;
   const mattersContent = resolveViewContent(
     mattersView,
     [mattersStatusFilter, workspacePrefetchData, toggleDetailInspector, detailInspectorOpen, desktopCreate] as const,
-    <div className="flex flex-1 flex-col glass-card">
-      <div className="mx-6 my-6 glass-panel p-5">
+    <div className="flex flex-1 flex-col card">
+      <div className="mx-6 my-6 panel p-5">
         <div className="text-sm text-input-placeholder">
           Your active matters will appear here once a practice connects them to your account.
         </div>
@@ -1231,13 +1229,13 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
       </div>
     </div>
   );
-  const intakesContent = resolveViewContent(intakesView, [activeSecondaryFilter] as const);
-  const engagementsContent = resolveViewContent(engagementsView, [activeSecondaryFilter] as const);
+  const intakesContent = resolveViewContent(intakesView, [] as const);
+  const engagementsContent = resolveViewContent(engagementsView, [] as const);
   const contactsContent = resolveViewContent(
     contactsView,
     [contactsStatusFilter, workspacePrefetchData, toggleDetailInspector, detailInspectorOpen, desktopCreate] as const,
-    <div className="flex flex-1 flex-col glass-card">
-      <div className="mx-6 my-6 glass-panel p-5">
+    <div className="flex flex-1 flex-col card">
+      <div className="mx-6 my-6 panel p-5">
         <p className="text-sm text-input-placeholder">
           Manage contacts and relationship statuses here.
         </p>
@@ -1247,8 +1245,8 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
   const invoicesContent = resolveViewContent(
     invoicesView,
     [invoicesStatusFilter, toggleDetailInspector, detailInspectorOpen, desktopCreate] as const,
-    <div className="flex flex-1 flex-col glass-card">
-      <div className="mx-6 my-6 glass-panel p-5">
+    <div className="flex flex-1 flex-col card">
+      <div className="mx-6 my-6 panel p-5">
         <p className="text-sm text-input-placeholder">
           Invoice details and payments will appear here.
         </p>
@@ -1266,7 +1264,6 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
       practiceSlug={practiceSlug}
       view={settingsView}
       appId={settingsAppId}
-      intakeTemplateSlug={settingsIntakeTemplateSlug}
       apps={mockApps}
       className="h-full"
     />
@@ -1306,6 +1303,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
             : null}
           onSelectDraftEntry={handleEnterDraftMode}
           activeConversationId={activeConversationId}
+          tabs={messageFilterTabs}
         />
       </Panel>
     </div>
@@ -1313,62 +1311,14 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
   const conversationListPanel = layoutMode === 'desktop' && (view === 'list' || view === 'conversation')
     ? conversationListView
     : undefined;
-  const mobileSectionTitle = (() => {
-    if (view === 'conversation') return null;
-    if (view === 'reports') {
-      return WORKSPACE_REPORT_SECTION_TITLES[activeSecondaryFilter ?? 'all-reports'] ?? WORKSPACE_REPORT_SECTION_TITLES['all-reports'];
-    }
-    switch (view) {
-      case 'list':
-        return 'Messages';
-      case 'intakes':
-        return 'Intakes';
-      case 'intakeDetail':
-        return null;
-      case 'matters':
-        return selectedMatterIdFromPath || isMatterNonListRoute ? null : 'Matters';
-      case 'contacts':
-        return selectedContactIdFromPath ? null : 'Contacts';
-      case 'invoices':
-        return 'Invoices';
-      case 'invoiceCreate':
-      case 'invoiceEdit':
-      case 'invoiceDetail':
-        return null;
-      case 'engagements':
-        return 'Engagements';
-      case 'files':
-        return 'Files';
-      case 'settings':
-        return 'Settings';
-      case 'coverage':
-        return 'Coverage';
-      case 'home':
-        return 'Home';
-      case 'setup':
-        return 'Setup';
-      default:
-        return null;
-    }
-  })();
-  const mobileSectionTopBar = layoutMode !== 'desktop' && view !== 'conversation' && !isIntakeTemplateEditorRoute && (mobileCreateButton || mobileSectionTitle)
+  const mobileSectionTopBar = layoutMode !== 'desktop' && view !== 'conversation' && !isFullscreenEditorRoute && mobileCreateButton
     ? (
       <WorkspaceListHeader
-        title={mobileSectionTitle ? <h1 className="workspace-header__title">{mobileSectionTitle}</h1> : undefined}
-        centerTitle={Boolean(mobileSectionTitle)}
         controls={mobileCreateButton ?? undefined}
         className="px-1 py-1"
       />
     )
     : undefined;
-  const invoiceBuilderTopBar = useInvoiceBuilderTopBar({
-    view,
-    workspace,
-    practiceSlug,
-    navigate,
-    layoutMode,
-    primaryCreateAction,
-  });
   const sectionContent = (() => {
     // On mobile the listPanel is hidden — when in draft mode we want the
     // draft view to take over the main pane instead of staying on the list.
@@ -1393,8 +1343,6 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
       case 'contacts':
         return contactsContent;
       case 'invoices':
-      case 'invoiceCreate':
-      case 'invoiceEdit':
       case 'invoiceDetail':
         return invoicesContent;
       case 'reports':
@@ -1441,7 +1389,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
     if (view === 'contacts') {
       return { kind: 'full-page', overflow: 'hidden' };
     }
-    if (view === 'invoices' || view === 'invoiceDetail' || view === 'invoiceCreate' || view === 'invoiceEdit') {
+    if (view === 'invoices' || view === 'invoiceDetail') {
       return { kind: 'full-page', overflow: 'auto' };
     }
     if (view === 'reports') {
@@ -1456,7 +1404,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
       content={sectionContent}
       chatView={draftView ?? chatView}
       layout={sectionLayout}
-      topBar={invoiceBuilderTopBar ?? (layoutMode === 'desktop' ? undefined : mobileSectionTopBar)}
+      topBar={layoutMode === 'desktop' ? undefined : mobileSectionTopBar}
       bottomNav={bottomNav}
     />
   );
@@ -1545,19 +1493,18 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
     }
   };
 
-  // Editor views should be full-page without the persistent app navigation sidebar
-  const isEditorView = (view === 'settings' && settingsView === 'intake-forms-editor') || view === 'invoiceEdit';
+  const shouldRenderShellHeader = !isFullscreenEditorRoute && !isLocalDetailHeaderRoute;
   
   return (
     <>
       <AppShell
         className="bg-transparent h-dvh"
         accentBackdropVariant="none"
-        header={shellHeader}
-        sidebar={isEditorView ? undefined : sidebarNav}
+        header={shouldRenderShellHeader ? shellHeader : undefined}
+        sidebar={isFullscreenEditorRoute ? undefined : sidebarNav}
         desktopSidebarCollapsed={isDesktopSidebarCollapsed}
-        mobileSidebar={isEditorView ? undefined : mobileSidebarNav}
-        listPanel={conversationListPanel ?? matterListPanel ?? contactsListPanel ?? invoicesListPanel}
+        mobileSidebar={isFullscreenEditorRoute ? undefined : mobileSidebarNav}
+        listPanel={isFullscreenEditorRoute ? undefined : (conversationListPanel ?? matterListPanel ?? contactsListPanel ?? invoicesListPanel)}
         inspector={activeInspector ?? undefined}
         inspectorMobileOpen={detailInspectorOpen && isMobileLayout}
         onInspectorMobileClose={() => setIsInspectorOpen(false)}

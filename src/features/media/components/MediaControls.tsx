@@ -165,7 +165,7 @@ const MediaControls: FunctionComponent<MediaControlsProps> = ({
 				aria-label="Record audio message"
 				aria-pressed={isRecording}
 				disabled={permissionDenied}
-				className="shadow-lg border bg-surface-utility/10 border-line-glass/20 hover:bg-surface-utility/20 hover:border-line-glass/30 hover:scale-105 disabled:opacity-60 disabled:cursor-not-allowed focus:outline-none focus:ring-0 focus-visible:ring-2 focus-visible:ring-line-glass/30 focus-visible:ring-offset-0 active:scale-100"
+				className="shadow-lg border bg-surface-utility/10 border-line-subtle hover:bg-surface-utility/20 hover:border-line-subtle hover:scale-105 disabled:opacity-60 disabled:cursor-not-allowed focus:outline-none focus:ring-0 focus-visible:ring-2 focus-visible:ring-line-subtle focus-visible:ring-offset-0 active:scale-100"
 			>
 				<Icon icon={Mic} className="w-5 h-5" aria-hidden="true"  />
 			</Button>

@@ -34,7 +34,7 @@ export const ClientActionRequiredWidget = ({
   onAction,
 }: ClientActionRequiredWidgetProps) => (
   <Panel className="flex h-full flex-col">
-    <header className="border-b border-line-glass/30 px-5 py-4">
+    <header className="border-b border-line-subtle px-5 py-4">
       <p className="text-sm font-semibold text-input-text">Action required</p>
       <p className="text-xs text-input-placeholder">Things waiting on you</p>
     </header>
@@ -55,7 +55,7 @@ export const ClientActionRequiredWidget = ({
             const ItemIcon = ICONS[item.reason];
             return (
               <Fragment key={item.id}>
-                <div className="rounded-xl border border-line-glass/30 bg-surface px-4 py-3">
+                <div className="rounded-xl border border-line-subtle bg-surface px-4 py-3">
                   <div className="flex items-start justify-between gap-4">
                     <div className="flex min-w-0 gap-3">
                       <Icon

@@ -4,11 +4,11 @@ import { PageHeader } from '@/shared/ui/layout/PageHeader';
 import { Page } from '@/shared/ui/layout/Page';
 import { WorkspacePlaceholderState } from '@/shared/ui/layout/WorkspacePlaceholderState';
 import { Button } from '@/shared/ui/Button';
-import { CurrencyInput, Input } from '@/shared/ui/input';
+import { CurrencyInput, Input, SegmentedToggle } from '@/shared/ui/input';
 import { DataTable, type DataTableColumn, type DataTableRow } from '@/shared/ui/table/DataTable';
 import { type TimelineItem, type TimelinePerson } from '@/shared/ui/activity/ActivityTimeline';
 import { Dialog, DialogBody } from '@/shared/ui/dialog';
-import { Folder, SquarePen, Plus, Search } from 'lucide-preact';
+import { Folder, SquarePen, Plus } from 'lucide-preact';
 import { formatRelativeTime } from '@/features/matters/utils/formatRelativeTime';
 
 import { MATTER_STATUS_LABELS, type MatterStatus } from '@/shared/types/matterStatus';
@@ -21,13 +21,14 @@ import {
 } from '@/features/matters/data/matterTypes';
 import { MatterEditForm, type MatterFormState } from '@/features/matters/components/MatterForm';
 import { TimeEntryForm, type TimeEntryFormValues } from '@/features/matters/components/time-entries/TimeEntryForm';
+import type { MatterTaskFormValues } from '@/features/matters/components/tasks/MatterTaskForm';
 import {
   MatterDetailPanel,
   type DetailSectionId
 } from '@/features/matters/components/MatterDetailPanel';
 import { type WorkSubTab } from '@/features/matters/components/MatterWorkTab';
 import { type BillingSubTab } from '@/features/matters/components/MatterBillingTab';
-import { createEngagementContract, getEngagementForMatter } from '@/features/engagements/api/engagementsApi';
+import { getEngagementForMatter } from '@/features/engagements/api/engagementsApi';
 import type { EngagementDetail } from '@/features/engagements/types/engagement';
 import { useSessionContext } from '@/shared/contexts/SessionContext';
 import { useToastContext } from '@/shared/contexts/ToastContext';
@@ -35,7 +36,6 @@ import { usePracticeTeam } from '@/shared/hooks/usePracticeTeam';
 import { usePracticeDetails } from '@/shared/hooks/usePracticeDetails';
 import { asMajor, getMajorAmountValue, safeDivide, safeMultiply, type MajorAmount } from '@/shared/utils/money';
 import { formatCurrency } from '@/shared/utils/currencyFormatter';
-import { cn } from '@/shared/utils/cn';
 import {
   deleteMatter,
   getMatter,
@@ -45,6 +45,7 @@ import {
   type BackendMatterActivity,
   type BackendMatterNote,
   type BackendMatterTimeStats,
+  type UpdateMatterTaskPayload,
   createMatterExpense,
   createMatterNote,
   createMatterMilestone,
@@ -57,6 +58,9 @@ import {
   listMatterMilestones,
   listMatterNotes,
   listMatterTasks,
+  createMatterTask,
+  updateMatterTask,
+  deleteMatterTask,
   listMatterTimeEntries,
   reorderMatterMilestones,
   updateMatterExpense,
@@ -126,7 +130,7 @@ const CLOSING_STATUSES: ReadonlySet<MatterStatus> = new Set(['engagement_pending
 const DECLINED_STATUSES: ReadonlySet<MatterStatus> = new Set(['declined', 'conflicted']);
 
 const matterStatusBadgeClass = (status: MatterStatus): string => {
-  const base = 'inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium';
+  const base = 'inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium whitespace-nowrap';
   if (ACTIVE_STATUSES.has(status)) return `${base} status-success`;
   if (status === 'closed' || DECLINED_STATUSES.has(status)) {
     return `${base} border border-line-subtle bg-surface-card-hover text-input-placeholder`;
@@ -309,7 +313,7 @@ export const PracticeMattersPage = ({
 }: PracticeMattersPageProps) => {
   const location = useLocation();
   const { session, activePracticeId: sessionActivePracticeId } = useSessionContext();
-  const { showError, showSuccess } = useToastContext();
+  const { showError } = useToastContext();
   const activePracticeId = routePracticeId ?? sessionActivePracticeId;
 
   // ── Routing ──────────────────────────────────────────────────────────────
@@ -334,6 +338,12 @@ export const PracticeMattersPage = ({
   const convertIntakeUuid = useMemo(
     () => resolveQueryValue(location.query?.convertIntake),
     [location.query?.convertIntake]
+  );
+  // The matter overview "Add task" CTA navigates to the Work → Tasks view with
+  // `?compose=task` so the tasks panel auto-opens its create form on arrival.
+  const composeTaskRequested = useMemo(
+    () => resolveQueryValue(location.query?.compose) === 'task',
+    [location.query?.compose]
   );
   const navigate = useCallback((path: string) => location.route(path), [location]);
   const goToList = () => navigate(basePath);
@@ -374,27 +384,18 @@ export const PracticeMattersPage = ({
   const [detailError, setDetailError] = useState<string | null>(null);
 
   // ── List view state ──────────────────────────────────────────────────────
-  const [matterSearchQuery, setMatterSearchQuery] = useState('');
   const [matterCategoryFilter, setMatterCategoryFilter] = useState<MatterFilterCategory>('all');
   const [isShortcutsHelpOpen, setIsShortcutsHelpOpen] = useState(false);
 
   // ── Keyboard shortcuts ───────────────────────────────────────────────────
-  // N = new matter, / = focus search, Esc = clear search/filter, ? = show help.
-  // Esc bubbles even from inside the search input (clear-and-blur). Other shortcuts
-  // are skipped while the user is typing so character entry isn't hijacked.
+  // N = new matter, Esc = reset mobile filter, ? = show help. Shortcuts are
+  // skipped while the user is typing so character entry isn't hijacked.
   // Mirrors the Cmd+K pattern in CommandPaletteContext.
   useEffect(() => {
     const handler = (event: KeyboardEvent) => {
       if (event.metaKey || event.ctrlKey || event.altKey) return;
 
       if (event.key === 'Escape') {
-        if (matterSearchQuery) {
-          event.preventDefault();
-          setMatterSearchQuery('');
-          const active = document.activeElement as HTMLElement | null;
-          if (active && active.getAttribute('aria-label') === 'Search matters') active.blur();
-          return;
-        }
         if (matterCategoryFilter !== 'all') {
           event.preventDefault();
           setMatterCategoryFilter('all');
@@ -415,14 +416,6 @@ export const PracticeMattersPage = ({
         navigate(`${basePath}/new?returnTo=${encodeURIComponent(location.url)}`);
         return;
       }
-      if (event.key === '/') {
-        const searchInput = document.querySelector<HTMLInputElement>('input[aria-label="Search matters"]');
-        if (searchInput) {
-          event.preventDefault();
-          searchInput.focus();
-        }
-        return;
-      }
       if (event.key === '?') {
         event.preventDefault();
         setIsShortcutsHelpOpen(true);
@@ -430,7 +423,7 @@ export const PracticeMattersPage = ({
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, [activePracticeId, navigate, basePath, location.url, matterSearchQuery, matterCategoryFilter]);
+  }, [activePracticeId, navigate, basePath, location.url, matterCategoryFilter]);
 
   // ── Activity / notes ──────────────────────────────────────────────────────
   const [activityRecords, setActivityRecords] = useState<BackendMatterActivity[]>([]);
@@ -463,7 +456,7 @@ export const PracticeMattersPage = ({
   const [engagementLoading, setEngagementLoading] = useState(false);
   const [engagementError, setEngagementError] = useState<string | null>(null);
   const [engagementRetryCount, setEngagementRetryCount] = useState(0);
-  const [engagementCreating, setEngagementCreating] = useState(false);
+  const [engagementCreating] = useState(false);
 
   // ── Person / service / assignee options ───────────────────────────────────
   const [clientOptions, setClientOptions] = useState<MatterOption[]>([]);
@@ -1088,27 +1081,11 @@ export const PracticeMattersPage = ({
       if (selectedMatterId) goToDetail(selectedMatterId, 'billing');
       return;
     }
-    if (!activePracticeId || !selectedMatterId || engagementCreating) return;
-
-    setEngagementCreating(true);
-    setEngagementError(null);
-    try {
-      // TODO(#555): legacy matter-detail create-engagement flow. Under the new contract,
-      // engagements are created from intakes (matter_id is set server-side on acceptance).
-      // This call will fail at runtime if reached, since selectedMatterId is a matter UUID,
-      // not an intake UUID. Per #555 memory, matters always have engagements — this path is
-      // expected to be unreachable in practice and will be removed in a follow-up.
-      const created = await createEngagementContract(activePracticeId, { intake_id: selectedMatterId });
-      setEngagement(created);
-      setEngagementRetryCount((count) => count + 1);
-      showSuccess('Engagement created', 'The engagement agreement is ready to review.');
-    } catch (error) {
-      setEngagementError(error instanceof Error ? error.message : 'Failed to create engagement');
-      showError('Could not create engagement', error instanceof Error ? error.message : 'Please try again.');
-    } finally {
-      setEngagementCreating(false);
-    }
-  }, [activePracticeId, engagement, engagementCreating, goToDetail, selectedMatterId, showError, showSuccess]);
+    if (!selectedMatterId || engagementCreating) return;
+    const message = 'This matter does not have a linked engagement. Accepted intake work now creates matters from accepted engagement contracts.';
+    setEngagementError(message);
+    showError('Missing engagement', message);
+  }, [engagement, engagementCreating, goToDetail, selectedMatterId, showError]);
 
   // ── Matter CRUD ───────────────────────────────────────────────────────────
   const handleUpdateMatter = useCallback(async (values: MatterFormState) => {
@@ -1397,6 +1374,39 @@ export const PracticeMattersPage = ({
     const created = await createMatterNote(activePracticeId, selectedMatterId, values.content);
     if (created) setNoteRecords((prev) => [...prev, created]);
   }, [activePracticeId, selectedMatterId]);
+
+  // ── Task handlers ─────────────────────────────────────────────────────────
+  const refreshTasks = useCallback(async () => {
+    if (!activePracticeId || !selectedMatterId) return;
+    const items = await listMatterTasks(activePracticeId, selectedMatterId);
+    setTasks(items.map(toMatterTask));
+  }, [activePracticeId, selectedMatterId]);
+
+  const handleCreateTask = useCallback(async (values: MatterTaskFormValues) => {
+    if (!activePracticeId || !selectedMatterId) throw new Error('IDs required');
+    await createMatterTask(activePracticeId, selectedMatterId, {
+      name: values.name,
+      description: values.description || undefined,
+      assignee_id: values.assigneeId,
+      due_date: values.dueDate,
+      status: values.status,
+      priority: values.priority,
+      stage: values.stage
+    });
+    await refreshTasks();
+  }, [activePracticeId, selectedMatterId, refreshTasks]);
+
+  const handleUpdateTask = useCallback(async (task: MatterTask, patch: UpdateMatterTaskPayload) => {
+    if (!activePracticeId || !selectedMatterId) throw new Error('IDs required');
+    await updateMatterTask(activePracticeId, selectedMatterId, task.id, patch);
+    await refreshTasks();
+  }, [activePracticeId, selectedMatterId, refreshTasks]);
+
+  const handleDeleteTask = useCallback(async (task: MatterTask) => {
+    if (!activePracticeId || !selectedMatterId) throw new Error('IDs required');
+    await deleteMatterTask(activePracticeId, selectedMatterId, task.id);
+    await refreshTasks();
+  }, [activePracticeId, selectedMatterId, refreshTasks]);
 
   // ── Derived list data ─────────────────────────────────────────────────────
   const matterEntries = useMemo(() => matters.map((m) => ({
@@ -1825,12 +1835,9 @@ export const PracticeMattersPage = ({
             responsibleAttorneyLabel,
             assigneeLabel: assigneeLabelComputed,
             onLogTime: () => goToDetail(selectedMatterDetail.id, 'billing', 'time'),
-            onAddTask: () => goToDetail(selectedMatterDetail.id, 'work', 'tasks'),
+            onAddTask: () => navigate(`${basePath}/${encodeURIComponent(selectedMatterDetail.id)}/work?compose=task`),
             onAddNote: () => goToDetail(selectedMatterDetail.id, 'notes'),
             onUploadFile: () => goToDetail(selectedMatterDetail.id, 'files'),
-            engagementActionLabel: engagement ? 'View engagement' : 'Create engagement',
-            onEngagementAction: () => void handleEngagementPrimaryAction(),
-            engagementActionLoading: engagementCreating,
             moreMenuItems: [
               {
                 label: 'Edit matter',
@@ -1854,8 +1861,6 @@ export const PracticeMattersPage = ({
               setEngagementRetryCount((count) => count + 1);
             },
             onViewEngagement: () => void handleEngagementPrimaryAction(),
-            onCreateEngagement: () => void handleEngagementPrimaryAction(),
-            engagementActionLoading: engagementCreating,
             timelineItems,
             activityLoading,
             activityError,
@@ -1869,6 +1874,7 @@ export const PracticeMattersPage = ({
             onViewTimesheet: () => goToDetail(selectedMatterDetail.id, 'billing', 'time'),
             onViewAllActivity: () => goToDetail(selectedMatterDetail.id, 'activity'),
             onViewTasks: () => goToDetail(selectedMatterDetail.id, 'work', 'tasks'),
+            onAddTask: () => navigate(`${basePath}/${encodeURIComponent(selectedMatterDetail.id)}/work?compose=task`),
             onTaskClick: () => goToDetail(selectedMatterDetail.id, 'work', 'tasks'),
             onUploadFile: () => goToDetail(selectedMatterDetail.id, 'files'),
             onViewFiles: () => goToDetail(selectedMatterDetail.id, 'files')
@@ -1882,6 +1888,12 @@ export const PracticeMattersPage = ({
             tasksError,
             tasksNotImplemented,
             assignees: assigneeOptions,
+            tasksReadOnly: selectedMatterDetail.status === 'closed',
+            onCreateTask: handleCreateTask,
+            onUpdateTask: handleUpdateTask,
+            onDeleteTask: handleDeleteTask,
+            autoComposeTask: composeTaskRequested,
+            onComposeTaskHandled: () => goToDetail(selectedMatterDetail.id, 'work', 'tasks'),
             milestones,
             milestonesLoading,
             milestonesError,
@@ -2087,17 +2099,9 @@ export const PracticeMattersPage = ({
   const handleNewMatter = () => navigate(`${basePath}/new?returnTo=${encodeURIComponent(location.url)}`);
   const showLoading = mattersLoading || clientsLoading;
 
-  const normalizedSearch = matterSearchQuery.trim().toLowerCase();
-  const filteredByCategory = matterCategoryFilter === 'all'
+  const filteredMatterSummaries = matterCategoryFilter === 'all'
     ? sortedMatterSummaries
     : sortedMatterSummaries.filter((matter) => matterStatusCategory(matter.status) === matterCategoryFilter);
-  const filteredMatterSummaries = normalizedSearch
-    ? filteredByCategory.filter((matter) =>
-      matter.title.toLowerCase().includes(normalizedSearch)
-        || matter.clientName.toLowerCase().includes(normalizedSearch)
-        || (matter.practiceArea?.toLowerCase().includes(normalizedSearch) ?? false)
-    )
-    : filteredByCategory;
 
   const headerCellClassName = 'text-xs font-medium text-input-placeholder';
   const tableColumns: DataTableColumn[] = [
@@ -2129,9 +2133,7 @@ export const PracticeMattersPage = ({
 
   const showEmpty = !showLoading && !mattersError && sortedMatterSummaries.length === 0;
   const showFilteredEmpty = !showLoading && !mattersError && sortedMatterSummaries.length > 0 && filteredMatterSummaries.length === 0;
-  const filteredEmptyMessage = normalizedSearch
-    ? `No matters match “${matterSearchQuery}”.`
-    : (() => {
+  const filteredEmptyMessage = (() => {
       switch (matterCategoryFilter) {
         case 'new': return 'No new matters waiting.';
         case 'active': return 'No active matters right now. Quiet day.';
@@ -2158,13 +2160,17 @@ export const PracticeMattersPage = ({
         </div>
       )}
 
-      <header className="flex flex-wrap items-center justify-between gap-3 px-6 py-4">
-        <div className="flex items-baseline gap-2">
-          <h1 className="text-2xl font-semibold tracking-tight text-input-text">Matters</h1>
-          <span className="text-sm tabular-nums text-input-placeholder">
-            {sortedMatterSummaries.length}
-          </span>
-        </div>
+      <header className="flex flex-wrap items-center justify-between gap-3 px-6 py-3">
+        <SegmentedToggle<MatterFilterCategory>
+          value={matterCategoryFilter}
+          options={MATTER_FILTER_CATEGORIES.map((category) => ({
+            value: category.id,
+            label: category.label,
+          }))}
+          onChange={setMatterCategoryFilter}
+          ariaLabel="Filter matters by status"
+          className="w-full sm:w-auto sm:min-w-[32rem]"
+        />
         <div className="flex items-center gap-2">
           <button
             type="button"
@@ -2189,51 +2195,7 @@ export const PracticeMattersPage = ({
         </div>
       </header>
 
-      <div className="flex flex-wrap items-center gap-3 px-6 py-3">
-        <div className="relative min-w-0 flex-1">
-          <Input
-            type="search"
-            placeholder="Search matters..."
-            value={matterSearchQuery}
-            onChange={setMatterSearchQuery}
-            size="sm"
-            className="!pl-9"
-            aria-label="Search matters"
-          />
-          <Search
-            aria-hidden="true"
-            className="pointer-events-none absolute left-3 top-1/2 z-10 h-4 w-4 -translate-y-1/2 text-input-text/80"
-          />
-          <kbd className="pointer-events-none absolute right-3 top-1/2 z-10 hidden -translate-y-1/2 rounded border border-line-utility bg-surface-card-hover px-1.5 py-0.5 text-[10px] font-medium text-input-placeholder md:inline">
-            /
-          </kbd>
-        </div>
-        <div role="tablist" aria-label="Filter matters by status" className="flex flex-wrap items-center gap-1.5">
-          {MATTER_FILTER_CATEGORIES.map((category) => {
-            const isSelected = matterCategoryFilter === category.id;
-            return (
-              <button
-                key={category.id}
-                type="button"
-                role="tab"
-                aria-selected={isSelected}
-                onClick={() => setMatterCategoryFilter(category.id)}
-                className={cn(
-                  'inline-flex items-center rounded-full px-3 py-1.5 text-sm font-medium transition-colors duration-150',
-                  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-500/50',
-                  isSelected
-                    ? 'bg-accent-soft text-input-text shadow-[inset_0_0_0_1px_rgb(var(--accent-border))]'
-                    : 'text-input-placeholder hover:bg-surface-card-hover hover:text-input-text'
-                )}
-              >
-                {category.label}
-              </button>
-            );
-          })}
-        </div>
-      </div>
-
-      <div className="min-h-0 flex-1 overflow-auto px-6 pb-6">
+      <div className="min-h-0 flex-1 overflow-auto px-6 pb-6 pt-4">
         {showEmpty ? (
           <EmptyState onCreate={handleNewMatter} disableCreate={!activePracticeId} />
         ) : showFilteredEmpty ? (
@@ -2247,6 +2209,8 @@ export const PracticeMattersPage = ({
             loading={showLoading}
             density="compact"
             stickyHeader
+            className="panel overflow-hidden"
+            bodyClassName="bg-transparent"
             rowClassName="transition-colors duration-150 hover:!bg-surface-card-hover"
           />
         )}
@@ -2263,8 +2227,7 @@ export const PracticeMattersPage = ({
             <ul className="space-y-2.5">
               {[
                 { key: 'N', desc: 'Create a new matter' },
-                { key: '/', desc: 'Focus search' },
-                { key: 'Esc', desc: 'Clear search or reset filter' },
+                { key: 'Esc', desc: 'Reset mobile filter' },
                 { key: '?', desc: 'Show this help' },
                 { key: '⌘ K', desc: 'Open command palette (or Ctrl + K)' },
               ].map((s) => (

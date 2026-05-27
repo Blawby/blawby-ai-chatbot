@@ -317,11 +317,11 @@ export const IntakePaymentForm: FunctionComponent<IntakePaymentFormProps> = ({
   return (
     <form onSubmit={handleSubmit} className="space-y-5">
       {(!stripe || !elements) && (
-        <div className="flex justify-center rounded-xl border border-line-glass/30 bg-surface-panel/60 px-4 py-3 backdrop-blur-md">
+        <div className="flex justify-center rounded-xl border border-line-subtle bg-surface-panel/60 px-4 py-3 backdrop-blur-md">
           <LoadingSpinner size="sm" ariaLabel="Loading secure payment form" />
         </div>
       )}
-      <div className={variant === 'card' ? "glass-panel p-5" : "rounded-xl border border-line-glass/30 bg-surface-panel/60 p-4"}>
+      <div className={variant === 'card' ? "panel p-5" : "rounded-xl border border-line-subtle bg-surface-panel/60 p-4"}>
         <PaymentElement options={{ layout: 'tabs' }} />
       </div>
 
@@ -338,7 +338,7 @@ export const IntakePaymentForm: FunctionComponent<IntakePaymentFormProps> = ({
       )}
 
       {status === 'succeeded' && (
-        <div className="glass-card p-6 text-center border-emerald-500/30">
+        <div className="card p-6 text-center border-emerald-500/30">
           <div className="flex justify-center mb-4">
             <div className="rounded-full bg-emerald-500/20 p-3 shadow-lg shadow-emerald-500/20">
               <svg className="h-8 w-8 text-emerald-600 dark:text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -352,7 +352,7 @@ export const IntakePaymentForm: FunctionComponent<IntakePaymentFormProps> = ({
           <p className="text-input-placeholder">
             Thank you! Your payment was successful and your case details are being processed. A member of our team will contact you at the information you provided.
           </p>
-          <div className="mt-4 border-t border-line-glass/30 pt-4 text-xs text-emerald-700 dark:text-emerald-300">
+          <div className="mt-4 border-t border-line-subtle pt-4 text-xs text-emerald-700 dark:text-emerald-300">
             Payment processed successfully. You will receive confirmation if an email is on file.
           </div>
         </div>

@@ -47,9 +47,6 @@ export interface MatterDetailHeaderProps {
   onAddTask: () => void;
   onAddNote: () => void;
   onUploadFile: () => void;
-  engagementActionLabel: string;
-  onEngagementAction: () => void;
-  engagementActionLoading?: boolean;
   moreMenuItems?: MatterMoreMenuItem[];
 }
 
@@ -65,9 +62,6 @@ export const MatterDetailHeader = ({
   onAddTask,
   onAddNote,
   onUploadFile,
-  engagementActionLabel,
-  onEngagementAction,
-  engagementActionLoading = false,
   moreMenuItems
 }: MatterDetailHeaderProps) => {
   const title = detail.title?.trim() || 'Untitled matter';
@@ -123,9 +117,6 @@ export const MatterDetailHeader = ({
         </div>
 
         <div className="flex flex-wrap items-center justify-end gap-2">
-          <Button size="sm" variant="primary" onClick={onEngagementAction} disabled={engagementActionLoading}>
-            {engagementActionLoading ? 'Creating...' : engagementActionLabel}
-          </Button>
           <Button size="sm" variant="secondary" icon={Timer} onClick={onLogTime}>
             Log time
           </Button>

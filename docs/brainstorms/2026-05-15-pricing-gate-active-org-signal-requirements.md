@@ -4,6 +4,8 @@
 **Scope:** Standard, frontend-only
 **Severity:** Production — real paying customers are being hard-redirected to `/pricing` after they've already subscribed.
 
+> **2026-05-24 note:** Retained as historical context. The signal diagnosis is still relevant, but the proposed frontend auto-activation/recovery pattern has been removed. Current guidance is in [docs/solutions/conventions/better-auth-active-organization-id-pointer-2026-05-15.md](../solutions/conventions/better-auth-active-organization-id-pointer-2026-05-15.md).
+
 ## The problem
 
 Paying customers in production are being hard-redirected to `/pricing` on cold load. The frontend has two routing gates that compute the same boolean:

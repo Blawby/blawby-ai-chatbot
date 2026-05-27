@@ -186,9 +186,12 @@ export interface Env {
   CLOUDFLARE_ACCOUNT_ID?: string;
   CLOUDFLARE_API_TOKEN?: string;
   CLOUDFLARE_PUBLIC_URL?: string;
+  // Cloudflare API token with Workers AI access. The legacy `CF_AIG_`
+  // ("AI Gateway") name is kept to avoid re-issuing the deployed secret — the
+  // Worker calls the Workers AI REST endpoint directly, not AI Gateway.
   CF_AIG_TOKEN?: string;
-  CF_AIG_GATEWAY_NAME?: string;
-  AI_PROVIDER?: string;
+  // Optional Workers AI model ID override (e.g. `@cf/zai-org/glm-4.7-flash`).
+  // Falls back to the Worker's DEFAULT_AI_MODEL when unset.
   AI_MODEL?: string;
   DOMAIN?: string;
   BETTER_AUTH_URL?: string;
@@ -378,8 +381,8 @@ export interface FileAttachment {
   url: string;
   storageKey?: string;
   /**
-   * Upload record id for files stored via the scoped uploads API
-   * (e.g. /api/practice-client-intakes/:uuid/files). When set, downloads
+   * Upload record id for files stored via the backend uploads API
+   * (e.g. /api/uploads with an intake scope). When set, downloads
    * should route through `/api/uploads/:uploadId/download` for a signed
    * URL rather than reading `url` directly.
    */
@@ -387,7 +390,7 @@ export interface FileAttachment {
   /**
    * Origin of the file:
    * - 'worker': legacy /api/files/upload pipeline (worker R2 bucket).
-   * - 'intake': scoped intake files API (backend R2, requires download endpoint).
+   * - 'intake': intake-scoped uploads API (backend R2, requires download endpoint).
    */
   source?: 'worker' | 'intake';
 }

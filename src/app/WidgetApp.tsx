@@ -534,7 +534,7 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
       size="icon-sm"
       onClick={requestWidgetClose}
       aria-label="Close widget"
-      className="text-input-text/60 hover:text-input-text glass-card backdrop-blur-md border border-line-glass/20 shadow-lg"
+      className="text-input-text/60 hover:text-input-text card backdrop-blur-md border border-line-subtle shadow-lg"
     >
       <Icon icon={X} className="h-5 w-5" />
     </Button>
@@ -779,7 +779,7 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
               />
 
               {isInspectorOpen && activeConversationId && (
-                <aside className="hidden w-80 shrink-0 lg:block lg:w-96 glass-panel overflow-visible shadow-glass ring-1 ring-line-glass/20">
+                <aside className="hidden w-80 shrink-0 lg:block lg:w-96 panel overflow-visible shadow-glass ring-1 ring-line-subtle">
                   <div className="h-full overflow-y-auto">
                     <InspectorPanel
                       entityType="conversation"

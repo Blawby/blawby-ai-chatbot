@@ -41,6 +41,10 @@ export const ReportDataTable: FunctionComponent<ReportDataTableProps> = ({
     columns={toDataTableColumns(columns)}
     rows={toDataTableRows(rows, columns)}
     loading={loading}
+    density="compact"
+    stickyHeader
+    className="panel overflow-hidden"
+    bodyClassName="bg-transparent"
     emptyState={emptyState ?? <span className="text-sm text-input-placeholder">No data</span>}
   />
 );

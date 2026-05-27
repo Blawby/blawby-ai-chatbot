@@ -17,7 +17,7 @@ export const InvoiceDetailSkeleton = () => (
       {/* Total / Paid / Due tiles */}
       <div className="grid gap-3 sm:grid-cols-3">
         {[0, 1, 2].map((i) => (
-          <div key={i} className="glass-panel p-4 space-y-2">
+          <div key={i} className="panel p-4 space-y-2">
             <SkeletonLoader variant="text" width="w-20" height="h-3" />
             <SkeletonLoader variant="text" width="w-24" height="h-5" />
           </div>
@@ -25,11 +25,11 @@ export const InvoiceDetailSkeleton = () => (
       </div>
 
       {/* Line-items table */}
-      <div className="glass-panel overflow-hidden">
-        <div className="border-b border-line-glass/30 px-4 py-3">
+      <div className="panel overflow-hidden">
+        <div className="border-b border-line-subtle px-4 py-3">
           <SkeletonLoader variant="text" width="w-24" height="h-4" />
         </div>
-        <div className="divide-y divide-line-glass/20">
+        <div className="divide-y divide-line-subtle">
           {[0, 1, 2, 3, 4].map((i) => (
             <div key={i} className="grid grid-cols-[2fr_1fr_0.5fr_1fr_1fr] gap-4 px-4 py-3">
               <SkeletonLoader variant="text" height="h-3" width={i % 2 === 0 ? 'w-48' : 'w-40'} />
@@ -45,7 +45,7 @@ export const InvoiceDetailSkeleton = () => (
       {/* Payments / Refunds / Notes row */}
       <div className="grid gap-4 lg:grid-cols-3">
         {[0, 1, 2].map((i) => (
-          <div key={i} className="glass-panel p-4 space-y-3">
+          <div key={i} className="panel p-4 space-y-3">
             <SkeletonLoader variant="text" width="w-32" height="h-4" />
             <SkeletonLoader variant="text" width="w-44" height="h-3" />
             <SkeletonLoader variant="text" width="w-28" height="h-3" />

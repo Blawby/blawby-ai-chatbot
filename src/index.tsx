@@ -6,8 +6,9 @@ import { SEOHead } from '@/app/SEOHead';
 import { ToastProvider } from '@/shared/contexts/ToastContext';
 import { CommandPaletteProvider } from '@/features/search/contexts/CommandPaletteContext';
 import { SessionProvider, useSessionContext } from '@/shared/contexts/SessionContext';
-import { getSession } from '@/shared/lib/authClient';
+import { authClient } from '@/shared/lib/authClient';
 import type { WorkspaceView } from '@/shared/utils/workspaceShell';
+import type { SettingsView } from '@/features/settings/pages/SettingsContent';
 import { PublicWorkspaceRoute } from '@/app/PublicWorkspaceRoute';
 import { useNavigation } from '@/shared/utils/navigation';
 import { usePracticeConfig } from '@/shared/hooks/usePracticeConfig';
@@ -33,6 +34,8 @@ const ExclamationIcon: IconComponent = (props) => (
   <AlertTriangle {...(props as any)} />
 );
 import { WorkspacePlaceholderState } from '@/shared/ui/layout/WorkspacePlaceholderState';
+import { ErrorBoundary } from '@/app/ErrorBoundary';
+import { ChunkLoadFallback } from '@/shared/ui/layout/LazyRouteBoundary';
 import './index.css';
 import { i18n, initI18n } from '@/shared/i18n';
 import { applyAccentColor, initializeAccentColor } from '@/shared/utils/accentColors';
@@ -41,17 +44,17 @@ import { UpdateAvailableToast } from '@/shared/ui/UpdateAvailableToast';
 import { consumePostAuthConversationContext } from '@/shared/utils/anonymousIdentity';
 import { isWidgetRuntimeContext as _isWidgetRuntimeContext } from '@/shared/utils/widgetAuth';
 import { useTheme } from '@/shared/hooks/useTheme';
-import { setActivePractice } from '@/shared/lib/apiClient';
 import { lazy } from 'preact/compat';
 // Top-level pages are lazy so they don't bloat the entry chunk. Each page
 // loads its own bundle on demand the first time the matching route renders.
 const AuthPage = lazy(() => import('@/pages/AuthPage'));
 const AcceptInvitationPage = lazy(() => import('@/pages/AcceptInvitationPage'));
-const ClientHomePage = lazy(() => import('@/pages/ClientHomePage'));
 const PracticeHomePage = lazy(() => import('@/pages/PracticeHomePage'));
 const OnboardingPage = lazy(() => import('@/pages/OnboardingPage'));
 const PricingPage = lazy(() => import('@/pages/PricingPage'));
 const PaymentResultPage = lazy(() => import('@/pages/PaymentResultPage'));
+const OAuthConsentPage = lazy(() => import('@/pages/OAuthConsentPage'));
+const ApproveActionPage = lazy(() => import('@/pages/ApproveActionPage'));
 // Debug pages — never used in real flows but were eating into the entry
 // chunk because of the static imports. Lazy is the cheapest way to keep
 // them mounted-by-route while excluding their code from first-load.
@@ -98,23 +101,17 @@ const describeError = (error: unknown): string => {
 };
 
 const resolveAuthenticatedHomePath = ({
-  defaultWorkspace,
   fallbackSlug,
   hasPracticeMembership,
 }: {
-  defaultWorkspace: 'practice' | 'client' | 'public';
   fallbackSlug: string | null;
   hasPracticeMembership: boolean;
 }): string | null => {
-  if (!hasPracticeMembership) {
-    return '/client/dashboard';
-  }
-
-  if (!fallbackSlug) {
+  if (!hasPracticeMembership || !fallbackSlug) {
     return null;
   }
 
-  return getWorkspaceHomePath(defaultWorkspace, fallbackSlug);
+  return getWorkspaceHomePath('practice', fallbackSlug);
 };
 
 const DevDebugStylesRoute = () => {
@@ -147,6 +144,41 @@ const DevDebugMatterRoute = () => {
   return <DebugMatterPage />;
 };
 
+
+// Chunk-load failure recovery. Dynamic imports can fail after a deploy when
+// the SW has cached an HTML 404 response for a hashed JS asset (the CDN edge
+// returned HTML during the brief propagation window). These errors surface as
+// unhandled rejections before Preact mounts, so ErrorBoundary can't catch them.
+// We delete the bad SW cache entry for the specific URL, then reload once.
+// sessionStorage guards against an infinite reload loop.
+if (typeof window !== 'undefined') {
+  window.addEventListener('unhandledrejection', (event: PromiseRejectionEvent) => {
+    const msg = String((event.reason as Error | null)?.message ?? event.reason ?? '');
+    if (!msg.includes('dynamically imported module')) return;
+    event.preventDefault();
+
+    const reloadKey = 'chunk-error-reloaded-at';
+    try {
+      const lastAt = Number(sessionStorage.getItem(reloadKey) ?? 0);
+      if (Date.now() - lastAt < 30_000) return;
+      sessionStorage.setItem(reloadKey, String(Date.now()));
+    } catch {
+      // sessionStorage unavailable — reload unconditionally
+    }
+
+    const urlMatch = msg.match(/https?:\/\/\S+\.js/);
+    const badUrl = urlMatch?.[0];
+    const doReload = () => window.location.reload();
+
+    if (badUrl && typeof caches !== 'undefined') {
+      void caches.keys()
+        .then((keys) => Promise.all(keys.map((k) => caches.open(k).then((c) => c.delete(badUrl)))))
+        .finally(doReload);
+    } else {
+      doReload();
+    }
+  });
+}
 
 // Dev Cache Trap Breaker (Development Only)
 //
@@ -230,30 +262,17 @@ function AppShell() {
     Boolean(session?.user) &&
     !session?.user?.is_anonymous &&
     session?.user?.onboarding_complete !== true;
-  const completedOnboarding =
-    Boolean(session?.user) &&
-    !session?.user?.is_anonymous &&
-    session?.user?.onboarding_complete === true;
-  const sessionRecord = session?.session as Record<string, unknown> | undefined;
-  const activeOrganizationId = typeof sessionRecord?.active_organization_id === 'string'
-    && sessionRecord.active_organization_id.trim().length > 0
-    ? sessionRecord.active_organization_id
-    : null;
   const isPublicRoute = location.path.startsWith('/public/');
   const isAuthRoute = location.path.startsWith('/auth');
   const isPricingRoute = location.path.startsWith('/pricing');
   const isClientRoute = location.path.startsWith('/client/');
-  const isSubscriptionSuccessReturn = location.query.subscription === 'success';
   const shouldFetchWorkspacePractices =
     !isPublicRoute &&
     !isAuthRoute &&
     !isPricingRoute &&
-    (!onboardingIncomplete || isClientRoute) &&
-    (!completedOnboarding || Boolean(activeOrganizationId) || isClientRoute);
+    (!onboardingIncomplete || isClientRoute);
   const {
-    defaultWorkspace,
     currentPractice,
-    practices,
     hasPracticeMembership,
     practicesLoading,
     practicesError,
@@ -262,7 +281,7 @@ function AppShell() {
   });
 
   // Apply the active org's brand color at the shell level so routes that
-  // bypass MainApp (e.g. PracticeHomePage, ClientHomePage) still get branded.
+  // bypass MainApp (e.g. PracticeHomePage) still get branded.
   // Persist per-org so the next page load can paint the right brand color on
   // the first frame, before currentPractice has a chance to refetch.
   useEffect(() => {
@@ -279,14 +298,12 @@ function AppShell() {
   }, [currentPractice?.accentColor, currentPractice?.slug]);
 
   const authenticatedHomePath = useMemo(() => {
-    if (completedOnboarding && !activeOrganizationId) return null;
-    const fallbackSlug = currentPractice?.slug ?? practices[0]?.slug ?? null;
+    const fallbackSlug = currentPractice?.slug ?? null;
     return resolveAuthenticatedHomePath({
-      defaultWorkspace,
       fallbackSlug,
       hasPracticeMembership,
     });
-  }, [activeOrganizationId, completedOnboarding, currentPractice?.slug, defaultWorkspace, hasPracticeMembership, practices]);
+  }, [currentPractice?.slug, hasPracticeMembership]);
 
   useEffect(() => {
     if (sessionPending) return;
@@ -356,14 +373,6 @@ function AppShell() {
       !user?.is_anonymous &&
       user?.onboarding_complete !== true &&
       !bypassOnboardingForRoute;
-    const needsFirstSubscription =
-      Boolean(user) &&
-      !user?.is_anonymous &&
-      user?.onboarding_complete === true &&
-      !activeOrganizationId &&
-      !bypassOnboardingForRoute &&
-      !isPricingRoute &&
-      !isSubscriptionSuccessReturn;
 
     if (requiresOnboarding) {
       if (!location.path.startsWith('/onboarding') && !location.path.startsWith('/auth')) {
@@ -379,11 +388,6 @@ function AppShell() {
       return;
     }
 
-    if (needsFirstSubscription) {
-      navigate('/pricing', true);
-      return;
-    }
-
     if (!requiresOnboarding && location.path.startsWith('/onboarding')) {
       if (!authenticatedHomePath) {
         return;
@@ -391,10 +395,7 @@ function AppShell() {
       navigate(authenticatedHomePath, true);
     }
   }, [
-    activeOrganizationId,
     authenticatedHomePath,
-    isPricingRoute,
-    isSubscriptionSuccessReturn,
     location.path,
     location.url,
     navigate,
@@ -466,7 +467,7 @@ function AppShell() {
           <Route path="/public/:practiceSlug/conversations/:conversationId" component={PublicWorkspaceRoute} />
           <Route path="/public/:practiceSlug/matters" component={PublicWorkspaceRoute} />
           <Route path="/client" component={App404} />
-          <Route path="/client/dashboard" component={ClientDashboardRoute} />
+          <Route path="/client/dashboard" component={App404} />
           <Route path="/client/:practiceSlug" component={ClientPracticeRoute} workspaceView="home" />
           <Route path="/client/:practiceSlug/conversations" component={ClientPracticeRoute} workspaceView="list" />
           <Route path="/client/:practiceSlug/conversations/:conversationId" component={ClientPracticeRoute} workspaceView="conversation" />
@@ -497,12 +498,12 @@ function AppShell() {
           <Route path="/practice/:practiceSlug/contacts/*" component={PracticeAppRoute} workspaceView="contacts" />
           <Route path="/practice/:practiceSlug/matters" component={PracticeAppRoute} workspaceView="matters" />
           <Route path="/practice/:practiceSlug/matters/*" component={PracticeAppRoute} workspaceView="matters" />
-          <Route path="/practice/:practiceSlug/intakes" component={PracticeAppRoute} workspaceView="intakes" />
-          <Route path="/practice/:practiceSlug/intakes/new" component={PracticeAppRoute} workspaceView="intakes" />
           <Route path="/practice/:practiceSlug/intakes/responses" component={PracticeAppRoute} workspaceView="intakes" />
           <Route path="/practice/:practiceSlug/intakes/responses/:intakeId" component={PracticeAppRoute} workspaceView="intakes" />
-          <Route path="/practice/:practiceSlug/intakes/:templateSlug/edit" component={PracticeAppRoute} workspaceView="intakes" />
-          <Route path="/practice/:practiceSlug/intakes/:templateSlug" component={PracticeAppRoute} workspaceView="intakes" />
+          <Route path="/practice/:practiceSlug/intakes/forms" component={PracticeAppRoute} workspaceView="intakes" />
+          <Route path="/practice/:practiceSlug/intakes/forms/new" component={PracticeAppRoute} workspaceView="intakes" />
+          <Route path="/practice/:practiceSlug/intakes/forms/:templateSlug/edit" component={PracticeAppRoute} workspaceView="intakes" />
+          <Route path="/practice/:practiceSlug/intakes/forms/:templateSlug" component={PracticeAppRoute} workspaceView="intakes" />
           <Route path="/practice/:practiceSlug/engagements" component={PracticeAppRoute} workspaceView="engagements" />
           <Route path="/practice/:practiceSlug/engagements/:engagementId" component={PracticeAppRoute} workspaceView="engagements" />
           <Route path="/practice/:practiceSlug/files" component={PracticeAppRoute} workspaceView="files" />
@@ -521,12 +522,9 @@ function AppShell() {
           <Route path="/practice/:practiceSlug/settings/practice" component={PracticeAppRoute} workspaceView="settings" settingsView="practice" />
           <Route path="/practice/:practiceSlug/settings/practice/payouts" component={PracticeAppRoute} workspaceView="settings" settingsView="practice-payouts" />
           <Route path="/practice/:practiceSlug/settings/practice/team" component={PracticeAppRoute} workspaceView="settings" settingsView="practice-team" />
+          <Route path="/practice/:practiceSlug/settings/practice/engagement-templates" component={PracticeAppRoute} workspaceView="settings" settingsView="engagement-templates" />
           <Route path="/practice/:practiceSlug/settings/apps" component={PracticeAppRoute} workspaceView="settings" settingsView="apps" />
           <Route path="/practice/:practiceSlug/settings/apps/:appId" component={PracticeAppRoute} workspaceView="settings" settingsView="app-detail" />
-          <Route path="/practice/:practiceSlug/settings/intake-forms" component={PracticeAppRoute} workspaceView="settings" settingsView="intake-forms" />
-          <Route path="/practice/:practiceSlug/settings/intake-forms/new" component={PracticeAppRoute} workspaceView="settings" settingsView="intake-forms-editor" />
-          <Route path="/practice/:practiceSlug/settings/intake-forms/:templateSlug" component={PracticeAppRoute} workspaceView="settings" settingsView="intake-forms-editor" />
-          <Route path="/practice/:practiceSlug/settings/intake-forms/:templateSlug/edit" component={PracticeAppRoute} workspaceView="settings" settingsView="intake-forms-editor" />
           <Route path="/practice/:practiceSlug/settings/security" component={PracticeAppRoute} workspaceView="settings" settingsView="security" />
           <Route path="/practice/:practiceSlug/settings/help" component={PracticeAppRoute} workspaceView="settings" settingsView="help" />
           <Route path="/p/:practiceSlug" component={({ practiceSlug }: { practiceSlug?: string }) => <PaymentResultPage practiceSlug={practiceSlug} />} />
@@ -541,6 +539,16 @@ function AppShell() {
           <Route path="/admin/intake-inspector/:conversationId" component={({ conversationId }: { conversationId?: string }) => (
             <Suspense fallback={<LoadingScreen />}>
               <AdminIntakeInspectorPage conversationId={conversationId} />
+            </Suspense>
+          )} />
+          <Route path="/oauth/consent" component={(props) => (
+            <Suspense fallback={<LoadingScreen />}>
+              <OAuthConsentPage {...props} />
+            </Suspense>
+          )} />
+          <Route path="/approve/:jwt" component={({ jwt }: { jwt?: string }) => (
+            <Suspense fallback={<LoadingScreen />}>
+              <ApproveActionPage jwt={jwt} />
             </Suspense>
           )} />
           <Route path="/" component={RootRoute} />
@@ -624,14 +632,8 @@ function RootRoute() {
     !session.user.is_anonymous &&
     session.user.onboarding_complete === true
   );
-  const rootSessionRecord = session?.session as Record<string, unknown> | undefined;
-  const activeOrganizationId = typeof rootSessionRecord?.active_organization_id === 'string'
-    && rootSessionRecord.active_organization_id.trim().length > 0
-    ? rootSessionRecord.active_organization_id
-    : null;
-  const shouldFetchRootPractices = Boolean(completedOnboarding && activeOrganizationId);
+  const shouldFetchRootPractices = Boolean(completedOnboarding);
   const {
-    defaultWorkspace,
     practicesLoading,
     practicesError,
     currentPractice,
@@ -646,20 +648,24 @@ function RootRoute() {
   const [subscriptionSyncPending, setSubscriptionSyncPending] = useState(false);
   const [subscriptionSyncError, setSubscriptionSyncError] = useState<unknown>(null);
   const isSubscriptionSuccessReturn = location.query.subscription === 'success';
-  const needsFirstSubscription = Boolean(
-    completedOnboarding &&
-    !activeOrganizationId &&
-    !isSubscriptionSuccessReturn
-  );
+  const subscriptionSuccessPracticeId =
+    isSubscriptionSuccessReturn && typeof location.query.practiceId === 'string'
+      ? location.query.practiceId.trim()
+      : '';
   const authenticatedHomePath = useMemo(() => {
     if (!shouldFetchRootPractices) return null;
-    const fallbackSlug = currentPractice?.slug ?? practices[0]?.slug ?? null;
+    // On subscription-success return, pin navigation to the org that just
+    // subscribed (from the URL) so we don't race the practices refetch against
+    // the restored active org and strand the user on the wrong workspace.
+    const subscribedSlug = subscriptionSuccessPracticeId
+      ? practices.find((practice) => practice.id === subscriptionSuccessPracticeId)?.slug ?? null
+      : null;
+    const fallbackSlug = subscribedSlug ?? currentPractice?.slug ?? null;
     return resolveAuthenticatedHomePath({
-      defaultWorkspace,
       fallbackSlug,
       hasPracticeMembership,
     });
-  }, [currentPractice?.slug, defaultWorkspace, hasPracticeMembership, practices, shouldFetchRootPractices]);
+  }, [currentPractice?.slug, hasPracticeMembership, practices, shouldFetchRootPractices, subscriptionSuccessPracticeId]);
 
   useEffect(() => {
     return () => {
@@ -680,9 +686,11 @@ function RootRoute() {
 
     void (async () => {
       try {
-        await getSession();
-        if (typeof window !== 'undefined') {
-          window.dispatchEvent(new CustomEvent('auth:session-updated'));
+        // Restore the org that actually subscribed. buildSuccessUrl appends
+        // practiceId to the Stripe return URL so the session can be aligned
+        // before subscription-gated routes run.
+        if (subscriptionSuccessPracticeId) {
+          await authClient.organization.setActive({ organizationId: subscriptionSuccessPracticeId });
         }
       } catch (error) {
         if (isMountedRef.current) {
@@ -692,6 +700,7 @@ function RootRoute() {
         if (typeof window !== 'undefined') {
           const newUrl = new URL(window.location.href);
           newUrl.searchParams.delete('subscription');
+          newUrl.searchParams.delete('practiceId');
           window.history.replaceState({}, '', `${newUrl.pathname}${newUrl.search}${newUrl.hash}`);
         }
         if (isMountedRef.current) {
@@ -699,7 +708,7 @@ function RootRoute() {
         }
       }
     })();
-  }, [isSubscriptionSuccessReturn]);
+  }, [isSubscriptionSuccessReturn, subscriptionSuccessPracticeId]);
 
   useEffect(() => {
     if (subscriptionSyncPending) return;
@@ -714,17 +723,11 @@ function RootRoute() {
       return;
     }
 
-    if (needsFirstSubscription) {
-      navigate('/pricing', true);
-      return;
-    }
-
     if (isMountedRef.current && authenticatedHomePath) {
       navigate(authenticatedHomePath, true);
     }
   }, [
     authenticatedHomePath,
-    needsFirstSubscription,
     subscriptionSyncPending,
     practicesLoading,
     isPending,
@@ -769,7 +772,6 @@ function PracticeAppRoute({
   invoiceId,
   reportDeliveryId,
   appId,
-  templateSlug,
   workspaceView = 'home',
   settingsView = 'general',
   practiceSlug
@@ -778,9 +780,8 @@ function PracticeAppRoute({
   invoiceId?: string;
   reportDeliveryId?: string;
   appId?: string;
-  templateSlug?: string;
   workspaceView?: WorkspaceView;
-  settingsView?: 'general' | 'notifications' | 'account' | 'practice' | 'practice-payouts' | 'practice-team' | 'apps' | 'app-detail' | 'intake-forms' | 'intake-forms-editor' | 'security' | 'help';
+  settingsView?: SettingsView;
   practiceSlug?: string;
 }) {
   const location = useLocation();
@@ -831,18 +832,32 @@ function PracticeAppRoute({
   useEffect(() => {
     if (isPending || !session?.user || !resolvedPracticeId) return;
 
+    // Only sync when the resolver's currentPractice is for the URL we are on.
+    // Without this gate, a stale practices snapshot (e.g. right after a new
+    // org was created via the switcher) makes currentPractice fall back to a
+    // *different* practice, and we'd set the active org to the OLD id —
+    // reverting the switcher's intentional setActive call. See feat/org-switcher
+    // bug investigation 2026-05-22.
+    const resolverMatchesUrl =
+      hasPracticeSlug && currentPractice?.slug === normalizedPracticeSlug;
+    if (!resolverMatchesUrl) return;
+
+    // During a switcher-driven route transition, this OLD route can still be
+    // mounted while `session.active_organization_id` has already been flipped
+    // to the destination org. Its effect would then revert backend to *this*
+    // route's old practice id. Guard by re-checking the live URL against this
+    // route's slug — if the user has already navigated away, do not revert.
+    const liveUrlSegment = `/practice/${encodeURIComponent(normalizedPracticeSlug)}`;
+    if (!location.path.startsWith(liveUrlSegment)) return;
+
     // If the backend session doesn't match the route-selected practice ID,
     // synchronize it to ensure correct permission/role resolution.
     if (resolvedPracticeId && backendActiveOrgId !== resolvedPracticeId) {
       let cancelled = false;
 
-      void setActivePractice(resolvedPracticeId)
-        .then(() => getSession())
-        .then(() => {
-          if (cancelled || typeof window === 'undefined') return;
-          window.dispatchEvent(new CustomEvent('auth:session-updated'));
-        })
+      void authClient.organization.setActive({ organizationId: resolvedPracticeId })
         .catch((err) => {
+          if (cancelled) return;
           console.warn('[PracticeAppRoute] Failed to switch active practice context:', err);
         });
 
@@ -850,7 +865,16 @@ function PracticeAppRoute({
         cancelled = true;
       };
     }
-  }, [resolvedPracticeId, session?.user, isPending, backendActiveOrgId]);
+  }, [
+    resolvedPracticeId,
+    session?.user,
+    isPending,
+    backendActiveOrgId,
+    currentPractice?.slug,
+    normalizedPracticeSlug,
+    hasPracticeSlug,
+    location.path,
+  ]);
 
   // Only block on loading if we have no practice data yet. If currentPractice
   // is already available (from the module cache), proceed immediately —
@@ -946,22 +970,23 @@ function PracticeAppRoute({
 
   return (
     <>
-      <Suspense fallback={<LoadingScreen />}>
-        <MainApp
-          practiceId={resolvedPracticeId}
-          practiceConfig={practiceConfig}
-          isPracticeView={true}
-          workspace="practice"
-          routeConversationId={conversationId}
-          routeInvoiceId={invoiceId}
-          routeReportDeliveryId={reportDeliveryId}
-          routeSettingsView={settingsView}
-          routeSettingsAppId={appId}
-          routeSettingsIntakeTemplateSlug={templateSlug}
-          workspaceView={workspaceView}
-          practiceSlug={normalizedPracticeSlug || undefined}
-        />
-      </Suspense>
+      <ErrorBoundary fallback={<ChunkLoadFallback />}>
+        <Suspense fallback={<LoadingScreen />}>
+          <MainApp
+            practiceId={resolvedPracticeId}
+            practiceConfig={practiceConfig}
+            isPracticeView={true}
+            workspace="practice"
+            routeConversationId={conversationId}
+            routeInvoiceId={invoiceId}
+            routeReportDeliveryId={reportDeliveryId}
+            routeSettingsView={settingsView}
+            routeSettingsAppId={appId}
+            workspaceView={workspaceView}
+            practiceSlug={normalizedPracticeSlug || undefined}
+          />
+        </Suspense>
+      </ErrorBoundary>
       {isMatterCreateRoute ? (
         <Suspense fallback={null}>
           <PracticeMatterCreatePage
@@ -972,14 +997,6 @@ function PracticeAppRoute({
       ) : null}
     </>
   );
-}
-
-function ClientDashboardRoute() {
-  const { session, isPending: sessionIsPending } = useSessionContext();
-
-  if (sessionIsPending) return <LoadingScreen />;
-  if (!session?.user) return <AuthPage />;
-  return <ClientHomePage />;
 }
 
 function ClientPracticeRoute({
@@ -997,7 +1014,7 @@ function ClientPracticeRoute({
   intakeId?: string;
   appId?: string;
   workspaceView?: 'home' | 'list' | 'conversation' | 'matters' | 'invoices' | 'invoiceDetail' | 'intakes' | 'intakeDetail' | 'files' | 'settings';
-  settingsView?: 'general' | 'notifications' | 'account' | 'practice' | 'practice-payouts' | 'practice-team' | 'apps' | 'app-detail' | 'intake-forms' | 'intake-forms-editor' | 'security' | 'help';
+  settingsView?: SettingsView;
 }) {
   const location = useLocation();
   const { session, isPending: sessionIsPending } = useSessionContext();
@@ -1090,21 +1107,23 @@ function ClientPracticeRoute({
         practiceConfig={practiceConfig}
         currentUrl={currentUrl}
       />
-      <Suspense fallback={<LoadingScreen />}>
-        <MainApp
-          practiceId={resolvedPracticeId}
-          practiceConfig={practiceConfig}
-          isPracticeView={true}
-          workspace="client"
-          clientPracticeSlug={slug || undefined}
-          routeConversationId={conversationId}
-          routeInvoiceId={invoiceId}
-          routeIntakeId={intakeId}
-          routeSettingsView={settingsView}
-          routeSettingsAppId={appId}
-          workspaceView={workspaceView}
-        />
-      </Suspense>
+      <ErrorBoundary fallback={<ChunkLoadFallback />}>
+        <Suspense fallback={<LoadingScreen />}>
+          <MainApp
+            practiceId={resolvedPracticeId}
+            practiceConfig={practiceConfig}
+            isPracticeView={true}
+            workspace="client"
+            clientPracticeSlug={slug || undefined}
+            routeConversationId={conversationId}
+            routeInvoiceId={invoiceId}
+            routeIntakeId={intakeId}
+            routeSettingsView={settingsView}
+            routeSettingsAppId={appId}
+            workspaceView={workspaceView}
+          />
+        </Suspense>
+      </ErrorBoundary>
     </>
   );
 }

@@ -443,7 +443,7 @@ export const WorkspaceSetupSection: FunctionComponent<WorkspaceSetupSectionProps
           </Page>
         </div>
       </div>
-      <div className="relative flex w-full flex-col items-center gap-5 border-t border-line-glass/30 bg-transparent px-4 py-6 lg:min-h-0 lg:flex-1 lg:basis-1/2 lg:border-t-0 lg:border-l lg:border-l-line-glass/30">
+      <div className="relative flex w-full flex-col items-center gap-5 border-t border-line-subtle bg-transparent px-4 py-6 lg:min-h-0 lg:flex-1 lg:basis-1/2 lg:border-t-0 lg:border-l lg:border-l-line-glass/30">
         <div className="relative flex w-full flex-col items-center gap-5">
           <div className="flex flex-col items-center gap-2">
             <div className="text-xs font-semibold uppercase tracking-[0.35em] text-input-placeholder">
@@ -464,7 +464,7 @@ export const WorkspaceSetupSection: FunctionComponent<WorkspaceSetupSectionProps
               ariaLabel={t('preview.tabsLabel', { defaultValue: 'Public preview tabs' })}
             />
           ) : null}
-          <div className={cn('relative aspect-[9/19.5] w-full max-w-[360px] overflow-hidden', showSidebarPreview ? 'glass-card shadow-glass' : 'glass-panel')}>
+          <div className={cn('relative aspect-[9/19.5] w-full max-w-[360px] overflow-hidden', showSidebarPreview ? 'card shadow-glass' : 'panel')}>
             {showSidebarPreview ? previewContent : (
               <InspectorPanel
                 entityType="conversation"
@@ -485,7 +485,7 @@ export const WorkspaceSetupSection: FunctionComponent<WorkspaceSetupSectionProps
                 showCloseButton={false}
               />
             )}
-            {showSidebarPreview ? <div className="pointer-events-none absolute inset-0 rounded-3xl ring-1 ring-line-glass/10" aria-hidden="true" /> : null}
+            {showSidebarPreview ? <div className="pointer-events-none absolute inset-0 rounded-3xl ring-1 ring-line-subtle" aria-hidden="true" /> : null}
           </div>
         </div>
       </div>

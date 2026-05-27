@@ -908,7 +908,7 @@ export const InspectorPanel = ({
 
   return (
     <div className="flex h-full min-h-0 flex-col bg-transparent">
-      <div className="flex items-center justify-between border-b border-line-glass/30 px-4 py-3">
+      <div className="flex items-center justify-between border-b border-line-subtle px-4 py-3">
         <h2 className="text-sm font-semibold text-input-text">
           {entityType === 'conversation'
             ? 'Conversation Info'

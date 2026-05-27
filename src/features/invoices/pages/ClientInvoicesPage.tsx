@@ -6,6 +6,7 @@ import type { InvoiceSummary } from '@/features/invoices/types';
 import { InvoiceStatusBadge } from '@/features/invoices/components/InvoiceStatusBadge';
 import { InvoicesTable } from '@/features/invoices/components/InvoicesTable';
 import { ColumnEditor, type ColumnEditorOption } from '@/shared/ui/table';
+import { SegmentedToggle } from '@/shared/ui/input/SegmentedToggle';
 import {
   CLIENT_SAFE_INVOICE_COLUMNS,
   DEFAULT_INVOICE_COLUMN_DEFS,
@@ -20,6 +21,17 @@ import { formatLongDate } from '@/shared/utils/dateFormatter';
 import { cn } from '@/shared/utils/cn';
 
 const PAGE_SIZE = 10;
+type ClientInvoiceTabId = 'all' | 'unpaid' | 'paid';
+const CLIENT_INVOICE_TAB_STATUS_MAP: Record<ClientInvoiceTabId, string[]> = {
+  all: [],
+  unpaid: ['open', 'overdue'],
+  paid: ['paid'],
+};
+const CLIENT_INVOICE_TAB_OPTIONS: ReadonlyArray<{ value: ClientInvoiceTabId; label: string }> = [
+  { value: 'all', label: 'All' },
+  { value: 'unpaid', label: 'Unpaid' },
+  { value: 'paid', label: 'Paid' },
+];
 
 const CLIENT_COLUMN_OPTIONS: ColumnEditorOption[] = [
   ...DEFAULT_INVOICE_COLUMN_DEFS.map((column) => ({ ...column, fixed: true })),
@@ -50,6 +62,10 @@ export function ClientInvoicesPage({
   const { navigate } = useNavigation();
   const { showError } = useToastContext();
   const [visibleOptionalColumns, setVisibleOptionalColumns] = useState<InvoiceColumnKey[]>([]);
+  const [activeTab, setActiveTab] = useState<ClientInvoiceTabId>('all');
+  const effectiveStatusFilter = statusFilter.length > 0
+    ? statusFilter
+    : CLIENT_INVOICE_TAB_STATUS_MAP[activeTab];
 
   const {
     items: invoices,
@@ -70,7 +86,7 @@ export function ClientInvoicesPage({
           page,
           pageSize: PAGE_SIZE,
         },
-        { signal, statusFilter }
+        { signal, statusFilter: effectiveStatusFilter }
       );
       const expectedCount = page * PAGE_SIZE;
       return { items: result.items, hasMore: result.total > expectedCount };
@@ -78,7 +94,7 @@ export function ClientInvoicesPage({
     deps: [
       practiceId,
       renderMode,
-      JSON.stringify(statusFilter),
+      JSON.stringify(effectiveStatusFilter),
     ]
   });
 
@@ -98,24 +114,24 @@ export function ClientInvoicesPage({
     return null;
   }
 
-  const hasFilters = statusFilter.length > 0;
+  const hasFilters = effectiveStatusFilter.length > 0;
 
   if (renderMode === 'full') {
     return (
       <div className="flex min-h-0 flex-1 flex-col gap-4 p-4 sm:p-6">
-        <div className="flex flex-col gap-4">
-          <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
-            <div>
-              <h1 className="text-3xl font-semibold tracking-tight text-input-text">Invoices</h1>
-            </div>
-            <div className="flex flex-wrap items-center gap-2">
-              <ColumnEditor
-                options={CLIENT_COLUMN_OPTIONS}
-                visible={visibleOptionalColumns}
-                onChange={(next) => setVisibleOptionalColumns(next as InvoiceColumnKey[])}
-              />
-            </div>
-          </div>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <SegmentedToggle<ClientInvoiceTabId>
+            value={activeTab}
+            options={CLIENT_INVOICE_TAB_OPTIONS}
+            onChange={setActiveTab}
+            ariaLabel="Filter invoices by status"
+            className="w-full sm:w-auto sm:min-w-[18rem]"
+          />
+          <ColumnEditor
+            options={CLIENT_COLUMN_OPTIONS}
+            visible={visibleOptionalColumns}
+            onChange={(next) => setVisibleOptionalColumns(next as InvoiceColumnKey[])}
+          />
         </div>
         <InvoicesTable
           invoices={invoices}

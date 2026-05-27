@@ -576,13 +576,8 @@ When the user answers, call save_case_details with the answered field. If the us
 If the answer is unclear or invalid, ask exactly ONE clarifying follow-up.
 Never ask about any other field this turn.`;
   })() : isEnrichmentMode
-    ? `All enrichment questions have been answered. Thank the user and confirm their case is as strong as possible. The submit action is available.`
-    : `All required information has been collected.${userNamingInstruction}
-${storedIntakeState ? `Warmly acknowledge what you have:` : ''}
-${intakeContext ? intakeContext : ''}
-
-Ask if they are ready to submit, or if they would like to add more detail to strengthen their case.
-Do NOT ask any more intake questions.`;
+    ? `All enrichment questions have been answered.${userNamingInstruction} Thank the client and let them know their information is as complete as possible. Tell them you are ready to submit for review whenever they are.`
+    : buildConfirmationPrompt(intakeContext, userNamingInstruction);
 
   // --- Tool usage rules (always included) ---
   const toolRules = `Tool usage rules:
@@ -621,6 +616,41 @@ ${consultationFeeNote}
 ${contextBlock ? `\n${contextBlock}` : ''}`.trim();
 };
 
+
+/**
+ * Builds the system prompt block for the confirmation turn — the moment
+ * after all required fields are collected but before the client submits.
+ *
+ * The AI is told to synthesize everything into a natural paragraph (not a
+ * bullet list), surface anything it can infer from the description that the
+ * client didn't explicitly say, and end with an open question giving the
+ * client a chance to correct or add anything. This turn is the highest-yield
+ * moment for catching errors and capturing volunteered facts.
+ */
+function buildConfirmationPrompt(intakeContext: string, userNamingInstruction: string): string {
+  const contextSection = intakeContext
+    ? `Here is what has been collected — use this to write your synthesis:\n${intakeContext}`
+    : '';
+
+  return `You have finished collecting the required intake information.${userNamingInstruction}
+
+Your job this turn is to:
+1. Write a warm, natural 2–4 sentence summary of the client's situation — NOT a bullet list. Write it the way a knowledgeable friend would recap what they heard. Mention the key facts: what the matter is about, where they are, who is involved, and any urgency or deadlines. Do not repeat field labels or use legal jargon.
+2. End with exactly this question (or a close natural variation): "Does that capture your situation? Is there anything important I missed, or anything you'd like to add before we send this over?"
+
+If the client confirms ("yes", "looks right", "that's correct", "go ahead") → call submit_intake immediately.
+If the client corrects something or provides new information → call save_case_details with the correction, acknowledge it in one sentence, present the updated summary, and ask for confirmation again.
+If the client volunteers additional facts → call save_case_details if any are structured fields, then incorporate the new detail into your summary and re-confirm.
+
+Rules for your summary:
+- Plain English only — no field keys, no bullet points, no labels
+- Sound like you genuinely understood their situation
+- Omit any field that was not filled in
+- Keep the summary under 80 words
+- One open-ended closing question only — do not list options or ask multiple questions
+
+${contextSection}`.trim();
+}
 
 function buildIntakeContextSummary(
   state: Record<string, unknown> | null,

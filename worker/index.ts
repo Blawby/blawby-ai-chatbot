@@ -34,6 +34,7 @@ import {
   handleOAuthProtectedResource,
 } from './routes/mcp/index.js';
 import { withMCPAuth } from './middleware/mcpAuth.js';
+import { handleGenerateEngagement } from './routes/generateEngagement.js';
 import { withAuth, withCache, withRateLimit } from './middleware/compose.js';
 import { withEngineerAllowlist } from './middleware/withEngineerAllowlist.js';
 import { handleAdminIntakeInspector } from './routes/adminIntakeInspector.js';
@@ -51,7 +52,7 @@ import { handleNotificationQueue } from './queues/notificationProcessor.js';
 import { handleSearchIndexQueue } from './queues/searchIndexConsumer.js';
 import type { SearchIndexEvent } from './types/search.js';
 
-function validateRequest(request: Request): boolean {
+export function validateRequest(request: Request): boolean {
   const contentLength = request.headers.get('content-length');
   if (contentLength && parseInt(contentLength) > 10 * 1024 * 1024) {
     return false;
@@ -62,7 +63,11 @@ function validateRequest(request: Request): boolean {
     const url = new URL(request.url);
     const isNoBodyEndpoint =
       /^\/api\/practice-client-intakes\/[^/]+\/files\/[^/]+\/confirm$/.test(url.pathname) ||
-      /^\/api\/uploads\/[^/]+\/confirm$/.test(url.pathname);
+      /^\/api\/uploads\/[^/]+\/confirm$/.test(url.pathname) ||
+      // /api/search/{practiceId}/reindex takes no body — without this, the
+      // backfill is unreachable and the search index stays empty for every
+      // practice. See worker/routes/search.ts:handleReindex.
+      /^\/api\/search\/[^/]+\/reindex$/.test(url.pathname);
     if (!isNoBodyEndpoint && !contentType) {
       return false;
     }
@@ -240,6 +245,11 @@ export const routes: RouteEntry[] = [
     mode: 'owned',
     match: prefix('/api/search/'),
     handler: (req, env, ctx) => handleGlobalSearch(req, env, ctx),
+  },
+  {
+    mode: 'owned',
+    match: exact('/api/ai/generate-engagement'),
+    handler: withAuth((req, env) => handleGenerateEngagement(req, env), { required: true }),
   },
   {
     mode: 'owned',

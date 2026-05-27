@@ -25,7 +25,6 @@ import { getWidgetAuthToken } from '@/shared/utils/widgetAuth';
 import { getClient as getAuthClient } from '@/shared/lib/authClient';
 
 let cachedBaseUrl: string | null = null;
-let isHandling401: Promise<void> | null = null;
 const ABSOLUTE_URL_PATTERN = /^(https?:)?\/\//i;
 
 const publicPracticeDetailsKey = (slug: string) => `practice:public:${slug}`;
@@ -176,26 +175,6 @@ async function apiFetch<T>(
     cleanup();
   }
 
-  if (response.status === 401) {
-    if (!isHandling401) {
-      const doHandle = async () => {
-        try {
-          if (typeof window !== 'undefined') {
-            try {
-              window.dispatchEvent(new CustomEvent('auth:unauthorized'));
-            } catch (eventErr) {
-              console.error('Error dispatching auth:unauthorized event:', eventErr);
-            }
-          }
-        } finally {
-          isHandling401 = null;
-        }
-      };
-      isHandling401 = doHandle();
-    }
-    await isHandling401;
-  }
-
   const isAccepted = acceptStatuses?.includes(response.status) ?? false;
   // `response.headers` may be missing in test stubs that fake just `{ ok, json }`;
   // prefer Headers when present, fall back to an empty Headers instance.
@@ -330,8 +309,7 @@ export type UploadConfig = {
  * still don't support reliably).
  *
  * Mirrors `apiClient.post` shape — same `{ data, status }` return,
- * same widget-token handling, same 401 → `auth:unauthorized` event,
- * same `HttpError` for non-2xx. The `onProgress` callback fires for
+ * same widget-token handling, same `HttpError` for non-2xx. The `onProgress` callback fires for
  * each `upload.onprogress` event with `{ loaded, total, percent }`.
  *
  * Replaces hand-rolled XHR + `xhrRef` Map patterns scattered across
@@ -495,8 +473,8 @@ type StreamConfig = {
  * consume `response.body.getReader()` for streaming.
  *
  * Mirrors `apiClient.{get,post}` for header normalization (Content-Type,
- * widget bearer for allowlisted URLs), URL resolution, and 401 → event
- * dispatch. Throws `HttpError` on non-2xx so caller's catch sees the same
+ * widget bearer for allowlisted URLs), and URL resolution.
+ * Throws `HttpError` on non-2xx so caller's catch sees the same
  * error contract as the rest of the API surface.
  */
 async function apiStream(
@@ -530,26 +508,6 @@ async function apiStream(
     body: body !== undefined ? JSON.stringify(body) : undefined,
     signal,
   });
-
-  if (response.status === 401) {
-    if (!isHandling401) {
-      const doHandle = async () => {
-        try {
-          if (typeof window !== 'undefined') {
-            try {
-              window.dispatchEvent(new CustomEvent('auth:unauthorized'));
-            } catch (eventErr) {
-              console.error('Error dispatching auth:unauthorized event:', eventErr);
-            }
-          }
-        } finally {
-          isHandling401 = null;
-        }
-      };
-      isHandling401 = doHandle();
-    }
-    await isHandling401;
-  }
 
   if (!response.ok) {
     // Drain the body so caller's catch path can read structured error data.
@@ -1044,123 +1002,67 @@ function normalizePracticeInvitationPayload(payload: unknown): Record<string, un
 }
 
 function normalizePracticePayload(payload: unknown): Practice {
-  if (!isRecord(payload)) {
-    throw new Error('Invalid practice payload');
-  }
-
+  if (!isRecord(payload)) throw new Error('Invalid practice payload');
   const record = isRecord(payload.practice) ? payload.practice : payload;
-  const id = String(
-    record.id ??
-    record.uuid ??
-    record.practice_id ??
-    record.practice_uuid ??
-    ''
-  );
-  const name = String(record.name ?? 'Practice');
-  const slug = toNullableString(record.slug) ?? id;
+  const id = record.id as string;
+  if (!id) throw new Error('Practice payload missing required field: id');
+
+  const metadata = (() => {
+    if (isRecord(record.metadata)) return record.metadata;
+    if (typeof record.metadata === 'string') {
+      try { return JSON.parse(record.metadata) as Record<string, unknown>; }
+      catch { return undefined; }
+    }
+    return undefined;
+  })();
+
+  const rawFee = record.consultation_fee;
+  const consultationFee = (() => {
+    if (typeof rawFee !== 'number') return null;
+    assertMinorUnits(rawFee, 'practice.consultationFee');
+    return toMajorUnits(rawFee);
+  })();
 
   return {
     id,
-    name,
-    slug,
+    name: (record.name as string) || 'Practice',
+    slug: toNullableString(record.slug) ?? id,
     logo: toNullableString(record.logo),
-    metadata: (() => {
-      if (isRecord(record.metadata)) return record.metadata;
-      if (typeof record.metadata === 'string') {
-        try {
-          const parsed = JSON.parse(record.metadata);
-          return isRecord(parsed) ? parsed : undefined;
-        } catch { return undefined; }
-      }
-      return undefined;
-    })(),
+    metadata,
     businessPhone: toNullableString(record.business_phone),
     businessEmail: toNullableString(record.business_email),
-    consultationFee: (() => {
-      const rawFee = record.consultation_fee;
-      if (typeof rawFee !== 'number') return null;
-      assertMinorUnits(rawFee, 'practice.consultationFee');
-      return toMajorUnits(Number(rawFee));
-    })() ?? null,
+    consultationFee: consultationFee ?? null,
     paymentUrl: toNullableString(record.payment_url),
     calendlyUrl: toNullableString(record.calendly_url),
     createdAt: toNullableString(record.created_at),
     updatedAt: toNullableString(record.updated_at),
-    billingIncrementMinutes: (() => {
-      const value = record.billing_increment_minutes;
-      if (value === null || value === undefined) return null;
-      if (typeof value === 'number' && Number.isFinite(value)) return value;
-      if (typeof value === 'string' && value.trim().length > 0) {
-        const parsed = Number(value);
-        return Number.isFinite(parsed) ? parsed : null;
-      }
-      return null;
-    })(),
+    billingIncrementMinutes: typeof record.billing_increment_minutes === 'number' ? record.billing_increment_minutes : null,
     website: toNullableString(record.website),
-    address: toNullableString(record.address ?? record.address_line_1),
-    apartment: toNullableString(record.apartment ?? record.address_line_2),
+    address: toNullableString(record.address_line_1),
+    apartment: toNullableString(record.address_line_2),
     city: toNullableString(record.city),
     state: toNullableString(record.state),
     postalCode: toNullableString(record.postal_code),
     country: toNullableString(record.country),
     primaryColor: toNullableString(record.primary_color),
     accentColor: toNullableString(record.accent_color),
-    legalDisclaimer: toNullableString(record.legal_disclaimer ?? record.overview),
-    isPublic: 'is_public' in record
-      ? Boolean(record.is_public)
-      : null,
-    services: Array.isArray(record.services)
-      ? (record.services as Array<Record<string, unknown>>)
-      : null
+    legalDisclaimer: toNullableString(record.legal_disclaimer),
+    isPublic: 'is_public' in record ? Boolean(record.is_public) : null,
+    services: Array.isArray(record.services) ? (record.services as Array<Record<string, unknown>>) : null,
   };
 }
 
 function unwrapPracticeResponse(data: unknown): Practice {
-  if (Array.isArray(data)) {
-    throw new Error('Expected a single practice object');
-  }
-
-  if (isRecord(data) && 'practice' in data) {
-    return normalizePracticePayload((data as Record<string, unknown>).practice);
-  }
-
-  if (isRecord(data) && 'data' in data && isRecord(data.data)) {
-    return normalizePracticePayload(data.data);
-  }
-
-  return normalizePracticePayload(data);
+  if (!isRecord(data)) throw new Error('Invalid practice response');
+  const record = isRecord(data.practice) ? data.practice : data;
+  return normalizePracticePayload(record);
 }
 
 function unwrapPracticeListResponse(data: unknown): Practice[] {
-  if (Array.isArray(data)) {
-    return data.map(normalizePracticePayload);
+  if (!isRecord(data) || !Array.isArray(data.practices)) {
+    throw new Error('Practice list response must have a practices array');
   }
-
-  if (isRecord(data)) {
-    if (Array.isArray(data.practices)) {
-      return data.practices.map(normalizePracticePayload);
-    }
-    if (Array.isArray(data.organizations)) {
-      return data.organizations.map(normalizePracticePayload);
-    }
-    if (Array.isArray(data.data)) {
-      return data.data.map(normalizePracticePayload);
-    }
-    if (isRecord(data.data)) {
-      const nested = data.data as Record<string, unknown>;
-      if (Array.isArray(nested.practices)) {
-        return nested.practices.map(normalizePracticePayload);
-      }
-      if (Array.isArray(nested.organizations)) {
-        return nested.organizations.map(normalizePracticePayload);
-      }
-      if (Array.isArray(nested.items)) {
-        return nested.items.map(normalizePracticePayload);
-      }
-    }
-  }
-
-  return [];
+  return data.practices.map(normalizePracticePayload);
 }
 
 function normalizeConnectedAccountResponse(payload: unknown): ConnectedAccountResponse {
@@ -1280,13 +1182,6 @@ export async function deletePractice(
     invalidates: [`practice:${practiceId}`, 'practices:list'],
   });
   clearPublicPracticeDetailsCache();
-}
-
-export async function setActivePractice(practiceId: string): Promise<void> {
-  if (!practiceId) {
-    throw new Error('practiceId is required');
-  }
-  await apiClient.put(`/api/practice/${encodeURIComponent(practiceId)}/active`);
 }
 
 export async function listPracticeInvitations(

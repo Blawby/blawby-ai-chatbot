@@ -14,6 +14,7 @@ import type {
 } from '../types/engagement';
 import { encodeSegment } from '@/config/urls';
 import { apiClient, isHttpError } from '@/shared/lib/apiClient';
+import { queryCache } from '@/shared/lib/queryCache';
 
 // ── Engagement statuses that belong in the engagement feature ──────────────────
 export const ENGAGEMENT_STATUSES: EngagementStatus[] = [
@@ -34,6 +35,12 @@ type EngagementContractListPayload = {
 
 type CreateEngagementContractPayload = {
   intake_id: string;
+  contract_body?: string;
+  engagement_notes?: string;
+  proposal_data?: ProposalData;
+};
+
+type PatchEngagementContractPayload = {
   contract_body?: string;
   engagement_notes?: string;
   proposal_data?: ProposalData;
@@ -118,6 +125,17 @@ const normalizeEngagementContract = (raw: unknown): EngagementDetail => {
     created_at: requireString(data, 'created_at'),
     updated_at: optionalString(data.updated_at),
   };
+};
+
+const invalidateEngagementLifecycleCaches = (practiceId: string, engagement?: EngagementDetail | null) => {
+  queryCache.invalidate(`engagement:${practiceId}:`, true);
+  queryCache.invalidate(`matters:${practiceId}:`, true);
+  queryCache.invalidate(`sidebar:counts:${practiceId}`, true);
+  queryCache.invalidate('sidebar:counts:', true);
+  queryCache.invalidate(`files:${practiceId}:`, true);
+  if (engagement?.matter_id) {
+    queryCache.invalidate(`matter:files:${practiceId}:${engagement.matter_id}`);
+  }
 };
 
 // ── List engagements for a practice ──────────────────────────────────────────
@@ -206,7 +224,9 @@ export async function createEngagementContract(
     throw mutationError(error, 'Failed to create engagement');
   }
 
-  return normalizeEngagementContract(raw);
+  const engagement = normalizeEngagementContract(raw);
+  invalidateEngagementLifecycleCaches(practiceId, engagement);
+  return engagement;
 }
 
 export async function getEngagement(
@@ -245,7 +265,7 @@ export async function getEngagementForMatter(
   if (!practiceId) throw new Error('practiceId is required');
   if (!matterId) throw new Error('matterId is required');
 
-  const limit = 200;
+  const limit = 100;
   let page = 1;
   // Guard against unbounded loops if backend pagination is malformed.
   const MAX_PAGES = 100;
@@ -278,13 +298,22 @@ export async function getEngagementForMatter(
   return null;
 }
 
-// ── Patch proposal_data ────────────────────────────────────────────────────────
-// Always sends the full proposal_data object — never partial updates.
+// ── Patch draft contract ────────────────────────────────────────────────────────
+// Always sends the full proposal_data object when proposal_data changes.
 
 export async function patchEngagementProposal(
   practiceId: string,
   contractId: string,
   proposalData: ProposalData,
+  options: { signal?: AbortSignal } = {}
+): Promise<EngagementDetail> {
+  return patchEngagementContract(practiceId, contractId, { proposal_data: proposalData }, options);
+}
+
+export async function patchEngagementContract(
+  practiceId: string,
+  contractId: string,
+  payload: PatchEngagementContractPayload,
   options: { signal?: AbortSignal } = {}
 ): Promise<EngagementDetail> {
   if (!practiceId) throw new Error('practiceId is required');
@@ -294,15 +323,17 @@ export async function patchEngagementProposal(
   try {
     const result = await apiClient.patch<unknown>(
       `/api/engagement-contracts/${encodeSegment(practiceId)}/${encodeSegment(contractId)}`,
-      { proposal_data: proposalData },
+      payload,
       { signal: options.signal },
     );
     raw = result.data;
   } catch (error) {
-    throw mutationError(error, 'Failed to update proposal');
+    throw mutationError(error, 'Failed to update engagement');
   }
 
-  return normalizeEngagementContract(raw);
+  const engagement = normalizeEngagementContract(raw);
+  invalidateEngagementLifecycleCaches(practiceId, engagement);
+  return engagement;
 }
 
 // ── Send to client ─────────────────────────────────────────────────────────────
@@ -316,13 +347,20 @@ export async function sendEngagementToClient(
   if (!practiceId) throw new Error('practiceId is required');
   if (!contractId) throw new Error('contractId is required');
 
+  if (note?.trim()) {
+    await patchEngagementContract(
+      practiceId,
+      contractId,
+      { engagement_notes: note.trim() },
+      { signal: options.signal },
+    );
+  }
+
   let raw: unknown;
   try {
-    const patchPayload: Record<string, unknown> = { status: 'sent' };
-    if (note?.trim()) patchPayload.engagement_notes = note.trim();
     const result = await apiClient.patch<unknown>(
-      `/api/engagement-contracts/${encodeSegment(practiceId)}/${encodeSegment(contractId)}`,
-      patchPayload,
+      `/api/engagement-contracts/${encodeSegment(practiceId)}/${encodeSegment(contractId)}/status`,
+      { status: 'sent' },
       { signal: options.signal },
     );
     raw = result.data;
@@ -330,7 +368,9 @@ export async function sendEngagementToClient(
     throw mutationError(error, 'Failed to send engagement');
   }
 
-  return normalizeEngagementContract(raw);
+  const engagement = normalizeEngagementContract(raw);
+  invalidateEngagementLifecycleCaches(practiceId, engagement);
+  return engagement;
 }
 
 // ── Mark proposal declined ─────────────────────────────────────────────────────
@@ -355,7 +395,9 @@ export async function declineEngagement(
     throw mutationError(error, 'Failed to decline engagement');
   }
 
-  return normalizeEngagementContract(raw);
+  const engagement = normalizeEngagementContract(raw);
+  invalidateEngagementLifecycleCaches(practiceId, engagement);
+  return engagement;
 }
 
 // ── Client: accept engagement ──────────────────────────────────────────────────
@@ -380,7 +422,9 @@ export async function acceptEngagement(
     throw mutationError(error, 'Failed to accept engagement');
   }
 
-  return normalizeEngagementContract(raw);
+  const engagement = normalizeEngagementContract(raw);
+  invalidateEngagementLifecycleCaches(practiceId, engagement);
+  return engagement;
 }
 
 // ── Staff: override conflict check ────────────────────────────────────────────

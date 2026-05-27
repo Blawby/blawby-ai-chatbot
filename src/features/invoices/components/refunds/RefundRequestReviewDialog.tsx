@@ -102,7 +102,7 @@ export const RefundRequestReviewDialog = ({
       disableBackdropClick={loading}
     >
       <DialogBody className="space-y-4">
-        <div className="rounded-xl border border-line-glass/20 bg-surface-utility/30 px-4 py-3 text-sm">
+        <div className="rounded-xl border border-line-subtle bg-surface-utility/30 px-4 py-3 text-sm">
           <div className="flex items-center justify-between">
             <span className="text-input-placeholder">Amount</span>
             <span className="font-semibold text-input-text">
@@ -120,7 +120,7 @@ export const RefundRequestReviewDialog = ({
             <RefundRequestStatusBadge status={request.status} />
           </div>
           {request.reason ? (
-            <div className="mt-3 border-t border-line-glass/20 pt-3">
+            <div className="mt-3 border-t border-line-subtle pt-3">
               <p className="text-xs text-input-placeholder">Reason</p>
               <p className="mt-1 text-input-text">{request.reason}</p>
             </div>

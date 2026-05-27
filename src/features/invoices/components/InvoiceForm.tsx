@@ -78,7 +78,9 @@ const buildInvoiceUpdatePayload = ({
   invoiceType: Invoice['invoice_type'];
   lineItems: InvoiceLineItem[];
 }): InvoiceUpdatePayload => ({
-  due_date: dueDate ? new Date(`${dueDate}T00:00:00.000Z`).toISOString() : undefined,
+  // Send the date-only value (YYYY-MM-DD) as-is. The backend validates due_date
+  // as an ISO date and rejects a full datetime string (it was "Invalid ISO date").
+  due_date: dueDate || undefined,
   notes: notes.trim() || undefined,
   memo: memo.trim() || undefined,
   invoice_type: invoiceType,
@@ -251,7 +253,9 @@ export const InvoiceForm = forwardRef<InvoiceFormHandle, InvoiceFormProps>(({
     matter_id: resolvedMatterId || undefined,
     connected_account_id: accountId,
     invoice_type: invoiceType,
-    due_date: dueDate ? new Date(`${dueDate}T00:00:00.000Z`).toISOString() : undefined,
+    // Send the date-only value (YYYY-MM-DD) as-is. The backend validates due_date
+    // as an ISO date and rejects a full datetime string (it was "Invalid ISO date").
+    due_date: dueDate || undefined,
     notes: notes.trim() || undefined,
     memo: memo.trim() || undefined,
     line_items: lineItems

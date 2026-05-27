@@ -228,17 +228,20 @@ export const DataTable = ({
       <table className={cn('min-w-full', tableClassName)}>
         {caption ? <caption className="sr-only">{caption}</caption> : null}
         <thead>
-          <tr className={cn(stickyHeader && 'sticky top-0 z-10 bg-surface-workspace')}>
+          <tr className={cn('border-b border-line-subtle', stickyHeader && 'sticky top-0 z-10 bg-surface-workspace')}>
             {columns.map((column, index) => {
               const isPrimary = column.id === primaryColumn?.id || (index === 0 && !primaryColumn);
+              const isLast = index === columns.length - 1;
               const baseHeaderClass = isPrimary
                 ? cn(
-                  'text-left text-sm font-semibold text-input-text sm:pl-0',
-                  density === 'compact' ? 'py-2.5 pr-3 pl-4' : 'py-3.5 pr-3 pl-4'
+                  'text-left text-sm font-semibold text-input-text',
+                  density === 'compact' ? 'py-2.5 pl-4' : 'py-3.5 pl-4',
+                  isLast ? 'pr-4' : 'pr-3'
                 )
                 : cn(
-                  'text-left text-sm font-semibold text-input-text',
-                  density === 'compact' ? 'px-3 py-2.5' : 'px-3 py-3.5'
+                  'text-left text-sm font-semibold text-input-text whitespace-nowrap',
+                  density === 'compact' ? 'py-2.5' : 'py-3.5',
+                  isLast ? 'pl-3 pr-4' : 'px-3'
                 );
 
               return (
@@ -247,6 +250,7 @@ export const DataTable = ({
                   scope="col"
                   className={cn(
                     baseHeaderClass,
+                    'whitespace-nowrap',
                     ALIGN_CLASS[column.align ?? 'left'],
                     hideClass(column.hideAt),
                     column.headerClassName
@@ -258,7 +262,7 @@ export const DataTable = ({
             })}
           </tr>
         </thead>
-        <tbody className={cn('bg-surface-workspace', bodyClassName)}>
+        <tbody className={cn('bg-surface-workspace divide-y divide-line-subtle', bodyClassName)}>
           {(() => {
             const renderRows = rowsOverride ?? paddedRows;
             const sourceRows = rowsOverride ?? rows;
@@ -286,14 +290,17 @@ export const DataTable = ({
                 >
                   {columns.map((column, index) => {
                     const isPrimary = column.id === primaryColumn?.id || (index === 0 && !primaryColumn);
+                    const isLast = index === columns.length - 1;
                     const baseCellClass = isPrimary
                       ? cn(
-                        'w-full max-w-0 text-sm font-medium text-input-text sm:w-auto sm:max-w-none sm:pl-0',
-                        density === 'compact' ? 'py-2.5 pr-3 pl-4' : 'py-3 pr-3 pl-4'
+                        'w-full max-w-0 text-sm font-medium text-input-text sm:w-auto sm:max-w-none',
+                        density === 'compact' ? 'py-2.5 pl-4' : 'py-3 pl-4',
+                        isLast ? 'pr-4' : 'pr-3'
                       )
                       : cn(
                         'text-sm text-input-placeholder',
-                        density === 'compact' ? 'px-3 py-2.5' : 'px-3 py-3'
+                        density === 'compact' ? 'py-2.5' : 'py-3',
+                        isLast ? 'pl-3 pr-4' : 'px-3'
                       );
                     const cellContent = row.isPlaceholder ? '\u00A0' : (row.cells[column.id] ?? '—');
 

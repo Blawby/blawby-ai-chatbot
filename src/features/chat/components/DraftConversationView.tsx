@@ -141,13 +141,13 @@ export const DraftConversationView: FunctionComponent<DraftConversationViewProps
 
   return (
     <div className="flex h-full min-h-0 flex-col bg-surface-workspace">
-      <header className="flex items-center justify-between gap-3 border-b border-line-glass/30 px-4 py-3 sm:px-6">
+      <header className="flex items-center justify-between gap-3 border-b border-line-subtle px-4 py-3 sm:px-6">
         <div className="flex min-w-0 flex-1 items-center gap-3">
           <Avatar
             src={null}
             name={draftContact?.name ?? 'New conversation'}
             size="md"
-            className="ring-1 ring-line-glass/10"
+            className="ring-1 ring-line-subtle"
             status={draftContact?.userId
               ? (onlineUserIds.has(draftContact.userId) ? 'active' : 'offline')
               : undefined}
@@ -172,7 +172,7 @@ export const DraftConversationView: FunctionComponent<DraftConversationViewProps
         />
       </header>
 
-      <div className="border-b border-line-glass/30 px-4 py-3 sm:px-6">
+      <div className="border-b border-line-subtle px-4 py-3 sm:px-6">
         <span className="mb-1 block text-[11px] font-semibold uppercase tracking-[0.08em] text-input-placeholder">
           To
         </span>

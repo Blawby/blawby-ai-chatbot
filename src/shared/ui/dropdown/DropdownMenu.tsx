@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useMemo, useCallback } from 'preact/hooks';
-import { ComponentChildren, createContext } from 'preact';
+import { ComponentChildren, createContext, RefObject } from 'preact';
 import { cn } from '@/shared/utils/cn';
 
 // Create context for dropdown state
@@ -7,6 +7,9 @@ export const DropdownContext = createContext<{
   isOpen: boolean;
   handleOpenChange: (open: boolean) => void;
   dropdownId: string;
+  triggerRef: RefObject<HTMLElement | null>;
+  contentRef: RefObject<HTMLElement | null>;
+  setContentRef: (node: HTMLElement | null) => void;
 } | null>(null);
 
 export interface DropdownMenuProps {
@@ -26,7 +29,9 @@ export const DropdownMenu = ({
 }: DropdownMenuProps) => {
   const [internalOpen, setInternalOpen] = useState(defaultOpen);
   const dropdownRef = useRef<HTMLDivElement>(null);
-  
+  const triggerRef = useRef<HTMLElement | null>(null);
+  const contentRef = useRef<HTMLElement | null>(null);
+
   // Generate stable unique IDs for accessibility
   const dropdownId = useMemo(() => `dropdown-${Math.random().toString(36).slice(2, 11)}`, []);
   
@@ -40,17 +45,27 @@ export const DropdownMenu = ({
     }
   }, [onOpenChange]);
 
+  const setContentRef = useCallback((node: HTMLElement | null) => {
+    contentRef.current = node;
+  }, []);
+
   // Create context to pass state to children
   const contextValue = useMemo(() => ({
     isOpen,
     handleOpenChange,
-    dropdownId
-  }), [isOpen, handleOpenChange, dropdownId]);
+    dropdownId,
+    triggerRef,
+    contentRef,
+    setContentRef,
+  }), [isOpen, handleOpenChange, dropdownId, triggerRef, setContentRef]);
 
   // Close dropdown when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+      const target = event.target as Node;
+      const insideTriggerContainer = dropdownRef.current?.contains(target) ?? false;
+      const insidePortaledContent = contentRef.current?.contains(target) ?? false;
+      if (!insideTriggerContainer && !insidePortaledContent) {
         handleOpenChange(false);
       }
     };

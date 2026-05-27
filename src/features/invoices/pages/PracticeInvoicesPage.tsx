@@ -15,11 +15,6 @@ import {
 } from '@/features/invoices/config/invoiceCollection';
 import { InvoiceListKpiRow } from '@/features/invoices/components/list/InvoiceListKpiRow';
 import {
-  INVOICE_TAB_STATUS_MAP,
-  InvoiceStatusTabs,
-  type InvoiceTabId,
-} from '@/features/invoices/components/list/InvoiceStatusTabs';
-import {
   InvoiceFilterChips,
   type InvoiceListFilterState,
 } from '@/features/invoices/components/list/InvoiceFilterChips';
@@ -35,8 +30,11 @@ import { formatLongDate } from '@/shared/utils/dateFormatter';
 import { cn } from '@/shared/utils/cn';
 
 const PAGE_SIZE = 10;
+const EMPTY_FILTERS: InvoiceListFilterState = {};
+// Stable identity for the default `statusFilter` prop so it keeps the same
+// reference across renders (used in fetch deps). Restored after an earlier
+// refactor removed the definition but left the usage below.
 const STABLE_EMPTY_ARRAY: string[] = [];
-const EMPTY_FILTERS: InvoiceListFilterState = { statuses: [] };
 
 const InvoicesEmptyState = ({
   hasFilters,
@@ -111,27 +109,13 @@ export function PracticeInvoicesPage({
   const { navigate } = useNavigation();
   const { showError, showSuccess } = useToastContext();
   const [visibleOptionalColumns, setVisibleOptionalColumns] = useState<InvoiceColumnKey[]>([]);
-  const [activeTab, setActiveTab] = useState<InvoiceTabId>('all');
   const [chipFilters, setChipFilters] = useState<InvoiceListFilterState>(EMPTY_FILTERS);
   const [pendingVoidInvoice, setPendingVoidInvoice] = useState<InvoiceSummary | null>(null);
   const [isVoidLoading, setIsVoidLoading] = useState(false);
 
   const aggregates = useInvoiceListAggregates(practiceId);
 
-  const effectiveStatusFilter = useMemo((): string[] | null => {
-    const tabStatuses = INVOICE_TAB_STATUS_MAP[activeTab];
-    const fromTab = tabStatuses.length > 0 ? tabStatuses : null;
-    const fromChip = chipFilters.statuses.length > 0 ? chipFilters.statuses : null;
-    const incoming = statusFilter.length > 0 ? statusFilter : null;
-    const candidates = [incoming, fromTab, fromChip].filter((value): value is string[] => value !== null);
-    if (candidates.length === 0) return STABLE_EMPTY_ARRAY;
-    const result = candidates.reduce<string[]>((acc, current) => {
-      if (acc.length === 0) return current;
-      const allowed = new Set(current);
-      return acc.filter((value) => allowed.has(value));
-    }, []);
-    return result.length === 0 ? null : result;
-  }, [activeTab, chipFilters.statuses, statusFilter]);
+  const effectiveStatusFilter = statusFilter.length > 0 ? statusFilter : [];
 
   const chipFilterRules = useMemo(() => buildChipFilterRules(chipFilters), [chipFilters]);
 
@@ -246,17 +230,11 @@ export function PracticeInvoicesPage({
     return (
       <div className="flex min-h-0 flex-1 flex-col gap-4 p-4 sm:p-6">
         <InvoiceListKpiRow aggregates={aggregates} />
-        <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
-          <div>
-            <h1 className="text-3xl font-semibold tracking-tight text-input-text">Invoices</h1>
+        {onCreateInvoice ? (
+          <div className="flex justify-end">
+            <Button onClick={onCreateInvoice}>New Invoice</Button>
           </div>
-          <div className="flex flex-wrap items-center gap-2">
-            {onCreateInvoice ? (
-              <Button onClick={onCreateInvoice}>New Invoice</Button>
-            ) : null}
-          </div>
-        </div>
-        <InvoiceStatusTabs activeTab={activeTab} onChange={setActiveTab} aggregates={aggregates} />
+        ) : null}
         <InvoiceFilterChips
           filters={chipFilters}
           onChange={setChipFilters}

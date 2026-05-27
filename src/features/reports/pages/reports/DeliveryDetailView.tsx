@@ -80,27 +80,27 @@ export const DeliveryDetailView: FunctionComponent<DeliveryDetailViewProps> = ({
         <p className="mt-1 text-sm font-mono text-input-placeholder">{delivery.id}</p>
       </div>
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-        <div className="rounded-2xl border border-line-glass/20 p-3">
+        <div className="rounded-2xl border border-line-subtle p-3">
           <p className="text-xs text-input-placeholder">Status</p>
           <p className={`text-sm font-medium ${STATUS_COLOR[delivery.status] ?? ''}`}>{delivery.status}</p>
         </div>
-        <div className="rounded-2xl border border-line-glass/20 p-3">
+        <div className="rounded-2xl border border-line-subtle p-3">
           <p className="text-xs text-input-placeholder">Created</p>
           <p className="text-sm text-input-text">{new Date(delivery.createdAt).toLocaleString()}</p>
         </div>
         {delivery.completedAt ? (
-          <div className="rounded-2xl border border-line-glass/20 p-3">
+          <div className="rounded-2xl border border-line-subtle p-3">
             <p className="text-xs text-input-placeholder">Completed</p>
             <p className="text-sm text-input-text">{new Date(delivery.completedAt).toLocaleString()}</p>
           </div>
         ) : null}
         {typeof delivery.byteSize === 'number' ? (
-          <div className="rounded-2xl border border-line-glass/20 p-3">
+          <div className="rounded-2xl border border-line-subtle p-3">
             <p className="text-xs text-input-placeholder">File size</p>
             <p className="text-sm text-input-text">{delivery.byteSize.toLocaleString()} bytes</p>
           </div>
         ) : null}
-        <div className="rounded-2xl border border-line-glass/20 p-3 sm:col-span-2">
+        <div className="rounded-2xl border border-line-subtle p-3 sm:col-span-2">
           <p className="text-xs text-input-placeholder">Recipients</p>
           <p className="text-sm text-input-text">
             {delivery.recipients.length === 0 ? '—' : delivery.recipients.join(', ')}

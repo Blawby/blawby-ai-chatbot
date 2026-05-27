@@ -1,10 +1,9 @@
 import { FunctionComponent, type ComponentChildren } from 'preact';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'preact/hooks';
+import { useCallback, useEffect, useRef, useState } from 'preact/hooks';
 import { useLocation } from 'preact-iso';
-import { Inbox, Search } from 'lucide-preact';
+import { Inbox } from 'lucide-preact';
 
-import { Input } from '@/shared/ui/input';
-import { Tabs, type TabItem } from '@/shared/ui/tabs/Tabs';
+import { SegmentedToggle } from '@/shared/ui/input/SegmentedToggle';
 import { DataTable, type DataTableColumn, type DataTableRow } from '@/shared/ui/table/DataTable';
 import { WorkspacePlaceholderState } from '@/shared/ui/layout/WorkspacePlaceholderState';
 import { InfiniteScroll } from '@/shared/ui/layout/InfiniteScroll';
@@ -13,7 +12,10 @@ import { cn } from '@/shared/utils/cn';
 import { formatRelativeTime } from '@/features/matters/utils/formatRelativeTime';
 import { listIntakes, type IntakeListItem } from '../api/intakesApi';
 import { resolveIntakeTitle } from '@/features/intake/utils/intakeTitle';
+import { queryCache } from '@/shared/lib/queryCache';
+import { policyTtl } from '@/shared/lib/cachePolicy';
 import IntakeDetailPage from './IntakeDetailPage';
+import IntakeTemplatesPage from './IntakeTemplatesPage';
 
 const InboxIcon: IconComponent = (props) => (
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -54,67 +56,42 @@ const triageStatusVariant = (status: string | null | undefined): {
   }
 };
 
-const matchesSearch = (item: IntakeListItem, query: string): boolean => {
-  if (!query) return true;
-  const q = query.toLowerCase();
-  const name = (item.metadata?.name || '').toLowerCase();
-  const email = (item.metadata?.email || '').toLowerCase();
-  const subject = resolveIntakeTitle(item.metadata, '').toLowerCase();
-  return name.includes(q) || email.includes(q) || subject.includes(q);
-};
-
 type IntakesPageProps = {
   practiceId: string | null;
   basePath?: string;
   conversationsBasePath?: string | null;
+  engagementsBasePath?: string | null;
   practiceName: string;
   practiceLogo: string | null;
-  activeTriageFilter?: string | null;
 };
 
 export const IntakesPage: FunctionComponent<IntakesPageProps> = ({
   practiceId,
   basePath = '/practice/intakes',
   conversationsBasePath,
+  engagementsBasePath,
   practiceName,
   practiceLogo,
-  activeTriageFilter = 'all',
 }) => {
   const location = useLocation();
 
   const pathSuffix = location.path.startsWith(basePath) ? location.path.slice(basePath.length) : '';
   const pathSegments = pathSuffix.replace(/^\/+/, '').split('/').filter(Boolean);
   const isResponsesRoute = pathSegments[0] === 'responses';
+  const isFormsRoute = pathSegments[0] === 'forms';
   const safeDecode = (value: string | undefined | null): string | null => {
     if (typeof value !== 'string') return null;
     try { return decodeURIComponent(value); } catch { return value; }
   };
   const selectedIntakeId = isResponsesRoute && pathSegments[1] ? safeDecode(pathSegments[1]) : null;
+  const selectedTemplateSlug = isFormsRoute && pathSegments[1] && pathSegments[1] !== 'new'
+    ? safeDecode(pathSegments[1])
+    : isFormsRoute && pathSegments[1] === 'new'
+      ? 'new'
+      : null;
+  const templateRouteMode: 'list' | 'editor' = isFormsRoute && pathSegments.length > 1 ? 'editor' : 'list';
 
-  // Redirect any non-responses sub-route to /responses (greenfield: legacy
-  // /intakes/:slug paths now belong to /settings/intake-forms).
-  useEffect(() => {
-    if (isResponsesRoute) return;
-    location.route(`${basePath}/responses`, true);
-    // pathSegments[0] captures the segment we redirect from.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [basePath, isResponsesRoute, pathSegments[0]]);
-
-  const desktopFilter: TriageFilter = normalizeFilter(activeTriageFilter ?? 'all');
-  const [mobileFilter, setMobileFilter] = useState<TriageFilter>(desktopFilter);
-  const [searchInput, setSearchInput] = useState('');
-  const [searchQuery, setSearchQuery] = useState('');
-
-  // Keep mobile tab in sync when desktop sidebar updates the activeTriageFilter prop.
-  useEffect(() => {
-    setMobileFilter(desktopFilter);
-  }, [desktopFilter]);
-
-  // Debounce search input → committed query.
-  useEffect(() => {
-    const timer = setTimeout(() => setSearchQuery(searchInput.trim()), 200);
-    return () => clearTimeout(timer);
-  }, [searchInput]);
+  const [triageFilter, setTriageFilter] = useState<TriageFilter>('all');
 
   const [items, setItems] = useState<IntakeListItem[]>([]);
   const [page, setPage] = useState(1);
@@ -127,12 +104,25 @@ export const IntakesPage: FunctionComponent<IntakesPageProps> = ({
   const fetchPage = useCallback(async (targetPage: number, signal: AbortSignal): Promise<void> => {
     if (!practiceId) return;
     const localSeq = ++requestSeqRef.current;
-    const triageFilter = mobileFilter !== 'all' ? mobileFilter : undefined;
+    const triageStatus = triageFilter !== 'all' ? triageFilter : undefined;
     try {
-      const result = await listIntakes(
-        practiceId,
-        { page: targetPage, limit: PAGE_SIZE, triage_status: triageFilter },
-        { signal },
+      // Route through queryCache so navigating away and back within the intake
+      // TTL serves the cached page instead of re-hitting the backend. Keyed by
+      // practice + filter + page; invalidated on triage actions below.
+      //
+      // The mount abort signal is deliberately not forwarded into the cached
+      // fetch — letting the request complete warms the cache for the next
+      // visit, and coalesceGet's single-flight must not be tied to a promise
+      // an unmount/refetch could abort. The outer `signal.aborted` guards below
+      // still prevent state updates after this effect is torn down.
+      const cacheKey = `intake:list:${practiceId}:${triageFilter}:p${targetPage}`;
+      const result = await queryCache.coalesceGet(
+        cacheKey,
+        () => listIntakes(
+          practiceId,
+          { page: targetPage, limit: PAGE_SIZE, triage_status: triageStatus },
+        ),
+        { ttl: policyTtl(cacheKey), swr: false },
       );
       if (signal.aborted || requestSeqRef.current !== localSeq) return;
       setItems((prev) => (targetPage === 1 ? result.intakes : [...prev, ...result.intakes]));
@@ -143,7 +133,7 @@ export const IntakesPage: FunctionComponent<IntakesPageProps> = ({
       if (signal.aborted || requestSeqRef.current !== localSeq) return;
       setError(err instanceof Error ? err.message : 'Failed to load intakes');
     }
-  }, [practiceId, mobileFilter]);
+  }, [practiceId, triageFilter]);
 
   // Reset & fetch when filter or practice changes.
   useEffect(() => {
@@ -162,7 +152,7 @@ export const IntakesPage: FunctionComponent<IntakesPageProps> = ({
       if (seq === requestSeqRef.current && !controller.signal.aborted) setIsLoading(false);
     });
     return () => controller.abort();
-  }, [practiceId, mobileFilter, isResponsesRoute, fetchPage]);
+  }, [practiceId, triageFilter, isResponsesRoute, fetchPage]);
 
   const loadMore = useCallback(() => {
     if (!hasMore || isLoading || isLoadingMore) return;
@@ -170,11 +160,6 @@ export const IntakesPage: FunctionComponent<IntakesPageProps> = ({
     setIsLoadingMore(true);
     void fetchPage(page + 1, controller.signal).finally(() => setIsLoadingMore(false));
   }, [hasMore, isLoading, isLoadingMore, fetchPage, page]);
-
-  const filteredItems = useMemo(
-    () => items.filter((item) => matchesSearch(item, searchQuery)),
-    [items, searchQuery],
-  );
 
   const handleSelectIntake = useCallback((intake: IntakeListItem) => {
     location.route(`${basePath}/responses/${encodeURIComponent(intake.uuid)}`);
@@ -186,15 +171,37 @@ export const IntakesPage: FunctionComponent<IntakesPageProps> = ({
 
   const handleTriageComplete = useCallback(() => {
     if (!practiceId || !isResponsesRoute) return;
+    // A triage decision changes list contents/status — drop the cached pages
+    // for this practice so the refetch below pulls fresh data.
+    queryCache.invalidate(`intake:list:${practiceId}:`, true);
+    // Also drop the triaged intake's status entry (intake:status:<uuid>, written
+    // by ClientIntakesView) so a same-session client view of this intake doesn't
+    // surface the pre-triage status until the TTL lapses. Cross-session staleness
+    // (a different user's browser) isn't reachable from here — caches are in-memory
+    // per session — so this only covers same-session/multi-role reads.
+    if (selectedIntakeId) queryCache.invalidate(`intake:status:${selectedIntakeId}`);
     const controller = new AbortController();
     setIsLoading(true);
     void fetchPage(1, controller.signal).finally(() => setIsLoading(false));
     handleBack();
-  }, [practiceId, isResponsesRoute, fetchPage, handleBack]);
+  }, [practiceId, isResponsesRoute, selectedIntakeId, fetchPage, handleBack]);
 
-  const handleMobileFilterChange = useCallback((id: string) => {
-    setMobileFilter(normalizeFilter(id));
+  const handleFilterChange = useCallback((id: TriageFilter) => {
+    setTriageFilter(normalizeFilter(id));
   }, []);
+
+  if (isFormsRoute) {
+    return (
+      <IntakeTemplatesPage
+        practiceId={practiceId}
+        basePath={`${basePath}/forms`}
+        responsesPath={`${basePath}/responses`}
+        routeMode={templateRouteMode}
+        routeTemplateSlug={selectedTemplateSlug}
+        onBack={() => location.route(`${basePath}/forms`)}
+      />
+    );
+  }
 
   if (!isResponsesRoute) return null;
 
@@ -204,6 +211,7 @@ export const IntakesPage: FunctionComponent<IntakesPageProps> = ({
         practiceId={practiceId}
         intakeId={selectedIntakeId}
         conversationsBasePath={conversationsBasePath}
+        engagementsBasePath={engagementsBasePath}
         practiceName={practiceName}
         practiceLogo={practiceLogo}
         onBack={handleBack}
@@ -241,7 +249,7 @@ export const IntakesPage: FunctionComponent<IntakesPageProps> = ({
     },
   ];
 
-  const rows: DataTableRow[] = filteredItems.map((item) => {
+  const rows: DataTableRow[] = items.map((item) => {
     const triage = triageStatusVariant(item.triage_status);
     const subject = resolveIntakeTitle(item.metadata, item.metadata?.name?.trim() || 'Anonymous Lead');
     const contact = item.metadata?.email?.trim() || item.metadata?.name?.trim() || '—';
@@ -257,56 +265,24 @@ export const IntakesPage: FunctionComponent<IntakesPageProps> = ({
     };
   });
 
-  const showEmpty = !isLoading && !error && filteredItems.length === 0 && !hasMore;
-  const emptyMessage = searchQuery
-    ? `No responses match “${searchQuery}”.`
-    : mobileFilter === 'pending_review'
-      ? "You've caught up on all pending reviews! New consultation inquiries will appear here."
-      : mobileFilter === 'accepted'
-        ? 'No accepted responses yet.'
-        : mobileFilter === 'declined'
-          ? 'No declined responses.'
-          : 'No leads have come in yet. New consultation inquiries will appear here.';
-
-  const tabItems: TabItem[] = TRIAGE_FILTERS.map((f) => ({ id: f.id, label: f.label }));
+  const showEmpty = !isLoading && !error && items.length === 0 && !hasMore;
+  const emptyMessage = triageFilter === 'pending_review'
+    ? "You've caught up on all pending reviews! New consultation inquiries will appear here."
+    : triageFilter === 'accepted'
+      ? 'No accepted responses yet.'
+      : triageFilter === 'declined'
+        ? 'No declined responses.'
+        : 'No leads have come in yet. New consultation inquiries will appear here.';
 
   return (
     <div className="flex h-full flex-col min-h-0 bg-surface-workspace">
-      {/* Header (desktop only — mobile hides because the workspace shell already
-          renders its own mobile header with the section title). */}
-      <header className="hidden md:flex items-center justify-between gap-4 border-b border-card-border px-6 py-5">
-        <h1 className="text-xl font-semibold text-input-text">All Responses</h1>
-        <div className="w-72">
-          <Input
-            type="search"
-            placeholder="Search by name or email"
-            value={searchInput}
-            onChange={setSearchInput}
-            icon={Search}
-            iconClassName="h-4 w-4"
-          />
-        </div>
-      </header>
-
-      {/* Mobile filter tabs */}
-      <div className="md:hidden border-b border-card-border bg-surface-workspace">
-        <Tabs
-          items={tabItems}
-          activeId={mobileFilter}
-          onChange={handleMobileFilterChange}
-          className="px-2"
-        />
-      </div>
-
-      {/* Mobile search */}
-      <div className="md:hidden px-4 py-3 border-b border-card-border">
-        <Input
-          type="search"
-          placeholder="Search responses…"
-          value={searchInput}
-          onChange={setSearchInput}
-          icon={Search}
-          iconClassName="h-4 w-4"
+      <div className="border-b border-line-subtle bg-surface-workspace px-4 py-3 md:px-6">
+        <SegmentedToggle<TriageFilter>
+          value={triageFilter}
+          options={TRIAGE_FILTERS.map((filter) => ({ value: filter.id, label: filter.label }))}
+          onChange={handleFilterChange}
+          ariaLabel="Filter intake responses by status"
+          className="w-full sm:w-auto sm:min-w-[24rem]"
         />
       </div>
 
@@ -331,6 +307,8 @@ export const IntakesPage: FunctionComponent<IntakesPageProps> = ({
                 loading={isLoading && rows.length === 0}
                 density="compact"
                 stickyHeader
+                className="panel overflow-hidden"
+                bodyClassName="bg-transparent"
                 rowClassName="transition-colors duration-150 hover:!bg-surface-card-hover"
                 hasMore={hasMore}
                 isLoadingMore={isLoadingMore}
@@ -353,7 +331,7 @@ export const IntakesPage: FunctionComponent<IntakesPageProps> = ({
                   loading={isLoadingMore}
                   onLoadMore={loadMore}
                 >
-                  {filteredItems.map((item) => (
+                  {items.map((item) => (
                     <IntakeMobileCard
                       key={item.uuid}
                       item={item}

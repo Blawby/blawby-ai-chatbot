@@ -77,25 +77,27 @@ export default function DebugStylesPage() {
       <header className="space-y-2">
         <h1 className="text-2xl font-semibold text-input-text">Debug Style Reference</h1>
         <p className="text-sm text-input-placeholder">
-          Dev-only style inventory for button variants, glass surfaces, and nav state tokens.
+          Dev-only style inventory for button variants, surfaces, and nav state tokens.
         </p>
       </header>
 
-
       <section className="space-y-4">
         <h2 className="text-xs font-semibold uppercase tracking-widest text-input-placeholder">Surfaces</h2>
+        <p className="text-sm text-input-placeholder">
+          Use <code>card</code>, <code>panel</code>, or <code>input-surface</code>. The <code>glass-*</code> names are deprecated aliases and must not be used in new code.
+        </p>
         <div className="grid gap-4 md:grid-cols-3">
-          <div className="glass-card p-4">
-            <p className="font-medium text-input-text">glass-card</p>
-            <p className="text-sm text-input-placeholder">Prominent container</p>
+          <div className="card p-4">
+            <p className="font-medium text-input-text">card</p>
+            <p className="text-sm text-input-placeholder">Content cards. <code>bg-surface-card</code>, <code>border-subtle</code>, <code>rounded-2xl</code>.</p>
           </div>
-          <div className="glass-panel p-4">
-            <p className="font-medium text-input-text">glass-panel</p>
-            <p className="text-sm text-input-placeholder">Section container</p>
+          <div className="panel p-4">
+            <p className="font-medium text-input-text">panel</p>
+            <p className="text-sm text-input-placeholder">Section containers. <code>bg-surface-section</code>, <code>border-subtle</code>, <code>rounded-2xl</code>.</p>
           </div>
-          <div className="glass-input rounded-xl p-4">
-            <p className="font-medium text-input-text">glass-input</p>
-            <p className="text-sm text-input-placeholder">Input-like surface</p>
+          <div className="input-surface rounded-xl p-4">
+            <p className="font-medium text-input-text">input-surface</p>
+            <p className="text-sm text-input-placeholder">Input backgrounds. <code>bg-surface-input</code>, <code>border-subtle</code>, <code>rounded-xl</code>.</p>
           </div>
         </div>
       </section>
@@ -107,7 +109,7 @@ export default function DebugStylesPage() {
         </p>
         <div className="grid gap-3 md:grid-cols-2">
           {buttonVariants.map((variant) => (
-            <div key={variant} className="glass-panel flex items-center gap-3 rounded-xl p-3">
+            <div key={variant} className="panel flex items-center gap-3 rounded-xl p-3">
               <Button variant={variant}>{variant}</Button>
               <code className="text-xs text-input-placeholder">variant=&quot;{variant}&quot;</code>
             </div>
@@ -117,7 +119,7 @@ export default function DebugStylesPage() {
 
       <section className="space-y-4 pt-4">
         <h2 className="text-xs font-semibold uppercase tracking-widest text-input-placeholder">Button Sizes</h2>
-        <div className="glass-panel flex flex-wrap items-center gap-3 rounded-xl p-3">
+        <div className="panel flex flex-wrap items-center gap-3 rounded-xl p-3">
           {buttonSizes.map((size) => (
             <Button key={size} size={size} variant="secondary">
               {size}
@@ -191,43 +193,43 @@ export default function DebugStylesPage() {
       <section className="space-y-4 pt-4">
         <h2 className="text-xs font-semibold uppercase tracking-widest text-input-placeholder">Input States</h2>
         <p className="text-sm text-input-placeholder">
-          Status is communicated through colored rings while preserving the glass material.
+          Status is communicated through colored rings on the <code>input-surface</code> base.
         </p>
         <div className="grid gap-4 md:grid-cols-2">
-          <div className="glass-panel rounded-xl p-4 space-y-4">
+          <div className="panel rounded-xl p-4 space-y-4">
             <div className="space-y-1">
               <label htmlFor="defaultInput" className="text-xs font-medium text-input-placeholder">Default / Focus</label>
-              <input 
+              <input
                 id="defaultInput"
-                className="glass-input w-full rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-accent-500/30" 
-                placeholder="Standard state" 
+                className="input-surface w-full rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-accent-500/30"
+                placeholder="Standard state"
               />
             </div>
             <div className="space-y-1">
-              <label htmlFor="errorInput" className="text-xs font-medium text-input-placeholder">Error (ring-red)</label>
-              <input 
+              <label htmlFor="errorInput" className="text-xs font-medium text-input-placeholder">Error</label>
+              <input
                 id="errorInput"
-                className="glass-input w-full rounded-xl px-3 py-2 text-sm ring-2 ring-red-500/40 focus:ring-red-500/60" 
-                placeholder="Invalid value" 
+                className="input-surface w-full rounded-xl px-3 py-2 text-sm ring-2 ring-accent-error/40 focus:ring-accent-error/60"
+                placeholder="Invalid value"
               />
             </div>
           </div>
-          <div className="glass-panel rounded-xl p-4 space-y-4">
+          <div className="panel rounded-xl p-4 space-y-4">
             <div className="space-y-1">
-              <label htmlFor="successInput" className="text-xs font-medium text-input-placeholder">Success (ring-green)</label>
-              <input 
+              <label htmlFor="successInput" className="text-xs font-medium text-input-placeholder">Success</label>
+              <input
                 id="successInput"
-                className="glass-input w-full rounded-xl px-3 py-2 text-sm ring-2 ring-green-500/40 focus:ring-green-500/60" 
-                placeholder="Valid value" 
+                className="input-surface w-full rounded-xl px-3 py-2 text-sm ring-2 ring-accent-success/40 focus:ring-accent-success/60"
+                placeholder="Valid value"
               />
             </div>
             <div className="space-y-1">
               <label htmlFor="disabledInput" className="text-xs font-medium text-input-placeholder">Disabled</label>
-              <input 
+              <input
                 id="disabledInput"
                 disabled
-                className="glass-input w-full rounded-xl px-3 py-2 text-sm opacity-50 cursor-not-allowed focus:ring-0" 
-                placeholder="Locked" 
+                className="input-surface w-full rounded-xl px-3 py-2 text-sm opacity-50 cursor-not-allowed focus:ring-0"
+                placeholder="Locked"
               />
             </div>
           </div>
@@ -240,7 +242,7 @@ export default function DebugStylesPage() {
           Height baseline should align with Combobox for `md` controls.
         </p>
         <div className="grid gap-4 md:grid-cols-2">
-          <div className="glass-panel rounded-xl p-4">
+          <div className="panel rounded-xl p-4">
             <Input
               label="Input"
               value={inputValue}
@@ -248,7 +250,7 @@ export default function DebugStylesPage() {
               placeholder="Enter matter title"
             />
           </div>
-          <div className="glass-panel rounded-xl p-4">
+          <div className="panel rounded-xl p-4">
             <Combobox
               label="Combobox"
               value={comboboxValue}
@@ -257,7 +259,7 @@ export default function DebugStylesPage() {
               placeholder="Pick a stage"
             />
           </div>
-          <div className="glass-panel rounded-xl p-4">
+          <div className="panel rounded-xl p-4">
             <CurrencyInput
               label="Currency Input"
               value={currencyValue}
@@ -265,14 +267,14 @@ export default function DebugStylesPage() {
               placeholder="0"
             />
           </div>
-          <div className="glass-panel rounded-xl p-4">
+          <div className="panel rounded-xl p-4">
             <DatePicker
               label="Date Picker"
               value={dateValue}
               onChange={setDateValue}
             />
           </div>
-          <div className="glass-panel rounded-xl p-4 md:col-span-2">
+          <div className="panel rounded-xl p-4 md:col-span-2">
             <Textarea
               label="Textarea"
               rows={3}
@@ -290,7 +292,7 @@ export default function DebugStylesPage() {
           One component, four modes. `multiple` and `allowCustomValues` toggle behavior; this is not a separate component.
         </p>
         <div className="grid gap-4 md:grid-cols-2 overflow-visible">
-          <div className="glass-panel relative z-40 rounded-xl p-4 overflow-visible">
+          <div className="panel relative z-40 rounded-xl p-4 overflow-visible">
             <Combobox
               label="Single (dropdown mode)"
               value={selectValue}
@@ -299,7 +301,7 @@ export default function DebugStylesPage() {
               searchable={false}
             />
           </div>
-          <div className="glass-panel relative z-40 rounded-xl p-4 overflow-visible">
+          <div className="panel relative z-40 rounded-xl p-4 overflow-visible">
             <Combobox
               label="Single (searchable)"
               placeholder="Pick a stage"
@@ -309,7 +311,7 @@ export default function DebugStylesPage() {
               leading={renderUserAvatar({ name: 'Demo User' }, 'xs', 'h-4 w-4 text-input-placeholder')}
             />
           </div>
-          <div className="glass-panel relative z-30 rounded-xl p-4 overflow-visible">
+          <div className="panel relative z-30 rounded-xl p-4 overflow-visible">
             <Combobox
               label="Multi (chips)"
               placeholder="Pick one or more stages"
@@ -321,7 +323,7 @@ export default function DebugStylesPage() {
               leading={renderUserAvatar({ name: 'Demo User' }, 'xs', 'h-4 w-4 text-input-placeholder')}
             />
           </div>
-          <div className="glass-panel relative z-30 rounded-xl p-4 overflow-visible">
+          <div className="panel relative z-30 rounded-xl p-4 overflow-visible">
             <Combobox
               label="Combobox (multi + custom)"
               placeholder="Type to add tags"
@@ -336,17 +338,13 @@ export default function DebugStylesPage() {
         </div>
       </section>
 
-      {/* ================================================================== */}
-      {/* Avatar & User Components                                            */}
-      {/* ================================================================== */}
-
       <section className="space-y-4 pt-4">
         <h2 className="text-xs font-semibold uppercase tracking-widest text-input-placeholder">Avatar Sizes &amp; Status</h2>
         <p className="text-sm text-input-placeholder">
           Five sizes (<code>xs sm md lg xl</code>) with optional <code>status</code> dot (<code>active</code> = emerald, <code>inactive</code> = amber).
           Image falls back to initials extracted from <code>name</code>.
         </p>
-        <div className="glass-panel rounded-xl p-4">
+        <div className="panel rounded-xl p-4">
           <div className="flex flex-wrap items-end gap-6">
             {(['xs', 'sm', 'md', 'lg', 'xl'] as const).map((size) => (
               <div key={size} className="flex flex-col items-center gap-2">
@@ -371,9 +369,9 @@ export default function DebugStylesPage() {
       <section className="space-y-4 pt-4">
         <h2 className="text-xs font-semibold uppercase tracking-widest text-input-placeholder">StackedAvatars</h2>
         <p className="text-sm text-input-placeholder">
-          Pass a <code>users</code> array and a <code>max</code> cap. Overflow renders a <code>+N</code> badge using the <code>glass-input</code> surface.
+          Pass a <code>users</code> array and a <code>max</code> cap. Overflow renders a <code>+N</code> badge using the <code>input-surface</code> surface.
         </p>
-        <div className="glass-panel rounded-xl p-4 flex flex-wrap items-center gap-8">
+        <div className="panel rounded-xl p-4 flex flex-wrap items-center gap-8">
           <div className="flex flex-col gap-1">
             <StackedAvatars users={sampleUsers} size="sm" max={3} />
             <code className="text-[10px] text-input-placeholder">size=sm max=3</code>
@@ -400,7 +398,7 @@ export default function DebugStylesPage() {
           Pass <code>onClick</code> to make it a button (adds hover + focus ring).
         </p>
         <div className="grid gap-3 md:grid-cols-2">
-          <div className="glass-panel rounded-xl p-1">
+          <div className="panel rounded-xl p-1">
             <UserCard
               name="Alice Chen"
               secondary="alice@lawfirm.com"
@@ -409,7 +407,7 @@ export default function DebugStylesPage() {
               status="active"
             />
           </div>
-          <div className="glass-panel rounded-xl p-1">
+          <div className="panel rounded-xl p-1">
             <UserCard
               name="Bob Ramirez"
               secondary="bob@lawfirm.com"
@@ -419,7 +417,7 @@ export default function DebugStylesPage() {
               trailing={<Button size="xs" variant="ghost">Manage</Button>}
             />
           </div>
-          <div className="glass-panel rounded-xl overflow-hidden">
+          <div className="panel rounded-xl overflow-hidden">
             <UserCard
               name="Carol Singh"
               secondary="carol@lawfirm.com"
@@ -427,7 +425,7 @@ export default function DebugStylesPage() {
               onClick={() => alert('UserCard clicked')}
             />
           </div>
-          <div className="glass-panel rounded-xl overflow-hidden">
+          <div className="panel rounded-xl overflow-hidden">
             <UserCard
               name="David Kim"
               secondary="Member"

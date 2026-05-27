@@ -2,14 +2,13 @@ import { useEffect, useMemo, useState } from 'preact/hooks';
 import { Folder, Upload } from 'lucide-preact';
 
 import { Page } from '@/shared/ui/layout/Page';
-import { PageHeader } from '@/shared/ui/layout/PageHeader';
 import { WorkspacePlaceholderState } from '@/shared/ui/layout/WorkspacePlaceholderState';
 import { Button } from '@/shared/ui/Button';
-import { SegmentedFilter } from '@/shared/ui/tabs/SegmentedFilter';
+import { SegmentedToggle } from '@/shared/ui/input/SegmentedToggle';
 import { CollectionToolbar } from '@/shared/ui/collection/CollectionToolbar';
 import { useMobileDetection } from '@/shared/hooks/useMobileDetection';
 
-import { FilesGrid } from './FilesGrid';
+import { FilesCollectionPanel } from './FilesCollectionPanel';
 import { FileDetailDrawer } from './FileDetailDrawer';
 import { FilesInspectorPanel } from './FilesInspectorPanel';
 import { UploadDestinationDialog } from './UploadDestinationDialog';
@@ -37,20 +36,10 @@ const matchesAssociation = (file: OrgFile, filter: AssociationFilter): boolean =
   return Boolean(file.intakeUuid);
 };
 
-const matchesSearch = (file: OrgFile, query: string): boolean => {
-  if (!query) return true;
-  const q = query.toLowerCase();
-  if (file.fileName.toLowerCase().includes(q)) return true;
-  if (file.matterTitle?.toLowerCase().includes(q)) return true;
-  if (file.intakeTitle?.toLowerCase().includes(q)) return true;
-  return false;
-};
-
 export const FilesPageView = ({ practiceId, practiceSlug, scope, userId = null }: FilesPageViewProps) => {
   const isMobile = useMobileDetection();
   const { files, isLoading, error, refetch } = useOrgFiles({ practiceId, scope, userId });
 
-  const [search, setSearch] = useState('');
   const [association, setAssociation] = useState<AssociationFilter>('all');
   const [selectedFile, setSelectedFile] = useState<OrgFile | null>(null);
   const [isUploadOpen, setIsUploadOpen] = useState(false);
@@ -63,9 +52,8 @@ export const FilesPageView = ({ practiceId, practiceSlug, scope, userId = null }
   }, [files, selectedFile]);
 
   const filteredFiles = useMemo(() => {
-    const trimmed = search.trim();
-    return files.filter((file) => matchesAssociation(file, association) && matchesSearch(file, trimmed));
-  }, [files, association, search]);
+    return files.filter((file) => matchesAssociation(file, association));
+  }, [files, association]);
 
   const headerActions = (
     <Button
@@ -83,8 +71,7 @@ export const FilesPageView = ({ practiceId, practiceSlug, scope, userId = null }
   if (error) {
     return (
       <Page className="h-full">
-        <PageHeader title="Files" actions={headerActions} />
-        <div className="status-error mt-6 flex items-center justify-between gap-3 rounded-2xl px-4 py-3 text-sm">
+        <div className="status-error flex items-center justify-between gap-3 rounded-2xl px-4 py-3 text-sm">
           <span className="min-w-0 flex-1 truncate">{error}</span>
           <Button variant="ghost" size="sm" onClick={() => { void refetch(); }}>
             Retry
@@ -100,22 +87,15 @@ export const FilesPageView = ({ practiceId, practiceSlug, scope, userId = null }
     <Page className="h-full">
       <div className="flex h-full gap-6">
         <div className="min-w-0 flex-1 space-y-6">
-          <PageHeader
-            title="Files"
-            subtitle="Every file across your matters and intakes. Click one for details."
-            actions={headerActions}
-          />
-
           <CollectionToolbar
-            searchValue={search}
-            onSearchChange={setSearch}
-            searchPlaceholder="Search files, matters, intakes"
-            searchLabel="Search"
+            actions={headerActions}
             filters={
-              <SegmentedFilter
-                items={ASSOCIATION_OPTIONS.map((opt) => ({ id: opt.id, label: opt.label }))}
-                activeId={association}
-                onChange={(id) => setAssociation(id as AssociationFilter)}
+              <SegmentedToggle<AssociationFilter>
+                value={association}
+                options={ASSOCIATION_OPTIONS.map((opt) => ({ value: opt.id, label: opt.label }))}
+                onChange={setAssociation}
+                ariaLabel="Filter files by association"
+                className="w-full sm:w-auto sm:min-w-[18rem]"
               />
             }
           />
@@ -137,13 +117,15 @@ export const FilesPageView = ({ practiceId, practiceSlug, scope, userId = null }
             <WorkspacePlaceholderState
               icon={Folder}
               title="Nothing matches"
-              description={`No files match ${search ? `"${search}"` : 'the current filter'}.`}
+              description="No files match the current filter."
             />
           ) : (
-            <FilesGrid
+            <FilesCollectionPanel
               files={filteredFiles}
               isLoading={isLoading}
               onFileClick={setSelectedFile}
+              showEmptyState={false}
+              showViewToggle={false}
             />
           )}
         </div>

@@ -108,6 +108,11 @@ const WelcomeDialog = ({ isOpen, onClose, onComplete, workspace }: WelcomeDialog
       actionSize="sm"
       actionFullWidth={false}
       contentClassName="max-w-2xl"
+      // Non-blocking: this post-onboarding greeting must not intercept the
+      // user's first navigation click. It floats over the dashboard and is
+      // dismissed via "Let's go", the close button, or Escape — meanwhile the
+      // nav rail stays fully clickable. See debug/post-signup-navigation-broken.
+      nonBlocking
     />
   );
 };

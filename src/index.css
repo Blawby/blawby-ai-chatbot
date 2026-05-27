@@ -463,7 +463,6 @@
   .glass-panel {
     @apply rounded-2xl border;
     position: relative;
-    overflow: visible;
     background-color: rgb(var(--surface-section));
     border-color: rgb(var(--border-subtle));
     box-shadow: var(--panel-shadow);
@@ -478,20 +477,23 @@
   }
 
   /* ============================================================
-     Legacy glass aliases
-     `glass-*` names are compatibility shims for the card/panel/input
-     primitives above. New code should use card, panel, or input-surface.
+     Deprecated glass aliases — do not use in new code.
+     Use card, panel, or input-surface instead.
+     These shims exist only for backwards-compat during migration
+     and will be removed once all call sites are updated.
      ============================================================ */
+
+  .glass-card { @apply card; }
+  .glass-panel { @apply panel; }
+  .glass-input { @apply input-surface; }
 
   .dark .glass-panel {
     background-color: rgb(var(--surface-section));
     box-shadow: var(--panel-shadow);
   }
 
-  /* .list-panel-card-gradient: legacy accent-tinted top fade on collection list
-     panels. Deprecated as Tenant-Identity-Rule drift (the accent bleeding into
-     chrome). Class retained as a no-op so existing call sites keep resolving;
-     the panel now adopts its container's plain surface. */
+  /* .list-panel-card-gradient: legacy no-op shim, retained so existing
+     call sites keep resolving without errors. */
 
   .input-surface:focus,
   .input-surface.isOpen,
@@ -505,19 +507,23 @@
       0 0 0 2px rgb(var(--accent-ring));
   }
 
+  .input-surface.isError:focus,
+  .input-surface.isError,
   .glass-input.isError:focus,
   .glass-input.isError {
     @apply ring-0;
-    box-shadow: 
+    box-shadow:
       var(--input-shadow),
       0 0 0 2px rgb(var(--error-500) / 0.4),
       0 0 12px rgb(var(--error-500) / 0.2);
   }
 
+  .input-surface.isSuccess:focus,
+  .input-surface.isSuccess,
   .glass-input.isSuccess:focus,
   .glass-input.isSuccess {
     @apply ring-0;
-    box-shadow: 
+    box-shadow:
       var(--input-shadow),
       0 0 0 2px rgb(var(--success-500) / 0.4),
       0 0 12px rgb(var(--success-500) / 0.2);

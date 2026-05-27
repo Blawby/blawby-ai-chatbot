@@ -15,7 +15,7 @@ interface AvatarProps {
   name: string;
   size?: 'xs' | 'sm' | 'md' | 'lg' | 'xl';
   className?: string;
-  /** Override the inner circle background. Defaults to 'glass-input'.
+  /** Override the inner circle background. Defaults to 'input-surface'.
    *  Pass a solid Tailwind class (e.g. 'bg-surface-overlay') when
    *  rendering inside StackedAvatars to prevent backdrop-blur bleed-through.
    */
@@ -90,7 +90,7 @@ export const Avatar = ({ src, name, size = 'md', className = '', bgClassName, st
 
   return (
     <div className={`${sizeClasses[size]} relative flex-shrink-0 rounded-full ${className}`}>
-      <div className={`${bgClassName ?? 'glass-input'} h-full w-full rounded-full text-input-text flex items-center justify-center overflow-hidden shadow-sm ring-1 ring-line-glass/10`}>
+      <div className={`${bgClassName ?? 'input-surface'} h-full w-full rounded-full text-input-text flex items-center justify-center overflow-hidden shadow-sm ring-1 ring-line-subtle`}>
         {sanitizedImageUrl && !hasImgError ? (
           <img 
             src={sanitizedImageUrl} 

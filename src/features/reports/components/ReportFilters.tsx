@@ -75,7 +75,7 @@ export const ReportFilters: FunctionComponent<ReportFiltersProps> = ({ filters, 
               <select
                 value={current}
                 onChange={(e) => set(f.id, (e.currentTarget as HTMLSelectElement).value)}
-                className="h-9 rounded-md border border-line-glass/30 bg-surface-utility/5 px-2 text-sm text-input-text"
+                className="h-9 rounded-md border border-line-subtle bg-surface-utility/5 px-2 text-sm text-input-text"
               >
                 {f.options.map((o) => (
                   <option key={o.value} value={o.value}>{o.label}</option>

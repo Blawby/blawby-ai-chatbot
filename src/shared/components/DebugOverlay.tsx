@@ -188,7 +188,7 @@ export const DebugOverlay: FunctionComponent<DebugOverlayProps> = ({ isVisible =
       aria-label="Debug information overlay"
       aria-live="polite"
     >
-      <div className="glass-panel p-4 text-xs font-mono text-input-text">
+      <div className="panel p-4 text-xs font-mono text-input-text">
         <div className="mb-2 flex justify-between items-center">
           <strong>Debug Overlay</strong>
           <button
@@ -237,7 +237,7 @@ export const DebugOverlay: FunctionComponent<DebugOverlayProps> = ({ isVisible =
         </div>
         
         {isExpanded && (
-          <div className="mt-2 pt-2 border-t border-line-glass/40" role="region" aria-label="Additional debug information">
+          <div className="mt-2 pt-2 border-t border-line-subtle" role="region" aria-label="Additional debug information">
             <div className="text-xs text-input-placeholder">
               <div>Press <kbd className="bg-surface-utility/40 px-1 rounded">Esc</kbd> to collapse</div>
               <div>Press <kbd className="bg-surface-utility/40 px-1 rounded">Enter</kbd> or <kbd className="bg-surface-utility/40 px-1 rounded">Space</kbd> to toggle</div>

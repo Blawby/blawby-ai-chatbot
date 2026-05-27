@@ -83,6 +83,16 @@ export const mockApps: App[] = [
       }
     ],
   },
+  {
+    id: 'claude-mcp',
+    name: 'Claude Desktop',
+    description: 'Give Claude Desktop secure, scoped access to your practice over the Model Context Protocol (MCP).',
+    category: 'AI Assistant',
+    developer: 'Anthropic',
+    website: 'https://claude.ai/download',
+    privacyPolicy: 'https://www.anthropic.com/legal/privacy',
+    connected: false,
+  },
 ];
 
 // Mock functions that will be replaced with real API calls later

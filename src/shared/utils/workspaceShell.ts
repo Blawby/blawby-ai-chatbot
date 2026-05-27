@@ -13,8 +13,6 @@ export type WorkspaceView =
   | 'contacts'
   | 'files'
   | 'invoices'
-  | 'invoiceCreate'
-  | 'invoiceEdit'
   | 'invoiceDetail'
   | 'reports'
   | 'settings'
@@ -23,11 +21,16 @@ export type WorkspaceView =
 type WorkspaceRouteState = {
   isIntakeTemplateRoute: boolean;
   isIntakeTemplateEditorRoute: boolean;
-  isIntakeResponsesRoute: boolean;
+  isIntakeResponseDetailRoute: boolean;
+  intakeSectionFromPath: 'responses' | 'forms';
   selectedMatterIdFromPath: string | null;
   isMatterNonListRoute: boolean;
   selectedContactIdFromPath: string | null;
   contactsRouteKind: 'all' | 'archived' | 'team' | 'clients' | 'pending';
+  isEngagementCreateRoute: boolean;
+  isEngagementDetailRoute: boolean;
+  isEngagementEditRoute: boolean;
+  isReportDeliveryDetailRoute: boolean;
   reportSectionFromPath: string;
 };
 
@@ -45,12 +48,9 @@ const normalizeDecodedSegment = (value: string) => {
 
 export const getWorkspaceSection = (view: WorkspaceView): WorkspaceSection => {
   if (view === 'list' || view === 'conversation') return 'conversations';
-  if (view === 'invoiceCreate' || view === 'invoiceEdit' || view === 'invoiceDetail') return 'invoices';
+  if (view === 'invoiceDetail') return 'invoices';
   if (view === 'setup' || view === 'contacts') return 'home';
   if (view === 'intakeDetail') return 'intakes';
-  // /engagements lives under Matters in the unified sidebar; route + breadcrumb still drive
-  // the engagements view, but the rail/active state belongs to Matters.
-  if (view === 'engagements') return 'matters';
   // Coverage lives under Settings in the sidebar; route stays at /coverage but the
   // rail/active state belongs to Settings so its dropdown auto-expands.
   if (view === 'coverage') return 'settings';
@@ -73,15 +73,19 @@ export const getWorkspaceRouteState = ({
   const isWorkspaceWithMattersRouting = isPracticeWorkspace || isClientWorkspace;
   const intakesPath = `${normalizedBase}/intakes`;
   const intakeResponsesPath = `${intakesPath}/responses`;
-  const isIntakeResponsesRoute = view === 'intakes'
+  const intakeFormsPath = `${intakesPath}/forms`;
+  const isIntakeResponsesView = view === 'intakes' || view === 'intakeDetail';
+  const isIntakeResponsesRoute = isIntakeResponsesView
     && isPracticeWorkspace
     && (path === intakeResponsesPath || path.startsWith(`${intakeResponsesPath}/`));
+  const isIntakeResponseDetailRoute = isIntakeResponsesRoute
+    && path.startsWith(`${intakeResponsesPath}/`);
   const isIntakeTemplateRoute = view === 'intakes'
     && isPracticeWorkspace
-    && path.startsWith(intakesPath)
-    && !isIntakeResponsesRoute;
+    && (path === intakeFormsPath || path.startsWith(`${intakeFormsPath}/`));
   const isIntakeTemplateEditorRoute = isIntakeTemplateRoute
-    && path !== intakesPath;
+    && path !== intakeFormsPath;
+  const intakeSectionFromPath = isIntakeTemplateRoute ? 'forms' : 'responses';
 
   let selectedMatterIdFromPath: string | null = null;
   let isMatterNonListRoute = false;
@@ -143,11 +147,25 @@ export const getWorkspaceRouteState = ({
     }
   }
 
+  const engagementPath = `${normalizedBase}/engagements`;
+  const isEngagementRoute = view === 'engagements'
+    && isPracticeWorkspace
+    && (path === engagementPath || path.startsWith(`${engagementPath}/`));
+  const rawEngagementSubpath = isEngagementRoute && path.startsWith(`${engagementPath}/`)
+    ? path.slice(`${engagementPath}/`.length).split('/').filter(Boolean)
+    : [];
+  const isEngagementCreateRoute = rawEngagementSubpath[0] === 'new';
+  const isEngagementDetailRoute = Boolean(rawEngagementSubpath[0]) && !isEngagementCreateRoute;
+  const isEngagementEditRoute = isEngagementDetailRoute && rawEngagementSubpath[1] === 'edit';
+
   let reportSectionFromPath = 'all-reports';
+  let isReportDeliveryDetailRoute = false;
   if (view === 'reports' && isPracticeWorkspace) {
     const marker = `${normalizedBase}/reports/`;
     if (path.startsWith(marker)) {
-      const raw = path.slice(marker.length).split('/')[0] ?? '';
+      const reportSegments = path.slice(marker.length).split('/').filter(Boolean);
+      isReportDeliveryDetailRoute = reportSegments[0] === 'deliveries' && Boolean(reportSegments[1]);
+      const raw = reportSegments[0] ?? '';
       const candidate = normalizeDecodedSegment(raw);
       if (candidate.length > 0 && REPORT_SECTION_IDS.has(candidate)) {
         reportSectionFromPath = candidate;
@@ -158,11 +176,16 @@ export const getWorkspaceRouteState = ({
   return {
     isIntakeTemplateRoute,
     isIntakeTemplateEditorRoute,
+    intakeSectionFromPath,
     selectedMatterIdFromPath,
     isMatterNonListRoute,
-    isIntakeResponsesRoute,
+    isIntakeResponseDetailRoute,
     selectedContactIdFromPath,
     contactsRouteKind,
+    isEngagementCreateRoute,
+    isEngagementDetailRoute,
+    isEngagementEditRoute,
+    isReportDeliveryDetailRoute,
     reportSectionFromPath,
   };
 };
@@ -173,6 +196,7 @@ export const getWorkspaceDefaultSecondaryFilter = ({
   view,
   contactsRouteKind,
   reportSectionFromPath,
+  intakeSectionFromPath,
   navSecondary,
 }: {
   workspaceSection: WorkspaceSection;
@@ -180,6 +204,7 @@ export const getWorkspaceDefaultSecondaryFilter = ({
   view: WorkspaceView;
   contactsRouteKind: WorkspaceRouteState['contactsRouteKind'];
   reportSectionFromPath: string;
+  intakeSectionFromPath: WorkspaceRouteState['intakeSectionFromPath'];
   navSecondary?: Array<{ items: Array<{ id: string }> }>;
 }) => {
   if (workspaceSection === 'conversations' && isPracticeWorkspace) {
@@ -197,12 +222,7 @@ export const getWorkspaceDefaultSecondaryFilter = ({
     return reportSectionFromPath;
   }
   if (workspaceSection === 'intakes' && isPracticeWorkspace) {
-    return 'all';
-  }
-  // Matters > Engagements is a peer route rendered as the first sub-item; the default
-  // filter for /matters is the 'all' stage filter, not 'engagements'.
-  if (workspaceSection === 'matters' && isPracticeWorkspace) {
-    return view === 'engagements' ? 'engagements' : 'all';
+    return intakeSectionFromPath === 'forms' ? 'forms' : 'responses';
   }
   return navSecondary?.[0]?.items[0]?.id ?? null;
 };
@@ -213,6 +233,7 @@ export const getWorkspaceActiveSecondaryFilter = ({
   view,
   contactsRouteKind,
   reportSectionFromPath,
+  intakeSectionFromPath,
   secondaryFilterBySection,
   defaultSecondaryFilterId,
 }: {
@@ -221,6 +242,7 @@ export const getWorkspaceActiveSecondaryFilter = ({
   view: WorkspaceView;
   contactsRouteKind: WorkspaceRouteState['contactsRouteKind'];
   reportSectionFromPath: string;
+  intakeSectionFromPath: WorkspaceRouteState['intakeSectionFromPath'];
   secondaryFilterBySection: Partial<Record<WorkspaceSection, string>>;
   defaultSecondaryFilterId: string | null;
 }) => {
@@ -236,11 +258,13 @@ export const getWorkspaceActiveSecondaryFilter = ({
   if (workspaceSection === 'reports' && isPracticeWorkspace) {
     return reportSectionFromPath;
   }
-  // /engagements is a peer route under the Matters rail item — the active
-  // sub-item must follow the URL, not whatever Matters filter was last picked.
-  if (workspaceSection === 'matters' && view === 'engagements') {
-    return 'engagements';
+  if (workspaceSection === 'intakes' && isPracticeWorkspace && intakeSectionFromPath === 'forms') {
+    return 'forms';
   }
+  if (workspaceSection === 'intakes' && isPracticeWorkspace) {
+    return 'responses';
+  }
+  if (workspaceSection === 'matters' || workspaceSection === 'invoices') return null;
   return secondaryFilterBySection[workspaceSection] ?? defaultSecondaryFilterId;
 };
 
@@ -250,8 +274,6 @@ export const shouldShowWorkspaceMobileMenuButton = ({
   workspaceSection,
   view,
   isPracticeWorkspace,
-  selectedMatterIdFromPath,
-  isMatterNonListRoute,
   selectedContactIdFromPath,
 }: {
   isMobileLayout: boolean;
@@ -259,18 +281,16 @@ export const shouldShowWorkspaceMobileMenuButton = ({
   workspaceSection: WorkspaceSection;
   view: WorkspaceView;
   isPracticeWorkspace: boolean;
-  selectedMatterIdFromPath: string | null;
-  isMatterNonListRoute: boolean;
   selectedContactIdFromPath: string | null;
 }) => {
   if (!isMobileLayout || !hasSecondaryNav) return false;
   if (workspaceSection === 'conversations') return view === 'list';
   if (workspaceSection === 'intakes') return view === 'intakes';
-  if (workspaceSection === 'matters') return !selectedMatterIdFromPath && !isMatterNonListRoute;
+  if (workspaceSection === 'matters') return false;
   if (workspaceSection === 'home') {
     return isPracticeWorkspace && (view === 'home' || (view === 'contacts' && !selectedContactIdFromPath));
   }
-  if (workspaceSection === 'invoices') return view === 'invoices';
+  if (workspaceSection === 'invoices') return false;
   if (workspaceSection === 'reports') return true;
   if (workspaceSection === 'settings') return true;
   return false;

@@ -18,7 +18,7 @@ import { usePresenceContext } from '@/shared/contexts/PresenceContext';
 import { useSessionContext } from '@/shared/contexts/SessionContext';
 
 const WidgetConversationListSkeleton = ({ rows = 6 }: { rows?: number }) => (
-  <div className="divide-y divide-line-glass/[0.04] pt-1">
+  <div className="divide-y divide-line-subtle pt-1">
     {Array.from({ length: rows }, (_, i) => {
       const titleW = ['w-32', 'w-40', 'w-28', 'w-36', 'w-44', 'w-32'][i % 6];
       const previewW = ['w-44', 'w-52', 'w-36', 'w-48', 'w-40', 'w-44'][i % 6];
@@ -48,7 +48,7 @@ const WidgetConversationListEmptyState = ({
 }: { title: string; hint: string }) => (
   <div className="flex flex-1 items-center justify-center px-6 py-10">
     <div className="flex max-w-xs flex-col items-center gap-3 text-center">
-      <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-surface-overlay/60 ring-1 ring-line-glass/20">
+      <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-surface-overlay/60 ring-1 ring-line-subtle">
         <Icon
           icon={MessageSquare}
           className="h-6 w-6 text-input-placeholder"
@@ -133,7 +133,7 @@ const WidgetConversationListView: FunctionComponent<WidgetConversationListViewPr
             })}
           />
         ) : (
-          <div className="pt-1 divide-y divide-line-glass/[0.04]">
+          <div className="pt-1 divide-y divide-line-subtle">
             {sorted.map((conversation) => {
               const preview = previews[conversation.id];
               const contactName = resolveConversationContactName(conversation);
@@ -163,7 +163,7 @@ const WidgetConversationListView: FunctionComponent<WidgetConversationListViewPr
                     src={null}
                     name={avatarName}
                     size="md"
-                    className="ring-2 ring-line-glass/10"
+                    className="ring-2 ring-line-subtle"
                   />
                   <div className="min-w-0 flex-1 space-y-1">
                     <div className="flex items-start justify-between gap-3">

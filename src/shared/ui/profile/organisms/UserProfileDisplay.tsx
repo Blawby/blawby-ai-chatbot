@@ -30,7 +30,7 @@ export const UserProfileDisplay = ({
   const { session, isPending, error } = useSessionContext();
   const { showError } = useToastContext();
   const location = useLocation();
-  const { currentPractice, practices } = useWorkspaceResolver();
+  const { currentPractice } = useWorkspaceResolver();
   const [showDropdown, setShowDropdown] = useState(false);
   const [signOutError, setSignOutError] = useState<string | null>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -39,11 +39,9 @@ export const UserProfileDisplay = ({
   const routeMatch = location.path.match(/^\/(client|practice)\/([^/]+)/);
   const settingsBasePath = routeMatch
     ? getWorkspaceSettingsPath(routeMatch[1] as 'client' | 'practice', decodeURIComponent(routeMatch[2]))
-    : (() => {
-        const fallbackSlug = currentPractice?.slug ?? practices[0]?.slug ?? null;
-        if (!fallbackSlug) return null;
-        return getWorkspaceSettingsPath('client', fallbackSlug);
-      })();
+    : currentPractice?.slug
+      ? getWorkspaceSettingsPath('client', currentPractice.slug)
+      : null;
   const isOnSettingsRoute = Boolean(
     settingsBasePath &&
     (location.path === settingsBasePath || location.path.startsWith(`${settingsBasePath}/`))
@@ -144,8 +142,8 @@ export const UserProfileDisplay = ({
   if (loading) {
     return (
       <div className={`flex items-center ${isCollapsed ? 'justify-center py-2' : 'gap-3 px-3 py-2'}`}>
-        <div className="glass-input w-8 h-8 rounded-full animate-pulse" />
-        {!isCollapsed && <div className="glass-input w-20 h-4 rounded animate-pulse" />}
+        <div className="input-surface w-8 h-8 rounded-full animate-pulse" />
+        {!isCollapsed && <div className="input-surface w-20 h-4 rounded animate-pulse" />}
       </div>
     );
   }

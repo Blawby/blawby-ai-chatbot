@@ -85,7 +85,6 @@ export function MainApp({
   routeIntakeId: _routeIntakeId,
   routeSettingsView,
   routeSettingsAppId,
-  routeSettingsIntakeTemplateSlug,
   publicPracticeSlug,
   workspaceView,
   clientPracticeSlug,
@@ -103,7 +102,6 @@ export function MainApp({
   routeIntakeId?: string;
   routeSettingsView?: SettingsView;
   routeSettingsAppId?: string;
-  routeSettingsIntakeTemplateSlug?: string;
   publicPracticeSlug?: string;
   workspaceView?: WorkspaceView;
   clientPracticeSlug?: string;
@@ -137,23 +135,12 @@ export function MainApp({
   // ── practice details (accent color) ───────────────────────────────────────
   // For the public workspace, prefer practiceConfig.id (UUID) as the store key.
   // usePracticeConfig already seeds practiceDetailsStore under both the slug AND
-  // the UUID (see usePracticeConfig lines 151-155), so using the UUID here gives
-  // usePracticeDetails an instant cache hit and eliminates the second network
-  // request on widget load.
-  //
-  // Fall-back chain: UUID from config → raw slug prop → config slug → practiceId.
-  // For client/practice workspaces the UUID practiceId is already correct.
-  const practiceDetailsId = (workspace === 'public')
-    ? (practiceConfig.id ?? publicPracticeSlug ?? practiceConfig.slug ?? practiceId ?? null)
-    : (practiceConfig.id ?? practiceId);
-
-  // Slug hint is still forwarded so usePracticeDetails can use the public
-  // endpoint as a fallback when the store has no entry for this key.
-  const practiceDetailsSlug = (workspace === 'public')
-    ? (publicPracticeSlug ?? practiceConfig.slug ?? null)
-    : (workspace === 'client')
-      ? clientPracticeSlug
-      : (currentPractice?.slug ?? practiceConfig.slug ?? null);
+  const practiceDetailsId = practiceConfig.id || practiceId || null;
+  const practiceDetailsSlug = workspace === 'public'
+    ? (publicPracticeSlug ?? null)
+    : workspace === 'client'
+      ? (clientPracticeSlug ?? null)
+      : (currentPractice?.slug ?? null);
 
   const allowPublicPracticeDetails = workspace === 'public' || workspace === 'client';
   const {
@@ -171,7 +158,6 @@ export function MainApp({
     isPublicWorkspace,
     isPracticeWorkspace,
     isClientWorkspace,
-    effectivePracticeId,
     resolvedPracticeSlug,
     resolvedPublicPracticeSlug,
     resolvedClientPracticeSlug,
@@ -287,7 +273,7 @@ export function MainApp({
 
   const messageHandling = useMessageHandling({
     enabled: shouldEnableConversationTransport,
-    practiceId: effectivePracticeId,
+    practiceId,
     practiceSlug: resolvedPracticeSlug ?? undefined,
     conversationId: liveConversationId ?? undefined,
     onEnsureConversation: () => ensureConversation(),
@@ -435,7 +421,7 @@ export function MainApp({
     isRecording,
     setIsRecording,
   } = useFileUpload({
-    practiceId: effectivePracticeId ?? practiceId,
+    practiceId,
     conversationId: activeConversationId ?? undefined,
     enabled: features.enableFileAttachments && isAuthenticatedWorkspace,
     intakeUuid: resolveConsultationState(conversationMetadata)?.submission?.intakeUuid ?? null,
@@ -581,20 +567,40 @@ export function MainApp({
   // widget is left untouched.
   const hideInspectorChrome = layoutMode === 'desktop' && isAuthenticatedWorkspace;
 
+  const acceptedConversationIntakeId = useMemo(() => {
+    const state = resolveConsultationState(conversationMetadata ?? null);
+    const meta = conversationMetadata as Record<string, unknown> | null | undefined;
+    const statusCandidates = [
+      meta?.triageStatus,
+      meta?.triage_status,
+      meta?.intakeTriageStatus,
+    ];
+    const isAccepted = statusCandidates.some((value) => value === 'accepted');
+    const intakeCandidates = [
+      state?.submission?.intakeUuid,
+      meta?.intakeUuid,
+      meta?.intake_uuid,
+      meta?.intakeId,
+      meta?.intake_id,
+    ];
+    const intakeId = intakeCandidates.find((value): value is string => typeof value === 'string' && value.trim().length > 0);
+    return isAccepted && intakeId ? intakeId : null;
+  }, [conversationMetadata]);
+
   // Pencil rxzde detail header: practice viewers see a primary "Create
-  // Engagement" CTA. The CTA jumps to the engagements page where the existing
-  // creation flow lives. Hidden on non-desktop layouts (Pencil d08Mpc keeps the
-  // mobile detail header spartan — only back + title + overflow menu).
+  // Engagement" CTA for active accepted-intake conversations.
   const createEngagementAction = useMemo(() => {
     if (!isPracticeWorkspace) return null;
     if (!practiceEngagementsPath) return null;
     if (layoutMode !== 'desktop') return null;
+    if (!acceptedConversationIntakeId) return null;
+    const target = `${practiceEngagementsPath}?create=1&intakeId=${encodeURIComponent(acceptedConversationIntakeId)}`;
     return (
       <Button
         type="button"
         variant="primary"
         size="sm"
-        onClick={() => navigate(practiceEngagementsPath)}
+        onClick={() => navigate(target)}
         icon={Plus}
         iconClassName="h-4 w-4"
         iconPosition="left"
@@ -602,7 +608,7 @@ export function MainApp({
         Create Engagement
       </Button>
     );
-  }, [isPracticeWorkspace, layoutMode, practiceEngagementsPath, navigate]);
+  }, [acceptedConversationIntakeId, isPracticeWorkspace, layoutMode, practiceEngagementsPath, navigate]);
 
   const conversationHeaderActions = useMemo(() => {
     if (!createEngagementAction) return null;
@@ -702,7 +708,7 @@ export function MainApp({
         src={null}
         name={conversationCaseTitle}
         size="sm"
-        className="ring-1 ring-line-glass/10"
+        className="ring-1 ring-line-subtle"
         status={conversationHeaderPresence.status}
       />
     );
@@ -745,14 +751,14 @@ export function MainApp({
   // ── system messages ────────────────────────────────────────────────────────
   useConversationSystemMessages({
     conversationId: liveConversationId,
-    practiceId: effectivePracticeId,
+    practiceId,
     ingestServerMessages,
   });
 
   // ── derived layout flags ───────────────────────────────────────────────────
   const isConversationReady = Boolean(activeConversationId && !isCreatingConversation);
   const hasAnonymousPublicChatContext = Boolean(
-    isPublicWorkspace && activeConversationId && effectivePracticeId && !sessionIsPending
+    isPublicWorkspace && activeConversationId && practiceId && !sessionIsPending
   );
   const isAuthReady = !sessionIsPending && (Boolean(session?.user) || hasAnonymousPublicChatContext);
   const isSessionReady = isConversationReady && isAuthReady;
@@ -851,8 +857,9 @@ export function MainApp({
 
   const workspacePage = (
     <WorkspacePage
+      key={practiceId || resolvedPracticeSlug || undefined}
       view={resolvedWorkspaceView}
-      practiceId={effectivePracticeId ?? practiceId}
+      practiceId={practiceId}
       practiceSlug={
         isPracticeWorkspace
           ? (resolvedPracticeSlug ?? null)
@@ -869,7 +876,6 @@ export function MainApp({
       workspace={workspace}
       settingsView={routeSettingsView}
       settingsAppId={routeSettingsAppId}
-      settingsIntakeTemplateSlug={routeSettingsIntakeTemplateSlug}
       onStartNewConversation={handleStartNewConversation}
       activeConversationId={activeConversationId}
       intakeConversationState={intakeConversationState}
@@ -903,7 +909,7 @@ export function MainApp({
               <LazyRouteBoundary>
                 <PracticeMattersPage
                   basePath={practiceMattersPath}
-                  practiceId={effectivePracticeId ?? practiceId}
+                  practiceId={practiceId}
                   renderMode="full"
                   statusFilter={statusFilter}
                   prefetchedItems={prefetchData?.mattersData?.items}
@@ -920,7 +926,7 @@ export function MainApp({
                 <LazyRouteBoundary>
                   <ClientMattersPage
                     basePath={clientMattersPath}
-                    practiceId={effectivePracticeId ?? practiceId}
+                    practiceId={practiceId}
                     renderMode={layoutMode === 'desktop' ? 'detailOnly' : 'full'}
                     statusFilter={statusFilter}
                     prefetchedItems={prefetchData?.mattersData?.items}
@@ -942,7 +948,7 @@ export function MainApp({
             <LazyRouteBoundary>
               <ClientMattersPage
                 basePath={clientMattersPath}
-                practiceId={effectivePracticeId ?? practiceId}
+                practiceId={practiceId}
                 renderMode="listOnly"
                 statusFilter={statusFilter}
                 prefetchedItems={prefetchData?.mattersData?.items}
@@ -959,7 +965,7 @@ export function MainApp({
         ? (statusFilter, prefetchData, onDetailInspector, detailInspectorOpen, detailHeaderLeadingAction) => (
           <LazyRouteBoundary>
             <PracticeContactsPage
-              practiceId={effectivePracticeId ?? practiceId}
+              practiceId={practiceId}
               basePath={practiceContactsPath}
               renderMode={layoutMode === 'desktop' ? 'detailOnly' : 'full'}
               statusFilter={statusFilter}
@@ -978,7 +984,7 @@ export function MainApp({
         ? (statusFilter, prefetchData) => (
           <LazyRouteBoundary>
             <PracticeContactsPage
-              practiceId={effectivePracticeId ?? practiceId}
+              practiceId={practiceId}
               basePath={practiceContactsPath}
               renderMode="listOnly"
               statusFilter={statusFilter}
@@ -997,7 +1003,7 @@ export function MainApp({
             <LazyRouteBoundary>
               {resolvedWorkspaceView === 'invoiceDetail' ? (
                 <PracticeInvoiceDetailPage
-                  practiceId={effectivePracticeId ?? practiceId}
+                  practiceId={practiceId}
                   practiceSlug={resolvedPracticeSlug ?? null}
                   invoiceId={routeInvoiceId ?? null}
                   leadingAction={detailHeaderLeadingAction}
@@ -1007,7 +1013,7 @@ export function MainApp({
                 />
               ) : (
                 <PracticeInvoicesPage
-                  practiceId={effectivePracticeId ?? practiceId}
+                  practiceId={practiceId}
                   practiceSlug={resolvedPracticeSlug ?? null}
                   statusFilter={statusFilter}
                   renderMode="full"
@@ -1021,7 +1027,7 @@ export function MainApp({
               <LazyRouteBoundary>
                 {resolvedWorkspaceView === 'invoiceDetail' ? (
                 <ClientInvoiceDetailPage
-                    practiceId={effectivePracticeId ?? practiceId}
+                    practiceId={practiceId}
                     practiceSlug={(clientPracticeSlug ?? resolvedClientPracticeSlug) ?? null}
                     invoiceId={routeInvoiceId ?? null}
                     onInspector={onDetailInspector}
@@ -1030,8 +1036,8 @@ export function MainApp({
                   />
                 ) : (
                   <ClientInvoicesPage
-                    key={`${effectivePracticeId}-full-${JSON.stringify(statusFilter)}`}
-                    practiceId={effectivePracticeId ?? practiceId}
+                    key={`${practiceId}-full-${JSON.stringify(statusFilter)}`}
+                    practiceId={practiceId}
                     practiceSlug={(clientPracticeSlug ?? resolvedClientPracticeSlug) ?? null}
                     statusFilter={statusFilter}
                     renderMode="full"
@@ -1047,7 +1053,7 @@ export function MainApp({
             <LazyRouteBoundary>
               {isPracticeWorkspace ? (
                 <PracticeInvoicesPage
-                  practiceId={effectivePracticeId ?? practiceId}
+                  practiceId={practiceId}
                   practiceSlug={resolvedPracticeSlug ?? null}
                   statusFilter={statusFilter}
                   renderMode="listOnly"
@@ -1055,8 +1061,8 @@ export function MainApp({
                 />
               ) : (
                 <ClientInvoicesPage
-                  key={`${effectivePracticeId}-listOnly-${JSON.stringify(statusFilter)}`}
-                  practiceId={effectivePracticeId ?? practiceId}
+                  key={`${practiceId}-listOnly-${JSON.stringify(statusFilter)}`}
+                  practiceId={practiceId}
                   practiceSlug={(clientPracticeSlug ?? resolvedClientPracticeSlug) ?? null}
                   statusFilter={statusFilter}
                   renderMode="listOnly"
@@ -1074,8 +1080,8 @@ export function MainApp({
                 title={reportTitle}
                 reportType={reportType}
                 deliveryId={deliveryId}
-                practiceId={effectivePracticeId ?? practiceId}
-                practiceSlug={resolvedPracticeSlug ?? practiceSlug ?? null}
+                practiceId={practiceId}
+                practiceSlug={resolvedPracticeSlug ?? null}
               />
             </LazyRouteBoundary>
           )
@@ -1083,13 +1089,13 @@ export function MainApp({
       }
       intakesView={
         isPracticeWorkspace
-          ? (activeFilter) => (
+          ? () => (
             <LazyRouteBoundary>
               <IntakesPage
-                practiceId={effectivePracticeId ?? practiceId}
-                activeTriageFilter={activeFilter}
+                practiceId={practiceId}
                 basePath={practiceIntakesPath ?? '/practice/intakes'}
                 conversationsBasePath={conversationsBasePath}
+                engagementsBasePath={practiceEngagementsPath}
                 practiceName={resolvedPracticeName}
                 practiceLogo={resolvedPracticeLogo}
               />
@@ -1108,15 +1114,14 @@ export function MainApp({
       }
       engagementsView={
         isPracticeWorkspace
-          ? (activeFilter) => (
+          ? () => (
             <LazyRouteBoundary>
               <EngagementsPage
-                practiceId={effectivePracticeId ?? practiceId}
+                practiceId={practiceId}
                 basePath={practiceEngagementsPath ?? '/practice/engagements'}
                 conversationsBasePath={conversationsBasePath}
                 practiceName={resolvedPracticeName}
                 practiceLogo={resolvedPracticeLogo}
-                activeStatusFilter={activeFilter}
               />
             </LazyRouteBoundary>
           )
@@ -1126,14 +1131,14 @@ export function MainApp({
         isPracticeWorkspace && resolvedPracticeSlug ? (
           <LazyRouteBoundary>
             <PracticeFilesPage
-              practiceId={effectivePracticeId ?? practiceId}
+              practiceId={practiceId}
               practiceSlug={resolvedPracticeSlug}
             />
           </LazyRouteBoundary>
         ) : isClientWorkspace && (clientPracticeSlug ?? resolvedClientPracticeSlug) ? (
           <LazyRouteBoundary>
             <ClientFilesPage
-              practiceId={effectivePracticeId ?? practiceId}
+              practiceId={practiceId}
               practiceSlug={(clientPracticeSlug ?? resolvedClientPracticeSlug) as string}
               userId={session?.user?.id ?? null}
             />
@@ -1180,7 +1185,7 @@ export function MainApp({
   };
 
   const routePracticeContextValue = {
-    practiceId: effectivePracticeId ?? null,
+    practiceId: practiceId || null,
     practiceSlug: workspace === 'practice'
       ? (practiceSlug ?? null)
       : workspace === 'client'
@@ -1194,7 +1199,7 @@ export function MainApp({
       {!isWidget && <DragDropOverlay isVisible={isDraggingFiles} />}
       <IntakeProvider value={intakeProviderValue}>
         <PresenceProvider
-          practiceId={effectivePracticeId ?? practiceId ?? null}
+          practiceId={practiceId || null}
           userId={session?.user?.id ?? null}
           enabled={!isWidget && !isAnonymous}
         >

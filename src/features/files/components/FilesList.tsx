@@ -60,6 +60,8 @@ export const FilesList = ({
       emptyState={emptyState}
       stickyHeader
       density="compact"
+      className="panel overflow-hidden"
+      bodyClassName="bg-transparent"
     />
   );
 };

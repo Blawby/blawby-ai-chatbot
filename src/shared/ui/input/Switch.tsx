@@ -43,7 +43,7 @@ export const Switch = ({
   const trackClasses = disabled
     ? value
       ? 'border-transparent bg-accent-500/35 dark:bg-accent-400/30'
-      : 'border border-line-glass/30 bg-neutral-200 dark:bg-neutral-700/80'
+      : 'border border-line-subtle bg-neutral-200 dark:bg-neutral-700/80'
     : value
       ? 'border-transparent bg-accent-500 focus:ring-accent-500'
       : 'border border-neutral-400/35 bg-neutral-300 focus:ring-neutral-400 dark:border-neutral-500/40 dark:bg-neutral-600';

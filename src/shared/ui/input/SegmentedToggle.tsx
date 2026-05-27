@@ -4,6 +4,7 @@ import { cn } from '@/shared/utils/cn';
 export interface SegmentedToggleOption<T extends string> {
   value: T;
   label: string;
+  count?: number;
   disabled?: boolean;
 }
 
@@ -77,12 +78,15 @@ export const SegmentedToggle = <T extends string>({
               }
             }}
             className={cn(
-              'segmented-toggle-item flex-1 min-w-0 truncate',
+              'segmented-toggle-item flex-1 min-w-0',
               isActive ? 'segmented-toggle-item-active' : 'segmented-toggle-item-inactive',
               (disabled || option.disabled) && 'cursor-not-allowed'
             )}
           >
-            {option.label}
+            <span className="truncate">{option.label}</span>
+            {typeof option.count === 'number' ? (
+              <span className="ml-1 shrink-0 text-[11px] opacity-70">{option.count}</span>
+            ) : null}
           </button>
         );
       })}

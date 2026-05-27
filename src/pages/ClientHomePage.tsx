@@ -16,7 +16,7 @@ const ClientHomePage = () => {
   const { session } = useSessionContext();
   const location = useLocation();
   const { canAccessPractice } = useWorkspace();
-  const { currentPractice, practices } = useWorkspaceResolver();
+  const { currentPractice } = useWorkspaceResolver();
   const { navigate, navigateToPricing } = useNavigation();
   const [desktopCollapsed, setDesktopCollapsed] = useState(false);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
@@ -26,7 +26,7 @@ const ClientHomePage = () => {
   const userImage = session?.user?.image ?? null;
   const showUpgrade = !canAccessPractice;
 
-  const clientPracticeSlug = currentPractice?.slug ?? practices[0]?.slug ?? null;
+  const clientPracticeSlug = currentPractice?.slug ?? null;
   const orgName = currentPractice?.name?.trim() || userName;
   const orgInitial = (orgName.charAt(0) || 'B').toUpperCase();
 
@@ -35,15 +35,10 @@ const ClientHomePage = () => {
     if (routeMatch) {
       const workspace = routeMatch[1] as 'client' | 'practice';
       const slug = decodeURIComponent(routeMatch[2]);
-      const matchesKnownPractice =
-        currentPractice?.slug === slug || practices.some((p) => p.slug === slug);
-      if (matchesKnownPractice) {
-        return getWorkspaceSettingsPath(workspace, slug);
-      }
+      return getWorkspaceSettingsPath(workspace, slug);
     }
-    const fallbackSlug = currentPractice?.slug ?? practices[0]?.slug ?? null;
-    return fallbackSlug ? getWorkspaceSettingsPath('client', fallbackSlug) : null;
-  }, [currentPractice?.slug, location.path, practices]);
+    return currentPractice?.slug ? getWorkspaceSettingsPath('client', currentPractice.slug) : null;
+  }, [currentPractice?.slug, location.path]);
 
   const clientNextStepsItems = useMemo<NextStepsItem[]>(() => {
     const items: NextStepsItem[] = [
@@ -118,7 +113,7 @@ const ClientHomePage = () => {
           items={clientNextStepsItems}
         />
 
-        <div className="glass-panel p-6 space-y-4">
+        <div className="panel p-6 space-y-4">
           <div>
             <h2 className="text-lg text-heading">Manage your account</h2>
             <p className="text-sm text-secondary">

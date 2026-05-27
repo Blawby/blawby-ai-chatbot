@@ -26,6 +26,14 @@ type FetchOptions = {
   signal?: AbortSignal;
 };
 
+// Every invoice mutation must clear the caches that hold invoice status/data so
+// list, detail, and matter-billing views re-fetch instead of rendering a stale
+// status (e.g. a freshly sent invoice still showing as "draft"). Trailing `:`
+// marks a prefix invalidation: `invoice:` covers the practice/client summaries
+// (`invoice:practice:summaries:…`) and detail (`invoice:practice:…` /
+// `invoice:client:…`) caches; `billing:matter:` covers the matter billing tab.
+const INVOICE_CACHE_INVALIDATIONS = ['invoice:', 'billing:matter:'];
+
 // Wire types live in worker/types/wire/invoice.ts (single source of truth).
 // Re-exported here for existing consumers; new code should import from
 // `@/shared/types/wire` directly.
@@ -397,7 +405,7 @@ export const createInvoice = async (
     apiClient.post(
       urls.createInvoice(practiceId),
       normalizeCreatePayload(payload),
-      { signal: options.signal }
+      { signal: options.signal, invalidates: INVOICE_CACHE_INVALIDATIONS }
     ),
     'Failed to create invoice'
   );
@@ -415,7 +423,7 @@ export const sendInvoice = async (
     apiClient.post(
       urls.sendInvoice(practiceId, invoiceId),
       {},
-      { signal: options.signal }
+      { signal: options.signal, invalidates: INVOICE_CACHE_INVALIDATIONS }
     ),
     'Failed to send invoice'
   );
@@ -445,7 +453,7 @@ export const updateInvoice = async (
     apiClient.patch(
       urls.updateInvoice(practiceId, invoiceId),
       body,
-      { signal: options.signal }
+      { signal: options.signal, invalidates: INVOICE_CACHE_INVALIDATIONS }
     ),
     'Failed to update invoice'
   );
@@ -463,7 +471,7 @@ export const voidInvoice = async (
     apiClient.post(
       urls.voidInvoice(practiceId, invoiceId),
       {},
-      { signal: options.signal }
+      { signal: options.signal, invalidates: INVOICE_CACHE_INVALIDATIONS }
     ),
     'Failed to void invoice'
   );
@@ -481,7 +489,7 @@ export const syncInvoice = async (
     apiClient.post(
       urls.syncInvoice(practiceId, invoiceId),
       {},
-      { signal: options.signal }
+      { signal: options.signal, invalidates: INVOICE_CACHE_INVALIDATIONS }
     ),
     'Failed to sync invoice'
   );
@@ -498,7 +506,7 @@ export const deleteInvoice = async (
   await requestData(
     apiClient.delete(
       urls.deleteInvoice(practiceId, invoiceId),
-      { signal: options.signal }
+      { signal: options.signal, invalidates: INVOICE_CACHE_INVALIDATIONS }
     ),
     'Failed to delete invoice'
   );

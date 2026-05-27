@@ -54,7 +54,7 @@ export function List({ items, divided = true, className }: ListProps) {
         <div key={i} role="listitem">
           <ListItem {...item} />
           {divided && i < items.length - 1 && (
-            <div className="mx-3 border-t border-line-glass/10" />
+            <div className="mx-3 border-t border-line-subtle" />
           )}
         </div>
       ))}

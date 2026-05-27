@@ -15,7 +15,7 @@ import type { Conversation } from '@/shared/types/conversation';
 import type { BackendMatter } from '@/features/matters/services/mattersApi';
 
 const sectionTitle = 'text-[11px] font-semibold uppercase tracking-[0.08em] text-input-placeholder';
-const sectionDivider = 'border-t border-line-glass/30 pt-4 mt-4';
+const sectionDivider = 'border-t border-line-subtle pt-4 mt-4';
 
 interface ActivityEntry {
   id: string;
@@ -205,7 +205,7 @@ const ConversationContextPanel: FunctionComponent<ConversationContextPanelProps>
         </div>
       </div>
 
-      <section className="flex flex-col gap-3 border-t border-line-glass/30 pt-4">
+      <section className="flex flex-col gap-3 border-t border-line-subtle pt-4">
         <h3 className={sectionTitle}>{t('workspace.conversationContext.contact', { defaultValue: 'Contact' })}</h3>
         <DetailRow label={t('workspace.conversationContext.name', { defaultValue: 'Name' })} value={contactName} />
         <DetailRow label={t('workspace.conversationContext.email', { defaultValue: 'Email' })} value={email} />

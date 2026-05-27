@@ -31,7 +31,7 @@ export const ChatDockedAction: FunctionComponent<ChatDockedActionProps> = ({
   return (
     <div
       className={cn(
-        'ui-surface-enter mx-2 mb-4 overflow-hidden shadow-glass glass-card p-6 text-input-text border-none',
+        'ui-surface-enter mx-2 mb-4 overflow-hidden shadow-glass card p-6 text-input-text border-none',
         containerClassName
       )}
     >

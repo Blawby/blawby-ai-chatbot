@@ -5,7 +5,9 @@ import {
   CheckCircle2,
   ClipboardList,
   Clock,
+  Copy,
   CreditCard,
+  FileText,
   Mail,
   MessageSquare,
   Phone,
@@ -23,7 +25,9 @@ import { Dialog, DialogBody, DialogFooter } from '@/shared/ui/dialog';
 import { Textarea } from '@/shared/ui/input';
 import { useToastContext } from '@/shared/contexts/ToastContext';
 import { useSessionContext } from '@/shared/contexts/SessionContext';
+import { useNavigation } from '@/shared/utils/navigation';
 import { apiClient, isHttpError } from '@/shared/lib/apiClient';
+import { generateEngagement } from '@/config/urls';
 import { cn } from '@/shared/utils/cn';
 import {
   fetchConversationMessages,
@@ -46,7 +50,7 @@ import { useIntakeDetail } from '@/features/intake/hooks/useIntakeDetail';
 import { useIntakeFiles } from '@/features/intake/hooks/useIntakeFiles';
 import { IntakeFilesPanel } from '@/features/intake/components/IntakeFilesPanel';
 import { DEFAULT_INTAKE_TEMPLATE } from '@/shared/constants/intakeTemplates';
-import type { IntakeTemplate, IntakeFieldDefinition } from '@/shared/types/intake';
+import type { IntakeTemplate, IntakeFieldDefinition, IntakeEnrichedData } from '@/shared/types/intake';
 import VirtualMessageList from '@/features/chat/components/VirtualMessageList';
 import MessageComposer from '@/features/chat/components/MessageComposer';
 import type { ChatMessageUI, FileAttachment } from '../../../../worker/types';
@@ -63,6 +67,74 @@ function parseTemplatesFromPracticeDetails(details: unknown): IntakeTemplate[] {
     try { const p = JSON.parse(raw); return Array.isArray(p) ? p as IntakeTemplate[] : []; } catch { return []; }
   }
   return Array.isArray(raw) ? raw as IntakeTemplate[] : [];
+}
+
+type EngagementLetterTemplate = {
+  id: string;
+  name: string;
+  practiceArea: string;
+  feeType: 'hourly' | 'flat' | 'contingency' | 'pro_bono';
+  hourlyRateCents: number | null;
+  flatFeeCents: number | null;
+  contingencyPct: number | null;
+  retainerCents: number | null;
+  scopeTemplate: string;
+  body: string;
+};
+
+function parseEnrichedData(meta: Record<string, unknown>): IntakeEnrichedData | null {
+  const cf = (meta.customFields ?? meta.custom_fields) as Record<string, unknown> | undefined;
+  if (!cf || typeof cf !== 'object') return null;
+  const raw = cf._enriched_data;
+  if (typeof raw !== 'string') return null;
+  try {
+    const parsed = JSON.parse(raw) as Record<string, unknown>;
+    if (typeof parsed !== 'object' || parsed === null) return null;
+    const conflictNames = Array.isArray(parsed.conflict_check_names)
+      ? parsed.conflict_check_names
+      : parsed.conflict_check_names == null
+        ? []
+        : [parsed.conflict_check_names];
+    return {
+      practice_area: typeof parsed.practice_area === 'string' ? parsed.practice_area : null,
+      sub_type: typeof parsed.sub_type === 'string' ? parsed.sub_type : null,
+      matter_stage: parsed.matter_stage === 'pre_litigation' || parsed.matter_stage === 'active_litigation' || parsed.matter_stage === 'post_judgment' || parsed.matter_stage === 'transactional'
+        ? parsed.matter_stage
+        : null,
+      client_role: parsed.client_role === 'petitioner' || parsed.client_role === 'respondent' || parsed.client_role === 'plaintiff' || parsed.client_role === 'defendant' || parsed.client_role === 'buyer' || parsed.client_role === 'seller' || parsed.client_role === 'other'
+        ? parsed.client_role
+        : null,
+      complexity: parsed.complexity === 'simple' || parsed.complexity === 'moderate' || parsed.complexity === 'complex'
+        ? parsed.complexity
+        : null,
+      conflict_check_names: conflictNames.filter((name): name is string => typeof name === 'string'),
+      sol_risk: typeof parsed.sol_risk === 'boolean' ? parsed.sol_risk : null,
+      sol_risk_notes: typeof parsed.sol_risk_notes === 'string' ? parsed.sol_risk_notes : null,
+      emergency_relief_needed: typeof parsed.emergency_relief_needed === 'boolean' ? parsed.emergency_relief_needed : null,
+      multi_state: typeof parsed.multi_state === 'boolean' ? parsed.multi_state : null,
+      multi_state_notes: typeof parsed.multi_state_notes === 'string' ? parsed.multi_state_notes : null,
+      legal_aid_eligible: typeof parsed.legal_aid_eligible === 'boolean' ? parsed.legal_aid_eligible : null,
+      estimated_value_band: parsed.estimated_value_band === 'low' || parsed.estimated_value_band === 'medium' || parsed.estimated_value_band === 'high'
+        ? parsed.estimated_value_band
+        : null,
+      ai_matter_description: typeof parsed.ai_matter_description === 'string' ? parsed.ai_matter_description : null,
+      ai_scope_suggestion: typeof parsed.ai_scope_suggestion === 'string' ? parsed.ai_scope_suggestion : null,
+      confidence: typeof parsed.confidence === 'number' ? Math.min(1, Math.max(0, parsed.confidence)) : 0,
+    };
+  } catch {
+    return null;
+  }
+}
+
+function parseEngagementTemplates(practiceDetails: unknown): EngagementLetterTemplate[] {
+  if (!practiceDetails || typeof practiceDetails !== 'object') return [];
+  const meta = (practiceDetails as Record<string, unknown>).metadata;
+  if (!meta || typeof meta !== 'object') return [];
+  const raw = (meta as Record<string, unknown>).engagementLetterTemplates;
+  if (typeof raw === 'string') {
+    try { const p = JSON.parse(raw); return Array.isArray(p) ? p as EngagementLetterTemplate[] : []; } catch { return []; }
+  }
+  return Array.isArray(raw) ? raw as EngagementLetterTemplate[] : [];
 }
 
 function resolveTemplateSlug(intake: PracticeIntakeDetail): string | null {
@@ -254,7 +326,7 @@ const DetailSkeleton: FunctionComponent<{ onBack: () => void }> = ({ onBack }) =
             <MessageRowSkeleton lineWidths={['w-64', 'w-44']} />
           </div>
         </div>
-        <aside className="hidden xl:block space-y-4 border-l border-card-border bg-surface-panel p-6">
+        <aside className="hidden xl:block space-y-4 border-l border-line-subtle bg-surface-panel p-6">
           <SkeletonLoader variant="button" width="w-full" />
           <SkeletonLoader variant="button" width="w-full" />
           <div className="rounded-xl border border-card-border bg-surface-card p-4 space-y-3">
@@ -278,6 +350,7 @@ type IntakeDetailPageProps = {
   practiceId: string | null;
   intakeId: string;
   conversationsBasePath?: string | null;
+  engagementsBasePath?: string | null;
   practiceName: string;
   practiceLogo: string | null;
   onBack: () => void;
@@ -287,6 +360,7 @@ type IntakeDetailPageProps = {
 export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
   practiceId,
   intakeId,
+  engagementsBasePath,
   practiceName,
   practiceLogo,
   onBack,
@@ -294,6 +368,7 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
 }) => {
   const { showSuccess, showError } = useToastContext();
   const { session } = useSessionContext();
+  const { navigate } = useNavigation();
 
   const {
     data: intakeData,
@@ -415,6 +490,10 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
   const [composerValue, setComposerValue] = useState('');
   const [composerSubmitting, setComposerSubmitting] = useState(false);
   const [gatherDetailsSubmitting, setGatherDetailsSubmitting] = useState(false);
+  const [generateDialogOpen, setGenerateDialogOpen] = useState(false);
+  const [generateTemplateId, setGenerateTemplateId] = useState<string | null>(null);
+  const [generateLoading, setGenerateLoading] = useState(false);
+  const [generatedBody, setGeneratedBody] = useState<string | null>(null);
   const composerTextareaRef = useRef<HTMLTextAreaElement>(null);
 
   // Composer file state for the staff reply. Kept in page state so the
@@ -749,6 +828,44 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
     updateConversationMetadataPatch,
   ]);
 
+  const handleGenerateEngagement = useCallback(async (template: EngagementLetterTemplate) => {
+    if (!intake || generateLoading) return;
+    const metaRecord = (intake.metadata ?? {}) as Record<string, unknown>;
+    const enriched = parseEnrichedData(metaRecord);
+    setGenerateLoading(true);
+    setGeneratedBody(null);
+    try {
+      const result = await apiClient.post<{ contractBody: string }>(generateEngagement, {
+        enrichedData: enriched,
+        template,
+        intakeFields: {
+          clientName: typeof metaRecord.name === 'string' ? metaRecord.name : '',
+          clientEmail: typeof metaRecord.email === 'string' ? metaRecord.email : '',
+          opposingParty: typeof metaRecord.opposing_party === 'string' ? metaRecord.opposing_party : null,
+          description: typeof metaRecord.description === 'string' ? metaRecord.description : null,
+          courtDate: intake.court_date ?? null,
+          jurisdiction: typeof (intakeConversationState as unknown as Record<string, unknown>)?.state === 'string'
+            ? (intakeConversationState as unknown as Record<string, unknown>).state as string
+            : null,
+          practiceName: typeof (practiceDetails as Record<string, unknown> | null)?.name === 'string'
+            ? (practiceDetails as Record<string, unknown>).name as string
+            : practiceName,
+        },
+      });
+      // Validate response shape before using
+      if (result?.data && typeof result.data === 'object' && typeof result.data.contractBody === 'string') {
+        setGeneratedBody(result.data.contractBody);
+      } else {
+        console.warn('[IntakeDetailPage] Unexpected generate-engagement response shape', result);
+        showError('Generation failed', 'Unexpected response format from server');
+      }
+    } catch (error) {
+      showError('Generation failed', error instanceof Error ? error.message : 'Failed to generate engagement letter');
+    } finally {
+      if (isMountedRef.current) setGenerateLoading(false);
+    }
+  }, [generateLoading, intake, intakeConversationState, practiceDetails, practiceName, showError]);
+
   if (isLoading) return <DetailSkeleton onBack={onBack} />;
 
   if (loadError || !intake) {
@@ -804,12 +921,19 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
     name ? `${name} intake` : 'Untitled intake',
   );
   const canReplyInIntake = Boolean(intake.conversation_id && effectiveTriageStatus === 'accepted');
+  const engagementCreatePath = `${engagementsBasePath ?? '/practice/engagements'}?create=1&intakeId=${encodeURIComponent(intake.uuid)}`;
   const enrichmentFields: IntakeFieldDefinition[] = (
     activeTemplate?.fields ?? DEFAULT_INTAKE_TEMPLATE.fields
   ).filter((f) => f.phase === 'enrichment');
   const intakeStateRecord = intakeConversationState as unknown as Record<string, unknown> | null;
   const unansweredEnrichment = enrichmentFields.filter((f) => !resolveFieldValue(f, intakeStateRecord, intake));
   const showGatherDetails = unansweredEnrichment.length > 0 && Boolean(intake.conversation_id);
+
+  const enrichedData = parseEnrichedData(meta as Record<string, unknown>);
+  const engagementTemplates = parseEngagementTemplates(practiceDetails);
+  const activeGenerateTemplate = generateTemplateId
+    ? (engagementTemplates.find((t) => t.id === generateTemplateId) ?? engagementTemplates[0])
+    : engagementTemplates[0];
 
   const customFields = (() => {
     const cf = (meta.customFields ?? meta.custom_fields) as Record<string, unknown> | undefined;
@@ -824,14 +948,26 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
   })();
 
   const statusBadge = (
-    <span
-      className={cn(
-        'inline-flex items-center gap-1.5 rounded-md px-3 py-1 text-xs font-medium ring-1 ring-inset',
-        triageBadgeClass(effectiveTriageStatus),
-      )}
-    >
-      {triageLabel(effectiveTriageStatus)}
-    </span>
+    <div className="flex items-center gap-2">
+      <span
+        className={cn(
+          'inline-flex items-center gap-1.5 rounded-md px-3 py-1 text-xs font-medium ring-1 ring-inset',
+          triageBadgeClass(effectiveTriageStatus),
+        )}
+      >
+        {triageLabel(effectiveTriageStatus)}
+      </span>
+      {effectiveTriageStatus === 'accepted' ? (
+        <Button
+          variant="primary"
+          size="sm"
+          icon={FileText}
+          onClick={() => navigate(engagementCreatePath)}
+        >
+          Create engagement
+        </Button>
+      ) : null}
+    </div>
   );
 
   const intakeDetailsCard = (
@@ -890,6 +1026,65 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
     </Card>
   );
 
+  const enrichedDataCard = enrichedData ? (
+    <Card>
+      <div className="mb-3 flex items-center gap-2">
+        <Icon icon={Sparkles} className="h-4 w-4 text-accent" />
+        <h3 className="text-sm font-semibold text-input-text">AI Analysis</h3>
+        {enrichedData.confidence < 0.5 ? (
+          <span className="ml-auto text-[10px] text-input-placeholder">Low confidence</span>
+        ) : null}
+      </div>
+      {enrichedData.ai_matter_description ? (
+        <p className="mb-4 text-sm leading-relaxed text-input-text/90">{enrichedData.ai_matter_description}</p>
+      ) : null}
+      <dl className="grid grid-cols-1 gap-x-6 gap-y-3 sm:grid-cols-2">
+        {enrichedData.practice_area ? (
+          <DetailField
+            label="Practice Area"
+            value={enrichedData.sub_type ? `${enrichedData.practice_area} · ${enrichedData.sub_type}` : enrichedData.practice_area}
+          />
+        ) : null}
+        {enrichedData.matter_stage ? (
+          <DetailField label="Stage" value={enrichedData.matter_stage.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())} />
+        ) : null}
+        {enrichedData.client_role ? (
+          <DetailField label="Client Role" value={enrichedData.client_role.charAt(0).toUpperCase() + enrichedData.client_role.slice(1)} />
+        ) : null}
+        {enrichedData.complexity ? (
+          <DetailField label="Complexity" value={enrichedData.complexity.charAt(0).toUpperCase() + enrichedData.complexity.slice(1)} />
+        ) : null}
+        {enrichedData.estimated_value_band ? (
+          <DetailField label="Estimated Value" value={enrichedData.estimated_value_band.charAt(0).toUpperCase() + enrichedData.estimated_value_band.slice(1)} />
+        ) : null}
+      </dl>
+      {enrichedData.conflict_check_names.length > 0 ? (
+        <div className="mt-4 space-y-1">
+          <dt className="text-xs font-medium uppercase tracking-wide text-input-placeholder">Conflict Check</dt>
+          <dd className="text-sm text-input-text">{enrichedData.conflict_check_names.join(', ')}</dd>
+        </div>
+      ) : null}
+      {enrichedData.ai_scope_suggestion ? (
+        <div className="mt-4 space-y-1">
+          <dt className="text-xs font-medium uppercase tracking-wide text-input-placeholder">Suggested Scope</dt>
+          <dd className="text-sm text-input-text/90">{enrichedData.ai_scope_suggestion}</dd>
+        </div>
+      ) : null}
+      <div className="mt-4 flex flex-wrap gap-3">
+        {enrichedData.sol_risk ? <InfoChip icon={AlertTriangle} label="SOL Risk" tone="warning" /> : null}
+        {enrichedData.emergency_relief_needed ? <InfoChip icon={AlertTriangle} label="Emergency Relief" tone="error" /> : null}
+        {enrichedData.legal_aid_eligible ? <InfoChip icon={CheckCircle2} label="Legal Aid Eligible" tone="success" /> : null}
+        {enrichedData.multi_state ? <InfoChip icon={Scale} label="Multi-State" /> : null}
+      </div>
+      {enrichedData.sol_risk_notes ? (
+        <p className="mt-2 text-xs text-warning">{enrichedData.sol_risk_notes}</p>
+      ) : null}
+      {enrichedData.multi_state_notes ? (
+        <p className="mt-2 text-xs text-input-placeholder">{enrichedData.multi_state_notes}</p>
+      ) : null}
+    </Card>
+  ) : null;
+
   const blawbyCard = showGatherDetails ? (
     <Card>
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -917,7 +1112,7 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
 
   const conversationCard = intake.conversation_id ? (
     <Card className="flex min-h-[420px] flex-col p-0 overflow-hidden">
-      <div className="border-b border-card-border p-4 sm:px-6 sm:py-5">
+      <div className="border-b border-line-subtle p-4 sm:px-6 sm:py-5">
         <SectionLabel>Conversation</SectionLabel>
         <p className="mt-1 text-xs text-input-placeholder">Continue the client thread from this intake.</p>
       </div>
@@ -956,7 +1151,7 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
         )}
       </div>
       {canReplyInIntake ? (
-        <div className="border-t border-card-border px-4 py-4">
+        <div className="border-t border-line-subtle px-4 py-4">
           <MessageComposer
             inputValue={composerValue}
             setInputValue={setComposerValue}
@@ -1052,7 +1247,7 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
         <Avatar
           name={name ?? ''}
           size="md"
-          className="bg-surface-utility/40 text-input-text ring-1 ring-line-glass/20"
+          className="bg-surface-utility/40 text-input-text ring-1 ring-line-subtle"
         />
         <div className="min-w-0">
           <p className="truncate text-sm font-semibold text-input-text">{name ?? 'Unnamed lead'}</p>
@@ -1087,6 +1282,33 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
     </Card>
   );
 
+  const engagementActionCard = effectiveTriageStatus === 'accepted' ? (
+    <Card className="flex flex-col gap-2 p-4">
+      <Button
+        variant="primary"
+        className="w-full"
+        icon={FileText}
+        onClick={() => navigate(engagementCreatePath)}
+      >
+        Create engagement
+      </Button>
+      {engagementTemplates.length > 0 ? (
+        <Button
+          variant="secondary"
+          className="w-full"
+          icon={Sparkles}
+          onClick={() => {
+            setGenerateTemplateId(engagementTemplates[0]?.id ?? null);
+            setGeneratedBody(null);
+            setGenerateDialogOpen(true);
+          }}
+        >
+          Generate Engagement Letter
+        </Button>
+      ) : null}
+    </Card>
+  ) : null;
+
   return (
     <div className="flex h-full flex-col min-h-0 bg-surface-workspace">
       <DetailHeader
@@ -1109,6 +1331,7 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
 
             {intakeDetailsCard}
             {formDetailsCard}
+            {enrichedDataCard}
             <IntakeFilesPanel
               intakeUuid={intake.uuid}
               canUpload
@@ -1122,8 +1345,9 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
           </div>
 
           {/* Desktop right panel */}
-          <aside className="hidden xl:flex flex-col gap-4 border-l border-card-border bg-surface-panel p-6">
+          <aside className="hidden xl:flex flex-col gap-4 border-l border-line-subtle bg-surface-panel p-6">
             {isPending ? <div className="flex flex-col gap-3">{triageActions}</div> : null}
+            {engagementActionCard}
             {aboutCard}
           </aside>
         </div>
@@ -1163,6 +1387,79 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
           >
             {isSubmitting ? 'Updating…' : (triageDialogAction === 'accepted' ? 'Confirm approval' : 'Confirm rejection')}
           </Button>
+        </DialogFooter>
+      </Dialog>
+
+      <Dialog
+        isOpen={generateDialogOpen}
+        onClose={() => { setGenerateDialogOpen(false); setGeneratedBody(null); }}
+        title="Generate Engagement Letter"
+        description="AI will draft an engagement letter based on this intake."
+      >
+        <DialogBody className="space-y-4">
+          {engagementTemplates.length > 1 ? (
+            <div className="space-y-2">
+              <p className="text-xs font-medium uppercase tracking-wide text-input-placeholder">Select Template</p>
+              <div className="flex flex-col gap-1">
+                {engagementTemplates.map((t) => (
+                  <button
+                    key={t.id}
+                    type="button"
+                    className={cn(
+                      'flex items-center gap-2 rounded-lg border px-3 py-2 text-left text-sm transition-colors',
+                      generateTemplateId === t.id
+                        ? 'border-accent bg-accent/10 text-[rgb(var(--accent-foreground))]'
+                        : 'border-card-border bg-surface-card text-input-text hover:bg-surface-overlay/40',
+                    )}
+                    onClick={() => setGenerateTemplateId(t.id)}
+                  >
+                    <span className="flex-1 font-medium">{t.name}</span>
+                    {t.practiceArea ? <span className="text-xs text-input-placeholder">{t.practiceArea}</span> : null}
+                  </button>
+                ))}
+              </div>
+            </div>
+          ) : null}
+          {generatedBody ? (
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <p className="text-xs font-medium uppercase tracking-wide text-input-placeholder">Generated Letter</p>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  icon={Copy}
+                  onClick={async () => {
+                    try {
+                      await navigator.clipboard.writeText(generatedBody);
+                      showSuccess('Copied', 'Letter copied to clipboard');
+                    } catch (_error) {
+                      showError('Copy failed', 'Unable to copy to clipboard. Try copying manually.');
+                    }
+                  }}
+                >
+                  Copy
+                </Button>
+              </div>
+              <Textarea value={generatedBody} onChange={setGeneratedBody} rows={12} label="" />
+            </div>
+          ) : null}
+        </DialogBody>
+        <DialogFooter>
+          <Button
+            variant="secondary"
+            onClick={() => { setGenerateDialogOpen(false); setGeneratedBody(null); }}
+          >
+            {generatedBody ? 'Close' : 'Cancel'}
+          </Button>
+          {!generatedBody ? (
+            <Button
+              variant="primary"
+              disabled={generateLoading || !activeGenerateTemplate}
+              onClick={() => { if (activeGenerateTemplate) void handleGenerateEngagement(activeGenerateTemplate); }}
+            >
+              {generateLoading ? 'Generating…' : 'Generate'}
+            </Button>
+          ) : null}
         </DialogFooter>
       </Dialog>
     </div>
