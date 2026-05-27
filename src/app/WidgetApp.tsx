@@ -175,11 +175,16 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
     includeLatestMessage: true,
   });
 
+  const visibleConversations = useMemo(
+    () => conversations.filter((conversation) => conversation.user_info?.mode !== 'PRACTICE_ASSISTANT'),
+    [conversations],
+  );
+
   const latestConversation = useMemo(() => {
-    if (!conversations) return null;
+    if (!visibleConversations) return null;
     // Pick the first conversation that actually has a message (not an empty prewarmed draft)
-    return conversations.find(c => Boolean(c.last_message_at || c.last_message_content || c.latest_message?.content)) || null;
-  }, [conversations]);
+    return visibleConversations.find(c => Boolean(c.last_message_at || c.last_message_content || c.latest_message?.content)) || null;
+  }, [visibleConversations]);
 
   const recentMessage = useMemo(() => {
     if (!latestConversation) return null;
@@ -200,7 +205,7 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
   // Previews for ConversationListView — read latest_message off each row.
   const previews = useMemo(() => {
     const map: Record<string, { content: string; role: string; createdAt: string }> = {};
-    conversations.forEach(c => {
+    visibleConversations.forEach(c => {
       map[c.id] = {
         content: c.latest_message?.content || c.last_message_content || c.user_info?.title || 'No messages yet',
         role: c.latest_message?.role || 'assistant',
@@ -208,7 +213,7 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
       };
     });
     return map;
-  }, [conversations]);
+  }, [visibleConversations]);
 
   const { t } = useTranslation('common');
 
@@ -686,7 +691,7 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
         )}
         {view === 'list' && (
           <WidgetConversationListView
-            conversations={conversations}
+            conversations={visibleConversations}
             previews={previews}
             practiceName={practiceConfig.name}
             isLoading={isConversationsLoading}

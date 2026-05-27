@@ -492,6 +492,7 @@ function AppShell() {
           <Route path="/practice" component={App404} />
           <Route path="/practice/:practiceSlug" component={PracticeAppRoute} workspaceView="home" />
           <Route path="/practice/:practiceSlug/setup" component={PracticeAppRoute} workspaceView="setup" />
+          <Route path="/practice/:practiceSlug/assistant" component={PracticeAppRoute} workspaceView="assistant" />
           <Route path="/practice/:practiceSlug/conversations" component={PracticeAppRoute} workspaceView="list" />
           <Route path="/practice/:practiceSlug/conversations/:conversationId" component={PracticeAppRoute} workspaceView="conversation" />
           <Route path="/practice/:practiceSlug/contacts" component={PracticeAppRoute} workspaceView="contacts" />

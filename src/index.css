@@ -607,6 +607,15 @@
     animation: ai-thinking-dot-pulse 1.25s ease-in-out infinite;
   }
 
+  .human-typing-indicator__dot {
+    @apply inline-flex h-2.5 w-2.5 rounded-full bg-accent-500/80;
+    transform-origin: 50% center;
+    backface-visibility: hidden;
+    will-change: transform;
+    transform: translateZ(0);
+    animation: ai-thinking-dot-pulse 1.4s ease-in-out infinite;
+  }
+
   /* ============================================================
      BUTTON SYSTEM
      All button visual styles are defined here as component

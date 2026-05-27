@@ -28,6 +28,7 @@ import { handlePresence } from './routes/presence.js';
 import { handleAiChat } from './routes/aiChat.js';
 import { handleAiIntent } from './routes/aiIntent.js';
 import { handleGenerateEngagement } from './routes/generateEngagement.js';
+import { handlePracticeAssistant } from './routes/practiceAssistant.js';
 import { withAuth, withCache, withRateLimit } from './middleware/compose.js';
 import { withEngineerAllowlist } from './middleware/withEngineerAllowlist.js';
 import { handleAdminIntakeInspector } from './routes/adminIntakeInspector.js';
@@ -217,6 +218,11 @@ export const routes: RouteEntry[] = [
     mode: 'owned',
     match: prefix('/api/search/'),
     handler: (req, env, ctx) => handleGlobalSearch(req, env, ctx),
+  },
+  {
+    mode: 'owned',
+    match: prefix('/api/ai/practice-assistant'),
+    handler: withAuth((req, env) => handlePracticeAssistant(req, env), { required: true }),
   },
   {
     mode: 'owned',

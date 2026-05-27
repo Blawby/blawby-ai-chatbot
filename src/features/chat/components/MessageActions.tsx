@@ -1,5 +1,5 @@
 import { FunctionComponent } from 'preact';
-import { useEffect, useRef } from 'preact/hooks';
+import { useEffect, useRef, useState } from 'preact/hooks';
 import { useToastContext } from '@/shared/contexts/ToastContext';
 import { useTranslation } from '@/shared/i18n/hooks';
 import { IntakePaymentCard } from '@/features/intake/components/IntakePaymentCard';
@@ -17,6 +17,7 @@ import { quickActionDebugLog, isQuickActionDebugEnabled } from '@/shared/utils/q
 import { getChatActionKey } from '@/shared/utils/chatActions';
 import { useNavigation } from '@/shared/utils/navigation';
 import { useIntakeContext } from '@/shared/contexts/IntakeContext';
+import { apiClient, isHttpError } from '@/shared/lib/apiClient';
 
 interface MessageActionsProps {
 	matterCanvas?: {
@@ -63,6 +64,7 @@ interface MessageActionsProps {
 	onAuthPromptRequest?: () => void;
 	actions?: ChatMessageAction[];
 	onActionReply?: (text: string) => void;
+	practiceId?: string;
 	onboardingProfile?: {
 		completionScore?: number;
 		missingFields?: string[];
@@ -98,16 +100,19 @@ export const MessageActions: FunctionComponent<MessageActionsProps> = ({
 	onAuthPromptRequest,
 	actions,
 	onActionReply,
+	practiceId,
 	onboardingProfile,
 	isStreaming = false,
 	isLast,
-	className = ''
+	className = '',
 }) => {
-	const { showSuccess, showInfo } = useToastContext();
+	const { showSuccess, showInfo, showError } = useToastContext();
 	const { t } = useTranslation('common');
 	const { navigate } = useNavigation();
 	const intakeContext = useIntakeContext();
 	const quickActionRenderSnapshotRef = useRef('');
+	const [resolvedPracticeAssistantActionIds, setResolvedPracticeAssistantActionIds] = useState<Set<string>>(() => new Set());
+	const [pendingPracticeAssistantDecision, setPendingPracticeAssistantDecision] = useState<string | null>(null);
 	const resolvedIntakeStatus = intakeContext.intakeStatus;
 	const resolvedOnSubmitNow = intakeContext.onSubmitNow;
 	const resolvedOnBuildBrief = intakeContext.onBuildBrief;
@@ -128,10 +133,43 @@ export const MessageActions: FunctionComponent<MessageActionsProps> = ({
 				return true;
 			case 'build_brief':
 				return Boolean(resolvedOnBuildBrief);
-			case 'strengthen_case':
-				return Boolean(resolvedOnStrengthenCase);
-		}
-	});
+				case 'strengthen_case':
+					return Boolean(resolvedOnStrengthenCase);
+				case 'practice_assistant_decision':
+					return Boolean(practiceId) && !resolvedPracticeAssistantActionIds.has(action.actionId);
+			}
+		});
+	const decisionActions = renderableActions.filter((a) => a.type === 'practice_assistant_decision');
+	const standardActions = renderableActions.filter((a) => a.type !== 'practice_assistant_decision');
+
+		const decidePracticeAssistantAction = async (
+			actionId: string,
+			decision: 'approve' | 'reject',
+		) => {
+			if (!practiceId) return;
+			const pendingKey = `${actionId}:${decision}`;
+			setPendingPracticeAssistantDecision(pendingKey);
+			try {
+				await apiClient.post(
+					`/api/ai/practice-assistant/actions/${encodeURIComponent(actionId)}/${decision}`,
+					{ practiceId },
+				);
+				setResolvedPracticeAssistantActionIds((prev) => new Set(prev).add(actionId));
+				showSuccess(
+					decision === 'approve' ? 'Assistant action approved' : 'Assistant action rejected',
+					decision === 'approve' ? 'The approved action has been executed.' : 'The proposed action was rejected.',
+				);
+			} catch (error) {
+				const message = isHttpError(error)
+					? ((error.response.data as { error?: string } | undefined)?.error || `HTTP ${error.response.status}`)
+					: error instanceof Error
+						? error.message
+						: 'Unable to update assistant action';
+				showError('Assistant action failed', message);
+			} finally {
+				setPendingPracticeAssistantDecision(null);
+			}
+		};
 
 
 	useEffect(() => {
@@ -198,9 +236,9 @@ export const MessageActions: FunctionComponent<MessageActionsProps> = ({
 					)}
 				</div>
 			)}
-			{isLast && !isStreaming && renderableActions.length > 0 && (
+			{isLast && !isStreaming && standardActions.length > 0 && (
 				<div className="mt-3 flex gap-2 overflow-x-auto pb-1">
-					{renderableActions.map((action, idx) => (
+					{standardActions.map((action, idx) => (
 						action.type === 'continue_payment' ? (
 							(() => {
 								const url = paymentRequest?.paymentLinkUrl;
@@ -243,9 +281,9 @@ export const MessageActions: FunctionComponent<MessageActionsProps> = ({
 										return url.origin === window.location.origin;
 									} catch { return false; }
 								};
-								
+
 								const sameOrigin = isSameOrigin(action.url);
-								
+
 								return (
 									<a
 										key={getChatActionKey(action, idx)}
@@ -262,7 +300,7 @@ export const MessageActions: FunctionComponent<MessageActionsProps> = ({
 													showInfo('Link Cannot Open', `This link uses an unsafe protocol: ${parsed.protocol}`);
 													return;
 												}
-												
+
 												if (parsed.origin === window.location.origin) {
 													e.preventDefault();
 													navigate(`${parsed.pathname}${parsed.search}${parsed.hash}`);
@@ -290,9 +328,9 @@ export const MessageActions: FunctionComponent<MessageActionsProps> = ({
 									{action.label}
 								</Button>
 							) : null
-						) : action.type === 'strengthen_case' ? (
-							resolvedOnStrengthenCase ? (
-								<Button
+							) : action.type === 'strengthen_case' ? (
+								resolvedOnStrengthenCase ? (
+									<Button
 									key={getChatActionKey(action, idx)}
 									variant={action.variant === 'primary' ? 'primary' : 'secondary'}
 									size="sm"
@@ -300,10 +338,10 @@ export const MessageActions: FunctionComponent<MessageActionsProps> = ({
 									onClick={() => resolvedOnStrengthenCase()}
 								>
 									{action.label}
-								</Button>
-							) : null
-						) : (
-							onActionReply ? (
+									</Button>
+								) : null
+							) : (
+								onActionReply ? (
 								<Button
 									key={getChatActionKey(action, idx)}
 									variant={action.variant === 'primary' ? 'primary' : 'secondary'}
@@ -315,6 +353,26 @@ export const MessageActions: FunctionComponent<MessageActionsProps> = ({
 								</Button>
 							) : null
 						)
+					))}
+				</div>
+			)}
+			{!isStreaming && decisionActions.length > 0 && (
+				<div className="mt-3 flex gap-2 overflow-x-auto pb-1">
+					{decisionActions.map((action, idx) => (
+						action.type === 'practice_assistant_decision' ? (
+							<Button
+								key={getChatActionKey(action, idx)}
+								variant={action.variant === 'primary' ? 'primary' : 'secondary'}
+								size="sm"
+								className="shrink-0"
+								disabled={pendingPracticeAssistantDecision !== null}
+								onClick={() => {
+									void decidePracticeAssistantAction(action.actionId, action.decision);
+								}}
+							>
+								{pendingPracticeAssistantDecision === `${action.actionId}:${action.decision}` ? 'Working...' : action.label}
+							</Button>
+						) : null
 					))}
 				</div>
 			)}

@@ -191,6 +191,13 @@ const hasIntakeContactStarted = (messages: ChatMessageUI[]): boolean => {
   });
 };
 
+const BLAWBY_AI_OPTION: ComboboxOption = {
+  value: '__blawby_ai__',
+  label: 'Blawby AI',
+  description: 'Practice AI assistant',
+  meta: 'AI',
+};
+
 const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
   view,
   practiceId,
@@ -259,11 +266,11 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
   // DraftConversationView and the messages list shows a synthetic "Draft"
   // entry pinned at the top. POST + assignment + first message are deferred
   // until the user actually sends from the draft view.
-  const [draftConversation, setDraftConversation] = useState<{
-    contactUserId?: string | null;
-    contactName?: string;
-    contactEmail?: string;
-  } | null>(null);
+  const [draftConversation, setDraftConversation] = useState<
+    | { kind: 'user'; contactUserId: string | null; contactName?: string; contactEmail?: string }
+    | { kind: 'practice_assistant' }
+    | null
+  >(null);
   const [pendingInviteOption, setPendingInviteOption] = useState<{ name: string; email: string } | null>(null);
   const navigationInitiatedRef = useRef(false);
   const hasAutoNavigatedRef = useRef(false);
@@ -311,6 +318,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
     normalizedRole,
   });
   const {
+    conversations,
     isConversationsLoading,
     refreshConversations,
     resolvedConversations,
@@ -355,6 +363,18 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
     window.addEventListener('workspace:open-inspector', handleOpenInspector);
     return () => window.removeEventListener('workspace:open-inspector', handleOpenInspector);
   }, [inspectorTarget]);
+
+  // Tracks whether the viewport has a dedicated inspector column (xl = 1280px).
+  const [isXlViewport, setIsXlViewport] = useState(
+    () => typeof window !== 'undefined' && window.matchMedia('(min-width: 1280px)').matches
+  );
+  useEffect(() => {
+    const mq = window.matchMedia('(min-width: 1280px)');
+    const handler = (e: MediaQueryListEvent) => setIsXlViewport(e.matches);
+    mq.addEventListener('change', handler);
+    return () => mq.removeEventListener('change', handler);
+  }, []);
+
   // Practice Messages design (Pencil rxzde) keeps the 320px context panel visible
   // by default. Auto-open the inspector when a practice user lands on a
   // conversation on desktop. Re-fires on conversation switch so flipping between
@@ -362,11 +382,11 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
   const inspectorTargetId = inspectorTarget?.entityType === 'conversation' ? inspectorTarget.entityId : null;
   useEffect(() => {
     if (!isPracticeWorkspace) return;
-    if (layoutMode !== 'desktop') return;
+    if (!isXlViewport) return;
     if (workspaceSection !== 'conversations') return;
     if (!inspectorTargetId) return;
     setIsInspectorOpen(true);
-  }, [isPracticeWorkspace, layoutMode, workspaceSection, inspectorTargetId]);
+  }, [isPracticeWorkspace, isXlViewport, workspaceSection, inspectorTargetId]);
   const {
     mattersStatusFilter,
     contactsStatusFilter,
@@ -581,12 +601,13 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
         description: getPracticeRoleLabel(member.role),
       });
     }
-    return rows;
+    return isPracticeWorkspace ? [BLAWBY_AI_OPTION, ...rows] : rows;
   }, [
     composePickerEnabled,
     composeClientsData.items,
     composeTeamData.members,
     sessionUserId,
+    isPracticeWorkspace,
   ]);
 
   // Pending invitations: invitees haven't accepted yet so they have no userId
@@ -711,7 +732,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
   };
 
   const handleEnterDraftMode = () => {
-    setDraftConversation((prev) => prev ?? { contactUserId: null });
+    setDraftConversation((prev) => prev ?? { kind: 'user', contactUserId: null });
   };
 
   const handleCancelDraft = () => {
@@ -719,18 +740,26 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
     setPendingInviteOption(null);
   };
 
-  const handleDraftContactChange = (next: { userId: string; name: string; email?: string } | null) => {
+  const handleDraftContactChange = (next: import('@/features/chat/components/DraftConversationView').DraftContact) => {
     if (!next) {
-      setDraftConversation((prev) => prev ? { ...prev, contactUserId: null, contactName: undefined, contactEmail: undefined } : null);
+      setDraftConversation((prev) => prev?.kind === 'user'
+        ? { ...prev, contactUserId: null, contactName: undefined, contactEmail: undefined }
+        : null);
       return;
     }
-    // If an existing conversation with this contact is already in the
-    // resolved list, jump into it instead of creating a duplicate. We match
-    // any conversation whose participant set includes the picked user — the
-    // current user is always a participant, so a hit means it's a 1-on-1
-    // (or a group containing them) we should reuse.
+    if (next.kind === 'practice_assistant') {
+      setDraftConversation(null);
+      void handleStartConversation('PRACTICE_ASSISTANT', {
+        forceNew: true,
+        additionalParticipantUserIds: [],
+        additionalMetadata: { source: 'practice_assistant', mode: 'PRACTICE_ASSISTANT' },
+      });
+      return;
+    }
+    // kind === 'user' — jump to existing 1-on-1 thread if one exists
     if (sessionUserId) {
       const existing = resolvedConversations.find((conversation) => {
+        if (conversation.user_info?.mode === 'PRACTICE_ASSISTANT') return false;
         const participants = Array.isArray(conversation.participants) ? conversation.participants : [];
         return participants.length === 2 && participants.includes(sessionUserId) && participants.includes(next.userId);
       });
@@ -741,6 +770,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
       }
     }
     setDraftConversation({
+      kind: 'user',
       contactUserId: next.userId,
       contactName: next.name,
       contactEmail: next.email,
@@ -748,7 +778,8 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
   };
 
   const handleDraftSendFirstMessage = async (message: string, attachments: FileAttachment[] = []) => {
-    if (!draftConversation?.contactUserId || !practiceId) return;
+    if (!draftConversation || !practiceId) return;
+    if (draftConversation.kind !== 'user' || !draftConversation.contactUserId) return;
     const contactName = draftConversation.contactName?.trim();
     const contactEmail = draftConversation.contactEmail?.trim();
     const additionalMetadata = (contactName || contactEmail)
@@ -814,13 +845,13 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
       contactOptions={composePickerOptions}
       pendingInviteOptions={composePendingInviteOptions}
       isLoadingContacts={composeClientsData.isLoading || composeTeamData.isLoading}
-      draftContact={draftConversation.contactUserId
-        ? {
-          userId: draftConversation.contactUserId,
-          name: draftConversation.contactName ?? '',
-          email: draftConversation.contactEmail,
-        }
-        : null}
+      draftContact={
+        draftConversation.kind === 'practice_assistant'
+          ? { kind: 'practice_assistant' }
+          : draftConversation.contactUserId
+            ? { kind: 'user', userId: draftConversation.contactUserId, name: draftConversation.contactName ?? '', email: draftConversation.contactEmail }
+            : null
+      }
       onChangeContact={handleDraftContactChange}
       onSendFirstMessage={handleDraftSendFirstMessage}
       onCancel={handleCancelDraft}
@@ -1056,7 +1087,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
   // anchor for "I'm composing a new conversation" — important on mobile where
   // the listPanel isn't visible alongside the draft view.
   const draftHeaderLabel = draftConversation
-    ? (draftConversation.contactName?.trim() || 'New conversation')
+    ? (draftConversation.kind === 'practice_assistant' ? 'Blawby AI' : (draftConversation.contactName?.trim() || 'New conversation'))
     : null;
   const headerTitle = draftHeaderLabel ?? sectionHeaderTitle;
   const shellHeader = sidebarOrg ? (
@@ -1405,7 +1436,6 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
       chatView={draftView ?? chatView}
       layout={sectionLayout}
       topBar={layoutMode === 'desktop' ? undefined : mobileSectionTopBar}
-      bottomNav={bottomNav}
     />
   );
   // Pencil rxzde context panel: when viewing a practice conversation, render a
@@ -1506,14 +1536,14 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
         mobileSidebar={isFullscreenEditorRoute ? undefined : mobileSidebarNav}
         listPanel={isFullscreenEditorRoute ? undefined : (conversationListPanel ?? matterListPanel ?? contactsListPanel ?? invoicesListPanel)}
         inspector={activeInspector ?? undefined}
-        inspectorMobileOpen={detailInspectorOpen && isMobileLayout}
+        inspectorMobileOpen={detailInspectorOpen && (isMobileLayout || !isXlViewport)}
         onInspectorMobileClose={() => setIsInspectorOpen(false)}
         mobileSidebarOpen={isMobileNavOpen}
         onMobileSidebarClose={() => setIsMobileNavOpen(false)}
         main={unifiedMainShell}
         mainClassName="min-h-0 h-full overflow-hidden"
-        bottomBar={layoutMode === 'desktop' ? bottomNav : undefined}
-        bottomBarClassName={layoutMode === 'desktop' && showBottomNav ? 'md:hidden fixed inset-x-0 bottom-0 z-40 bg-transparent' : undefined}
+        bottomBar={bottomNav}
+        bottomBarClassName={showBottomNav ? 'pb-[env(safe-area-inset-bottom)]' : undefined}
       />
       <AddContactDialog
         practiceId={practiceId ?? null}

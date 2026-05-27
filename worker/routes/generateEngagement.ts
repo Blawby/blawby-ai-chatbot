@@ -52,6 +52,12 @@ type IntakeFields = {
   practiceName?: string | null;
 };
 
+export type GenerateEngagementDraftInput = {
+  enrichedData?: unknown;
+  template?: unknown;
+  intakeFields?: unknown;
+};
+
 // ---------------------------------------------------------------------------
 // Placeholder resolution
 // ---------------------------------------------------------------------------
@@ -209,6 +215,32 @@ const isValidTemplate = (v: unknown): v is EngagementLetterTemplate => {
     && SUPPORTED_FEE_TYPES.includes(o.feeType as EngagementFeeType);
 };
 
+export const generateEngagementDraft = async (
+  env: Env,
+  input: GenerateEngagementDraftInput,
+): Promise<{ contractBody: string; partialBody: string }> => {
+  if (!isValidTemplate(input.template)) {
+    throw HttpErrors.badRequest('template is required and must include id, body, and feeType');
+  }
+  if (!isValidIntakeFields(input.intakeFields)) {
+    throw HttpErrors.badRequest('intakeFields must include clientName and clientEmail');
+  }
+
+  const enriched = (input.enrichedData && typeof input.enrichedData === 'object' && !Array.isArray(input.enrichedData))
+    ? input.enrichedData as IntakeEnrichedData
+    : null;
+
+  const partialBody = resolveStaticPlaceholders(
+    input.template.body,
+    input.template,
+    enriched,
+    input.intakeFields,
+  );
+
+  const contractBody = await generateContractBody(env, partialBody, enriched, input.intakeFields, input.template);
+  return { contractBody, partialBody };
+};
+
 // ---------------------------------------------------------------------------
 // Handler
 // ---------------------------------------------------------------------------
@@ -229,25 +261,7 @@ export const handleGenerateEngagement = async (request: Request, env: Env): Prom
     intakeFields?: unknown;
   };
 
-  if (!isValidTemplate(body.template)) {
-    throw HttpErrors.badRequest('template is required and must include id, body, and feeType');
-  }
-  if (!isValidIntakeFields(body.intakeFields)) {
-    throw HttpErrors.badRequest('intakeFields must include clientName and clientEmail');
-  }
-
-  const enriched = (body.enrichedData && typeof body.enrichedData === 'object' && !Array.isArray(body.enrichedData))
-    ? body.enrichedData as IntakeEnrichedData
-    : null;
-
-  const partialBody = resolveStaticPlaceholders(
-    body.template.body,
-    body.template,
-    enriched,
-    body.intakeFields,
-  );
-
-  const contractBody = await generateContractBody(env, partialBody, enriched, body.intakeFields, body.template);
+  const { contractBody } = await generateEngagementDraft(env, body);
 
   return new Response(JSON.stringify({ contractBody }), {
     status: 200,

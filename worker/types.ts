@@ -147,7 +147,6 @@ export interface Env {
   BACKEND_API_URL?: string;
 
   REQUIRE_EMAIL_VERIFICATION?: string | boolean;
-  ENABLE_EMAIL_NOTIFICATIONS?: string | boolean;
   ENABLE_PUSH_NOTIFICATIONS?: string | boolean;
 
   IDEMPOTENCY_SALT?: string;
@@ -473,6 +472,13 @@ export interface UIMessageExtras {
   isLoading?: boolean;
   /** Custom message to show during tool calls */
   toolMessage?: string;
+  /** Ephemeral or persisted tool progress tracing */
+  toolProgress?: Array<{
+    toolUseId: string;
+    toolName: string;
+    label: string;
+    status: 'queued' | 'running' | 'completed' | 'failed' | 'cancelled';
+  }>;
   assistantRetry?: {
     label?: string;
     status?: 'error' | 'retrying';
