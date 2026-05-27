@@ -82,15 +82,19 @@ const systemPrompt = [
   'Never say the count is 0 unless a tool result explicitly returned an empty array for that scope.',
 ].join('\n');
 
+const finalSystemPrompt = [
+  'You are Blawby Practice Assistant. You are in the text synthesis phase.',
+  'Your only job is to write a clear, concise plain-language response to the practice user.',
+  'Do NOT emit tool calls. Do NOT produce JSON. Only produce readable text.',
+  'Use the tool results supplied in the user message to compose your reply.',
+  'If a pending approval action is present in the tool results, explain what was prepared and that it will only execute after the user approves it.',
+  'Keep the response focused. Cite source records when useful.',
+].join('\n');
+
 const finalPrompt = (input: {
   userMessage: string;
   toolResults: PracticeAssistantToolResult[];
 }) => [
-  'Produce the final assistant response for the practice user.',
-  'This is the text-only synthesis phase. Do not call tools. Do not propose another action.',
-  'Use the tool results below. Include concise source references by label when useful.',
-  'If a pending approval action exists in the tool results, explain what was prepared and that it will only execute if approved.',
-  '',
   `USER MESSAGE:\n${input.userMessage}`,
   `\nTOOL RESULTS JSON:\n${JSON.stringify(input.toolResults).slice(0, 24000)}`,
 ].join('\n');
@@ -307,10 +311,8 @@ export class PracticeAssistantQueryEngine {
       });
       const finalResponse = await aiClient.requestChatCompletions({
         model, temperature: 0.2, max_tokens: 1600, stream: true,
-        tool_choice: 'none',
-        tools: [],
         messages: [
-          { role: 'system', content: systemPrompt },
+          { role: 'system', content: finalSystemPrompt },
           { role: 'user', content: finalUserPrompt },
         ],
       }, this.abortController.signal);
@@ -326,12 +328,21 @@ export class PracticeAssistantQueryEngine {
       const final = await (yield* this.consumeModelStream(finalResponse, true, requestId, 'final_response'));
 
       if (final.toolCalls.length > 0) {
-        throw new PracticeAssistantEngineError('FINAL_PASS_PROTOCOL_VIOLATION', {
-          phase: 'final_response',
-          model,
+        Logger.warn('practice_assistant.final_pass.unexpected_tool_calls', {
+          requestId,
+          conversationId,
           toolCallNames: final.toolCalls.map(tc => tc.name),
           replyLength: final.reply.length,
         });
+        if (!final.reply.trim()) {
+          throw new PracticeAssistantEngineError('FINAL_PASS_PROTOCOL_VIOLATION', {
+            phase: 'final_response',
+            model,
+            toolCallNames: final.toolCalls.map(tc => tc.name),
+            replyLength: final.reply.length,
+          });
+        }
+        // Model emitted tool calls AND text — use the text and discard the tool calls.
       }
 
       const reply = final.reply.trim();

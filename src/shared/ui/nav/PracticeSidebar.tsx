@@ -1,10 +1,13 @@
-import { ArrowLeft } from 'lucide-preact';
+import { ArrowLeft, Plus } from 'lucide-preact';
 import { Sidebar } from '@/shared/ui/nav/Sidebar';
 import { Icon, type IconComponent } from '@/shared/ui/Icon';
 import { OrgSwitcherMenu } from '@/shared/ui/nav/OrgSwitcherMenu';
 import { SidebarProfileMenu } from '@/shared/ui/nav/SidebarProfileMenu';
 import { useNavigation } from '@/shared/utils/navigation';
 import { signOut } from '@/shared/utils/auth';
+import { Button } from '@/shared/ui/Button';
+import ConversationListView from '@/features/chat/views/ConversationListView';
+import type { Conversation } from '@/shared/types/conversation';
 import {
   buildSidebarConfig,
   getPracticeNavConfig,
@@ -51,6 +54,14 @@ export interface PracticeSidebarProps {
    *  Top-level rail items render the value as a pill badge; sub-items render it as a small
    *  trailing count. Missing/null entries render no number. */
   counts?: Record<string, number | null | undefined>;
+  /** Assistant conversations — only used when workspaceSection === 'assistant'. */
+  assistantConversations?: Conversation[];
+  assistantConversationPreviews?: Record<string, { content: string; role: string; createdAt: string } | undefined>;
+  assistantConversationsLoading?: boolean;
+  assistantConversationsError?: unknown;
+  activeConversationId?: string | null;
+  onSelectAssistantConversation?: (conversationId: string) => void;
+  onNewAssistantConversation?: () => void;
 }
 
 export const PracticeSidebar = ({
@@ -65,6 +76,13 @@ export const PracticeSidebar = ({
   workspaceSection = 'home',
   onSecondaryItemClick,
   counts,
+  assistantConversations = [],
+  assistantConversationPreviews = {},
+  assistantConversationsLoading = false,
+  assistantConversationsError,
+  activeConversationId = null,
+  onSelectAssistantConversation,
+  onNewAssistantConversation,
 }: PracticeSidebarProps) => {
   const { navigate } = useNavigation();
   const basePath = `/practice/${encodeURIComponent(practiceSlug)}`;
@@ -87,6 +105,63 @@ export const PracticeSidebar = ({
     }
     return undefined;
   };
+
+  if (workspaceSection === 'assistant') {
+    return (
+      <Sidebar
+        activeItemId={activeItemId}
+        onItemActivate={onItemActivate}
+        collapsed={isCollapsed}
+        onToggleCollapsed={toggle}
+      >
+        <Sidebar.Org
+          name="Assistant"
+          logo={
+            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-[rgb(var(--sidebar-hover-bg))] text-[rgb(var(--sidebar-text-secondary))]">
+              <Icon icon={ArrowLeft} className="h-4 w-4" />
+            </span>
+          }
+          onClick={() => navigate(basePath)}
+          onCollapseClick={toggle}
+        />
+        <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+          <div className="px-3 py-2">
+            <Button
+              variant="primary"
+              size="sm"
+              className="w-full"
+              icon={Plus}
+              iconClassName="h-3.5 w-3.5"
+              onClick={onNewAssistantConversation}
+            >
+              New conversation
+            </Button>
+          </div>
+          <ConversationListView
+            conversations={assistantConversations}
+            previews={assistantConversationPreviews as Record<string, { content: string; role: 'user' | 'system' | 'assistant' | string; createdAt: string } | undefined>}
+            isLoading={assistantConversationsLoading}
+            error={assistantConversationsError}
+            onSelectConversation={onSelectAssistantConversation ?? (() => {})}
+            onSendMessage={onNewAssistantConversation ?? (() => {})}
+            showSendMessageButton={false}
+            activeConversationId={activeConversationId}
+          />
+        </div>
+        {user ? (
+          <Sidebar.Footer>
+            <SidebarProfileMenu
+              user={user}
+              collapsed={isCollapsed}
+              onAccount={() => navigate(`${basePath}/settings/account`)}
+              onSettings={() => navigate(`${basePath}/settings/general`)}
+              onSignOut={() => void signOut({ navigate })}
+            />
+          </Sidebar.Footer>
+        ) : null}
+      </Sidebar>
+    );
+  }
 
   if (workspaceSection === 'reports' || workspaceSection === 'intakes') {
     const sections = navConfig.secondary ?? [];

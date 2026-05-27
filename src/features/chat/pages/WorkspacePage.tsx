@@ -10,6 +10,7 @@ import WorkspaceHomeView from '@/features/chat/views/WorkspaceHomeView';
 import { WorkspaceHomeSection } from '@/features/chat/components/WorkspaceHomeSection';
 import { WorkspaceSetupSection } from '@/features/chat/components/WorkspaceSetupSection';
 import MessagesListPanel from '@/features/chat/components/MessagesListPanel';
+import ConversationListView from '@/features/chat/views/ConversationListView';
 import ConversationContextPanel from '@/features/chat/components/ConversationContextPanel';
 import { type ComboboxOption } from '@/shared/ui/input/Combobox';
 import { deleteConversation, markAsRead, postConversationMessage, updateConversationTriage } from '@/shared/lib/conversationApi';
@@ -468,8 +469,12 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
       onSelectConversationOverride(conversationId);
       return;
     }
+    if (workspaceSection === 'assistant') {
+      navigate(`${normalizedBase}/assistant/${encodeURIComponent(conversationId)}`);
+      return;
+    }
     navigate(withWidgetQuery(`${conversationsPath}/${encodeURIComponent(conversationId)}`));
-  }, [conversationsPath, navigate, onSelectConversationOverride, withWidgetQuery, resolvedConversations, practiceId]);
+  }, [conversationsPath, navigate, normalizedBase, onSelectConversationOverride, withWidgetQuery, workspaceSection, resolvedConversations, practiceId]);
 
 
   useWorkspaceAutoNavigation({
@@ -635,6 +640,11 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
     );
   }, [filteredConversations, optimisticallyReadConversationIds]);
 
+  const assistantConversations = useMemo(
+    () => resolvedConversations.filter((c) => c.user_info?.mode === 'PRACTICE_ASSISTANT'),
+    [resolvedConversations]
+  );
+
   useEffect(() => {
     if (previewStrongReady || (onboardingProgress?.completionScore ?? 0) >= 80) {
       setSetupSidebarView((prev) => (prev === 'info' || prev === 'preview' ? prev : 'preview'));
@@ -711,7 +721,11 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
       if (options?.forceNew && isPracticeWorkspace) {
         await refreshConversations();
       }
-      navigate(withWidgetQuery(`${conversationsPath}/${encodeURIComponent(conversationId)}`));
+      if (workspaceSection === 'assistant' || mode === 'PRACTICE_ASSISTANT') {
+        navigate(`${normalizedBase}/assistant/${encodeURIComponent(conversationId)}`);
+      } else {
+        navigate(withWidgetQuery(`${conversationsPath}/${encodeURIComponent(conversationId)}`));
+      }
       return conversationId;
     } catch (error) {
       // "Session not ready" — the toast was already shown by MainApp, so finish gracefully.
@@ -1077,6 +1091,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
     reports: 'Reports',
     settings: 'Settings',
     coverage: 'Coverage',
+    assistant: 'Assistant',
   };
   const baseHeaderTitle = SECTION_TITLES[workspaceSection] ?? 'Home';
   const sectionHeaderTitle = workspaceSection === 'intakes'
@@ -1137,6 +1152,13 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
         {...commonProps}
         practiceSlug={practiceSlug}
         counts={sidebarCounts}
+        assistantConversations={assistantConversations}
+        assistantConversationPreviews={conversationPreviews}
+        assistantConversationsLoading={resolvedConversationsLoading}
+        assistantConversationsError={resolvedConversationsError}
+        activeConversationId={activeConversationId}
+        onSelectAssistantConversation={handleSelectConversation}
+        onNewAssistantConversation={() => void handleStartConversation('PRACTICE_ASSISTANT', { forceNew: true })}
       />
     ) : (
       <ClientSidebar {...commonProps} practiceSlug={practiceSlug} />
@@ -1338,6 +1360,26 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
       </Panel>
     </div>
   );
+  const assistantListPanel = layoutMode === 'desktop' && view === 'assistant'
+    ? (
+      <div className="flex h-full min-h-0 flex-1 flex-col gap-2">
+        <Panel className="list-panel-card-gradient min-h-0 flex-1 overflow-hidden">
+          <ConversationListView
+            conversations={assistantConversations}
+            previews={conversationPreviews}
+            practiceName={practiceName}
+            practiceLogo={practiceLogo}
+            isLoading={resolvedConversationsLoading}
+            error={resolvedConversationsError}
+            onSelectConversation={handleSelectConversation}
+            onSendMessage={() => void handleStartConversation('PRACTICE_ASSISTANT', { forceNew: true })}
+            showSendMessageButton={false}
+            activeConversationId={activeConversationId}
+          />
+        </Panel>
+      </div>
+    )
+    : undefined;
   const conversationListPanel = layoutMode === 'desktop' && (view === 'list' || view === 'conversation')
     ? conversationListView
     : undefined;
@@ -1383,13 +1425,14 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
         return settingsContent;
       case 'coverage':
         return coverageContent;
+      case 'assistant':
       case 'conversation':
       default:
         return chatContent;
     }
   })();
   const sectionLayout: WorkspaceMainPaneLayout = (() => {
-    if (view === 'list' || view === 'conversation') {
+    if (view === 'list' || view === 'conversation' || view === 'assistant') {
       return { kind: 'conversation-shell' };
     }
     if (view === 'intakes' || view === 'intakeDetail' || view === 'engagements') {
@@ -1533,7 +1576,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
         sidebar={isFullscreenEditorRoute ? undefined : sidebarNav}
         desktopSidebarCollapsed={isDesktopSidebarCollapsed}
         mobileSidebar={isFullscreenEditorRoute ? undefined : mobileSidebarNav}
-        listPanel={isFullscreenEditorRoute ? undefined : (conversationListPanel ?? matterListPanel ?? contactsListPanel ?? invoicesListPanel)}
+        listPanel={isFullscreenEditorRoute ? undefined : (conversationListPanel ?? assistantListPanel ?? matterListPanel ?? contactsListPanel ?? invoicesListPanel)}
         inspector={activeInspector ?? undefined}
         inspectorMobileOpen={detailInspectorOpen && (isMobileLayout || !isXlViewport)}
         onInspectorMobileClose={() => setIsInspectorOpen(false)}

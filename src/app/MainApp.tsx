@@ -251,7 +251,8 @@ export function MainApp({
   const shouldEnableConversationTransport = workspace === 'public'
     || workspaceView === 'conversation'
     || workspaceView === 'list'
-    || workspaceView === 'home';
+    || workspaceView === 'home'
+    || workspaceView === 'assistant';
   const liveConversationId = shouldEnableConversationTransport ? activeConversationId : null;
 
   // ── message handling ───────────────────────────────────────────────────────
