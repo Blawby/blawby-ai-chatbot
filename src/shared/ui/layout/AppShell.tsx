@@ -1,7 +1,7 @@
 import type { ComponentChildren, JSX } from 'preact';
 import { cn } from '@/shared/utils/cn';
 import { getAccentBackdropDefaults, type AccentBackdropVariant } from './accentBackdrop';
-import { MobileInspectorOverlay } from '@/shared/ui/inspector/MobileInspectorOverlay';
+import { FocusDrawer } from '@/design-system/layout';
 
 type AccentBackdropOverrides = {
   gradientClassName?: string;
@@ -159,9 +159,13 @@ export const AppShell = ({
       )}
 
       {showMobileInspector && (
-        <MobileInspectorOverlay onClose={onInspectorMobileClose ?? (() => {})} isOpen>
+        <FocusDrawer
+          onClose={onInspectorMobileClose ?? (() => {})}
+          isOpen
+          showCloseButton={false}
+        >
           {inspector}
-        </MobileInspectorOverlay>
+        </FocusDrawer>
       )}
 
       {hasBottomBar && (
