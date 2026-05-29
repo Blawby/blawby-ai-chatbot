@@ -198,7 +198,7 @@ Rides 8.1d.
 
 In dependency order (each can be its own PR):
 
-1. **PR-12** (this one is fast): `chore(ds): delete .card-surface alias (8.4a)` — single-file edit, zero risk.
+1. ~~**PR-12** (this one is fast): `chore(ds): delete .card-surface alias (8.4a)` — single-file edit, zero risk.~~ ✅ **landed in PR #655 (commit `99171487`)**.
 2. **PR-13**: `chore(ds): replace text-input-* family (8.1a)` — big mechanical PR, may be split further by directory.
 3. **PR-14**: `chore(ds): replace bg-surface-* + bg-accent-N + font-display + rounded-xl (8.1b/c/d combined)` — second mechanical sweep.
 4. **PR-15**: `refactor(ds): DataTable → CSS grid for 6 non-invoice tables (8.2)`.
