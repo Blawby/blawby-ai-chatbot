@@ -36,13 +36,18 @@ From `design_handoff_blawby_chat_first/DESIGN_SYSTEM.md §0`:
 | 5c.2 — FocusDrawer generalize + Drawer delete | `af88f4de` | ✅ in PR #646 | FocusDrawer `position: left/right/bottom`; matching slide-in keyframes; deleted unused Drawer.tsx (zero callers) |
 | 5c.3 — AccentHeroSurface inline + delete | `4a4008b4` | ✅ in PR #646 | Inlined DS-tokenized gradient at PracticeContactsPage 2 sites; deleted primitive + barrel exports |
 | 5c.4 — InvoiceInspector extract | `83598c73` | ✅ in PR #646 | First of the per-feature inspector splits; pure data display; pattern proven |
-| 5d — Inspector hooks + per-feature splits (rest) | — | **pending — PR-4 scope** | useUserDetail / useMatterDetail / usePracticeDetail hooks; ClientInspector / MatterInspector / ConversationInspector extracts using those hooks |
-| 5e — Shell refactor | — | **pending — PR-4 scope** | Drop AppShell sidebar props; refactor WorkspacePage/PracticeHomePage/ClientHomePage/WidgetApp to LeftRail; extract ConversationListPanel (340px column per Conversations spec); delete legacy nav + InspectorPanel dispatcher + 4 test files |
+| 5d.1 — Inspector data hooks | `ddbf98b1` | ✅ in PR #647 | `useUserDetail` / `useMatterDetail` / `usePracticeDetail` extracted to `src/shared/hooks/`. Exported `UpdateUserDetailPayload` from apiClient. |
+| 5d.2 — InspectorPanel hook refactor | `fe6d88d3` | ✅ in PR #647 | Replaced 115-line inline fetch useEffect + 3 cache refs with hook calls. Net −109 lines. Module-level cache namespaced by `practiceId:userId`. |
+| 5d.3 — ClientInspector extract | `e02cf663` | ✅ in PR #647 | `src/features/clients/components/ClientInspector.tsx` (283 lines) consumes useUserDetail, owns its editor state + archive dialog. InspectorPanel −232 lines. |
+| 5d.4 — MatterInspector extract | — | **pending — PR-5 scope** | 380-line render block + matter editor state + matter resolved-field computations + identity helpers (renderCompactIdentity, renderIdentityStack, resolveAttorneyIdentity) — last two shared with ConversationInspector |
+| 5d.5 — ConversationInspector extract | — | **pending — PR-5 scope** | ~500-line render block (largest, most coupling); consumes useUserDetail + useMatterDetail + usePracticeDetail; intake editor state; reuses identity helpers from 5d.4 |
+| 5d.6 — Delete InspectorPanel dispatcher | — | **pending — PR-5 scope** | After 5d.4/5d.5, 4 callers dispatch directly |
+| 5e — Shell refactor | — | **pending — PR-5+ scope** | Drop AppShell sidebar props; refactor WorkspacePage/PracticeHomePage/ClientHomePage/WidgetApp to LeftRail; extract ConversationListPanel (340px column per Conversations spec); delete legacy nav + 4 test files |
 | 6 — Chat patterns | — | pending | AISummary, StagedAction, Citations, Observation, Composer, ToolUseLine, BriefingGrid, MatterChip; IOLTA manual smoke |
 | 7 — Data display | — | pending | StatStrip, JourneyProgress, LetterPaper, Seg; print test |
 | 8 — Feature sweep | — | pending | TSX feature-files swept for the 8 violation patterns; DataTable audit; AA contrast spot; `prefers-reduced-motion` check; final delete of `.status-*` / `.input-surface` / `.card-surface` aliases |
 
-PR series: #644 (foundation, merged) → #645 (Commit 4 + 5a + 5b, merged) → **#646 (this PR — 5c.1–5c.4)** → PR-4 (5d + 5e).
+PR series: #644 (foundation, merged) → #645 (Commit 4 + 5a + 5b, merged) → #646 (5c.1–5c.4, merged) → **#647 (this PR — 5d.1–5d.3)** → PR-5 (5d.4 onward + 5e).
 
 ---
 
@@ -134,43 +139,57 @@ Cross-reference between the design handoff and the existing app. "Status" tracks
 
 ---
 
-## PR-4 scope — `feat/ds-migration-pt4` (next session)
+## PR #647 (this PR) — landed checklist
 
-The remaining 5c work, deferred from PR #646 to keep that PR reviewable. Two layers: inspector split (5d) + shell refactor (5e).
+- [x] Extract `useUserDetail(practiceId, userId, { enabled })` hook — `ddbf98b1`
+- [x] Extract `useMatterDetail(practiceId, matterId, { enabled })` hook — `ddbf98b1`
+- [x] Extract `usePracticeDetail(practiceId, { enabled, fallback })` hook — `ddbf98b1`
+- [x] Refactor InspectorPanel's data-fetching useEffect to use the three hooks (−109 lines) — `fe6d88d3`
+- [x] Extract `ClientInspector` to `src/features/clients/components/ClientInspector.tsx` (consumes useUserDetail; owns address editor state + archive flow) — `e02cf663`
 
-### 5d — Inspector hooks + per-feature splits (rest of InspectorPanel)
+---
 
-Per the locked answer to open-item #1, use the hooks-first architecture (cleaner, testable, decouples data from rendering).
+## PR-5 scope — `feat/ds-migration-pt5` (next session)
 
-- [ ] Extract `useUserDetail(practiceId, userId, { enabled })` hook to `src/shared/hooks/useUserDetail.ts`
-  - Encapsulates the `getUserDetail` fetch + cache (`userCacheRef`) + abort controller currently inside InspectorPanel
-  - Returns `{ data, isLoading, error, mutate({ status?, address?, event_name? }), refresh() }`
-  - `mutate` is the per-record patch path; refreshes cache on success
-- [ ] Extract `useMatterDetail(practiceId, matterId, { enabled })` hook to `src/shared/hooks/useMatterDetail.ts`
-  - Same pattern; encapsulates `getMatter` + `matterCacheRef`
-- [ ] Extract `usePracticeDetail(practiceId, { enabled, fallback })` hook to `src/shared/hooks/usePracticeDetail.ts`
-  - Encapsulates `getPracticeDetails` + `practiceCacheRef` + the `propPracticeDetails` fallback path
-- [ ] Refactor `InspectorPanel`'s data-fetching `useEffect` (currently L335–429) to use the three hooks
-- [ ] Extract `ClientInspector` to `src/features/clients/components/ClientInspector.tsx`
-  - Owns the L1838–1939 client render block + the archive confirmation Dialog (L1969–2000)
-  - Consumes `useUserDetail`
-  - Moves `activePersonEditor`, `personAddressDraft`, `isSavingPersonField`, `isArchivingPerson`, `isArchiveConfirmOpen` state into this component
-  - Moves `formatAddressSummary`, `openPersonEditor`, `handlePersonFieldUpdate`, `handlePersonStatusChange` helpers
-- [ ] Extract `ConversationInspector` to `src/features/chat/components/ConversationInspector.tsx`
-  - Owns the L950–1460 conversation render block (largest of the 4)
-  - Consumes `useUserDetail` + `useMatterDetail` + `usePracticeDetail`
-  - Moves `activeConversationEditor`, intake editor state, assignment/priority/tag/matter save flags, etc.
-  - Moves `handleIntakeFieldChange` and related conversation handlers
+The remaining inspector splits (5d.4–5d.6) + the shell refactor (5e).
+
+### 5d.4 — Extract MatterInspector
+
+The matter render block (~380 lines, L1252-1631 in current InspectorPanel post-#647) has more entanglement than ClientInspector did. Plan accordingly:
+
 - [ ] Extract `MatterInspector` to `src/features/matters/components/MatterInspector.tsx`
-  - Owns the L1461–1841 matter render block
   - Consumes `useMatterDetail`
-  - Moves `activeMatterEditor`, `isSavingMatterStatus`, `isSavingMatterField` state and matter field handlers
-- [ ] Delete `src/shared/ui/inspector/InspectorPanel.tsx` (becomes obsolete after split)
-- [ ] Update the 4 callers to dispatch directly:
-  - `WorkspacePage.tsx` — switches based on `inspectorTarget.entityType` to render one of the 4 per-feature inspectors
-  - `WidgetApp.tsx`
-  - `DebugDialogsPage.tsx`
-  - `WorkspaceSetupSection.tsx`
+  - Moves state: `inspectorMatterStatus`, `activeMatterEditor`, `isSavingMatter`, `isSavingMatterStatus`, `isSavingMatterField`
+  - Moves the ~14 `resolvedMatter*` field computations (client name/id, urgency, attorney ids, case number, type, court, judge, opposing party/counsel, created/updated labels, assignee ids/names)
+  - Moves memos: `matterStatusOptions`, `urgencyOptions`, `matterClientOptionsWithNone`, `matterTeamIdentities`
+  - Moves helpers: `handleMatterStatusChange`, `handleMatterPatchChange`, `resolveMatterClientIdentity`, `resolveAttorneyLabel`, `resolveAttorneyIdentity`, `matterUrgencyLabel`
+  - **Shared with conversation block** (need duplication OR pre-extract to shared util):
+    - `renderCompactIdentity` (uses UserCard)
+    - `renderIdentityStack` (uses StackedAvatars + UserCard)
+    - `resolveAttorneyIdentity`
+    - `InspectorIdentity` type
+  - **Recommended approach**: extract these to `src/shared/ui/inspector/identityHelpers.tsx` as a separate sub-commit (5d.4a) so both MatterInspector (5d.4b) and ConversationInspector (5d.5) can consume them
+- [ ] Update InspectorPanel dispatcher: `<MatterInspector practiceId={...} entityId={...} {...matterProps} />` when entityType === 'matter'
+
+### 5d.5 — Extract ConversationInspector
+
+- [ ] Extract `ConversationInspector` to `src/features/chat/components/ConversationInspector.tsx`
+  - Consumes `useUserDetail` + `useMatterDetail` + `usePracticeDetail` (conversation needs all three because it shows client info + linked matter + practice context)
+  - Moves the ~500-line conversation render block (L950-1460 in current file, will have shifted after 5d.4)
+  - Moves state: `activeConversationEditor` + intake editor sub-states, `isSavingAssignment`, `isSavingPriority`, `isSavingTags`, `isSavingMatter`, `localIntakeDraft`
+  - Moves helpers: `handleIntakeFieldChange`, intake-strength rendering, conversation assignment/priority/tag/matter handlers
+  - Consumes identity helpers extracted in 5d.4a
+- [ ] Update InspectorPanel dispatcher
+
+### 5d.6 — Delete InspectorPanel dispatcher
+
+After 5d.4 + 5d.5 land, the dispatcher is just a thin switch. Better to delete it and have the 4 callers dispatch directly:
+
+- [ ] Update `WorkspacePage.tsx` — switch on `inspectorTarget.entityType` to render the right per-feature inspector
+- [ ] Update `WidgetApp.tsx`
+- [ ] Update `DebugDialogsPage.tsx`
+- [ ] Update `WorkspaceSetupSection.tsx`
+- [ ] Delete `src/shared/ui/inspector/InspectorPanel.tsx`
 
 ### 5e — Shell refactor
 
@@ -288,35 +307,33 @@ Current baseline on `staging` HEAD.
 
 ---
 
-## Session checklist (resume — PR-4 starts here)
+## Session checklist (resume — PR-5 starts here)
 
 ```powershell
 git fetch upstream
 git checkout staging
 git pull upstream staging --ff-only
-git checkout -b feat/ds-migration-pt4
+git checkout -b feat/ds-migration-pt5
 npm install                                       # if dependencies changed
 npm run build                                     # must pass
 npm run lint:src                                  # baseline: 1 pre-existing OAuthConsentPage error
 npm run type-check                                # baseline: 0 errors
 ```
 
-Open `design_handoff_blawby_chat_first/screens/index.html` in a browser for the 21-screen hub, and `design_handoff_blawby_chat_first/screens/Design System.html` for the visual component showcase before writing code. Then start at "PR-4 scope" above.
+Open `design_handoff_blawby_chat_first/screens/index.html` in a browser for the 21-screen hub, and `design_handoff_blawby_chat_first/screens/Design System.html` for the visual component showcase before writing code. Then start at "PR-5 scope" above.
 
-### Suggested PR-4 sub-commit cadence
+### Suggested PR-5 sub-commit cadence
 
-1. `5d.1` — Extract `useUserDetail` + `useMatterDetail` + `usePracticeDetail` hooks (additive, no caller changes)
-2. `5d.2` — Refactor `InspectorPanel` data-fetching effect to use the three hooks (verify no regressions; same external behavior)
-3. `5d.3` — Extract `ClientInspector` to `features/clients/components/` (smallest of remaining 3 blocks; pattern proven by 5c.4)
-4. `5d.4` — Extract `MatterInspector` to `features/matters/components/`
-5. `5d.5` — Extract `ConversationInspector` to `features/chat/components/` (largest block, most coupling)
-6. `5d.6` — Delete `InspectorPanel.tsx` dispatcher; 4 callers dispatch directly
-7. `5e.1` — Drop AppShell sidebar props (assess what each shell still needs)
-8. `5e.2` — Refactor `ClientHomePage` (smallest shell, lowest risk; establishes pattern)
-9. `5e.3` — Refactor `PracticeHomePage`
-10. `5e.4` — Refactor `WidgetApp`
-11. `5e.5` — Refactor `WorkspacePage` (largest, riskiest; do last with established patterns)
-12. `5e.6` — Extract `ConversationListPanel` for the 340px Conversations column
-13. `5e.7` — Delete legacy nav files + dead CSS + 4 test files (final cleanup)
+1. `5d.4a` — Extract shared `inspector/identityHelpers.tsx`: `renderCompactIdentity`, `renderIdentityStack`, `resolveAttorneyIdentity`, `InspectorIdentity` type. Additive; no callers updated yet. (~30 min)
+2. `5d.4b` — Extract `MatterInspector` to `features/matters/components/`; consume identity helpers from 5d.4a. (~60 min — ~380 line render block + matter state)
+3. `5d.5` — Extract `ConversationInspector` to `features/chat/components/`; consume identity helpers + all 3 data hooks. (~90 min — ~500 line block, most coupling)
+4. `5d.6` — Delete `InspectorPanel.tsx` dispatcher; 4 callers dispatch directly. (~30 min)
+5. `5e.1` — Drop AppShell sidebar props (assess what each shell still needs)
+6. `5e.2` — Refactor `ClientHomePage` (smallest shell, lowest risk; establishes pattern)
+7. `5e.3` — Refactor `PracticeHomePage`
+8. `5e.4` — Refactor `WidgetApp`
+9. `5e.5` — Refactor `WorkspacePage` (largest, riskiest; do last with established patterns)
+10. `5e.6` — Extract `ConversationListPanel` for the 340px Conversations column
+11. `5e.7` — Delete legacy nav files + dead CSS + 4 test files (final cleanup)
 
-Each is independently green; each is a small reviewable diff.
+Each is independently green; each is a small reviewable diff. The 5d work realistically fits in one focused session; 5e likely needs its own focused session given WorkspacePage's 1666 lines.
