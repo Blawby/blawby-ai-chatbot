@@ -32,12 +32,17 @@ From `design_handoff_blawby_chat_first/DESIGN_SYSTEM.md §0`:
 | 4d — Dead primitive deletions | `85d708be` | ✅ merged | Deleted Tag/TagInput, RoleBadge, StatusBadge, OnboardingStatusBadge, ProgressBar (1366 lines net delete) |
 | 5a — Layout primitives (additive) | `3976faad` | ✅ merged | `src/design-system/layout/` — BrandMark, LeftRail, FocusDrawer, SplitDetail + matching CSS (789 lines added) |
 | 5b — PageHeader rewrite | `f5a31630` | ✅ merged | DS within-page heading: mono crumb + Source Serif H1 + lede + rule |
-| 5c — Shell refactor + cleanup | — | in progress on `feat/ds-migration-pt3` (this PR) | See "Next PR scope" below |
+| 5c.1 — Design handoff sync + locked answers | `d71e1a23` | ✅ in PR #646 | Added `design_handoff_blawby_chat_first/` (21 screens, DESIGN_SYSTEM.md, PRODUCT.md, tokens.css); removed superseded older folder; refreshed this migration doc |
+| 5c.2 — FocusDrawer generalize + Drawer delete | `af88f4de` | ✅ in PR #646 | FocusDrawer `position: left/right/bottom`; matching slide-in keyframes; deleted unused Drawer.tsx (zero callers) |
+| 5c.3 — AccentHeroSurface inline + delete | `4a4008b4` | ✅ in PR #646 | Inlined DS-tokenized gradient at PracticeContactsPage 2 sites; deleted primitive + barrel exports |
+| 5c.4 — InvoiceInspector extract | `83598c73` | ✅ in PR #646 | First of the per-feature inspector splits; pure data display; pattern proven |
+| 5d — Inspector hooks + per-feature splits (rest) | — | **pending — PR-4 scope** | useUserDetail / useMatterDetail / usePracticeDetail hooks; ClientInspector / MatterInspector / ConversationInspector extracts using those hooks |
+| 5e — Shell refactor | — | **pending — PR-4 scope** | Drop AppShell sidebar props; refactor WorkspacePage/PracticeHomePage/ClientHomePage/WidgetApp to LeftRail; extract ConversationListPanel (340px column per Conversations spec); delete legacy nav + InspectorPanel dispatcher + 4 test files |
 | 6 — Chat patterns | — | pending | AISummary, StagedAction, Citations, Observation, Composer, ToolUseLine, BriefingGrid, MatterChip; IOLTA manual smoke |
 | 7 — Data display | — | pending | StatStrip, JourneyProgress, LetterPaper, Seg; print test |
 | 8 — Feature sweep | — | pending | TSX feature-files swept for the 8 violation patterns; DataTable audit; AA contrast spot; `prefers-reduced-motion` check; final delete of `.status-*` / `.input-surface` / `.card-surface` aliases |
 
-PR series: #644 (foundation, merged) → #645 (Commit 4 + 5a + 5b, merged) → **this PR** (5c).
+PR series: #644 (foundation, merged) → #645 (Commit 4 + 5a + 5b, merged) → **#646 (this PR — 5c.1–5c.4)** → PR-4 (5d + 5e).
 
 ---
 
@@ -112,58 +117,93 @@ Cross-reference between the design handoff and the existing app. "Status" tracks
 
 ---
 
-## Next PR scope — `feat/ds-migration-pt3`
+## PR #646 (this PR) — landed checklist
 
-The user bundled PR-A (planning sync) and PR-B (shell refactor + cleanup) into one PR. Plan checklist:
+- [x] Add `design_handoff_blawby_chat_first/` (21 screens + DESIGN_SYSTEM.md + PRODUCT.md + tokens.css) as the new source of truth — `d71e1a23`
+- [x] Refresh this doc with the chat-first thesis, 6 locked answers, 21-screen inventory, refreshed roadmap — `d71e1a23`
+- [x] Audit + remove superseded `redesign-files/Blawby-chatbot-refactor/` — `d71e1a23`
+- [x] Generalize `FocusDrawer` to support `position: 'left' | 'right' | 'bottom'` — `af88f4de`
+- [x] Delete `Drawer.tsx` + overlays barrel export (verified zero callers; previous "4 callers" grep was false positives — local vars + `FileDetailDrawer` is a separate feature component) — `af88f4de`
+- [x] Inline `AccentHeroSurface`'s gradient at PracticeContactsPage (2 sites) + delete primitive — `4a4008b4`
+- [x] Extract `InvoiceInspector` to `src/features/invoices/components/InvoiceInspector.tsx` (first per-feature inspector split; pattern proven) — `83598c73`
 
-### Doc + reference sync
-- [x] Add `design_handoff_blawby_chat_first/` (21 screens + DESIGN_SYSTEM.md + PRODUCT.md + tokens.css) as the new source of truth
-- [x] Refresh this doc (you're reading it) with the chat-first thesis, 6 locked answers, 21-screen inventory, refreshed roadmap
-- [ ] Audit older `redesign-files/Blawby-chatbot-refactor/` for staleness — superseded by `design_handoff_blawby_chat_first/`, deletion candidate
+### Baseline (preserved at every sub-commit)
+- ✅ `npm run build` — passes
+- ⚠️ `npm run lint:src` — 1 pre-existing error (`OAuthConsentPage.tsx:187` visible loading text; arrived in staging from a separate PR, not from this work)
+- ✅ `npm run type-check` — 0 errors (the 4 WorkspacePage TS errors that lived in earlier sessions were cleared in staging upstream)
 
-### Layout/primitive work
-- [ ] Generalize `FocusDrawer` to support `position: 'left' | 'right' | 'bottom'` (covers the Drawer + MobileInspectorOverlay use cases)
-- [ ] Migrate `Drawer`'s 4 callers (ChatContainer, FilesPageView, FileDetailDrawer, FilesCollectionPanel) to the generalized FocusDrawer
-- [ ] Inline `AccentHeroSurface`'s gradient at PracticeContactsPage, delete the primitive
+---
 
-### InspectorPanel split
-- [ ] Extract `MatterInspector` to `src/features/matters/components/MatterInspector.tsx`
+## PR-4 scope — `feat/ds-migration-pt4` (next session)
+
+The remaining 5c work, deferred from PR #646 to keep that PR reviewable. Two layers: inspector split (5d) + shell refactor (5e).
+
+### 5d — Inspector hooks + per-feature splits (rest of InspectorPanel)
+
+Per the locked answer to open-item #1, use the hooks-first architecture (cleaner, testable, decouples data from rendering).
+
+- [ ] Extract `useUserDetail(practiceId, userId, { enabled })` hook to `src/shared/hooks/useUserDetail.ts`
+  - Encapsulates the `getUserDetail` fetch + cache (`userCacheRef`) + abort controller currently inside InspectorPanel
+  - Returns `{ data, isLoading, error, mutate({ status?, address?, event_name? }), refresh() }`
+  - `mutate` is the per-record patch path; refreshes cache on success
+- [ ] Extract `useMatterDetail(practiceId, matterId, { enabled })` hook to `src/shared/hooks/useMatterDetail.ts`
+  - Same pattern; encapsulates `getMatter` + `matterCacheRef`
+- [ ] Extract `usePracticeDetail(practiceId, { enabled, fallback })` hook to `src/shared/hooks/usePracticeDetail.ts`
+  - Encapsulates `getPracticeDetails` + `practiceCacheRef` + the `propPracticeDetails` fallback path
+- [ ] Refactor `InspectorPanel`'s data-fetching `useEffect` (currently L335–429) to use the three hooks
 - [ ] Extract `ClientInspector` to `src/features/clients/components/ClientInspector.tsx`
-- [ ] Extract `InvoiceInspector` to `src/features/invoices/components/InvoiceInspector.tsx`
+  - Owns the L1838–1939 client render block + the archive confirmation Dialog (L1969–2000)
+  - Consumes `useUserDetail`
+  - Moves `activePersonEditor`, `personAddressDraft`, `isSavingPersonField`, `isArchivingPerson`, `isArchiveConfirmOpen` state into this component
+  - Moves `formatAddressSummary`, `openPersonEditor`, `handlePersonFieldUpdate`, `handlePersonStatusChange` helpers
 - [ ] Extract `ConversationInspector` to `src/features/chat/components/ConversationInspector.tsx`
-- [ ] Update the 4 callers (WorkspacePage, WidgetApp, DebugDialogsPage, WorkspaceSetupSection) to use the per-feature inspectors
+  - Owns the L950–1460 conversation render block (largest of the 4)
+  - Consumes `useUserDetail` + `useMatterDetail` + `usePracticeDetail`
+  - Moves `activeConversationEditor`, intake editor state, assignment/priority/tag/matter save flags, etc.
+  - Moves `handleIntakeFieldChange` and related conversation handlers
+- [ ] Extract `MatterInspector` to `src/features/matters/components/MatterInspector.tsx`
+  - Owns the L1461–1841 matter render block
+  - Consumes `useMatterDetail`
+  - Moves `activeMatterEditor`, `isSavingMatterStatus`, `isSavingMatterField` state and matter field handlers
+- [ ] Delete `src/shared/ui/inspector/InspectorPanel.tsx` (becomes obsolete after split)
+- [ ] Update the 4 callers to dispatch directly:
+  - `WorkspacePage.tsx` — switches based on `inspectorTarget.entityType` to render one of the 4 per-feature inspectors
+  - `WidgetApp.tsx`
+  - `DebugDialogsPage.tsx`
+  - `WorkspaceSetupSection.tsx`
 
-### Shell rewiring
+### 5e — Shell refactor
+
+Per locked answer #4 (drop AppShell sidebar props) and #5 (assistant conversation panel follows Conversations 4-column spec).
+
 - [ ] Drop AppShell's `sidebar` / `desktopSidebarCollapsed` / `mobileSidebar` / `mobileSidebarOpen` / `onMobileSidebarClose` props
-- [ ] Refactor `WorkspacePage` (1666L) to compose LeftRail directly
-- [ ] Refactor `PracticeHomePage` (554L) to compose LeftRail directly
-- [ ] Refactor `ClientHomePage` (151L) to compose LeftRail directly
-- [ ] Refactor `WidgetApp` (865L) to use LeftRail mobile variant
-- [ ] Extract `ConversationListPanel` as a 340px column for the Conversations 4-column layout
-- [ ] Drop `isDesktopSidebarCollapsed` state + the `'blawby:sidebar:collapsed'` localStorage key
+- [ ] Refactor `WorkspacePage.tsx` (1666L) to compose LeftRail directly + render assistant `ConversationListPanel` as adjacent 340px column when in chat/assistant section
+- [ ] Refactor `PracticeHomePage.tsx` (554L) to compose LeftRail directly
+- [ ] Refactor `ClientHomePage.tsx` (151L) to compose LeftRail directly
+- [ ] Refactor `WidgetApp.tsx` (865L) to use LeftRail mobile variant
+- [ ] Extract `ConversationListPanel` as the 340px thread-list column per `Conversations.html` 4-column layout
+- [ ] Drop `isDesktopSidebarCollapsed` state + `'blawby:sidebar:collapsed'` localStorage key
+- [ ] Delete:
+  - `src/shared/ui/nav/NavRail.tsx`
+  - `src/shared/ui/nav/Sidebar.tsx`
+  - `src/shared/ui/nav/PracticeSidebar.tsx`
+  - `src/shared/ui/nav/ClientSidebar.tsx`
+  - `src/shared/ui/inspector/MobileInspectorOverlay.tsx`
+  - `src/shared/ui/layout/WorkspaceShellHeader.tsx`
+  - Dead CSS: `.nav-item-active`, `.nav-item-inactive`, `.workspace-header*`, `.sidebar-scroll`
+- [ ] Delete 4 test files (locked answer #6):
+  - `tests/component/nav-rail.test.tsx`
+  - `tests/component/widget-app.test.tsx`
+  - `tests/component/app-shell.test.tsx`
+  - `src/features/invoices/pages/__tests__/InvoicesPages.test.tsx` (or just remove the NavRail import; verify what else the test covers)
 
-### Deletions
-- [ ] `src/shared/ui/nav/NavRail.tsx`
-- [ ] `src/shared/ui/nav/Sidebar.tsx`
-- [ ] `src/shared/ui/nav/PracticeSidebar.tsx`
-- [ ] `src/shared/ui/nav/ClientSidebar.tsx`
-- [ ] `src/shared/ui/inspector/InspectorPanel.tsx` (after per-feature split)
-- [ ] `src/shared/ui/inspector/MobileInspectorOverlay.tsx`
-- [ ] `src/shared/ui/layout/WorkspaceShellHeader.tsx`
-- [ ] `src/shared/ui/layout/AccentHeroSurface.tsx`
-- [ ] `src/shared/ui/overlays/Drawer.tsx` (after callers migrate)
-- [ ] `tests/component/nav-rail.test.tsx`
-- [ ] `tests/component/widget-app.test.tsx`
-- [ ] `tests/component/app-shell.test.tsx`
-- [ ] `src/features/invoices/pages/__tests__/InvoicesPages.test.tsx` (or just remove the NavRail import)
-- [ ] Dead CSS: `.nav-item-active`, `.nav-item-inactive`, `.workspace-header*`, `.sidebar-scroll`
-
-### Verification gates
+### PR-4 verification gates
 - [ ] Build green at every sub-commit
-- [ ] Baseline lint: 1 pre-existing error (`Message.tsx:191`)
-- [ ] Baseline type-check: 4 pre-existing errors (`WorkspacePage.tsx:1262/1354`) — may incidentally clear during the WorkspacePage refactor
-- [ ] `rg "NavRail|PracticeSidebar|ClientSidebar|InspectorPanel|MobileInspectorOverlay|WorkspaceShellHeader|AccentHeroSurface" src` → zero matches
+- [ ] Baseline lint: 1 pre-existing error (`OAuthConsentPage.tsx:187`) — unrelated to this work
+- [ ] Baseline type-check: 0 errors
+- [ ] `rg "NavRail|PracticeSidebar|ClientSidebar|InspectorPanel|MobileInspectorOverlay|WorkspaceShellHeader" src` → zero matches
 - [ ] Manual smoke: desktop (1280×) + mobile (375×) viewports for each refactored shell
+- [ ] Manual smoke: assistant conversation panel renders as 340px column when active
 
 ---
 
@@ -210,13 +250,12 @@ Refactor `Message.tsx` / `MessageBubble.tsx` / `ChatMarkdown.tsx` to use these. 
 
 ## Pre-existing errors (NOT from this work)
 
-These existed on `staging` at the foundation branch point. They reappeared after foundation merge and continue to exist at HEAD.
+Current baseline on `staging` HEAD.
 
 **Lint (1 error):**
-- `src/features/chat/components/Message.tsx:191` — `'shouldShowIndicator' is assigned a value but never used`. Cleared in Commit 6 (chat patterns).
+- `src/pages/OAuthConsentPage.tsx:187` — `Visible loading text is not allowed. Use LoadingSpinner, LoadingBlock, LoadingScreen, or SkeletonLoader instead` (rule: `custom/loading-consistency`). Arrived from an unrelated PR merged to staging between PR #645 and PR #646; not from the DS migration work.
 
-**Type-check (4 errors, all in `src/features/chat/pages/WorkspacePage.tsx`):**
-- L1262:44, L1262:89, L1354:48, L1354:93 — `Property 'contactName'/'contactEmail' does not exist on type '{ kind: "practice_assistant" }'`. May incidentally clear during the 5c WorkspacePage refactor.
+**Type-check:** 0 errors. The 4 WorkspacePage.tsx contactName/contactEmail TS errors that lived in earlier sessions were cleared upstream.
 
 ---
 
@@ -246,19 +285,38 @@ These existed on `staging` at the foundation branch point. They reappeared after
 - Tracking doc (this file): `docs/design-system-migration.md`
 - Original audit: `redesign-files/REDESIGN.MD` (historical)
 - **Current design source of truth: `design_handoff_blawby_chat_first/`** — 21 hi-fi HTML screens, `DESIGN_SYSTEM.md` (component/pattern contract), `PRODUCT.md` (product overview + user journeys + feature inventory), `tokens.css` (CSS variables, identical to `src/design-system/tokens.css`), `screens/Design System.html` (visual showcase)
-- Older 12-screen DS reference: `redesign-files/Blawby-chatbot-refactor/` — **superseded; candidate for deletion in this PR**
 
 ---
 
-## Session checklist (resume)
+## Session checklist (resume — PR-4 starts here)
 
 ```powershell
-git checkout feat/ds-migration-pt3
-git log --oneline staging..HEAD                  # current sub-commit progress
+git fetch upstream
+git checkout staging
+git pull upstream staging --ff-only
+git checkout -b feat/ds-migration-pt4
 npm install                                       # if dependencies changed
 npm run build                                     # must pass
-npm run lint:src                                  # baseline: 1 pre-existing error
-npm run type-check                                # baseline: 4 pre-existing errors
+npm run lint:src                                  # baseline: 1 pre-existing OAuthConsentPage error
+npm run type-check                                # baseline: 0 errors
 ```
 
-Then open `design_handoff_blawby_chat_first/screens/index.html` in a browser to see the 21-screen hub, and `design_handoff_blawby_chat_first/screens/Design System.html` for the visual component showcase before writing code.
+Open `design_handoff_blawby_chat_first/screens/index.html` in a browser for the 21-screen hub, and `design_handoff_blawby_chat_first/screens/Design System.html` for the visual component showcase before writing code. Then start at "PR-4 scope" above.
+
+### Suggested PR-4 sub-commit cadence
+
+1. `5d.1` — Extract `useUserDetail` + `useMatterDetail` + `usePracticeDetail` hooks (additive, no caller changes)
+2. `5d.2` — Refactor `InspectorPanel` data-fetching effect to use the three hooks (verify no regressions; same external behavior)
+3. `5d.3` — Extract `ClientInspector` to `features/clients/components/` (smallest of remaining 3 blocks; pattern proven by 5c.4)
+4. `5d.4` — Extract `MatterInspector` to `features/matters/components/`
+5. `5d.5` — Extract `ConversationInspector` to `features/chat/components/` (largest block, most coupling)
+6. `5d.6` — Delete `InspectorPanel.tsx` dispatcher; 4 callers dispatch directly
+7. `5e.1` — Drop AppShell sidebar props (assess what each shell still needs)
+8. `5e.2` — Refactor `ClientHomePage` (smallest shell, lowest risk; establishes pattern)
+9. `5e.3` — Refactor `PracticeHomePage`
+10. `5e.4` — Refactor `WidgetApp`
+11. `5e.5` — Refactor `WorkspacePage` (largest, riskiest; do last with established patterns)
+12. `5e.6` — Extract `ConversationListPanel` for the 340px Conversations column
+13. `5e.7` — Delete legacy nav files + dead CSS + 4 test files (final cleanup)
+
+Each is independently green; each is a small reviewable diff.
