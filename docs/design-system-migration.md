@@ -43,12 +43,18 @@ From `design_handoff_blawby_chat_first/DESIGN_SYSTEM.md §0`:
 | 5d.4b — MatterInspector extract | `0d4eefab` | ✅ in PR #648 | `src/features/matters/components/MatterInspector.tsx` (717 lines) consumes useMatterDetail + identityHelpers. Owns full matter editor state, ~14 resolvedMatter fields, status/patch handlers, matterStatusOptions/urgencyOptions/matterTeamIdentities memos. InspectorPanel −628 lines. |
 | 5d.5 — ConversationInspector extract | `d884f792` | ✅ in PR #649 | `src/features/chat/components/ConversationInspector.tsx` (727 lines) — last per-feature inspector. Consumes useUserDetail + useMatterDetail + usePracticeDetail. Owns 3 sub-paths (PRACTICE_ONBOARDING / isClientView / regular), 14-position editor discriminator, intake field handlers. **InspectorPanel −797 lines (1004 → 243).** All per-feature inspector logic now lives in features/*. |
 | 5d.6 — Delete InspectorPanel dispatcher | — | **deferred — see note** | InspectorPanel is now a genuinely thin 243-line facade (type defs + chrome + 4-branch dispatch). Deleting it requires extracting chrome + updating 4 callers (1 of which has dynamic entityType requiring a switch). The dispatcher provides real value as a single entry point with unified prop API. **Recommended: keep as facade unless 5e shell refactor wants the inspector chrome moved closer to the shell.** Revisit when shell work makes the call site obvious. |
-| 5e — Shell refactor | — | **pending — PR-7 scope** | Drop AppShell sidebar props; refactor WorkspacePage/PracticeHomePage/ClientHomePage/WidgetApp to LeftRail; extract ConversationListPanel (340px column per Conversations spec); delete legacy nav + 4 test files |
+| 5e.2 — ClientHomePage to LeftRail | `8246f45c` | ✅ in PR #650 | First shell migrated. Establishes the pattern: build LeftRailItem[] from getXxxNavConfig().rail; LeftRail + main flex composition; drop AppShell entirely for shells that don't need its multi-column grid. |
+| 5e.3 — PracticeHomePage to LeftRail | `b221d125` | ✅ in PR #650 | Same pattern + merges live sidebarCounts into items.badge; OrgSwitcherMenu in brandMark slot. |
+| 5e.4 — WidgetApp to LeftRail mobile + FocusDrawer | `eda94046` | ✅ in PR #650 | NavRail → LeftRail mobile variant; MobileInspectorOverlay → FocusDrawer; hidden prop pattern → conditional render. |
+| 5e.5 — WorkspacePage refactor | — | **pending — PR-8 scope** | Biggest, riskiest (1666 lines). Replaces PracticeSidebar/ClientSidebar/NavRail with LeftRail. Drops isDesktopSidebarCollapsed + `blawby:sidebar:collapsed` localStorage. |
+| 5e.6 — Extract ConversationListPanel | — | **pending — PR-8 scope** | 340px thread-list column per Conversations.html 4-column spec |
+| 5e.1 — Drop AppShell sidebar props | — | **pending — PR-8 scope** | After WorkspacePage migrates, AppShell's sidebar/desktopSidebarCollapsed/mobileSidebar/mobileSidebarOpen/onMobileSidebarClose props become safe to remove |
+| 5e.7 — Delete legacy nav + tests + dead CSS | — | **pending — PR-8 scope** | NavRail, Sidebar, PracticeSidebar, ClientSidebar, MobileInspectorOverlay, WorkspaceShellHeader + `.nav-item-*` / `.workspace-header*` CSS + 4 test files |
 | 6 — Chat patterns | — | pending | AISummary, StagedAction, Citations, Observation, Composer, ToolUseLine, BriefingGrid, MatterChip; IOLTA manual smoke |
 | 7 — Data display | — | pending | StatStrip, JourneyProgress, LetterPaper, Seg; print test |
 | 8 — Feature sweep | — | pending | TSX feature-files swept for the 8 violation patterns; DataTable audit; AA contrast spot; `prefers-reduced-motion` check; final delete of `.status-*` / `.input-surface` / `.card-surface` aliases |
 
-PR series: #644 (foundation, merged) → #645 (Commit 4 + 5a + 5b, merged) → #646 (5c.1–5c.4, merged) → #647 (5d.1–5d.3, merged) → #648 (5d.4a + 5d.4b, merged) → **#649 (this PR — 5d.5)** → PR-7 (5e shell refactor; 5d.6 deferred per facade-is-acceptable note above).
+PR series: #644 (foundation, merged) → #645 (Commit 4 + 5a + 5b, merged) → #646 (5c.1–5c.4, merged) → #647 (5d.1–5d.3, merged) → #648 (5d.4a + 5d.4b, merged) → #649 (5d.5, merged) → **#650 (this PR — 5e.2 + 5e.3 + 5e.4)** → PR-8 (5e.5 WorkspacePage + 5e.6 ConversationListPanel + 5e.1 AppShell prop drop + 5e.7 deletions).
 
 ---
 
@@ -301,31 +307,85 @@ Current baseline on `staging` HEAD.
 
 ---
 
-## Session checklist (resume — PR-7 starts here)
+## PR-7 (this PR) — landed checklist
+
+- [x] **5e.2** — ClientHomePage rewired to LeftRail — `8246f45c`
+- [x] **5e.3** — PracticeHomePage rewired to LeftRail with sidebarCounts → badge merge + OrgSwitcherMenu brandMark — `b221d125`
+- [x] **5e.4** — WidgetApp NavRail → LeftRail mobile + MobileInspectorOverlay → FocusDrawer — `eda94046`
+
+3 of 4 shells migrated. **WorkspacePage (1666L) deferred to PR-8** because of size + risk; do it as its own focused session.
+
+---
+
+## PR-8 scope — `feat/ds-migration-pt8` (next session)
+
+Final shell refactor + cleanup. After PR-8 merges, the legacy nav stack is fully removed.
+
+### 5e.5 — Refactor WorkspacePage
+
+**Biggest single piece in the migration.** 1666 lines. Uses PracticeSidebar + ClientSidebar + NavRail + InspectorPanel + WorkspaceShellHeader. Recipe established by 5e.2/3/4:
+
+1. Drop `PracticeSidebar` / `ClientSidebar` / `NavRail` / `WorkspaceShellHeader` imports
+2. Drop `isDesktopSidebarCollapsed` state + `'blawby:sidebar:collapsed'` localStorage key (locked decision §5)
+3. Drop mobile-sidebar drawer state (`isMobileNavOpen`)
+4. Drop `useCommandPalette`'s top-bar usage (search is now ⌘K only)
+5. Build `railItems` useMemo from `getPracticeNavConfig` (when isPracticeWorkspace) or `getClientNavConfig` (otherwise), merging sidebarCounts into badges
+6. Compose: OrgSwitcherMenu in `brandMark` slot; SidebarProfileMenu in `footer` slot
+7. Replace AppShell composition with the chat-first 4-column layout per Conversations.html spec when in assistant/conversations section: `[LeftRail | ConversationListPanel | main | FocusDrawer]`; simpler `[LeftRail | main | FocusDrawer]` for other sections
+
+The `assistantListPanel` / `conversationListPanel` / `matterListPanel` / `contactsListPanel` / `invoicesListPanel` that WorkspacePage currently passes to AppShell's `listPanel` slot continue to render — they just sit in the second column position rather than being routed through AppShell.
+
+### 5e.6 — Extract ConversationListPanel
+
+Per the Conversations 4-column spec (240 rail | 340 thread list | 1fr active | 400 focus drawer), the assistant/conversations section needs a standalone 340px thread-list column. Currently the conversation list lives inside PracticeSidebar when `workspaceSection === 'assistant'`. Extract as `src/features/chat/components/ConversationListPanel.tsx`:
+
+- Props: `conversations`, `conversationPreviews`, `isLoading`, `error`, `activeConversationId`, `onSelect`, `onNew`
+- 340px wide flex column
+- Currently rendered by PracticeSidebar's `assistantListPanel` block; just lift to standalone
+
+### 5e.1 — Drop AppShell sidebar props
+
+After all 4 shells migrate, no caller passes `sidebar` / `desktopSidebarCollapsed` / `mobileSidebar` / `mobileSidebarOpen` / `onMobileSidebarClose` to AppShell. Drop them from `AppShellProps`, drop all the conditional rendering for sidebar column + mobile drawer + grid template column calculations.
+
+What's left in AppShell becomes: header + listPanel + main + inspector + bottomBar columns. Roughly half the file goes away.
+
+### 5e.7 — Delete legacy nav files + tests + dead CSS
+
+- [ ] `src/shared/ui/nav/NavRail.tsx`
+- [ ] `src/shared/ui/nav/Sidebar.tsx`
+- [ ] `src/shared/ui/nav/PracticeSidebar.tsx`
+- [ ] `src/shared/ui/nav/ClientSidebar.tsx`
+- [ ] `src/shared/ui/inspector/MobileInspectorOverlay.tsx`
+- [ ] `src/shared/ui/layout/WorkspaceShellHeader.tsx`
+- [ ] Dead CSS: `.nav-item-active`, `.nav-item-inactive`, `.workspace-header*`, `.sidebar-scroll`
+- [ ] 4 test files (locked answer #6 — delete; re-add later if equivalents emerge after the rebuild):
+  - `tests/component/nav-rail.test.tsx`
+  - `tests/component/widget-app.test.tsx`
+  - `tests/component/app-shell.test.tsx`
+  - `src/features/invoices/pages/__tests__/InvoicesPages.test.tsx` (or just remove the NavRail import)
+
+---
+
+## Session checklist (resume — PR-8 starts here)
 
 ```powershell
 git fetch upstream
 git checkout staging
 git pull upstream staging --ff-only
-git checkout -b feat/ds-migration-pt7
-npm install                                       # if dependencies changed
+git checkout -b feat/ds-migration-pt8
+npm install
 npm run build                                     # must pass
 npm run lint:src                                  # baseline: 1 pre-existing OAuthConsentPage error
 npm run type-check                                # baseline: 0 errors
 ```
 
-Open `design_handoff_blawby_chat_first/screens/index.html` in a browser for the 21-screen hub, and `design_handoff_blawby_chat_first/screens/Conversations.html` for the canonical 4-column chat-first surface that drives the assistant panel relocation in 5e. Then start at "PR-7 scope" above.
+Open `design_handoff_blawby_chat_first/screens/Conversations.html` for the canonical 4-column layout that drives WorkspacePage's chat/assistant section. The 240 / 340 / 1fr / 400 grid is the spec.
 
-### Suggested PR-7 sub-commit cadence
+### Suggested PR-8 sub-commit cadence
 
-1. `5e.1` — Drop AppShell sidebar props (assess what each shell still needs)
-2. `5e.2` — Refactor `ClientHomePage` (smallest shell, lowest risk; establishes pattern)
-3. `5e.3` — Refactor `PracticeHomePage`
-4. `5e.4` — Refactor `WidgetApp`
-5. `5e.5` — Refactor `WorkspacePage` (largest, riskiest; do last with established patterns)
-6. `5e.6` — Extract `ConversationListPanel` for the 340px Conversations column
-7. `5e.7` — Delete legacy nav files + dead CSS + 4 test files (final cleanup)
+1. `5e.5` — Refactor WorkspacePage (biggest; do in one focused commit with iterative lint cleanup pass)
+2. `5e.6` — Extract ConversationListPanel
+3. `5e.1` — Drop AppShell sidebar props
+4. `5e.7` — Delete legacy nav files + 4 test files + dead CSS
 
-Each is independently green; each is a small reviewable diff. 5e likely needs its own focused session given WorkspacePage's 1666 lines.
-
-If 5e surfaces a natural call site for the inspector chrome (e.g. shell wraps inspector with its own header), revisit 5d.6 at that point: either extract `InspectorChrome` + delete InspectorPanel, or keep InspectorPanel as the facade indefinitely.
+Realistic time estimate: 2-3 hours for WorkspacePage alone, plus ~1 hour for the remaining three combined.

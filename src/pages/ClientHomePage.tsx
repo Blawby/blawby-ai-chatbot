@@ -1,16 +1,18 @@
-import { useMemo, useState } from 'preact/hooks';
+import { useMemo } from 'preact/hooks';
 import { useLocation } from 'preact-iso';
+import { Sparkles } from 'lucide-preact';
 import { useSessionContext } from '@/shared/contexts/SessionContext';
 import { useWorkspace } from '@/shared/hooks/useWorkspace';
 import { useWorkspaceResolver } from '@/shared/hooks/useWorkspaceResolver';
 import { useNavigation } from '@/shared/utils/navigation';
+import { signOut } from '@/shared/utils/auth';
 import { getWorkspaceSettingsPath } from '@/shared/utils/workspace';
 import { Button } from '@/shared/ui/Button';
 import { NextStepsCard, type NextStepsItem } from '@/shared/ui/cards/NextStepsCard';
-import { ClientSidebar } from '@/shared/ui/nav/ClientSidebar';
-import { WorkspaceShellHeader } from '@/shared/ui/layout/WorkspaceShellHeader';
-import { AppShell } from '@/shared/ui/layout/AppShell';
-import { useCommandPalette } from '@/features/search/contexts/CommandPaletteContext';
+import { LeftRail, BrandMark, type LeftRailItem } from '@/design-system/layout';
+import { SidebarProfileMenu } from '@/shared/ui/nav/SidebarProfileMenu';
+import { getClientNavConfig } from '@/shared/config/navConfig';
+import type { IconComponent } from '@/shared/ui/Icon';
 
 const ClientHomePage = () => {
   const { session } = useSessionContext();
@@ -18,8 +20,6 @@ const ClientHomePage = () => {
   const { canAccessPractice } = useWorkspace();
   const { currentPractice } = useWorkspaceResolver();
   const { navigate, navigateToPricing } = useNavigation();
-  const [desktopCollapsed, setDesktopCollapsed] = useState(false);
-  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
 
   const userName = session?.user?.name || session?.user?.email || 'there';
   const userEmail = session?.user?.email ?? null;
@@ -27,8 +27,6 @@ const ClientHomePage = () => {
   const showUpgrade = !canAccessPractice;
 
   const clientPracticeSlug = currentPractice?.slug ?? null;
-  const orgName = currentPractice?.name?.trim() || userName;
-  const orgInitial = (orgName.charAt(0) || 'B').toUpperCase();
 
   const settingsPath = useMemo(() => {
     const routeMatch = location.path.match(/^\/(client|practice)\/([^/]+)/);
@@ -37,8 +35,8 @@ const ClientHomePage = () => {
       const slug = decodeURIComponent(routeMatch[2]);
       return getWorkspaceSettingsPath(workspace, slug);
     }
-    return currentPractice?.slug ? getWorkspaceSettingsPath('client', currentPractice.slug) : null;
-  }, [currentPractice?.slug, location.path]);
+    return clientPracticeSlug ? getWorkspaceSettingsPath('client', clientPracticeSlug) : null;
+  }, [clientPracticeSlug, location.path]);
 
   const clientNextStepsItems = useMemo<NextStepsItem[]>(() => {
     const items: NextStepsItem[] = [
@@ -68,34 +66,50 @@ const ClientHomePage = () => {
     return items;
   }, [navigateToPricing, showUpgrade]);
 
-  const sidebarUser = { name: userName, email: userEmail, image: userImage };
+  // Build LeftRail items from the canonical client nav config.
+  const railItems = useMemo<LeftRailItem[]>(() => {
+    if (!clientPracticeSlug) return [];
+    const config = getClientNavConfig(
+      { practiceSlug: clientPracticeSlug, role: 'client', canAccessPractice: false },
+      'home',
+    );
+    const items: LeftRailItem[] = config.rail.map((item) => ({
+      id: item.id,
+      label: item.label,
+      icon: item.icon as IconComponent,
+      href: item.href,
+      matchHrefs: item.matchHrefs,
+      badge: item.badge,
+      variant: item.variant,
+      isAction: item.isAction,
+      onClick: item.onClick,
+      prefetch: item.prefetch,
+    }));
 
-  const renderSidebar = (forceExpanded: boolean) =>
-    clientPracticeSlug ? (
-      <ClientSidebar
-        practiceSlug={clientPracticeSlug}
-        org={{ name: orgName, initial: orgInitial }}
-        user={sidebarUser}
-        collapsed={desktopCollapsed}
-        forceExpanded={forceExpanded}
-        onToggleCollapsed={() => setDesktopCollapsed((v) => !v)}
-        onItemActivate={() => setMobileSidebarOpen(false)}
-        activeItemId="home"
-        workspaceSection="home"
-        showUpgradeItem={showUpgrade}
-        onUpgradeClick={() => navigateToPricing()}
-      />
-    ) : null;
+    // "Upgrade to Practice" CTA per locked decision §5 — client-shell may
+    // append a single CTA chip-style action to the rail.
+    if (showUpgrade) {
+      items.push({
+        id: 'upgrade',
+        label: 'Upgrade to Practice',
+        icon: Sparkles as IconComponent,
+        href: '#',
+        isAction: true,
+        onClick: () => navigateToPricing(),
+      });
+    }
 
-  const { open: openCommandPalette } = useCommandPalette();
-  const header = (
-    <WorkspaceShellHeader
-      orgInitial={orgInitial}
-      title="Home"
-      onMenuClick={() => setMobileSidebarOpen(true)}
-      onSearchClick={() => openCommandPalette()}
+    return items;
+  }, [clientPracticeSlug, showUpgrade, navigateToPricing]);
+
+  const profileFooter = session?.user ? (
+    <SidebarProfileMenu
+      user={{ name: userName, email: userEmail, image: userImage }}
+      onAccount={() => clientPracticeSlug && navigate(`/client/${encodeURIComponent(clientPracticeSlug)}/settings/account`)}
+      onSettings={() => settingsPath && navigate(settingsPath)}
+      onSignOut={() => void signOut({ navigate })}
     />
-  );
+  ) : null;
 
   const main = (
     <div className="h-full overflow-y-auto px-6 py-8 md:px-12 md:py-10">
@@ -133,18 +147,23 @@ const ClientHomePage = () => {
   );
 
   return (
-    <AppShell
-      className="bg-transparent h-dvh"
-      accentBackdropVariant="none"
-      header={header}
-      sidebar={renderSidebar(false)}
-      desktopSidebarCollapsed={desktopCollapsed}
-      mobileSidebar={renderSidebar(true)}
-      mobileSidebarOpen={mobileSidebarOpen}
-      onMobileSidebarClose={() => setMobileSidebarOpen(false)}
-      main={main}
-      mainClassName="min-h-0 h-full overflow-hidden"
-    />
+    <div className="flex h-dvh flex-col lg:flex-row">
+      <LeftRail
+        variant="desktop"
+        items={railItems}
+        brandMark={<BrandMark />}
+        footer={profileFooter}
+        className="hidden lg:flex"
+      />
+      <main className="flex-1 min-h-0 overflow-hidden order-first lg:order-none">
+        {main}
+      </main>
+      <LeftRail
+        variant="mobile"
+        items={railItems}
+        className="lg:hidden"
+      />
+    </div>
   );
 };
 

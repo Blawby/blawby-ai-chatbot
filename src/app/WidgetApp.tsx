@@ -22,14 +22,14 @@ import { resolveConversationContactName, resolveConversationDisplayTitle } from 
 import { usePracticeDetails } from '@/shared/hooks/usePracticeDetails';
 import { practiceDetailsStore } from '@/shared/stores/practiceDetailsStore';
 import { useStore } from '@nanostores/preact';
-import { NavRail } from '@/shared/ui/nav/NavRail';
+import { LeftRail, type LeftRailItem } from '@/design-system/layout';
 import type { ConversationMetadata, ConversationMode } from '@/shared/types/conversation';
 import type { UIPracticeConfig } from '@/shared/hooks/usePracticeConfig';
 import DragDropOverlay from '@/shared/ui/DragDropOverlay';
 import { resolveStrengthStyle, resolveStrengthTier } from '@/shared/utils/intakeStrength';
 import { DetailHeader } from '@/shared/ui/layout/DetailHeader';
 import { resolveConsultationState } from '@/shared/utils/consultationState';
-import { MobileInspectorOverlay } from '@/shared/ui/inspector/MobileInspectorOverlay';
+import { FocusDrawer } from '@/design-system/layout';
 import { features } from '@/config/features';
 import { IntakeProvider } from '@/shared/contexts/IntakeContext';
 import type { FileAttachment } from '../../worker/types';
@@ -803,9 +803,10 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
             </div>
 
             {isInspectorOpen && activeConversationId && (
-              <MobileInspectorOverlay
+              <FocusDrawer
                 isOpen={true}
                 onClose={() => setIsInspectorOpen(false)}
+                showCloseButton={false}
               >
                 <InspectorPanel
                   entityType="conversation"
@@ -826,38 +827,39 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
                   }}
                   practiceDetails={cachedPracticeDetails}
                 />
-              </MobileInspectorOverlay>
+              </FocusDrawer>
             )}
           </>
         )}
-        
-        <NavRail
-          variant="bottom"
-          items={[
-            {
-              id: 'home',
-              label: t('nav.home'),
-              icon: Home,
-              href: '#home',
-              isAction: true,
-              isActive: view === 'home',
-              onClick: () => {
-                setConversationMode(null);
-                setView('home');
+
+        {view !== 'chat' && (
+          <LeftRail
+            variant="mobile"
+            items={[
+              {
+                id: 'home',
+                label: t('nav.home'),
+                icon: Home,
+                href: '#home',
+                isAction: true,
+                isActive: view === 'home',
+                onClick: () => {
+                  setConversationMode(null);
+                  setView('home');
+                }
+              },
+              {
+                id: 'list',
+                label: t('nav.messages'),
+                icon: MessagesSquare,
+                href: '#list',
+                isAction: true,
+                isActive: view === 'list',
+                onClick: () => setView('list')
               }
-            },
-            {
-              id: 'list',
-              label: t('nav.messages'),
-              icon: MessagesSquare,
-              href: '#list',
-              isAction: true,
-              isActive: view === 'list',
-              onClick: () => setView('list')
-            }
-          ]}
-          hidden={view === 'chat'}
-        />
+            ] as LeftRailItem[]}
+          />
+        )}
       </div>
       )}
     </>
