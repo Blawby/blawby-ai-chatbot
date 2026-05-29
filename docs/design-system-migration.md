@@ -41,14 +41,14 @@ From `design_handoff_blawby_chat_first/DESIGN_SYSTEM.md §0`:
 | 5d.3 — ClientInspector extract | `e02cf663` | ✅ in PR #647 | `src/features/clients/components/ClientInspector.tsx` (283 lines) consumes useUserDetail, owns its editor state + archive dialog. InspectorPanel −232 lines. |
 | 5d.4a — identityHelpers extract | `5a396373` | ✅ in PR #648 | Shared `inspector/identityHelpers.tsx` (102 lines): InspectorIdentity type + resolveAttorneyLabel + resolveAttorneyIdentity + renderCompactIdentity + renderIdentityStack. InspectorPanel −65 lines. |
 | 5d.4b — MatterInspector extract | `0d4eefab` | ✅ in PR #648 | `src/features/matters/components/MatterInspector.tsx` (717 lines) consumes useMatterDetail + identityHelpers. Owns full matter editor state, ~14 resolvedMatter fields, status/patch handlers, matterStatusOptions/urgencyOptions/matterTeamIdentities memos. InspectorPanel −628 lines. |
-| 5d.5 — ConversationInspector extract | — | **pending — PR-6 scope** | ~500-line block (largest, most coupling); consumes useUserDetail + useMatterDetail + usePracticeDetail; intake editor state; reuses identity helpers from 5d.4a |
-| 5d.6 — Delete InspectorPanel dispatcher | — | **pending — PR-6 scope** | After 5d.5, 4 callers dispatch directly |
-| 5e — Shell refactor | — | **pending — PR-6+ scope** | Drop AppShell sidebar props; refactor WorkspacePage/PracticeHomePage/ClientHomePage/WidgetApp to LeftRail; extract ConversationListPanel (340px column per Conversations spec); delete legacy nav + 4 test files |
+| 5d.5 — ConversationInspector extract | `d884f792` | ✅ in PR #649 | `src/features/chat/components/ConversationInspector.tsx` (727 lines) — last per-feature inspector. Consumes useUserDetail + useMatterDetail + usePracticeDetail. Owns 3 sub-paths (PRACTICE_ONBOARDING / isClientView / regular), 14-position editor discriminator, intake field handlers. **InspectorPanel −797 lines (1004 → 243).** All per-feature inspector logic now lives in features/*. |
+| 5d.6 — Delete InspectorPanel dispatcher | — | **deferred — see note** | InspectorPanel is now a genuinely thin 243-line facade (type defs + chrome + 4-branch dispatch). Deleting it requires extracting chrome + updating 4 callers (1 of which has dynamic entityType requiring a switch). The dispatcher provides real value as a single entry point with unified prop API. **Recommended: keep as facade unless 5e shell refactor wants the inspector chrome moved closer to the shell.** Revisit when shell work makes the call site obvious. |
+| 5e — Shell refactor | — | **pending — PR-7 scope** | Drop AppShell sidebar props; refactor WorkspacePage/PracticeHomePage/ClientHomePage/WidgetApp to LeftRail; extract ConversationListPanel (340px column per Conversations spec); delete legacy nav + 4 test files |
 | 6 — Chat patterns | — | pending | AISummary, StagedAction, Citations, Observation, Composer, ToolUseLine, BriefingGrid, MatterChip; IOLTA manual smoke |
 | 7 — Data display | — | pending | StatStrip, JourneyProgress, LetterPaper, Seg; print test |
 | 8 — Feature sweep | — | pending | TSX feature-files swept for the 8 violation patterns; DataTable audit; AA contrast spot; `prefers-reduced-motion` check; final delete of `.status-*` / `.input-surface` / `.card-surface` aliases |
 
-PR series: #644 (foundation, merged) → #645 (Commit 4 + 5a + 5b, merged) → #646 (5c.1–5c.4, merged) → #647 (5d.1–5d.3, merged) → **#648 (this PR — 5d.4a + 5d.4b)** → PR-6 (5d.5 + 5d.6 + 5e).
+PR series: #644 (foundation, merged) → #645 (Commit 4 + 5a + 5b, merged) → #646 (5c.1–5c.4, merged) → #647 (5d.1–5d.3, merged) → #648 (5d.4a + 5d.4b, merged) → **#649 (this PR — 5d.5)** → PR-7 (5e shell refactor; 5d.6 deferred per facade-is-acceptable note above).
 
 ---
 
@@ -150,41 +150,40 @@ Cross-reference between the design handoff and the existing app. "Status" tracks
 
 ---
 
-## PR #648 (this PR) — landed checklist
+## PR #649 (this PR) — landed checklist
 
-- [x] Extract shared `inspector/identityHelpers.tsx` — `5a396373`
-- [x] Extract `MatterInspector` to `src/features/matters/components/MatterInspector.tsx` — `0d4eefab`
+- [x] Extract `ConversationInspector` to `src/features/chat/components/ConversationInspector.tsx` (727 lines) — `d884f792`
+  - Consumes useUserDetail + useMatterDetail + usePracticeDetail
+  - Owns 3 sub-paths (PRACTICE_ONBOARDING / isClientView / regular)
+  - 14-position activeConversationEditor discriminator + all intake editor handlers
+  - Renders own loading skeleton + error banner
+- [x] InspectorPanel cleanup: −797 lines (1004 → 243). All conversation state/memos/handlers gone; just type defs + chrome + dispatch left.
 
-InspectorPanel is now ~1000 lines (down from ~1925 at start of session). All matter-specific state/memos/helpers are gone from the dispatcher.
+**InspectorPanel trajectory:** 2005L (session start) → 1925L (post-5c.4 invoice) → 1241L (post-5d.3 client) → 1004L (post-5d.4 matter) → **243L (post-5d.5 conversation)**. Net −1762 lines moved out into 4 per-feature inspector files.
 
 ---
 
-## PR-6 scope — `feat/ds-migration-pt6` (next session)
+## On 5d.6 — InspectorPanel deletion
 
-The remaining inspector split (5d.5 + 5d.6) + the shell refactor (5e).
+The original plan called for deleting `InspectorPanel.tsx` and having the 4 callers (WorkspacePage / WidgetApp / DebugDialogsPage / WorkspaceSetupSection) dispatch directly to the per-feature inspectors.
 
-### 5d.5 — Extract ConversationInspector (biggest single block in the migration)
+After 5d.5 landed, the dispatcher is now a 243-line file containing:
+- ~80 lines of prop type definitions (the unified `InspectorPanelProps` interface that callers depend on)
+- ~20 lines of chrome (`<aside>` flex layout + header bar with title + close button)
+- ~150 lines of 4-way dispatch (`{entityType === '...' ? <XInspector .../> : null}` × 4) with prop pass-through
 
-Genuinely substantial. The conversation render is ~500 lines (L448-957 in current InspectorPanel) and entangles with:
+Deleting this requires:
+- Extracting an `InspectorChrome` wrapper component (or inlining the chrome at each caller)
+- Updating 4 callers — 3 are trivial (hardcoded `entityType="conversation"` or `"invoice"`), 1 (WorkspacePage) is dynamic and needs a switch
+- Each caller needs to know which props go to which per-feature inspector (currently the dispatcher handles this routing)
 
-- **3 data hooks**: `useUserDetail` + `useMatterDetail` + `usePracticeDetail` (conversation shows client info + linked matter + practice context, often simultaneously)
-- **3 sub-paths**: PRACTICE_ONBOARDING (renders `<SetupInspectorContent>`), `isClientView` (read-only branded hero + intake status + consultation details), regular (full editor with assignment / priority / tags / matter / intake fields)
-- **State**: `activeConversationEditor` (14-position discriminator including intake sub-editors), `isSavingAssignment` / `isSavingPriority` / `isSavingTags` / `isSavingMatter`, `localIntakeDraft`, `skipBlurRef`
-- **Memos**: `priorityOptions`, `assignedToOptions`, `currentTags`, `tagOptions`, `matterOptions`, `intakeServiceOptions`, `assignedMemberLabel`, `assignedConversationMember`, `currentMatterLabel`, `currentPriorityLabel`, `currentTagsLabel`, `conversationPeople`
-- **Handlers**: `handleConversationAssignmentChange`, `handleConversationPriorityChange`, `handleConversationTagsChange`, `handleConversationMatterChange`, `handleIntakeFieldChange`
-- **Imports it pulls in**: `SetupInspectorContent`, `InspectorHeaderHero` + the existing primitives, intake strength resolvers (`resolveStrengthTier` etc.), `STATE_OPTIONS` for the state combobox, `updateConversationMatter` from apiClient
+**Recommendation: defer 5d.6.** The current InspectorPanel is genuinely a thin facade that provides real value — single entry point, unified prop API, shared chrome. The "delete dispatcher" goal was sized against a bloated dispatcher that no longer exists. The 4-caller churn for the deletion isn't worth the architectural cleanup at this size. **Revisit when the 5e shell refactor surfaces a natural call site for the inspector chrome** — at that point either keep the facade or fold the chrome into a layout component near the shell.
 
-**Recommended approach for 5d.5**: do it as a single focused PR-6 session. The pattern from 5d.4b (MatterInspector) applies — extract the JSX + state + handlers wholesale, then iteratively clean up the lint-flagged unused vars in the InspectorPanel dispatcher. Allocate ~90 min for the initial extract + ~30 min for the cleanup pass.
+---
 
-### 5d.6 — Delete InspectorPanel dispatcher
+## PR-7 scope — `feat/ds-migration-pt7` (next session)
 
-After 5d.5 lands, the dispatcher is just a thin switch. Better to delete it and have the 4 callers dispatch directly:
-
-- [ ] Update `WorkspacePage.tsx` — switch on `inspectorTarget.entityType` to render the right per-feature inspector
-- [ ] Update `WidgetApp.tsx`
-- [ ] Update `DebugDialogsPage.tsx`
-- [ ] Update `WorkspaceSetupSection.tsx`
-- [ ] Delete `src/shared/ui/inspector/InspectorPanel.tsx`
+5e shell refactor + delete legacy nav files + 4 test files.
 
 ### 5e — Shell refactor
 
@@ -302,31 +301,31 @@ Current baseline on `staging` HEAD.
 
 ---
 
-## Session checklist (resume — PR-6 starts here)
+## Session checklist (resume — PR-7 starts here)
 
 ```powershell
 git fetch upstream
 git checkout staging
 git pull upstream staging --ff-only
-git checkout -b feat/ds-migration-pt6
+git checkout -b feat/ds-migration-pt7
 npm install                                       # if dependencies changed
 npm run build                                     # must pass
 npm run lint:src                                  # baseline: 1 pre-existing OAuthConsentPage error
 npm run type-check                                # baseline: 0 errors
 ```
 
-Open `design_handoff_blawby_chat_first/screens/index.html` in a browser for the 21-screen hub, and `design_handoff_blawby_chat_first/screens/Conversations.html` for the canonical 4-column chat-first surface that drives the assistant panel relocation in 5e. Then start at "PR-6 scope" above.
+Open `design_handoff_blawby_chat_first/screens/index.html` in a browser for the 21-screen hub, and `design_handoff_blawby_chat_first/screens/Conversations.html` for the canonical 4-column chat-first surface that drives the assistant panel relocation in 5e. Then start at "PR-7 scope" above.
 
-### Suggested PR-6 sub-commit cadence
+### Suggested PR-7 sub-commit cadence
 
-1. `5d.5` — Extract `ConversationInspector` to `features/chat/components/`; consume identity helpers + all 3 data hooks. (~90-120 min — ~500 line block with 3 sub-paths)
-2. `5d.6` — Delete `InspectorPanel.tsx` dispatcher; 4 callers dispatch directly. (~30 min)
-3. `5e.1` — Drop AppShell sidebar props (assess what each shell still needs)
-4. `5e.2` — Refactor `ClientHomePage` (smallest shell, lowest risk; establishes pattern)
-5. `5e.3` — Refactor `PracticeHomePage`
-6. `5e.4` — Refactor `WidgetApp`
-7. `5e.5` — Refactor `WorkspacePage` (largest, riskiest; do last with established patterns)
-8. `5e.6` — Extract `ConversationListPanel` for the 340px Conversations column
-9. `5e.7` — Delete legacy nav files + dead CSS + 4 test files (final cleanup)
+1. `5e.1` — Drop AppShell sidebar props (assess what each shell still needs)
+2. `5e.2` — Refactor `ClientHomePage` (smallest shell, lowest risk; establishes pattern)
+3. `5e.3` — Refactor `PracticeHomePage`
+4. `5e.4` — Refactor `WidgetApp`
+5. `5e.5` — Refactor `WorkspacePage` (largest, riskiest; do last with established patterns)
+6. `5e.6` — Extract `ConversationListPanel` for the 340px Conversations column
+7. `5e.7` — Delete legacy nav files + dead CSS + 4 test files (final cleanup)
 
-Each is independently green; each is a small reviewable diff. 5d.5 + 5d.6 fit in one session; 5e likely needs its own focused session given WorkspacePage's 1666 lines.
+Each is independently green; each is a small reviewable diff. 5e likely needs its own focused session given WorkspacePage's 1666 lines.
+
+If 5e surfaces a natural call site for the inspector chrome (e.g. shell wraps inspector with its own header), revisit 5d.6 at that point: either extract `InspectorChrome` + delete InspectorPanel, or keep InspectorPanel as the facade indefinitely.
