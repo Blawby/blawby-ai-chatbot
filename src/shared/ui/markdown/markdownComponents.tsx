@@ -59,7 +59,7 @@ const CopyButton = ({ text }: { text: string }) => {
     <button
       type="button"
       onClick={handleCopy}
-      className="absolute top-2 right-2 inline-flex items-center gap-1 rounded-md border border-[rgb(var(--surface-utility))]/10 bg-[rgb(var(--surface-app-frame))]/60 px-2 py-1 text-[11px] font-medium text-input-text opacity-0 transition focus-visible:opacity-100 group-hover:opacity-100"
+      className="absolute top-2 right-2 inline-flex items-center gap-1 rounded-md border border-[rgb(var(--surface-utility))]/10 bg-[rgb(var(--surface-app-frame))]/60 px-2 py-1 text-[11px] font-medium text-ink opacity-0 transition focus-visible:opacity-100 group-hover:opacity-100"
       aria-label="Copy code snippet"
     >
       {copied ? (

@@ -133,7 +133,7 @@ const matterStatusBadgeClass = (status: MatterStatus): string => {
   const base = 'inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium whitespace-nowrap';
   if (ACTIVE_STATUSES.has(status)) return `${base} status-success`;
   if (status === 'closed' || DECLINED_STATUSES.has(status)) {
-    return `${base} border border-line-subtle bg-surface-card-hover text-input-placeholder`;
+    return `${base} border border-line-subtle bg-surface-card-hover text-dim-2`;
   }
   return `${base} status-warning`;
 };
@@ -224,8 +224,8 @@ const useDelayedSkeleton = (loading: boolean): boolean => {
 // ---------------------------------------------------------------------------
 const _DetailField = ({ label, value }: { label: string; value: string }) => (
   <div>
-    <p className="text-xs font-medium uppercase tracking-wide text-input-placeholder">{label}</p>
-    <p className="mt-1 text-sm text-input-text">{value || '—'}</p>
+    <p className="text-xs font-medium uppercase tracking-wide text-dim-2">{label}</p>
+    <p className="mt-1 text-sm text-ink">{value || '—'}</p>
   </div>
 );
 
@@ -258,9 +258,9 @@ const MatterNotFound = ({
         actions={<Button size="sm" variant="secondary" onClick={onBack}>Back to matters</Button>}
       />
       <section className="panel p-6">
-        <p className="text-sm text-input-placeholder">
+        <p className="text-sm text-dim-2">
           We could not find a matter with the ID{' '}
-          <span className="font-mono text-input-text">{matterId}</span>{' '}
+          <span className="font-mono text-ink">{matterId}</span>{' '}
           in this workspace.
         </p>
       </section>
@@ -2007,7 +2007,7 @@ export const PracticeMattersPage = ({
             contentClassName="max-w-md"
           >
             <DialogBody className="space-y-3">
-              <p className="text-sm text-input-placeholder">
+              <p className="text-sm text-dim-2">
                 Closing marks this matter as closed. No new time entries or tasks can be added.
               </p>
             </DialogBody>
@@ -2026,11 +2026,11 @@ export const PracticeMattersPage = ({
             contentClassName="max-w-md"
           >
             <DialogBody className="space-y-4">
-              <p className="text-sm text-input-placeholder">
-                This permanently deletes <strong className="text-input-text">{selectedMatterDetail.title}</strong> and all associated data (time entries, expenses, notes, files, milestones). This cannot be undone.
+              <p className="text-sm text-dim-2">
+                This permanently deletes <strong className="text-ink">{selectedMatterDetail.title}</strong> and all associated data (time entries, expenses, notes, files, milestones). This cannot be undone.
               </p>
               <div className="space-y-2">
-                <label className="block text-xs font-medium text-input-text">
+                <label className="block text-xs font-medium text-ink">
                   Type <span className="font-semibold">{selectedMatterDetail.title}</span> to confirm
                 </label>
                 <Input
@@ -2063,7 +2063,7 @@ export const PracticeMattersPage = ({
             contentClassName="max-w-xl"
           >
             <div className="space-y-4">
-              <p className="text-sm text-input-placeholder">
+              <p className="text-sm text-dim-2">
                 Set the settlement amount before generating a contingency invoice.
               </p>
               <CurrencyInput
@@ -2103,7 +2103,7 @@ export const PracticeMattersPage = ({
     ? sortedMatterSummaries
     : sortedMatterSummaries.filter((matter) => matterStatusCategory(matter.status) === matterCategoryFilter);
 
-  const headerCellClassName = 'text-xs font-medium text-input-placeholder';
+  const headerCellClassName = 'text-xs font-medium text-dim-2';
   const tableColumns: DataTableColumn[] = [
     { id: 'title', label: 'Matter Name', isPrimary: true, headerClassName: headerCellClassName },
     { id: 'client', label: 'Client', hideAt: 'sm', headerClassName: headerCellClassName },
@@ -2118,7 +2118,7 @@ export const PracticeMattersPage = ({
       id: matter.id,
       onClick: () => goToDetail(matter.id),
       cells: {
-        title: <span className="truncate font-medium text-input-text">{matter.title}</span>,
+        title: <span className="truncate font-medium text-ink">{matter.title}</span>,
         client: <span className="truncate">{matter.clientName}</span>,
         practiceArea: matter.practiceArea ?? '—',
         status: (
@@ -2176,7 +2176,7 @@ export const PracticeMattersPage = ({
             type="button"
             onClick={() => setIsShortcutsHelpOpen(true)}
             aria-label="Show keyboard shortcuts"
-            className="hidden h-8 w-8 items-center justify-center rounded-full text-input-placeholder transition-colors hover:bg-surface-card-hover hover:text-input-text md:inline-flex"
+            className="hidden h-8 w-8 items-center justify-center rounded-full text-dim-2 transition-colors hover:bg-surface-card-hover hover:text-ink md:inline-flex"
           >
             <span className="text-sm font-semibold">?</span>
           </button>
@@ -2188,7 +2188,7 @@ export const PracticeMattersPage = ({
             disabled={!activePracticeId}
           >
             New Matter
-            <kbd className="ml-2 hidden rounded border border-line-utility bg-surface-card-hover px-1.5 py-0.5 text-[10px] font-medium text-input-placeholder md:inline">
+            <kbd className="ml-2 hidden rounded border border-line-utility bg-surface-card-hover px-1.5 py-0.5 text-[10px] font-medium text-dim-2 md:inline">
               N
             </kbd>
           </Button>
@@ -2199,7 +2199,7 @@ export const PracticeMattersPage = ({
         {showEmpty ? (
           <EmptyState onCreate={handleNewMatter} disableCreate={!activePracticeId} />
         ) : showFilteredEmpty ? (
-          <div className="px-2 py-8 text-sm text-input-placeholder">
+          <div className="px-2 py-8 text-sm text-dim-2">
             {filteredEmptyMessage}
           </div>
         ) : (
@@ -2232,8 +2232,8 @@ export const PracticeMattersPage = ({
                 { key: '⌘ K', desc: 'Open command palette (or Ctrl + K)' },
               ].map((s) => (
                 <li key={s.key} className="flex items-center justify-between gap-4">
-                  <span className="text-sm text-input-text">{s.desc}</span>
-                  <kbd className="rounded border border-line-utility bg-surface-card-hover px-2 py-0.5 text-xs font-medium text-input-placeholder">
+                  <span className="text-sm text-ink">{s.desc}</span>
+                  <kbd className="rounded border border-line-utility bg-surface-card-hover px-2 py-0.5 text-xs font-medium text-dim-2">
                     {s.key}
                   </kbd>
                 </li>

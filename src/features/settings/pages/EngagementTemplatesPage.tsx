@@ -160,7 +160,7 @@ function TemplateEditor({ initial, serviceOptions, onSave, onDelete, onBack, isS
         <div className="flex flex-col gap-5">
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="flex flex-col gap-1.5">
-              <span className="text-sm font-medium text-input-text">Template name</span>
+              <span className="text-sm font-medium text-ink">Template name</span>
               <Input
                 type="text"
                 value={template.name}
@@ -169,7 +169,7 @@ function TemplateEditor({ initial, serviceOptions, onSave, onDelete, onBack, isS
               />
             </div>
             <div className="flex flex-col gap-1.5">
-              <span className="text-sm font-medium text-input-text">Practice area</span>
+              <span className="text-sm font-medium text-ink">Practice area</span>
               <Combobox
                 options={serviceOptions}
                 value={template.practiceArea}
@@ -183,7 +183,7 @@ function TemplateEditor({ initial, serviceOptions, onSave, onDelete, onBack, isS
 
           {/* Fee configuration */}
           <div className="flex flex-col gap-3 rounded-xl border border-line-subtle bg-surface-card p-4">
-            <p className="text-sm font-semibold text-input-text">Fee arrangement</p>
+            <p className="text-sm font-semibold text-ink">Fee arrangement</p>
             <div className="flex flex-wrap gap-2">
               {(Object.keys(FEE_TYPE_LABELS) as EngagementFeeType[]).map((type) => (
                 <button
@@ -194,7 +194,7 @@ function TemplateEditor({ initial, serviceOptions, onSave, onDelete, onBack, isS
                     'rounded-full border px-3 py-1 text-sm font-medium transition-colors',
                     template.feeType === type
                       ? 'border-accent-500 bg-accent-500/10 text-[rgb(var(--accent-foreground))]'
-                      : 'border-line-subtle text-input-placeholder hover:border-line-subtle hover:text-input-text',
+                      : 'border-line-subtle text-dim-2 hover:border-line-subtle hover:text-ink',
                   )}
                 >
                   {FEE_TYPE_LABELS[type]}
@@ -206,7 +206,7 @@ function TemplateEditor({ initial, serviceOptions, onSave, onDelete, onBack, isS
               {template.feeType === 'hourly' ? (
                 <>
                   <div className="flex flex-col gap-1.5">
-                    <span className="text-sm font-medium text-input-text">Attorney rate ($/hr)</span>
+                    <span className="text-sm font-medium text-ink">Attorney rate ($/hr)</span>
                     <Input
                       type="text"
                       value={centsToDisplay(template.hourlyRateCents)}
@@ -215,7 +215,7 @@ function TemplateEditor({ initial, serviceOptions, onSave, onDelete, onBack, isS
                     />
                   </div>
                   <div className="flex flex-col gap-1.5">
-                    <span className="text-sm font-medium text-input-text">Retainer ($)</span>
+                    <span className="text-sm font-medium text-ink">Retainer ($)</span>
                     <Input
                       type="text"
                       value={centsToDisplay(template.retainerCents)}
@@ -226,7 +226,7 @@ function TemplateEditor({ initial, serviceOptions, onSave, onDelete, onBack, isS
                 </>
               ) : template.feeType === 'flat' ? (
                 <div className="flex flex-col gap-1.5">
-                  <span className="text-sm font-medium text-input-text">Flat fee ($)</span>
+                  <span className="text-sm font-medium text-ink">Flat fee ($)</span>
                   <Input
                     type="text"
                     value={centsToDisplay(template.flatFeeCents)}
@@ -236,7 +236,7 @@ function TemplateEditor({ initial, serviceOptions, onSave, onDelete, onBack, isS
                 </div>
               ) : template.feeType === 'contingency' ? (
                 <div className="flex flex-col gap-1.5">
-                  <span className="text-sm font-medium text-input-text">Contingency %</span>
+                  <span className="text-sm font-medium text-ink">Contingency %</span>
                   <Input
                     type="text"
                     value={template.contingencyPct != null ? String(template.contingencyPct) : ''}
@@ -253,8 +253,8 @@ function TemplateEditor({ initial, serviceOptions, onSave, onDelete, onBack, isS
 
           {/* Scope template */}
           <div className="flex flex-col gap-1.5">
-            <span className="text-sm font-medium text-input-text">Scope of representation</span>
-            <p className="text-xs text-input-placeholder">
+            <span className="text-sm font-medium text-ink">Scope of representation</span>
+            <p className="text-xs text-dim-2">
               Default scope language for this practice area. The AI will refine this per matter.
             </p>
             <Textarea
@@ -267,8 +267,8 @@ function TemplateEditor({ initial, serviceOptions, onSave, onDelete, onBack, isS
 
           {/* Letter body */}
           <div className="flex flex-col gap-1.5">
-            <span className="text-sm font-medium text-input-text">Letter body</span>
-            <p className="text-xs text-input-placeholder">
+            <span className="text-sm font-medium text-ink">Letter body</span>
+            <p className="text-xs text-dim-2">
               Write your engagement letter once. Click placeholders on the right to insert them at the cursor.
             </p>
             <Textarea
@@ -283,8 +283,8 @@ function TemplateEditor({ initial, serviceOptions, onSave, onDelete, onBack, isS
 
         {/* Placeholder sidebar */}
         <div className="flex flex-col gap-3">
-          <p className="text-sm font-semibold text-input-text">Available placeholders</p>
-          <p className="text-xs text-input-placeholder">Click to insert at cursor position in the letter body.</p>
+          <p className="text-sm font-semibold text-ink">Available placeholders</p>
+          <p className="text-xs text-dim-2">Click to insert at cursor position in the letter body.</p>
           <div className="flex flex-col gap-1">
             {PLACEHOLDER_DOCS.map(({ key, description }) => (
               <button
@@ -294,7 +294,7 @@ function TemplateEditor({ initial, serviceOptions, onSave, onDelete, onBack, isS
                 className="flex flex-col items-start rounded-lg px-2.5 py-2 text-left transition-colors hover:bg-surface-input"
               >
                 <span className="font-mono text-xs text-accent-500">{key}</span>
-                <span className="text-xs text-input-placeholder">{description}</span>
+                <span className="text-xs text-dim-2">{description}</span>
               </button>
             ))}
           </div>
@@ -319,7 +319,7 @@ function TemplateListView({ templates, onNew, onEdit }: ListViewProps) {
     <div className="flex flex-col gap-4 p-6">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <p className="text-sm text-input-placeholder">
+          <p className="text-sm text-dim-2">
             Create a template for each practice area. When you generate an engagement letter from an intake, the AI will select the matching template, fill in the client&apos;s details, and produce a ready-to-review draft.
           </p>
         </div>
@@ -328,9 +328,9 @@ function TemplateListView({ templates, onNew, onEdit }: ListViewProps) {
 
       {templates.length === 0 ? (
         <div className="flex flex-col items-center gap-3 rounded-xl border border-dashed border-line-subtle py-12 text-center">
-          <FileText className="h-8 w-8 text-input-placeholder" />
-          <p className="text-sm font-medium text-input-text">No templates yet</p>
-          <p className="text-xs text-input-placeholder">Create your first engagement letter template to get started.</p>
+          <FileText className="h-8 w-8 text-dim-2" />
+          <p className="text-sm font-medium text-ink">No templates yet</p>
+          <p className="text-xs text-dim-2">Create your first engagement letter template to get started.</p>
           <Button icon={Plus} onClick={onNew} size="sm" variant="secondary">New template</Button>
         </div>
       ) : (
@@ -343,8 +343,8 @@ function TemplateListView({ templates, onNew, onEdit }: ListViewProps) {
               className="flex items-center justify-between gap-4 px-4 py-3.5 text-left transition-colors hover:bg-surface-card"
             >
               <div className="min-w-0">
-                <p className="truncate text-sm font-medium text-input-text">{template.name}</p>
-                <p className="text-xs text-input-placeholder">
+                <p className="truncate text-sm font-medium text-ink">{template.name}</p>
+                <p className="text-xs text-dim-2">
                   {template.practiceArea || 'No practice area'} · {FEE_TYPE_LABELS[template.feeType]}
                 </p>
               </div>

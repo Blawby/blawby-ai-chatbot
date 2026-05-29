@@ -30,8 +30,8 @@ export const BillingActionsWidget = ({
     <Panel className="flex h-full flex-col">
       <header className="flex items-center justify-between border-b border-line-subtle px-5 py-4">
         <div>
-          <p className="text-sm font-semibold text-input-text">Billing Actions</p>
-          <p className="text-xs text-input-placeholder">Matters that need billing attention</p>
+          <p className="text-sm font-semibold text-ink">Billing Actions</p>
+          <p className="text-xs text-dim-2">Matters that need billing attention</p>
         </div>
         <Button size="xs" variant="secondary" onClick={() => onRefresh?.()} disabled={loading}>
           Refresh
@@ -43,11 +43,11 @@ export const BillingActionsWidget = ({
             <LoadingSpinner size="md" />
           </div>
         ) : error ? (
-          <div className="rounded-xl border border-card-border bg-card px-3 py-2 text-sm text-input-text">
+          <div className="rounded-xl border border-card-border bg-card px-3 py-2 text-sm text-ink">
             {error}
           </div>
         ) : actions.length === 0 ? (
-          <p className="text-sm text-input-placeholder">No billing actions needed right now.</p>
+          <p className="text-sm text-dim-2">No billing actions needed right now.</p>
         ) : (
           <div className="space-y-4">
             {actions.map((action) => (
@@ -57,12 +57,12 @@ export const BillingActionsWidget = ({
                     <div className="flex gap-3">
                       <div className="text-lg" aria-hidden="true">{ICONS[action.reason]}</div>
                       <div>
-                        <p className="font-semibold text-input-text">{action.title}</p>
+                        <p className="font-semibold text-ink">{action.title}</p>
                         {action.subtitle ? (
-                          <p className="text-xs text-input-placeholder">{action.subtitle}</p>
+                          <p className="text-xs text-dim-2">{action.subtitle}</p>
                         ) : null}
                         {action.amount != null ? (
-                          <p className="mt-1 text-sm font-semibold text-input-text">
+                          <p className="mt-1 text-sm font-semibold text-ink">
                             {formatCurrency(action.amount)}
                           </p>
                         ) : null}

@@ -261,7 +261,7 @@ export const PayoutsPage = ({
         >
           <div className="flex flex-col gap-4 sm:flex-row sm:items-end">
             <div className="w-full max-w-[220px]">
-              <label className="mb-2 block text-sm font-medium text-input-text" htmlFor="billing-increment-minutes">
+              <label className="mb-2 block text-sm font-medium text-ink" htmlFor="billing-increment-minutes">
                 Minutes
               </label>
               <Input
@@ -307,7 +307,7 @@ export const PayoutsPage = ({
                     ? 'h-5 w-5 text-amber-600 dark:text-amber-400'
                     : hasStripeAccount && statusSummary
                       ? `h-5 w-5 ${statusSummary.iconClassName}`
-                      : 'h-5 w-5 text-input-placeholder'}
+                      : 'h-5 w-5 text-dim-2'}
                 />
               </span>
               <div className="min-w-0">
@@ -334,7 +334,7 @@ export const PayoutsPage = ({
           description={isReady ? undefined : 'Bank accounts and payout schedules are managed in Stripe after onboarding.'}
         >
           <div className="flex w-full items-center justify-between gap-3 sm:w-auto sm:justify-end">
-            <span className="text-sm font-medium text-input-text">
+            <span className="text-sm font-medium text-ink">
               {maskStripeAccountId(stripeStatus?.stripe_account_id)}
             </span>
             {hasStripeAccount ? (
@@ -356,13 +356,13 @@ export const PayoutsPage = ({
           label="Business email"
           labelNode={(
             <div className="flex items-center gap-3">
-              <Icon icon={User} className="h-5 w-5 text-input-placeholder" />
-              <span className="text-sm font-medium text-input-text">Business email</span>
+              <Icon icon={User} className="h-5 w-5 text-dim-2" />
+              <span className="text-sm font-medium text-ink">Business email</span>
             </div>
           )}
           description={isReady ? undefined : 'Stripe uses this email during onboarding and verification.'}
         >
-          <span className="text-sm font-medium text-input-text">
+          <span className="text-sm font-medium text-ink">
             {businessEmail || 'Not set'}
           </span>
         </SettingRow>
@@ -373,7 +373,7 @@ export const PayoutsPage = ({
           label="Charges"
           description={isReady ? undefined : 'Card payments can be accepted once Stripe finishes verifying the account.'}
         >
-          <span className="text-sm font-medium text-input-text">
+          <span className="text-sm font-medium text-ink">
             {chargesEnabled ? 'Enabled' : 'Pending verification'}
           </span>
         </SettingRow>
@@ -384,13 +384,13 @@ export const PayoutsPage = ({
           label="Payouts"
           labelNode={(
             <div className="flex items-center gap-3">
-              <Icon icon={Lock} className="h-5 w-5 text-input-placeholder" />
-              <span className="text-sm font-medium text-input-text">Payouts</span>
+              <Icon icon={Lock} className="h-5 w-5 text-dim-2" />
+              <span className="text-sm font-medium text-ink">Payouts</span>
             </div>
           )}
           description={isReady ? undefined : 'Payouts unlock after Stripe verifies your business details.'}
         >
-          <span className="text-sm font-medium text-input-text">
+          <span className="text-sm font-medium text-ink">
             {payoutsEnabled ? 'Enabled' : 'Pending verification'}
           </span>
         </SettingRow>
@@ -401,8 +401,8 @@ export const PayoutsPage = ({
           label="Status"
           labelNode={(
             <div className="flex items-center gap-3">
-              <Icon icon={ShieldCheck} className="h-5 w-5 text-input-placeholder" />
-              <span className="text-sm font-medium text-input-text">Status</span>
+              <Icon icon={ShieldCheck} className="h-5 w-5 text-dim-2" />
+              <span className="text-sm font-medium text-ink">Status</span>
             </div>
           )}
           description={isReady
@@ -411,7 +411,7 @@ export const PayoutsPage = ({
               ? 'Review or complete Stripe onboarding to finish setup.'
               : 'Start Stripe onboarding to create your payout account.'}
         >
-          <span className="text-sm font-medium text-input-text">
+          <span className="text-sm font-medium text-ink">
             {statusLabel}
           </span>
         </SettingRow>

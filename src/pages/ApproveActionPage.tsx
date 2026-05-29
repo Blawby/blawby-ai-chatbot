@@ -21,16 +21,16 @@ export default function ApproveActionPage({ jwt }: { jwt?: string }) {
     <div className="flex min-h-screen w-full items-center justify-center bg-surface-app px-4 py-10">
       <div className="w-full max-w-md rounded-2xl border border-line-subtle bg-surface-card p-6 text-center shadow-sm">
         <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full border border-line-subtle bg-surface-utility/10">
-          <Icon icon={ShieldCheck} className="h-6 w-6 text-input-text" aria-hidden="true" />
+          <Icon icon={ShieldCheck} className="h-6 w-6 text-ink" aria-hidden="true" />
         </div>
-        <h1 className="text-lg font-semibold text-input-text">Approval request</h1>
-        <p className="mt-2 text-sm text-input-placeholder">
+        <h1 className="text-lg font-semibold text-ink">Approval request</h1>
+        <p className="mt-2 text-sm text-dim-2">
           Action approvals aren&apos;t available yet. This unlocks once MCP server support and pending-action
           handling are enabled for your practice.
         </p>
 
         {hasToken ? (
-          <p className="mt-3 text-xs text-input-placeholder">An approval token was received.</p>
+          <p className="mt-3 text-xs text-dim-2">An approval token was received.</p>
         ) : (
           <Alert variant="warning" className="mt-4">
             This approval link is missing its token.

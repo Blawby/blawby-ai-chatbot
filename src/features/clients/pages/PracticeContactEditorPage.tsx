@@ -351,7 +351,7 @@ export function PracticeContactEditorPage({
               disabled={saving}
             />
             {resolvedContactId ? (
-              <p className="text-xs text-input-placeholder">
+              <p className="text-xs text-dim-2">
                 Contact record: {resolvedContactId}
               </p>
             ) : null}

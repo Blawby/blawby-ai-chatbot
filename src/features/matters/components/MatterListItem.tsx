@@ -35,7 +35,7 @@ export const MatterListItem = ({ matter, onSelect, isSelected = false }: MatterL
         <Avatar
           name={matter.clientName}
           size="sm"
-          className="bg-surface-card-raised text-input-text ring-1 ring-line-subtle"
+          className="bg-surface-card-raised text-ink ring-1 ring-line-subtle"
         />
         <MatterStatusDot
           status={matter.status}
@@ -45,16 +45,16 @@ export const MatterListItem = ({ matter, onSelect, isSelected = false }: MatterL
       <div className="min-w-0 flex-1">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0 flex-1">
-            <h2 className="min-w-0 truncate text-[14px] font-semibold leading-5 tracking-tight text-input-text">
+            <h2 className="min-w-0 truncate text-[14px] font-semibold leading-5 tracking-tight text-ink">
               {matter.title}
             </h2>
-            <p className="mt-0.5 flex min-w-0 items-center gap-1.5 text-xs text-input-placeholder">
+            <p className="mt-0.5 flex min-w-0 items-center gap-1.5 text-xs text-dim-2">
               <span className="truncate">{matter.clientName}</span>
-              <span aria-hidden="true" className="text-input-placeholder/30">·</span>
+              <span aria-hidden="true" className="text-dim-2/30">·</span>
               <span className="truncate">{statusLabel}</span>
             </p>
           </div>
-          <span className="shrink-0 text-[11px] tabular-nums text-input-placeholder/80">
+          <span className="shrink-0 text-[11px] tabular-nums text-dim-2/80">
             {updatedLabel}
           </span>
         </div>

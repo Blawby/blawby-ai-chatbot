@@ -47,7 +47,7 @@ export const ClientDashboard = ({
       />
       {error ? (
         <div className="border-b border-line-subtle" role="alert">
-          <div className="mx-auto max-w-7xl px-4 py-3 text-sm text-input-text sm:px-6 lg:px-8">
+          <div className="mx-auto max-w-7xl px-4 py-3 text-sm text-ink sm:px-6 lg:px-8">
             {error}
           </div>
         </div>

@@ -328,8 +328,8 @@ const PracticeHomePage = () => {
       <div className="mx-auto flex max-w-6xl flex-col gap-7">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div className="min-w-0 max-w-full">
-            <h1 className="truncate text-2xl font-semibold text-input-text">Welcome back, {firstName}</h1>
-            <p className="mt-1 text-sm text-input-placeholder">
+            <h1 className="truncate text-2xl font-semibold text-ink">Welcome back, {firstName}</h1>
+            <p className="mt-1 text-sm text-dim-2">
               Here&apos;s what&apos;s happening with your practice today.
             </p>
           </div>
@@ -354,11 +354,11 @@ const PracticeHomePage = () => {
         {!setupDismissed && completeCount < setupSteps.length && (
           <section className="card p-6 md:p-7">
             <div className="flex flex-wrap items-center justify-between gap-3">
-              <h2 className="text-base font-semibold text-input-text">
+              <h2 className="text-base font-semibold text-ink">
                 Finish setting up your practice
               </h2>
               <div className="flex items-center gap-3">
-                <span className="text-sm font-medium text-input-placeholder">
+                <span className="text-sm font-medium text-dim-2">
                   {setupLoading ? 'Checking setup' : `${completeCount} of ${setupSteps.length} complete`}
                 </span>
                 <button
@@ -397,13 +397,13 @@ const PracticeHomePage = () => {
                         <Check className="h-3.5 w-3.5" strokeWidth={3} aria-hidden="true" />
                       </span>
                     ) : (
-                      <span className="flex h-[22px] w-[22px] items-center justify-center rounded-full border border-line-subtle text-[10px] font-semibold text-input-text">
+                      <span className="flex h-[22px] w-[22px] items-center justify-center rounded-full border border-line-subtle text-[10px] font-semibold text-ink">
                         {idx + 1}
                       </span>
                     )}
-                    <span className="text-sm font-semibold text-input-text">{step.title}</span>
+                    <span className="text-sm font-semibold text-ink">{step.title}</span>
                   </div>
-                  <p className="text-xs leading-snug text-input-placeholder">{step.description}</p>
+                  <p className="text-xs leading-snug text-dim-2">{step.description}</p>
                 </button>
               ))}
             </div>
@@ -415,7 +415,7 @@ const PracticeHomePage = () => {
 
         <section className="flex flex-col gap-4">
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <h2 className="text-lg font-semibold text-input-text">Cashflow</h2>
+            <h2 className="text-lg font-semibold text-ink">Cashflow</h2>
             <SegmentedToggle<CashflowRange>
               value={cashflowRange}
               options={CASHFLOW_RANGES}
@@ -435,8 +435,8 @@ const PracticeHomePage = () => {
             </div>
           ) : practiceBillingError ? (
             <div className="card-muted rounded-2xl p-6">
-              <p className="text-sm font-medium text-input-text">Cashflow could not load.</p>
-              <p className="mt-1 text-sm text-input-placeholder">{practiceBillingError}</p>
+              <p className="text-sm font-medium text-ink">Cashflow could not load.</p>
+              <p className="mt-1 text-sm text-dim-2">{practiceBillingError}</p>
             </div>
           ) : hasCashflowData ? (
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -445,16 +445,16 @@ const PracticeHomePage = () => {
                   key={m.id}
                   className="flex flex-col gap-2 rounded-2xl border border-card-border bg-card p-5"
                 >
-                  <span className="text-xs font-medium text-input-placeholder">{m.label}</span>
-                  <span className="text-3xl font-bold tabular-nums text-input-text">{formatCurrency(m.value)}</span>
-                  <span className="text-xs leading-snug text-input-placeholder">{m.helper}</span>
+                  <span className="text-xs font-medium text-dim-2">{m.label}</span>
+                  <span className="text-3xl font-bold tabular-nums text-ink">{formatCurrency(m.value)}</span>
+                  <span className="text-xs leading-snug text-dim-2">{m.helper}</span>
                 </div>
               ))}
             </div>
           ) : (
             <div className="card-muted flex flex-col items-start gap-3 rounded-2xl p-6">
-              <p className="text-sm font-medium text-input-text">No invoice activity yet.</p>
-              <p className="text-sm text-input-placeholder">
+              <p className="text-sm font-medium text-ink">No invoice activity yet.</p>
+              <p className="text-sm text-dim-2">
                 Create and send an invoice, then collected revenue, overdue balances, and ready-to-invoice work will appear here.
               </p>
               <Button variant="secondary" icon={Plus} onClick={handleNewInvoice}>
@@ -466,7 +466,7 @@ const PracticeHomePage = () => {
 
         <section className="flex flex-col gap-4">
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <h2 className="text-lg font-semibold text-input-text">Recent intakes</h2>
+            <h2 className="text-lg font-semibold text-ink">Recent intakes</h2>
             {hasIntakes && (
               <Button variant="link" onClick={handleViewAllIntakes}>
                 View all
@@ -476,10 +476,10 @@ const PracticeHomePage = () => {
           {hasIntakes ? (
             <div className="overflow-hidden rounded-2xl border border-card-border bg-card">
               <div className="hidden grid-cols-[260px_1fr_140px_110px] items-center gap-4 border-b border-line-subtle px-5 py-3 md:grid">
-                <span className="text-[11px] font-semibold uppercase tracking-wider text-input-placeholder">Client</span>
-                <span className="text-[11px] font-semibold uppercase tracking-wider text-input-placeholder">Subject</span>
-                <span className="text-[11px] font-semibold uppercase tracking-wider text-input-placeholder">Date submitted</span>
-                <span className="text-right text-[11px] font-semibold uppercase tracking-wider text-input-placeholder">Status</span>
+                <span className="text-[11px] font-semibold uppercase tracking-wider text-dim-2">Client</span>
+                <span className="text-[11px] font-semibold uppercase tracking-wider text-dim-2">Subject</span>
+                <span className="text-[11px] font-semibold uppercase tracking-wider text-dim-2">Date submitted</span>
+                <span className="text-right text-[11px] font-semibold uppercase tracking-wider text-dim-2">Status</span>
               </div>
               {recentIntakes.map((row, idx) => {
                 const contactName = row.metadata?.name?.trim() || row.metadata?.email?.trim() || 'Unknown contact';
@@ -495,19 +495,19 @@ const PracticeHomePage = () => {
                     ].filter(Boolean).join(' ')}
                   >
                     <div className="flex min-w-0 items-center gap-2.5">
-                      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-surface-card-hover text-[11px] font-semibold text-input-text">
+                      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-surface-card-hover text-[11px] font-semibold text-ink">
                         {initialsFor(contactName)}
                       </span>
-                      <span className="truncate text-sm font-medium text-input-text">{contactName}</span>
+                      <span className="truncate text-sm font-medium text-ink">{contactName}</span>
                     </div>
-                    <span className="truncate text-sm text-input-placeholder">{subject}</span>
-                    <span className="truncate text-sm text-input-placeholder">{formatRelativeTime(row.created_at)}</span>
+                    <span className="truncate text-sm text-dim-2">{subject}</span>
+                    <span className="truncate text-sm text-dim-2">{formatRelativeTime(row.created_at)}</span>
                     <div className="flex items-center gap-2 md:justify-end">
                       <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${intakeStatusClass(row.triage_status)}`}>
                         {intakeStatusLabel(row.triage_status)}
                       </span>
                       <ArrowRight
-                        className="hidden h-4 w-4 text-input-placeholder transition-opacity group-hover:opacity-100 md:block md:opacity-0"
+                        className="hidden h-4 w-4 text-dim-2 transition-opacity group-hover:opacity-100 md:block md:opacity-0"
                         aria-hidden="true"
                       />
                     </div>
@@ -528,13 +528,13 @@ const PracticeHomePage = () => {
             </div>
           ) : recentIntakesError ? (
             <div className="card-muted rounded-2xl p-6">
-              <p className="text-sm font-medium text-input-text">Recent intakes could not load.</p>
-              <p className="mt-1 text-sm text-input-placeholder">{recentIntakesError}</p>
+              <p className="text-sm font-medium text-ink">Recent intakes could not load.</p>
+              <p className="mt-1 text-sm text-dim-2">{recentIntakesError}</p>
             </div>
           ) : (
             <div className="card-muted flex flex-col items-start gap-3 rounded-2xl p-6">
-              <p className="text-sm font-medium text-input-text">No intake responses yet.</p>
-              <p className="text-sm text-input-placeholder">
+              <p className="text-sm font-medium text-ink">No intake responses yet.</p>
+              <p className="text-sm text-dim-2">
                 New submissions will appear here after a visitor completes an intake form.
               </p>
               <Button variant="secondary" onClick={() => practiceBasePath && navigate(`${practiceBasePath}/intakes/forms`)}>

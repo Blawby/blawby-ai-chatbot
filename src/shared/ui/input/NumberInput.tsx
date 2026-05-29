@@ -90,7 +90,7 @@ export const NumberInput = forwardRef<HTMLInputElement, NumberInputProps>(({
   };
 
   const inputClasses = cn(
-    'w-full rounded-xl text-input-text placeholder:text-input-placeholder',
+    'w-full rounded-xl text-ink placeholder:text-dim-2',
     'focus:outline-none transition-all duration-200',
     'input-surface border-none',
     sizeClasses[size],
@@ -154,7 +154,7 @@ export const NumberInput = forwardRef<HTMLInputElement, NumberInputProps>(({
   return (
     <div className="w-full">
       {displayLabel && (
-        <label htmlFor={inputId} className="block text-sm font-medium text-input-text mb-1">
+        <label htmlFor={inputId} className="block text-sm font-medium text-ink mb-1">
           {displayLabel}
           {required && <span className="text-red-500 ml-1">*</span>}
         </label>
@@ -220,7 +220,7 @@ export const NumberInput = forwardRef<HTMLInputElement, NumberInputProps>(({
       )}
       
       {displayDescription && !displayError && (
-        <p id={descriptionId} className="text-xs text-input-placeholder mt-1">
+        <p id={descriptionId} className="text-xs text-dim-2 mt-1">
           {displayDescription}
         </p>
       )}

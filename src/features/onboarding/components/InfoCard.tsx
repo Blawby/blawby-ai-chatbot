@@ -47,7 +47,7 @@ export const InfoCard = ({
   };
 
   const variantClasses: Record<InfoCardVariant, string> = {
-    default: 'panel text-input-text',
+    default: 'panel text-ink',
     blue: 'status-info',
     amber: 'status-warning',
     green: 'status-success',

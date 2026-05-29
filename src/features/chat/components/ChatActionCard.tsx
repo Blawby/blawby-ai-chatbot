@@ -103,7 +103,7 @@ export const ChatActionCard: FunctionComponent<ChatActionCardProps> = ({
         title={t('chat.card.disclaimer.title')}
         description={disclaimerProps.subtitle || t('chat.card.disclaimer.description')}
       >
-        <div className="max-h-[45vh] overflow-y-auto whitespace-pre-wrap text-sm leading-6 text-input-text">
+        <div className="max-h-[45vh] overflow-y-auto whitespace-pre-wrap text-sm leading-6 text-ink">
           {disclaimerProps.text}
         </div>
         <Button
@@ -140,7 +140,7 @@ export const ChatActionCard: FunctionComponent<ChatActionCardProps> = ({
             />
           </Suspense>
         ) : (
-          <div className="p-4 text-center text-sm text-input-text">
+          <div className="p-4 text-center text-sm text-ink">
             {t('common:chat.paymentDetailsMissing', 'Payment details missing or unavailable.')}
           </div>
         )}

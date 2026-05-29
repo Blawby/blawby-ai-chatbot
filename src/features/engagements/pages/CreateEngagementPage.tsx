@@ -200,31 +200,31 @@ const EngagementLetterPreview: FunctionComponent<{
   const today = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
 
   return (
-    <div className="rounded-xl border border-card-border bg-surface-card text-sm leading-relaxed text-input-text shadow-sm overflow-hidden">
+    <div className="rounded-xl border border-card-border bg-surface-card text-sm leading-relaxed text-ink shadow-sm overflow-hidden">
       {/* Letterhead */}
       <div className="border-b border-line-subtle bg-surface-overlay/20 px-6 py-4 space-y-0.5">
-        <p className="text-xs font-semibold uppercase tracking-widest text-input-placeholder">
+        <p className="text-xs font-semibold uppercase tracking-widest text-dim-2">
           {practiceName || 'Your Practice'}
         </p>
-        <p className="text-xs text-input-placeholder">{today}</p>
+        <p className="text-xs text-dim-2">{today}</p>
       </div>
 
       <div className="px-6 py-5 space-y-5">
         {/* Addressee */}
         <div className="space-y-0.5">
-          <p className="font-semibold text-input-text">{clientName}</p>
-          <p className="text-xs text-input-placeholder">Re: {matterSummary}</p>
+          <p className="font-semibold text-ink">{clientName}</p>
+          <p className="text-xs text-dim-2">Re: {matterSummary}</p>
         </div>
 
         {/* Body */}
         <div className="border-t border-line-subtle pt-4 space-y-2">
-          <p className="text-xs font-semibold uppercase tracking-widest text-input-placeholder">
+          <p className="text-xs font-semibold uppercase tracking-widest text-dim-2">
             Engagement Agreement
           </p>
           {contractBody ? (
             <p className="whitespace-pre-wrap text-xs leading-relaxed">{contractBody}</p>
           ) : (
-            <p className="text-xs italic text-input-placeholder">
+            <p className="text-xs italic text-dim-2">
               Complete the form to generate the engagement letter preview.
             </p>
           )}
@@ -233,10 +233,10 @@ const EngagementLetterPreview: FunctionComponent<{
         {/* Fee summary */}
         {form.billingType ? (
           <div className="rounded-lg border border-line-subtle bg-surface-overlay/30 px-4 py-3 space-y-1">
-            <p className="text-xs font-semibold uppercase tracking-widest text-input-placeholder">Fee Summary</p>
+            <p className="text-xs font-semibold uppercase tracking-widest text-dim-2">Fee Summary</p>
             <p className="text-xs">{billingSummaryLine(form)}</p>
             {form.feeNotes.trim() && (
-              <p className="text-xs text-input-placeholder">{form.feeNotes.trim()}</p>
+              <p className="text-xs text-dim-2">{form.feeNotes.trim()}</p>
             )}
           </div>
         ) : null}
@@ -245,14 +245,14 @@ const EngagementLetterPreview: FunctionComponent<{
         <div className="border-t border-line-subtle pt-4 space-y-4 text-xs">
           <div className="grid grid-cols-2 gap-6">
             <div className="space-y-1">
-              <p className="font-medium text-input-text">Client</p>
+              <p className="font-medium text-ink">Client</p>
               <div className="h-7 border-b border-dashed border-line-subtle" />
-              <p className="text-input-placeholder">Date ___________</p>
+              <p className="text-dim-2">Date ___________</p>
             </div>
             <div className="space-y-1">
-              <p className="font-medium text-input-text">Attorney</p>
+              <p className="font-medium text-ink">Attorney</p>
               <div className="h-7 border-b border-dashed border-line-subtle" />
-              <p className="text-input-placeholder">Date ___________</p>
+              <p className="text-dim-2">Date ___________</p>
             </div>
           </div>
         </div>
@@ -274,12 +274,12 @@ const SelectedIntakeCard: FunctionComponent<{
   return (
     <div className="flex items-start justify-between gap-3 rounded-lg border border-card-border bg-surface-card px-3 py-2.5">
       <div className="min-w-0 flex-1">
-        <p className="truncate font-medium text-input-text">{name}</p>
-        {email && <p className="truncate text-sm text-input-placeholder">{email}</p>}
-        {subject && <p className="mt-0.5 truncate text-xs text-input-placeholder">{subject}</p>}
+        <p className="truncate font-medium text-ink">{name}</p>
+        {email && <p className="truncate text-sm text-dim-2">{email}</p>}
+        {subject && <p className="mt-0.5 truncate text-xs text-dim-2">{subject}</p>}
         {detailLoading && (
           <div className="mt-1">
-            <LoadingSpinner size="sm" ariaLabel="Loading intake details" className="text-input-placeholder" />
+            <LoadingSpinner size="sm" ariaLabel="Loading intake details" className="text-dim-2" />
           </div>
         )}
       </div>
@@ -297,7 +297,7 @@ const SelectedIntakeCard: FunctionComponent<{
 // ── Section heading ──────────────────────────────────────────────────────────
 
 const SectionHeading: FunctionComponent<{ title: string }> = ({ title }) => (
-  <h3 className="border-b border-line-subtle pb-2 text-xs font-semibold uppercase tracking-widest text-input-placeholder">
+  <h3 className="border-b border-line-subtle pb-2 text-xs font-semibold uppercase tracking-widest text-dim-2">
     {title}
   </h3>
 );
@@ -600,7 +600,7 @@ export const CreateEngagementPage: FunctionComponent<CreateEngagementPageProps> 
             {/* Source intake */}
             <section className="space-y-3">
               <SectionHeading title="Source intake" />
-              <p className="text-xs text-input-placeholder">
+              <p className="text-xs text-dim-2">
                 Select an accepted intake — the form will pre-fill from the intake data.
               </p>
               {selectedIntake ? (
@@ -913,10 +913,10 @@ export const CreateEngagementPage: FunctionComponent<CreateEngagementPageProps> 
         {/* ── Right: live preview (xl+) ── */}
         <aside className="hidden w-[400px] shrink-0 overflow-y-auto border-l border-line-subtle p-6 xl:block">
           <div className="space-y-3">
-            <p className="text-xs font-semibold uppercase tracking-widest text-input-placeholder">
+            <p className="text-xs font-semibold uppercase tracking-widest text-dim-2">
               Client preview
             </p>
-            <p className="text-xs text-input-placeholder">
+            <p className="text-xs text-dim-2">
               This is what the client will see when they open the engagement.
             </p>
             <EngagementLetterPreview form={form} practiceName={practiceName} />

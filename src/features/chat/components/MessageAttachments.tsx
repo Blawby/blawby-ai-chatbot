@@ -115,10 +115,10 @@ const DocumentAttachment: FunctionComponent<DocumentAttachmentProps> = ({ file, 
         {getDocumentIcon(file)}
       </div>
       <div className="flex-1 min-w-0">
-        <div className="text-sm font-medium text-input-text whitespace-nowrap overflow-hidden text-ellipsis" title={file.name}>
+        <div className="text-sm font-medium text-ink whitespace-nowrap overflow-hidden text-ellipsis" title={file.name}>
           {file.name.length > 25 ? `${file.name.substring(0, 25)}...` : file.name}
         </div>
-        <div className="text-xs text-input-placeholder">{formatDocumentIconSize(file.size)}</div>
+        <div className="text-xs text-dim-2">{formatDocumentIconSize(file.size)}</div>
       </div>
     </div>
   );

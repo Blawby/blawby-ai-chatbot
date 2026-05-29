@@ -34,17 +34,17 @@ const CopyableField = ({ label, value, monospace }: CopyableFieldProps) => {
   if (!value) {
     return (
       <div className="flex items-center justify-between gap-3 text-sm">
-        <span className="text-input-placeholder">{label}</span>
-        <span className="text-input-placeholder">—</span>
+        <span className="text-dim-2">{label}</span>
+        <span className="text-dim-2">—</span>
       </div>
     );
   }
 
   return (
     <div className="flex items-center justify-between gap-3 text-sm">
-      <span className="text-input-placeholder">{label}</span>
+      <span className="text-dim-2">{label}</span>
       <div className="flex min-w-0 items-center gap-1.5">
-        <span className={monospace ? 'truncate font-mono text-xs text-input-text' : 'truncate text-input-text'}>
+        <span className={monospace ? 'truncate font-mono text-xs text-ink' : 'truncate text-ink'}>
           {value}
         </span>
         <Button
@@ -71,25 +71,25 @@ export const InvoiceDetailsSidebar = ({ detail }: InvoiceDetailsSidebarProps) =>
   return (
     <aside className="flex flex-col gap-4">
       <Panel className="rounded-2xl p-5">
-        <h3 className="mb-3 text-sm font-semibold text-input-text">Details</h3>
+        <h3 className="mb-3 text-sm font-semibold text-ink">Details</h3>
         <div className="space-y-2">
           <CopyableField label="Invoice ID" value={detail.id} monospace />
           <div className="flex items-center justify-between gap-3 text-sm">
-            <span className="text-input-placeholder">Created</span>
-            <span className="text-input-text">{dateOrDash(detail.createdAt)}</span>
+            <span className="text-dim-2">Created</span>
+            <span className="text-ink">{dateOrDash(detail.createdAt)}</span>
           </div>
           <div className="flex items-center justify-between gap-3 text-sm">
-            <span className="text-input-placeholder">Issued</span>
-            <span className="text-input-text">{dateOrDash(detail.issueDate)}</span>
+            <span className="text-dim-2">Issued</span>
+            <span className="text-ink">{dateOrDash(detail.issueDate)}</span>
           </div>
           <div className="flex items-center justify-between gap-3 text-sm">
-            <span className="text-input-placeholder">Due</span>
-            <span className="text-input-text">{dateOrDash(detail.dueDate)}</span>
+            <span className="text-dim-2">Due</span>
+            <span className="text-ink">{dateOrDash(detail.dueDate)}</span>
           </div>
           {detail.paidAt ? (
             <div className="flex items-center justify-between gap-3 text-sm">
-              <span className="text-input-placeholder">Paid</span>
-              <span className="text-input-text">{formatLongDate(detail.paidAt)}</span>
+              <span className="text-dim-2">Paid</span>
+              <span className="text-ink">{formatLongDate(detail.paidAt)}</span>
             </div>
           ) : null}
           <CopyableField label="Connected account" value={detail.connectedAccountId ?? null} monospace />
@@ -98,7 +98,7 @@ export const InvoiceDetailsSidebar = ({ detail }: InvoiceDetailsSidebarProps) =>
 
       {hasStripeData ? (
         <Panel className="rounded-2xl p-5">
-          <h3 className="mb-3 text-sm font-semibold text-input-text">Stripe</h3>
+          <h3 className="mb-3 text-sm font-semibold text-ink">Stripe</h3>
           <div className="space-y-2">
             {detail.stripeInvoiceId ? (
               <CopyableField label="Invoice ID" value={detail.stripeInvoiceId} monospace />
@@ -114,7 +114,7 @@ export const InvoiceDetailsSidebar = ({ detail }: InvoiceDetailsSidebarProps) =>
             ) : null}
             {detail.stripeHostedInvoiceUrl ? (
               <div className="flex items-center justify-between gap-3 text-sm">
-                <span className="text-input-placeholder">Hosted URL</span>
+                <span className="text-dim-2">Hosted URL</span>
                 <a
                   href={detail.stripeHostedInvoiceUrl}
                   target="_blank"
@@ -130,18 +130,18 @@ export const InvoiceDetailsSidebar = ({ detail }: InvoiceDetailsSidebarProps) =>
       ) : null}
 
       <Panel className="rounded-2xl p-5">
-        <h3 className="mb-3 text-sm font-semibold text-input-text">Metadata</h3>
+        <h3 className="mb-3 text-sm font-semibold text-ink">Metadata</h3>
         <div className="space-y-3 text-sm">
           <div>
-            <p className="text-xs text-input-placeholder">Memo</p>
-            <p className="mt-1 whitespace-pre-line text-input-text">
-              {detail.memo?.trim() || <span className="text-input-placeholder">No memo</span>}
+            <p className="text-xs text-dim-2">Memo</p>
+            <p className="mt-1 whitespace-pre-line text-ink">
+              {detail.memo?.trim() || <span className="text-dim-2">No memo</span>}
             </p>
           </div>
           <div>
-            <p className="text-xs text-input-placeholder">Notes to client</p>
-            <p className="mt-1 whitespace-pre-line text-input-text">
-              {detail.notes?.trim() || <span className="text-input-placeholder">No notes</span>}
+            <p className="text-xs text-dim-2">Notes to client</p>
+            <p className="mt-1 whitespace-pre-line text-ink">
+              {detail.notes?.trim() || <span className="text-dim-2">No notes</span>}
             </p>
           </div>
         </div>

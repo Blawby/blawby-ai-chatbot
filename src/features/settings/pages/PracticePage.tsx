@@ -93,9 +93,9 @@ const SlugField = ({
         placeholder={placeholder}
         description={description}
       />
-      <p className="mt-2 text-xs text-input-placeholder">
+      <p className="mt-2 text-xs text-dim-2">
         <span>{urlLabel}: </span>
-        <span className="font-mono text-input-text">
+        <span className="font-mono text-ink">
           {origin}/practice/<span className="text-accent-500">{previewSlug}</span>
         </span>
       </p>
@@ -420,7 +420,7 @@ export const PracticePage = ({ className, onBack }: PracticePageProps) => {
   if (!currentPractice) {
     return (
       <EditorShell title={practiceText.pageTitle} showBack={Boolean(onBack)} onBack={onBack}>
-        <p className="text-sm text-input-placeholder">{practiceText.noPracticeSelected}</p>
+        <p className="text-sm text-dim-2">{practiceText.noPracticeSelected}</p>
       </EditorShell>
     );
   }
@@ -506,7 +506,7 @@ export const PracticePage = ({ className, onBack }: PracticePageProps) => {
 
             <div className="space-y-3">
               <div>
-                <h3 className="text-sm font-semibold text-input-text">{practiceText.brandColorLabel}</h3>
+                <h3 className="text-sm font-semibold text-ink">{practiceText.brandColorLabel}</h3>
                 <div className="mt-2 flex items-center gap-3">
                   <div
                     role="img"

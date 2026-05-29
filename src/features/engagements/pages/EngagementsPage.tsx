@@ -54,9 +54,9 @@ const engagementStatusBadge = (status: EngagementStatus | string | undefined): S
     case 'draft':
       return { label: 'Draft', className: 'bg-amber-500/10 text-amber-700 ring-amber-500/20 dark:text-amber-300' };
     case 'sent':
-      return { label: 'Sent', className: 'bg-surface-overlay/60 text-input-placeholder ring-line-subtle' };
+      return { label: 'Sent', className: 'bg-surface-overlay/60 text-dim-2 ring-line-subtle' };
     default:
-      return { label: '—', className: 'bg-surface-overlay/60 text-input-placeholder ring-line-subtle' };
+      return { label: '—', className: 'bg-surface-overlay/60 text-dim-2 ring-line-subtle' };
   }
 };
 
@@ -109,8 +109,8 @@ const EngagementMobileCard: FunctionComponent<{
   const retainer = getRetainerLabel(item.proposal_data?.fees);
 
   const rows: ReadonlyArray<{ label: string; value: ComponentChildren }> = [
-    { label: 'Matter',   value: <span className="text-input-placeholder break-words">{matter}</span> },
-    { label: 'Retainer', value: <span className="font-medium text-input-text tabular-nums">{retainer}</span> },
+    { label: 'Matter',   value: <span className="text-dim-2 break-words">{matter}</span> },
+    { label: 'Retainer', value: <span className="font-medium text-ink tabular-nums">{retainer}</span> },
   ];
 
   return (
@@ -120,13 +120,13 @@ const EngagementMobileCard: FunctionComponent<{
       className="w-full rounded-xl border border-card-border bg-surface-card px-4 py-3 text-left transition-colors hover:bg-surface-card-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/40"
     >
       <div className="flex items-start justify-between gap-3 pb-3">
-        <span className="font-semibold text-input-text break-words">{name}</span>
+        <span className="font-semibold text-ink break-words">{name}</span>
         <StatusPill status={item.status} />
       </div>
       <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-2 text-sm">
         {rows.map(({ label, value }) => (
           <div key={label} className="contents">
-            <dt className="text-xs font-medium uppercase tracking-wide text-input-placeholder">{label}</dt>
+            <dt className="text-xs font-medium uppercase tracking-wide text-dim-2">{label}</dt>
             <dd className="text-right">{value}</dd>
           </div>
         ))}
@@ -261,7 +261,7 @@ export const EngagementsPage: FunctionComponent<EngagementsPageProps> = ({
 
   // ── Table column + row construction ────────────────────────────────────────
 
-  const headerCellClass = 'text-xs font-semibold uppercase tracking-wide text-input-placeholder';
+  const headerCellClass = 'text-xs font-semibold uppercase tracking-wide text-dim-2';
   const columns: DataTableColumn[] = [
     { id: 'client',   label: 'Client',   isPrimary: true, headerClassName: headerCellClass },
     { id: 'matter',   label: 'Matter',   headerClassName: headerCellClass },
@@ -275,12 +275,12 @@ export const EngagementsPage: FunctionComponent<EngagementsPageProps> = ({
     id: item.id,
     onClick: () => handleSelectEngagement(item),
     cells: {
-      client:   <span className="truncate font-medium text-input-text">{item.client_name || 'Unknown Client'}</span>,
-      matter:   <span className="truncate text-input-placeholder">{getMatterLabel(item)}</span>,
-      billing:  <span className="text-input-placeholder">{getBillingLabel(item.proposal_data?.fees)}</span>,
+      client:   <span className="truncate font-medium text-ink">{item.client_name || 'Unknown Client'}</span>,
+      matter:   <span className="truncate text-dim-2">{getMatterLabel(item)}</span>,
+      billing:  <span className="text-dim-2">{getBillingLabel(item.proposal_data?.fees)}</span>,
       status:   <StatusPill status={item.status} />,
-      sent:     <span className="text-input-placeholder tabular-nums">{item.sent_at ? formatRelativeTime(item.sent_at) : '—'}</span>,
-      retainer: <span className="font-medium text-input-text tabular-nums">{getRetainerLabel(item.proposal_data?.fees)}</span>,
+      sent:     <span className="text-dim-2 tabular-nums">{item.sent_at ? formatRelativeTime(item.sent_at) : '—'}</span>,
+      retainer: <span className="font-medium text-ink tabular-nums">{getRetainerLabel(item.proposal_data?.fees)}</span>,
     },
   }));
 

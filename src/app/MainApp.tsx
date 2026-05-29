@@ -653,7 +653,7 @@ export function MainApp({
         {conversationHeaderEmail ? (
           <a
             href={`mailto:${conversationHeaderEmail}`}
-            className="inline-flex min-w-0 items-center gap-1.5 truncate hover:text-input-text"
+            className="inline-flex min-w-0 items-center gap-1.5 truncate hover:text-ink"
           >
             <Icon icon={Mail} className="h-3.5 w-3.5 shrink-0" />
             <span className="truncate">{conversationHeaderEmail}</span>
@@ -662,7 +662,7 @@ export function MainApp({
         {conversationHeaderPhone ? (
           <a
             href={`tel:${conversationHeaderPhone.replace(/[^0-9+]/g, '')}`}
-            className="inline-flex min-w-0 items-center gap-1.5 truncate hover:text-input-text"
+            className="inline-flex min-w-0 items-center gap-1.5 truncate hover:text-ink"
           >
             <Icon icon={Phone} className="h-3.5 w-3.5 shrink-0" />
             <span className="truncate">{conversationHeaderPhone}</span>
@@ -767,7 +767,7 @@ export function MainApp({
   const chatPanel = chatContent ?? (
     <div className="relative flex min-h-0 flex-1 flex-col">
       {shouldShowChatPlaceholder ? (
-        <div className="flex-1 flex items-center justify-center text-sm text-input-placeholder">
+        <div className="flex-1 flex items-center justify-center text-sm text-dim-2">
           {isPracticeWorkspace
             ? 'Select a conversation to view the thread.'
             : 'Open a practice link to start chatting.'}

@@ -70,8 +70,8 @@ export const MatterMessagesPanel = ({ matter, practiceId, conversationBasePath }
     <section className="panel overflow-hidden">
       <header className="flex flex-wrap items-center justify-between gap-3 border-b border-line-subtle px-6 py-4">
         <div>
-          <p className="text-xs font-medium text-input-placeholder">Linked conversations</p>
-          <h3 className="text-base font-semibold text-input-text">{matter.title}</h3>
+          <p className="text-xs font-medium text-dim-2">Linked conversations</p>
+          <h3 className="text-base font-semibold text-ink">{matter.title}</h3>
         </div>
         <Button
           variant="secondary"
@@ -89,7 +89,7 @@ export const MatterMessagesPanel = ({ matter, practiceId, conversationBasePath }
           <div className="text-sm text-red-600 dark:text-red-400">{error}</div>
         )}
         {!loading && !error && sortedConversations.length === 0 && (
-          <div className="text-sm text-input-placeholder">
+          <div className="text-sm text-dim-2">
             No conversations are linked to this matter yet.
           </div>
         )}
@@ -98,17 +98,17 @@ export const MatterMessagesPanel = ({ matter, practiceId, conversationBasePath }
             {sortedConversations.map((conversation) => (
               <div key={conversation.id} className="py-4 flex flex-wrap items-center justify-between gap-4">
                 <div>
-                  <p className="text-sm font-medium text-input-text">
+                  <p className="text-sm font-medium text-ink">
                     Conversation {conversation.id.slice(0, 8)}
                   </p>
-                  <p className="text-xs text-input-placeholder">
+                  <p className="text-xs text-dim-2">
                     {conversation.last_message_at
                       ? `Last message ${formatRelativeTime(conversation.last_message_at)}`
                       : 'No messages yet'}
                   </p>
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className="text-xs uppercase tracking-wide text-input-placeholder">
+                  <span className="text-xs uppercase tracking-wide text-dim-2">
                     {conversation.status ?? 'active'}
                   </span>
                   <Button

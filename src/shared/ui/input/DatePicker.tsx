@@ -113,7 +113,7 @@ export const DatePicker = forwardRef<HTMLInputElement, DatePickerProps>(({
   };
 
   const inputClasses = cn(
-    'w-full min-h-[44px] rounded-xl text-input-text placeholder:text-input-placeholder',
+    'w-full min-h-[44px] rounded-xl text-ink placeholder:text-dim-2',
     'focus:outline-none transition-all duration-200',
     'appearance-none input-surface border-none',
     sizeClasses[size],
@@ -125,7 +125,7 @@ export const DatePicker = forwardRef<HTMLInputElement, DatePickerProps>(({
   return (
     <div className="w-full">
       {displayLabel && (
-        <label htmlFor={inputId} className="block text-sm font-medium text-input-text mb-1">
+        <label htmlFor={inputId} className="block text-sm font-medium text-ink mb-1">
           {displayLabel}
           {required && <span className="text-red-500 ml-1">*</span>}
         </label>
@@ -169,7 +169,7 @@ export const DatePicker = forwardRef<HTMLInputElement, DatePickerProps>(({
       )}
       
       {displayDescription && !_displayError && (
-        <p id={descriptionId} className="text-xs text-input-placeholder mt-1">
+        <p id={descriptionId} className="text-xs text-dim-2 mt-1">
           {displayDescription}
         </p>
       )}

@@ -138,8 +138,8 @@ const OperationalNextStepCard = ({
       bodyGap="sm"
     >
       <div className="space-y-2">
-        <p className="text-sm font-semibold text-input-text">{title}</p>
-        <p className="text-[13px] leading-5 text-input-placeholder">{body}</p>
+        <p className="text-sm font-semibold text-ink">{title}</p>
+        <p className="text-[13px] leading-5 text-dim-2">{body}</p>
         {engagementError && !engagement ? (
           <p className="text-xs text-amber-300">
             Engagement unavailable.{' '}
@@ -148,9 +148,9 @@ const OperationalNextStepCard = ({
             </button>
           </p>
         ) : null}
-        {engagementLoading && !engagement ? <p className="text-xs text-input-placeholder">Checking engagement status...</p> : null}
+        {engagementLoading && !engagement ? <p className="text-xs text-dim-2">Checking engagement status...</p> : null}
         {nextTask ? (
-          <p className="text-xs text-input-placeholder">Next open task: <span className="text-input-text">{nextTask.name}</span></p>
+          <p className="text-xs text-dim-2">Next open task: <span className="text-ink">{nextTask.name}</span></p>
         ) : null}
       </div>
       <div className="flex flex-wrap gap-2">
@@ -203,7 +203,7 @@ const EngagementStatusCard = ({
         <LoadingBlock label="Loading engagement" />
       ) : engagementError && !engagement ? (
         <div className="space-y-1">
-          <p className="text-[13px] text-input-text">Engagement unavailable</p>
+          <p className="text-[13px] text-ink">Engagement unavailable</p>
           <p className="text-[12px] text-amber-300">
             <button type="button" className="underline" onClick={onEngagementRetry}>
               Retry
@@ -212,11 +212,11 @@ const EngagementStatusCard = ({
         </div>
       ) : engagement ? (
         <div className="space-y-1">
-          <p className="text-[13px] text-input-text">
+          <p className="text-[13px] text-ink">
             {engagement?.title?.trim() || 'Standard Legal Services Agreement'}
           </p>
           {summaryParts.length > 0 ? (
-            <p className="text-[13px] text-input-placeholder">{summaryParts.join(' · ')}</p>
+            <p className="text-[13px] text-dim-2">{summaryParts.join(' · ')}</p>
           ) : null}
         </div>
       ) : null}
@@ -256,10 +256,10 @@ const OpenTasksCard = ({
     <InfoCard
       icon={ListChecks}
       title="Open tasks"
-      trailing={<span className="text-[13px] text-input-placeholder">{openTasks.length} {openTasks.length === 1 ? 'task' : 'tasks'}</span>}
+      trailing={<span className="text-[13px] text-dim-2">{openTasks.length} {openTasks.length === 1 ? 'task' : 'tasks'}</span>}
     >
       {visibleTasks.length === 0 ? (
-        <p className="text-[13px] text-input-placeholder">No open tasks.</p>
+        <p className="text-[13px] text-dim-2">No open tasks.</p>
       ) : (
         <ul className="flex flex-col divide-y divide-card-border">
           {visibleTasks.map((task) => (
@@ -273,11 +273,11 @@ const OpenTasksCard = ({
                   {task.status === 'in_progress' ? (
                     <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-400" aria-hidden="true" />
                   ) : (
-                    <Circle className="h-4 w-4 shrink-0 text-input-placeholder" aria-hidden="true" />
+                    <Circle className="h-4 w-4 shrink-0 text-dim-2" aria-hidden="true" />
                   )}
-                  <span className="truncate text-[13px] text-input-text">{task.name}</span>
+                  <span className="truncate text-[13px] text-ink">{task.name}</span>
                 </span>
-                <span className="shrink-0 text-[13px] tabular-nums text-input-placeholder">
+                <span className="shrink-0 text-[13px] tabular-nums text-dim-2">
                   {formatDueDate(task.dueDate)}
                 </span>
               </button>
@@ -324,7 +324,7 @@ const RecentActivityCard = ({
       {activityLoading && timelineItems.length === 0 ? (
         <LoadingBlock label="Loading activity" />
       ) : activityError && timelineItems.length === 0 ? (
-        <p className="text-[13px] text-input-placeholder">
+        <p className="text-[13px] text-dim-2">
           Could not load activity.{' '}
           <button type="button" className="underline" onClick={onActivityRetry}>
             Retry
@@ -337,7 +337,7 @@ const RecentActivityCard = ({
         />
       )}
       {timelineItems.length === 0 && !activityLoading && !activityError ? (
-        <p className="text-[13px] text-input-placeholder">No recent activity.</p>
+        <p className="text-[13px] text-dim-2">No recent activity.</p>
       ) : null}
       {hasMore || timelineItems.length > 0 ? (
         <button
@@ -375,7 +375,7 @@ const MatterSummaryCard = ({
     <DetailRow label="Court" value={detail.court} />
     <DetailRow label="Responsible" value={responsibleAttorneyLabel} />
     <DetailRow label="Assigned" value={assigneeLabel} />
-    {clientEmail ? <p className="break-all text-xs text-input-placeholder">{clientEmail}</p> : null}
+    {clientEmail ? <p className="break-all text-xs text-dim-2">{clientEmail}</p> : null}
     {onOpenClient ? (
       <Button
         variant="outline"
@@ -405,10 +405,10 @@ const BillingCard = ({
   const hasBillableTime = !weeklyHoursLabel.startsWith('0:00');
   return (
     <InfoCard icon={DollarSign} title="Billing" bodyGap="sm">
-      <p className="text-[22px] font-bold leading-tight text-input-text">
-        {weeklyHoursLabel} <span className="text-[13px] font-normal text-input-placeholder">this week</span>
+      <p className="text-[22px] font-bold leading-tight text-ink">
+        {weeklyHoursLabel} <span className="text-[13px] font-normal text-dim-2">this week</span>
       </p>
-      <p className="text-[13px] text-input-placeholder">{hasBillableTime ? 'Billable time is ready to review.' : 'No billable time yet.'}</p>
+      <p className="text-[13px] text-dim-2">{hasBillableTime ? 'Billable time is ready to review.' : 'No billable time yet.'}</p>
       <DetailRow label="Attorney" value={attorneyRateLabel} />
       <DetailRow label="Admin" value={adminRateLabel} />
       <Button variant={hasBillableTime ? 'primary' : 'secondary'} size="sm" onClick={hasBillableTime ? onCreateInvoice : onLogTime} className="w-full justify-center">
@@ -433,7 +433,7 @@ const RecentFilesCard = ({
   onViewFiles: () => void;
 }) => (
   <InfoCard icon={FolderIcon} title="Recent files" bodyGap="sm">
-    <p className="text-[13px] text-input-placeholder">No files uploaded yet.</p>
+    <p className="text-[13px] text-dim-2">No files uploaded yet.</p>
     <Button
       variant="outline"
       size="sm"

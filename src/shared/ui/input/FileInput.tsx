@@ -147,7 +147,7 @@ export const FileInput = forwardRef<HTMLInputElement, FileInputProps>(({
   return (
     <div className="w-full">
       {displayLabel && (
-        <label htmlFor={inputId} className="block text-sm font-medium text-input-text mb-1">
+        <label htmlFor={inputId} className="block text-sm font-medium text-ink mb-1">
           {displayLabel}
           {required && <span className="text-red-500 ml-1">*</span>}
         </label>
@@ -186,7 +186,7 @@ export const FileInput = forwardRef<HTMLInputElement, FileInputProps>(({
         
         <div className="p-6 text-center">
           <svg
-            className="mx-auto h-12 w-12 text-input-placeholder"
+            className="mx-auto h-12 w-12 text-dim-2"
             stroke="currentColor"
             fill="none"
             viewBox="0 0 48 48"
@@ -200,14 +200,14 @@ export const FileInput = forwardRef<HTMLInputElement, FileInputProps>(({
           </svg>
           
           <div className="mt-4">
-            <p className="text-sm text-input-placeholder">
+            <p className="text-sm text-dim-2">
               <span className="font-medium text-accent-600 dark:text-accent-400">
                 Click to upload
               </span>
               {' '}or drag and drop
             </p>
             {accept && showAcceptText && (
-              <p className="text-xs text-input-placeholder mt-1">
+              <p className="text-xs text-dim-2 mt-1">
                 {accept}
               </p>
             )}
@@ -220,10 +220,10 @@ export const FileInput = forwardRef<HTMLInputElement, FileInputProps>(({
           {files.map((file, index) => (
             <div key={index} className="input-surface flex items-center justify-between p-2 rounded">
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-input-text truncate">
+                <p className="text-sm font-medium text-ink truncate">
                   {file.name}
                 </p>
-                <p className="text-xs text-input-placeholder">
+                <p className="text-xs text-dim-2">
                   {formatFileSize(file.size)}
                 </p>
               </div>
@@ -253,7 +253,7 @@ export const FileInput = forwardRef<HTMLInputElement, FileInputProps>(({
       )}
       
       {displayDescription && (
-        <p id={descriptionId} className="text-xs text-input-placeholder mt-1">
+        <p id={descriptionId} className="text-xs text-dim-2 mt-1">
           {displayDescription}
         </p>
       )}

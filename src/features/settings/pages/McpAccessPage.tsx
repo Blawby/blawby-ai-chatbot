@@ -37,11 +37,11 @@ export const McpAccessPage = ({ app, onBack }: McpAccessPageProps) => {
                   {app.logo ? (
                     <img src={app.logo} alt={`${app.name} logo`} className="h-full w-full object-cover" loading="lazy" />
                   ) : (
-                    <Icon icon={Plug} className="h-8 w-8 text-input-text/80" aria-hidden="true" />
+                    <Icon icon={Plug} className="h-8 w-8 text-ink/80" aria-hidden="true" />
                   )}
                 </div>
                 <div className="flex items-center gap-2">
-                  <h2 className="text-2xl font-bold text-input-text">{app.name}</h2>
+                  <h2 className="text-2xl font-bold text-ink">{app.name}</h2>
                   <SettingsBadge variant="info">Not connected</SettingsBadge>
                 </div>
               </div>
@@ -69,13 +69,13 @@ export const McpAccessPage = ({ app, onBack }: McpAccessPageProps) => {
             label="Server URL"
             labelNode={(
               <div className="flex items-center gap-3">
-                <Icon icon={Server} className="h-5 w-5 text-input-placeholder" aria-hidden="true" />
-                <span className="text-sm font-medium text-input-text">Server URL</span>
+                <Icon icon={Server} className="h-5 w-5 text-dim-2" aria-hidden="true" />
+                <span className="text-sm font-medium text-ink">Server URL</span>
               </div>
             )}
             description="Provided by the backend once MCP server access is available."
           >
-            <span className="text-sm text-input-placeholder">Not available yet</span>
+            <span className="text-sm text-dim-2">Not available yet</span>
           </SettingRow>
         </SettingSection>
 
@@ -88,19 +88,19 @@ export const McpAccessPage = ({ app, onBack }: McpAccessPageProps) => {
           <div className="space-y-6">
             {scopeGroups.map((group) => (
               <div key={group.category} className="space-y-3">
-                <h4 className="text-xs font-semibold uppercase tracking-wide text-input-placeholder">
+                <h4 className="text-xs font-semibold uppercase tracking-wide text-dim-2">
                   {group.label}
                 </h4>
                 <div className="space-y-3">
                   {group.scopes.map((scope) => (
                     <div key={scope.id} className="space-y-1">
                       <div className="flex items-center gap-2">
-                        <span className="text-sm font-medium text-input-text">{scope.title}</span>
-                        <code className="rounded bg-surface-utility/10 px-1.5 py-0.5 font-mono text-xs text-input-placeholder">
+                        <span className="text-sm font-medium text-ink">{scope.title}</span>
+                        <code className="rounded bg-surface-utility/10 px-1.5 py-0.5 font-mono text-xs text-dim-2">
                           {scope.id}
                         </code>
                       </div>
-                      <p className="text-sm text-input-placeholder">{scope.description}</p>
+                      <p className="text-sm text-dim-2">{scope.description}</p>
                     </div>
                   ))}
                 </div>

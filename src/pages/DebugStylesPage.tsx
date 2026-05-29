@@ -75,50 +75,50 @@ export default function DebugStylesPage() {
   return (
     <main className="mx-auto max-w-6xl space-y-8 p-6">
       <header className="space-y-2">
-        <h1 className="text-2xl font-semibold text-input-text">Debug Style Reference</h1>
-        <p className="text-sm text-input-placeholder">
+        <h1 className="text-2xl font-semibold text-ink">Debug Style Reference</h1>
+        <p className="text-sm text-dim-2">
           Dev-only style inventory for button variants, surfaces, and nav state tokens.
         </p>
       </header>
 
       <section className="space-y-4">
-        <h2 className="text-xs font-semibold uppercase tracking-widest text-input-placeholder">Surfaces</h2>
-        <p className="text-sm text-input-placeholder">
+        <h2 className="text-xs font-semibold uppercase tracking-widest text-dim-2">Surfaces</h2>
+        <p className="text-sm text-dim-2">
           Use <code>card</code>, <code>panel</code>, or <code>input-surface</code>. The <code>glass-*</code> names are deprecated aliases and must not be used in new code.
         </p>
         <div className="grid gap-4 md:grid-cols-3">
           <div className="card p-4">
-            <p className="font-medium text-input-text">card</p>
-            <p className="text-sm text-input-placeholder">Content cards. <code>bg-surface-card</code>, <code>border-subtle</code>, <code>rounded-2xl</code>.</p>
+            <p className="font-medium text-ink">card</p>
+            <p className="text-sm text-dim-2">Content cards. <code>bg-surface-card</code>, <code>border-subtle</code>, <code>rounded-2xl</code>.</p>
           </div>
           <div className="panel p-4">
-            <p className="font-medium text-input-text">panel</p>
-            <p className="text-sm text-input-placeholder">Section containers. <code>bg-surface-section</code>, <code>border-subtle</code>, <code>rounded-2xl</code>.</p>
+            <p className="font-medium text-ink">panel</p>
+            <p className="text-sm text-dim-2">Section containers. <code>bg-surface-section</code>, <code>border-subtle</code>, <code>rounded-2xl</code>.</p>
           </div>
           <div className="input-surface rounded-xl p-4">
-            <p className="font-medium text-input-text">input-surface</p>
-            <p className="text-sm text-input-placeholder">Input backgrounds. <code>bg-surface-input</code>, <code>border-subtle</code>, <code>rounded-xl</code>.</p>
+            <p className="font-medium text-ink">input-surface</p>
+            <p className="text-sm text-dim-2">Input backgrounds. <code>bg-surface-input</code>, <code>border-subtle</code>, <code>rounded-xl</code>.</p>
           </div>
         </div>
       </section>
 
       <section className="space-y-4 pt-4">
-        <h2 className="text-xs font-semibold uppercase tracking-widest text-input-placeholder">Buttons</h2>
-        <p className="text-sm text-input-placeholder">
+        <h2 className="text-xs font-semibold uppercase tracking-widest text-dim-2">Buttons</h2>
+        <p className="text-sm text-dim-2">
           `menu-item` and `tab` are intentionally subtle and can look similar; use them by behavior/context, not for visual emphasis.
         </p>
         <div className="grid gap-3 md:grid-cols-2">
           {buttonVariants.map((variant) => (
             <div key={variant} className="panel flex items-center gap-3 rounded-xl p-3">
               <Button variant={variant}>{variant}</Button>
-              <code className="text-xs text-input-placeholder">variant=&quot;{variant}&quot;</code>
+              <code className="text-xs text-dim-2">variant=&quot;{variant}&quot;</code>
             </div>
           ))}
         </div>
       </section>
 
       <section className="space-y-4 pt-4">
-        <h2 className="text-xs font-semibold uppercase tracking-widest text-input-placeholder">Button Sizes</h2>
+        <h2 className="text-xs font-semibold uppercase tracking-widest text-dim-2">Button Sizes</h2>
         <div className="panel flex flex-wrap items-center gap-3 rounded-xl p-3">
           {buttonSizes.map((size) => (
             <Button key={size} size={size} variant="secondary">
@@ -130,14 +130,14 @@ export default function DebugStylesPage() {
               <Button size={iconSize} variant="icon" aria-label={`${iconSize} sample`}>
                 +
               </Button>
-              <code className="text-xs text-input-placeholder">{iconSize}</code>
+              <code className="text-xs text-dim-2">{iconSize}</code>
             </div>
           ))}
         </div>
       </section>
 
       <section className="space-y-4 pt-4">
-        <h2 className="text-xs font-semibold uppercase tracking-widest text-input-placeholder">Nav State Tokens</h2>
+        <h2 className="text-xs font-semibold uppercase tracking-widest text-dim-2">Nav State Tokens</h2>
         <div className="grid gap-3 md:grid-cols-2">
           <button type="button" className="nav-item-active rounded-xl px-3 py-2 text-left">
             Active nav item (`nav-item-active`)
@@ -149,8 +149,8 @@ export default function DebugStylesPage() {
       </section>
 
       <section className="space-y-4 pt-4">
-        <h2 className="text-xs font-semibold uppercase tracking-widest text-input-placeholder">Status Utilities</h2>
-        <p className="text-sm text-input-placeholder">
+        <h2 className="text-xs font-semibold uppercase tracking-widest text-dim-2">Status Utilities</h2>
+        <p className="text-sm text-dim-2">
           Semantic status banners for inline feedback. Uses `rounded-xl`.
         </p>
         <div className="grid gap-4 md:grid-cols-2">
@@ -174,8 +174,8 @@ export default function DebugStylesPage() {
       </section>
 
       <section className="space-y-4 pt-4">
-        <h2 className="text-xs font-semibold uppercase tracking-widest text-input-placeholder">Dynamic Foreground</h2>
-        <p className="text-sm text-input-placeholder">
+        <h2 className="text-xs font-semibold uppercase tracking-widest text-dim-2">Dynamic Foreground</h2>
+        <p className="text-sm text-dim-2">
           Accent-colored surfaces should use `text-[rgb(var(--accent-foreground))]` for contrast-safe text/icons.
         </p>
         <div className="grid gap-4 md:grid-cols-2">
@@ -191,14 +191,14 @@ export default function DebugStylesPage() {
       </section>
 
       <section className="space-y-4 pt-4">
-        <h2 className="text-xs font-semibold uppercase tracking-widest text-input-placeholder">Input States</h2>
-        <p className="text-sm text-input-placeholder">
+        <h2 className="text-xs font-semibold uppercase tracking-widest text-dim-2">Input States</h2>
+        <p className="text-sm text-dim-2">
           Status is communicated through colored rings on the <code>input-surface</code> base.
         </p>
         <div className="grid gap-4 md:grid-cols-2">
           <div className="panel rounded-xl p-4 space-y-4">
             <div className="space-y-1">
-              <label htmlFor="defaultInput" className="text-xs font-medium text-input-placeholder">Default / Focus</label>
+              <label htmlFor="defaultInput" className="text-xs font-medium text-dim-2">Default / Focus</label>
               <input
                 id="defaultInput"
                 className="input-surface w-full rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-accent-500/30"
@@ -206,7 +206,7 @@ export default function DebugStylesPage() {
               />
             </div>
             <div className="space-y-1">
-              <label htmlFor="errorInput" className="text-xs font-medium text-input-placeholder">Error</label>
+              <label htmlFor="errorInput" className="text-xs font-medium text-dim-2">Error</label>
               <input
                 id="errorInput"
                 className="input-surface w-full rounded-xl px-3 py-2 text-sm ring-2 ring-accent-error/40 focus:ring-accent-error/60"
@@ -216,7 +216,7 @@ export default function DebugStylesPage() {
           </div>
           <div className="panel rounded-xl p-4 space-y-4">
             <div className="space-y-1">
-              <label htmlFor="successInput" className="text-xs font-medium text-input-placeholder">Success</label>
+              <label htmlFor="successInput" className="text-xs font-medium text-dim-2">Success</label>
               <input
                 id="successInput"
                 className="input-surface w-full rounded-xl px-3 py-2 text-sm ring-2 ring-accent-success/40 focus:ring-accent-success/60"
@@ -224,7 +224,7 @@ export default function DebugStylesPage() {
               />
             </div>
             <div className="space-y-1">
-              <label htmlFor="disabledInput" className="text-xs font-medium text-input-placeholder">Disabled</label>
+              <label htmlFor="disabledInput" className="text-xs font-medium text-dim-2">Disabled</label>
               <input
                 id="disabledInput"
                 disabled
@@ -236,9 +236,9 @@ export default function DebugStylesPage() {
         </div>
       </section>
 
-      <section className="space-y-4 pt-4 text-input-text">
-        <h2 className="text-xs font-semibold uppercase tracking-widest text-input-placeholder">Inputs</h2>
-        <p className="text-sm text-input-placeholder">
+      <section className="space-y-4 pt-4 text-ink">
+        <h2 className="text-xs font-semibold uppercase tracking-widest text-dim-2">Inputs</h2>
+        <p className="text-sm text-dim-2">
           Height baseline should align with Combobox for `md` controls.
         </p>
         <div className="grid gap-4 md:grid-cols-2">
@@ -287,8 +287,8 @@ export default function DebugStylesPage() {
       </section>
 
       <section className="space-y-4 pt-4">
-        <h2 className="text-xs font-semibold uppercase tracking-widest text-input-placeholder">Combobox Modes</h2>
-        <p className="text-sm text-input-placeholder">
+        <h2 className="text-xs font-semibold uppercase tracking-widest text-dim-2">Combobox Modes</h2>
+        <p className="text-sm text-dim-2">
           One component, four modes. `multiple` and `allowCustomValues` toggle behavior; this is not a separate component.
         </p>
         <div className="grid gap-4 md:grid-cols-2 overflow-visible">
@@ -308,7 +308,7 @@ export default function DebugStylesPage() {
               options={comboboxOptions}
               value={comboboxValue}
               onChange={setComboboxValue}
-              leading={renderUserAvatar({ name: 'Demo User' }, 'xs', 'h-4 w-4 text-input-placeholder')}
+              leading={renderUserAvatar({ name: 'Demo User' }, 'xs', 'h-4 w-4 text-dim-2')}
             />
           </div>
           <div className="panel relative z-30 rounded-xl p-4 overflow-visible">
@@ -320,7 +320,7 @@ export default function DebugStylesPage() {
               onChange={setComboboxMultiOnlyValue}
               multiple
               searchable={false}
-              leading={renderUserAvatar({ name: 'Demo User' }, 'xs', 'h-4 w-4 text-input-placeholder')}
+              leading={renderUserAvatar({ name: 'Demo User' }, 'xs', 'h-4 w-4 text-dim-2')}
             />
           </div>
           <div className="panel relative z-30 rounded-xl p-4 overflow-visible">
@@ -332,15 +332,15 @@ export default function DebugStylesPage() {
               onChange={setComboboxMultiValue}
               multiple
               allowCustomValues
-              leading={renderUserAvatar({ name: 'Demo User' }, 'xs', 'h-4 w-4 text-input-placeholder')}
+              leading={renderUserAvatar({ name: 'Demo User' }, 'xs', 'h-4 w-4 text-dim-2')}
             />
           </div>
         </div>
       </section>
 
       <section className="space-y-4 pt-4">
-        <h2 className="text-xs font-semibold uppercase tracking-widest text-input-placeholder">Avatar Sizes &amp; Status</h2>
-        <p className="text-sm text-input-placeholder">
+        <h2 className="text-xs font-semibold uppercase tracking-widest text-dim-2">Avatar Sizes &amp; Status</h2>
+        <p className="text-sm text-dim-2">
           Five sizes (<code>xs sm md lg xl</code>) with optional <code>status</code> dot (<code>active</code> = emerald, <code>inactive</code> = amber).
           Image falls back to initials extracted from <code>name</code>.
         </p>
@@ -349,51 +349,51 @@ export default function DebugStylesPage() {
             {(['xs', 'sm', 'md', 'lg', 'xl'] as const).map((size) => (
               <div key={size} className="flex flex-col items-center gap-2">
                 <Avatar name="Alice Chen" size={size} status="active" />
-                <code className="text-[10px] text-input-placeholder">{size} / active</code>
+                <code className="text-[10px] text-dim-2">{size} / active</code>
               </div>
             ))}
             {(['xs', 'sm', 'md', 'lg', 'xl'] as const).map((size) => (
               <div key={`${size}-inactive`} className="flex flex-col items-center gap-2">
                 <Avatar name="Bob Ramirez" size={size} status="inactive" />
-                <code className="text-[10px] text-input-placeholder">{size} / inactive</code>
+                <code className="text-[10px] text-dim-2">{size} / inactive</code>
               </div>
             ))}
             <div className="flex flex-col items-center gap-2">
               <Avatar name="No Status" size="md" />
-              <code className="text-[10px] text-input-placeholder">md / none</code>
+              <code className="text-[10px] text-dim-2">md / none</code>
             </div>
           </div>
         </div>
       </section>
 
       <section className="space-y-4 pt-4">
-        <h2 className="text-xs font-semibold uppercase tracking-widest text-input-placeholder">StackedAvatars</h2>
-        <p className="text-sm text-input-placeholder">
+        <h2 className="text-xs font-semibold uppercase tracking-widest text-dim-2">StackedAvatars</h2>
+        <p className="text-sm text-dim-2">
           Pass a <code>users</code> array and a <code>max</code> cap. Overflow renders a <code>+N</code> badge using the <code>input-surface</code> surface.
         </p>
         <div className="panel rounded-xl p-4 flex flex-wrap items-center gap-8">
           <div className="flex flex-col gap-1">
             <StackedAvatars users={sampleUsers} size="sm" max={3} />
-            <code className="text-[10px] text-input-placeholder">size=sm max=3</code>
+            <code className="text-[10px] text-dim-2">size=sm max=3</code>
           </div>
           <div className="flex flex-col gap-1">
             <StackedAvatars users={sampleUsers} size="md" max={4} />
-            <code className="text-[10px] text-input-placeholder">size=md max=4</code>
+            <code className="text-[10px] text-dim-2">size=md max=4</code>
           </div>
           <div className="flex flex-col gap-1">
             <StackedAvatars users={sampleUsers} size="lg" max={2} />
-            <code className="text-[10px] text-input-placeholder">size=lg max=2</code>
+            <code className="text-[10px] text-dim-2">size=lg max=2</code>
           </div>
           <div className="flex flex-col gap-1">
             <StackedAvatars users={sampleUsers} size="md" max={10} showOverflow={false} />
-            <code className="text-[10px] text-input-placeholder">showOverflow=false</code>
+            <code className="text-[10px] text-dim-2">showOverflow=false</code>
           </div>
         </div>
       </section>
 
       <section className="space-y-4 pt-4">
-        <h2 className="text-xs font-semibold uppercase tracking-widest text-input-placeholder">UserCard</h2>
-        <p className="text-sm text-input-placeholder">
+        <h2 className="text-xs font-semibold uppercase tracking-widest text-dim-2">UserCard</h2>
+        <p className="text-sm text-dim-2">
           Combines Avatar + identity lines + optional <code>badge</code> pill + optional <code>trailing</code> action slot.
           Pass <code>onClick</code> to make it a button (adds hover + focus ring).
         </p>

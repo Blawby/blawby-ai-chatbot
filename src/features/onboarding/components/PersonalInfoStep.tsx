@@ -65,10 +65,10 @@ const PersonalInfoStep = ({
           <Logo size="lg" />
         </div>
 
-        <h2 className="mt-6 text-center text-2xl font-semibold tracking-tight text-input-text">
+        <h2 className="mt-6 text-center text-2xl font-semibold tracking-tight text-ink">
           {t('onboarding.step1.title')}
         </h2>
-        <p className="mt-2 text-center text-sm text-input-placeholder">
+        <p className="mt-2 text-center text-sm text-dim-2">
           {t('onboarding.step1.subtitle')}
         </p>
       </div>
@@ -97,7 +97,7 @@ const PersonalInfoStep = ({
                           onChange={(value) => onChange(value)}
                           placeholder={t('onboarding.step1.fullNamePlaceholder')}
                           icon={User}
-                          iconClassName="h-5 w-5 text-input-placeholder"
+                          iconClassName="h-5 w-5 text-dim-2"
                           error={error?.message}
                         />
                       </FormControl>

@@ -358,8 +358,8 @@ type StatPillProps = {
 function _StatPill({ label, value }: StatPillProps) {
   return (
     <div className="rounded-xl border border-line-subtle bg-surface-card px-3 py-2">
-      <p className="text-lg font-semibold text-input-text">{value}</p>
-      <p className="text-xs text-input-placeholder">{label}</p>
+      <p className="text-lg font-semibold text-ink">{value}</p>
+      <p className="text-xs text-dim-2">{label}</p>
     </div>
   );
 }
@@ -396,7 +396,7 @@ function useIsDesktop(breakpointPx = 768): boolean {
 
 function SectionHeaderLabel({ children }: { children: string }) {
   return (
-    <p className="px-1 text-[11px] font-semibold uppercase tracking-wider text-input-placeholder">
+    <p className="px-1 text-[11px] font-semibold uppercase tracking-wider text-dim-2">
       {children}
     </p>
   );
@@ -434,9 +434,9 @@ function SectionCard({ number, icon, title, badge, isActive, isOpen, onToggle, o
           }}
           className="flex min-w-0 flex-1 items-center gap-2 text-left"
         >
-          <span className="font-mono text-xs text-input-placeholder">{number}.</span>
-          <span className="text-input-placeholder">{icon}</span>
-          <span className="truncate text-sm font-medium text-input-text">{title}</span>
+          <span className="font-mono text-xs text-dim-2">{number}.</span>
+          <span className="text-dim-2">{icon}</span>
+          <span className="truncate text-sm font-medium text-ink">{title}</span>
         </button>
         {badge ? (
           <span
@@ -444,7 +444,7 @@ function SectionCard({ number, icon, title, badge, isActive, isOpen, onToggle, o
               'rounded-full px-2 py-0.5 text-[11px] font-medium',
               badge.tone === 'required'
                 ? 'bg-accent-500 text-[rgb(var(--accent-foreground))]'
-                : 'bg-surface-input text-input-placeholder',
+                : 'bg-surface-input text-dim-2',
             )}
           >
             {badge.label}
@@ -456,7 +456,7 @@ function SectionCard({ number, icon, title, badge, isActive, isOpen, onToggle, o
             onClick={onToggle}
             aria-label={isOpen ? `Collapse ${title}` : `Expand ${title}`}
             aria-expanded={isOpen}
-            className="inline-flex h-6 w-6 items-center justify-center rounded text-input-placeholder hover:text-input-text"
+            className="inline-flex h-6 w-6 items-center justify-center rounded text-dim-2 hover:text-ink"
           >
             <ChevronDown className={cn('h-4 w-4 transition-transform', isOpen && 'rotate-180')} />
           </button>
@@ -515,13 +515,13 @@ function QuestionRow({ label, preview, isSelected, isLocked, badgeLabel, onSelec
       onDragOver={dragHandlers?.onDragOver}
     >
       {isLocked ? (
-        <Lock className="h-3.5 w-3.5 shrink-0 text-input-placeholder" aria-hidden="true" />
+        <Lock className="h-3.5 w-3.5 shrink-0 text-dim-2" aria-hidden="true" />
       ) : (
         <button
           type="button"
           onKeyDown={handleGripKey}
           aria-label={`Reorder ${displayLabel} — Arrow Up or Down to move`}
-          className="inline-flex h-5 w-3.5 shrink-0 cursor-grab items-center justify-center rounded text-input-placeholder hover:text-input-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-500/45"
+          className="inline-flex h-5 w-3.5 shrink-0 cursor-grab items-center justify-center rounded text-dim-2 hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-500/45"
         >
           <GripVertical className="h-3.5 w-3.5" aria-hidden="true" />
         </button>
@@ -531,11 +531,11 @@ function QuestionRow({ label, preview, isSelected, isLocked, badgeLabel, onSelec
         onClick={onSelect}
         className="min-w-0 flex-1 text-left focus-visible:outline-none"
       >
-        <span className="block truncate text-input-text">{displayLabel}</span>
-        {previewText ? <span className="block truncate text-xs text-input-placeholder">{previewText}</span> : null}
+        <span className="block truncate text-ink">{displayLabel}</span>
+        {previewText ? <span className="block truncate text-xs text-dim-2">{previewText}</span> : null}
       </button>
       {badgeLabel ? (
-        <span className="shrink-0 text-[11px] font-medium text-input-placeholder">{badgeLabel}</span>
+        <span className="shrink-0 text-[11px] font-medium text-dim-2">{badgeLabel}</span>
       ) : null}
     </div>
   );
@@ -543,7 +543,7 @@ function QuestionRow({ label, preview, isSelected, isLocked, badgeLabel, onSelec
 
 function LockedFieldChip({ label }: { label: string }) {
   return (
-    <span className="inline-flex items-center gap-1 rounded-full border border-line-subtle bg-surface-input px-2 py-0.5 text-[11px] font-medium text-input-placeholder">
+    <span className="inline-flex items-center gap-1 rounded-full border border-line-subtle bg-surface-input px-2 py-0.5 text-[11px] font-medium text-dim-2">
       <Lock className="h-3 w-3" />
       {label}
     </span>
@@ -556,7 +556,7 @@ function AddInlineButton({ children, onClick, disabled = false }: { children: st
       type="button"
       onClick={onClick}
       disabled={disabled}
-      className="mt-1 flex w-full items-center justify-center gap-1 rounded-lg border border-dashed border-line-subtle px-2 py-1.5 text-xs font-medium text-input-placeholder transition-colors hover:border-line-subtle hover:text-input-text disabled:cursor-not-allowed disabled:opacity-50"
+      className="mt-1 flex w-full items-center justify-center gap-1 rounded-lg border border-dashed border-line-subtle px-2 py-1.5 text-xs font-medium text-dim-2 transition-colors hover:border-line-subtle hover:text-ink disabled:cursor-not-allowed disabled:opacity-50"
     >
       <Plus className="h-3.5 w-3.5" />
       {children}
@@ -575,10 +575,10 @@ function ConfigField({
 }) {
   return (
     <div className="flex flex-col gap-1.5">
-      <span className="text-sm font-medium text-input-text">{label}</span>
+      <span className="text-sm font-medium text-ink">{label}</span>
       {children}
       {charCount ? (
-        <span className="self-end text-[11px] text-input-placeholder">
+        <span className="self-end text-[11px] text-dim-2">
           {charCount.value.length}/{charCount.max}
         </span>
       ) : null}
@@ -997,7 +997,7 @@ function TemplateEditor({
         onInput={(event) => handleNameChange((event.currentTarget as HTMLInputElement).value)}
         placeholder="New intake form"
         disabled={isSaving}
-        className="w-full min-w-0 rounded-lg border border-transparent bg-transparent px-2 py-1 text-base font-semibold text-input-text outline-none transition-colors placeholder:text-input-placeholder hover:border-line-subtle focus:border-line-subtle focus:bg-surface-utility/10"
+        className="w-full min-w-0 rounded-lg border border-transparent bg-transparent px-2 py-1 text-base font-semibold text-ink outline-none transition-colors placeholder:text-dim-2 hover:border-line-subtle focus:border-line-subtle focus:bg-surface-utility/10"
         aria-label="Form title"
       />
       {slugError ? <p className="mt-1 text-xs text-rose-500">{slugError}</p> : null}
@@ -1074,7 +1074,7 @@ function TemplateEditor({
           hasChanges
             ? 'border-amber-500/25 bg-amber-500/10 text-amber-700 dark:text-amber-300'
             : hasSavedDraft
-              ? 'border-line-subtle bg-surface-input text-input-placeholder'
+              ? 'border-line-subtle bg-surface-input text-dim-2'
               : 'border-emerald-500/20 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300',
         )}
       >
@@ -1118,7 +1118,7 @@ function TemplateEditor({
       <SectionHeaderLabel>FORM STRUCTURE</SectionHeaderLabel>
       {discardPending ? (
         <div className="rounded-xl border border-rose-500/20 bg-rose-500/10 p-3">
-          <p className="text-sm font-semibold text-input-text">Discard draft changes?</p>
+          <p className="text-sm font-semibold text-ink">Discard draft changes?</p>
           <div className="mt-3 flex gap-2">
             <Button
               type="button"
@@ -1338,15 +1338,15 @@ function TemplateEditor({
       <div className="w-full max-w-[380px] overflow-hidden rounded-xl border border-line-subtle bg-surface-card shadow-glass">
         <div className="flex h-11 items-center justify-between border-b border-line-subtle bg-surface-utility/50 px-3">
           <div className="min-w-0">
-            <p className="text-sm font-semibold text-input-text">Widget preview</p>
-            <p className="truncate text-xs text-input-placeholder">{practiceSlug || 'public form'} / {draftTemplate.slug || 'new'}</p>
+            <p className="text-sm font-semibold text-ink">Widget preview</p>
+            <p className="truncate text-xs text-dim-2">{practiceSlug || 'public form'} / {draftTemplate.slug || 'new'}</p>
           </div>
           <a
             href={publicFormUrl}
             target="_blank"
             rel="noreferrer"
             aria-label="Open public form preview"
-            className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-input-placeholder transition-colors hover:bg-surface-input hover:text-input-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-500/40"
+            className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-dim-2 transition-colors hover:bg-surface-input hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-500/40"
           >
             <ExternalLink className="h-4 w-4" aria-hidden="true" />
           </a>
@@ -1438,10 +1438,10 @@ function TemplateEditor({
             <button
               type="button"
               disabled
-              className="flex items-center justify-between rounded-lg border border-line-subtle bg-surface-input px-3 py-2 text-left text-sm text-input-text"
+              className="flex items-center justify-between rounded-lg border border-line-subtle bg-surface-input px-3 py-2 text-left text-sm text-ink"
             >
               <span>Free text</span>
-              <ChevronDown className="h-4 w-4 text-input-placeholder" />
+              <ChevronDown className="h-4 w-4 text-dim-2" />
             </button>
           </ConfigField>
           <Switch
@@ -1591,14 +1591,14 @@ function TemplateEditor({
       // editable here, so the inspector renders a compact, low-chrome state
       // instead of a full settings panel.
       return (
-        <div className="flex flex-col gap-2 p-4 text-sm text-input-placeholder">
+        <div className="flex flex-col gap-2 p-4 text-sm text-dim-2">
           Name, email, and phone are collected automatically before the conversation starts. These fields cannot be edited from the question builder.
         </div>
       );
     }
 
     return (
-      <div className="flex flex-col gap-2 p-4 text-sm text-input-placeholder">
+      <div className="flex flex-col gap-2 p-4 text-sm text-dim-2">
         Select a section or question to configure.
       </div>
     );
@@ -1624,15 +1624,15 @@ function TemplateEditor({
     <div className="flex h-full flex-col">
       <div className="flex items-center justify-between border-b border-line-subtle px-4 py-3">
         <div className="min-w-0">
-          <p className="text-sm font-semibold text-input-text">{inspectorTitle}</p>
-          <p className="truncate text-xs text-input-placeholder">{inspectorBreadcrumb}</p>
+          <p className="text-sm font-semibold text-ink">{inspectorTitle}</p>
+          <p className="truncate text-xs text-dim-2">{inspectorBreadcrumb}</p>
         </div>
         {showCloseButton ? (
           <button
             type="button"
             onClick={closeInspector}
             aria-label="Close panel"
-            className="inline-flex h-6 w-6 items-center justify-center rounded text-input-placeholder hover:text-input-text"
+            className="inline-flex h-6 w-6 items-center justify-center rounded text-dim-2 hover:text-ink"
           >
             <X className="h-4 w-4" />
           </button>
@@ -1659,7 +1659,7 @@ function TemplateEditor({
               aria-label="Back to list"
               onClick={() => setMobileView('list')}
             />
-            <h1 className="flex-1 text-center text-sm font-semibold text-input-text">{mobileTitle}</h1>
+            <h1 className="flex-1 text-center text-sm font-semibold text-ink">{mobileTitle}</h1>
             <span className="w-8" aria-hidden="true" />
           </header>
           <div className="min-h-0 flex-1 overflow-y-auto">{renderConfigBody()}</div>
@@ -1679,7 +1679,7 @@ function TemplateEditor({
               aria-label="Back to list"
               onClick={() => setMobileView('list')}
             />
-            <h1 className="flex-1 text-center text-sm font-semibold text-input-text">Live preview</h1>
+            <h1 className="flex-1 text-center text-sm font-semibold text-ink">Live preview</h1>
             <span className="w-8" aria-hidden="true" />
           </header>
           <div className="flex min-h-0 flex-1 flex-col items-center gap-4 overflow-y-auto p-4">
@@ -1691,7 +1691,7 @@ function TemplateEditor({
               viewportClassName="h-[min(720px,calc(100svh-12rem))] min-h-[480px]"
               initialIntakeStep="conversation"
             />
-            <p className="text-center text-xs text-input-placeholder">
+            <p className="text-center text-xs text-dim-2">
               Try the form like a client would — answers are not saved.
             </p>
           </div>
@@ -1710,7 +1710,7 @@ function TemplateEditor({
             aria-label="Close"
             onClick={onCancel}
           />
-          <h1 className="flex-1 text-center text-sm font-semibold text-input-text">Question Builder</h1>
+          <h1 className="flex-1 text-center text-sm font-semibold text-ink">Question Builder</h1>
           <span className="w-8" aria-hidden="true" />
         </header>
         <div className="flex items-center justify-center gap-2 border-b border-line-subtle px-3 py-2">
@@ -1866,14 +1866,14 @@ function TemplateListView({
         name: (
           <div className="min-w-0">
             <div className="flex min-w-0 items-center gap-2">
-              <p className="truncate font-medium text-input-text">{template.name}</p>
+              <p className="truncate font-medium text-ink">{template.name}</p>
               {hasDraft ? (
                 <span className="shrink-0 rounded-full border border-amber-500/25 bg-amber-500/10 px-2 py-0.5 text-[11px] font-medium text-amber-700 dark:text-amber-300">
                   Draft
                 </span>
               ) : null}
             </div>
-            {isDefault ? <p className="text-xs text-input-placeholder">Default form</p> : isDraftOnly ? <p className="text-xs text-input-placeholder">Not published yet</p> : null}
+            {isDefault ? <p className="text-xs text-dim-2">Default form</p> : isDraftOnly ? <p className="text-xs text-dim-2">Not published yet</p> : null}
           </div>
         ),
         questions: <span className="tabular-nums">{template.fields.length}</span>,
@@ -1894,7 +1894,7 @@ function TemplateListView({
                 onClick={(e) => e.stopPropagation()}
                 disabled={isSaving}
                 aria-label={`Actions for ${template.name}`}
-                className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-input-placeholder transition-colors hover:bg-surface-utility/10 hover:text-input-text disabled:opacity-60"
+                className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-dim-2 transition-colors hover:bg-surface-utility/10 hover:text-ink disabled:opacity-60"
               >
                 <MoreVertical className="h-4 w-4" />
               </button>
@@ -1961,10 +1961,10 @@ function TemplateListView({
         title="Archive form"
       >
         <DialogBody>
-          <p className="text-sm text-input-text">
+          <p className="text-sm text-ink">
             Are you sure you want to archive <strong>{deleteTarget?.name}</strong>?
           </p>
-          <p className="mt-2 text-sm text-input-placeholder">
+          <p className="mt-2 text-sm text-dim-2">
             Links using{' '}
             <code className="rounded bg-surface-utility px-1.5 py-0.5 font-mono text-xs">
               ?template={deleteTarget?.slug}

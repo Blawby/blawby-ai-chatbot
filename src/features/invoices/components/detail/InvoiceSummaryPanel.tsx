@@ -19,9 +19,9 @@ const SummaryField = ({
   const hasValue = Boolean(value && value.trim().length > 0);
   return (
     <div>
-      <p className="text-xs font-medium text-input-placeholder">{label}</p>
+      <p className="text-xs font-medium text-dim-2">{label}</p>
       <p
-        className={`mt-1 text-sm ${hasValue ? 'text-input-text' : 'text-input-placeholder'} ${multiline ? 'whitespace-pre-line' : ''}`}
+        className={`mt-1 text-sm ${hasValue ? 'text-ink' : 'text-dim-2'} ${multiline ? 'whitespace-pre-line' : ''}`}
       >
         {hasValue ? value : emptyText}
       </p>
@@ -33,18 +33,18 @@ export const InvoiceSummaryPanel = ({ detail }: InvoiceSummaryPanelProps) => {
   return (
     <Panel className="rounded-2xl p-5">
       <div className="mb-4">
-        <h3 className="text-sm font-semibold text-input-text">Summary</h3>
+        <h3 className="text-sm font-semibold text-ink">Summary</h3>
       </div>
       <div className="grid grid-cols-1 gap-x-6 gap-y-4 sm:grid-cols-2">
         <div className="space-y-1">
-          <p className="text-xs font-medium text-input-placeholder">Billed to</p>
+          <p className="text-xs font-medium text-dim-2">Billed to</p>
           {detail.clientName ? (
-            <p className="text-sm text-input-text">{detail.clientName}</p>
+            <p className="text-sm text-ink">{detail.clientName}</p>
           ) : (
-            <p className="text-sm text-input-placeholder">No contact</p>
+            <p className="text-sm text-dim-2">No contact</p>
           )}
           {detail.clientEmail ? (
-            <p className="text-sm text-input-placeholder">{detail.clientEmail}</p>
+            <p className="text-sm text-dim-2">{detail.clientEmail}</p>
           ) : null}
         </div>
         <SummaryField label="Invoice number" value={detail.invoiceNumber} />

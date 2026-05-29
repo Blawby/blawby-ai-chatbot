@@ -106,11 +106,11 @@ export const AppDetailPage = ({ app, onBack, onUpdate }: AppDetailPageProps) => 
                     loading="lazy"
                   />
                 ) : (
-                  <Icon icon={Puzzle} className="w-8 h-8 text-input-text/80" aria-hidden="true"  />
+                  <Icon icon={Puzzle} className="w-8 h-8 text-ink/80" aria-hidden="true"  />
                 )}
               </div>
               <div className="flex items-center gap-2">
-                <h2 className="text-2xl font-bold text-input-text">{app.name}</h2>
+                <h2 className="text-2xl font-bold text-ink">{app.name}</h2>
                 {isComingSoon && (
                   <SettingsBadge variant="warning">
                     {t('settings:apps.comingSoon')}
@@ -208,15 +208,15 @@ export const AppDetailPage = ({ app, onBack, onUpdate }: AppDetailPageProps) => 
           <div className="space-y-6">
             {app.actions.map((action) => (
               <div key={action.name} className="space-y-2 w-full">
-                <code className="text-sm font-mono font-semibold text-input-text block w-full">
+                <code className="text-sm font-mono font-semibold text-ink block w-full">
                   {action.name}
                 </code>
                 {action.hasMetadata && (
-                  <span className="text-xs font-medium text-input-placeholder block w-full">
+                  <span className="text-xs font-medium text-dim-2 block w-full">
                     METADATA
                   </span>
                 )}
-                <p className="text-sm text-input-placeholder font-normal w-full">
+                <p className="text-sm text-dim-2 font-normal w-full">
                   {action.description}
                 </p>
                 {action.visibility && (
@@ -254,7 +254,7 @@ interface InfoRowSimpleProps {
 const InfoRowSimple = ({ label, value }: InfoRowSimpleProps) => {
   return (
     <SettingRow label={label}>
-      <span className="text-sm text-input-text text-right break-all">
+      <span className="text-sm text-ink text-right break-all">
         {value}
       </span>
     </SettingRow>

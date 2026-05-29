@@ -276,8 +276,8 @@ const Message: FunctionComponent<MessageProps> = memo(({
 					<button
 						type="button"
 												className={onReplyPreviewClick
-													? 'relative flex min-w-0 items-center gap-2 pl-7 text-left text-xs text-input-placeholder cursor-pointer transition hover:text-accent-foreground'
-													: 'relative flex min-w-0 items-center gap-2 pl-7 text-left text-xs text-input-placeholder cursor-default pointer-events-none'
+													? 'relative flex min-w-0 items-center gap-2 pl-7 text-left text-xs text-dim-2 cursor-pointer transition hover:text-accent-foreground'
+													: 'relative flex min-w-0 items-center gap-2 pl-7 text-left text-xs text-dim-2 cursor-default pointer-events-none'
 												}
 						onClick={onReplyPreviewClick}
 						disabled={!onReplyPreviewClick}
@@ -293,7 +293,7 @@ const Message: FunctionComponent<MessageProps> = memo(({
 							/>
 						)}
 						<span className="font-semibold text-accent-foreground">{replyPreview.authorName}</span>
-						<span className="truncate text-input-placeholder">
+						<span className="truncate text-dim-2">
 							{replyPreview.isMissing ? 'Original message unavailable' : replyPreview.content}
 						</span>
 					</button>

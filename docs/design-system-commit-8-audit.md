@@ -199,7 +199,7 @@ Rides 8.1d.
 In dependency order (each can be its own PR):
 
 1. ~~**PR-12** (this one is fast): `chore(ds): delete .card-surface alias (8.4a)` — single-file edit, zero risk.~~ ✅ **landed in PR #655 (commit `99171487`)**.
-2. **PR-13**: `chore(ds): replace text-input-* family (8.1a)` — big mechanical PR, may be split further by directory.
+2. ~~**PR-13**: `chore(ds): replace text-input-* family (8.1a)` — big mechanical PR.~~ ✅ **landed in PR #656 (commit `054c0cf9`).** Net +1446/-1446 across 244 files. Note: `text-input-*` was actually dead (missing from tailwind config); replacement with `text-ink` / `text-dim-2` is a real visual change. CSS bundle grew ~5 kB.
 3. **PR-14**: `chore(ds): replace bg-surface-* + bg-accent-N + font-display + rounded-xl (8.1b/c/d combined)` — second mechanical sweep.
 4. **PR-15**: `refactor(ds): DataTable → CSS grid for 6 non-invoice tables (8.2)`.
 5. **PR-16**: `refactor(ds): migrate SegmentedToggle callers to Seg; delete SegmentedToggle (8.3)`.

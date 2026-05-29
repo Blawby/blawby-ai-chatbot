@@ -23,7 +23,7 @@ export const ContentHeader = ({
     <div className={cn('px-6 py-4', className)}>
       <div className="flex items-center gap-3">
         {leading ? <div className="flex items-center">{leading}</div> : null}
-        <HeadingTag className="flex-1 text-lg font-semibold text-input-text">
+        <HeadingTag className="flex-1 text-lg font-semibold text-ink">
           {title}
         </HeadingTag>
         {trailing ? <div className="flex items-center">{trailing}</div> : null}

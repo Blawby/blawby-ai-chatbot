@@ -50,7 +50,7 @@ const statusPillClass = (kind: ClientIntakeStatusKind): string => {
       return 'bg-accent-warning/15 text-accent-warning ring-accent-warning/30';
     case 'submitted':
     default:
-      return 'bg-surface-utility/40 text-input-text ring-line-subtle/30';
+      return 'bg-surface-utility/40 text-ink ring-line-subtle/30';
   }
 };
 
@@ -71,7 +71,7 @@ const Card: FunctionComponent<{ children: ComponentChildren; className?: string 
 );
 
 const SectionHeading: FunctionComponent<{ children: ComponentChildren }> = ({ children }) => (
-  <h2 className="text-sm font-semibold text-input-text">{children}</h2>
+  <h2 className="text-sm font-semibold text-ink">{children}</h2>
 );
 
 const TimelineRow: FunctionComponent<{ item: ClientIntakeTimelineItem; isLast: boolean }> = ({
@@ -84,7 +84,7 @@ const TimelineRow: FunctionComponent<{ item: ClientIntakeTimelineItem; isLast: b
       : item.state === 'current'
         ? 'bg-accent-warning'
         : 'bg-input-placeholder/60';
-  const textClass = item.state === 'upcoming' ? 'text-input-placeholder' : 'text-input-text';
+  const textClass = item.state === 'upcoming' ? 'text-dim-2' : 'text-ink';
 
   return (
     <li className="flex gap-3">
@@ -94,7 +94,7 @@ const TimelineRow: FunctionComponent<{ item: ClientIntakeTimelineItem; isLast: b
       </div>
       <div className="flex-1 pb-3">
         <p className={cn('text-sm font-medium', textClass)}>{item.title}</p>
-        <p className="text-xs text-input-placeholder">{item.timestamp}</p>
+        <p className="text-xs text-dim-2">{item.timestamp}</p>
       </div>
     </li>
   );
@@ -110,7 +110,7 @@ export const ClientIntakeStatusPage: FunctionComponent<ClientIntakeStatusPagePro
     return (
       <div className="flex h-full flex-col min-h-0 bg-surface-workspace">
         <DetailHeader title="Intake Forms" showBack={Boolean(onBack)} onBack={onBack} />
-        <div className="p-6 text-sm text-input-placeholder">
+        <div className="p-6 text-sm text-dim-2">
           You have not submitted any intakes yet.
         </div>
       </div>
@@ -126,7 +126,7 @@ export const ClientIntakeStatusPage: FunctionComponent<ClientIntakeStatusPagePro
           {/* Status card */}
           <Card>
             <div className="flex items-center justify-between gap-3">
-              <h1 className="text-base font-semibold text-input-text">{intake.templateName}</h1>
+              <h1 className="text-base font-semibold text-ink">{intake.templateName}</h1>
               <span
                 className={cn(
                   'inline-flex items-center rounded-full px-3 py-1 text-xs font-medium ring-1 ring-inset',
@@ -136,14 +136,14 @@ export const ClientIntakeStatusPage: FunctionComponent<ClientIntakeStatusPagePro
                 {intake.statusLabel}
               </span>
             </div>
-            <p className="mt-2 text-xs text-input-placeholder">Submitted {intake.submittedAt}</p>
+            <p className="mt-2 text-xs text-dim-2">Submitted {intake.submittedAt}</p>
           </Card>
 
           {/* Next step */}
           {intake.nextStep ? (
             <Card className="bg-surface-utility/30">
               <SectionHeading>Next Step</SectionHeading>
-              <p className="mt-1.5 whitespace-pre-wrap text-sm leading-relaxed text-input-text/90">
+              <p className="mt-1.5 whitespace-pre-wrap text-sm leading-relaxed text-ink/90">
                 {intake.nextStep}
               </p>
             </Card>
@@ -168,8 +168,8 @@ export const ClientIntakeStatusPage: FunctionComponent<ClientIntakeStatusPagePro
               <dl className="mt-3 space-y-3">
                 {intake.responses.map((r) => (
                   <div key={r.id} className="space-y-1">
-                    <dt className="text-xs text-input-placeholder">{r.question}</dt>
-                    <dd className="whitespace-pre-wrap text-sm text-input-text">{r.answer}</dd>
+                    <dt className="text-xs text-dim-2">{r.question}</dt>
+                    <dd className="whitespace-pre-wrap text-sm text-ink">{r.answer}</dd>
                   </div>
                 ))}
               </dl>
@@ -190,7 +190,7 @@ export const ClientIntakeStatusPage: FunctionComponent<ClientIntakeStatusPagePro
           {intake.notes ? (
             <Card>
               <SectionHeading>Notes</SectionHeading>
-              <p className="mt-1.5 whitespace-pre-wrap text-sm leading-relaxed text-input-text/90">
+              <p className="mt-1.5 whitespace-pre-wrap text-sm leading-relaxed text-ink/90">
                 {intake.notes}
               </p>
             </Card>

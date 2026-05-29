@@ -19,8 +19,8 @@ export const OutstandingPaymentsWidget = ({
 }: OutstandingPaymentsWidgetProps) => (
   <Panel className="flex h-full flex-col">
     <header className="border-b border-line-subtle px-5 py-4">
-      <p className="text-sm font-semibold text-input-text">Outstanding Payments</p>
-      <p className="text-xs text-input-placeholder">Invoices awaiting payment</p>
+      <p className="text-sm font-semibold text-ink">Outstanding Payments</p>
+      <p className="text-xs text-dim-2">Invoices awaiting payment</p>
     </header>
     <div className="flex-1 px-5 py-4">
       {loading ? (
@@ -28,28 +28,28 @@ export const OutstandingPaymentsWidget = ({
           <LoadingSpinner size="md" />
         </div>
       ) : error ? (
-        <div className="rounded-xl border border-card-border bg-card px-3 py-2 text-sm text-input-text">
+        <div className="rounded-xl border border-card-border bg-card px-3 py-2 text-sm text-ink">
           {error}
         </div>
       ) : summary ? (
-        <div className="space-y-4 text-sm text-input-text">
+        <div className="space-y-4 text-sm text-ink">
           <div>
-            <p className="text-xs uppercase tracking-wide text-input-placeholder">Awaiting payment</p>
+            <p className="text-xs uppercase tracking-wide text-dim-2">Awaiting payment</p>
             <p className="mt-1 text-2xl font-semibold">
               {summary.awaitingCount} invoice{summary.awaitingCount === 1 ? '' : 's'}
             </p>
-            <p className="text-input-placeholder">Total {formatCurrency(summary.awaitingTotal)}</p>
+            <p className="text-dim-2">Total {formatCurrency(summary.awaitingTotal)}</p>
           </div>
           <div>
-            <p className="text-xs uppercase tracking-wide text-input-placeholder">Overdue</p>
-            <p className="mt-1 text-2xl font-semibold text-input-text">
+            <p className="text-xs uppercase tracking-wide text-dim-2">Overdue</p>
+            <p className="mt-1 text-2xl font-semibold text-ink">
               {summary.overdueCount} invoice{summary.overdueCount === 1 ? '' : 's'}
             </p>
-            <p className="text-input-placeholder">Total {formatCurrency(summary.overdueTotal)}</p>
+            <p className="text-dim-2">Total {formatCurrency(summary.overdueTotal)}</p>
           </div>
         </div>
       ) : (
-        <p className="text-sm text-input-placeholder">No unpaid invoices.</p>
+        <p className="text-sm text-dim-2">No unpaid invoices.</p>
       )}
     </div>
     <footer className="border-t border-line-subtle px-5 py-4">

@@ -105,7 +105,7 @@ export const Fullscreen: FunctionComponent<FullscreenProps> = ({
         aria-modal="true"
         aria-label={ariaLabel}
         tabIndex={-1}
-        className="ui-surface-enter relative z-10 flex min-h-full w-full flex-col text-input-text backdrop-blur-3xl shadow-2xl"
+        className="ui-surface-enter relative z-10 flex min-h-full w-full flex-col text-ink backdrop-blur-3xl shadow-2xl"
         style={{
           background: 'linear-gradient(to bottom right, var(--glass-bg-top), var(--glass-bg-mid), var(--glass-bg-bottom))'
         }}
@@ -116,7 +116,7 @@ export const Fullscreen: FunctionComponent<FullscreenProps> = ({
             size="icon-xs"
             onClick={onClose}
             aria-label="Close"
-            className="absolute right-4 top-4 z-10 rounded-full text-input-placeholder hover:bg-surface-hover hover:text-input-text"
+            className="absolute right-4 top-4 z-10 rounded-full text-dim-2 hover:bg-surface-hover hover:text-ink"
             icon={<Icon icon={X} className="h-4 w-4" />}
           />
         )}

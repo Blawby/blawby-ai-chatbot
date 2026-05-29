@@ -192,8 +192,8 @@ export default function DebugChatPage() {
   return (
     <main className="mx-auto max-w-5xl space-y-4 p-6">
       <header className="space-y-1">
-        <h1 className="text-2xl font-semibold text-input-text">Debug Chat Experience</h1>
-        <p className="text-sm text-input-placeholder">
+        <h1 className="text-2xl font-semibold text-ink">Debug Chat Experience</h1>
+        <p className="text-sm text-dim-2">
           Real chat container + composer with mocked LLM streaming and persisted message replacement.
         </p>
       </header>

@@ -171,14 +171,14 @@ export const MatterStatusPopover = ({ currentStatus, onSelect, disabled }: Matte
                   'w-full flex items-center gap-2.5 px-3 py-2 text-left text-sm transition-colors duration-100',
                   isSelected
                     ? cn(MATTER_STATUS_BADGE_CLASS[status], 'ring-1 ring-inset')
-                    : 'text-input-text hover:bg-surface-card-hover'
+                    : 'text-ink hover:bg-surface-card-hover'
                 )}
               >
                 <Icon
                   icon={statusIcon}
                   className={cn(
                     'h-4 w-4 shrink-0',
-                    isSelected ? '' : 'text-input-placeholder'
+                    isSelected ? '' : 'text-dim-2'
                   )}
                 />
                 <span className="flex-1">{MATTER_STATUS_LABELS[status]}</span>

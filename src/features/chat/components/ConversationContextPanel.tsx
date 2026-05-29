@@ -14,7 +14,7 @@ import {
 import type { Conversation } from '@/shared/types/conversation';
 import type { BackendMatter } from '@/features/matters/services/mattersApi';
 
-const sectionTitle = 'text-[11px] font-semibold uppercase tracking-[0.08em] text-input-placeholder';
+const sectionTitle = 'text-[11px] font-semibold uppercase tracking-[0.08em] text-dim-2';
 const sectionDivider = 'border-t border-line-subtle pt-4 mt-4';
 
 interface ActivityEntry {
@@ -66,8 +66,8 @@ const STATUS_TONE: Record<string, string> = {
   discovery: 'text-emerald-400',
   consultation_scheduled: 'text-amber-300',
   intake_pending: 'text-amber-300',
-  closed: 'text-input-placeholder',
-  declined: 'text-input-placeholder',
+  closed: 'text-dim-2',
+  declined: 'text-dim-2',
 };
 
 const formatStatusLabel = (status: string | null | undefined): string => {
@@ -174,7 +174,7 @@ const ConversationContextPanel: FunctionComponent<ConversationContextPanelProps>
 
   const activity = useMemo(() => buildActivityEntries(conversation), [conversation]);
 
-  const statusToneClass = STATUS_TONE[matterStatus] ?? 'text-input-text';
+  const statusToneClass = STATUS_TONE[matterStatus] ?? 'text-ink';
   const statusLabel = formatStatusLabel(matterStatus);
 
   const lastActiveLabel = conversation?.last_message_at
@@ -193,9 +193,9 @@ const ConversationContextPanel: FunctionComponent<ConversationContextPanelProps>
       <div className="flex flex-col items-center gap-3 pb-4 text-center">
         <Avatar src={null} name={contactName || (practiceName ?? 'Contact')} size="lg" />
         <div className="min-w-0">
-          <p className="truncate text-base font-semibold text-input-text">{contactName || '—'}</p>
+          <p className="truncate text-base font-semibold text-ink">{contactName || '—'}</p>
           {lastActiveLabel ? (
-            <p className="mt-0.5 text-xs text-input-placeholder">
+            <p className="mt-0.5 text-xs text-dim-2">
               {t('workspace.conversationContext.lastActive', {
                 defaultValue: 'Active {{relative}}',
                 relative: lastActiveLabel,
@@ -224,7 +224,7 @@ const ConversationContextPanel: FunctionComponent<ConversationContextPanelProps>
               onOpenMatter && matter ? (
                 <button
                   type="button"
-                  className="inline-flex items-center gap-1 text-right text-input-text hover:text-accent-utility focus:outline-none focus-visible:underline"
+                  className="inline-flex items-center gap-1 text-right text-ink hover:text-accent-utility focus:outline-none focus-visible:underline"
                   onClick={() => onOpenMatter(matter.id)}
                 >
                   <span className="truncate">{matterTitle}</span>
@@ -260,7 +260,7 @@ const ConversationContextPanel: FunctionComponent<ConversationContextPanelProps>
           {t('workspace.conversationContext.recentActivity', { defaultValue: 'Recent Activity' })}
         </h3>
         {activity.length === 0 ? (
-          <p className="text-xs text-input-placeholder">
+          <p className="text-xs text-dim-2">
             {t('workspace.conversationContext.noActivity', {
               defaultValue: 'Activity will appear here once the conversation progresses.',
             })}
@@ -270,13 +270,13 @@ const ConversationContextPanel: FunctionComponent<ConversationContextPanelProps>
             {activity.map((entry) => (
               <li key={entry.id} className="flex items-start justify-between gap-3 text-sm">
                 <div className="min-w-0">
-                  <p className="font-medium text-input-text">{entry.title}</p>
+                  <p className="font-medium text-ink">{entry.title}</p>
                   {entry.detail ? (
-                    <p className="mt-0.5 truncate text-xs text-input-placeholder">{entry.detail}</p>
+                    <p className="mt-0.5 truncate text-xs text-dim-2">{entry.detail}</p>
                   ) : null}
                 </div>
                 {entry.timestamp ? (
-                  <span className="flex-shrink-0 text-xs text-input-placeholder">
+                  <span className="flex-shrink-0 text-xs text-dim-2">
                     {formatActivityDate(entry.timestamp)}
                   </span>
                 ) : null}

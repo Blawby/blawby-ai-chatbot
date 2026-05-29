@@ -19,7 +19,7 @@ export const InvoicePagination: FunctionComponent<InvoicePaginationProps> = ({
   const currentPage = Math.min(Math.max(1, page), totalPages);
 
   return (
-    <div className="mt-4 flex items-center justify-between text-sm text-input-placeholder">
+    <div className="mt-4 flex items-center justify-between text-sm text-dim-2">
       <span>
         Page {currentPage} of {totalPages} ({total} invoices)
       </span>

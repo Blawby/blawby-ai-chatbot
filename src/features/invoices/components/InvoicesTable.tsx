@@ -93,63 +93,63 @@ export const InvoicesTable: FunctionComponent<InvoicesTableProps> = ({
         case 'clientName':
           return { id: key, label: 'Customer name' };
         case 'clientEmail':
-          return { id: key, label: 'Customer email', hideAt: 'md', mobileClassName: 'text-input-placeholder' };
+          return { id: key, label: 'Customer email', hideAt: 'md', mobileClassName: 'text-dim-2' };
         case 'dueDate':
-          return { id: key, label: 'Due', hideAt: 'md', mobileClassName: 'text-input-placeholder' };
+          return { id: key, label: 'Due', hideAt: 'md', mobileClassName: 'text-dim-2' };
         case 'createdAt':
-          return { id: key, label: 'Created', hideAt: 'lg', mobileClassName: 'text-input-placeholder' };
+          return { id: key, label: 'Created', hideAt: 'lg', mobileClassName: 'text-dim-2' };
         case 'paidAt':
-          return { id: key, label: 'Paid at', hideAt: 'lg', mobileClassName: 'text-input-placeholder' };
+          return { id: key, label: 'Paid at', hideAt: 'lg', mobileClassName: 'text-dim-2' };
         case 'subtotal':
-          return { id: key, label: 'Subtotal', align: 'right', hideAt: 'lg', mobileClassName: 'text-input-text' };
+          return { id: key, label: 'Subtotal', align: 'right', hideAt: 'lg', mobileClassName: 'text-ink' };
         case 'taxAmount':
-          return { id: key, label: 'Tax amount', align: 'right', hideAt: 'lg', mobileClassName: 'text-input-text' };
+          return { id: key, label: 'Tax amount', align: 'right', hideAt: 'lg', mobileClassName: 'text-ink' };
         case 'discountAmount':
-          return { id: key, label: 'Discount amount', align: 'right', hideAt: 'lg', mobileClassName: 'text-input-text' };
+          return { id: key, label: 'Discount amount', align: 'right', hideAt: 'lg', mobileClassName: 'text-ink' };
         case 'amountPaid':
-          return { id: key, label: 'Amount paid', align: 'right', hideAt: 'lg', mobileClassName: 'text-input-text' };
+          return { id: key, label: 'Amount paid', align: 'right', hideAt: 'lg', mobileClassName: 'text-ink' };
         case 'amountDue':
-          return { id: key, label: 'Amount due', align: 'right', hideAt: 'lg', mobileClassName: 'text-input-text' };
+          return { id: key, label: 'Amount due', align: 'right', hideAt: 'lg', mobileClassName: 'text-ink' };
         case 'issueDate':
-          return { id: key, label: 'Issue date', hideAt: 'lg', mobileClassName: 'text-input-placeholder' };
+          return { id: key, label: 'Issue date', hideAt: 'lg', mobileClassName: 'text-dim-2' };
         case 'invoiceType':
-          return { id: key, label: 'Invoice type', hideAt: 'lg', mobileClassName: 'text-input-placeholder' };
+          return { id: key, label: 'Invoice type', hideAt: 'lg', mobileClassName: 'text-dim-2' };
         case 'notes':
-          return { id: key, label: 'Notes', hideAt: 'lg', mobileClassName: 'text-input-placeholder' };
+          return { id: key, label: 'Notes', hideAt: 'lg', mobileClassName: 'text-dim-2' };
         case 'memo':
-          return { id: key, label: 'Memo', hideAt: 'lg', mobileClassName: 'text-input-placeholder' };
+          return { id: key, label: 'Memo', hideAt: 'lg', mobileClassName: 'text-dim-2' };
         case 'fundDestination':
-          return { id: key, label: 'Fund destination', hideAt: 'lg', mobileClassName: 'text-input-placeholder' };
+          return { id: key, label: 'Fund destination', hideAt: 'lg', mobileClassName: 'text-dim-2' };
         case 'updatedAt':
-          return { id: key, label: 'Updated at', hideAt: 'lg', mobileClassName: 'text-input-placeholder' };
+          return { id: key, label: 'Updated at', hideAt: 'lg', mobileClassName: 'text-dim-2' };
         case 'clientId':
-          return { id: key, label: 'Client ID', hideAt: 'lg', mobileClassName: 'text-input-placeholder' };
+          return { id: key, label: 'Client ID', hideAt: 'lg', mobileClassName: 'text-dim-2' };
         case 'matterId':
-          return { id: key, label: 'Matter ID', hideAt: 'lg', mobileClassName: 'text-input-placeholder' };
+          return { id: key, label: 'Matter ID', hideAt: 'lg', mobileClassName: 'text-dim-2' };
         case 'connectedAccountId':
-          return { id: key, label: 'Connected account ID', hideAt: 'lg', mobileClassName: 'text-input-placeholder' };
+          return { id: key, label: 'Connected account ID', hideAt: 'lg', mobileClassName: 'text-dim-2' };
         case 'matterTitle':
-          return { id: key, label: 'Matter title', hideAt: 'lg', mobileClassName: 'text-input-placeholder' };
+          return { id: key, label: 'Matter title', hideAt: 'lg', mobileClassName: 'text-dim-2' };
         case 'matterBillingType':
-          return { id: key, label: 'Billing type', hideAt: 'lg', mobileClassName: 'text-input-placeholder' };
+          return { id: key, label: 'Billing type', hideAt: 'lg', mobileClassName: 'text-dim-2' };
         case 'clientStatus':
-          return { id: key, label: 'Client status', hideAt: 'lg', mobileClassName: 'text-input-placeholder' };
+          return { id: key, label: 'Client status', hideAt: 'lg', mobileClassName: 'text-dim-2' };
         case 'stripeInvoiceNumber':
-          return { id: key, label: 'Stripe invoice number', hideAt: 'lg', mobileClassName: 'text-input-placeholder' };
+          return { id: key, label: 'Stripe invoice number', hideAt: 'lg', mobileClassName: 'text-dim-2' };
         case 'stripeInvoiceId':
-          return { id: key, label: 'Stripe invoice ID', hideAt: 'lg', mobileClassName: 'text-input-placeholder' };
+          return { id: key, label: 'Stripe invoice ID', hideAt: 'lg', mobileClassName: 'text-dim-2' };
         case 'stripeChargeId':
-          return { id: key, label: 'Stripe charge ID', hideAt: 'lg', mobileClassName: 'text-input-placeholder' };
+          return { id: key, label: 'Stripe charge ID', hideAt: 'lg', mobileClassName: 'text-dim-2' };
         case 'stripeTransferId':
-          return { id: key, label: 'Stripe transfer ID', hideAt: 'lg', mobileClassName: 'text-input-placeholder' };
+          return { id: key, label: 'Stripe transfer ID', hideAt: 'lg', mobileClassName: 'text-dim-2' };
         case 'stripePaymentIntentId':
-          return { id: key, label: 'Stripe payment intent ID', hideAt: 'lg', mobileClassName: 'text-input-placeholder' };
+          return { id: key, label: 'Stripe payment intent ID', hideAt: 'lg', mobileClassName: 'text-dim-2' };
         case 'stripeHostedInvoiceUrl':
-          return { id: key, label: 'Hosted invoice URL', hideAt: 'lg', mobileClassName: 'text-input-placeholder', disableCellWrap: true };
+          return { id: key, label: 'Hosted invoice URL', hideAt: 'lg', mobileClassName: 'text-dim-2', disableCellWrap: true };
         case 'connectedAccountEmail':
-          return { id: key, label: 'Connected account email', hideAt: 'lg', mobileClassName: 'text-input-placeholder' };
+          return { id: key, label: 'Connected account email', hideAt: 'lg', mobileClassName: 'text-dim-2' };
         case 'connectedAccountStripeAccountId':
-          return { id: key, label: 'Stripe account ID', hideAt: 'lg', mobileClassName: 'text-input-placeholder' };
+          return { id: key, label: 'Stripe account ID', hideAt: 'lg', mobileClassName: 'text-dim-2' };
         default:
           return { id: key, label: key };
       }
@@ -173,14 +173,14 @@ export const InvoicesTable: FunctionComponent<InvoicesTableProps> = ({
       cells: {
         total: (
           <div className="flex items-center gap-2">
-            <span className="font-semibold text-input-text">{formatCurrency(invoice.total)}</span>
+            <span className="font-semibold text-ink">{formatCurrency(invoice.total)}</span>
           </div>
         ),
         status: <InvoiceStatusBadge status={invoice.status} />,
         invoiceNumber: (
           <button
             type="button"
-            className="truncate text-left text-sm font-semibold text-input-text hover:underline"
+            className="truncate text-left text-sm font-semibold text-ink hover:underline"
             onClick={(event) => {
               event.stopPropagation();
               onRowClick(invoice);
@@ -194,11 +194,11 @@ export const InvoicesTable: FunctionComponent<InvoicesTableProps> = ({
         dueDate: dateValue(invoice.dueDate),
         createdAt: dateValue(invoice.createdAt),
         paidAt: dateValue(invoice.paidAt),
-        subtotal: <span className="text-input-text">{formatCurrency(invoice.subtotal ?? 0)}</span>,
-        taxAmount: <span className="text-input-text">{formatCurrency(invoice.taxAmount ?? 0)}</span>,
-        discountAmount: <span className="text-input-text">{formatCurrency(invoice.discountAmount ?? 0)}</span>,
-        amountPaid: <span className="text-input-text">{formatCurrency(invoice.amountPaid)}</span>,
-        amountDue: <span className="text-input-text">{formatCurrency(invoice.amountDue)}</span>,
+        subtotal: <span className="text-ink">{formatCurrency(invoice.subtotal ?? 0)}</span>,
+        taxAmount: <span className="text-ink">{formatCurrency(invoice.taxAmount ?? 0)}</span>,
+        discountAmount: <span className="text-ink">{formatCurrency(invoice.discountAmount ?? 0)}</span>,
+        amountPaid: <span className="text-ink">{formatCurrency(invoice.amountPaid)}</span>,
+        amountDue: <span className="text-ink">{formatCurrency(invoice.amountDue)}</span>,
         issueDate: dateValue(invoice.issueDate),
         invoiceType: textValue(invoice.invoiceType),
         notes: textValue(invoice.notes),
@@ -304,7 +304,7 @@ export const InvoicesTable: FunctionComponent<InvoicesTableProps> = ({
         onLoadMore={onLoadMore}
       />
       {footer ? (
-        <div className="border-t border-line-subtle px-4 py-3 text-sm text-input-placeholder">
+        <div className="border-t border-line-subtle px-4 py-3 text-sm text-dim-2">
           <div>{footer}</div>
         </div>
       ) : null}

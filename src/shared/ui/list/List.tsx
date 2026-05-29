@@ -35,11 +35,11 @@ export function ListItem({
         className,
       )}
     >
-      {icon && <span className="shrink-0 text-input-placeholder">{icon}</span>}
+      {icon && <span className="shrink-0 text-dim-2">{icon}</span>}
       <div className="flex-1 min-w-0">
-        <p className="text-sm text-input-text truncate">{title}</p>
+        <p className="text-sm text-ink truncate">{title}</p>
         {description && (
-          <p className="text-xs text-input-placeholder truncate">{description}</p>
+          <p className="text-xs text-dim-2 truncate">{description}</p>
         )}
       </div>
       {trailing && <span className="shrink-0">{trailing}</span>}

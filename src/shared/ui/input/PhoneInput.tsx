@@ -372,7 +372,7 @@ export const PhoneInput = forwardRef<HTMLInputElement, PhoneInputProps>(({
   const isInvalid = Boolean(error) || showInvalidValidation;
 
   const inputClasses = cn(
-    'w-full rounded-xl text-input-text placeholder:text-input-placeholder',
+    'w-full rounded-xl text-ink placeholder:text-dim-2',
     'focus:outline-none transition-all duration-200',
     'input-surface border-none',
     sizeClasses[size],
@@ -394,7 +394,7 @@ export const PhoneInput = forwardRef<HTMLInputElement, PhoneInputProps>(({
   return (
     <div className="w-full">
       {label && (
-        <label htmlFor={inputId} className="block text-sm font-medium text-input-text mb-1">
+        <label htmlFor={inputId} className="block text-sm font-medium text-ink mb-1">
           {label}
           {required && <span className="text-red-500 ml-1">*</span>}
         </label>
@@ -417,7 +417,7 @@ export const PhoneInput = forwardRef<HTMLInputElement, PhoneInputProps>(({
               aria-haspopup="listbox"
               aria-label={`Select country. Current: ${currentCountry.name} (+${currentCountry.callingCode})`}
               className={cn(
-                'inline-flex items-center rounded-l-xl rounded-r-none text-input-text hover:bg-surface-utility/40 focus:outline-none focus:ring-2 ring-inset focus:ring-accent-500 transition-colors input-surface border-r border-line-subtle',
+                'inline-flex items-center rounded-l-xl rounded-r-none text-ink hover:bg-surface-utility/40 focus:outline-none focus:ring-2 ring-inset focus:ring-accent-500 transition-colors input-surface border-r border-line-subtle',
                 sizeClasses[size],
                 disabled && 'opacity-50 cursor-not-allowed',
               )}
@@ -434,7 +434,7 @@ export const PhoneInput = forwardRef<HTMLInputElement, PhoneInputProps>(({
               >
                 <div className="p-2 border-b border-line-subtle">
                   <div className="relative">
-                    <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-4 h-4 text-input-placeholder" aria-hidden="true" />
+                    <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-4 h-4 text-dim-2" aria-hidden="true" />
                     <input
                       ref={searchInputRef}
                       type="text"
@@ -463,7 +463,7 @@ export const PhoneInput = forwardRef<HTMLInputElement, PhoneInputProps>(({
                   className="max-h-64 overflow-y-auto py-1 text-sm"
                 >
                   {filteredCountries.length === 0 ? (
-                    <div className="px-3 py-2 text-sm text-input-placeholder">No matches</div>
+                    <div className="px-3 py-2 text-sm text-dim-2">No matches</div>
                   ) : (
                     filteredCountries.map((country, index) => (
                       <button
@@ -475,7 +475,7 @@ export const PhoneInput = forwardRef<HTMLInputElement, PhoneInputProps>(({
                         onClick={() => selectCountry(country)}
                         onMouseEnter={() => setFocusedIndex(index)}
                         className={cn(
-                          'inline-flex w-full px-3 py-2 text-sm text-input-text hover:bg-surface-utility/40 focus:outline-none',
+                          'inline-flex w-full px-3 py-2 text-sm text-ink hover:bg-surface-utility/40 focus:outline-none',
                           index === focusedIndex && 'bg-surface-utility/60',
                           country.iso === selectedIso && 'font-medium',
                         )}
@@ -484,7 +484,7 @@ export const PhoneInput = forwardRef<HTMLInputElement, PhoneInputProps>(({
                         <span className="inline-flex items-center gap-2 w-full">
                           <span className="text-base" aria-hidden="true">{country.emoji}</span>
                           <span className="flex-1 text-left truncate">{country.name}</span>
-                          <span className="text-input-placeholder">+{country.callingCode}</span>
+                          <span className="text-dim-2">+{country.callingCode}</span>
                         </span>
                       </button>
                     ))
@@ -498,7 +498,7 @@ export const PhoneInput = forwardRef<HTMLInputElement, PhoneInputProps>(({
         <div className="relative flex-1">
           {!showCountryCode ? (
             <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
-              <Phone className="w-4 h-4 text-input-placeholder shrink-0" aria-hidden="true" />
+              <Phone className="w-4 h-4 text-dim-2 shrink-0" aria-hidden="true" />
             </div>
           ) : null}
 
@@ -557,7 +557,7 @@ export const PhoneInput = forwardRef<HTMLInputElement, PhoneInputProps>(({
       )}
 
       {description && !error && !showInvalidValidation && (
-        <p id={descriptionId} className="text-xs text-input-placeholder mt-1">
+        <p id={descriptionId} className="text-xs text-dim-2 mt-1">
           {description}
         </p>
       )}

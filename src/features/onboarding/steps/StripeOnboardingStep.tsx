@@ -47,7 +47,7 @@ export function StripeOnboardingStep({
     <div className="space-y-6">
       {showIntro && (
         <div className="text-center">
-          <p className="text-sm text-input-placeholder">
+          <p className="text-sm text-dim-2">
             Start Stripe onboarding to verify your trust account and enable payouts.
           </p>
         </div>
@@ -69,8 +69,8 @@ export function StripeOnboardingStep({
         <div className="card p-4 space-y-2">
           {statusItems.map((item) => (
             <div key={item.label} className="flex items-center justify-between text-sm">
-              <span className="text-input-placeholder">{item.label}</span>
-              <span className="font-semibold text-input-text">
+              <span className="text-dim-2">{item.label}</span>
+              <span className="font-semibold text-ink">
                 {item.value}
               </span>
             </div>

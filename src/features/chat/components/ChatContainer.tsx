@@ -582,7 +582,7 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
           >
             {isReconnecting ? (
               <div
-                className="mx-auto flex w-full max-w-3xl items-center gap-2 px-4 py-2 text-xs text-input-placeholder"
+                className="mx-auto flex w-full max-w-3xl items-center gap-2 px-4 py-2 text-xs text-dim-2"
                 role="status"
                 aria-live="polite"
               >

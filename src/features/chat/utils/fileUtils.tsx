@@ -21,7 +21,7 @@ export const getDocumentIcon = (file: FileAttachment): VNode => {
 	// PDF icon
 	if (file.type === 'application/pdf' || ext === 'pdf') {
 		return (
-			<Icon icon={File} className="w-4 h-4 text-input-placeholder"  />
+			<Icon icon={File} className="w-4 h-4 text-dim-2"  />
 		);
 	}
 
@@ -30,7 +30,7 @@ export const getDocumentIcon = (file: FileAttachment): VNode => {
 		file.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' ||
 		ext === 'doc' || ext === 'docx') {
 		return (
-			<Icon icon={File} className="w-4 h-4 text-input-placeholder"  />
+			<Icon icon={File} className="w-4 h-4 text-dim-2"  />
 		);
 	}
 
@@ -39,27 +39,27 @@ export const getDocumentIcon = (file: FileAttachment): VNode => {
 		file.type === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' ||
 		ext === 'xls' || ext === 'xlsx' || ext === 'csv') {
 		return (
-			<Icon icon={Table} className="w-4 h-4 text-input-placeholder"  />
+			<Icon icon={Table} className="w-4 h-4 text-dim-2"  />
 		);
 	}
 
 	// Audio file icon
 	if (file.type?.startsWith('audio/')) {
 		return (
-			<Icon icon={Music} className="w-4 h-4 text-input-placeholder"  />
+			<Icon icon={Music} className="w-4 h-4 text-dim-2"  />
 		);
 	}
 
 	// Video file icon
 	if (file.type?.startsWith('video/')) {
 		return (
-			<Icon icon={Video} className="w-4 h-4 text-input-placeholder"  />
+			<Icon icon={Video} className="w-4 h-4 text-dim-2"  />
 		);
 	}
 
 	// Default file icon
 	return (
-		<Icon icon={File} className="w-4 h-4 text-input-placeholder"  />
+		<Icon icon={File} className="w-4 h-4 text-dim-2"  />
 	);
 };
 

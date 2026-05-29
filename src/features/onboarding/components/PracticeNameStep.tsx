@@ -88,10 +88,10 @@ const PracticeNameStep = ({
           <Logo size="lg" />
         </div>
 
-        <h2 className="mt-6 text-center text-2xl font-semibold tracking-tight text-input-text">
+        <h2 className="mt-6 text-center text-2xl font-semibold tracking-tight text-ink">
           Name your practice
         </h2>
-        <p className="mt-2 text-center text-sm text-input-placeholder">
+        <p className="mt-2 text-center text-sm text-dim-2">
           This is the workspace your team and clients will see. You can fine-tune the details later.
         </p>
       </div>
@@ -118,7 +118,7 @@ const PracticeNameStep = ({
                         onChange={(next) => onChange(next)}
                         placeholder="Acme Law"
                         icon={Building2}
-                        iconClassName="h-5 w-5 text-input-placeholder"
+                        iconClassName="h-5 w-5 text-dim-2"
                         error={error?.message}
                       />
                     </FormControl>

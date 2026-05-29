@@ -11,7 +11,7 @@ import { resolveIntakeTitle } from '@/features/intake/utils/intakeTitle';
 const statusTone: Record<string, string> = {
   accepted: 'bg-emerald-500/10 text-emerald-700 ring-emerald-500/20 dark:text-emerald-300',
   declined: 'bg-rose-500/10 text-rose-700 ring-rose-500/20 dark:text-rose-300',
-  pending_review: 'ring-line-subtle bg-surface-overlay/80 text-input-placeholder',
+  pending_review: 'ring-line-subtle bg-surface-overlay/80 text-dim-2',
 };
 
 type RecentIntakesGridProps = {
@@ -32,7 +32,7 @@ export const RecentIntakesGrid = ({
   <section className="w-full">
     <div className="mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8">
       <div className="flex items-center justify-between">
-        <h2 className="text-base font-semibold text-input-text">Recent Intakes</h2>
+        <h2 className="text-base font-semibold text-ink">Recent Intakes</h2>
         {onViewAll ? (
           <Button variant="link" size="sm" onClick={onViewAll}>
             View all
@@ -40,7 +40,7 @@ export const RecentIntakesGrid = ({
         ) : (
           <span
             aria-disabled="true"
-            className="text-sm font-semibold text-input-placeholder opacity-70 cursor-default"
+            className="text-sm font-semibold text-dim-2 opacity-70 cursor-default"
           >
             View all
           </span>
@@ -56,11 +56,11 @@ export const RecentIntakesGrid = ({
           ))}
         </div>
       ) : error ? (
-        <div className="mt-6 rounded-xl border border-card-border bg-card px-3 py-2 text-sm text-input-text">
+        <div className="mt-6 rounded-xl border border-card-border bg-card px-3 py-2 text-sm text-ink">
           {error}
         </div>
       ) : intakes.length === 0 ? (
-        <p className="mt-6 text-sm text-input-placeholder">No recent intakes.</p>
+        <p className="mt-6 text-sm text-dim-2">No recent intakes.</p>
       ) : (
         <ul className="mt-6 grid grid-cols-1 gap-x-6 gap-y-8 lg:grid-cols-3 xl:gap-x-8">
           {intakes.map((intake) => {
@@ -94,14 +94,14 @@ export const RecentIntakesGrid = ({
                     className="h-12 w-12 rounded-xl"
                   />
                   <div className="flex-1">
-                    <p className="text-sm font-medium text-input-text">{title}</p>
+                    <p className="text-sm font-medium text-ink">{title}</p>
                   </div>
                   {/* actions removed — whole card is clickable */}
                 </button>
                 <dl className="-my-3 divide-y divide-line-subtle px-6 py-4 text-sm">
                   <div className="flex justify-between gap-x-4 py-3">
-                    <dt className="text-input-placeholder">Date Submitted</dt>
-                    <dd className="text-input-text">
+                    <dt className="text-dim-2">Date Submitted</dt>
+                    <dd className="text-ink">
                       {(() => {
                         if (!intake.created_at) return '-';
                         const display = formatDate(intake.created_at, {
@@ -115,15 +115,15 @@ export const RecentIntakesGrid = ({
                     </dd>
                   </div>
                 <div className="flex justify-between gap-x-4 py-3">
-                  <dt className="text-input-placeholder">Amount</dt>
+                  <dt className="text-dim-2">Amount</dt>
                   <dd className="flex items-start gap-x-2">
-                    <div className="font-medium text-input-text">
+                    <div className="font-medium text-ink">
                       {formatCurrency(fromMinorUnits(intake.amount), intake.currency)}
                     </div>
                   </dd>
                 </div>
                 <div className="flex justify-between gap-x-4 py-3">
-                  <dt className="text-input-placeholder">Status</dt>
+                  <dt className="text-dim-2">Status</dt>
                   <dd className="flex items-start gap-x-2">
                     <div className={`rounded-md px-2 py-1 text-xs font-medium ring-1 ring-inset ${statusTone[intake.triage_status] || statusTone.pending_review}`}>
                       {intake.triage_status === 'pending_review' ? 'Pending' :

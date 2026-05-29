@@ -34,13 +34,13 @@ export function CollectionSectionList<TItem>({
         <section key={section.id} className={cn('grid gap-3', sectionClassName)}>
           <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
             <div>
-              <h2 className="text-base font-semibold text-input-text">{section.label}</h2>
+              <h2 className="text-base font-semibold text-ink">{section.label}</h2>
               {section.description ? (
-                <p className="mt-1 text-sm text-input-placeholder">{section.description}</p>
+                <p className="mt-1 text-sm text-dim-2">{section.description}</p>
               ) : null}
             </div>
             {typeof section.count === 'number' ? (
-              <p className="text-xs font-medium uppercase tracking-[0.08em] text-input-placeholder">
+              <p className="text-xs font-medium uppercase tracking-[0.08em] text-dim-2">
                 {section.count} item{section.count === 1 ? '' : 's'}
               </p>
             ) : null}

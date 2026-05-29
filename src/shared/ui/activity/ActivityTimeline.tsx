@@ -170,21 +170,21 @@ export const ActivityTimeline = ({
                     name={item.person.name}
                     src={item.person.imageUrl}
                     size="md"
-                    className="ring-1 ring-line-utility/30 bg-surface-utility/10 text-input-text"
+                    className="ring-1 ring-line-utility/30 bg-surface-utility/10 text-ink"
                   />
-                  <span className="absolute -right-1 -bottom-1 flex h-4 w-4 items-center justify-center rounded-full bg-surface-overlay text-input-text ring-1 ring-line-utility/30 shadow-sm sm:h-5 sm:w-5">
+                  <span className="absolute -right-1 -bottom-1 flex h-4 w-4 items-center justify-center rounded-full bg-surface-overlay text-ink ring-1 ring-line-utility/30 shadow-sm sm:h-5 sm:w-5">
                     <Icon icon={MessagesSquare} className="h-2.5 w-2.5 sm:h-3 sm:w-3" aria-hidden="true"  />
                   </span>
                 </div>
               ) : (
-                <div className="relative z-10 flex h-8 w-8 items-center justify-center rounded-full bg-surface-overlay text-input-text ring-1 ring-line-subtle shadow-sm">
+                <div className="relative z-10 flex h-8 w-8 items-center justify-center rounded-full bg-surface-overlay text-ink ring-1 ring-line-subtle shadow-sm">
                   {item.type === 'paid' ? (
                     <Icon icon={CheckCircle2} aria-hidden="true" className="h-5 w-5 text-accent-success"  />
                   ) : TYPE_ICONS[item.type] ? (
                     (() => {
                       const Icon = TYPE_ICONS[item.type];
                       return Icon ? (
-                        <Icon className="h-4 w-4 text-input-placeholder dark:text-input-placeholder/80" />
+                        <Icon className="h-4 w-4 text-dim-2 dark:text-dim-2/80" />
                       ) : null;
                     })()
                   ) : (
@@ -197,8 +197,8 @@ export const ActivityTimeline = ({
             {item.type === 'commented' ? (
               <>
                 <div className="flex-auto min-w-0">
-                  <div className="text-sm leading-5 text-input-placeholder dark:text-input-placeholder/80">
-                    <div className="font-semibold text-input-text">{item.person.name}</div>
+                  <div className="text-sm leading-5 text-dim-2 dark:text-dim-2/80">
+                    <div className="font-semibold text-ink">{item.person.name}</div>
                     <time dateTime={item.dateTime ?? item.date}>Commented {item.date}</time>
                   </div>
                   {editingId === item.id ? (
@@ -239,19 +239,19 @@ export const ActivityTimeline = ({
                   ) : (
                     <>
                       {item.comment && (
-                        <p className="mt-2 text-sm leading-6 text-input-text">
+                        <p className="mt-2 text-sm leading-6 text-ink">
                           {item.comment}
                         </p>
                       )}
                       {(onEditComment || onDeleteComment) && (
-                        <div className="mt-2 flex gap-3 text-xs text-input-placeholder dark:text-input-placeholder/80">
+                        <div className="mt-2 flex gap-3 text-xs text-dim-2 dark:text-dim-2/80">
                           {onEditComment && (
                             <button
                               type="button"
                               onClick={() => startEdit(item.id, item.comment)}
                               disabled={commentActionsDisabled || actionInFlightId === item.id}
                               className={cn(
-                                'hover:text-input-text',
+                                'hover:text-ink',
                                 (commentActionsDisabled || actionInFlightId === item.id) && 'opacity-50 cursor-not-allowed'
                               )}
                             >
@@ -281,15 +281,15 @@ export const ActivityTimeline = ({
               <>
                 <div className="flex-auto min-w-0">
                   <div className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between sm:gap-3">
-                    <p className="flex-1 py-0.5 text-sm leading-5 text-input-text">
+                    <p className="flex-1 py-0.5 text-sm leading-5 text-ink">
                   <span className="font-semibold">{item.person.name}</span>{' '}
                   {item.actionMeta?.type === 'status_change' ? (
                     <>
-                      <span className="text-input-placeholder dark:text-input-placeholder/80">updated the status</span>{' '}
-                      <span className="text-input-placeholder dark:text-input-placeholder/80">from</span>{' '}
-                      <span className="font-semibold text-input-text">{item.actionMeta.from}</span>{' '}
-                      <span className="text-input-placeholder dark:text-input-placeholder/80">to</span>{' '}
-                      <span className="font-semibold text-input-text">{item.actionMeta.to}</span>
+                      <span className="text-dim-2 dark:text-dim-2/80">updated the status</span>{' '}
+                      <span className="text-dim-2 dark:text-dim-2/80">from</span>{' '}
+                      <span className="font-semibold text-ink">{item.actionMeta.from}</span>{' '}
+                      <span className="text-dim-2 dark:text-dim-2/80">to</span>{' '}
+                      <span className="font-semibold text-ink">{item.actionMeta.to}</span>
                     </>
                   ) : (
                     (() => {
@@ -301,29 +301,29 @@ export const ActivityTimeline = ({
                           return (
                             <button
                               type="button"
-                              className="font-semibold text-input-text hover:text-accent-300"
+                              className="font-semibold text-ink hover:text-accent-300"
                               onClick={() => onTaskClick(actionMeta.taskId)}
                             >
                               {trimmed}
                             </button>
                           );
                         }
-                        return <span className="text-input-text">{trimmed}</span>;
+                        return <span className="text-ink">{trimmed}</span>;
                       }
                       const [, verb, rest] = match;
                       return (
                         <>
-                          <span className="text-input-placeholder dark:text-input-placeholder/80">{verb}</span>{' '}
+                          <span className="text-dim-2 dark:text-dim-2/80">{verb}</span>{' '}
                           {actionMeta?.type === 'task_event' && onTaskClick ? (
                             <button
                               type="button"
-                              className="font-semibold text-input-text hover:text-accent-300"
+                              className="font-semibold text-ink hover:text-accent-300"
                               onClick={() => onTaskClick(actionMeta.taskId)}
                             >
                               {rest}
                             </button>
                           ) : (
-                            <span className="text-input-text">{rest}</span>
+                            <span className="text-ink">{rest}</span>
                           )}
                         </>
                       );
@@ -332,7 +332,7 @@ export const ActivityTimeline = ({
                     </p>
                     <time
                       dateTime={item.dateTime ?? item.date}
-                      className="shrink-0 py-0.5 text-xs leading-5 text-input-placeholder dark:text-input-placeholder/80 sm:text-right"
+                      className="shrink-0 py-0.5 text-xs leading-5 text-dim-2 dark:text-dim-2/80 sm:text-right"
                     >
                       {item.date}
                     </time>
@@ -351,7 +351,7 @@ export const ActivityTimeline = ({
           name={composerPerson?.name ?? 'You'}
           src={composerPerson?.imageUrl ?? null}
           size="sm"
-          className="ring-1 ring-line-subtle bg-surface-utility/10 text-input-text dark:ring-line-subtle sm:mt-1"
+          className="ring-1 ring-line-subtle bg-surface-utility/10 text-ink dark:ring-line-subtle sm:mt-1"
         />
         <form className="flex-auto space-y-2" onSubmit={handleSubmit}>
           <MarkdownUploadTextarea

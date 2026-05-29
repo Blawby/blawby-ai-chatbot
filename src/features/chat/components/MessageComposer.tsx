@@ -319,7 +319,7 @@ const MessageComposer = ({
   const canShowAttachmentMenu = !hideAttachmentControls && !isPublicWorkspace && !isRecording && !isComposerDisabled && Boolean(isReadyToUpload);
   const canShowAudioRecording = features.enableAudioRecording && !isPublicWorkspace && !isComposerDisabled;
 
-  const textareaClasses = "w-full min-h-8 py-2 m-0 text-sm sm:text-base leading-[1.45] text-input-text bg-transparent border-none resize-none outline-none overflow-hidden box-border placeholder:text-input-placeholder transition-all duration-200";
+  const textareaClasses = "w-full min-h-8 py-2 m-0 text-sm sm:text-base leading-[1.45] text-ink bg-transparent border-none resize-none outline-none overflow-hidden box-border placeholder:text-dim-2 transition-all duration-200";
 
   return (
     <div className="px-4 pt-3 pb-3 bg-transparent rounded-none border-0 h-auto flex flex-col w-full">
@@ -343,9 +343,9 @@ const MessageComposer = ({
         )}
         <div className="message-composer-container">
           {replyTo && (
-            <div className="flex items-center justify-between gap-3 rounded-t-2xl bg-surface-utility/40 dark:bg-surface-utility/20 px-4 py-1.5 text-sm text-input-text -mx-2 -mt-1">
+            <div className="flex items-center justify-between gap-3 rounded-t-2xl bg-surface-utility/40 dark:bg-surface-utility/20 px-4 py-1.5 text-sm text-ink -mx-2 -mt-1">
               <div className="flex min-w-0 items-center gap-2">
-                <span className="text-input-text/70">
+                <span className="text-ink/70">
                   <Trans
                     i18nKey="chat.replyingTo"
                     values={{ name: replyTo.authorName }}
@@ -496,7 +496,7 @@ const MessageComposer = ({
                         className={`flex w-full items-center justify-between px-3 py-2 text-left text-sm transition-colors ${
                           index === mentionFocusIndex
                             ? 'bg-accent-500/15 text-[rgb(var(--accent-foreground))]'
-                            : 'text-input-text hover:bg-surface-utility/40'
+                            : 'text-ink hover:bg-surface-utility/40'
                         }`}
                       >
                         <span className="truncate">{candidate.name}</span>

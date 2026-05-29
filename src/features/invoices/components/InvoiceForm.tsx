@@ -411,7 +411,7 @@ export const InvoiceForm = forwardRef<InvoiceFormHandle, InvoiceFormProps>(({
                   placeholder="Choose a contact"
                   disabled={resolvedReadOnly}
                   footer={!resolvedReadOnly ? () => (
-                    <div className="px-3 py-2 text-sm text-input-placeholder">
+                    <div className="px-3 py-2 text-sm text-dim-2">
                       <button
                         type="button"
                         className="inline-flex items-center gap-2 text-sm text-accent-foreground underline"
@@ -468,12 +468,12 @@ export const InvoiceForm = forwardRef<InvoiceFormHandle, InvoiceFormProps>(({
               readOnly={resolvedReadOnly}
             />
             <section className="space-y-3">
-              <h3 className="text-sm font-semibold text-input-text">Request payment</h3>
-              <p className="text-xs text-input-placeholder">
+              <h3 className="text-sm font-semibold text-ink">Request payment</h3>
+              <p className="text-xs text-dim-2">
                 Choose when this invoice should be due.
               </p>
               <div className="space-y-2">
-                <label className="flex items-center gap-2 text-sm text-input-text">
+                <label className="flex items-center gap-2 text-sm text-ink">
                   <input
                     type="radio"
                     name="due-date-mode"
@@ -486,7 +486,7 @@ export const InvoiceForm = forwardRef<InvoiceFormHandle, InvoiceFormProps>(({
                   />
                   <span>Due tomorrow ({defaultDueDate})</span>
                 </label>
-                <label className="flex items-center gap-2 text-sm text-input-text">
+                <label className="flex items-center gap-2 text-sm text-ink">
                   <input
                     type="radio"
                     name="due-date-mode"

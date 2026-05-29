@@ -81,17 +81,17 @@ export const MatterDetailHeader = ({
           ) : (
             <div
               aria-hidden="true"
-              className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-surface-card-raised text-lg font-semibold text-input-text"
+              className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-surface-card-raised text-lg font-semibold text-ink"
             >
               {heroInitial(clientEmail, clientLabel, title)}
             </div>
           )}
 
           <div className="min-w-0 flex-1">
-            <h2 className="truncate text-xl font-semibold leading-tight tracking-tight text-input-text sm:text-2xl">{title}</h2>
-            {subtitle ? <p className="truncate text-[13px] text-input-placeholder">{subtitle}</p> : null}
+            <h2 className="truncate text-xl font-semibold leading-tight tracking-tight text-ink sm:text-2xl">{title}</h2>
+            {subtitle ? <p className="truncate text-[13px] text-dim-2">{subtitle}</p> : null}
             {teamParts.length > 0 ? (
-              <p className="mt-1 truncate text-xs text-input-placeholder">{teamParts.join(' · ')}</p>
+              <p className="mt-1 truncate text-xs text-dim-2">{teamParts.join(' · ')}</p>
             ) : null}
             <div className="mt-2 flex flex-wrap items-center gap-2">
               <span
@@ -141,9 +141,9 @@ export const MatterDetailHeader = ({
                     <button
                       type="button"
                       onClick={item.onClick}
-                      className="flex w-full items-center gap-2 rounded-md px-2.5 py-2 text-left text-sm text-input-text transition-colors hover:bg-surface-card-hover"
+                      className="flex w-full items-center gap-2 rounded-md px-2.5 py-2 text-left text-sm text-ink transition-colors hover:bg-surface-card-hover"
                     >
-                      {Icon ? <Icon className="h-4 w-4 text-input-placeholder" aria-hidden="true" /> : null}
+                      {Icon ? <Icon className="h-4 w-4 text-dim-2" aria-hidden="true" /> : null}
                       {item.label}
                     </button>
                   </li>
@@ -169,9 +169,9 @@ export const MatterDetailHeader = ({
                       <button
                         type="button"
                         onClick={item.onClick}
-                        className="flex w-full items-center gap-2 rounded-md px-2.5 py-2 text-left text-sm text-input-text transition-colors hover:bg-surface-card-hover"
+                        className="flex w-full items-center gap-2 rounded-md px-2.5 py-2 text-left text-sm text-ink transition-colors hover:bg-surface-card-hover"
                       >
-                        {Icon ? <Icon className="h-4 w-4 text-input-placeholder" aria-hidden="true" /> : null}
+                        {Icon ? <Icon className="h-4 w-4 text-dim-2" aria-hidden="true" /> : null}
                         {item.label}
                       </button>
                     </li>

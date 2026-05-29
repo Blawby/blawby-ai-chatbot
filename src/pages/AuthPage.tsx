@@ -93,7 +93,7 @@ const AuthPage = ({ mode = 'signin', onSuccess }: AuthPageProps) => {
               variant="ghost"
               size="sm"
               onClick={handleBackToHome}
-              className="text-sm text-input-placeholder hover:text-input-text"
+              className="text-sm text-dim-2 hover:text-ink"
               icon={ArrowLeft} iconClassName="h-4 w-4"
               iconPosition="left"
             >
@@ -104,10 +104,10 @@ const AuthPage = ({ mode = 'signin', onSuccess }: AuthPageProps) => {
           <div className="flex justify-center mb-6">
             <Logo size="lg" />
           </div>
-          <h2 className="mt-6 text-center text-3xl font-extrabold text-input-text">
+          <h2 className="mt-6 text-center text-3xl font-extrabold text-ink">
             {authMode === 'signup' ? t('signup.title') : t('signin.title')}
           </h2>
-          <p className="mt-2 text-center text-sm text-input-placeholder">
+          <p className="mt-2 text-center text-sm text-dim-2">
             {authMode === 'signup' ? t('signup.subtitle') : t('signin.subtitle')}
           </p>
         </div>

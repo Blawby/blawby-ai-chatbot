@@ -8,7 +8,7 @@ export const PracticeServicesSummary = ({ services }: PracticeServicesSummaryPro
   }
 
   return (
-    <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-input-placeholder">
+    <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-dim-2">
       {services.map((service, index) => (
         <li key={index}>{service}</li>
       ))}

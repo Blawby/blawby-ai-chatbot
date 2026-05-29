@@ -98,10 +98,10 @@ const ConversationalCorrection: FunctionComponent<ConversationalCorrectionProps>
               <span className="text-accent-600 font-semibold text-sm">{index + 1}</span>
             </div>
             <div className="flex-1">
-              <p className="text-sm text-input-text mb-2">{request.question}</p>
+              <p className="text-sm text-ink mb-2">{request.question}</p>
               
               {request.examples && request.examples.length > 0 && (
-                <div className="text-xs text-input-placeholder mb-3">
+                <div className="text-xs text-dim-2 mb-3">
                   Examples: {request.examples.join(', ')}
                 </div>
               )}

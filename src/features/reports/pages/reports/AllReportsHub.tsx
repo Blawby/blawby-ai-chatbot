@@ -21,8 +21,8 @@ export const AllReportsHub: FunctionComponent<AllReportsHubProps> = ({ practiceS
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-4 p-4 sm:p-6">
       <div>
-        <h1 className="text-lg font-semibold text-input-text">All reports</h1>
-        <p className="mt-1 text-sm text-input-placeholder">Browse the available reports for your practice.</p>
+        <h1 className="text-lg font-semibold text-ink">All reports</h1>
+        <p className="mt-1 text-sm text-dim-2">Browse the available reports for your practice.</p>
       </div>
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
         {REPORT_DEFINITIONS.map((def) => (

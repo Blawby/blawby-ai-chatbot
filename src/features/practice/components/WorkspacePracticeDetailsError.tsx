@@ -34,10 +34,10 @@ export function WorkspacePracticeDetailsError({
       ref={dialogRef}
     >
     <div className="max-w-lg panel p-6 text-center">
-        <h1 id="workspace-error-heading" className="text-2xl font-semibold text-input-text">
+        <h1 id="workspace-error-heading" className="text-2xl font-semibold text-ink">
           {t('workspace.error.title')}
         </h1>
-        <p id="workspace-error-desc" className="mt-3 text-sm text-input-placeholder">
+        <p id="workspace-error-desc" className="mt-3 text-sm text-dim-2">
           {t('workspace.error.description', { slug: slugLabel })}
         </p>
         {onRetry ? (

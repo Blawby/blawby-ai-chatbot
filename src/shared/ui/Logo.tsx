@@ -30,7 +30,7 @@ export const Logo = ({ size = 'md', showText = true, className = '', children }:
         className={`${sizeClasses[size]} object-contain`}
       />
       {showText && (
-        <span className={`font-bold text-input-text ${textSizeClasses[size]}`}>
+        <span className={`font-bold text-ink ${textSizeClasses[size]}`}>
           Blawby AI
         </span>
       )}

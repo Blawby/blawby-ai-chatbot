@@ -269,7 +269,7 @@ export const MarkdownUploadTextarea = ({
   return (
     <div className={cn('@container space-y-2', className)}>
       {showLabel ? (
-        <label htmlFor={editorId} className="block text-sm font-medium text-input-text">
+        <label htmlFor={editorId} className="block text-sm font-medium text-ink">
           {label}
         </label>
       ) : null}
@@ -283,8 +283,8 @@ export const MarkdownUploadTextarea = ({
                 className={cn(
                   'rounded-xl px-3 py-2 text-sm font-medium transition-colors @xl:px-3 @xl:py-1.5',
                   activeTab === 'write'
-                    ? 'bg-surface-workspace/90 text-input-text shadow-sm ring-1 ring-line-subtle dark:bg-surface-overlay/90'
-                    : 'text-input-placeholder hover:text-input-text'
+                    ? 'bg-surface-workspace/90 text-ink shadow-sm ring-1 ring-line-subtle dark:bg-surface-overlay/90'
+                    : 'text-dim-2 hover:text-ink'
                 )}
                 onClick={() => setActiveTab('write')}
               >
@@ -295,8 +295,8 @@ export const MarkdownUploadTextarea = ({
                 className={cn(
                   'rounded-xl px-3 py-2 text-sm font-medium transition-colors @xl:px-3 @xl:py-1.5',
                   activeTab === 'preview'
-                    ? 'bg-surface-workspace/90 text-input-text shadow-sm ring-1 ring-line-subtle dark:bg-surface-overlay/90'
-                    : 'text-input-placeholder hover:text-input-text'
+                    ? 'bg-surface-workspace/90 text-ink shadow-sm ring-1 ring-line-subtle dark:bg-surface-overlay/90'
+                    : 'text-dim-2 hover:text-ink'
                 )}
                 onClick={() => setActiveTab('preview')}
               >
@@ -308,7 +308,7 @@ export const MarkdownUploadTextarea = ({
                 <DropdownMenuTrigger asChild>
                   <button
                     type="button"
-                    className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-line-subtle bg-surface-overlay/40 text-input-placeholder transition-colors hover:text-input-text"
+                    className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-line-subtle bg-surface-overlay/40 text-dim-2 transition-colors hover:text-ink"
                     aria-label="Formatting options"
                   >
                     <Icon icon={MoreVertical} className="h-4 w-4" aria-hidden="true" />
@@ -381,39 +381,39 @@ export const MarkdownUploadTextarea = ({
                 </DropdownMenuContent>
               </DropdownMenu>
             </div>
-            <div className="hidden items-center gap-2 text-input-placeholder @xl:flex @xl:flex-wrap">
+            <div className="hidden items-center gap-2 text-dim-2 @xl:flex @xl:flex-wrap">
               <div className="flex items-center gap-1">
-                <button type="button" className="rounded p-1 transition-colors hover:text-input-text" aria-label="Insert heading" onClick={() => prependToLine('# ', 'Heading')}>
+                <button type="button" className="rounded p-1 transition-colors hover:text-ink" aria-label="Insert heading" onClick={() => prependToLine('# ', 'Heading')}>
                   <span className="text-xs font-semibold leading-none">H</span>
                 </button>
-                <button type="button" className="rounded p-1 transition-colors hover:text-input-text" aria-label="Bold" onClick={() => replaceSelection('**', '**', 'bold text')}>
+                <button type="button" className="rounded p-1 transition-colors hover:text-ink" aria-label="Bold" onClick={() => replaceSelection('**', '**', 'bold text')}>
                   <span className="text-xs font-semibold leading-none">B</span>
                 </button>
-                <button type="button" className="rounded p-1 transition-colors hover:text-input-text" aria-label="Italic" onClick={() => replaceSelection('*', '*', 'italic text')}>
+                <button type="button" className="rounded p-1 transition-colors hover:text-ink" aria-label="Italic" onClick={() => replaceSelection('*', '*', 'italic text')}>
                   <span className="text-xs italic leading-none">I</span>
                 </button>
-                <button type="button" className="rounded p-1 transition-colors hover:text-input-text" aria-label="Quote" onClick={() => prependToLine('> ', 'Quoted text')}>
+                <button type="button" className="rounded p-1 transition-colors hover:text-ink" aria-label="Quote" onClick={() => prependToLine('> ', 'Quoted text')}>
                   <Icon icon={PanelLeft} className="h-4 w-4" aria-hidden="true" />
                 </button>
               </div>
               <div className="h-4 w-px bg-line-glass/50" />
               <div className="flex items-center gap-1">
-                <button type="button" className="rounded p-1 transition-colors hover:text-input-text" aria-label="Code block" onClick={() => replaceSelection('```\n', '\n```', 'code')}>
+                <button type="button" className="rounded p-1 transition-colors hover:text-ink" aria-label="Code block" onClick={() => replaceSelection('```\n', '\n```', 'code')}>
                   <Icon icon={Code} className="h-4 w-4" aria-hidden="true" />
                 </button>
-                <button type="button" className="rounded p-1 transition-colors hover:text-input-text" aria-label="Insert link" onClick={() => replaceSelection('[', '](https://)', 'link text')}>
+                <button type="button" className="rounded p-1 transition-colors hover:text-ink" aria-label="Insert link" onClick={() => replaceSelection('[', '](https://)', 'link text')}>
                   <Icon icon={Link} className="h-4 w-4" aria-hidden="true" />
                 </button>
               </div>
               <div className="h-4 w-px bg-line-glass/50" />
               <div className="flex items-center gap-1">
-                <button type="button" className="rounded p-1 transition-colors hover:text-input-text" aria-label="Bulleted list" onClick={() => prependToLine('- ', 'List item')}>
+                <button type="button" className="rounded p-1 transition-colors hover:text-ink" aria-label="Bulleted list" onClick={() => prependToLine('- ', 'List item')}>
                   <Icon icon={List} className="h-4 w-4" aria-hidden="true" />
                 </button>
-                <button type="button" className="rounded p-1 transition-colors hover:text-input-text" aria-label="Numbered list" onClick={() => prependToLine('1. ', 'List item')}>
+                <button type="button" className="rounded p-1 transition-colors hover:text-ink" aria-label="Numbered list" onClick={() => prependToLine('1. ', 'List item')}>
                   <Icon icon={ListOrdered} className="h-4 w-4" aria-hidden="true" />
                 </button>
-                <button type="button" className="rounded p-1 transition-colors hover:text-input-text" aria-label="Task list" onClick={() => prependToLine('- [ ] ', 'Task')}>
+                <button type="button" className="rounded p-1 transition-colors hover:text-ink" aria-label="Task list" onClick={() => prependToLine('- [ ] ', 'Task')}>
                   <Icon icon={FileText} className="h-4 w-4" aria-hidden="true" />
                 </button>
               </div>
@@ -437,7 +437,7 @@ export const MarkdownUploadTextarea = ({
               maxLength={maxLength}
               placeholder={placeholder}
               className={cn(
-                'w-full resize-y bg-transparent px-4 py-3 text-sm text-input-text placeholder:text-input-placeholder focus:outline-none',
+                'w-full resize-y bg-transparent px-4 py-3 text-sm text-ink placeholder:text-dim-2 focus:outline-none',
                 disabled ? 'cursor-not-allowed opacity-60' : ''
               )}
               onInput={(event) => onChange((event.currentTarget as HTMLTextAreaElement).value)}
@@ -468,7 +468,7 @@ export const MarkdownUploadTextarea = ({
               }}
             />
             {isDragActive && (
-              <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-surface-overlay/70 text-sm font-medium text-input-text">
+              <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-surface-overlay/70 text-sm font-medium text-ink">
                 Drop files to upload and insert links
               </div>
             )}
@@ -499,20 +499,20 @@ export const MarkdownUploadTextarea = ({
                 )}
               </div>
             ) : (
-              <p className="text-sm text-input-placeholder">Nothing to preview yet.</p>
+              <p className="text-sm text-dim-2">Nothing to preview yet.</p>
             )}
           </div>
         )}
 
         {showFooter ? (
           <div className="flex flex-col gap-2 border-t border-line-subtle px-4 py-2 text-sm @xl:flex-row @xl:items-center @xl:justify-between">
-            <div className="flex items-center gap-2 text-input-placeholder">
+            <div className="flex items-center gap-2 text-dim-2">
               {uploadsEnabled ? (
                 <>
                   <Icon icon={CloudUpload} className="h-4 w-4" aria-hidden="true"  />
                   <button
                     type="button"
-                    className="hover:text-input-text"
+                    className="hover:text-ink"
                     onClick={() => fileInputRef.current?.click()}
                     disabled={disabled}
                   >
@@ -521,7 +521,7 @@ export const MarkdownUploadTextarea = ({
                 </>
               ) : null}
             </div>
-            <div className="text-input-placeholder @xl:text-right">{value.length}/{maxLength}</div>
+            <div className="text-dim-2 @xl:text-right">{value.length}/{maxLength}</div>
           </div>
         ) : null}
       </div>
@@ -545,7 +545,7 @@ export const MarkdownUploadTextarea = ({
       {uploadItems.length > 0 && (
         <div className="space-y-1 rounded-xl border border-line-subtle bg-surface-overlay/50 px-3 py-2">
           {uploadItems.map((item) => (
-            <div key={item.id} className="flex items-center gap-2 text-xs text-input-placeholder">
+            <div key={item.id} className="flex items-center gap-2 text-xs text-dim-2">
               <Icon icon={FileText} className="h-4 w-4" aria-hidden="true"  />
               <span className="truncate">{item.name}</span>
               {item.status === 'uploading' && <span>{item.progress}%</span>}

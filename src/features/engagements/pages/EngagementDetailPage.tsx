@@ -48,7 +48,7 @@ import { useEngagementDetail } from '../hooks/useEngagementDetail';
 
 const STATUS_VARIANTS: Record<EngagementStatus, { label: string; className: string }> = {
   draft:    { label: 'Draft',    className: 'bg-amber-500/10 text-amber-700 ring-amber-500/20 dark:text-amber-300' },
-  sent:     { label: 'Sent',     className: 'bg-surface-overlay/60 text-input-placeholder ring-line-subtle' },
+  sent:     { label: 'Sent',     className: 'bg-surface-overlay/60 text-dim-2 ring-line-subtle' },
   accepted: { label: 'Accepted', className: 'bg-emerald-500/10 text-emerald-700 ring-emerald-500/20 dark:text-emerald-300' },
   declined: { label: 'Declined', className: 'bg-rose-500/10 text-rose-700 ring-rose-500/20 dark:text-rose-300' },
 };
@@ -66,8 +66,8 @@ const CONFLICT_VARIANTS: Record<ConflictStatus, { label: string; className: stri
   clear:             { label: 'Clear',             className: 'bg-emerald-500/10 text-emerald-700 ring-emerald-500/20 dark:text-emerald-300' },
   review_required:   { label: 'Review Required',   className: 'bg-amber-500/10 text-amber-700 ring-amber-500/20 dark:text-amber-300' },
   conflicted:        { label: 'Conflicted',        className: 'bg-rose-500/10 text-rose-700 ring-rose-500/20 dark:text-rose-300' },
-  unknown:           { label: 'Unknown',           className: 'bg-surface-overlay/60 text-input-placeholder ring-line-subtle' },
-  insufficient_data: { label: 'Insufficient Data', className: 'bg-surface-overlay/60 text-input-placeholder ring-line-subtle' },
+  unknown:           { label: 'Unknown',           className: 'bg-surface-overlay/60 text-dim-2 ring-line-subtle' },
+  insufficient_data: { label: 'Insufficient Data', className: 'bg-surface-overlay/60 text-dim-2 ring-line-subtle' },
 };
 
 // ── Display helpers ──────────────────────────────────────────────────────────
@@ -110,7 +110,7 @@ const SectionCard: FunctionComponent<{
 }> = ({ title, children, className, action }) => (
   <section className={cn('card p-5 sm:p-6 space-y-4', className)}>
     <header className="flex items-center justify-between gap-2">
-      <h3 className="text-xs font-semibold uppercase tracking-widest text-input-placeholder">{title}</h3>
+      <h3 className="text-xs font-semibold uppercase tracking-widest text-dim-2">{title}</h3>
       {action}
     </header>
     {children}
@@ -123,8 +123,8 @@ const InfoRow: FunctionComponent<{
   fallback?: string;
 }> = ({ label, value, fallback = 'Not specified' }) => (
   <div className="grid grid-cols-[120px_minmax(0,1fr)] gap-3 text-sm">
-    <dt className="text-input-placeholder">{label}</dt>
-    <dd className="text-input-text break-words">{value || <span className="text-input-placeholder italic">{fallback}</span>}</dd>
+    <dt className="text-dim-2">{label}</dt>
+    <dd className="text-ink break-words">{value || <span className="text-dim-2 italic">{fallback}</span>}</dd>
   </div>
 );
 
@@ -153,16 +153,16 @@ const ScopeOfRepresentationCard: FunctionComponent<{ proposal: ProposalData | nu
   return (
     <SectionCard title="Scope of representation">
       {scope ? (
-        <p className="text-sm leading-relaxed text-input-text">{scope}</p>
+        <p className="text-sm leading-relaxed text-ink">{scope}</p>
       ) : (
-        <p className="text-sm italic text-input-placeholder">Not yet drafted</p>
+        <p className="text-sm italic text-dim-2">Not yet drafted</p>
       )}
       {included.length > 0 && (
         <div className="space-y-1.5">
-          <p className="text-xs font-medium uppercase tracking-wide text-input-placeholder">Included</p>
+          <p className="text-xs font-medium uppercase tracking-wide text-dim-2">Included</p>
           <ul className="space-y-1">
             {included.map((service, i) => (
-              <li key={i} className="flex items-start gap-2 text-sm text-input-text">
+              <li key={i} className="flex items-start gap-2 text-sm text-ink">
                 <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-500" />
                 <span>{service}</span>
               </li>
@@ -172,10 +172,10 @@ const ScopeOfRepresentationCard: FunctionComponent<{ proposal: ProposalData | nu
       )}
       {excluded.length > 0 && (
         <div className="space-y-1.5">
-          <p className="text-xs font-medium uppercase tracking-wide text-input-placeholder">Excluded</p>
+          <p className="text-xs font-medium uppercase tracking-wide text-dim-2">Excluded</p>
           <ul className="space-y-1">
             {excluded.map((service, i) => (
-              <li key={i} className="flex items-start gap-2 text-sm text-input-text">
+              <li key={i} className="flex items-start gap-2 text-sm text-ink">
                 <XCircle className="mt-0.5 h-4 w-4 shrink-0 text-rose-500/70" />
                 <span>{service}</span>
               </li>
@@ -192,7 +192,7 @@ const FeeStructureCard: FunctionComponent<{ proposal: ProposalData | null }> = (
   if (!fees) {
     return (
       <SectionCard title="Fee structure">
-        <p className="text-sm italic text-input-placeholder">Not yet drafted</p>
+        <p className="text-sm italic text-dim-2">Not yet drafted</p>
       </SectionCard>
     );
   }
@@ -210,7 +210,7 @@ const FeeStructureCard: FunctionComponent<{ proposal: ProposalData | null }> = (
   if (visible.length === 0) {
     return (
       <SectionCard title="Fee structure">
-        <p className="text-sm italic text-input-placeholder">Not yet drafted</p>
+        <p className="text-sm italic text-dim-2">Not yet drafted</p>
       </SectionCard>
     );
   }
@@ -220,13 +220,13 @@ const FeeStructureCard: FunctionComponent<{ proposal: ProposalData | null }> = (
       <dl className="grid grid-cols-1 gap-x-6 gap-y-4 sm:grid-cols-2">
         {visible.map(({ label, value }) => (
           <div key={label}>
-            <dt className="text-xs text-input-placeholder">{label}</dt>
-            <dd className="mt-0.5 text-sm font-medium text-input-text">{value}</dd>
+            <dt className="text-xs text-dim-2">{label}</dt>
+            <dd className="mt-0.5 text-sm font-medium text-ink">{value}</dd>
           </div>
         ))}
       </dl>
       {fees.fee_notes && (
-        <p className="border-t border-line-subtle pt-3 text-sm text-input-text">{fees.fee_notes}</p>
+        <p className="border-t border-line-subtle pt-3 text-sm text-ink">{fees.fee_notes}</p>
       )}
     </SectionCard>
   );
@@ -235,11 +235,11 @@ const FeeStructureCard: FunctionComponent<{ proposal: ProposalData | null }> = (
 const ContractBodyCard: FunctionComponent<{ engagement: EngagementDetail }> = ({ engagement }) => (
   <SectionCard title="Contract body">
     {engagement.contract_body?.trim() ? (
-      <div className="max-h-[360px] overflow-y-auto whitespace-pre-wrap rounded-lg border border-line-subtle bg-surface-overlay/30 p-3 text-sm leading-relaxed text-input-text">
+      <div className="max-h-[360px] overflow-y-auto whitespace-pre-wrap rounded-lg border border-line-subtle bg-surface-overlay/30 p-3 text-sm leading-relaxed text-ink">
         {engagement.contract_body}
       </div>
     ) : (
-      <p className="text-sm italic text-input-placeholder">Not yet drafted</p>
+      <p className="text-sm italic text-dim-2">Not yet drafted</p>
     )}
   </SectionCard>
 );
@@ -264,8 +264,8 @@ const TimelineCard: FunctionComponent<{ engagement: EngagementDetail }> = ({ eng
       <dl className="space-y-2.5">
         {rows.map(({ label, value }) => (
           <div key={label} className="flex items-center justify-between gap-3 text-sm">
-            <dt className="text-input-placeholder">{label}</dt>
-            <dd className="text-right text-input-text">{value ?? <span className="italic text-input-placeholder">Pending</span>}</dd>
+            <dt className="text-dim-2">{label}</dt>
+            <dd className="text-right text-ink">{value ?? <span className="italic text-dim-2">Pending</span>}</dd>
           </div>
         ))}
       </dl>
@@ -295,11 +295,11 @@ const RiskReviewCard: FunctionComponent<{ proposal: ProposalData | null }> = ({ 
           {jurisdictionLabel}
         </span>
       </div>
-      {risk?.conflict_note && <p className="text-sm text-input-text">{risk.conflict_note}</p>}
+      {risk?.conflict_note && <p className="text-sm text-ink">{risk.conflict_note}</p>}
       {risk?.open_questions && risk.open_questions.length > 0 && (
         <ul className="space-y-1.5">
           {risk.open_questions.map((q, i) => (
-            <li key={i} className="flex items-start gap-2 text-sm text-input-text">
+            <li key={i} className="flex items-start gap-2 text-sm text-ink">
               <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-500" />
               <span>{q}</span>
             </li>
@@ -322,13 +322,13 @@ const SourceInformationCard: FunctionComponent<{ engagement: EngagementDetail }>
   return (
     <SectionCard title="Source information">
       {visible.length === 0 ? (
-        <p className="text-sm italic text-input-placeholder">No source context</p>
+        <p className="text-sm italic text-dim-2">No source context</p>
       ) : (
         <dl className="space-y-2.5">
           {visible.map(({ label, value }) => (
             <div key={label} className="flex items-start justify-between gap-3 text-sm">
-              <dt className="text-input-placeholder">{label}</dt>
-              <dd className="text-right text-input-text capitalize">{value}</dd>
+              <dt className="text-dim-2">{label}</dt>
+              <dd className="text-right text-ink capitalize">{value}</dd>
             </div>
           ))}
         </dl>
@@ -340,9 +340,9 @@ const SourceInformationCard: FunctionComponent<{ engagement: EngagementDetail }>
 const EngagementNotesCard: FunctionComponent<{ engagement: EngagementDetail }> = ({ engagement }) => (
   <SectionCard title="Engagement notes">
     {engagement.engagement_notes ? (
-      <p className="text-sm leading-relaxed text-input-text whitespace-pre-wrap">{engagement.engagement_notes}</p>
+      <p className="text-sm leading-relaxed text-ink whitespace-pre-wrap">{engagement.engagement_notes}</p>
     ) : (
-      <p className="text-sm italic text-input-placeholder">No internal notes yet</p>
+      <p className="text-sm italic text-dim-2">No internal notes yet</p>
     )}
   </SectionCard>
 );
@@ -463,7 +463,7 @@ const ConversationPreviewCard: FunctionComponent<ConversationPreviewCardProps> =
     return (
       <div className="fixed inset-0 z-40 flex flex-col bg-app-background">
         <header className="flex items-center justify-between border-b border-line-subtle px-4 py-3">
-          <h2 className="text-base font-semibold text-input-text">Messages</h2>
+          <h2 className="text-base font-semibold text-ink">Messages</h2>
           <Button variant="ghost" icon={X} onClick={onToggle} aria-label="Close conversation" />
         </header>
         <div className="min-h-0 flex-1">
@@ -502,15 +502,15 @@ const ConversationPreviewCard: FunctionComponent<ConversationPreviewCardProps> =
         className="flex w-full items-center justify-between gap-3 p-5 text-left transition-colors hover:bg-surface-card-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/40 sm:p-6"
       >
         <div className="flex min-w-0 items-center gap-3">
-          <MessagesSquare className="h-4 w-4 shrink-0 text-input-placeholder" />
-          <h3 className="text-xs font-semibold uppercase tracking-widest text-input-placeholder">Messages</h3>
+          <MessagesSquare className="h-4 w-4 shrink-0 text-dim-2" />
+          <h3 className="text-xs font-semibold uppercase tracking-widest text-dim-2">Messages</h3>
           {lastActivity && (
-            <span className="truncate text-xs text-input-placeholder">
+            <span className="truncate text-xs text-dim-2">
               · {formatRelativeTime(lastActivity)}
             </span>
           )}
         </div>
-        {isExpanded ? <ChevronUp className="h-4 w-4 text-input-placeholder" /> : <ChevronDown className="h-4 w-4 text-input-placeholder" />}
+        {isExpanded ? <ChevronUp className="h-4 w-4 text-dim-2" /> : <ChevronDown className="h-4 w-4 text-dim-2" />}
       </button>
       {isExpanded && !isMobile && (
         <div className="border-t border-line-subtle">
@@ -1126,9 +1126,9 @@ export const EngagementDetailPage: FunctionComponent<EngagementDetailPageProps> 
   const statusBanner = (() => {
     if (isSent) {
       return (
-        <div className="rounded-xl border border-line-subtle bg-surface-overlay/40 p-4 text-sm text-input-text">
+        <div className="rounded-xl border border-line-subtle bg-surface-overlay/40 p-4 text-sm text-ink">
           <p className="font-medium">Awaiting client response</p>
-          <p className="mt-1 text-input-placeholder">The client received this engagement and will accept or decline online.</p>
+          <p className="mt-1 text-dim-2">The client received this engagement and will accept or decline online.</p>
         </div>
       );
     }

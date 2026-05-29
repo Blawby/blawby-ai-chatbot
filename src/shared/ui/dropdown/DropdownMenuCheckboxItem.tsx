@@ -41,7 +41,7 @@ export const DropdownMenuCheckboxItem = ({
   return (
     <div 
       className={cn(
-        'flex items-center justify-between px-2 py-1.5 text-sm text-input-text',
+        'flex items-center justify-between px-2 py-1.5 text-sm text-ink',
         'hover:bg-surface-utility/10',
         'focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-accent-500/50',
         'dark:focus-visible:ring-accent-400/40',

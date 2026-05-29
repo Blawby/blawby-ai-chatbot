@@ -160,7 +160,7 @@ const Card = ({ tone = 'default', children }: { tone?: 'default' | 'error'; chil
         "mx-auto max-w-xl rounded-2xl border p-6 text-sm",
         tone === 'error'
           ? "border-accent-error/30 bg-accent-error/5 text-accent-error-foreground backdrop-blur-xl"
-          : "card text-input-text"
+          : "card text-ink"
       )}
     >
       {children}
@@ -431,7 +431,7 @@ export const AcceptInvitationPage = () => {
         <div className="flex justify-center mb-6">
           <Logo size="lg" />
         </div>
-        <h1 className="text-xl font-semibold text-input-text">Unable to load invitation</h1>
+        <h1 className="text-xl font-semibold text-ink">Unable to load invitation</h1>
         <p className="mt-2 text-sm text-accent-error-light">{preAuthError}</p>
         <div className="mt-4 flex flex-wrap gap-3">
           <Button variant="ghost" onClick={() => navigate('/auth', true)}>
@@ -454,10 +454,10 @@ export const AcceptInvitationPage = () => {
           <Logo size="lg" />
         </div>
         <div className="text-center">
-          <h1 className="text-2xl font-semibold text-input-text">
+          <h1 className="text-2xl font-semibold text-ink">
             Accept your invitation to sign up{practiceName ? ` | ${practiceName}` : ''}
           </h1>
-          <p className="mt-2 text-sm text-input-placeholder">
+          <p className="mt-2 text-sm text-dim-2">
             {subtitle}
           </p>
         </div>
@@ -481,20 +481,20 @@ export const AcceptInvitationPage = () => {
         <div className="flex justify-center mb-6">
           <Logo size="lg" />
         </div>
-        <h1 className="text-xl font-semibold text-input-text">You’re signed in</h1>
-        <p className="mt-2 text-sm text-input-placeholder">
+        <h1 className="text-xl font-semibold text-ink">You’re signed in</h1>
+        <p className="mt-2 text-sm text-dim-2">
           Continue to {practiceName || practiceSlug} to finish your intake.
         </p>
-        <div className="mt-4 space-y-2 text-sm text-input-placeholder">
+        <div className="mt-4 space-y-2 text-sm text-dim-2">
           <div>
-            <span className="font-medium text-input-text">Practice:</span> {practiceName || practiceSlug}
+            <span className="font-medium text-ink">Practice:</span> {practiceName || practiceSlug}
           </div>
           <div>
-            <span className="font-medium text-input-text">Email:</span> {invitedEmail}
+            <span className="font-medium text-ink">Email:</span> {invitedEmail}
           </div>
           {sessionEmail && (
             <div>
-              <span className="font-medium text-input-text">Signed in as:</span> {sessionEmail}
+              <span className="font-medium text-ink">Signed in as:</span> {sessionEmail}
             </div>
           )}
         </div>
@@ -534,7 +534,7 @@ export const AcceptInvitationPage = () => {
         <div className="flex justify-center mb-6">
           <Logo size="lg" />
         </div>
-        <h1 className="text-xl font-semibold text-input-text">Unable to load invitation</h1>
+        <h1 className="text-xl font-semibold text-ink">Unable to load invitation</h1>
         <p className="mt-2 text-sm text-accent-error-light">{inviteState.message}</p>
         <div className="mt-4 flex flex-wrap gap-3">
           <Button variant="secondary" onClick={fetchInvitation}>
@@ -569,32 +569,32 @@ export const AcceptInvitationPage = () => {
       <div className="flex justify-center mb-6">
         <Logo size="lg" />
       </div>
-      <h1 className="text-xl font-semibold text-input-text">Accept invitation</h1>
-      <p className="mt-2 text-sm text-input-placeholder">
+      <h1 className="text-xl font-semibold text-ink">Accept invitation</h1>
+      <p className="mt-2 text-sm text-dim-2">
         You&apos;ve been invited to join {invitation.practiceName ?? 'this practice'}.
       </p>
-      <div className="mt-4 space-y-2 text-sm text-input-placeholder">
+      <div className="mt-4 space-y-2 text-sm text-dim-2">
         {invitation.practiceSlug && (
           <div>
-            <span className="font-medium text-input-text">Practice:</span> {invitation.practiceName || invitation.practiceSlug}
+            <span className="font-medium text-ink">Practice:</span> {invitation.practiceName || invitation.practiceSlug}
           </div>
         )}
         {(invitation.inviterName || invitation.inviterEmail) && (
           <div>
-            <span className="font-medium text-input-text">Invited by:</span> {invitation.inviterName ?? invitation.inviterEmail}
+            <span className="font-medium text-ink">Invited by:</span> {invitation.inviterName ?? invitation.inviterEmail}
           </div>
         )}
         <div>
-          <span className="font-medium text-input-text">Role:</span> {roleLabel}
+          <span className="font-medium text-ink">Role:</span> {roleLabel}
         </div>
         {invitation.expiresAt && (
           <div>
-            <span className="font-medium text-input-text">Expires:</span> {isValidDate(invitation.expiresAt) ? new Date(invitation.expiresAt).toLocaleString() : 'Unknown'}
+            <span className="font-medium text-ink">Expires:</span> {isValidDate(invitation.expiresAt) ? new Date(invitation.expiresAt).toLocaleString() : 'Unknown'}
           </div>
         )}
         {effectiveInvitedEmail && (
           <div>
-            <span className="font-medium text-input-text">Invited email:</span> {effectiveInvitedEmail}
+            <span className="font-medium text-ink">Invited email:</span> {effectiveInvitedEmail}
           </div>
         )}
       </div>
@@ -618,7 +618,7 @@ export const AcceptInvitationPage = () => {
         )}
       </div>
       {invitation.status !== 'pending' && (
-        <p className="mt-2 text-xs text-input-placeholder">
+        <p className="mt-2 text-xs text-dim-2">
           This invitation is no longer pending.
         </p>
       )}

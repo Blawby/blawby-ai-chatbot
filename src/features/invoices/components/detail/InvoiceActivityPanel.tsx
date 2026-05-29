@@ -14,10 +14,10 @@ export const InvoiceActivityPanel = ({ detail }: InvoiceActivityPanelProps) => {
   return (
     <Panel className="rounded-2xl p-5">
       <div className="mb-4 flex items-center justify-between">
-        <h3 className="text-sm font-semibold text-input-text">Activity</h3>
+        <h3 className="text-sm font-semibold text-ink">Activity</h3>
       </div>
       {items.length === 0 ? (
-        <p className="text-sm text-input-placeholder">No activity yet.</p>
+        <p className="text-sm text-dim-2">No activity yet.</p>
       ) : (
         <ActivityTimeline items={items} />
       )}

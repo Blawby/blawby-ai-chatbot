@@ -346,10 +346,10 @@ export const IntakePaymentForm: FunctionComponent<IntakePaymentFormProps> = ({
               </svg>
             </div>
           </div>
-          <h3 className="text-lg font-semibold text-input-text mb-1">
+          <h3 className="text-lg font-semibold text-ink mb-1">
             Payment successful
           </h3>
-          <p className="text-input-placeholder">
+          <p className="text-dim-2">
             Thank you! Your payment was successful and your case details are being processed. A member of our team will contact you at the information you provided.
           </p>
           <div className="mt-4 border-t border-line-subtle pt-4 text-xs text-emerald-700 dark:text-emerald-300">

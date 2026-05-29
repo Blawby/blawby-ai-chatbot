@@ -80,7 +80,7 @@ export const MessageContent: FunctionComponent<MessageContentProps> = ({
   // bottom-left corner. Padding & radius mirror the design components.
   const bubbleClassName = isUser
     ? 'inline-block max-w-full rounded-2xl rounded-br-[4px] bg-accent-500 px-[14px] py-[10px] text-[rgb(var(--accent-foreground))] shadow-sm'
-    : 'inline-block max-w-full rounded-2xl rounded-bl-[4px] bg-[rgb(var(--surface-card-hover))] px-[14px] py-[10px] text-input-text';
+    : 'inline-block max-w-full rounded-2xl rounded-bl-[4px] bg-[rgb(var(--surface-card-hover))] px-[14px] py-[10px] text-ink';
 
   // The outer wrapper is a flex row so the inline-block bubble follows the
   // sender alignment even when the column it sits in (MessageBubble) is wider

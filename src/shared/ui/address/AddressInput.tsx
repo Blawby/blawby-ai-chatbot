@@ -219,7 +219,7 @@ export const AddressInput = ({
     <div className={cn('relative', className)} ref={dropdownRef}>
       {/* Description */}
       {description && (
-        <p className="text-xs text-input-placeholder dark:text-input-placeholder/80 mt-1 mb-4">
+        <p className="text-xs text-dim-2 dark:text-dim-2/80 mt-1 mb-4">
           {description}
         </p>
       )}

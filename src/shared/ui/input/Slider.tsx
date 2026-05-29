@@ -78,9 +78,9 @@ export const Slider = forwardRef<HTMLInputElement, SliderProps>(function Slider(
     <div className={cn('flex flex-col gap-1.5', className)}>
       {(label || showValue) && (
         <div className="flex items-center justify-between">
-          {label && <span className="text-xs text-input-placeholder">{label}</span>}
+          {label && <span className="text-xs text-dim-2">{label}</span>}
           {showValue && (
-            <span className="text-xs font-medium text-input-text tabular-nums">
+            <span className="text-xs font-medium text-ink tabular-nums">
               {currentValue}
             </span>
           )}

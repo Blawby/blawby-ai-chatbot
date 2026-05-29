@@ -225,7 +225,7 @@ export const MFAEnrollmentPage = ({
 
           {/* Instructions */}
           <div className="space-y-2">
-            <p className="text-sm text-input-placeholder">
+            <p className="text-sm text-dim-2">
               {t('settings:mfa.instructions')}
             </p>
           </div>
@@ -272,7 +272,7 @@ export const MFAEnrollmentPage = ({
               <SectionDivider className="w-full" />
             </div>
             <div className="relative flex justify-center text-sm">
-              <span className="px-2 bg-surface-base text-input-placeholder">
+              <span className="px-2 bg-surface-base text-dim-2">
                 {t('settings:mfa.then')}
               </span>
             </div>
@@ -324,7 +324,7 @@ export const MFAEnrollmentPage = ({
               >
                 {t('settings:mfa.footer.terms')}
               </Button>
-              <span className="text-input-placeholder">|</span>
+              <span className="text-dim-2">|</span>
               <Button
                 variant="link"
                 size="sm"

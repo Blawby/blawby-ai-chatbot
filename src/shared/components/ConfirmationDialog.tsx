@@ -132,10 +132,10 @@ export default function ConfirmationDialog({
               {/* Warning Items List */}
               {warningItems.length > 0 && (
                 <div className="mb-4 space-y-2">
-                  <p className="text-sm font-medium text-input-text">
+                  <p className="text-sm font-medium text-ink">
                     This will permanently delete:
                   </p>
-                  <ul className="space-y-1 text-sm text-input-placeholder">
+                  <ul className="space-y-1 text-sm text-dim-2">
                     {warningItems.map((item, idx) => (
                       <li key={idx}>• {item}</li>
                     ))}
@@ -146,9 +146,9 @@ export default function ConfirmationDialog({
               <div className="space-y-4 pt-2">
                 {/* Confirmation Input */}
                 <div className="space-y-2">
-                  <label htmlFor={confirmationInputId} className="block text-sm font-medium text-input-text">
+                  <label htmlFor={confirmationInputId} className="block text-sm font-medium text-ink">
                     {confirmationLabel}
-                    <span className="font-mono text-xs font-bold bg-surface-utility/40 border border-line-utility/50 dark:border-white/20 px-2 py-0.5 rounded shadow-sm ml-2 text-input-text inline-flex items-center">
+                    <span className="font-mono text-xs font-bold bg-surface-utility/40 border border-line-utility/50 dark:border-white/20 px-2 py-0.5 rounded shadow-sm ml-2 text-ink inline-flex items-center">
                       {confirmationValue}
                     </span>
                   </label>
@@ -193,7 +193,7 @@ export default function ConfirmationDialog({
                 {/* Password Input */}
                 {requirePassword && (
                   <div className="space-y-2">
-                    <label htmlFor={confirmationPasswordId} className="block text-sm font-medium text-input-text">
+                    <label htmlFor={confirmationPasswordId} className="block text-sm font-medium text-ink">
                       {passwordLabel}
                     </label>
                     <input

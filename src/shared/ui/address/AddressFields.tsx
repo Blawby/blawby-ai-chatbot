@@ -191,7 +191,7 @@ export const AddressFields = forwardRef<HTMLDivElement, AddressFieldsProps>(
         {/* ── Street address + autocomplete ─────────────────────────── */}
         <div>
           {label && (
-            <label htmlFor={streetInputId} className="mb-1 block text-sm font-medium text-input-text">
+            <label htmlFor={streetInputId} className="mb-1 block text-sm font-medium text-ink">
               {label}
             </label>
           )}
@@ -279,7 +279,7 @@ export const AddressFields = forwardRef<HTMLDivElement, AddressFieldsProps>(
                             'w-full px-3 py-2 text-left text-sm transition-colors duration-150',
                             isActive
                               ? 'bg-accent-500/15 text-accent-400'
-                              : 'text-input-text hover:bg-surface-utility/10'
+                              : 'text-ink hover:bg-surface-utility/10'
                           )}
                         >
                           {s.formatted}
@@ -289,7 +289,7 @@ export const AddressFields = forwardRef<HTMLDivElement, AddressFieldsProps>(
                   })}
                 </ul>
               ) : (
-                <p className="px-3 py-2 text-sm text-input-placeholder">
+                <p className="px-3 py-2 text-sm text-dim-2">
                   No suggestions found.
                 </p>
               )}

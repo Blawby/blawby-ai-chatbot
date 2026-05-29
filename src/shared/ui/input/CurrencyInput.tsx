@@ -82,7 +82,7 @@ export const CurrencyInput = forwardRef<HTMLInputElement, CurrencyInputProps>(({
   };
 
   const inputClasses = cn(
-    'w-full rounded-xl text-input-text placeholder:text-input-placeholder',
+    'w-full rounded-xl text-ink placeholder:text-dim-2',
     'focus:outline-none transition-all duration-200',
     'input-surface border-none',
     sizeClasses[size],
@@ -95,14 +95,14 @@ export const CurrencyInput = forwardRef<HTMLInputElement, CurrencyInputProps>(({
   return (
     <div className="w-full">
       {label ? (
-        <label htmlFor={inputId} className="mb-1 block text-sm font-medium text-input-text">
+        <label htmlFor={inputId} className="mb-1 block text-sm font-medium text-ink">
           {label}
           {required ? <span className="ml-1 text-red-500">*</span> : null}
         </label>
       ) : null}
 
       <div className="relative">
-        <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-input-placeholder">
+        <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-dim-2">
           <span className="text-sm">$</span>
         </div>
 
@@ -210,7 +210,7 @@ export const CurrencyInput = forwardRef<HTMLInputElement, CurrencyInputProps>(({
       ) : null}
 
       {description ? (
-        <p id={descriptionId} className="mt-1 text-xs text-input-placeholder">
+        <p id={descriptionId} className="mt-1 text-xs text-dim-2">
           {description}
         </p>
       ) : null}

@@ -1146,10 +1146,10 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
     [mattersStatusFilter, workspacePrefetchData, toggleDetailInspector, detailInspectorOpen, desktopCreate] as const,
     <div className="flex flex-1 flex-col card">
       <div className="mx-6 my-6 panel p-5">
-        <div className="text-sm text-input-placeholder">
+        <div className="text-sm text-dim-2">
           Your active matters will appear here once a practice connects them to your account.
         </div>
-        <div className="mt-2 text-sm text-input-placeholder">
+        <div className="mt-2 text-sm text-dim-2">
           Start a conversation to open a new matter with the practice.
         </div>
       </div>
@@ -1162,7 +1162,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
     [contactsStatusFilter, workspacePrefetchData, toggleDetailInspector, detailInspectorOpen, desktopCreate] as const,
     <div className="flex flex-1 flex-col card">
       <div className="mx-6 my-6 panel p-5">
-        <p className="text-sm text-input-placeholder">
+        <p className="text-sm text-dim-2">
           Manage contacts and relationship statuses here.
         </p>
       </div>
@@ -1173,7 +1173,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
     [invoicesStatusFilter, toggleDetailInspector, detailInspectorOpen, desktopCreate] as const,
     <div className="flex flex-1 flex-col card">
       <div className="mx-6 my-6 panel p-5">
-        <p className="text-sm text-input-placeholder">
+        <p className="text-sm text-dim-2">
           Invoice details and payments will appear here.
         </p>
       </div>
@@ -1517,7 +1517,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
         description="This permanently removes the conversation, its messages, reactions, and audit history. This action cannot be undone."
       >
         <div className="flex flex-col gap-4 px-6 pb-6">
-          <p className="text-sm text-input-text">
+          <p className="text-sm text-ink">
             Are you sure you want to delete{' '}
             <span className="font-semibold">
               {conversationPendingDelete

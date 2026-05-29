@@ -22,8 +22,8 @@ export const InvoicePaymentsSection = ({ payments }: InvoicePaymentsSectionProps
   return (
     <Panel className="rounded-2xl p-5">
       <div className="mb-3 flex items-center justify-between">
-        <h3 className="text-sm font-semibold text-input-text">Payments</h3>
-        <span className="text-xs text-input-placeholder">{payments.length} {payments.length === 1 ? 'entry' : 'entries'}</span>
+        <h3 className="text-sm font-semibold text-ink">Payments</h3>
+        <span className="text-xs text-dim-2">{payments.length} {payments.length === 1 ? 'entry' : 'entries'}</span>
       </div>
       <ul className="space-y-3">
         {payments.map((payment) => (
@@ -32,12 +32,12 @@ export const InvoicePaymentsSection = ({ payments }: InvoicePaymentsSectionProps
             className="flex items-start justify-between gap-3 rounded-xl border border-line-subtle bg-surface-utility/20 px-4 py-3"
           >
             <div className="min-w-0">
-              <p className="text-sm font-medium text-input-text">{formatCurrency(payment.amount)}</p>
-              <p className="text-xs text-input-placeholder">
+              <p className="text-sm font-medium text-ink">{formatCurrency(payment.amount)}</p>
+              <p className="text-xs text-dim-2">
                 {payment.paidAt ? formatLongDate(payment.paidAt) : 'Date unknown'}
               </p>
               {payment.note ? (
-                <p className="mt-1 text-xs text-input-placeholder">{payment.note}</p>
+                <p className="mt-1 text-xs text-dim-2">{payment.note}</p>
               ) : null}
             </div>
             <Pill tone={paymentTone(payment.status)}>{payment.status}</Pill>

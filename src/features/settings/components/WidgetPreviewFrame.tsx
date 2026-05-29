@@ -69,7 +69,7 @@ export const WidgetPreviewFrame = ({
 
   return (
     <div className="w-full">
-      {showTitle ? <h3 className="mb-3 text-sm font-semibold text-input-text">{title}</h3> : null}
+      {showTitle ? <h3 className="mb-3 text-sm font-semibold text-ink">{title}</h3> : null}
       <div className={cn(
         'mx-auto w-full max-w-[380px] overflow-hidden bg-surface-card',
         framed && 'rounded-xl border border-line-subtle shadow-glass',

@@ -69,7 +69,7 @@ export function ContextMenu({ children, items, className }: ContextMenuProps) {
                   'hover:bg-surface-utility/10',
                   'disabled:opacity-45 disabled:cursor-not-allowed',
                   item.destructive && 'text-red-500',
-                  !item.destructive && 'text-input-text',
+                  !item.destructive && 'text-ink',
                 )}
               >
                 {item.icon && <span className="shrink-0 w-4">{item.icon}</span>}

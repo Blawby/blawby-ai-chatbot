@@ -78,7 +78,7 @@ export function EntityList<T extends { id: string }>({
   if (items.length === 0) {
     return (
       <div className={cn('p-4', className)}>
-        {emptyState ?? <div className="text-sm text-input-placeholder">No items found.</div>}
+        {emptyState ?? <div className="text-sm text-dim-2">No items found.</div>}
       </div>
     );
   }
@@ -110,7 +110,7 @@ export function EntityList<T extends { id: string }>({
       </VList>
       {isLoadingMore ? (
         <div className="flex flex-shrink-0 justify-center px-4 py-3">
-          <LoadingSpinner size="sm" ariaLabel="Loading more items" className="text-input-placeholder" />
+          <LoadingSpinner size="sm" ariaLabel="Loading more items" className="text-dim-2" />
         </div>
       ) : null}
       {loadMoreRef ? <div ref={loadMoreRef} className="h-6 flex-shrink-0" /> : null}

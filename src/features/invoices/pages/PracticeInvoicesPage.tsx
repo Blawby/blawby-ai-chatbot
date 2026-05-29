@@ -289,15 +289,15 @@ export function PracticeInvoicesPage({
             <div className={cn('w-full px-4 py-3 text-left hover:bg-surface-utility/10')}>
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
-                  <p className="truncate text-sm font-semibold text-input-text">{invoice.invoiceNumber || '—'}</p>
-                  <p className="truncate text-xs text-input-placeholder">{invoice.clientName ?? '—'}</p>
-                  <p className="mt-1 text-xs text-input-placeholder">
+                  <p className="truncate text-sm font-semibold text-ink">{invoice.invoiceNumber || '—'}</p>
+                  <p className="truncate text-xs text-dim-2">{invoice.clientName ?? '—'}</p>
+                  <p className="mt-1 text-xs text-dim-2">
                     Due {invoice.dueDate ? formatLongDate(invoice.dueDate) : '—'}
                   </p>
                 </div>
                 <div className="flex shrink-0 flex-col items-end gap-1">
                   <InvoiceStatusBadge status={invoice.status} />
-                  <p className="text-sm font-semibold text-input-text">{formatCurrency(invoice.total)}</p>
+                  <p className="text-sm font-semibold text-ink">{formatCurrency(invoice.total)}</p>
                 </div>
               </div>
             </div>

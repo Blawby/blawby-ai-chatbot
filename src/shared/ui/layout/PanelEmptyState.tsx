@@ -16,7 +16,7 @@ export const PanelEmptyState = ({
   className
 }: PanelEmptyStateProps) => (
   <div className={cn('px-6 py-8 text-center sm:text-left', className)}>
-    <p className="text-sm text-input-placeholder">
+    <p className="text-sm text-dim-2">
       {message}
     </p>
     {children && <div className="mt-3">{children}</div>}

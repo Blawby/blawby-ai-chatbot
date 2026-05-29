@@ -123,30 +123,30 @@ const PendingInvitationDetailPanel = ({
           <ResponsiveDefinitionGrid>
             <dl className="divide-y divide-line-subtle">
               <div className="px-5 py-4">
-                <dt className="text-sm font-medium text-input-placeholder">Email</dt>
-                <dd className="mt-1 text-sm text-input-text">{invitation.email}</dd>
+                <dt className="text-sm font-medium text-dim-2">Email</dt>
+                <dd className="mt-1 text-sm text-ink">{invitation.email}</dd>
               </div>
               <div className="px-5 py-4">
-                <dt className="text-sm font-medium text-input-placeholder">Role</dt>
-                <dd className="mt-1 text-sm text-input-text">{roleLabel}</dd>
+                <dt className="text-sm font-medium text-dim-2">Role</dt>
+                <dd className="mt-1 text-sm text-ink">{roleLabel}</dd>
               </div>
             </dl>
             <dl className="divide-y divide-line-subtle">
               <div className="px-5 py-4">
-                <dt className="text-sm font-medium text-input-placeholder">Status</dt>
-                <dd className="mt-1 text-sm text-input-text">Pending</dd>
+                <dt className="text-sm font-medium text-dim-2">Status</dt>
+                <dd className="mt-1 text-sm text-ink">Pending</dd>
               </div>
               <div className="px-5 py-4">
-                <dt className="text-sm font-medium text-input-placeholder">Expires</dt>
-                <dd className="mt-1 text-sm text-input-text">{formatDate(new Date(invitation.expiresAt))}</dd>
+                <dt className="text-sm font-medium text-dim-2">Expires</dt>
+                <dd className="mt-1 text-sm text-ink">{formatDate(new Date(invitation.expiresAt))}</dd>
               </div>
             </dl>
           </ResponsiveDefinitionGrid>
         </section>
 
         <section className="px-1 py-1">
-          <h3 className="text-sm font-semibold text-input-text">Invite actions</h3>
-          <p className="mt-2 text-sm text-input-placeholder">
+          <h3 className="text-sm font-semibold text-ink">Invite actions</h3>
+          <p className="mt-2 text-sm text-dim-2">
             Copy the invite link or cancel this invitation if it is no longer needed.
           </p>
           {canManage ? (
@@ -242,24 +242,24 @@ const ClientDetailPanel = ({
           <ResponsiveDefinitionGrid>
             <dl className="divide-y divide-line-subtle">
               <div className="px-5 py-4">
-                <dt className="text-sm font-medium text-input-placeholder">Email</dt>
-                <dd className="mt-1 text-sm text-input-text">{client.email}</dd>
+                <dt className="text-sm font-medium text-dim-2">Email</dt>
+                <dd className="mt-1 text-sm text-ink">{client.email}</dd>
               </div>
               <div className="px-5 py-4">
-                <dt className="text-sm font-medium text-input-placeholder">Phone</dt>
-                <dd className="mt-1 text-sm text-input-text">{isClientRecord ? formatPhoneNumber(client.phone) : 'Not provided'}</dd>
+                <dt className="text-sm font-medium text-dim-2">Phone</dt>
+                <dd className="mt-1 text-sm text-ink">{isClientRecord ? formatPhoneNumber(client.phone) : 'Not provided'}</dd>
               </div>
             </dl>
             <dl className="divide-y divide-line-subtle">
               <div className="px-5 py-4">
-                <dt className="text-sm font-medium text-input-placeholder">Address</dt>
-                <dd className="mt-1 text-sm text-input-text">{client.addressDisplay ?? 'Not provided'}</dd>
+                <dt className="text-sm font-medium text-dim-2">Address</dt>
+                <dd className="mt-1 text-sm text-ink">{client.addressDisplay ?? 'Not provided'}</dd>
               </div>
               <div className="px-5 py-4">
-                <dt className="text-sm font-medium text-input-placeholder">
+                <dt className="text-sm font-medium text-dim-2">
                   {isClientRecord ? 'Relationship status' : 'Team role'}
                 </dt>
-                <dd className="mt-1 text-sm text-input-text">
+                <dd className="mt-1 text-sm text-ink">
                   {isClientRecord ? relationshipLabel : teamRoleLabel}
                 </dd>
               </div>
@@ -268,7 +268,7 @@ const ClientDetailPanel = ({
         </section>
 
         <section className="px-1 py-1">
-          <h3 className="text-sm font-semibold text-input-text">
+          <h3 className="text-sm font-semibold text-ink">
             {isClientRecord ? 'Recent activity' : 'Team access'}
           </h3>
           <div className="mt-4">
@@ -287,7 +287,7 @@ const ClientDetailPanel = ({
                 commentActionsDisabled={memoSubmitting || Boolean(memoActionId)}
               />
             ) : (
-              <p className="text-sm text-input-placeholder">
+              <p className="text-sm text-dim-2">
                 Team member access and role changes are managed in Settings &gt; Team.
               </p>
             )}
@@ -863,7 +863,7 @@ export const PracticeContactsPage = ({
         <ul>
           {letters.map((letter) => (
             <li key={letter} data-letter={letter}>
-              <div className="sticky top-0 z-10 bg-surface-collection/80 backdrop-blur-sm px-4 py-1.5 text-xs font-semibold text-input-placeholder border-y border-line-subtle">
+              <div className="sticky top-0 z-10 bg-surface-collection/80 backdrop-blur-sm px-4 py-1.5 text-xs font-semibold text-dim-2 border-y border-line-subtle">
                 {letter}
               </div>
               {groupedClients[letter].map((client) => {
@@ -881,10 +881,10 @@ export const PracticeContactsPage = ({
                     <Avatar
                       name={client.name}
                       size="md"
-                      className="text-input-text"
+                      className="text-ink"
                     />
                     <div className="min-w-0 flex-1 text-left">
-                      <p className="text-sm text-input-text truncate">
+                      <p className="text-sm text-ink truncate">
                         {nameParts.first ? (
                           <>
                             <span>{nameParts.first} </span>
@@ -894,7 +894,7 @@ export const PracticeContactsPage = ({
                           <span className="font-semibold">{nameParts.last}</span>
                         )}
                       </p>
-                      <p className="mt-0.5 text-xs text-input-placeholder truncate">
+                      <p className="mt-0.5 text-xs text-dim-2 truncate">
                         {client.kind === 'team'
                           ? `Team member${normalizedTeamRole ? ` • ${getPracticeRoleLabel(normalizedTeamRole)}` : ''}`
                           : (client.status ? STATUS_LABELS[client.status] : 'Client')}
@@ -906,14 +906,14 @@ export const PracticeContactsPage = ({
             </li>
           ))}
           {prefetchedLoadingMore ? (
-            <li className="px-4 py-3 text-xs text-input-placeholder text-center">
+            <li className="px-4 py-3 text-xs text-dim-2 text-center">
               <LoadingSpinner size="sm" ariaLabel={t('clients.loadingMore', { defaultValue: 'Loading more contacts' })} />
             </li>
           ) : null}
         </ul>
       </div>
           {letters.length > 0 ? (
-        <div className="pointer-events-auto absolute right-1 top-1/2 z-20 -translate-y-1/2 hidden md:flex flex-col items-center gap-1 text-[11px] font-medium text-input-placeholder bg-surface-workspace/80">
+        <div className="pointer-events-auto absolute right-1 top-1/2 z-20 -translate-y-1/2 hidden md:flex flex-col items-center gap-1 text-[11px] font-medium text-dim-2 bg-surface-workspace/80">
           {letters.map((letter) => (
             <Button
               key={letter}
@@ -932,7 +932,7 @@ export const PracticeContactsPage = ({
                 "before:absolute before:-inset-3.5 before:content-['']",
                 activeLetter === letter
                   ? 'text-accent-foreground font-bold bg-accent-500'
-                  : 'text-input-placeholder hover:text-input-text hover:bg-surface-utility/40'
+                  : 'text-dim-2 hover:text-ink hover:bg-surface-utility/40'
               )}
             >
               {letter}
@@ -960,13 +960,13 @@ export const PracticeContactsPage = ({
                   <Avatar
                     name={invitation.email}
                     size="md"
-                    className="text-input-text"
+                    className="text-ink"
                   />
                   <div className="min-w-0 flex-1 text-left">
-                    <p className="truncate text-sm font-medium text-input-text">
+                    <p className="truncate text-sm font-medium text-ink">
                       {invitation.email}
                     </p>
-                    <p className="mt-0.5 truncate text-xs text-input-placeholder">
+                    <p className="mt-0.5 truncate text-xs text-dim-2">
                       {roleLabel} invitation • Expires {formatDate(new Date(invitation.expiresAt))}
                     </p>
                   </div>
@@ -1104,7 +1104,7 @@ export const PracticeContactsPage = ({
   );
 
   const renderErrorState = (message: string | null) => renderCenteredState(
-    <p className="text-sm text-input-placeholder">{message}</p>
+    <p className="text-sm text-dim-2">{message}</p>
   );
 
   const renderListPanel = ({
@@ -1167,7 +1167,7 @@ export const PracticeContactsPage = ({
       }
     : {
         content: sortedClients.length === 0
-          ? <div className="h-full flex-1 items-center justify-center flex"><p className="text-sm text-input-placeholder">No contacts found.</p></div>
+          ? <div className="h-full flex-1 items-center justify-center flex"><p className="text-sm text-dim-2">No contacts found.</p></div>
           : <div className="min-h-0 flex-1">{clientListPane}</div>,
         useEmptyMinHeight: sortedClients.length === 0 || clientsLoading || Boolean(clientsError),
       };
