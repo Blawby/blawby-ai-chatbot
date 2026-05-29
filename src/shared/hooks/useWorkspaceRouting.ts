@@ -137,8 +137,10 @@ export const useWorkspaceRouting = ({
   }, [currentPractice?.logo, isPublicWorkspace, practiceConfig?.profileImage]);
 
   /**
-   * Resolved accent color — used by initializeAccentColor in MainApp.
-   * Returned here so MainApp's effect has a single stable value to depend on.
+   * Resolved accent color. After the DS migration the value no longer affects
+   * the visual theme (fixed gold), but the API still accepts brandColor on
+   * practice records, so consumers of this hook may still need the resolved
+   * value for non-visual purposes (forms, payload validation).
    */
   const resolvedAccentColor = useMemo(() => {
     if (isPublicWorkspace || isClientWorkspace) return practiceConfig.accentColor;

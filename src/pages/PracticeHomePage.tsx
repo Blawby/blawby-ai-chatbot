@@ -6,7 +6,6 @@ import { useWorkspaceResolver } from '@/shared/hooks/useWorkspaceResolver';
 import { usePracticeDetails } from '@/shared/hooks/usePracticeDetails';
 import { useSidebarCounts } from '@/shared/hooks/useSidebarCounts';
 import { useClientsData } from '@/shared/hooks/useClientsData';
-import { applyAccentColor } from '@/shared/utils/accentColors';
 import { useNavigation } from '@/shared/utils/navigation';
 import { Button } from '@/shared/ui/Button';
 import { SegmentedToggle, type SegmentedToggleOption } from '@/shared/ui/input/SegmentedToggle';
@@ -116,7 +115,7 @@ const PracticeHomePage = () => {
   const orgName = currentPractice?.name?.trim() || 'Practice';
   const orgInitial = (orgName.charAt(0) || 'B').toUpperCase();
 
-  const { details: practiceDetails, hasDetails, fetchDetails } = usePracticeDetails(
+  const { hasDetails, fetchDetails } = usePracticeDetails(
     currentPractice?.id ?? null,
     practiceSlug,
     false,
@@ -125,11 +124,6 @@ const PracticeHomePage = () => {
     if (!currentPractice?.id || hasDetails) return;
     void fetchDetails();
   }, [currentPractice?.id, hasDetails, fetchDetails]);
-
-  const accentColor = practiceDetails?.accentColor ?? currentPractice?.accentColor ?? null;
-  useEffect(() => {
-    if (accentColor) applyAccentColor(accentColor);
-  }, [accentColor]);
 
   const { counts: sidebarCounts, raw: rawSidebarCounts, isLoading: countsLoading } = useSidebarCounts(
     currentPractice?.id ?? null,

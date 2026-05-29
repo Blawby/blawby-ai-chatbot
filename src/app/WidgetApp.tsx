@@ -30,7 +30,6 @@ import { resolveStrengthStyle, resolveStrengthTier } from '@/shared/utils/intake
 import { DetailHeader } from '@/shared/ui/layout/DetailHeader';
 import { resolveConsultationState } from '@/shared/utils/consultationState';
 import { MobileInspectorOverlay } from '@/shared/ui/inspector/MobileInspectorOverlay';
-import { initializeAccentColor } from '@/shared/utils/accentColors';
 import { features } from '@/config/features';
 import { IntakeProvider } from '@/shared/contexts/IntakeContext';
 import type { FileAttachment } from '../../worker/types';
@@ -105,10 +104,6 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
   useEffect(() => {
     showErrorRef.current = (msg: string) => showToastError('Error', msg);
   }, [showToastError]);
-
-  useEffect(() => {
-    initializeAccentColor(practiceConfig.accentColor);
-  }, [practiceConfig.accentColor]);
 
   const currentUserId = bootstrapSession?.user?.id ?? null;
   // If there's no bootstrap user, default to anonymous=true. If a user exists,

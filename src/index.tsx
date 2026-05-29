@@ -38,7 +38,6 @@ import { ErrorBoundary } from '@/app/ErrorBoundary';
 import { ChunkLoadFallback } from '@/shared/ui/layout/LazyRouteBoundary';
 import './index.css';
 import { i18n, initI18n } from '@/shared/i18n';
-import { applyAccentColor, initializeAccentColor } from '@/shared/utils/accentColors';
 import { registerSWWithUpdatePrompt } from '@/shared/lib/swUpdate';
 import { UpdateAvailableToast } from '@/shared/ui/UpdateAvailableToast';
 import { consumePostAuthConversationContext } from '@/shared/utils/anonymousIdentity';
@@ -280,22 +279,6 @@ function AppShell() {
     autoFetchPractices: shouldFetchWorkspacePractices
   });
 
-  // Apply the active org's brand color at the shell level so routes that
-  // bypass MainApp (e.g. PracticeHomePage) still get branded.
-  // Persist per-org so the next page load can paint the right brand color on
-  // the first frame, before currentPractice has a chance to refetch.
-  useEffect(() => {
-    const accent = currentPractice?.accentColor;
-    if (!accent) return;
-    applyAccentColor(accent);
-    try {
-      localStorage.setItem('accent-color', accent);
-      const slug = currentPractice?.slug;
-      if (slug) localStorage.setItem(`accent-color:${slug}`, accent);
-    } catch (_error) {
-      // localStorage may be unavailable (private mode, iframe restrictions, etc.)
-    }
-  }, [currentPractice?.accentColor, currentPractice?.slug]);
 
   const authenticatedHomePath = useMemo(() => {
     const fallbackSlug = currentPractice?.slug ?? null;
@@ -1158,20 +1141,6 @@ async function mountClientApp() {
     document.documentElement.setAttribute('data-theme', 'midnight');
   }
 
-  // Restore the active org's brand color synchronously so it paints on the
-  // first frame instead of flashing the gold default while currentPractice
-  // loads from the API. The cache is keyed per-org by the slug in the URL so
-  // multi-org users don't see another org's color when switching.
-  let savedAccent: string | null = null;
-  try {
-    const slugMatch = window.location.pathname.match(/^\/(?:practice|client|public)\/([^/]+)/);
-    const slug = slugMatch ? decodeURIComponent(slugMatch[1]) : null;
-    savedAccent = (slug && localStorage.getItem(`accent-color:${slug}`))
-      || localStorage.getItem('accent-color');
-  } catch (_error) {
-    // localStorage may be unavailable (private mode, iframe restrictions, etc.)
-  }
-  initializeAccentColor(savedAccent);
 
   // Register the service worker with a controlled update flow. The new SW
   // waits in `installed` state until the user clicks Refresh in
