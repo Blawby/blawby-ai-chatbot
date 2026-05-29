@@ -12,7 +12,7 @@ import { useTranslation } from '@/shared/i18n/hooks';
 import type { PracticeDetails } from '@/shared/lib/apiClient';
 import type { Address } from '@/shared/types/address';
 import { buildPracticeProfilePayloads } from '@/shared/utils/practiceProfile';
-import { applyAccentColor, normalizeAccentColor } from '@/shared/utils/accentColors';
+import { normalizeAccentColor } from '@/shared/utils/brandColor';
 import { uploadPracticeLogo } from '@/shared/utils/practiceLogoUpload';
 
 interface PracticePageProps {
@@ -388,18 +388,6 @@ export const PracticePage = ({ className, onBack }: PracticePageProps) => {
 
       await updateDetails(detailsPayload);
       setDraft({});
-
-      // Apply and cache the new brand color now. updateDetails doesn't refresh
-      // currentPractice, so without this the AppShell effect won't fire and
-      // the next refresh would paint the old color (or the gold fallback).
-      applyAccentColor(normalizedAccentColor);
-      try {
-        localStorage.setItem('accent-color', normalizedAccentColor);
-        const slug = currentPractice?.slug;
-        if (slug) localStorage.setItem(`accent-color:${slug}`, normalizedAccentColor);
-      } catch (_error) {
-        // localStorage may be unavailable (private mode, iframe restrictions, etc.)
-      }
 
       showSuccess(practiceText.savedTitle, practiceText.savedBody);
     } catch (error) {

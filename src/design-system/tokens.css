@@ -1,0 +1,229 @@
+/* =========================================================
+   Blawby — Design System Tokens
+   ---------------------------------------------------------
+   Canonical token layer. Loaded first in src/index.css via
+   `@import './design-system/tokens.css';`.
+
+   Two parallel representations of each themable color:
+   - Hex / oklch form for CSS class consumers (.btn, .pill, etc.)
+   - 8-bit RGB triplet (--token-rgb) for Tailwind utilities
+     that use `rgb(var(--token-rgb) / <alpha-value>)`.
+
+   Both forms point at the same canonical value. This is NOT a
+   bridge — it's the documented dual-consumer pattern.
+   ========================================================= */
+
+:root {
+  color-scheme: light dark;
+
+  /* ---- Surface ---- */
+  --paper:        #f6f3ea;
+  --paper-2:      #ece6d3;
+  --paper-edge:   #d3d6df;
+  --card:         #ffffff;
+
+  --paper-rgb:    246 243 234;
+  --paper-2-rgb:  236 230 211;
+  --paper-edge-rgb: 211 214 223;
+  --card-rgb:     255 255 255;
+
+  /* ---- Ink (text) ---- */
+  --ink:          #0f1e36;
+  --ink-2:        #2a3b5a;
+  --ink-3:        #4a5a78;
+  --dim:          #6b7790;
+  --dim-2:        #9aa1b3;
+
+  --ink-rgb:      15 30 54;
+  --ink-2-rgb:    42 59 90;
+  --ink-3-rgb:    74 90 120;
+  --dim-rgb:      107 119 144;
+  --dim-2-rgb:    154 161 179;
+
+  /* ---- Rule ---- */
+  --rule:         #d3d6df;
+  --rule-soft:    rgba(15,30,54,0.08);
+  --rule-rgb:     211 214 223;
+
+  /* ---- Accent (gold) ---- */
+  --accent:       oklch(0.72 0.13 82);
+  --accent-soft:  oklch(0.72 0.13 82 / 0.14);
+  --accent-deep:  oklch(0.55 0.12 78);
+  --accent-ink:   #2a2200;
+
+  --accent-rgb:      212 175 55;
+  --accent-deep-rgb: 145 110 30;
+  --accent-ink-rgb:   42  34  0;
+
+  /* ---- Semantic status ---- */
+  --pos:          oklch(0.55 0.10 155);
+  --warn:         oklch(0.68 0.13 60);
+  --neg:          oklch(0.55 0.16 28);
+
+  --pos-rgb:       46 127 78;
+  --warn-rgb:     201 137 30;
+  --neg-rgb:      189  68 40;
+
+  /* ---- Type ---- */
+  --serif: "Source Serif 4", "Source Serif Pro", Georgia, serif;
+  --sans:  "Geist", ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --mono:  "Geist Mono", ui-monospace, "SF Mono", Menlo, monospace;
+
+  /* ---- Layout scale ---- */
+  --container: 1280px;
+  --gutter:    56px;
+
+  /* ---- Radii ---- */
+  --r-xs:   2px;
+  --r-sm:   4px;
+  --r-md:   8px;
+  --r-lg:  14px;
+  --r-pill: 999px;
+
+  /* ---- Elevation ---- */
+  --shadow-1: 0 1px 0 rgba(255,255,255,0.6) inset, 0 1px 2px rgba(15,30,54,0.04);
+  --shadow-2: 0 1px 0 rgba(255,255,255,0.6) inset, 0 8px 24px -16px rgba(15,30,54,0.22);
+  --shadow-3: 0 1px 0 rgba(255,255,255,0.6) inset, 0 18px 48px -28px rgba(15,30,54,0.4);
+}
+
+@media (max-width: 1100px) { :root { --gutter: 40px; } }
+@media (max-width: 720px)  { :root { --gutter: 22px; } }
+
+/* =========================================================
+   Theme variants
+   Switched via html[data-theme="dark|midnight|parchment"].
+   ========================================================= */
+
+html[data-theme="dark"] {
+  --paper:        #0c1830;
+  --paper-2:      #142142;
+  --paper-edge:   #1d2c4f;
+  --card:         #0f1d39;
+
+  --paper-rgb:     12  24  48;
+  --paper-2-rgb:   20  33  66;
+  --paper-edge-rgb: 29  44  79;
+  --card-rgb:      15  29  57;
+
+  --ink:          #f1ecdc;
+  --ink-2:        #c9c4b3;
+  --ink-3:        #a09b8a;
+  --dim:          #7a8198;
+  --dim-2:        #59607a;
+
+  --ink-rgb:     241 236 220;
+  --ink-2-rgb:   201 196 179;
+  --ink-3-rgb:   160 155 138;
+  --dim-rgb:     122 129 152;
+  --dim-2-rgb:    89  96 122;
+
+  --rule:         #1d2c4f;
+  --rule-soft:    rgba(241,236,220,0.06);
+  --rule-rgb:      29  44  79;
+
+  --accent:       oklch(0.78 0.13 82);
+  --accent-soft:  oklch(0.78 0.13 82 / 0.16);
+  --accent-deep:  oklch(0.66 0.13 80);
+  --accent-ink:   #2a2200;
+
+  --accent-rgb:      221 184 70;
+  --accent-deep-rgb: 173 137 35;
+  --accent-ink-rgb:   42  34  0;
+}
+
+html[data-theme="midnight"] {
+  --paper:        #050c1c;
+  --paper-2:      #0c142a;
+  --paper-edge:   #15203b;
+  --card:         #0a1226;
+
+  --paper-rgb:      5  12  28;
+  --paper-2-rgb:   12  20  42;
+  --paper-edge-rgb: 21  32  59;
+  --card-rgb:      10  18  38;
+
+  --ink:          #ede7d3;
+  --ink-2:        #c3bda7;
+  --ink-3:        #8f8a78;
+  --dim:          #6e7488;
+  --dim-2:        #4f5468;
+
+  --ink-rgb:     237 231 211;
+  --ink-2-rgb:   195 189 167;
+  --ink-3-rgb:   143 138 120;
+  --dim-rgb:     110 116 136;
+  --dim-2-rgb:    79  84 104;
+
+  --rule:         #15203b;
+  --rule-soft:    rgba(237,231,211,0.06);
+  --rule-rgb:      21  32  59;
+
+  --accent:       oklch(0.80 0.14 84);
+  --accent-soft:  oklch(0.80 0.14 84 / 0.16);
+  --accent-deep:  oklch(0.66 0.13 80);
+  --accent-ink:   #2a2200;
+
+  --accent-rgb:      232 196 80;
+  --accent-deep-rgb: 173 137 35;
+  --accent-ink-rgb:   42  34  0;
+}
+
+html[data-theme="parchment"] {
+  --paper:        #f0eadb;
+  --paper-2:      #e2dabf;
+  --paper-edge:   #cdc9b8;
+  --card:         #fbf6e7;
+
+  --paper-rgb:    240 234 219;
+  --paper-2-rgb:  226 218 191;
+  --paper-edge-rgb: 205 201 184;
+  --card-rgb:     251 246 231;
+
+  --ink:          #0a1a30;
+  --ink-2:        #28385a;
+  --ink-3:        #4a5a78;
+  --dim:          #6c7286;
+  --dim-2:        #93986d;
+
+  --ink-rgb:      10  26  48;
+  --ink-2-rgb:    40  56  90;
+  --ink-3-rgb:    74  90 120;
+  --dim-rgb:     108 114 134;
+  --dim-2-rgb:   147 152 109;
+
+  --rule:         #cdc9b8;
+  --rule-soft:    rgba(10,26,48,0.06);
+  --rule-rgb:    205 201 184;
+
+  --accent:       oklch(0.66 0.13 82);
+  --accent-soft:  oklch(0.66 0.13 82 / 0.14);
+  --accent-deep:  oklch(0.52 0.11 78);
+  --accent-ink:   #2a2200;
+
+  --accent-rgb:      186 152 50;
+  --accent-deep-rgb: 130  98 25;
+  --accent-ink-rgb:   42  34  0;
+}
+
+/* =========================================================
+   Motion — disabled under prefers-reduced-motion
+   ========================================================= */
+
+@keyframes rise {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: none; }
+}
+
+@keyframes pulse {
+  0%   { box-shadow: 0 0 0 0 color-mix(in oklab, var(--neg) 50%, transparent); }
+  70%  { box-shadow: 0 0 0 8px transparent; }
+  100% { box-shadow: 0 0 0 0 transparent; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

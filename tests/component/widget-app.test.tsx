@@ -3,13 +3,8 @@ import type { ComponentChildren } from 'preact';
 import { describe, expect, it, vi } from 'vitest';
 import { WidgetApp } from '@/app/WidgetApp';
 
-const { mockInitializeAccentColor, mockShowError } = vi.hoisted(() => ({
-  mockInitializeAccentColor: vi.fn(),
+const { mockShowError } = vi.hoisted(() => ({
   mockShowError: vi.fn(),
-}));
-
-vi.mock('@/shared/utils/accentColors', () => ({
-  initializeAccentColor: mockInitializeAccentColor,
 }));
 
 vi.mock('@/shared/i18n/hooks', () => ({
@@ -200,7 +195,10 @@ const buildPracticeConfig = (accentColor: string) => ({
 });
 
 describe('WidgetApp accent theming', () => {
-  it('applies the incoming practice accent color on mount and when it changes', async () => {
+  it('renders without crashing for both hex and named brandColor inputs', async () => {
+    // After the DS migration the widget shell uses fixed gold; per-practice
+    // accent no longer affects visuals. This test now just smokes that the
+    // shell mounts cleanly with either input shape.
     const { rerender } = render(
       <WidgetApp
         practiceId="practice-1"
@@ -209,7 +207,7 @@ describe('WidgetApp accent theming', () => {
     );
 
     await waitFor(() => {
-      expect(mockInitializeAccentColor).toHaveBeenCalledWith('#123456');
+      expect(mockShowError).not.toHaveBeenCalled();
     });
 
     rerender(
@@ -220,7 +218,7 @@ describe('WidgetApp accent theming', () => {
     );
 
     await waitFor(() => {
-      expect(mockInitializeAccentColor).toHaveBeenLastCalledWith('purple');
+      expect(mockShowError).not.toHaveBeenCalled();
     });
   });
 });

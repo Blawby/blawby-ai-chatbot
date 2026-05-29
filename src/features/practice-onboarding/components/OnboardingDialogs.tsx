@@ -13,7 +13,7 @@ import { FormActions } from '@/shared/ui/form';
 import { FormLabel } from '@/shared/ui/form/FormLabel';
 import { Input, URLInput, EmailInput, PhoneInput } from '@/shared/ui/input';
 import { AddressExperienceForm } from '@/shared/ui/address/AddressExperienceForm';
-import { normalizeAccentColor } from '@/shared/utils/accentColors';
+import { normalizeAccentColor } from '@/shared/utils/brandColor';
 import type { Address } from '@/shared/types/address';
 import type { PracticeDetails } from '@/shared/lib/apiClient';
 import type { Practice } from '@/shared/hooks/usePracticeManagement';

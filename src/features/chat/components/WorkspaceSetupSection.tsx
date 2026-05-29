@@ -9,7 +9,7 @@ import { ContactForm } from '@/features/intake/components/ContactForm';
 import ChatContainer from '@/features/chat/components/ChatContainer';
 import { useTranslation } from '@/shared/i18n/hooks';
 import { features } from '@/config/features';
-import { initializeAccentColor, normalizeAccentColor } from '@/shared/utils/accentColors';
+import { normalizeAccentColor } from '@/shared/utils/brandColor';
 import { calculatePracticeSetupProgress } from '@/features/practice-setup/utils/progress';
 import type { PracticeSetupStatus } from '@/features/practice-setup/utils/status';
 import type { Practice } from '@/shared/hooks/usePracticeManagement';
@@ -155,10 +155,6 @@ export const WorkspaceSetupSection: FunctionComponent<WorkspaceSetupSectionProps
       accentColor: normalizeAccentColor(fields.accentColor ?? practice?.accentColor ?? '#D4AF37'),
     });
   }, [onBasicsDraftChange, practice?.accentColor, practice?.name, practice?.slug]);
-
-  useEffect(() => {
-    if (extracted.accentColor) initializeAccentColor(extracted.accentColor);
-  }, [extracted.accentColor]);
 
   const derivedProgress = useMemo(() => {
     const name = (extracted.name ?? practice?.name ?? '').trim();

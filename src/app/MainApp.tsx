@@ -42,7 +42,6 @@ const EngagementsPage = lazy(() => import('@/features/engagements/pages/Engageme
 const PracticeFilesPage = lazy(() => import('@/features/files/pages/PracticeFilesPage').then(m => ({ default: m.PracticeFilesPage })));
 const ClientFilesPage = lazy(() => import('@/features/files/pages/ClientFilesPage').then(m => ({ default: m.ClientFilesPage })));
 import { useConversationSystemMessages } from '@/shared/hooks/useConversationSystemMessages';
-import { initializeAccentColor } from '@/shared/utils/accentColors';
 import { useMentionCandidates } from '@/shared/hooks/useMentionCandidates';
 import { resolveConsultationState } from '@/shared/utils/consultationState';
 import type { SettingsView } from '@/features/settings/pages/SettingsContent';
@@ -163,7 +162,6 @@ export function MainApp({
     resolvedClientPracticeSlug,
     resolvedPracticeName,
     resolvedPracticeLogo,
-    resolvedAccentColor: fullAccentColor,
     normalizedRouteConversationId,
     conversationsBasePath,
     conversationBackPath,
@@ -218,10 +216,6 @@ export function MainApp({
 
   const isAuthenticatedWorkspace = isPracticeWorkspace || isClientWorkspace;
   const returnToPath = location.url.startsWith('/') ? location.url : `/${location.url.replace(/^\/+/, '')}`;
-
-  useEffect(() => {
-    initializeAccentColor(fullAccentColor);
-  }, [fullAccentColor]);
 
   const handleSetupError = useCallback((msg: string) => {
     showErrorRef.current?.(msg);

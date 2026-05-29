@@ -1,19 +1,28 @@
 import { useState, useEffect, useRef } from 'preact/hooks';
 
+const applyHtmlTheme = (dark: boolean): void => {
+  if (typeof document === 'undefined') return;
+  if (dark) {
+    document.documentElement.setAttribute('data-theme', 'midnight');
+  } else {
+    document.documentElement.removeAttribute('data-theme');
+  }
+};
+
 export const useTheme = () => {
   const [isDark, setIsDark] = useState(false);
 
    const themeOverrideRef = useRef<string | null>(null);
    const savedThemeRef = useRef<string | null>(null);
-  
+
   useEffect(() => {
     // Guard against non-browser environments
     if (typeof window === 'undefined' || typeof document === 'undefined') {
       return;
     }
-    
 
-    
+
+
     // Safely read localStorage to determine if a saved theme exists
     let savedTheme: string | null = null;
     try {
@@ -21,17 +30,17 @@ export const useTheme = () => {
     } catch (error) {
       console.warn('Failed to read theme from localStorage:', error);
     }
-    
+
     // Create matchMedia query object for system preference
     const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
-    
+
     // Check for theme override in URL
     const params = new URLSearchParams(window.location.search);
     const themeParam = params.get('theme');
     const themeOverride = (themeParam === 'dark' || themeParam === 'light') ? themeParam : null;
     themeOverrideRef.current = themeOverride;
     savedThemeRef.current = savedTheme;
-    
+
     // Compute initial shouldBeDark
     // Priority: URL override > saved theme > system preference
     let shouldBeDark = false;
@@ -48,10 +57,10 @@ export const useTheme = () => {
       shouldBeDark = savedTheme ? savedTheme === 'dark' : isSystemDark;
     }
 
-    // Set state and document class accordingly
+    // Set state and document attribute accordingly
     setIsDark(shouldBeDark);
-    document.documentElement.classList.toggle('dark', shouldBeDark);
-    
+    applyHtmlTheme(shouldBeDark);
+
     // Helper to get the most up-to-date saved theme
     const getSavedTheme = () => {
       try {
@@ -66,29 +75,27 @@ export const useTheme = () => {
       const currentSavedTheme = getSavedTheme();
       // Keep ref in sync
       savedThemeRef.current = currentSavedTheme;
-      
+
       // Only react if no manual override is saved
       if (!currentSavedTheme && !themeOverrideRef.current) {
         setIsDark(e.matches);
-        document.documentElement.classList.toggle('dark', e.matches);
+        applyHtmlTheme(e.matches);
       }
     };
-    
+
     mediaQuery.addEventListener('change', handleMediaChange);
     return () => mediaQuery.removeEventListener('change', handleMediaChange);
   }, []);
-  
+
   // Sync DOM with state changes (but don't auto-persist to localStorage)
   useEffect(() => {
-    if (typeof document === 'undefined') return;
-    
-    document.documentElement.classList.toggle('dark', isDark);
+    applyHtmlTheme(isDark);
   }, [isDark]);
-  
+
   const toggleTheme = () => {
     setIsDark(prev => {
       const next = !prev;
-      document.documentElement.classList.toggle('dark', next);
+      applyHtmlTheme(next);
       const themeStr = next ? 'dark' : 'light';
       savedThemeRef.current = themeStr;
       try {

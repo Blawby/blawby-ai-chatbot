@@ -633,12 +633,15 @@ function PreviewSurface({
 
   useEffect(() => {
     const root = document.documentElement;
-    const prevClassList = Array.from(root.classList);
+    const prevThemeAttr = root.getAttribute('data-theme');
     const prevBgColor = root.style.backgroundColor;
 
-    root.classList.remove('light', 'dark');
-    root.classList.add(theme);
-    
+    if (theme === 'dark') {
+      root.setAttribute('data-theme', 'midnight');
+    } else {
+      root.removeAttribute('data-theme');
+    }
+
     // Force background to transparent to see the parent's widget-shell-gradient
     if (theme === 'light') {
       root.style.backgroundColor = 'transparent';
@@ -648,10 +651,11 @@ function PreviewSurface({
 
     return () => {
       // Restore previous state
-      root.classList.remove('light', 'dark');
-      prevClassList.forEach(cls => {
-        if (cls === 'light' || cls === 'dark') root.classList.add(cls);
-      });
+      if (prevThemeAttr) {
+        root.setAttribute('data-theme', prevThemeAttr);
+      } else {
+        root.removeAttribute('data-theme');
+      }
       root.style.backgroundColor = prevBgColor;
     };
   }, [theme]);

@@ -30,7 +30,6 @@ import { resolveStrengthStyle, resolveStrengthTier } from '@/shared/utils/intake
 import { DetailHeader } from '@/shared/ui/layout/DetailHeader';
 import { resolveConsultationState } from '@/shared/utils/consultationState';
 import { MobileInspectorOverlay } from '@/shared/ui/inspector/MobileInspectorOverlay';
-import { initializeAccentColor } from '@/shared/utils/accentColors';
 import { features } from '@/config/features';
 import { IntakeProvider } from '@/shared/contexts/IntakeContext';
 import type { FileAttachment } from '../../worker/types';
@@ -105,10 +104,6 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
   useEffect(() => {
     showErrorRef.current = (msg: string) => showToastError('Error', msg);
   }, [showToastError]);
-
-  useEffect(() => {
-    initializeAccentColor(practiceConfig.accentColor);
-  }, [practiceConfig.accentColor]);
 
   const currentUserId = bootstrapSession?.user?.id ?? null;
   // If there's no bootstrap user, default to anonymous=true. If a user exists,
@@ -612,12 +607,8 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
   }, [closeButton, conversationStrengthAction, isEmbedded]);
 
   useEffect(() => {
-    const isDark = true; // Handle dark mode state if needed
-    if (isDark) {
-      document.documentElement.classList.add('dark');
-    } else {
-      document.documentElement.classList.remove('dark');
-    }
+    // Widget shell is always rendered with the midnight (dark) theme.
+    document.documentElement.setAttribute('data-theme', 'midnight');
   }, []);
 
   const intakeProviderValue = useMemo(() => ({

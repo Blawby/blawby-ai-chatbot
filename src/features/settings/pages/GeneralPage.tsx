@@ -122,18 +122,18 @@ export const GeneralPage = ({
       // Apply theme immediately if changed
       if (key === 'theme') {
         if (value === 'dark') {
-          document.documentElement.classList.add('dark');
+          document.documentElement.setAttribute('data-theme', 'midnight');
           localStorage.setItem('theme', 'dark');
         } else if (value === 'light') {
-          document.documentElement.classList.remove('dark');
+          document.documentElement.removeAttribute('data-theme');
           localStorage.setItem('theme', 'light');
         } else {
           // System theme
           const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
           if (prefersDark) {
-            document.documentElement.classList.add('dark');
+            document.documentElement.setAttribute('data-theme', 'midnight');
           } else {
-            document.documentElement.classList.remove('dark');
+            document.documentElement.removeAttribute('data-theme');
           }
           localStorage.removeItem('theme');
         }

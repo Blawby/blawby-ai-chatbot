@@ -21,7 +21,7 @@ import { extractStripeStatusFromPayload } from '@/features/onboarding/utils';
 import type { StripeConnectStatus } from '@/features/onboarding/types';
 import { getValidatedStripeOnboardingUrl } from '@/shared/utils/stripeOnboarding';
 import { uploadPracticeLogo } from '@/shared/utils/practiceLogoUpload';
-import { normalizeAccentColor } from '@/shared/utils/accentColors';
+import { normalizeAccentColor } from '@/shared/utils/brandColor';
 import { buildPracticeProfilePayloads } from '@/shared/utils/practiceProfile';
 import type { Conversation } from '@/shared/types/conversation';
 import type { ComboboxOption } from '@/shared/ui/input';

@@ -18,7 +18,7 @@ import type { Practice } from '@/shared/hooks/usePracticeManagement';
 import type { PracticeDetails } from '@/shared/lib/apiClient';
 import type { FileAttachment, ChatMessageUI } from '../../../../worker/types';
 import { useOnboardingState } from '../hooks/useOnboardingState';
-import { normalizeAccentColor } from '@/shared/utils/accentColors';
+import { normalizeAccentColor } from '@/shared/utils/brandColor';
 
 export interface PracticeOnboardingPageProps {
   status: PracticeSetupStatus;
