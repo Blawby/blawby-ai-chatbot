@@ -612,12 +612,8 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
   }, [closeButton, conversationStrengthAction, isEmbedded]);
 
   useEffect(() => {
-    const isDark = true; // Handle dark mode state if needed
-    if (isDark) {
-      document.documentElement.classList.add('dark');
-    } else {
-      document.documentElement.classList.remove('dark');
-    }
+    // Widget shell is always rendered with the midnight (dark) theme.
+    document.documentElement.setAttribute('data-theme', 'midnight');
   }, []);
 
   const intakeProviderValue = useMemo(() => ({

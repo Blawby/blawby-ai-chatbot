@@ -1155,7 +1155,7 @@ async function mountClientApp() {
   const shouldBeDark = savedTheme === 'dark' || (!savedTheme && prefersDark);
 
   if (shouldBeDark) {
-    document.documentElement.classList.add('dark');
+    document.documentElement.setAttribute('data-theme', 'midnight');
   }
 
   // Restore the active org's brand color synchronously so it paints on the

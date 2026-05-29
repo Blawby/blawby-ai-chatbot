@@ -19,16 +19,24 @@ const readStoredTheme = (): ThemeChoice => {
   return 'system';
 };
 
+const setHtmlTheme = (dark: boolean) => {
+  if (dark) {
+    document.documentElement.setAttribute('data-theme', 'midnight');
+  } else {
+    document.documentElement.removeAttribute('data-theme');
+  }
+};
+
 const applyTheme = (choice: ThemeChoice) => {
   if (typeof window === 'undefined' || typeof document === 'undefined') return;
   if (choice === 'system') {
     try { window.localStorage.removeItem('theme'); } catch { /* ignore */ }
     const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-    document.documentElement.classList.toggle('dark', prefersDark);
+    setHtmlTheme(prefersDark);
     return;
   }
   try { window.localStorage.setItem('theme', choice); } catch { /* ignore */ }
-  document.documentElement.classList.toggle('dark', choice === 'dark');
+  setHtmlTheme(choice === 'dark');
 };
 
 /**
