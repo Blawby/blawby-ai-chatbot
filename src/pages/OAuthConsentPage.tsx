@@ -159,18 +159,18 @@ export default function OAuthConsentPage() {
       <div className="w-full max-w-md rounded-2xl border border-line-subtle bg-surface-card p-6 shadow-sm">
         <div className="flex flex-col items-center text-center">
           <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-full border border-line-subtle bg-surface-utility/10">
-            <Icon icon={Sparkles} className="h-6 w-6 text-input-text" aria-hidden="true" />
+            <Icon icon={Sparkles} className="h-6 w-6 text-ink" aria-hidden="true" />
           </div>
-          <h1 className="text-lg font-semibold text-input-text">Authorize access</h1>
-          <p className="mt-1 text-sm text-input-placeholder">
-            <span className="font-medium text-input-text">{appName}</span> wants to connect to your Blawby account.
+          <h1 className="text-lg font-semibold text-ink">Authorize access</h1>
+          <p className="mt-1 text-sm text-dim-2">
+            <span className="font-medium text-ink">{appName}</span> wants to connect to your Blawby account.
           </p>
           {clientInfo?.uri ? (
             <a
               href={clientInfo.uri}
               target="_blank"
               rel="noreferrer"
-              className="mt-2 text-xs text-input-placeholder underline-offset-2 hover:underline"
+              className="mt-2 text-xs text-dim-2 underline-offset-2 hover:underline"
             >
               {clientInfo.uri}
             </a>
@@ -184,7 +184,7 @@ export default function OAuthConsentPage() {
         ) : (
           <>
             {clientInfoPending ? (
-              <p className="mt-6 text-sm text-input-placeholder">Loading client details…</p>
+              <p className="mt-6 text-sm text-dim-2">Loading client details…</p>
             ) : null}
 
             {clientInfo?.icon ? (
@@ -200,18 +200,18 @@ export default function OAuthConsentPage() {
 
             <div className="mt-6 space-y-5">
               {requestedScopes.length === 0 ? (
-                <p className="text-sm text-input-placeholder">No specific permissions were requested.</p>
+                <p className="text-sm text-dim-2">No specific permissions were requested.</p>
               ) : (
                 scopeGroups.map((group) => (
                   <div key={group.category} className="space-y-2">
-                    <h2 className="text-xs font-semibold uppercase tracking-wide text-input-placeholder">
+                    <h2 className="text-xs font-semibold uppercase tracking-wide text-dim-2">
                       {group.label}
                     </h2>
                     <ul className="space-y-2">
                       {group.scopes.map((scope) => (
                         <li key={scope.id}>
-                          <p className="text-sm font-medium text-input-text">{scope.title}</p>
-                          <p className="text-sm text-input-placeholder">{scope.description}</p>
+                          <p className="text-sm font-medium text-ink">{scope.title}</p>
+                          <p className="text-sm text-dim-2">{scope.description}</p>
                         </li>
                       ))}
                     </ul>
@@ -239,7 +239,7 @@ export default function OAuthConsentPage() {
               </Button>
             </div>
 
-            <p className="mt-4 text-center text-xs text-input-placeholder">
+            <p className="mt-4 text-center text-xs text-dim-2">
               You can revoke access later from your MCP integration settings.
             </p>
           </>

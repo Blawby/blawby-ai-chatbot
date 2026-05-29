@@ -121,7 +121,7 @@ export const URLInput = forwardRef<HTMLInputElement, URLInputProps>(({
   };
 
   const inputClasses = cn(
-    'w-full rounded-xl text-input-text placeholder:text-input-placeholder',
+    'w-full rounded-xl text-ink placeholder:text-dim-2',
     'focus:outline-none transition-all duration-200',
     'input-surface border-none',
     sizeClasses[size],
@@ -250,7 +250,7 @@ export const URLInput = forwardRef<HTMLInputElement, URLInputProps>(({
   return (
     <div className="w-full">
       {displayLabel && (
-        <label htmlFor={inputId} className="block text-sm font-medium text-input-text mb-1">
+        <label htmlFor={inputId} className="block text-sm font-medium text-ink mb-1">
           {displayLabel}
           {required && <span className="text-accent-error ml-1">*</span>}
         </label>
@@ -258,7 +258,7 @@ export const URLInput = forwardRef<HTMLInputElement, URLInputProps>(({
       
       <div className="relative">
         <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
-          <Icon icon={Link} className="w-4 h-4 text-input-placeholder"  />
+          <Icon icon={Link} className="w-4 h-4 text-dim-2"  />
         </div>
         
         <input
@@ -299,7 +299,7 @@ export const URLInput = forwardRef<HTMLInputElement, URLInputProps>(({
         
         return (
           <div className="mt-2 p-2 bg-[rgb(var(--surface-panel))] dark:bg-[rgb(var(--surface-panel))]/80 rounded border">
-            <p className="text-xs text-input-placeholder mb-1">Preview:</p>
+            <p className="text-xs text-dim-2 mb-1">Preview:</p>
             {isSafeProtocol ? (
               <a
                 href={value}
@@ -310,7 +310,7 @@ export const URLInput = forwardRef<HTMLInputElement, URLInputProps>(({
                 {value}
               </a>
             ) : (
-              <span className="text-sm text-input-placeholder">
+              <span className="text-sm text-dim-2">
                 {value}
               </span>
             )}
@@ -331,7 +331,7 @@ export const URLInput = forwardRef<HTMLInputElement, URLInputProps>(({
       )}
       
       {displayDescription && !displayError && (
-        <p id={descriptionId} className="text-xs text-input-placeholder mt-1">
+        <p id={descriptionId} className="text-xs text-dim-2 mt-1">
           {displayDescription}
         </p>
       )}

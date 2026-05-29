@@ -22,8 +22,8 @@ export function ErrorPage({
       <div className="mb-6 text-red-400/60">
         <AlertOctagon size={56} strokeWidth={1.2} />
       </div>
-      <h1 className="text-xl font-semibold text-input-text mb-2">{title}</h1>
-      <p className="text-sm text-input-placeholder max-w-sm mb-6">{description}</p>
+      <h1 className="text-xl font-semibold text-ink mb-2">{title}</h1>
+      <p className="text-sm text-dim-2 max-w-sm mb-6">{description}</p>
       {action ?? (
         <div className="flex items-center gap-3">
           {onRetry && (

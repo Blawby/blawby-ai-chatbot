@@ -70,7 +70,7 @@ export const MatterActivityTab = ({
         {activityLoading && timelineItems.length === 0 ? (
           <LoadingBlock label="Loading activity" />
         ) : activityError && timelineItems.length === 0 ? (
-          <p className="text-sm text-input-placeholder">
+          <p className="text-sm text-dim-2">
             Could not load activity.{' '}
             <button type="button" className="underline" onClick={onActivityRetry}>
               Retry

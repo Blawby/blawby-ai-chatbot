@@ -236,7 +236,7 @@ function triageBadgeClass(status?: string | null): string {
     case 'rejected':
       return 'bg-error/10 text-error ring-error/20';
     case 'spam':
-      return 'bg-surface-utility/40 text-input-placeholder ring-line-subtle/30';
+      return 'bg-surface-utility/40 text-dim-2 ring-line-subtle/30';
     case 'pending_review':
     default:
       return 'bg-warning/10 text-warning ring-warning/20';
@@ -246,7 +246,7 @@ function triageBadgeClass(status?: string | null): string {
 // ── Sub-components ───────────────────────────────────────────────────────────
 
 const SectionLabel: FunctionComponent<{ children: ComponentChildren; className?: string }> = ({ children, className }) => (
-  <h2 className={cn('text-[10px] font-semibold uppercase tracking-[1px] text-input-placeholder', className)}>
+  <h2 className={cn('text-[10px] font-semibold uppercase tracking-[1px] text-dim-2', className)}>
     {children}
   </h2>
 );
@@ -267,8 +267,8 @@ const DetailField: FunctionComponent<DetailFieldProps> = ({ label, value, emptyT
   const isEmpty = value === null || value === undefined || value === '';
   return (
     <div className="space-y-1">
-      <dt className="text-xs font-medium uppercase tracking-wide text-input-placeholder">{label}</dt>
-      <dd className={cn('text-sm break-words', isEmpty ? 'text-input-placeholder' : 'text-input-text')}>
+      <dt className="text-xs font-medium uppercase tracking-wide text-dim-2">{label}</dt>
+      <dd className={cn('text-sm break-words', isEmpty ? 'text-dim-2' : 'text-ink')}>
         {isEmpty ? emptyText : value}
       </dd>
     </div>
@@ -278,7 +278,7 @@ const DetailField: FunctionComponent<DetailFieldProps> = ({ label, value, emptyT
 type InfoChipProps = { icon: typeof CheckCircle2; label: string; tone?: 'default' | 'warning' | 'success' | 'error' };
 const InfoChip: FunctionComponent<InfoChipProps> = ({ icon: IconComp, label, tone = 'default' }) => {
   const toneClass = {
-    default: 'text-input-placeholder',
+    default: 'text-dim-2',
     warning: 'text-warning',
     success: 'text-success',
     error: 'text-error',
@@ -974,13 +974,13 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
     <Card>
       <div className="space-y-2">
         <SectionLabel>Intake Details</SectionLabel>
-        <h3 className="text-lg font-bold leading-tight text-input-text sm:text-xl">{intakeTitle}</h3>
-        <p className="text-xs text-input-placeholder">
+        <h3 className="text-lg font-bold leading-tight text-ink sm:text-xl">{intakeTitle}</h3>
+        <p className="text-xs text-dim-2">
           Posted {dateLabel}{practiceServiceName ? ` · ${practiceServiceName}` : ''}
         </p>
       </div>
       {description ? (
-        <p className="mt-4 whitespace-pre-wrap text-sm leading-relaxed text-input-text/90">{description}</p>
+        <p className="mt-4 whitespace-pre-wrap text-sm leading-relaxed text-ink/90">{description}</p>
       ) : null}
       <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-2">
         <InfoChip
@@ -1006,8 +1006,8 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
   const formDetailsCard = (
     <Card>
       <div className="mb-4 flex items-center gap-2">
-        <Icon icon={ClipboardList} className="h-4 w-4 text-input-placeholder" />
-        <h3 className="text-sm font-semibold text-input-text">Form Details</h3>
+        <Icon icon={ClipboardList} className="h-4 w-4 text-dim-2" />
+        <h3 className="text-sm font-semibold text-ink">Form Details</h3>
       </div>
       <dl className="grid grid-cols-1 gap-x-6 gap-y-4 sm:grid-cols-2">
         <DetailField label="Case Type" value={intakeTitle} />
@@ -1030,13 +1030,13 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
     <Card>
       <div className="mb-3 flex items-center gap-2">
         <Icon icon={Sparkles} className="h-4 w-4 text-accent" />
-        <h3 className="text-sm font-semibold text-input-text">AI Analysis</h3>
+        <h3 className="text-sm font-semibold text-ink">AI Analysis</h3>
         {enrichedData.confidence < 0.5 ? (
-          <span className="ml-auto text-[10px] text-input-placeholder">Low confidence</span>
+          <span className="ml-auto text-[10px] text-dim-2">Low confidence</span>
         ) : null}
       </div>
       {enrichedData.ai_matter_description ? (
-        <p className="mb-4 text-sm leading-relaxed text-input-text/90">{enrichedData.ai_matter_description}</p>
+        <p className="mb-4 text-sm leading-relaxed text-ink/90">{enrichedData.ai_matter_description}</p>
       ) : null}
       <dl className="grid grid-cols-1 gap-x-6 gap-y-3 sm:grid-cols-2">
         {enrichedData.practice_area ? (
@@ -1060,14 +1060,14 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
       </dl>
       {enrichedData.conflict_check_names.length > 0 ? (
         <div className="mt-4 space-y-1">
-          <dt className="text-xs font-medium uppercase tracking-wide text-input-placeholder">Conflict Check</dt>
-          <dd className="text-sm text-input-text">{enrichedData.conflict_check_names.join(', ')}</dd>
+          <dt className="text-xs font-medium uppercase tracking-wide text-dim-2">Conflict Check</dt>
+          <dd className="text-sm text-ink">{enrichedData.conflict_check_names.join(', ')}</dd>
         </div>
       ) : null}
       {enrichedData.ai_scope_suggestion ? (
         <div className="mt-4 space-y-1">
-          <dt className="text-xs font-medium uppercase tracking-wide text-input-placeholder">Suggested Scope</dt>
-          <dd className="text-sm text-input-text/90">{enrichedData.ai_scope_suggestion}</dd>
+          <dt className="text-xs font-medium uppercase tracking-wide text-dim-2">Suggested Scope</dt>
+          <dd className="text-sm text-ink/90">{enrichedData.ai_scope_suggestion}</dd>
         </div>
       ) : null}
       <div className="mt-4 flex flex-wrap gap-3">
@@ -1080,7 +1080,7 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
         <p className="mt-2 text-xs text-warning">{enrichedData.sol_risk_notes}</p>
       ) : null}
       {enrichedData.multi_state_notes ? (
-        <p className="mt-2 text-xs text-input-placeholder">{enrichedData.multi_state_notes}</p>
+        <p className="mt-2 text-xs text-dim-2">{enrichedData.multi_state_notes}</p>
       ) : null}
     </Card>
   ) : null;
@@ -1092,7 +1092,7 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
           <div className="rounded-lg bg-accent/10 p-2 text-accent">
             <Icon icon={Sparkles} className="h-4 w-4" />
           </div>
-          <p className="text-sm leading-relaxed text-input-text/90">
+          <p className="text-sm leading-relaxed text-ink/90">
             Blawby can ask the client for the missing legal details and add them to this thread.
           </p>
         </div>
@@ -1114,7 +1114,7 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
     <Card className="flex min-h-[420px] flex-col p-0 overflow-hidden">
       <div className="border-b border-line-subtle p-4 sm:px-6 sm:py-5">
         <SectionLabel>Conversation</SectionLabel>
-        <p className="mt-1 text-xs text-input-placeholder">Continue the client thread from this intake.</p>
+        <p className="mt-1 text-xs text-dim-2">Continue the client thread from this intake.</p>
       </div>
       <div className="min-h-0 flex-1 overflow-hidden bg-surface-overlay/20 touch-pan-y">
         {previewLoading && previewMessages.length === 0 ? (
@@ -1125,8 +1125,8 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
           </div>
         ) : previewMessages.length === 0 ? (
           <div className="flex h-full flex-col items-center justify-center p-6 text-center">
-            <Icon icon={MessageSquare} className="mb-2 h-6 w-6 text-input-placeholder" />
-            <p className="text-sm text-input-placeholder">No conversation history yet.</p>
+            <Icon icon={MessageSquare} className="mb-2 h-6 w-6 text-dim-2" />
+            <p className="text-sm text-dim-2">No conversation history yet.</p>
           </div>
         ) : (
           <VirtualMessageList
@@ -1191,22 +1191,22 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
       <dl className="space-y-3 text-sm">
         {email ? (
           <div className="flex items-start gap-3">
-            <Icon icon={Mail} className="mt-0.5 h-4 w-4 shrink-0 text-input-placeholder" />
+            <Icon icon={Mail} className="mt-0.5 h-4 w-4 shrink-0 text-dim-2" />
             <div className="min-w-0 flex-1">
-              <dt className="text-xs text-input-placeholder">Email</dt>
+              <dt className="text-xs text-dim-2">Email</dt>
               <dd className="truncate">
-                <a href={`mailto:${email}`} className="text-input-text hover:text-accent">{email}</a>
+                <a href={`mailto:${email}`} className="text-ink hover:text-accent">{email}</a>
               </dd>
             </div>
           </div>
         ) : null}
         {phone ? (
           <div className="flex items-start gap-3">
-            <Icon icon={Phone} className="mt-0.5 h-4 w-4 shrink-0 text-input-placeholder" />
+            <Icon icon={Phone} className="mt-0.5 h-4 w-4 shrink-0 text-dim-2" />
             <div className="min-w-0 flex-1">
-              <dt className="text-xs text-input-placeholder">Phone</dt>
+              <dt className="text-xs text-dim-2">Phone</dt>
               <dd>
-                <a href={`tel:${phone}`} className="text-input-text hover:text-accent">{phone}</a>
+                <a href={`tel:${phone}`} className="text-ink hover:text-accent">{phone}</a>
               </dd>
             </div>
           </div>
@@ -1247,10 +1247,10 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
         <Avatar
           name={name ?? ''}
           size="md"
-          className="bg-surface-utility/40 text-input-text ring-1 ring-line-subtle"
+          className="bg-surface-utility/40 text-ink ring-1 ring-line-subtle"
         />
         <div className="min-w-0">
-          <p className="truncate text-sm font-semibold text-input-text">{name ?? 'Unnamed lead'}</p>
+          <p className="truncate text-sm font-semibold text-ink">{name ?? 'Unnamed lead'}</p>
           {intake.payment_verified ? (
             <p className="mt-0.5 inline-flex items-center gap-1 text-xs text-success">
               <Icon icon={CheckCircle2} className="h-3 w-3" />
@@ -1263,17 +1263,17 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
         <dl className="mt-4 space-y-2 text-sm">
           {email ? (
             <div>
-              <dt className="text-xs text-input-placeholder">Email</dt>
+              <dt className="text-xs text-dim-2">Email</dt>
               <dd className="truncate">
-                <a href={`mailto:${email}`} className="text-input-text hover:text-accent">{email}</a>
+                <a href={`mailto:${email}`} className="text-ink hover:text-accent">{email}</a>
               </dd>
             </div>
           ) : null}
           {phone ? (
             <div>
-              <dt className="text-xs text-input-placeholder">Phone</dt>
+              <dt className="text-xs text-dim-2">Phone</dt>
               <dd>
-                <a href={`tel:${phone}`} className="text-input-text hover:text-accent">{phone}</a>
+                <a href={`tel:${phone}`} className="text-ink hover:text-accent">{phone}</a>
               </dd>
             </div>
           ) : null}
@@ -1399,7 +1399,7 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
         <DialogBody className="space-y-4">
           {engagementTemplates.length > 1 ? (
             <div className="space-y-2">
-              <p className="text-xs font-medium uppercase tracking-wide text-input-placeholder">Select Template</p>
+              <p className="text-xs font-medium uppercase tracking-wide text-dim-2">Select Template</p>
               <div className="flex flex-col gap-1">
                 {engagementTemplates.map((t) => (
                   <button
@@ -1409,12 +1409,12 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
                       'flex items-center gap-2 rounded-lg border px-3 py-2 text-left text-sm transition-colors',
                       generateTemplateId === t.id
                         ? 'border-accent bg-accent/10 text-[rgb(var(--accent-foreground))]'
-                        : 'border-card-border bg-surface-card text-input-text hover:bg-surface-overlay/40',
+                        : 'border-card-border bg-surface-card text-ink hover:bg-surface-overlay/40',
                     )}
                     onClick={() => setGenerateTemplateId(t.id)}
                   >
                     <span className="flex-1 font-medium">{t.name}</span>
-                    {t.practiceArea ? <span className="text-xs text-input-placeholder">{t.practiceArea}</span> : null}
+                    {t.practiceArea ? <span className="text-xs text-dim-2">{t.practiceArea}</span> : null}
                   </button>
                 ))}
               </div>
@@ -1423,7 +1423,7 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
           {generatedBody ? (
             <div className="space-y-2">
               <div className="flex items-center justify-between">
-                <p className="text-xs font-medium uppercase tracking-wide text-input-placeholder">Generated Letter</p>
+                <p className="text-xs font-medium uppercase tracking-wide text-dim-2">Generated Letter</p>
                 <Button
                   variant="secondary"
                   size="sm"

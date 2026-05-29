@@ -21,29 +21,29 @@ interface AnnouncementBannerProps {
 
 const toneStyles: Record<AnnouncementTone, { container: string; title: string; body: string; rail: string }> = {
   warning: {
-    container: 'border-line-subtle bg-surface-panel/60 text-input-text backdrop-blur-xl shadow-glass',
-    title: 'text-input-text',
-    body: 'text-input-placeholder',
+    container: 'border-line-subtle bg-surface-panel/60 text-ink backdrop-blur-xl shadow-glass',
+    title: 'text-ink',
+    body: 'text-dim-2',
     rail: 'bg-amber-500/70'
   },
   info: {
-    container: 'border-line-subtle bg-surface-panel/60 text-input-text backdrop-blur-xl shadow-glass',
-    title: 'text-input-text',
-    body: 'text-input-placeholder',
+    container: 'border-line-subtle bg-surface-panel/60 text-ink backdrop-blur-xl shadow-glass',
+    title: 'text-ink',
+    body: 'text-dim-2',
     rail: 'bg-sky-500/70'
   },
   success: {
-    container: 'border-line-subtle bg-surface-panel/60 text-input-text backdrop-blur-xl shadow-glass',
-    title: 'text-input-text',
-    body: 'text-input-placeholder',
+    container: 'border-line-subtle bg-surface-panel/60 text-ink backdrop-blur-xl shadow-glass',
+    title: 'text-ink',
+    body: 'text-dim-2',
     rail: 'bg-emerald-500/70'
   }
 };
 
 const flatToneStyles: Record<AnnouncementTone, string> = {
-  warning: 'border border-line-subtle bg-surface-panel/40 text-input-text backdrop-blur-xl',
-  info: 'border border-line-subtle bg-surface-panel/40 text-input-text backdrop-blur-xl',
-  success: 'border border-line-subtle bg-surface-panel/40 text-input-text backdrop-blur-xl'
+  warning: 'border border-line-subtle bg-surface-panel/40 text-ink backdrop-blur-xl',
+  info: 'border border-line-subtle bg-surface-panel/40 text-ink backdrop-blur-xl',
+  success: 'border border-line-subtle bg-surface-panel/40 text-ink backdrop-blur-xl'
 };
 
 const AnnouncementBanner = ({

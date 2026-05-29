@@ -415,13 +415,13 @@ export const MessageActions: FunctionComponent<MessageActionsProps> = ({
 				<div className="my-2">
 					<div className="flex items-center gap-2 p-3 rounded-xl panel">
 						<div className="w-8 h-8 rounded bg-surface-utility/60 dark:bg-surface-utility/10 flex items-center justify-center flex-shrink-0">
-							<Icon icon={FileIcon} className="w-4 h-4 text-input-text"  />
+							<Icon icon={FileIcon} className="w-4 h-4 text-ink"  />
 						</div>
 						<div className="flex-1 min-w-0">
-							<div className="text-sm font-medium text-input-text whitespace-nowrap overflow-hidden text-ellipsis" title={generatedPDF.filename}>
+							<div className="text-sm font-medium text-ink whitespace-nowrap overflow-hidden text-ellipsis" title={generatedPDF.filename}>
 								{generatedPDF.filename.length > 25 ? `${generatedPDF.filename.substring(0, 25)}...` : generatedPDF.filename}
 							</div>
-							<div className="flex items-center gap-2 text-xs text-input-placeholder">
+							<div className="flex items-center gap-2 text-xs text-dim-2">
 								<span>{formatDocumentIconSize(generatedPDF.size)}</span>
 								{generatedPDF.generatedAt && (
 									<span>• {new Date(generatedPDF.generatedAt).toLocaleDateString()}</span>

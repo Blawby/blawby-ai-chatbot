@@ -33,7 +33,7 @@ const MediaContent: FunctionComponent<MediaContentProps> = ({ media }) => {
         }
         if (!renderUrl) {
             return (
-                <div className="flex h-64 w-64 items-center justify-center rounded-xl bg-surface-panel text-sm text-input-placeholder">
+                <div className="flex h-64 w-64 items-center justify-center rounded-xl bg-surface-panel text-sm text-dim-2">
                     Preview unavailable
                 </div>
             );

@@ -72,13 +72,13 @@ const ReadField = ({
   if (!display && !forceShow) return null;
   return (
     <div className={className}>
-      <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-input-placeholder">
+      <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-dim-2">
         {label}
       </p>
       <p className={cn(
         'mt-1.5 text-sm leading-snug',
         numeric && 'tabular-nums',
-        display ? 'text-input-text' : 'text-input-placeholder/50'
+        display ? 'text-ink' : 'text-dim-2/50'
       )}>
         {display ?? '—'}
       </p>
@@ -141,7 +141,7 @@ const InlineCurrencyInput = ({
       onChange={onChange}
       placeholder={placeholder}
       label={label}
-      icon={<span className="text-sm text-input-placeholder">$</span>}
+      icon={<span className="text-sm text-dim-2">$</span>}
       iconPosition="left"
       className="w-full"
       labelKey={undefined}
@@ -167,7 +167,7 @@ const SectionHeader = ({
   onCancel: () => void;
 }) => (
   <div className="mb-4 flex items-center justify-between">
-    <h4 className="font-display text-sm font-semibold tracking-tight text-input-text">
+    <h4 className="font-display text-sm font-semibold tracking-tight text-ink">
       {title}
     </h4>
     {isEditing ? (
@@ -198,8 +198,8 @@ const SectionHeader = ({
         onClick={onEdit}
         icon={Pencil} iconClassName="h-4 w-4"
         className={cn(
-          'text-input-placeholder transition-all',
-          'hover:bg-surface-card-hover hover:text-input-text focus-visible:text-input-text'
+          'text-dim-2 transition-all',
+          'hover:bg-surface-card-hover hover:text-ink focus-visible:text-ink'
         )}
         aria-label={`Edit ${title.toLowerCase()}`}
       />
@@ -382,7 +382,7 @@ export const MatterDetailsPanel = ({
   return (
     <div className="panel divide-y divide-white/[0.06]">
       <div className="flex items-center justify-between px-5 py-4">
-        <h3 className="font-display text-sm font-semibold tracking-tight text-input-text">Matter details</h3>
+        <h3 className="font-display text-sm font-semibold tracking-tight text-ink">Matter details</h3>
         <span aria-hidden="true" className="h-px w-8 bg-gradient-to-r from-accent-500/0 via-accent-500/60 to-accent-500/0" />
       </div>
 
@@ -410,7 +410,7 @@ export const MatterDetailsPanel = ({
                 placeholder="e.g. Contract dispute"
               />
               <div>
-                <p className="block text-xs font-medium text-input-placeholder mb-1.5">
+                <p className="block text-xs font-medium text-dim-2 mb-1.5">
                   Urgency
                 </p>
                 <Combobox
@@ -536,7 +536,7 @@ export const MatterDetailsPanel = ({
           {editing === 'attorneys' ? (
             <div className="grid gap-3 sm:grid-cols-2">
               <div>
-                <p className="block text-xs font-medium text-input-placeholder mb-1.5">
+                <p className="block text-xs font-medium text-dim-2 mb-1.5">
                   Responsible attorney
                 </p>
                 <Combobox
@@ -549,7 +549,7 @@ export const MatterDetailsPanel = ({
                 />
               </div>
               <div>
-                <p className="block text-xs font-medium text-input-placeholder mb-1.5">
+                <p className="block text-xs font-medium text-dim-2 mb-1.5">
                   Originating attorney
                 </p>
                 <Combobox

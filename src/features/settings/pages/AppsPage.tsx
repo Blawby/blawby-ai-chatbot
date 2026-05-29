@@ -18,7 +18,7 @@ export const AppsPage = ({ apps, onSelect, className = '' }: AppsPageProps) => {
 
   return (
     <div className={`space-y-6 ${className}`}>
-      <p className="text-sm text-input-placeholder mb-4">
+      <p className="text-sm text-dim-2 mb-4">
         {t('settings:apps.description')}
       </p>
       {apps.map((app, index) => (
@@ -41,12 +41,12 @@ export const AppsPage = ({ apps, onSelect, className = '' }: AppsPageProps) => {
                         loading="lazy"
                       />
                     ) : (
-                      <Icon icon={Puzzle} className="w-6 h-6 text-input-text/70" aria-hidden="true" />
+                      <Icon icon={Puzzle} className="w-6 h-6 text-ink/70" aria-hidden="true" />
                     )}
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
-                      <p className="text-base font-medium text-input-text truncate">{app.name}</p>
+                      <p className="text-base font-medium text-ink truncate">{app.name}</p>
                       {app.connected && (
                         <SettingsBadge variant="success">
                           <Icon icon={BadgeCheck} className="w-4 h-4" aria-hidden="true" />
@@ -63,7 +63,7 @@ export const AppsPage = ({ apps, onSelect, className = '' }: AppsPageProps) => {
                 </div>
               )}
             >
-              <Icon icon={ChevronRight} className="w-5 h-5 text-input-placeholder" aria-hidden="true" />
+              <Icon icon={ChevronRight} className="w-5 h-5 text-dim-2" aria-hidden="true" />
             </SettingRow>
           </button>
           {index < apps.length - 1 && <SectionDivider />}

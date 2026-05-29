@@ -40,7 +40,7 @@ export const SettingRow = ({
           typeof description === 'string' ? (
             <SettingDescription text={description} />
           ) : (
-            <div className="mt-1 text-xs text-input-placeholder">
+            <div className="mt-1 text-xs text-dim-2">
               {description}
             </div>
           )

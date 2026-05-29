@@ -106,18 +106,18 @@ const ActivityTimeline: FunctionComponent<ActivityTimelineProps> = ({
                       <div className="absolute left-3 top-8 bottom-0 w-px bg-line-default" />
                     )}
                     <div className="input-surface relative flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center">
-                      <IconComponent className="w-3 h-3 text-input-placeholder" />
+                      <IconComponent className="w-3 h-3 text-dim-2" />
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center justify-between">
-                        <h5 className="text-xs sm:text-sm font-medium text-input-text">
+                        <h5 className="text-xs sm:text-sm font-medium text-ink">
                           {event.action.replace(/_/g, ' ')}
                         </h5>
-                        <span className="text-xs text-input-placeholder">
+                        <span className="text-xs text-dim-2">
                           {formatRelativeTime(event.created_at)}
                         </span>
                       </div>
-                      <p className="text-xs sm:text-sm text-input-placeholder mt-1">
+                      <p className="text-xs sm:text-sm text-dim-2 mt-1">
                         {event.description}
                       </p>
                     </div>
@@ -127,7 +127,7 @@ const ActivityTimeline: FunctionComponent<ActivityTimelineProps> = ({
 
               {/* Empty state */}
               {!error && events.length === 0 && (
-                <div className="text-center py-6 text-input-placeholder">
+                <div className="text-center py-6 text-dim-2">
                   <Icon icon={Clock} className="w-8 h-8 mx-auto mb-2 opacity-50"  />
                   <p className="text-sm">No activity yet</p>
                   <p className="text-xs mt-1">Activity will appear here as you use the system</p>

@@ -35,7 +35,7 @@ export const HumanTypingIndicator = ({
     >
       <MessageAvatar src={lead.image ?? null} name={lead.name} size="xs" />
       <span className="human-typing-indicator__dot" aria-hidden="true" />
-      <span className="text-xs text-input-placeholder">{label}…</span>
+      <span className="text-xs text-dim-2">{label}…</span>
     </div>
   );
 };

@@ -47,7 +47,7 @@ export const InvoiceLineItemsForm = ({ lineItems, onChange, billingIncrementMinu
   return (
     <section className="space-y-3">
       <div className="flex items-center justify-between">
-        <h3 className="text-sm font-semibold text-input-text">Line items</h3>
+        <h3 className="text-sm font-semibold text-ink">Line items</h3>
         {!readOnly ? (
           <Button
             size="xs"
@@ -63,7 +63,7 @@ export const InvoiceLineItemsForm = ({ lineItems, onChange, billingIncrementMinu
 
       {lineItems.length === 0 ? (
         <div className="rounded-xl border border-dashed border-line-subtle p-8 text-center bg-surface-utility/20">
-           <p className="text-sm text-input-placeholder">No line items added yet.</p>
+           <p className="text-sm text-dim-2">No line items added yet.</p>
            {!readOnly ? (
              <Button
               size="sm"
@@ -86,13 +86,13 @@ export const InvoiceLineItemsForm = ({ lineItems, onChange, billingIncrementMinu
                 key={item.id}
                 className="group flex items-center gap-3 py-3"
               >
-                <div className="min-w-0 flex-1 text-sm text-input-text">
+                <div className="min-w-0 flex-1 text-sm text-ink">
                   <span className="break-words">
-                    {item.description || <i className="text-input-placeholder">No description</i>}
+                    {item.description || <i className="text-dim-2">No description</i>}
                   </span>
-                  <span className="text-input-placeholder"> × {qtyFormatted}</span>
+                  <span className="text-dim-2"> × {qtyFormatted}</span>
                 </div>
-                <span className="shrink-0 text-sm tabular-nums text-input-text">
+                <span className="shrink-0 text-sm tabular-nums text-ink">
                   {formatCurrency(itemTotal)}
                 </span>
                 {!readOnly ? (
@@ -102,7 +102,7 @@ export const InvoiceLineItemsForm = ({ lineItems, onChange, billingIncrementMinu
                       variant="ghost"
                       onClick={() => setEditingItem({ item, index })}
                       icon={SquarePen}
-                      iconClassName="h-4 w-4 text-input-placeholder hover:text-accent-foreground"
+                      iconClassName="h-4 w-4 text-dim-2 hover:text-accent-foreground"
                       aria-label="Edit item"
                       title="Edit item"
                     />
@@ -111,7 +111,7 @@ export const InvoiceLineItemsForm = ({ lineItems, onChange, billingIncrementMinu
                       variant="ghost"
                       onClick={() => removeItem(index)}
                       icon={Trash2}
-                      iconClassName="h-4 w-4 text-input-placeholder hover:text-accent-error-light"
+                      iconClassName="h-4 w-4 text-dim-2 hover:text-accent-error-light"
                       aria-label="Delete item"
                       title="Delete item"
                     />

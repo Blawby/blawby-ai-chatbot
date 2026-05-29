@@ -109,7 +109,7 @@ function Chip({
         compact ? 'min-h-8 px-3 py-1 text-sm' : 'px-2 py-0.5',
         isCustom
           ? 'border-accent-500/25 bg-accent-500/12 text-accent-utility'
-          : 'border-line-subtle bg-surface-utility/10 text-input-text'
+          : 'border-line-subtle bg-surface-utility/10 text-ink'
       )}
     >
       <span className="truncate">{label}</span>
@@ -123,7 +123,7 @@ function Chip({
           e.stopPropagation();
           onRemove();
         }}
-        className="ml-0.5 rounded text-input-placeholder transition-colors hover:text-input-text"
+        className="ml-0.5 rounded text-dim-2 transition-colors hover:text-ink"
         aria-label={`Remove ${label}`}
       >
         <Icon icon={X} className={cn(compact ? 'h-4 w-4' : 'h-3 w-3')}  />
@@ -167,14 +167,14 @@ function DropdownOption({
         'group relative flex w-full items-center justify-between px-3 py-2.5 text-left text-sm transition-all',
         option.disabled && 'cursor-not-allowed opacity-45',
         isSelected || isFocused
-          ? 'bg-accent-500/15 text-input-text'
-          : 'text-input-text hover:bg-surface-utility/10 dark:hover:bg-surface-utility/20',
+          ? 'bg-accent-500/15 text-ink'
+          : 'text-ink hover:bg-surface-utility/10 dark:hover:bg-surface-utility/20',
         option.disabled && 'hover:bg-transparent dark:hover:bg-transparent'
       )}
     >
       <span className="flex min-w-0 items-start gap-2.5">
         {resolvedOptionLeading && (
-          <span className="mt-0.5 flex h-5 w-5 flex-shrink-0 items-center justify-center text-input-placeholder group-hover:text-input-text">
+          <span className="mt-0.5 flex h-5 w-5 flex-shrink-0 items-center justify-center text-dim-2 group-hover:text-ink">
             {resolvedOptionLeading}
           </span>
         )}
@@ -183,7 +183,7 @@ function DropdownOption({
             {option.label}
           </span>
           {option.description ? (
-            <span className="mt-0.5 block truncate text-xs text-input-placeholder">
+            <span className="mt-0.5 block truncate text-xs text-dim-2">
               {option.description}
             </span>
           ) : null}
@@ -191,7 +191,7 @@ function DropdownOption({
       </span>
       <span className="flex flex-shrink-0 items-center gap-2">
         {resolvedOptionMeta && (
-          <span className="text-xs text-input-placeholder">{resolvedOptionMeta}</span>
+          <span className="text-xs text-dim-2">{resolvedOptionMeta}</span>
         )}
         {isSelected && (
           <Icon icon={Check} className="h-4 w-4 text-accent-400" aria-hidden="true"  />
@@ -496,7 +496,7 @@ export function Combobox({
       {resolvedLeading && (
         <span
           className={cn(
-            'pointer-events-none flex-shrink-0 text-input-placeholder',
+            'pointer-events-none flex-shrink-0 text-dim-2',
             isMultiple ? 'pt-1' : ''
           )}
         >
@@ -522,7 +522,7 @@ export function Combobox({
           <span
             className={cn(
               'block truncate text-sm',
-              !hasValue && 'text-input-placeholder'
+              !hasValue && 'text-dim-2'
             )}
           >
             {hasValue ? displayText : placeholder}
@@ -536,13 +536,13 @@ export function Combobox({
           type="button"
           onMouseDown={(e) => e.preventDefault()}
           onClick={(e) => { e.stopPropagation(); clear(); }}
-          className="flex-shrink-0 text-input-placeholder hover:text-input-text transition-colors"
+          className="flex-shrink-0 text-dim-2 hover:text-ink transition-colors"
           aria-label="Clear selection"
         >
           <Icon icon={X} className="h-4 w-4"  />
         </button>
       ) : (
-        <span className="flex-shrink-0 text-input-placeholder pointer-events-none">
+        <span className="flex-shrink-0 text-dim-2 pointer-events-none">
           {searchable
             ? <Icon icon={ChevronsUpDown} className="h-4 w-4"  />
             : <Icon icon={ChevronDown} className={cn('h-4 w-4 transition-transform', isOpen && 'rotate-180')}  />
@@ -556,7 +556,7 @@ export function Combobox({
     <div ref={containerRef} className={cn('relative w-full', className, disabled && 'opacity-50 pointer-events-none')}>
       {/* Label */}
       {label && (
-        <label htmlFor={inputId} className="mb-1 block text-sm font-medium text-input-text">
+        <label htmlFor={inputId} className="mb-1 block text-sm font-medium text-ink">
           {label}
         </label>
       )}
@@ -620,8 +620,8 @@ export function Combobox({
                 }}
                 onKeyDown={handleKeyDown}
                 className={cn(
-                  'w-full rounded-xl bg-surface-utility/10 px-3 py-1.5 text-sm text-input-text',
-                  'placeholder:text-input-placeholder/60',
+                  'w-full rounded-xl bg-surface-utility/10 px-3 py-1.5 text-sm text-ink',
+                  'placeholder:text-dim-2/60',
                   'focus:outline-none focus:ring-2 ring-inset focus:ring-accent-500/30'
                 )}
                 aria-autocomplete="list"
@@ -647,8 +647,8 @@ export function Combobox({
                 className={cn(
                   'flex w-full items-center gap-2.5 px-3 py-2 text-left text-sm transition-colors',
                   clampedFocus === 0
-                    ? 'bg-accent-500/15 text-input-text'
-                    : 'text-input-text hover:bg-surface-utility/10 focus:bg-surface-utility/20'
+                    ? 'bg-accent-500/15 text-ink'
+                    : 'text-ink hover:bg-surface-utility/10 focus:bg-surface-utility/20'
                 )}
               >
                 <span className="flex h-5 w-5 flex-shrink-0 items-center justify-center rounded bg-accent-500/20 text-accent-utility">
@@ -685,7 +685,7 @@ export function Combobox({
             })}
 
             {filteredOptions.length === 0 && !showAddRow && !resolvedFooter && (
-              <p className="px-4 py-3 text-center text-sm text-input-placeholder">
+              <p className="px-4 py-3 text-center text-sm text-dim-2">
                 {allowCustomValues
                   ? (trimmedQuery
                     ? 'No matches. Keep typing to add it.'
@@ -700,7 +700,7 @@ export function Combobox({
               {resolvedFooter}
             </div>
           ) : allowCustomValues && filteredOptions.length === 0 && !showAddRow ? (
-            <div className="flex items-center gap-2 border-t border-line-subtle px-3 py-2 text-xs text-input-placeholder">
+            <div className="flex items-center gap-2 border-t border-line-subtle px-3 py-2 text-xs text-dim-2">
               <span className="flex h-4 w-4 flex-shrink-0 items-center justify-center rounded bg-accent-500/20 text-accent-utility">
                 <Icon icon={Plus} className="h-3 w-3" />
               </span>
@@ -712,10 +712,10 @@ export function Combobox({
 
       {/* Description / hint */}
       {description && (
-        <p className="mt-1 pl-1 text-xs text-input-placeholder">{description}</p>
+        <p className="mt-1 pl-1 text-xs text-dim-2">{description}</p>
       )}
       {allowCustomValues && !hideCustomHint && !isOpen && !description && (
-        <p className="mt-1 pl-1 text-xs text-input-placeholder">
+        <p className="mt-1 pl-1 text-xs text-dim-2">
           Select an option or type to add your own.
         </p>
       )}

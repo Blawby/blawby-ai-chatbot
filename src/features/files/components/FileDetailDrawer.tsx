@@ -54,30 +54,30 @@ const FileDetailContent = ({ file }: { file: OrgFile }) => {
           <div className="h-full w-full animate-pulse bg-surface-panel" />
         ) : (
           <div className={`flex h-20 w-20 items-center justify-center rounded-2xl ${fileType.color}`}>
-            <Icon icon={fileType.icon} className="h-10 w-10 text-input-text" />
+            <Icon icon={fileType.icon} className="h-10 w-10 text-ink" />
           </div>
         )}
       </div>
 
       <div>
-        <h2 className="break-words text-base font-semibold text-input-text">{file.fileName}</h2>
-        <p className="mt-1 text-xs text-input-placeholder">{fileType.label} · {formatBytes(file.fileSize)}</p>
+        <h2 className="break-words text-base font-semibold text-ink">{file.fileName}</h2>
+        <p className="mt-1 text-xs text-dim-2">{fileType.label} · {formatBytes(file.fileSize)}</p>
       </div>
 
       <dl className="space-y-3 text-sm">
         <div className="flex justify-between gap-4">
-          <dt className="text-input-placeholder">Source</dt>
-          <dd className="text-right text-input-text">{association.kind === 'loose' ? 'Loose file' : association.label}</dd>
+          <dt className="text-dim-2">Source</dt>
+          <dd className="text-right text-ink">{association.kind === 'loose' ? 'Loose file' : association.label}</dd>
         </div>
         <div className="flex justify-between gap-4">
-          <dt className="text-input-placeholder">Added</dt>
-          <dd className="text-right text-input-text">
+          <dt className="text-dim-2">Added</dt>
+          <dd className="text-right text-ink">
             {file.createdAt ? formatRelativeTime(file.createdAt) : '—'}
           </dd>
         </div>
         <div className="flex justify-between gap-4">
-          <dt className="text-input-placeholder">Type</dt>
-          <dd className="text-right text-input-text">{file.mimeType || '—'}</dd>
+          <dt className="text-dim-2">Type</dt>
+          <dd className="text-right text-ink">{file.mimeType || '—'}</dd>
         </div>
       </dl>
     </div>

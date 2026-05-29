@@ -195,7 +195,7 @@ export const InvoiceBuilderSurface = forwardRef<InvoiceFormHandle, InvoiceBuilde
   }
 
   if (mode === 'edit' && !resolvedInvoice && !shouldShowLoading && !displayErrorMessage) {
-    return <div className="p-6 text-sm text-input-placeholder">Invoice not found</div>;
+    return <div className="p-6 text-sm text-dim-2">Invoice not found</div>;
   }
 
   if (mode === 'edit' && displayErrorMessage && !resolvedInvoice) {

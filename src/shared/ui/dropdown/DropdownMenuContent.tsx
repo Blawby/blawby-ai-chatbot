@@ -113,7 +113,7 @@ export const DropdownMenuContent = ({
       role="menu"
       ref={(node) => setContentRef(node)}
       className={cn(
-        'fixed z-50 min-w-max overflow-hidden rounded-xl border border-white/10 bg-surface-overlay shadow-glass text-input-text',
+        'fixed z-50 min-w-max overflow-hidden rounded-xl border border-white/10 bg-surface-overlay shadow-glass text-ink',
         centerTransform,
         className,
       )}

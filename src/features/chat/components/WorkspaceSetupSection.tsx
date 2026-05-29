@@ -367,15 +367,15 @@ export const WorkspaceSetupSection: FunctionComponent<WorkspaceSetupSectionProps
       <div className="relative flex w-full flex-col bg-transparent lg:min-h-0 lg:flex-1 lg:basis-1/2 lg:overflow-hidden">
         <div className="relative z-10 flex min-h-0 flex-1 flex-col lg:overflow-y-auto">
           <Page className="w-full flex-1">
-            <div className="flex h-full min-h-0 flex-col gap-6 text-input-text">
+            <div className="flex h-full min-h-0 flex-col gap-6 text-ink">
               <header className="space-y-2">
-                <p className="text-[10px] font-bold uppercase tracking-[0.45em] text-input-placeholder">
+                <p className="text-[10px] font-bold uppercase tracking-[0.45em] text-dim-2">
                   {setupStatus.needsSetup ? "Let's get started" : 'Practice setup'}
                 </p>
                 <h2 className="text-3xl font-bold tracking-tight">
                   {setupStatus.needsSetup ? 'Almost ready to go' : 'All set'}
                 </h2>
-                {statusText ? <p className="text-xs text-input-placeholder">{statusText}</p> : null}
+                {statusText ? <p className="text-xs text-dim-2">{statusText}</p> : null}
               </header>
 
               <div className="min-h-[500px] lg:min-h-0 lg:flex-1">
@@ -442,7 +442,7 @@ export const WorkspaceSetupSection: FunctionComponent<WorkspaceSetupSectionProps
       <div className="relative flex w-full flex-col items-center gap-5 border-t border-line-subtle bg-transparent px-4 py-6 lg:min-h-0 lg:flex-1 lg:basis-1/2 lg:border-t-0 lg:border-l lg:border-l-line-glass/30">
         <div className="relative flex w-full flex-col items-center gap-5">
           <div className="flex flex-col items-center gap-2">
-            <div className="text-xs font-semibold uppercase tracking-[0.35em] text-input-placeholder">
+            <div className="text-xs font-semibold uppercase tracking-[0.35em] text-dim-2">
               {showSidebarPreview ? t('preview.publicPreview', { defaultValue: 'Public preview' }) : t('preview.setupProgress', { defaultValue: 'Setup progress' })}
             </div>
             {!showSidebarPreview ? (

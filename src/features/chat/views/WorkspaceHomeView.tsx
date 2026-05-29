@@ -60,7 +60,7 @@ const WorkspaceHomeView: FunctionComponent<WorkspaceHomeViewProps> = ({
 
   return (
     <div className="relative flex flex-1 flex-col rounded-none border-0 bg-transparent shadow-none">
-      <section className="relative z-10 px-6 pb-12 pt-8 text-input-text">
+      <section className="relative z-10 px-6 pb-12 pt-8 text-ink">
         <div className="flex items-center gap-3">
           <Avatar
             src={practiceLogo}
@@ -68,7 +68,7 @@ const WorkspaceHomeView: FunctionComponent<WorkspaceHomeViewProps> = ({
             size="lg"
             className="ring-2 ring-[rgb(var(--line-glass)/0.24)]"
           />
-          <div className="text-lg font-semibold tracking-wide text-input-text">{resolvedName}</div>
+          <div className="text-lg font-semibold tracking-wide text-ink">{resolvedName}</div>
         </div>
 
         <div className="mt-20 mb-8 space-y-1 text-3xl font-semibold leading-tight">
@@ -86,7 +86,7 @@ const WorkspaceHomeView: FunctionComponent<WorkspaceHomeViewProps> = ({
             className="card px-5 py-5 text-left transition-all duration-300 hover:scale-[1.01] hover:bg-surface-utility/40 dark:hover:bg-surface-utility/10 hover:shadow-glass active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-70"
             aria-label={t('workspace.home.recentMessage')}
           >
-            <div className="text-xs font-semibold uppercase tracking-wide text-input-placeholder">
+            <div className="text-xs font-semibold uppercase tracking-wide text-dim-2">
               {t('workspace.home.recentMessage')}
             </div>
             <div className="mt-3 flex items-center gap-3">
@@ -105,7 +105,7 @@ const WorkspaceHomeView: FunctionComponent<WorkspaceHomeViewProps> = ({
                     </span>
                   )}
                 </div>
-                <div className="mt-1 truncate text-sm text-input-text">
+                <div className="mt-1 truncate text-sm text-ink">
                   {recentMessage.preview}
                 </div>
               </div>
@@ -117,7 +117,7 @@ const WorkspaceHomeView: FunctionComponent<WorkspaceHomeViewProps> = ({
           type="button"
           onClick={onSendMessage}
           disabled={!canSendMessage}
-          className="card flex w-full items-center justify-between px-6 py-5 text-left text-input-text transition-all duration-300 hover:scale-[1.01] hover:bg-surface-utility/40 dark:hover:bg-surface-utility/10 hover:shadow-glass active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-70"
+          className="card flex w-full items-center justify-between px-6 py-5 text-left text-ink transition-all duration-300 hover:scale-[1.01] hover:bg-surface-utility/40 dark:hover:bg-surface-utility/10 hover:shadow-glass active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-70"
           aria-label={t('workspace.home.sendMessage')}
         >
           <span className="text-lg font-bold tracking-tight">{t('workspace.home.sendMessage')}</span>
@@ -131,8 +131,8 @@ const WorkspaceHomeView: FunctionComponent<WorkspaceHomeViewProps> = ({
 
         {showConsultationCard && (
           <div className="card px-5 py-6">
-            <h3 className="text-base font-semibold text-input-text">{resolvedConsultationTitle}</h3>
-            <p className="mt-2 text-sm text-input-placeholder">
+            <h3 className="text-base font-semibold text-ink">{resolvedConsultationTitle}</h3>
+            <p className="mt-2 text-sm text-dim-2">
               {resolvedConsultationDescription}
             </p>
             <div className="mt-4">
@@ -147,7 +147,7 @@ const WorkspaceHomeView: FunctionComponent<WorkspaceHomeViewProps> = ({
                 {resolvedConsultationCta}
               </Button>
             </div>
-            <div className="mt-4 text-center text-xs font-medium text-input-placeholder">
+            <div className="mt-4 text-center text-xs font-medium text-dim-2">
               {t('workspace.home.poweredBy')} {poweredByLink}
             </div>
           </div>

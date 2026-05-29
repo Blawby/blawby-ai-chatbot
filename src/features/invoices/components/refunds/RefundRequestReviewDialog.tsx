@@ -104,25 +104,25 @@ export const RefundRequestReviewDialog = ({
       <DialogBody className="space-y-4">
         <div className="rounded-xl border border-line-subtle bg-surface-utility/30 px-4 py-3 text-sm">
           <div className="flex items-center justify-between">
-            <span className="text-input-placeholder">Amount</span>
-            <span className="font-semibold text-input-text">
+            <span className="text-dim-2">Amount</span>
+            <span className="font-semibold text-ink">
               {request.amount != null ? formatCurrency(request.amount) : 'Full refund'}
             </span>
           </div>
           <div className="mt-2 flex items-center justify-between">
-            <span className="text-input-placeholder">Requested</span>
-            <span className="text-input-text">
+            <span className="text-dim-2">Requested</span>
+            <span className="text-ink">
               {request.createdAt ? formatLongDate(request.createdAt) : '—'}
             </span>
           </div>
           <div className="mt-2 flex items-center justify-between">
-            <span className="text-input-placeholder">Status</span>
+            <span className="text-dim-2">Status</span>
             <RefundRequestStatusBadge status={request.status} />
           </div>
           {request.reason ? (
             <div className="mt-3 border-t border-line-subtle pt-3">
-              <p className="text-xs text-input-placeholder">Reason</p>
-              <p className="mt-1 text-input-text">{request.reason}</p>
+              <p className="text-xs text-dim-2">Reason</p>
+              <p className="mt-1 text-ink">{request.reason}</p>
             </div>
           ) : null}
         </div>
@@ -137,7 +137,7 @@ export const RefundRequestReviewDialog = ({
             disabled={loading}
           />
         ) : (
-          <p className="text-sm text-input-placeholder">
+          <p className="text-sm text-dim-2">
             Approve completed. Execute now to issue the refund through Stripe, or close to execute later.
           </p>
         )}

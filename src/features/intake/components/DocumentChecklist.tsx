@@ -70,7 +70,7 @@ const DocumentChecklist: FunctionComponent<DocumentChecklistProps> = ({
       case 'missing':
         return required ?
           <Icon icon={AlertTriangle} className="w-5 h-5 text-accent-error"  /> :
-          <Icon icon={File} className="w-5 h-5 text-input-placeholder"  />;
+          <Icon icon={File} className="w-5 h-5 text-dim-2"  />;
     }
   };
 
@@ -94,14 +94,14 @@ const DocumentChecklist: FunctionComponent<DocumentChecklistProps> = ({
     <div className="card p-6 max-w-2xl">
       {/* Header */}
       <div className="mb-6">
-        <h3 className="text-lg font-semibold text-input-text mb-2">
+        <h3 className="text-lg font-semibold text-ink mb-2">
           Document Checklist for {matterType}
         </h3>
-        <p className="text-sm text-input-placeholder">
+        <p className="text-sm text-dim-2">
           Please upload the documents listed below. Required documents are marked with a red icon.
         </p>
         <div className="mt-3 flex items-center gap-4 text-xs font-medium">
-          <span className="text-input-placeholder">
+          <span className="text-dim-2">
             Progress: {completedCount}/{documents.length}
           </span>
           <span className="text-accent-500">
@@ -131,7 +131,7 @@ const DocumentChecklist: FunctionComponent<DocumentChecklistProps> = ({
               {getStatusIcon(doc.status, doc.required)}
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 mb-1">
-                  <h4 className="font-medium text-input-text">
+                  <h4 className="font-medium text-ink">
                     {doc.name}
                   </h4>
                   {doc.required && (
@@ -144,13 +144,13 @@ const DocumentChecklist: FunctionComponent<DocumentChecklistProps> = ({
                       ? 'bg-emerald-500/10 text-emerald-400'
                       : doc.status === 'pending'
                       ? 'bg-amber-500/10 text-amber-400'
-                      : 'bg-surface-utility/5 text-input-placeholder'
+                      : 'bg-surface-utility/5 text-dim-2'
                   }`}>
                     {getStatusText(doc.status, doc.required)}
                   </span>
                 </div>
                 {doc.description && (
-                  <p className="text-sm text-input-placeholder mb-3">
+                  <p className="text-sm text-dim-2 mb-3">
                     {doc.description}
                   </p>
                 )}
@@ -173,7 +173,7 @@ const DocumentChecklist: FunctionComponent<DocumentChecklistProps> = ({
                         Choose Document
                       </Button>
                     </label>
-                    <span className="text-xs text-input-placeholder">
+                    <span className="text-xs text-dim-2">
                       or drag and drop
                     </span>
                   </div>
@@ -183,7 +183,7 @@ const DocumentChecklist: FunctionComponent<DocumentChecklistProps> = ({
                 {doc.status === 'uploaded' && doc.file && (
                   <div className="flex items-center gap-2 mt-2">
                     <Icon icon={File} className="w-4 h-4 text-emerald-400"  />
-                    <span className="text-sm text-input-text">
+                    <span className="text-sm text-ink">
                       {doc.file.name}
                     </span>
                     <Button
@@ -213,7 +213,7 @@ const DocumentChecklist: FunctionComponent<DocumentChecklistProps> = ({
         <Button
           variant="ghost"
           onClick={onSkip}
-          className="text-input-placeholder"
+          className="text-dim-2"
         >
           Skip for now
         </Button>

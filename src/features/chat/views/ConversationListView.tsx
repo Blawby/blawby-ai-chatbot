@@ -64,11 +64,11 @@ const ConversationListEmptyState = ({
       <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-surface-overlay/60 ring-1 ring-line-subtle">
         <Icon
           icon={MessageSquare}
-          className="h-6 w-6 text-input-placeholder"
+          className="h-6 w-6 text-dim-2"
         />
       </div>
-      <p className="text-sm font-medium text-input-text">{title}</p>
-      <p className="text-xs leading-5 text-input-placeholder">{hint}</p>
+      <p className="text-sm font-medium text-ink">{title}</p>
+      <p className="text-xs leading-5 text-dim-2">{hint}</p>
     </div>
   </div>
 );
@@ -124,7 +124,7 @@ const ConversationItem = memo(({ conversation, preview, fallbackName, isActive, 
             <span className={cn(
               'block truncate',
               chatTypography.previewName,
-              isUnread ? 'font-bold text-accent-utility' : 'text-input-text'
+              isUnread ? 'font-bold text-accent-utility' : 'text-ink'
             )}>
               {title}
             </span>
@@ -140,7 +140,7 @@ const ConversationItem = memo(({ conversation, preview, fallbackName, isActive, 
             {timeLabel && (
               <span className={cn(
                 chatTypography.headerTime,
-                isUnread ? 'font-medium text-accent-utility/75' : 'text-input-placeholder'
+                isUnread ? 'font-medium text-accent-utility/75' : 'text-dim-2'
               )}>{timeLabel}</span>
             )}
           </div>
@@ -155,7 +155,7 @@ const ConversationItem = memo(({ conversation, preview, fallbackName, isActive, 
             'mt-0.5 truncate text-xs leading-5',
             isUnread
               ? 'font-semibold text-accent-utility/85'
-              : 'text-input-placeholder'
+              : 'text-dim-2'
           )}>
             <ChatText text={previewText} className="truncate" />
           </div>

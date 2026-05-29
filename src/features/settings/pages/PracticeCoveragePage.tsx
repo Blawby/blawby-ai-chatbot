@@ -206,7 +206,7 @@ export const PracticeCoveragePage = ({ className, onBack }: PracticeCoveragePage
   if (!currentPractice) {
     return (
       <div className="h-full flex items-center justify-center">
-        <p className="text-sm text-input-placeholder">No practice selected.</p>
+        <p className="text-sm text-dim-2">No practice selected.</p>
       </div>
     );
   }
@@ -237,7 +237,7 @@ export const PracticeCoveragePage = ({ className, onBack }: PracticeCoveragePage
 
         <section className="space-y-4">
           <div>
-            <h3 className="text-sm font-semibold text-input-text">Services</h3>
+            <h3 className="text-sm font-semibold text-ink">Services</h3>
             <SettingsHelperText className="mt-1">
               Choose the legal service areas this practice accepts for routing and intake setup.
             </SettingsHelperText>
@@ -252,7 +252,7 @@ export const PracticeCoveragePage = ({ className, onBack }: PracticeCoveragePage
         <SectionDivider />
         <section className="space-y-3">
           <div>
-            <h3 className="text-sm font-semibold text-input-text">Licensed states</h3>
+            <h3 className="text-sm font-semibold text-ink">Licensed states</h3>
             <SettingsHelperText className="mt-1">
               Enter US state codes where this practice is licensed. Used to help the assistant reason about jurisdiction.
             </SettingsHelperText>

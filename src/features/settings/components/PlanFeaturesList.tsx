@@ -26,7 +26,7 @@ export const PlanFeaturesList = ({
               ? <Icon icon={feature.icon as ComponentType<JSX.SVGAttributes<SVGSVGElement>>} className="w-5 h-5" />
               : feature.icon}
           </div>
-          <span className="text-sm text-input-text">
+          <span className="text-sm text-ink">
             {feature.text}
           </span>
         </div>

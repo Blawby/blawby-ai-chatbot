@@ -8,7 +8,7 @@ export interface DialogTitleProps {
 }
 
 export const DialogTitle: FunctionComponent<DialogTitleProps> = ({ children, id, className }) => (
-  <h2 id={id} className={cn('m-0 text-lg font-bold leading-tight text-input-text', className)}>
+  <h2 id={id} className={cn('m-0 text-lg font-bold leading-tight text-ink', className)}>
     {children}
   </h2>
 );

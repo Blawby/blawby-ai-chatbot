@@ -53,7 +53,7 @@ export function Pagination({
       </button>
       {pages.map((page, i) =>
         page === 'dots' ? (
-          <span key={`dots-${i}`} className="px-1 text-input-placeholder text-sm">...</span>
+          <span key={`dots-${i}`} className="px-1 text-dim-2 text-sm">...</span>
         ) : (
           <button
             key={page}
@@ -65,7 +65,7 @@ export function Pagination({
               btnSize,
               page === currentPage
                 ? 'bg-accent-500/12 text-accent-600 dark:text-accent-400'
-                : 'btn-ghost text-input-text',
+                : 'btn-ghost text-ink',
             )}
           >
             {page}

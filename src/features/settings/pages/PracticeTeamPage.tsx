@@ -125,7 +125,7 @@ export const PracticeTeamPage = ({ className, onBack }: PracticeTeamPageProps) =
   if (currentPractice && !activeMemberRoleLoading && isMembershipResolved && !isMember) {
     return (
       <div className="h-full flex items-center justify-center">
-        <p className="text-sm text-input-placeholder">You are not a member of this practice.</p>
+        <p className="text-sm text-dim-2">You are not a member of this practice.</p>
       </div>
     );
   }
@@ -234,7 +234,7 @@ export const PracticeTeamPage = ({ className, onBack }: PracticeTeamPageProps) =
   if (!currentPractice) {
     return (
       <div className="h-full flex items-center justify-center">
-        <p className="text-sm text-input-placeholder">No practice selected.</p>
+        <p className="text-sm text-dim-2">No practice selected.</p>
       </div>
     );
   }
@@ -251,7 +251,7 @@ export const PracticeTeamPage = ({ className, onBack }: PracticeTeamPageProps) =
         <div className="pt-2 pb-6">
           <div className="flex items-center justify-between gap-4">
             <div>
-              <p className="text-sm text-input-placeholder">
+              <p className="text-sm text-dim-2">
                 Manage access to your practice workspace.
               </p>
               <SettingsHelperText className="mt-2">
@@ -321,7 +321,7 @@ export const PracticeTeamPage = ({ className, onBack }: PracticeTeamPageProps) =
                     }
                     setEditMemberData(member);
                   }}
-                  className="text-input-text hover:text-accent-600 dark:hover:text-accent-400"
+                  className="text-ink hover:text-accent-600 dark:hover:text-accent-400"
                 >
                   {isEditingMember && editMemberData?.userId === member.userId ? 'Cancel' : 'Manage'}
                 </Button>
@@ -373,7 +373,7 @@ export const PracticeTeamPage = ({ className, onBack }: PracticeTeamPageProps) =
         {isEditingMember && editMemberData && (
           <div className="mt-6 space-y-4">
             <div>
-              <p className="text-sm font-medium text-input-text mb-2">
+              <p className="text-sm font-medium text-ink mb-2">
                 {editMemberData.name || editMemberData.email}
               </p>
             <SettingsHelperText>
@@ -414,7 +414,7 @@ export const PracticeTeamPage = ({ className, onBack }: PracticeTeamPageProps) =
 
         <SectionDivider className="mt-8" />
         <div className="pt-6">
-          <h3 className="text-sm font-semibold text-input-text mb-4">
+          <h3 className="text-sm font-semibold text-ink mb-4">
             Pending Invitations
           </h3>
           {invitations.length > 0 ? (
@@ -427,7 +427,7 @@ export const PracticeTeamPage = ({ className, onBack }: PracticeTeamPageProps) =
                       size="md"
                     />
                     <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-medium text-input-text">
+                      <p className="truncate text-sm font-medium text-ink">
                       {inv.email}
                       </p>
                       <SettingsHelperText className="truncate">

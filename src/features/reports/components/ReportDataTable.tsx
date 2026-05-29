@@ -45,7 +45,7 @@ export const ReportDataTable: FunctionComponent<ReportDataTableProps> = ({
     stickyHeader
     className="panel overflow-hidden"
     bodyClassName="bg-transparent"
-    emptyState={emptyState ?? <span className="text-sm text-input-placeholder">No data</span>}
+    emptyState={emptyState ?? <span className="text-sm text-dim-2">No data</span>}
   />
 );
 

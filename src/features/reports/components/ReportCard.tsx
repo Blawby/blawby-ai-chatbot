@@ -46,16 +46,16 @@ export const ReportCard: FunctionComponent<ReportCardProps> = ({ definition, onC
     >
       <div className="flex items-center justify-between">
         <div className="flex h-9 w-9 items-center justify-center rounded-full border border-line-subtle bg-surface-utility/10">
-          <Icon className="h-4 w-4 text-input-placeholder" aria-hidden="true" />
+          <Icon className="h-4 w-4 text-dim-2" aria-hidden="true" />
         </div>
         {definition.phase === 3 ? (
-          <span className="rounded-full bg-surface-utility/10 px-2 py-0.5 text-[10px] uppercase tracking-wide text-input-placeholder">
+          <span className="rounded-full bg-surface-utility/10 px-2 py-0.5 text-[10px] uppercase tracking-wide text-dim-2">
             Coming soon
           </span>
         ) : null}
       </div>
-      <h3 className="text-sm font-semibold text-input-text">{definition.title}</h3>
-      <p className="text-xs text-input-placeholder">{definition.description}</p>
+      <h3 className="text-sm font-semibold text-ink">{definition.title}</h3>
+      <p className="text-xs text-dim-2">{definition.description}</p>
     </button>
   );
 };

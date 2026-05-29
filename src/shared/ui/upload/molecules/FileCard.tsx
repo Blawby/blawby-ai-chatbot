@@ -103,7 +103,7 @@ export const FileCard = ({
             />
           ) : (
             <div className={cn('flex h-14 w-14 items-center justify-center rounded-2xl', fileType.color)}>
-              <Icon icon={fileType.icon} className="h-7 w-7 text-input-text" />
+              <Icon icon={fileType.icon} className="h-7 w-7 text-ink" />
             </div>
           )}
           {shouldShowTileStatus ? (
@@ -126,12 +126,12 @@ export const FileCard = ({
           ) : null}
         </div>
         <div className="flex flex-col gap-0.5 p-3">
-          <p className="truncate text-sm font-medium text-input-text" title={fileName}>{fileName}</p>
+          <p className="truncate text-sm font-medium text-ink" title={fileName}>{fileName}</p>
           {associationLabel ? (
-            <p className="truncate text-xs text-input-placeholder" title={associationLabel}>{associationLabel}</p>
+            <p className="truncate text-xs text-dim-2" title={associationLabel}>{associationLabel}</p>
           ) : null}
           {timestampLabel ? (
-            <p className="text-[11px] uppercase tracking-wide text-input-placeholder">{timestampLabel}</p>
+            <p className="text-[11px] uppercase tracking-wide text-dim-2">{timestampLabel}</p>
           ) : null}
         </div>
       </>

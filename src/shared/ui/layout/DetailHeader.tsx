@@ -94,7 +94,7 @@ export const DetailHeader = ({
   return (
     <div className={cn('flex flex-col border-b border-line-subtle bg-transparent', className)}>
       {headerRow}
-      <div className="flex flex-wrap items-center gap-x-5 gap-y-1 px-4 pb-2 text-xs text-input-placeholder">
+      <div className="flex flex-wrap items-center gap-x-5 gap-y-1 px-4 pb-2 text-xs text-dim-2">
         {secondaryRow}
       </div>
     </div>

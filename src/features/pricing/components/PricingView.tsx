@@ -70,7 +70,7 @@ const PricingView: FunctionComponent<PricingViewProps> = ({ className, onUpgrade
       <div className="flex items-center justify-center p-6 text-center">
         <div className="space-y-4">
           <p className="text-lg font-semibold text-red-500">{t('common:errors.tryAgainLater')}</p>
-          <p className="text-sm text-input-placeholder">{t('pricing:errorGeneric')}</p>
+          <p className="text-sm text-dim-2">{t('pricing:errorGeneric')}</p>
         </div>
       </div>
     );
@@ -78,7 +78,7 @@ const PricingView: FunctionComponent<PricingViewProps> = ({ className, onUpgrade
   if (!plan) {
     return (
       <div className="flex items-center justify-center p-6 text-center">
-        <p className="text-sm text-input-placeholder">{t('pricing:loading')}</p>
+        <p className="text-sm text-dim-2">{t('pricing:loading')}</p>
       </div>
     );
   }
@@ -151,7 +151,7 @@ const PricingView: FunctionComponent<PricingViewProps> = ({ className, onUpgrade
     { value: 'yearly', label: annuallyLabelWithDiscount, disabled: !hasYearly }
   ];
   return (
-    <div className={`w-full text-input-text ${className ?? ''}`}>
+    <div className={`w-full text-ink ${className ?? ''}`}>
       <div className="mx-auto w-full max-w-xl px-2 pt-2 pb-2 md:px-3 md:pt-3 md:pb-3">
         {showBillingSelector ? (
           <div className="flex justify-center pb-1">
@@ -168,27 +168,27 @@ const PricingView: FunctionComponent<PricingViewProps> = ({ className, onUpgrade
 
         <div className="mt-6 card px-5 py-6 md:px-7 md:py-8">
           <div className="flex flex-col items-start text-left">
-            <h1 data-testid="pricing-page-title" className="text-3xl font-semibold tracking-tight text-input-text md:text-4xl">
+            <h1 data-testid="pricing-page-title" className="text-3xl font-semibold tracking-tight text-ink md:text-4xl">
               {plan.displayName || plan.name}
             </h1>
             {plan.description ? (
-              <p className="mt-4 max-w-xl text-base leading-7 text-input-placeholder">
+              <p className="mt-4 max-w-xl text-base leading-7 text-dim-2">
                 {plan.description}
               </p>
             ) : null}
             {hasDisplayPrice && plan.currency ? (
               <div className="mt-7 flex items-end gap-1.5">
-                <span className="text-5xl font-semibold tracking-tight text-input-text md:text-6xl">
+                <span className="text-5xl font-semibold tracking-tight text-ink md:text-6xl">
                   {formatCurrency(selectedPriceValue, plan.currency, i18n.language)}
                 </span>
-                <span className="pb-1 text-xl font-semibold text-input-placeholder md:pb-2 md:text-2xl">/{periodLabel}</span>
+                <span className="pb-1 text-xl font-semibold text-dim-2 md:pb-2 md:text-2xl">/{periodLabel}</span>
               </div>
             ) : null}
           </div>
 
           <div className="mt-8">
             {features.length > 0 ? (
-              <ul className="space-y-3 text-base text-input-placeholder">
+              <ul className="space-y-3 text-base text-dim-2">
                 {features.map((feature) => (
                   <li key={feature} className="flex items-start gap-2">
                     <Icon icon={Check} className="mt-0.5 h-5 w-5 flex-none text-accent-500"  />
@@ -197,7 +197,7 @@ const PricingView: FunctionComponent<PricingViewProps> = ({ className, onUpgrade
                 ))}
               </ul>
             ) : (
-              <p className="text-base text-input-placeholder">{t('pricing:noFeatures')}</p>
+              <p className="text-base text-dim-2">{t('pricing:noFeatures')}</p>
             )}
           </div>
 
@@ -222,7 +222,7 @@ const PricingView: FunctionComponent<PricingViewProps> = ({ className, onUpgrade
                   : plan.displayName || plan.name}
             </Button>
             {hasDisplayPrice ? (
-              <p className="mt-4 text-center text-sm text-input-placeholder">
+              <p className="mt-4 text-center text-sm text-dim-2">
                 {billingDescription}
               </p>
             ) : null}

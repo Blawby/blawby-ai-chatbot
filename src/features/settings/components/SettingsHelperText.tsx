@@ -13,7 +13,7 @@ export const SettingsHelperText = ({
   ...rest
 }: SettingsHelperTextProps) => {
   return (
-    <span className={cn('text-xs text-input-placeholder', className)} {...rest}>
+    <span className={cn('text-xs text-dim-2', className)} {...rest}>
       {children}
     </span>
   );

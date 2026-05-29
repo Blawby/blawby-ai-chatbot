@@ -49,7 +49,7 @@ const triageStatusVariant = (status: string | null | undefined): {
     case 'rejected':
       return { label: status === 'rejected' ? 'Rejected' : 'Declined', className: 'text-error' };
     case 'spam':
-      return { label: 'Spam', className: 'text-input-placeholder' };
+      return { label: 'Spam', className: 'text-dim-2' };
     case 'pending_review':
     default:
       return { label: 'Pending Review', className: 'text-warning' };
@@ -220,7 +220,7 @@ export const IntakesPage: FunctionComponent<IntakesPageProps> = ({
     );
   }
 
-  const headerCellClass = 'text-xs font-semibold uppercase tracking-wide text-input-placeholder';
+  const headerCellClass = 'text-xs font-semibold uppercase tracking-wide text-dim-2';
   const columns: DataTableColumn[] = [
     {
       id: 'subject',
@@ -233,7 +233,7 @@ export const IntakesPage: FunctionComponent<IntakesPageProps> = ({
       label: 'Contact',
       hideAt: 'sm',
       headerClassName: headerCellClass,
-      mobileClassName: 'text-input-placeholder',
+      mobileClassName: 'text-dim-2',
     },
     {
       id: 'status',
@@ -257,10 +257,10 @@ export const IntakesPage: FunctionComponent<IntakesPageProps> = ({
       id: item.uuid,
       onClick: () => handleSelectIntake(item),
       cells: {
-        subject: <span className="truncate font-medium text-input-text">{subject}</span>,
-        contact: <span className="truncate text-input-placeholder">{contact}</span>,
+        subject: <span className="truncate font-medium text-ink">{subject}</span>,
+        contact: <span className="truncate text-dim-2">{contact}</span>,
         status: <span className={cn('font-medium', triage.className)}>{triage.label}</span>,
-        date: <span className="tabular-nums text-input-placeholder">{formatRelativeTime(item.created_at)}</span>,
+        date: <span className="tabular-nums text-dim-2">{formatRelativeTime(item.created_at)}</span>,
       },
     };
   });
@@ -359,8 +359,8 @@ const IntakeMobileCard: FunctionComponent<IntakeMobileCardProps> = ({ item, onCl
   const email = item.metadata?.email?.trim() || '—';
 
   const rows: ReadonlyArray<{ label: string; value: ComponentChildren }> = [
-    { label: 'Subject', value: <span className="font-medium text-input-text break-words">{subject}</span> },
-    { label: 'Email', value: <span className="text-input-placeholder break-all">{email}</span> },
+    { label: 'Subject', value: <span className="font-medium text-ink break-words">{subject}</span> },
+    { label: 'Email', value: <span className="text-dim-2 break-all">{email}</span> },
     { label: 'Status', value: <span className={cn('font-medium', triage.className)}>{triage.label}</span> },
   ];
 
@@ -373,7 +373,7 @@ const IntakeMobileCard: FunctionComponent<IntakeMobileCardProps> = ({ item, onCl
       <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-2 text-sm">
         {rows.map(({ label, value }) => (
           <div key={label} className="contents">
-            <dt className="text-xs font-medium uppercase tracking-wide text-input-placeholder">{label}</dt>
+            <dt className="text-xs font-medium uppercase tracking-wide text-dim-2">{label}</dt>
             <dd className="text-right">{value}</dd>
           </div>
         ))}

@@ -95,8 +95,8 @@ export const MatterWorkTab = ({
       {subTab === 'tasks' ? (
         tasksNotImplemented ? (
           <div className="flex min-h-[200px] flex-col items-center justify-center gap-3 p-8 text-center">
-            <p className="text-sm font-medium text-input-text">Tasks coming soon</p>
-            <p className="text-xs text-input-placeholder">
+            <p className="text-sm font-medium text-ink">Tasks coming soon</p>
+            <p className="text-xs text-dim-2">
               Task management for this matter is not yet available.
             </p>
           </div>
@@ -132,7 +132,7 @@ export const MatterWorkTab = ({
           />
         ) : (
           <InfoCard icon={Inbox} title="Milestones">
-            <p className="text-sm text-input-placeholder">
+            <p className="text-sm text-dim-2">
               Milestones are only available for fixed-fee matters with milestone billing.
             </p>
           </InfoCard>

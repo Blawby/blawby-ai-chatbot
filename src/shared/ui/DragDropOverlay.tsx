@@ -72,8 +72,8 @@ const DragDropOverlay: FunctionComponent<DragDropOverlayProps> = ({ isVisible, o
           </div>
         </div>
         <div>
-          <h3 className="m-0 text-2xl font-semibold text-input-text">Add anything</h3>
-          <p className="mt-1 text-sm text-input-placeholder">
+          <h3 className="m-0 text-2xl font-semibold text-ink">Add anything</h3>
+          <p className="mt-1 text-sm text-dim-2">
             Drop any file here to add it to the conversation
           </p>
         </div>

@@ -90,12 +90,12 @@ export const FilesInspectorPanel = ({ file, practiceSlug, scope, onClose }: File
       className="flex h-full w-full flex-col overflow-hidden rounded-2xl border border-line-subtle bg-surface-card"
     >
       <header className="flex items-center justify-between border-b border-line-subtle px-4 py-3">
-        <h2 className="text-sm font-semibold text-input-text">Details</h2>
+        <h2 className="text-sm font-semibold text-ink">Details</h2>
         <button
           type="button"
           onClick={onClose}
           aria-label="Close inspector"
-          className="flex h-7 w-7 items-center justify-center rounded-md text-input-placeholder hover:bg-surface-panel hover:text-input-text"
+          className="flex h-7 w-7 items-center justify-center rounded-md text-dim-2 hover:bg-surface-panel hover:text-ink"
         >
           <Icon icon={X} className="h-4 w-4" />
         </button>
@@ -109,22 +109,22 @@ export const FilesInspectorPanel = ({ file, practiceSlug, scope, onClose }: File
             <div className="h-full w-full animate-pulse bg-surface-panel" />
           ) : (
             <div className={`flex h-20 w-20 items-center justify-center rounded-2xl ${fileType.color}`}>
-              <Icon icon={fileType.icon} className="h-10 w-10 text-input-text" />
+              <Icon icon={fileType.icon} className="h-10 w-10 text-ink" />
             </div>
           )}
         </div>
 
         <div>
-          <h3 className="break-words text-base font-semibold text-input-text">{file.fileName}</h3>
-          <p className="mt-1 text-xs text-input-placeholder">
+          <h3 className="break-words text-base font-semibold text-ink">{file.fileName}</h3>
+          <p className="mt-1 text-xs text-dim-2">
             {fileType.label} · {formatBytes(file.fileSize)}
           </p>
         </div>
 
         <dl className="space-y-3 text-sm">
           <div className="flex items-start justify-between gap-4">
-            <dt className="text-input-placeholder">Source</dt>
-            <dd className="text-right text-input-text">
+            <dt className="text-dim-2">Source</dt>
+            <dd className="text-right text-ink">
               {association.kind === 'loose' ? (
                 <span>Loose file</span>
               ) : href ? (
@@ -141,14 +141,14 @@ export const FilesInspectorPanel = ({ file, practiceSlug, scope, onClose }: File
             </dd>
           </div>
           <div className="flex justify-between gap-4">
-            <dt className="text-input-placeholder">Added</dt>
-            <dd className="text-right text-input-text">
+            <dt className="text-dim-2">Added</dt>
+            <dd className="text-right text-ink">
               {file.createdAt ? formatRelativeTime(file.createdAt) : '—'}
             </dd>
           </div>
           <div className="flex justify-between gap-4">
-            <dt className="text-input-placeholder">Type</dt>
-            <dd className="text-right text-input-text">{file.mimeType || '—'}</dd>
+            <dt className="text-dim-2">Type</dt>
+            <dd className="text-right text-ink">{file.mimeType || '—'}</dd>
           </div>
         </dl>
       </div>

@@ -52,8 +52,8 @@ export const DeliveriesListView: FunctionComponent<DeliveriesListViewProps> = ({
     return (
       <div className="flex min-h-0 flex-1 flex-col gap-4 p-4 sm:p-6">
         <div>
-          <h1 className="text-lg font-semibold text-input-text">Deliveries</h1>
-          <p className="mt-1 text-sm text-input-placeholder">Past report deliveries from scheduled jobs and one-off sends.</p>
+          <h1 className="text-lg font-semibold text-ink">Deliveries</h1>
+          <p className="mt-1 text-sm text-dim-2">Past report deliveries from scheduled jobs and one-off sends.</p>
         </div>
         <WorkspacePlaceholderState
           icon={Inbox}
@@ -68,8 +68,8 @@ export const DeliveriesListView: FunctionComponent<DeliveriesListViewProps> = ({
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-4 p-4 sm:p-6">
       <div>
-        <h1 className="text-lg font-semibold text-input-text">Deliveries</h1>
-        <p className="mt-1 text-sm text-input-placeholder">Past report deliveries from scheduled jobs and one-off sends.</p>
+        <h1 className="text-lg font-semibold text-ink">Deliveries</h1>
+        <p className="mt-1 text-sm text-dim-2">Past report deliveries from scheduled jobs and one-off sends.</p>
       </div>
       {error ? (
         <div className="rounded-md border border-red-500/30 bg-red-500/5 px-3 py-2 text-sm text-red-400">

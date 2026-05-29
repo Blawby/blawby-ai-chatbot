@@ -46,7 +46,7 @@ export const InvoiceEditHeaderActions = ({ formRef }: InvoiceEditHeaderActionsPr
   return (
     <div className="flex flex-wrap items-center gap-3">
       {lastSavedAt ? (
-        <span className="text-xs text-input-placeholder">
+        <span className="text-xs text-dim-2">
           Draft saved at {formatTime(lastSavedAt)}
         </span>
       ) : null}

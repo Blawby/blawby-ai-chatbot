@@ -64,7 +64,7 @@ const PricingPage = () => {
               variant="ghost"
               size="sm"
               onClick={handleClose}
-              className="text-sm text-input-placeholder hover:text-input-text"
+              className="text-sm text-dim-2 hover:text-ink"
               icon={ArrowLeft}
               iconClassName="h-4 w-4"
               iconPosition="left"

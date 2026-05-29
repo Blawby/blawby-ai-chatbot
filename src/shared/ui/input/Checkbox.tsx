@@ -129,14 +129,14 @@ export const Checkbox = forwardRef<HTMLInputElement, CheckboxProps>(({
       
       <div className="flex-1 min-w-0">
         {displayLabel && (
-          <label htmlFor={checkboxId} className="text-sm font-medium text-input-text">
+          <label htmlFor={checkboxId} className="text-sm font-medium text-ink">
             {displayLabel}
             {required && <span className="text-red-500 ml-1">*</span>}
           </label>
         )}
         
         {displayDescription && !error && (
-          <p id={descriptionId} className="text-xs text-input-placeholder mt-1">
+          <p id={descriptionId} className="text-xs text-dim-2 mt-1">
             {displayDescription}
           </p>
         )}

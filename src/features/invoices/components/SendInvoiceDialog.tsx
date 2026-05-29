@@ -82,16 +82,16 @@ export const SendInvoiceDialog = ({
 
       <DialogBody className="space-y-4">
         <div className="rounded-xl border border-line-subtle bg-surface-utility/40 dark:bg-surface-utility/10 p-4">
-          <p className="text-sm text-input-placeholder">Send this invoice now?</p>
-          <p className="mt-1 text-base font-semibold text-input-text">
+          <p className="text-sm text-dim-2">Send this invoice now?</p>
+          <p className="mt-1 text-base font-semibold text-ink">
             Total due: {formatCurrency(totalAmount)}
           </p>
           {detailMode && resolvedRecipientEmail ? (
-            <p className="mt-2 text-xs text-input-placeholder">
-              Will be sent to <span className="text-input-text">{resolvedRecipientEmail}</span>.
+            <p className="mt-2 text-xs text-dim-2">
+              Will be sent to <span className="text-ink">{resolvedRecipientEmail}</span>.
             </p>
           ) : (
-            <p className="mt-2 text-xs text-input-placeholder">
+            <p className="mt-2 text-xs text-dim-2">
               You can update invoices until they are paid. The client will receive a receipt after payment.
             </p>
           )}

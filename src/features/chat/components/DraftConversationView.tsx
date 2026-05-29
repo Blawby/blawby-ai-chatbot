@@ -160,10 +160,10 @@ export const DraftConversationView: FunctionComponent<DraftConversationViewProps
               : undefined}
           />
           <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-            <span className="text-xs uppercase tracking-wide text-input-placeholder">
+            <span className="text-xs uppercase tracking-wide text-dim-2">
               New conversation
             </span>
-            <span className="truncate text-sm font-semibold text-input-text">
+            <span className="truncate text-sm font-semibold text-ink">
               {displayName ?? 'Pick a contact below to begin'}
             </span>
           </div>
@@ -180,7 +180,7 @@ export const DraftConversationView: FunctionComponent<DraftConversationViewProps
       </header>
 
       <div className="border-b border-line-subtle px-4 py-3 sm:px-6">
-        <span className="mb-1 block text-[11px] font-semibold uppercase tracking-[0.08em] text-input-placeholder">
+        <span className="mb-1 block text-[11px] font-semibold uppercase tracking-[0.08em] text-dim-2">
           To
         </span>
         <Combobox
@@ -219,7 +219,7 @@ export const DraftConversationView: FunctionComponent<DraftConversationViewProps
               }}
               className={cn(
                 'flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm',
-                'text-input-text hover:bg-surface-utility/10 focus-visible:bg-surface-utility/10',
+                'text-ink hover:bg-surface-utility/10 focus-visible:bg-surface-utility/10',
               )}
             >
               <span className="text-accent-utility">+ Invite a new contact</span>
@@ -230,7 +230,7 @@ export const DraftConversationView: FunctionComponent<DraftConversationViewProps
 
       <div className="flex min-h-0 flex-1 items-center justify-center px-6 py-10">
         <div className="max-w-sm text-center">
-          <p className="text-sm text-input-text">
+          <p className="text-sm text-ink">
             {isPracticeAssistant
               ? 'What would you like to work on?'
               : draftContact?.kind === 'user'
@@ -238,7 +238,7 @@ export const DraftConversationView: FunctionComponent<DraftConversationViewProps
                 : 'Pick a contact above, then write the first message.'}
           </p>
           {!isPracticeAssistant ? (
-            <p className="mt-1 text-xs text-input-placeholder">
+            <p className="mt-1 text-xs text-dim-2">
               The conversation is created when you send the first message.
             </p>
           ) : null}

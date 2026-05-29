@@ -27,7 +27,7 @@ export const DashboardHero = ({
 }: DashboardHeroProps) => (
   <section className="border-b border-line-subtle lg:border-t lg:border-t-line-glass/20">
     <div className="mx-auto flex max-w-7xl items-center gap-6 px-4 py-5 sm:px-6 lg:px-8">
-      <h1 className="shrink-0 text-base font-semibold text-input-text">Cashflow</h1>
+      <h1 className="shrink-0 text-base font-semibold text-ink">Cashflow</h1>
       <div role="group" aria-label="Time window" className="flex shrink-0 gap-x-8 border-l border-line-subtle pl-6 text-sm font-semibold">
         {(Object.keys(WINDOW_LABELS) as BillingWindow[]).map((window) => (
           <Button
@@ -68,13 +68,13 @@ export const DashboardHero = ({
               'flex flex-wrap items-baseline justify-between gap-x-4 gap-y-2 border-t border-line-subtle px-4 py-10 sm:px-6 lg:border-t-0 xl:px-8'
             )}
           >
-            <dt className="text-sm font-medium text-input-placeholder">{stat.label}</dt>
+            <dt className="text-sm font-medium text-dim-2">{stat.label}</dt>
             {stat.changeLabel ? (
-              <dd className={cn(stat.changeTone === 'negative' ? 'text-rose-300' : 'text-input-placeholder', 'text-xs font-medium')}>
+              <dd className={cn(stat.changeTone === 'negative' ? 'text-rose-300' : 'text-dim-2', 'text-xs font-medium')}>
                 {stat.changeLabel}
               </dd>
             ) : null}
-            <dd className="w-full flex-none text-3xl font-medium tracking-tight text-input-text">
+            <dd className="w-full flex-none text-3xl font-medium tracking-tight text-ink">
               {formatCurrency(stat.value)}
             </dd>
           </div>

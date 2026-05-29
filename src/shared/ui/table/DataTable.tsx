@@ -207,7 +207,7 @@ export const DataTable = ({
             <dt className="sr-only">{mobileColumn.label}</dt>
             <dd
               className={cn(
-                'mt-1 truncate text-input-text',
+                'mt-1 truncate text-ink',
                 mobileColumn.mobileClassName
               )}
             >
@@ -234,12 +234,12 @@ export const DataTable = ({
               const isLast = index === columns.length - 1;
               const baseHeaderClass = isPrimary
                 ? cn(
-                  'text-left text-sm font-semibold text-input-text',
+                  'text-left text-sm font-semibold text-ink',
                   density === 'compact' ? 'py-2.5 pl-4' : 'py-3.5 pl-4',
                   isLast ? 'pr-4' : 'pr-3'
                 )
                 : cn(
-                  'text-left text-sm font-semibold text-input-text whitespace-nowrap',
+                  'text-left text-sm font-semibold text-ink whitespace-nowrap',
                   density === 'compact' ? 'py-2.5' : 'py-3.5',
                   isLast ? 'pl-3 pr-4' : 'px-3'
                 );
@@ -269,7 +269,7 @@ export const DataTable = ({
             if (sourceRows.length === 0) {
               return (
                 <tr>
-                  <td colSpan={columns.length} className="px-4 py-6 text-sm text-input-placeholder">
+                  <td colSpan={columns.length} className="px-4 py-6 text-sm text-dim-2">
                     {emptyState ?? 'No results'}
                   </td>
                 </tr>
@@ -293,12 +293,12 @@ export const DataTable = ({
                     const isLast = index === columns.length - 1;
                     const baseCellClass = isPrimary
                       ? cn(
-                        'w-full max-w-0 text-sm font-medium text-input-text sm:w-auto sm:max-w-none',
+                        'w-full max-w-0 text-sm font-medium text-ink sm:w-auto sm:max-w-none',
                         density === 'compact' ? 'py-2.5 pl-4' : 'py-3 pl-4',
                         isLast ? 'pr-4' : 'pr-3'
                       )
                       : cn(
-                        'text-sm text-input-placeholder',
+                        'text-sm text-dim-2',
                         density === 'compact' ? 'py-2.5' : 'py-3',
                         isLast ? 'pl-3 pr-4' : 'px-3'
                       );

@@ -154,7 +154,7 @@ export function CommandPalette({
         Global search
       </div>
       <div className="flex items-center gap-2 px-4 border-b border-line-subtle">
-        <Search size={18} className="text-input-text/60" aria-hidden="true" />
+        <Search size={18} className="text-ink/60" aria-hidden="true" />
         {parsed.scopes.length > 0 ? <ScopePills scopes={parsed.scopes} /> : null}
         <input
           ref={inputRef}
@@ -162,7 +162,7 @@ export function CommandPalette({
           value={query}
           onInput={(event) => setQueryAndReset((event.target as HTMLInputElement).value)}
           placeholder="Search clients, matters, invoices, files…"
-          className="flex-1 bg-transparent py-3 outline-none text-base text-input-text placeholder:text-input-text/40"
+          className="flex-1 bg-transparent py-3 outline-none text-base text-ink placeholder:text-ink/40"
           aria-label="Search query"
         />
       </div>
@@ -210,7 +210,7 @@ function ScopePills({ scopes }: { scopes: SearchScope[] }) {
       {scopes.map((scope) => (
         <span
           key={scope}
-          className="text-xs font-medium px-2 py-1 rounded-md bg-surface-card-hover text-input-text"
+          className="text-xs font-medium px-2 py-1 rounded-md bg-surface-card-hover text-ink"
         >
           in:{scope}
         </span>
@@ -233,7 +233,7 @@ function ResultGroups({
     <div className="flex flex-col">
       {envelope.groups.map((group) => (
         <div key={group.id} className="px-2 pb-2">
-          <div className="px-3 pt-3 pb-1 text-[11px] uppercase tracking-wider text-input-text/50 font-medium">
+          <div className="px-3 pt-3 pb-1 text-[11px] uppercase tracking-wider text-ink/50 font-medium">
             {group.label}
           </div>
           {group.items.map((item) => {
@@ -254,22 +254,22 @@ function ResultGroups({
                   item.archived ? 'opacity-60' : '',
                 )}
               >
-                <Icon size={16} className="mt-0.5 shrink-0 text-input-text/60" aria-hidden="true" />
+                <Icon size={16} className="mt-0.5 shrink-0 text-ink/60" aria-hidden="true" />
                 <div className="min-w-0 flex-1">
-                  <div className="text-sm font-medium truncate text-input-text">
+                  <div className="text-sm font-medium truncate text-ink">
                     {item.title}
                     {item.archived ? (
-                      <span className="ml-2 text-[10px] uppercase text-input-text/50">
+                      <span className="ml-2 text-[10px] uppercase text-ink/50">
                         archived
                       </span>
                     ) : null}
                   </div>
                   {item.subtitle ? (
-                    <div className="text-xs text-input-text/60 truncate">{item.subtitle}</div>
+                    <div className="text-xs text-ink/60 truncate">{item.subtitle}</div>
                   ) : null}
                   {item.snippet ? (
                     <div
-                      className="text-xs text-input-text/70 mt-0.5"
+                      className="text-xs text-ink/70 mt-0.5"
                       dangerouslySetInnerHTML={{ __html: item.snippet }}
                     />
                   ) : null}
@@ -292,7 +292,7 @@ function SuggestionsList({
 }) {
   return (
     <div className="px-2 pb-2">
-      <div className="px-3 pt-3 pb-1 text-[11px] uppercase tracking-wider text-input-text/50 font-medium">
+      <div className="px-3 pt-3 pb-1 text-[11px] uppercase tracking-wider text-ink/50 font-medium">
         Suggestions
       </div>
       {suggestions.map((s) => (
@@ -302,9 +302,9 @@ function SuggestionsList({
           onClick={() => onPick(s.query)}
           className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-left hover:bg-surface-card-hover/60"
         >
-          <Search size={14} className="text-input-text/40" aria-hidden="true" />
-          <span className="text-sm text-input-text flex-1">{s.query}</span>
-          <span className="text-[10px] uppercase text-input-text/40">
+          <Search size={14} className="text-ink/40" aria-hidden="true" />
+          <span className="text-sm text-ink flex-1">{s.query}</span>
+          <span className="text-[10px] uppercase text-ink/40">
             {s.source === 'user' ? 'recent' : 'popular'}
           </span>
         </button>
@@ -322,12 +322,12 @@ function DidYouMean({
 }) {
   return (
     <div className="px-6 pb-4 text-center">
-      <div className="text-sm text-input-text/70">
+      <div className="text-sm text-ink/70">
         Did you mean{' '}
         <button
           type="button"
           onClick={onPick}
-          className="text-input-text underline hover:no-underline"
+          className="text-ink underline hover:no-underline"
         >
           {title}
         </button>
@@ -346,7 +346,7 @@ function RecentsList({
 }) {
   return (
     <div className="px-2 pb-2">
-      <div className="px-3 pt-3 pb-1 text-[11px] uppercase tracking-wider text-input-text/50 font-medium">
+      <div className="px-3 pt-3 pb-1 text-[11px] uppercase tracking-wider text-ink/50 font-medium">
         Recent searches
       </div>
       {recents.map((q) => (
@@ -356,8 +356,8 @@ function RecentsList({
           onClick={() => onPick(q)}
           className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-left hover:bg-surface-card-hover/60"
         >
-          <Search size={14} className="text-input-text/40" aria-hidden="true" />
-          <span className="text-sm text-input-text">{q}</span>
+          <Search size={14} className="text-ink/40" aria-hidden="true" />
+          <span className="text-sm text-ink">{q}</span>
         </button>
       ))}
     </div>
@@ -366,13 +366,13 @@ function RecentsList({
 
 function EmptyState({ message }: { message: string }) {
   return (
-    <div className="px-6 py-10 text-center text-sm text-input-text/60">{message}</div>
+    <div className="px-6 py-10 text-center text-sm text-ink/60">{message}</div>
   );
 }
 
 function Footer() {
   return (
-    <div className="flex items-center justify-between gap-3 px-4 py-2.5 border-t border-line-subtle text-[11px] text-input-text/60">
+    <div className="flex items-center justify-between gap-3 px-4 py-2.5 border-t border-line-subtle text-[11px] text-ink/60">
       <div className="flex gap-3">
         <span>↑↓ navigate</span>
         <span>↵ open</span>

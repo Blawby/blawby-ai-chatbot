@@ -52,7 +52,7 @@ const OUTCOMES: Record<PaymentOutcome, OutcomeConfig> = {
     headline: 'Verifying your payment…',
     body: 'Please wait a moment while we confirm your payment status.',
     badge: 'Checking status',
-    badgeClass: 'bg-surface-utility/15 text-input-placeholder border-line-subtle',
+    badgeClass: 'bg-surface-utility/15 text-dim-2 border-line-subtle',
   },
 };
 

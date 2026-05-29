@@ -38,7 +38,7 @@ export const FilesList = ({
       cells: {
         name: (
           <div className="flex min-w-0 items-center gap-3">
-            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-surface-panel text-input-placeholder">
+            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-surface-panel text-dim-2">
               <Icon icon={fileType.icon} className="h-4 w-4" />
             </span>
             <span className="min-w-0 truncate" title={file.fileName}>{file.fileName}</span>

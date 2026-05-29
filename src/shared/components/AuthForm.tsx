@@ -260,10 +260,10 @@ const AuthForm = ({
     <div className={`w-full ${className}`}>
       {showHeader && (
         <div className="mb-6 text-center">
-          <h2 className="text-2xl font-bold text-input-text">
+          <h2 className="text-2xl font-bold text-ink">
             {resolvedMode === 'signup' ? t('signup.title') : t('signin.title')}
           </h2>
-          <p className="mt-2 text-sm text-input-placeholder">
+          <p className="mt-2 text-sm text-dim-2">
             {resolvedMode === 'signup' ? t('signup.subtitle') : t('signin.subtitle')}
           </p>
         </div>
@@ -300,7 +300,7 @@ const AuthForm = ({
               <div className="w-full border-t border-line-subtle" />
             </div>
             <div className="relative flex justify-center text-sm">
-              <span className="px-2 bg-[rgb(var(--surface-overlay))] text-input-placeholder font-medium">{t('common.orContinueWithEmail')}</span>
+              <span className="px-2 bg-[rgb(var(--surface-overlay))] text-dim-2 font-medium">{t('common.orContinueWithEmail')}</span>
             </div>
           </div>
         )}
@@ -323,7 +323,7 @@ const AuthForm = ({
                         setFormData(prev => ({ ...prev, name: String(value) }));
                       }}
                       placeholder={t('signup.fullNamePlaceholder')}
-                      icon={CircleUser} iconClassName="h-5 w-5 text-input-placeholder"
+                      icon={CircleUser} iconClassName="h-5 w-5 text-dim-2"
                       error={fieldError?.message}
                       disabled={disableActions}
                       data-testid="signup-name-input"

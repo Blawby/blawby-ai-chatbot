@@ -129,7 +129,7 @@ export function ClientInvoiceDetailPage({
   }
 
   if (!detail) {
-    return <div className="p-6 text-sm text-input-placeholder">Invoice not found.</div>;
+    return <div className="p-6 text-sm text-dim-2">Invoice not found.</div>;
   }
 
   return (
@@ -155,26 +155,26 @@ export function ClientInvoiceDetailPage({
 
           <div className="grid gap-3 sm:grid-cols-3">
           <div className="panel p-4">
-            <p className="text-xs uppercase tracking-[0.08em] text-input-placeholder">Total</p>
-            <p className="mt-1 text-lg font-semibold text-input-text">{formatCurrency(detail.total)}</p>
+            <p className="text-xs uppercase tracking-[0.08em] text-dim-2">Total</p>
+            <p className="mt-1 text-lg font-semibold text-ink">{formatCurrency(detail.total)}</p>
           </div>
           <div className="panel p-4">
-            <p className="text-xs uppercase tracking-[0.08em] text-input-placeholder">Amount paid</p>
-            <p className="mt-1 text-lg font-semibold text-input-text">{formatCurrency(detail.amountPaid)}</p>
+            <p className="text-xs uppercase tracking-[0.08em] text-dim-2">Amount paid</p>
+            <p className="mt-1 text-lg font-semibold text-ink">{formatCurrency(detail.amountPaid)}</p>
           </div>
           <div className="panel p-4">
-            <p className="text-xs uppercase tracking-[0.08em] text-input-placeholder">Amount due</p>
-            <p className="mt-1 text-lg font-semibold text-input-text">{formatCurrency(detail.amountDue)}</p>
+            <p className="text-xs uppercase tracking-[0.08em] text-dim-2">Amount due</p>
+            <p className="mt-1 text-lg font-semibold text-ink">{formatCurrency(detail.amountDue)}</p>
           </div>
         </div>
 
         <div className="panel overflow-hidden">
           <div className="border-b border-line-subtle px-4 py-3">
-            <h2 className="text-base font-semibold text-input-text">Line items</h2>
+            <h2 className="text-base font-semibold text-ink">Line items</h2>
           </div>
           <div className="overflow-x-auto">
             <table className="min-w-full text-sm">
-              <thead className="border-b border-line-subtle text-xs uppercase tracking-[0.08em] text-input-placeholder">
+              <thead className="border-b border-line-subtle text-xs uppercase tracking-[0.08em] text-dim-2">
                 <tr>
                   <th className="px-4 py-3 text-left">Description</th>
                   <th className="px-4 py-3 text-left">Type</th>
@@ -186,11 +186,11 @@ export function ClientInvoiceDetailPage({
               <tbody>
                 {detail.lineItems.map((item) => (
                   <tr key={item.id} className="border-b border-line-subtle last:border-b-0">
-                    <td className="px-4 py-3 text-input-text">{item.description || '—'}</td>
-                    <td className="px-4 py-3 text-input-text">{item.type}</td>
-                    <td className="px-4 py-3 text-right text-input-text">{item.quantity}</td>
-                    <td className="px-4 py-3 text-right text-input-text">{formatCurrency(getMajorAmountValue(item.unit_price))}</td>
-                    <td className="px-4 py-3 text-right font-semibold text-input-text">{formatCurrency(getMajorAmountValue(item.line_total))}</td>
+                    <td className="px-4 py-3 text-ink">{item.description || '—'}</td>
+                    <td className="px-4 py-3 text-ink">{item.type}</td>
+                    <td className="px-4 py-3 text-right text-ink">{item.quantity}</td>
+                    <td className="px-4 py-3 text-right text-ink">{formatCurrency(getMajorAmountValue(item.unit_price))}</td>
+                    <td className="px-4 py-3 text-right font-semibold text-ink">{formatCurrency(getMajorAmountValue(item.line_total))}</td>
                   </tr>
                 ))}
               </tbody>
@@ -200,15 +200,15 @@ export function ClientInvoiceDetailPage({
 
         <div className="grid gap-4 lg:grid-cols-3">
           <div className="panel p-4">
-            <h3 className="text-sm font-semibold text-input-text">Payment history</h3>
+            <h3 className="text-sm font-semibold text-ink">Payment history</h3>
             {detail.payments.length === 0 ? (
-              <p className="mt-2 text-sm text-input-placeholder">No payment history available.</p>
+              <p className="mt-2 text-sm text-dim-2">No payment history available.</p>
             ) : (
               <ul className="mt-2 space-y-2 text-sm">
                 {detail.payments.map((payment) => (
                   <li key={payment.id} className="rounded-xl border border-line-subtle px-3 py-2">
-                    <p className="font-medium text-input-text">{formatCurrency(payment.amount)} • {payment.status}</p>
-                    <p className="text-xs text-input-placeholder">{renderEventDate(payment.paidAt)}</p>
+                    <p className="font-medium text-ink">{formatCurrency(payment.amount)} • {payment.status}</p>
+                    <p className="text-xs text-dim-2">{renderEventDate(payment.paidAt)}</p>
                   </li>
                 ))}
               </ul>
@@ -216,15 +216,15 @@ export function ClientInvoiceDetailPage({
           </div>
 
           <div className="panel p-4">
-            <h3 className="text-sm font-semibold text-input-text">Refund history</h3>
+            <h3 className="text-sm font-semibold text-ink">Refund history</h3>
             {detail.refunds.length === 0 ? (
-              <p className="mt-2 text-sm text-input-placeholder">No refunds for this invoice.</p>
+              <p className="mt-2 text-sm text-dim-2">No refunds for this invoice.</p>
             ) : (
               <ul className="mt-2 space-y-2 text-sm">
                 {detail.refunds.map((refund) => (
                   <li key={refund.id} className="rounded-xl border border-line-subtle px-3 py-2">
-                    <p className="font-medium text-input-text">{formatCurrency(refund.amount)} • {refund.status}</p>
-                    <p className="text-xs text-input-placeholder">{renderEventDate(refund.createdAt)}</p>
+                    <p className="font-medium text-ink">{formatCurrency(refund.amount)} • {refund.status}</p>
+                    <p className="text-xs text-dim-2">{renderEventDate(refund.createdAt)}</p>
                   </li>
                 ))}
               </ul>
@@ -232,7 +232,7 @@ export function ClientInvoiceDetailPage({
           </div>
 
           <div className="panel p-4">
-            <h3 className="text-sm font-semibold text-input-text">Request refund</h3>
+            <h3 className="text-sm font-semibold text-ink">Request refund</h3>
             <div className="mt-3 space-y-3">
               <Input
                 type="number"
@@ -253,7 +253,7 @@ export function ClientInvoiceDetailPage({
               </Button>
             </div>
             {!refundRequestSupported ? (
-              <p className="mt-2 text-xs text-input-placeholder">
+              <p className="mt-2 text-xs text-dim-2">
                 Refund requests are currently unavailable for this workspace.
               </p>
             ) : null}
@@ -261,16 +261,16 @@ export function ClientInvoiceDetailPage({
               <p className="mt-2 text-xs text-accent-error-light">{refundRequestError}</p>
             ) : null}
 
-            <h4 className="mt-5 text-xs font-semibold uppercase tracking-[0.08em] text-input-placeholder">Refund request timeline</h4>
+            <h4 className="mt-5 text-xs font-semibold uppercase tracking-[0.08em] text-dim-2">Refund request timeline</h4>
             {detail.refundRequests.length === 0 ? (
-              <p className="mt-2 text-sm text-input-placeholder">No refund requests yet.</p>
+              <p className="mt-2 text-sm text-dim-2">No refund requests yet.</p>
             ) : (
               <ol className="mt-2 space-y-2 text-sm">
                 {detail.refundRequests.map((request) => (
                   <li key={request.id} className="rounded-xl border border-line-subtle px-3 py-2">
-                    <p className="font-medium text-input-text">{request.status}</p>
-                    <p className="text-xs text-input-placeholder">{renderEventDate(request.createdAt)}</p>
-                    {request.reason ? <p className="mt-1 text-xs text-input-placeholder">{request.reason}</p> : null}
+                    <p className="font-medium text-ink">{request.status}</p>
+                    <p className="text-xs text-dim-2">{renderEventDate(request.createdAt)}</p>
+                    {request.reason ? <p className="mt-1 text-xs text-dim-2">{request.reason}</p> : null}
                   </li>
                 ))}
               </ol>

@@ -5,14 +5,14 @@ import type { DashboardStat } from '@/features/practice-dashboard/hooks/usePract
 
 const toneClass: Record<NonNullable<DashboardStat['tone']>, string> = {
   positive: 'text-accent-300',
-  negative: 'text-input-text',
-  neutral: 'text-input-placeholder'
+  negative: 'text-ink',
+  neutral: 'text-dim-2'
 };
 
 const changeToneClass: Record<NonNullable<DashboardStat['changeTone']>, string> = {
   positive: 'text-accent-300',
-  negative: 'text-input-text',
-  neutral: 'text-input-placeholder'
+  negative: 'text-ink',
+  neutral: 'text-dim-2'
 };
 
 type DashboardSummaryCardsProps = {
@@ -42,12 +42,12 @@ export const DashboardSummaryCards = ({ stats, loading = false }: DashboardSumma
         ].join(' ')}
       >
         <div className="min-w-0">
-          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-input-placeholder">{stat.label}</p>
-          <p className="mt-2 text-3xl font-semibold tracking-tight text-input-text">
+          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-dim-2">{stat.label}</p>
+          <p className="mt-2 text-3xl font-semibold tracking-tight text-ink">
             {formatCurrency(stat.value)}
           </p>
           {stat.helper ? (
-            <p className={`mt-1 text-xs ${stat.tone ? toneClass[stat.tone] : 'text-input-placeholder'}`}>
+            <p className={`mt-1 text-xs ${stat.tone ? toneClass[stat.tone] : 'text-dim-2'}`}>
               {stat.helper}
             </p>
           ) : null}

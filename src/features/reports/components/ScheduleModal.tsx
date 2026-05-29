@@ -71,7 +71,7 @@ export const ScheduleModal: FunctionComponent<ScheduleModalProps> = ({
       <DialogBody>
         <div className="flex flex-col gap-4">
           <div className="flex flex-col gap-1">
-            <span className="text-xs font-medium text-input-text">Frequency</span>
+            <span className="text-xs font-medium text-ink">Frequency</span>
             <SegmentedToggle<ReportFrequency>
               value={frequency}
               options={FREQ_OPTIONS}

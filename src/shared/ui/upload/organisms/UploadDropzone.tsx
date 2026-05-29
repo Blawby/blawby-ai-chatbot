@@ -99,12 +99,12 @@ export const UploadDropzone = ({
         }}
       />
       <div className="flex w-full max-w-[520px] flex-col items-center justify-center text-center">
-        <Icon icon={Upload} className="mb-3 h-6 w-6 text-input-placeholder" />
-        <p className="text-sm font-medium text-input-text">{instructionText}</p>
-        <p className="mt-1 text-xs text-input-placeholder">{validationText}</p>
+        <Icon icon={Upload} className="mb-3 h-6 w-6 text-dim-2" />
+        <p className="text-sm font-medium text-ink">{instructionText}</p>
+        <p className="mt-1 text-xs text-dim-2">{validationText}</p>
       </div>
       {helperText ? (
-        <p className="mt-2 text-center text-xs text-input-placeholder">{helperText}</p>
+        <p className="mt-2 text-center text-xs text-dim-2">{helperText}</p>
       ) : null}
     </div>
   );

@@ -30,7 +30,7 @@ const statusClass = (status: ClientInvoiceActivityEntry['status']) => {
   const normalized = String(status).toLowerCase();
   if (normalized === 'paid') return 'bg-emerald-500/10 text-emerald-700 ring-emerald-500/20 dark:text-emerald-300';
   if (normalized === 'overdue') return 'bg-rose-500/10 text-rose-700 ring-rose-500/20 dark:text-rose-300';
-  return 'bg-surface-overlay/80 text-input-placeholder ring-line-subtle';
+  return 'bg-surface-overlay/80 text-dim-2 ring-line-subtle';
 };
 
 export const ClientRecentInvoicesTable = ({
@@ -41,7 +41,7 @@ export const ClientRecentInvoicesTable = ({
 }: ClientRecentInvoicesTableProps) => (
   <section>
     <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-      <h2 className="mx-auto max-w-2xl text-base font-semibold text-input-text lg:mx-0 lg:max-w-none">
+      <h2 className="mx-auto max-w-2xl text-base font-semibold text-ink lg:mx-0 lg:max-w-none">
         Recent invoices
       </h2>
     </div>
@@ -63,7 +63,7 @@ export const ClientRecentInvoicesTable = ({
       </div>
     ) : error ? (
       <div className="mt-6 border-t border-line-subtle">
-        <div className="mx-auto max-w-7xl px-4 py-5 text-sm text-input-text sm:px-6 lg:px-8">
+        <div className="mx-auto max-w-7xl px-4 py-5 text-sm text-ink sm:px-6 lg:px-8">
           {error}
         </div>
       </div>
@@ -87,7 +87,7 @@ export const ClientRecentInvoicesTable = ({
                   const showEmptyRows = days.length === 0;
                   return displayDays.map((day) => (
                     <Fragment key={day.label}>
-                      <tr className="text-sm text-input-text">
+                      <tr className="text-sm text-ink">
                         <th scope="colgroup" colSpan={3} className="relative isolate py-2 font-semibold">
                           <time dateTime={day.isoDate}>{day.label}</time>
                           <div className="absolute inset-y-0 right-full -z-10 w-screen border-b border-line-subtle bg-surface-overlay/70" />
@@ -96,7 +96,7 @@ export const ClientRecentInvoicesTable = ({
                       </tr>
                       {day.entries.length === 0 && showEmptyRows ? (
                         <tr>
-                          <td colSpan={3} className="relative py-5 text-sm text-input-placeholder">
+                          <td colSpan={3} className="relative py-5 text-sm text-dim-2">
                             No invoice activity yet.
                             <div className="absolute right-full bottom-0 h-px w-screen bg-line-glass/20" />
                             <div className="absolute bottom-0 left-0 h-px w-screen bg-line-glass/20" />
@@ -109,10 +109,10 @@ export const ClientRecentInvoicesTable = ({
                           <tr key={entry.id}>
                             <td className="relative py-5 pr-6">
                               <div className="flex gap-x-6">
-                                <Icon icon={ActivityIcon} className="hidden h-6 w-5 flex-none text-input-placeholder sm:block" aria-hidden />
+                                <Icon icon={ActivityIcon} className="hidden h-6 w-5 flex-none text-dim-2 sm:block" aria-hidden />
                                 <div className="flex-auto">
                                   <div className="flex items-start gap-x-3">
-                                    <div className="text-sm font-medium text-input-text">
+                                    <div className="text-sm font-medium text-ink">
                                       {formatCurrency(entry.amount)} USD
                                     </div>
                                     <div className={cn(statusClass(entry.status), 'rounded-md px-2 py-1 text-xs font-medium ring-1 ring-inset')}>
@@ -120,7 +120,7 @@ export const ClientRecentInvoicesTable = ({
                                     </div>
                                   </div>
                                   {displayDate ? (
-                                    <div className="mt-1 text-xs text-input-placeholder">{displayDate}</div>
+                                    <div className="mt-1 text-xs text-dim-2">{displayDate}</div>
                                   ) : null}
                                 </div>
                               </div>
@@ -128,8 +128,8 @@ export const ClientRecentInvoicesTable = ({
                               <div className="absolute bottom-0 left-0 h-px w-screen bg-line-glass/20" />
                             </td>
                             <td className="hidden py-5 pr-6 sm:table-cell">
-                              <div className="text-sm text-input-text">{entry.matterTitle ?? 'No matter linked'}</div>
-                              <div className="mt-1 text-xs text-input-placeholder">Invoice #{entry.invoiceNumber}</div>
+                              <div className="text-sm text-ink">{entry.matterTitle ?? 'No matter linked'}</div>
+                              <div className="mt-1 text-xs text-dim-2">Invoice #{entry.invoiceNumber}</div>
                             </td>
                             <td className="py-5 text-right">
                               <div className="flex justify-end">

@@ -63,7 +63,7 @@ export function Stepper({
                   'w-8 h-8 text-xs font-medium',
                   status === 'completed' && 'bg-accent-500 text-[rgb(var(--accent-foreground))]',
                   status === 'active' && 'bg-accent-500/15 text-accent-600 dark:text-accent-400 ring-2 ring-accent-500/30',
-                  status === 'upcoming' && 'bg-surface-utility/10 text-input-placeholder',
+                  status === 'upcoming' && 'bg-surface-utility/10 text-dim-2',
                 )}
               >
                 {status === 'completed' ? (
@@ -90,12 +90,12 @@ export function Stepper({
             )}>
               <p className={cn(
                 'text-xs font-medium',
-                status === 'active' ? 'text-input-text' : 'text-input-placeholder',
+                status === 'active' ? 'text-ink' : 'text-dim-2',
               )}>
                 {step.label}
               </p>
               {step.description && (
-                <p className="text-[11px] text-input-placeholder/70 mt-0.5">{step.description}</p>
+                <p className="text-[11px] text-dim-2/70 mt-0.5">{step.description}</p>
               )}
             </div>
           </div>

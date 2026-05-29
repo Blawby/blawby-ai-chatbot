@@ -23,11 +23,11 @@ export const UnbilledSummaryCard = ({
   if (matter.billingType === 'pro_bono') {
     return (
       <Panel className="p-6">
-        <h3 className="text-sm font-semibold text-input-text">Pro Bono Matter</h3>
-        <p className="mt-2 text-sm text-input-placeholder">
+        <h3 className="text-sm font-semibold text-ink">Pro Bono Matter</h3>
+        <p className="mt-2 text-sm text-dim-2">
           Time tracked: {summary.unbilledTime.hours.toFixed(1)} hrs
         </p>
-        <p className="mt-2 text-xs italic text-input-placeholder">
+        <p className="mt-2 text-xs italic text-dim-2">
           This matter is tracked for internal reporting only. No invoices will be generated.
         </p>
       </Panel>
@@ -41,12 +41,12 @@ export const UnbilledSummaryCard = ({
     const fee = (settlementAmount * percent) / 100;
     return (
       <Panel className="p-6">
-        <h3 className="text-sm font-semibold text-input-text">Contingency Billing</h3>
-        <p className="mt-2 text-sm text-input-placeholder">
+        <h3 className="text-sm font-semibold text-ink">Contingency Billing</h3>
+        <p className="mt-2 text-sm text-dim-2">
           Settlement: {hasSettlement ? formatCurrency(settlementAmount) : 'Not entered'}
         </p>
-        <p className="mt-1 text-sm text-input-placeholder">Fee: {percent}%</p>
-        <p className="mt-3 text-base font-semibold text-input-text">
+        <p className="mt-1 text-sm text-dim-2">Fee: {percent}%</p>
+        <p className="mt-3 text-base font-semibold text-ink">
           Potential invoice: {formatCurrency(fee)}
         </p>
         {hasSettlement && settlementAmount > 0 ? (
@@ -65,8 +65,8 @@ export const UnbilledSummaryCard = ({
   if (matter.billingType === 'fixed' && matter.paymentFrequency === 'milestone') {
     return (
       <Panel className="p-6">
-        <h3 className="text-sm font-semibold text-input-text">Milestone Billing</h3>
-        <p className="mt-2 text-sm text-input-placeholder">
+        <h3 className="text-sm font-semibold text-ink">Milestone Billing</h3>
+        <p className="mt-2 text-sm text-dim-2">
           {(matter.milestones ?? []).length} milestones configured for this matter.
         </p>
         <div className="mt-4 space-y-2">
@@ -75,8 +75,8 @@ export const UnbilledSummaryCard = ({
             return (
               <div key={milestone.id} className="flex items-center justify-between rounded-xl border border-line-subtle px-3 py-2">
                 <div className="min-w-0">
-                  <p className="truncate text-sm font-medium text-input-text">{milestone.description}</p>
-                  <p className="text-xs text-input-placeholder">{formatCurrency(milestone.amount)}</p>
+                  <p className="truncate text-sm font-medium text-ink">{milestone.description}</p>
+                  <p className="text-xs text-dim-2">{formatCurrency(milestone.amount)}</p>
                 </div>
                 <Button
                   size="xs"
@@ -96,8 +96,8 @@ export const UnbilledSummaryCard = ({
   if (matter.billingType === 'fixed' && matter.paymentFrequency === 'project') {
     return (
       <Panel className="p-6">
-        <h3 className="text-sm font-semibold text-input-text">Project Billing</h3>
-        <p className="mt-2 text-sm text-input-placeholder">
+        <h3 className="text-sm font-semibold text-ink">Project Billing</h3>
+        <p className="mt-2 text-sm text-dim-2">
           Fixed total: {formatCurrency(matter.totalFixedPrice ?? 0)}
         </p>
         <Button className="mt-4" onClick={onCreateInvoice}>
@@ -109,12 +109,12 @@ export const UnbilledSummaryCard = ({
 
   return (
     <Panel className="p-6">
-      <h3 className="text-sm font-semibold text-input-text">Ready to Invoice</h3>
-      <div className="mt-3 space-y-1 text-sm text-input-placeholder">
+      <h3 className="text-sm font-semibold text-ink">Ready to Invoice</h3>
+      <div className="mt-3 space-y-1 text-sm text-dim-2">
         <p>Unbilled time: {summary.unbilledTime.hours.toFixed(1)} hrs</p>
         <p>Unbilled expenses: {formatCurrency(summary.unbilledExpenses.amount)}</p>
       </div>
-      <p className="mt-4 text-base font-semibold text-input-text">
+      <p className="mt-4 text-base font-semibold text-ink">
         Total unbilled: {formatCurrency(summary.totalUnbilled)}
       </p>
       <Button className="mt-4" onClick={onCreateInvoice} disabled={getMajorAmountValue(summary.totalUnbilled) <= 0}>

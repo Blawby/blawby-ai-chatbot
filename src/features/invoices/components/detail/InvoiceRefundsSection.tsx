@@ -34,7 +34,7 @@ export const InvoiceRefundsSection = ({
   return (
     <Panel className="rounded-2xl p-5">
       <div className="mb-3">
-        <h3 className="text-sm font-semibold text-input-text">Refunds</h3>
+        <h3 className="text-sm font-semibold text-ink">Refunds</h3>
       </div>
       <div className="space-y-3">
         {refundRequests.map((request) => {
@@ -46,15 +46,15 @@ export const InvoiceRefundsSection = ({
               className="flex items-start justify-between gap-3 rounded-xl border border-line-subtle bg-surface-utility/20 px-4 py-3"
             >
               <div className="min-w-0">
-                <p className="text-sm font-medium text-input-text">
+                <p className="text-sm font-medium text-ink">
                   {request.amount != null ? formatCurrency(request.amount) : 'Full refund'}
-                  <span className="ml-2 text-xs text-input-placeholder">Request</span>
+                  <span className="ml-2 text-xs text-dim-2">Request</span>
                 </p>
-                <p className="text-xs text-input-placeholder">
+                <p className="text-xs text-dim-2">
                   {eventDate ? formatLongDate(eventDate) : 'Date unknown'}
                 </p>
                 {request.reason ? (
-                  <p className="mt-1 text-xs text-input-placeholder">{request.reason}</p>
+                  <p className="mt-1 text-xs text-dim-2">{request.reason}</p>
                 ) : null}
               </div>
               <div className="flex shrink-0 flex-col items-end gap-2">
@@ -74,12 +74,12 @@ export const InvoiceRefundsSection = ({
             className="flex items-start justify-between gap-3 rounded-xl border border-line-subtle bg-surface-utility/20 px-4 py-3"
           >
             <div className="min-w-0">
-              <p className="text-sm font-medium text-input-text">{formatCurrency(refund.amount)}</p>
-              <p className="text-xs text-input-placeholder">
+              <p className="text-sm font-medium text-ink">{formatCurrency(refund.amount)}</p>
+              <p className="text-xs text-dim-2">
                 {refund.createdAt ? formatLongDate(refund.createdAt) : 'Date unknown'}
               </p>
               {refund.reason ? (
-                <p className="mt-1 text-xs text-input-placeholder">{refund.reason}</p>
+                <p className="mt-1 text-xs text-dim-2">{refund.reason}</p>
               ) : null}
             </div>
             <Pill tone={refundTone(refund.status)}>{refund.status}</Pill>

@@ -36,8 +36,8 @@ export const UploadQueueRow = ({
       <div className="flex items-start gap-3">
         <FileIcon fileName={fileName} mimeType={mimeType} size="sm" />
         <div className="min-w-0 flex-1">
-          <p className="truncate text-sm font-medium text-input-text">{fileName}</p>
-          <div className="mt-0.5 flex items-center gap-2 text-xs text-input-placeholder">
+          <p className="truncate text-sm font-medium text-ink">{fileName}</p>
+          <div className="mt-0.5 flex items-center gap-2 text-xs text-dim-2">
             <span>{formatFileSize(fileSize)}</span>
             {status === 'uploading' ? (
               <>

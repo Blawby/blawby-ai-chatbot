@@ -331,7 +331,7 @@ const AudioRecordingUI: FunctionComponent<AudioRecordingUIProps> = ({
                 onClick={onCancel}
                 aria-label="Cancel recording"
                 title="Cancel recording"
-                className="flex items-center justify-center w-8 h-8 p-1.5 border-none rounded-full cursor-pointer transition-all duration-200 text-input-placeholder hover:text-red-400 bg-surface-utility/5 hover:bg-red-500/10 animate-zoom-in"
+                className="flex items-center justify-center w-8 h-8 p-1.5 border-none rounded-full cursor-pointer transition-all duration-200 text-dim-2 hover:text-red-400 bg-surface-utility/5 hover:bg-red-500/10 animate-zoom-in"
             >
                 <Icon icon={X} className="w-5 h-5" aria-hidden="true"  />
             </Button>

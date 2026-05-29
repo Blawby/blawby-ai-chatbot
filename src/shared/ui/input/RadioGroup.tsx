@@ -84,7 +84,7 @@ export const RadioGroup = ({
   return (
     <div className={cn('space-y-2', className)}>
       {displayLabel && (
-        <label className="block text-sm font-medium text-input-text">
+        <label className="block text-sm font-medium text-ink">
           {displayLabel}
           {required && <span className="text-red-500 ml-1">*</span>}
         </label>
@@ -122,7 +122,7 @@ export const RadioGroup = ({
               <label
                 htmlFor={`${instanceId}-${option.value}`}
                 className={cn(
-                  'text-sm font-medium text-input-text',
+                  'text-sm font-medium text-ink',
                   (disabled || option.disabled) && 'opacity-50 cursor-not-allowed'
                 )}
               >
@@ -130,7 +130,7 @@ export const RadioGroup = ({
               </label>
               
               {option.description && (
-                <p className="text-xs text-input-placeholder mt-1">
+                <p className="text-xs text-dim-2 mt-1">
                   {option.description}
                 </p>
               )}
@@ -140,7 +140,7 @@ export const RadioGroup = ({
       </div>
       
       {displayDescription && !displayError && (
-        <p className="text-xs text-input-placeholder mt-1">
+        <p className="text-xs text-dim-2 mt-1">
           {displayDescription}
         </p>
       )}

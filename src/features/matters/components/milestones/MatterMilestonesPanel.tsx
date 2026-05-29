@@ -187,8 +187,8 @@ export const MatterMilestonesPanel = ({
     <section className="panel">
       <header className="flex flex-wrap items-center justify-between gap-3 border-b border-line-subtle px-6 py-4">
         <div>
-          <h3 className="text-sm font-semibold text-input-text">Milestones</h3>
-          <p className="text-xs text-input-placeholder">
+          <h3 className="text-sm font-semibold text-ink">Milestones</h3>
+          <p className="text-xs text-dim-2">
             {resolvedMilestones.length} milestones tracked
           </p>
         </div>
@@ -204,7 +204,7 @@ export const MatterMilestonesPanel = ({
       ) : loading && resolvedMilestones.length === 0 ? (
         <ListRowSkeleton rows={3} avatar={false} className="divide-y divide-line-default" />
       ) : resolvedMilestones.length === 0 ? (
-        <div className="px-6 py-6 text-sm text-input-placeholder">
+        <div className="px-6 py-6 text-sm text-dim-2">
           No milestones yet. Add milestones to track key deliverables for this matter.
         </div>
       ) : (
@@ -213,10 +213,10 @@ export const MatterMilestonesPanel = ({
             <li key={milestone.id ?? `${milestone.description}-${index}`} className="px-6 py-4">
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div className="min-w-0">
-                  <p className="text-sm font-semibold text-input-text">
+                  <p className="text-sm font-semibold text-ink">
                     {milestone.description}
                   </p>
-                  <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-input-placeholder">
+                  <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-dim-2">
                     {milestone.dueDate ? (
                       <span>
                         Due <time dateTime={milestone.dueDate}>{formatDateOnlyUtc(milestone.dueDate)}</time>
@@ -227,7 +227,7 @@ export const MatterMilestonesPanel = ({
                   </div>
                 </div>
                 <div className="flex items-center gap-3">
-                  <div className="text-sm font-semibold text-input-text">
+                  <div className="text-sm font-semibold text-ink">
                     {formatCurrency(milestone.amount ?? 0)}
                   </div>
                   <div className="flex items-center gap-1">
@@ -312,7 +312,7 @@ export const MatterMilestonesPanel = ({
               required
             />
             <div>
-              <span className="block text-sm font-medium text-input-text mb-1">Status</span>
+              <span className="block text-sm font-medium text-ink mb-1">Status</span>
               <Combobox
                 value={formState.status}
                 options={statusOptions}
@@ -345,7 +345,7 @@ export const MatterMilestonesPanel = ({
           contentClassName="max-w-xl"
         >
           <DialogBody className="space-y-4">
-            <p className="text-sm text-input-placeholder">
+            <p className="text-sm text-dim-2">
               Are you sure you want to delete this milestone? This action cannot be undone.
             </p>
             {deleteError && (

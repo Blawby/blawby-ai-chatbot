@@ -59,7 +59,7 @@ export function Image({
         <div className="absolute inset-0 animate-pulse bg-surface-utility/10" />
       )}
       {status === 'error' ? (
-        <div className="absolute inset-0 flex items-center justify-center text-input-placeholder/50">
+        <div className="absolute inset-0 flex items-center justify-center text-dim-2/50">
           {fallback ?? <ImageOff size={24} />}
         </div>
       ) : (

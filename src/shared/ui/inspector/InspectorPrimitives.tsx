@@ -58,7 +58,7 @@ export const InspectorGroup = ({
     <div className="mb-1.5">
       {label ? (
         <div className="flex items-center justify-between px-5 pb-0.5 pt-2">
-          <p className="text-[11px] font-bold uppercase tracking-wider text-input-placeholder/90">
+          <p className="text-[11px] font-bold uppercase tracking-wider text-dim-2/90">
             {label}
           </p>
           {onToggle ? (
@@ -68,7 +68,7 @@ export const InspectorGroup = ({
               disabled={disabled}
               aria-expanded={isOpen}
               aria-label="Toggle group options"
-              className={`flex h-7 w-7 items-center justify-center rounded-md text-input-placeholder transition hover:bg-surface-app-frame/60 dark:hover:bg-surface-panel/40 hover:text-input-text disabled:cursor-not-allowed disabled:opacity-50 ${isOpen ? 'bg-surface-app-frame/60 dark:bg-surface-panel/40 text-input-text' : ''}`}
+              className={`flex h-7 w-7 items-center justify-center rounded-md text-dim-2 transition hover:bg-surface-app-frame/60 dark:hover:bg-surface-panel/40 hover:text-ink disabled:cursor-not-allowed disabled:opacity-50 ${isOpen ? 'bg-surface-app-frame/60 dark:bg-surface-panel/40 text-ink' : ''}`}
             >
               <Settings className="h-4 w-4" />
             </button>
@@ -111,15 +111,15 @@ export const InspectorEditableRow = ({
       <div className="flex items-start justify-between gap-1.5 group">
         <div className="min-w-0 flex-1">
           {label ? (
-            <p className="text-[11px] font-bold uppercase tracking-wider text-input-placeholder/90 group-hover:text-input-text transition-colors cursor-default">{label}</p>
+            <p className="text-[11px] font-bold uppercase tracking-wider text-dim-2/90 group-hover:text-ink transition-colors cursor-default">{label}</p>
           ) : null}
           {!isOpen && (
             summaryIsString ? (
-              <p className={`mt-0.5 truncate text-[14px] ${summaryMuted ? 'text-input-placeholder/60' : 'text-input-text'} cursor-default`}>
+              <p className={`mt-0.5 truncate text-[14px] ${summaryMuted ? 'text-dim-2/60' : 'text-ink'} cursor-default`}>
                 {resolvedSummary}
               </p>
             ) : (
-              <div className={`mt-0.5 min-w-0 cursor-default text-[14px] ${summaryMuted ? 'text-input-placeholder/60' : 'text-input-text'}`}>
+              <div className={`mt-0.5 min-w-0 cursor-default text-[14px] ${summaryMuted ? 'text-dim-2/60' : 'text-ink'}`}>
                 {resolvedSummary}
               </div>
             )
@@ -131,7 +131,7 @@ export const InspectorEditableRow = ({
             onClick={onToggle}
             disabled={disabled}
             aria-expanded={isOpen}
-            className={`flex-shrink-0 ${label ? '-mt-1' : 'mt-0.5'} inline-flex h-7 w-7 items-center justify-center rounded-md text-input-placeholder transition hover:bg-surface-app-frame/60 dark:hover:bg-surface-panel/40 hover:text-input-text disabled:cursor-not-allowed disabled:opacity-50 ${isOpen ? 'bg-surface-app-frame/60 dark:bg-surface-panel/40 text-input-text' : ''}`}
+            className={`flex-shrink-0 ${label ? '-mt-1' : 'mt-0.5'} inline-flex h-7 w-7 items-center justify-center rounded-md text-dim-2 transition hover:bg-surface-app-frame/60 dark:hover:bg-surface-panel/40 hover:text-ink disabled:cursor-not-allowed disabled:opacity-50 ${isOpen ? 'bg-surface-app-frame/60 dark:bg-surface-panel/40 text-ink' : ''}`}
             aria-label={`${isOpen ? 'Close' : 'Open'} ${label} controls`}
           >
             <Settings className="h-4 w-4" />
@@ -167,9 +167,9 @@ export const InspectorHeaderPerson = ({
         className="h-14 w-14"
         bgClassName="bg-surface-app-frame/60 dark:bg-white/[0.08]"
       />
-      <p className="mt-3 text-[15px] font-semibold text-input-text">{name}</p>
+      <p className="mt-3 text-[15px] font-semibold text-ink">{name}</p>
       {secondaryLine ? (
-        <p className="mt-0.5 text-[12px] text-input-placeholder">{secondaryLine}</p>
+        <p className="mt-0.5 text-[12px] text-dim-2">{secondaryLine}</p>
       ) : null}
     </div>
   );
@@ -300,12 +300,12 @@ export const InspectorHeaderEntity = ({
 }: InspectorHeaderEntityProps) => {
   return (
     <div className="flex flex-col gap-1.5 px-5 pb-4 pt-5">
-      <p className="text-[10px] font-medium uppercase tracking-widest text-input-placeholder/90">{chip}</p>
+      <p className="text-[10px] font-medium uppercase tracking-widest text-dim-2/90">{chip}</p>
       <div className="flex items-start justify-between gap-2">
-        <p className="min-w-0 flex-1 text-[15px] font-semibold leading-snug text-input-text">{title}</p>
+        <p className="min-w-0 flex-1 text-[15px] font-semibold leading-snug text-ink">{title}</p>
         <div className="mt-0.5 shrink-0">{statusBadge}</div>
       </div>
-      {subtitle ? <p className="text-[12px] text-input-placeholder">{subtitle}</p> : null}
+      {subtitle ? <p className="text-[12px] text-dim-2">{subtitle}</p> : null}
     </div>
   );
 };

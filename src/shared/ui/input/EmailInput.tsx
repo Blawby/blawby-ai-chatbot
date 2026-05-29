@@ -103,7 +103,7 @@ export const EmailInput = forwardRef<HTMLInputElement, EmailInputProps>(({
   };
 
   const inputClasses = cn(
-    'w-full rounded-xl text-input-text placeholder:text-input-placeholder',
+    'w-full rounded-xl text-ink placeholder:text-dim-2',
     'focus:outline-none transition-all duration-200',
     'input-surface border-none',
     sizeClasses[size],
@@ -131,7 +131,7 @@ export const EmailInput = forwardRef<HTMLInputElement, EmailInputProps>(({
   return (
     <div className="w-full">
       {displayLabel && (
-        <label htmlFor={inputId} className="block text-sm font-medium text-input-text mb-1">
+        <label htmlFor={inputId} className="block text-sm font-medium text-ink mb-1">
           {displayLabel}
           {required && <span className="text-red-500 ml-1">*</span>}
         </label>
@@ -139,7 +139,7 @@ export const EmailInput = forwardRef<HTMLInputElement, EmailInputProps>(({
       
       <div className="relative">
         <div className="absolute inset-y-0 left-0 z-10 flex items-center pl-3 pointer-events-none">
-          <Icon icon={Mail} className="w-4 h-4 text-input-placeholder"  />
+          <Icon icon={Mail} className="w-4 h-4 text-dim-2"  />
         </div>
         
         <input
@@ -188,7 +188,7 @@ export const EmailInput = forwardRef<HTMLInputElement, EmailInputProps>(({
       )}
       
       {displayDescription && !displayError && (
-        <p id={descriptionId} className="text-xs text-input-placeholder mt-1">
+        <p id={descriptionId} className="text-xs text-dim-2 mt-1">
           {displayDescription}
         </p>
       )}

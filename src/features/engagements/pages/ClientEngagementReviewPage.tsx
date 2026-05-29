@@ -193,7 +193,7 @@ const SignaturePad: FunctionComponent<{
           onTouchEnd={endDraw}
         />
         {!hasStrokeRef.current && (
-          <div className="pointer-events-none absolute inset-0 flex items-center justify-center text-xs text-input-placeholder">
+          <div className="pointer-events-none absolute inset-0 flex items-center justify-center text-xs text-dim-2">
             <Pen className="mr-2 h-4 w-4" />
             Click to draw your signature
           </div>
@@ -229,7 +229,7 @@ const DocumentStatusCard: FunctionComponent<{
   return (
     <section className="card p-5 space-y-3">
       <header className="flex items-center justify-between gap-2">
-        <h3 className="text-sm font-semibold text-input-text">Document Status</h3>
+        <h3 className="text-sm font-semibold text-ink">Document Status</h3>
         <span className={cn(
           'inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ring-1 ring-inset',
           accepted
@@ -242,8 +242,8 @@ const DocumentStatusCard: FunctionComponent<{
       <dl className="space-y-2 text-sm">
         {rows.map(({ label, value }) => (
           <div key={label} className="flex items-start justify-between gap-3">
-            <dt className="text-input-placeholder">{label}</dt>
-            <dd className="text-right text-input-text">{value ?? '—'}</dd>
+            <dt className="text-dim-2">{label}</dt>
+            <dd className="text-right text-ink">{value ?? '—'}</dd>
           </div>
         ))}
       </dl>
@@ -259,7 +259,7 @@ const SignaturePanel: FunctionComponent<{
   disabled: boolean;
 }> = ({ signatureData, agreementChecked, onSignatureChange, onAgreementChange, disabled }) => (
   <section className="card p-5 space-y-3">
-    <h3 className="text-sm font-semibold text-input-text">Your Signature</h3>
+    <h3 className="text-sm font-semibold text-ink">Your Signature</h3>
     <SignaturePad onChange={onSignatureChange} disabled={disabled} />
     <Checkbox
       checked={agreementChecked}
@@ -292,11 +292,11 @@ const EngagementLetter: FunctionComponent<{
   const noGuarantee = proposal?.no_guarantee_language;
 
   return (
-    <article className="rounded-2xl border border-card-border bg-surface-card p-6 sm:p-10 space-y-6 leading-relaxed text-input-text">
+    <article className="rounded-2xl border border-card-border bg-surface-card p-6 sm:p-10 space-y-6 leading-relaxed text-ink">
       <header className="text-center space-y-2 border-b border-line-subtle pb-6">
         <h1 className="text-xl font-bold uppercase tracking-widest">Engagement Letter</h1>
         <p className="text-sm font-medium">{practiceName}</p>
-        <p className="text-xs uppercase tracking-wider text-input-placeholder">
+        <p className="text-xs uppercase tracking-wider text-dim-2">
           Sent {engagement.sent_at ? formatLongDate(engagement.sent_at) : formatLongDate(engagement.created_at)}
         </p>
       </header>
@@ -318,7 +318,7 @@ const EngagementLetter: FunctionComponent<{
         {scope ? (
           <p className="text-sm">{scope}</p>
         ) : (
-          <p className="text-sm italic text-input-placeholder">Scope to be confirmed before commencement of services.</p>
+          <p className="text-sm italic text-dim-2">Scope to be confirmed before commencement of services.</p>
         )}
         {includedServices.length > 0 && (
           <ul className="space-y-1.5 pl-4">
@@ -452,8 +452,8 @@ export const ClientEngagementReviewPage: FunctionComponent<ClientEngagementRevie
       <div className="min-h-dvh flex flex-col items-center justify-center p-6">
         <div className="card max-w-md w-full p-8 text-center space-y-4">
           <AlertTriangle className="w-10 h-10 text-rose-400 mx-auto" />
-          <h1 className="text-lg font-bold text-input-text">Unable to load engagement</h1>
-          <p className="text-sm text-input-placeholder">{loadError ?? 'This engagement could not be found.'}</p>
+          <h1 className="text-lg font-bold text-ink">Unable to load engagement</h1>
+          <p className="text-sm text-dim-2">{loadError ?? 'This engagement could not be found.'}</p>
         </div>
       </div>
     );
@@ -471,15 +471,15 @@ export const ClientEngagementReviewPage: FunctionComponent<ClientEngagementRevie
               <button
                 type="button"
                 onClick={onBack}
-                className="rounded-md p-1.5 text-input-placeholder hover:bg-surface-card-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/40"
+                className="rounded-md p-1.5 text-dim-2 hover:bg-surface-card-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/40"
                 aria-label="Back"
               >
                 <ChevronLeft className="h-5 w-5" />
               </button>
             )}
             <div className="min-w-0">
-              <p className="truncate text-xs font-medium text-input-placeholder">{practiceName}</p>
-              <h1 className="truncate text-base font-semibold text-input-text">Engagement Letter</h1>
+              <p className="truncate text-xs font-medium text-dim-2">{practiceName}</p>
+              <h1 className="truncate text-base font-semibold text-ink">Engagement Letter</h1>
             </div>
           </div>
           <span className={cn(
@@ -516,7 +516,7 @@ export const ClientEngagementReviewPage: FunctionComponent<ClientEngagementRevie
               <div className="card p-5 space-y-2 text-center">
                 <CheckCircle2 className="mx-auto h-8 w-8 text-emerald-500" />
                 <p className="text-sm font-semibold text-emerald-600 dark:text-emerald-300">Engagement signed</p>
-                <p className="text-xs text-input-placeholder">
+                <p className="text-xs text-dim-2">
                   Thank you. Your attorney will be in touch shortly.
                 </p>
               </div>

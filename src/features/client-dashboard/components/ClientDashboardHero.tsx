@@ -11,7 +11,7 @@ const toneClass: Record<NonNullable<ClientDashboardStat['tone']>, string> = {
   positive: 'text-emerald-300',
   negative: 'text-rose-300',
   attention: 'text-amber-300',
-  neutral: 'text-input-placeholder',
+  neutral: 'text-dim-2',
 };
 
 type ClientDashboardHeroProps = {
@@ -40,8 +40,8 @@ export const ClientDashboardHero = ({
           className="ring-2 ring-line-subtle"
         />
         <div className="min-w-0 flex-1">
-          <p className="truncate text-xs font-semibold uppercase tracking-[0.16em] text-input-placeholder">Your account</p>
-          <h1 className="truncate text-base font-semibold text-input-text">{name || 'Your account'}</h1>
+          <p className="truncate text-xs font-semibold uppercase tracking-[0.16em] text-dim-2">Your account</p>
+          <h1 className="truncate text-base font-semibold text-ink">{name || 'Your account'}</h1>
         </div>
         <div className="ml-auto shrink-0">
           <Button
@@ -76,13 +76,13 @@ export const ClientDashboardHero = ({
                 'flex flex-wrap items-baseline justify-between gap-x-4 gap-y-2 border-t border-line-subtle px-4 py-10 sm:px-6 lg:border-t-0 xl:px-8'
               )}
             >
-              <dt className="text-sm font-medium text-input-placeholder">{stat.label}</dt>
+              <dt className="text-sm font-medium text-dim-2">{stat.label}</dt>
               {stat.helper ? (
-                <dd className={cn(stat.tone ? toneClass[stat.tone] : 'text-input-placeholder', 'text-xs font-medium')}>
+                <dd className={cn(stat.tone ? toneClass[stat.tone] : 'text-dim-2', 'text-xs font-medium')}>
                   {stat.helper}
                 </dd>
               ) : null}
-              <dd className="w-full flex-none text-3xl font-medium tracking-tight text-input-text">
+              <dd className="w-full flex-none text-3xl font-medium tracking-tight text-ink">
                 {stat.value}
               </dd>
             </div>

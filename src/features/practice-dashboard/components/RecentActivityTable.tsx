@@ -36,15 +36,15 @@ const statusClass = (status: ActivityEntry['status']) => {
   const normalized = status.toLowerCase();
   if (normalized === 'paid') return 'bg-emerald-500/10 text-emerald-700 ring-emerald-500/20 dark:text-emerald-300';
   if (normalized === 'overdue') return 'bg-rose-500/10 text-rose-700 ring-rose-500/20 dark:text-rose-300';
-  if (normalized === 'draft') return 'bg-surface-overlay/80 text-input-placeholder ring-line-subtle';
-  if (normalized === 'sent' || normalized === 'pending') return 'bg-surface-overlay/80 text-input-placeholder ring-line-subtle';
-  return 'bg-surface-overlay/80 text-input-placeholder ring-line-subtle';
+  if (normalized === 'draft') return 'bg-surface-overlay/80 text-dim-2 ring-line-subtle';
+  if (normalized === 'sent' || normalized === 'pending') return 'bg-surface-overlay/80 text-dim-2 ring-line-subtle';
+  return 'bg-surface-overlay/80 text-dim-2 ring-line-subtle';
 };
 
 export const RecentActivityTable = ({ days, loading = false, error = null, onOpenInvoice }: RecentActivityTableProps) => (
   <section>
     <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-      <h2 className="mx-auto max-w-2xl text-base font-semibold text-input-text lg:mx-0 lg:max-w-none">
+      <h2 className="mx-auto max-w-2xl text-base font-semibold text-ink lg:mx-0 lg:max-w-none">
         Recent activity
       </h2>
     </div>
@@ -66,7 +66,7 @@ export const RecentActivityTable = ({ days, loading = false, error = null, onOpe
       </div>
     ) : error ? (
       <div className="mt-6 border-t border-line-subtle">
-        <div className="mx-auto max-w-7xl px-4 py-5 text-sm text-input-text sm:px-6 lg:px-8">
+        <div className="mx-auto max-w-7xl px-4 py-5 text-sm text-ink sm:px-6 lg:px-8">
           {error}
         </div>
       </div>
@@ -95,7 +95,7 @@ export const RecentActivityTable = ({ days, loading = false, error = null, onOpe
 
                   return displayDays.map((day) => (
                     <Fragment key={day.label}>
-                      <tr className="text-sm text-input-text">
+                      <tr className="text-sm text-ink">
                         <th scope="colgroup" colSpan={3} className="relative isolate py-2 font-semibold">
                           <time dateTime={day.isoDate}>{day.label}</time>
                           <div className="absolute inset-y-0 right-full -z-10 w-screen border-b border-line-subtle bg-surface-overlay/70" />
@@ -104,7 +104,7 @@ export const RecentActivityTable = ({ days, loading = false, error = null, onOpe
                       </tr>
                       {day.entries.length === 0 && showEmptyRows ? (
                         <tr>
-                          <td colSpan={3} className="relative py-5 text-sm text-input-placeholder">
+                          <td colSpan={3} className="relative py-5 text-sm text-dim-2">
                             No transactions yet.
                             <div className="absolute right-full bottom-0 h-px w-screen bg-line-glass/20" />
                             <div className="absolute bottom-0 left-0 h-px w-screen bg-line-glass/20" />
@@ -116,11 +116,11 @@ export const RecentActivityTable = ({ days, loading = false, error = null, onOpe
                             <div className="flex gap-x-6">
                               {(() => {
                                 const activityIcon = statusIcon(entry.status);
-                                return <Icon icon={activityIcon} className="hidden h-6 w-5 flex-none text-input-placeholder sm:block" />;
+                                return <Icon icon={activityIcon} className="hidden h-6 w-5 flex-none text-dim-2 sm:block" />;
                               })()}
                               <div className="flex-auto">
                                 <div className="flex items-start gap-x-3">
-                                  <div className="text-sm font-medium text-input-text">
+                                  <div className="text-sm font-medium text-ink">
                                     {formatAmountLabel(entry.amount)}
                                   </div>
                                   <div className={cn(statusClass(entry.status), 'rounded-md px-2 py-1 text-xs font-medium ring-1 ring-inset')}>
@@ -131,7 +131,7 @@ export const RecentActivityTable = ({ days, loading = false, error = null, onOpe
                                   const displayDate = entry.issuedAt ? formatDate(entry.issuedAt) : '';
                                   if (!displayDate) return null;
                                   return (
-                                    <div className="mt-1 text-xs text-input-placeholder">
+                                    <div className="mt-1 text-xs text-dim-2">
                                       {displayDate}
                                     </div>
                                   );
@@ -142,8 +142,8 @@ export const RecentActivityTable = ({ days, loading = false, error = null, onOpe
                             <div className="absolute bottom-0 left-0 h-px w-screen bg-line-glass/20" />
                           </td>
                           <td className="hidden py-5 pr-6 sm:table-cell">
-                            <div className="text-sm text-input-text">{entry.clientName}</div>
-                            <div className="mt-1 text-xs text-input-placeholder">{entry.description ?? '-'}</div>
+                            <div className="text-sm text-ink">{entry.clientName}</div>
+                            <div className="mt-1 text-xs text-dim-2">{entry.description ?? '-'}</div>
                           </td>
                           <td className="py-5 text-right">
                             <div className="flex justify-end">
@@ -151,8 +151,8 @@ export const RecentActivityTable = ({ days, loading = false, error = null, onOpe
                                 View invoice
                               </Button>
                             </div>
-                            <div className="mt-1 text-xs text-input-placeholder">
-                              Invoice <span className="text-input-text">#{entry.invoiceNumber ?? entry.invoiceId?.slice(0, 6)}</span>
+                            <div className="mt-1 text-xs text-dim-2">
+                              Invoice <span className="text-ink">#{entry.invoiceNumber ?? entry.invoiceId?.slice(0, 6)}</span>
                             </div>
                           </td>
                         </tr>

@@ -117,8 +117,8 @@ export const IntakeFilesPanel: FunctionComponent<IntakeFilesPanelProps> = ({
         showEmptyState={false}
         header={(
           <div className="flex min-w-0 items-center gap-2">
-            <Icon icon={FileText} className="h-4 w-4 text-input-placeholder" />
-            <h3 className="text-sm font-semibold text-input-text">Files</h3>
+            <Icon icon={FileText} className="h-4 w-4 text-dim-2" />
+            <h3 className="text-sm font-semibold text-ink">Files</h3>
           </div>
         )}
       />
@@ -129,7 +129,7 @@ export const IntakeFilesPanel: FunctionComponent<IntakeFilesPanelProps> = ({
             <button
               key={`delete-${file.id}`}
               type="button"
-              className="text-input-placeholder hover:text-red-500"
+              className="text-dim-2 hover:text-red-500"
               onClick={() => setPendingDelete(file)}
             >
               Delete {file.fileName}

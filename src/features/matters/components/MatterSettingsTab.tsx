@@ -158,8 +158,8 @@ export const MatterSettingsTab = ({
           {onCloseMatter ? (
             <div className="flex items-center justify-between gap-4">
               <div>
-                <p className="text-sm font-medium text-input-text">Close this matter</p>
-                <p className="text-xs text-input-placeholder">
+                <p className="text-sm font-medium text-ink">Close this matter</p>
+                <p className="text-xs text-dim-2">
                   Mark as closed. No new time entries or tasks can be added.
                 </p>
               </div>
@@ -172,8 +172,8 @@ export const MatterSettingsTab = ({
           {onArchiveMatter ? (
             <div className="flex items-center justify-between gap-4">
               <div>
-                <p className="text-sm font-medium text-input-text">Archive this matter</p>
-                <p className="text-xs text-input-placeholder">
+                <p className="text-sm font-medium text-ink">Archive this matter</p>
+                <p className="text-xs text-dim-2">
                   Move this matter out of active workflows while preserving its data.
                 </p>
               </div>
@@ -186,8 +186,8 @@ export const MatterSettingsTab = ({
           {onDeleteMatter ? (
             <div className="flex items-center justify-between gap-4">
               <div>
-                <p className="text-sm font-medium text-input-text">Delete this matter</p>
-                <p className="text-xs text-input-placeholder">
+                <p className="text-sm font-medium text-ink">Delete this matter</p>
+                <p className="text-xs text-dim-2">
                   Permanently delete this matter and all associated data. This cannot be undone.
                 </p>
               </div>

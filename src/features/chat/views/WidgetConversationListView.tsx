@@ -51,11 +51,11 @@ const WidgetConversationListEmptyState = ({
       <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-surface-overlay/60 ring-1 ring-line-subtle">
         <Icon
           icon={MessageSquare}
-          className="h-6 w-6 text-input-placeholder"
+          className="h-6 w-6 text-dim-2"
         />
       </div>
-      <p className="text-sm font-medium text-input-text">{title}</p>
-      <p className="text-xs leading-5 text-input-placeholder">{hint}</p>
+      <p className="text-sm font-medium text-ink">{title}</p>
+      <p className="text-xs leading-5 text-dim-2">{hint}</p>
     </div>
   </div>
 );
@@ -171,7 +171,7 @@ const WidgetConversationListView: FunctionComponent<WidgetConversationListViewPr
                         <span className={cn(
                           'block truncate',
                           chatTypography.previewName,
-                          isUnread && 'font-bold text-input-text'
+                          isUnread && 'font-bold text-ink'
                         )}>
                           {title}
                         </span>
@@ -202,7 +202,7 @@ const WidgetConversationListView: FunctionComponent<WidgetConversationListViewPr
                     ) : (
                       <div className={cn(
                         'truncate text-sm',
-                        isUnread ? 'font-semibold text-input-text' : 'text-input-placeholder'
+                        isUnread ? 'font-semibold text-ink' : 'text-dim-2'
                       )}>
                         <ChatText text={previewText} className="truncate" />
                       </div>

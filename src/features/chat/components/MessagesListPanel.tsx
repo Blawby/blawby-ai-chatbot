@@ -91,7 +91,7 @@ const MessagesListPanel: FunctionComponent<MessagesListPanelProps> = ({
     <div className="flex h-full min-h-0 flex-col bg-transparent">
       <header className="flex items-center justify-between gap-2 px-4 pt-4 pb-3">
         <div className="flex items-center gap-2">
-          <h2 className="text-base font-semibold text-input-text">
+          <h2 className="text-base font-semibold text-ink">
             {t('workspace.conversationList.title', { defaultValue: 'Messages' })}
           </h2>
           <span
@@ -158,14 +158,14 @@ const MessagesListPanel: FunctionComponent<MessagesListPanelProps> = ({
             />
             <div className="min-w-0 flex-1">
               <div className="flex items-start justify-between gap-3">
-                <span className="block truncate text-sm font-semibold text-input-text">
+                <span className="block truncate text-sm font-semibold text-ink">
                   {draftEntry.contactName ?? t('workspace.conversationList.draftPlaceholder', { defaultValue: 'New conversation' })}
                 </span>
                 <span className="rounded-full bg-accent-500/20 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-accent-utility">
                   {t('workspace.conversationList.draftBadge', { defaultValue: 'Draft' })}
                 </span>
               </div>
-              <div className="mt-0.5 truncate text-xs text-input-placeholder">
+              <div className="mt-0.5 truncate text-xs text-dim-2">
                 {draftEntry.contactEmail ?? t('workspace.conversationList.draftHint', { defaultValue: 'Pick a contact and send the first message' })}
               </div>
             </div>

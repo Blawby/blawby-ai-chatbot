@@ -71,11 +71,11 @@ const ToastComponent: FunctionComponent<ToastProps> = ({ toast, onRemove }) => {
           {getIcon()}
         </div>
         <div className="ml-3 flex-1">
-          <h3 className="text-sm font-medium text-input-text">
+          <h3 className="text-sm font-medium text-ink">
             {toast.title}
           </h3>
           {toast.message && (
-            <p className="mt-1 text-sm text-input-placeholder">
+            <p className="mt-1 text-sm text-dim-2">
               {toast.message}
             </p>
           )}
@@ -83,7 +83,7 @@ const ToastComponent: FunctionComponent<ToastProps> = ({ toast, onRemove }) => {
         <div className="ml-4 flex-shrink-0">
           <button
             onClick={handleRemove}
-            className="inline-flex text-input-placeholder hover:text-input-text transition-colors duration-200 focus-visible:ring-2 focus-visible:ring-accent-500 rounded-sm focus:outline-none"
+            className="inline-flex text-dim-2 hover:text-ink transition-colors duration-200 focus-visible:ring-2 focus-visible:ring-accent-500 rounded-sm focus:outline-none"
           >
             <Icon icon={X} className="h-4 w-4"  />
           </button>

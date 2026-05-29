@@ -91,7 +91,7 @@ export function AIThinkingIndicator({
         aria-atomic="true"
       >
         <span className="ai-thinking-indicator__dot" aria-hidden="true" />
-        <span className="text-xs text-input-placeholder">{displayMessage}…</span>
+        <span className="text-xs text-dim-2">{displayMessage}…</span>
       </div>
     );
   }
@@ -108,10 +108,10 @@ export function AIThinkingIndicator({
         <button
           type="button"
           onClick={() => setIsExpanded(!isExpanded)}
-          className="flex items-center gap-1.5 text-[11px] font-medium text-input-placeholder hover:text-accent-foreground transition-colors outline-none cursor-pointer"
+          className="flex items-center gap-1.5 text-[11px] font-medium text-dim-2 hover:text-accent-foreground transition-colors outline-none cursor-pointer"
           aria-expanded={isExpanded}
         >
-          <Icon icon={Wrench} className="h-3 w-3 text-input-placeholder" />
+          <Icon icon={Wrench} className="h-3 w-3 text-dim-2" />
           <span>{summaryLabel}</span>
           <Icon icon={isExpanded ? ChevronDown : ChevronRight} className="h-3 w-3" />
         </button>
@@ -154,7 +154,7 @@ function ToolProgressRow({
   };
 }) {
   let statusIcon = AlertCircle;
-  let iconClass = 'text-input-placeholder';
+  let iconClass = 'text-dim-2';
   
   if (tool.status === 'completed') {
     statusIcon = Check;
@@ -167,13 +167,13 @@ function ToolProgressRow({
     iconClass = 'text-accent-500 animate-spin';
   } else if (tool.status === 'queued') {
     statusIcon = Loader2;
-    iconClass = 'text-input-placeholder animate-pulse';
+    iconClass = 'text-dim-2 animate-pulse';
   }
 
   return (
     <div className="flex items-center gap-2 text-xs py-0.5" key={tool.toolUseId}>
       <Icon icon={statusIcon} className={`h-3.5 w-3.5 ${iconClass}`} />
-      <span className={tool.status === 'completed' ? 'text-input-placeholder' : 'text-input-text'}>
+      <span className={tool.status === 'completed' ? 'text-dim-2' : 'text-ink'}>
         {tool.label}
       </span>
     </div>

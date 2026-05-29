@@ -8,7 +8,7 @@ export interface DialogDescriptionProps {
 }
 
 export const DialogDescription: FunctionComponent<DialogDescriptionProps> = ({ children, id, className }) => (
-  <p id={id} className={cn('m-0 text-sm leading-6 text-input-placeholder', className)}>
+  <p id={id} className={cn('m-0 text-sm leading-6 text-dim-2', className)}>
     {children}
   </p>
 );

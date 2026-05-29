@@ -19,7 +19,7 @@ const CameraCaptureButton: FunctionComponent<CameraCaptureButtonProps> = ({ onCl
       className={`cursor-pointer flex items-center justify-center transition-all duration-200 w-20 h-20 rounded-full panel p-0 relative disabled:opacity-50 disabled:cursor-not-allowed hover:bg-surface-utility/10 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:ring-offset-2 focus:ring-offset-surface-base ${className || ''}`}
       aria-label="Take photo"
     >
-      <Icon icon={Camera} className="w-16 h-16 text-input-text"  />
+      <Icon icon={Camera} className="w-16 h-16 text-ink"  />
     </button>
   );
 };
