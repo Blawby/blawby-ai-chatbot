@@ -1010,6 +1010,250 @@
   .text-body {
     @apply text-ink;
   }
+
+  /* ============================================================
+     DS PRIMITIVES — Label, Pill, Chip, Bar, Card-hd, Avatar,
+     Field, Input/Textarea/Select, Toggle
+     Canonical class shapes per design-system spec.
+     Existing .btn/.card/.input-surface remain until Commit 4b.
+     ============================================================ */
+
+  .label {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--dim);
+    display: inline-block;
+  }
+
+  .field {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .field > label {
+    font-family: var(--mono);
+    font-size: 10.5px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--dim);
+  }
+
+  .pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-family: var(--mono);
+    font-size: 10.5px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    padding: 3px 8px;
+    border: 1px solid var(--rule);
+    border-radius: var(--r-pill);
+    color: var(--dim);
+    background: var(--paper);
+  }
+
+  .pill.dot::before {
+    content: "";
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--dim-2);
+    display: inline-block;
+    flex-shrink: 0;
+  }
+
+  .pill.live::before  { background: var(--pos); }
+  .pill.warn::before  { background: var(--warn); }
+  .pill.urgent::before { background: var(--neg); }
+  .pill.gold::before  { background: var(--accent); }
+
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 10px;
+    font-size: 12.5px;
+    line-height: 1;
+    border: 1px solid var(--rule);
+    background: var(--card);
+    color: var(--ink-2);
+    border-radius: var(--r-xs);
+    cursor: pointer;
+    transition: background 0.14s, transform 0.12s, border-color 0.14s;
+    font-family: var(--sans);
+  }
+
+  .chip:hover {
+    background: var(--paper-2);
+    transform: translateY(-1px);
+  }
+
+  .chip.primary {
+    background: var(--ink);
+    color: var(--paper);
+    border-color: var(--ink);
+  }
+
+  .chip.primary:hover {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: var(--accent-ink);
+  }
+
+  .chip.accent {
+    background: var(--accent);
+    color: var(--accent-ink);
+    border-color: var(--accent);
+  }
+
+  .chip.warn {
+    color: var(--neg);
+    border-color: color-mix(in oklab, var(--neg) 30%, var(--rule));
+  }
+
+  .bar {
+    height: 4px;
+    background: var(--rule-soft);
+    border-radius: var(--r-pill);
+    overflow: hidden;
+    width: 100%;
+  }
+
+  .bar > i {
+    display: block;
+    height: 100%;
+    background: var(--accent);
+    transition: width 0.3s ease;
+  }
+
+  .bar.warn > i { background: var(--neg); }
+  .bar.ok > i { background: var(--pos); }
+
+  .avatar {
+    display: inline-grid;
+    place-items: center;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: var(--ink);
+    color: var(--accent);
+    font-family: var(--serif);
+    font-style: italic;
+    font-size: 14px;
+    flex-shrink: 0;
+    overflow: hidden;
+  }
+
+  .avatar.lg {
+    width: 40px;
+    height: 40px;
+    font-size: 18px;
+  }
+
+  .avatar.user {
+    background: linear-gradient(135deg, var(--ink-2), var(--ink));
+    color: var(--paper);
+    font-family: var(--sans);
+    font-style: normal;
+    font-weight: 600;
+    font-size: 11px;
+  }
+
+  .avatar.staff {
+    background: var(--accent-soft);
+    color: var(--accent-deep);
+  }
+
+  .input,
+  .textarea,
+  .select {
+    font-family: var(--sans);
+    font-size: 14px;
+    color: var(--ink);
+    background: var(--card);
+    border: 1px solid var(--rule);
+    border-radius: var(--r-xs);
+    padding: 11px 12px;
+    outline: none;
+    transition: border-color 0.14s, box-shadow 0.14s;
+    width: 100%;
+  }
+
+  .input:focus,
+  .textarea:focus,
+  .select:focus {
+    border-color: var(--ink);
+    box-shadow: 0 0 0 3px var(--accent-soft);
+  }
+
+  .input.is-error,
+  .textarea.is-error,
+  .select.is-error {
+    border-color: var(--neg);
+  }
+
+  .input.is-error:focus,
+  .textarea.is-error:focus,
+  .select.is-error:focus {
+    box-shadow: 0 0 0 3px color-mix(in oklab, var(--neg) 20%, transparent);
+  }
+
+  .textarea {
+    resize: vertical;
+    min-height: 84px;
+    line-height: 1.5;
+  }
+
+  .toggle {
+    position: relative;
+    display: inline-block;
+    width: 36px;
+    height: 20px;
+    background: var(--rule);
+    border-radius: var(--r-pill);
+    transition: background 0.18s;
+    cursor: pointer;
+    flex-shrink: 0;
+    border: 0;
+    padding: 0;
+  }
+
+  .toggle::after {
+    content: "";
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 16px;
+    height: 16px;
+    background: var(--card);
+    border-radius: 50%;
+    transition: transform 0.18s;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.15);
+  }
+
+  .toggle.on { background: var(--accent); }
+  .toggle.on::after { transform: translateX(16px); }
+
+  .toggle:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 3px var(--accent-soft);
+  }
+
+  .toggle:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  .card-hd {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 10px;
+  }
 }
 
 @layer utilities {
