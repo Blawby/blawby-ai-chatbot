@@ -1,12 +1,12 @@
-import { StatusBadge, type StatusVariant } from '@/shared/ui/badges/StatusBadge';
+import { Pill, type PillTone } from '@/design-system/primitives';
 
-const STATUS_VARIANT: Record<string, StatusVariant> = {
-  pending: 'warning',
-  requested: 'warning',
-  approved: 'info',
-  declined: 'error',
-  executed: 'success',
-  cancelled: 'inactive',
+const STATUS_TONE: Record<string, PillTone> = {
+  pending: 'warn',
+  requested: 'warn',
+  approved: 'gold',
+  declined: 'urgent',
+  executed: 'live',
+  cancelled: 'dim',
 };
 
 interface RefundRequestStatusBadgeProps {
@@ -15,6 +15,6 @@ interface RefundRequestStatusBadgeProps {
 
 export const RefundRequestStatusBadge = ({ status }: RefundRequestStatusBadgeProps) => {
   const normalized = status.toLowerCase();
-  const variant = STATUS_VARIANT[normalized] ?? 'info';
-  return <StatusBadge status={variant}>{normalized}</StatusBadge>;
+  const tone = STATUS_TONE[normalized] ?? 'dim';
+  return <Pill tone={tone}>{normalized}</Pill>;
 };

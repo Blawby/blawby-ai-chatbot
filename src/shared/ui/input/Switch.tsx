@@ -1,4 +1,3 @@
-// import { ComponentChildren } from 'preact'; // Unused
 import { cn } from '@/shared/utils/cn';
 
 export interface SwitchProps {
@@ -8,6 +7,10 @@ export interface SwitchProps {
   description?: string;
   disabled?: boolean;
   className?: string;
+  /**
+   * @deprecated DS toggle is single-size (36x20). Prop retained for API
+   * compatibility; size variants are no-ops.
+   */
   size?: 'sm' | 'md' | 'lg';
   id?: string;
 }
@@ -19,81 +22,36 @@ export const Switch = ({
   description,
   disabled = false,
   className = '',
-  size = 'md',
-  id
+  id,
 }: SwitchProps) => {
-  const sizeClasses = {
-    sm: 'h-4 w-8',
-    md: 'h-6 w-11',
-    lg: 'h-8 w-14'
-  };
-
-  const thumbSizeClasses = {
-    sm: 'h-3 w-3',
-    md: 'h-4 w-4',
-    lg: 'h-6 w-6'
-  };
-
-  const thumbTranslateClasses = {
-    sm: value ? 'translate-x-[18px]' : 'translate-x-0.5',
-    md: value ? 'translate-x-6' : 'translate-x-1',
-    lg: value ? 'translate-x-7' : 'translate-x-1'
-  };
-
-  const trackClasses = disabled
-    ? value
-      ? 'border-transparent bg-accent-500/35 dark:bg-accent-400/30'
-      : 'border border-line-subtle bg-neutral-200 dark:bg-neutral-700/80'
-    : value
-      ? 'border-transparent bg-accent-500 focus:ring-accent-500'
-      : 'border border-neutral-400/35 bg-neutral-300 focus:ring-neutral-400 dark:border-neutral-500/40 dark:bg-neutral-600';
-
-  const thumbClasses = disabled
-    ? 'bg-neutral-300 dark:bg-neutral-100'
-    : 'bg-white';
-
   return (
     <div className={cn('flex items-center justify-between py-3', className)}>
       <div className="flex-1 min-w-0">
         {label && (
           <div
-            className="text-sm font-medium text-input-text"
+            className="text-sm font-medium text-ink"
             id={id ? `${id}-label` : undefined}
           >
             {label}
           </div>
         )}
         {description && (
-          <div className="mt-1 text-xs text-input-placeholder">
+          <div className="mt-1 text-xs text-dim">
             {description}
           </div>
         )}
       </div>
-      
+
       <button
         type="button"
-        className={cn(
-          'relative inline-flex items-center rounded-full transition-colors focus:outline-none focus:ring-2 ring-inset focus:ring-offset-2 focus:ring-offset-transparent',
-          sizeClasses[size],
-          trackClasses,
-          disabled && 'cursor-not-allowed opacity-100'
-        )}
+        className={cn('toggle', value && 'on')}
         onClick={() => !disabled && onChange(!value)}
         disabled={disabled}
         aria-pressed={value}
         aria-label={id ? undefined : (label || 'Toggle switch')}
         id={id}
         aria-labelledby={id ? `${id}-label` : undefined}
-      >
-        <span
-          className={cn(
-            'inline-block transform rounded-full shadow-sm transition-transform duration-200 ease-in-out',
-            thumbClasses,
-            thumbSizeClasses[size],
-            thumbTranslateClasses[size]
-          )}
-        />
-      </button>
+      />
     </div>
   );
 };

@@ -1,6 +1,6 @@
 import { Panel } from '@/shared/ui/layout/Panel';
 import { Button } from '@/shared/ui/Button';
-import { StatusBadge } from '@/shared/ui/badges/StatusBadge';
+import { Pill, type PillTone } from '@/design-system/primitives';
 import { formatCurrency } from '@/shared/utils/currencyFormatter';
 import { formatLongDate } from '@/shared/utils/dateFormatter';
 import type { InvoiceRefundEvent, InvoiceRefundRequestEvent } from '@/features/invoices/types';
@@ -11,12 +11,12 @@ interface InvoiceRefundsSectionProps {
   onReviewRequest?: (request: InvoiceRefundRequestEvent) => void;
 }
 
-const refundVariant = (status: string) => {
+const refundTone = (status: string): PillTone => {
   const normalized = status.toLowerCase();
-  if (normalized === 'succeeded' || normalized === 'executed') return 'success' as const;
-  if (normalized === 'failed' || normalized === 'declined' || normalized === 'cancelled') return 'error' as const;
-  if (normalized === 'pending' || normalized === 'requested' || normalized === 'approved') return 'warning' as const;
-  return 'info' as const;
+  if (normalized === 'succeeded' || normalized === 'executed') return 'live';
+  if (normalized === 'failed' || normalized === 'declined' || normalized === 'cancelled') return 'urgent';
+  if (normalized === 'pending' || normalized === 'requested' || normalized === 'approved') return 'warn';
+  return 'dim';
 };
 
 const isPendingRequest = (status: string): boolean => {
@@ -58,7 +58,7 @@ export const InvoiceRefundsSection = ({
                 ) : null}
               </div>
               <div className="flex shrink-0 flex-col items-end gap-2">
-                <StatusBadge status={refundVariant(request.status)}>{request.status}</StatusBadge>
+                <Pill tone={refundTone(request.status)}>{request.status}</Pill>
                 {pending && onReviewRequest ? (
                   <Button size="xs" variant="secondary" onClick={() => onReviewRequest(request)}>
                     Review
@@ -82,7 +82,7 @@ export const InvoiceRefundsSection = ({
                 <p className="mt-1 text-xs text-input-placeholder">{refund.reason}</p>
               ) : null}
             </div>
-            <StatusBadge status={refundVariant(refund.status)}>{refund.status}</StatusBadge>
+            <Pill tone={refundTone(refund.status)}>{refund.status}</Pill>
           </div>
         ))}
       </div>

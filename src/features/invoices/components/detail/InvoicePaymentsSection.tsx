@@ -1,5 +1,5 @@
 import { Panel } from '@/shared/ui/layout/Panel';
-import { StatusBadge } from '@/shared/ui/badges/StatusBadge';
+import { Pill, type PillTone } from '@/design-system/primitives';
 import { formatCurrency } from '@/shared/utils/currencyFormatter';
 import { formatLongDate } from '@/shared/utils/dateFormatter';
 import type { InvoicePaymentEvent } from '@/features/invoices/types';
@@ -8,12 +8,12 @@ interface InvoicePaymentsSectionProps {
   payments: InvoicePaymentEvent[];
 }
 
-const paymentVariant = (status: string) => {
+const paymentTone = (status: string): PillTone => {
   const normalized = status.toLowerCase();
-  if (normalized === 'succeeded' || normalized === 'paid' || normalized === 'completed') return 'success' as const;
-  if (normalized === 'failed' || normalized === 'cancelled') return 'error' as const;
-  if (normalized === 'pending') return 'warning' as const;
-  return 'info' as const;
+  if (normalized === 'succeeded' || normalized === 'paid' || normalized === 'completed') return 'live';
+  if (normalized === 'failed' || normalized === 'cancelled') return 'urgent';
+  if (normalized === 'pending') return 'warn';
+  return 'dim';
 };
 
 export const InvoicePaymentsSection = ({ payments }: InvoicePaymentsSectionProps) => {
@@ -40,7 +40,7 @@ export const InvoicePaymentsSection = ({ payments }: InvoicePaymentsSectionProps
                 <p className="mt-1 text-xs text-input-placeholder">{payment.note}</p>
               ) : null}
             </div>
-            <StatusBadge status={paymentVariant(payment.status)}>{payment.status}</StatusBadge>
+            <Pill tone={paymentTone(payment.status)}>{payment.status}</Pill>
           </li>
         ))}
       </ul>

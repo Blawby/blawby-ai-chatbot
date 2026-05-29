@@ -1202,6 +1202,18 @@
     box-shadow: 0 0 0 3px color-mix(in oklab, var(--neg) 20%, transparent);
   }
 
+  .input.is-success,
+  .textarea.is-success,
+  .select.is-success {
+    border-color: var(--pos);
+  }
+
+  .input.is-success:focus,
+  .textarea.is-success:focus,
+  .select.is-success:focus {
+    box-shadow: 0 0 0 3px color-mix(in oklab, var(--pos) 20%, transparent);
+  }
+
   .textarea {
     resize: vertical;
     min-height: 84px;
