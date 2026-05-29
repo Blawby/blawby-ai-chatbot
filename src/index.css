@@ -588,9 +588,14 @@
     background-color: rgb(var(--paper-2-rgb));
   }
 
-  /* Semantic status surfaces — DS tokens, color-mix for tinted bg.
-     Used by FormMessage, SettingsBadge, PracticeMattersPage, InfoCard,
-     RoleBadge, StatusBadge wrappers. Sweep to <Pill> happens in Commit 8. */
+  /* Semantic status surfaces — DS-tokenized tinted banner/notice
+     containers. Distinct from <Pill> (inline span badges) and <Alert>
+     (icon + structured content): these are bare tinted surfaces that
+     callers compose with their own padding/layout/text. Used by
+     FormMessage, SettingsBadge, Toast, InfoCard, PasswordInput
+     wrappers plus inline error/warning notices across feature files.
+     Confirmed kept in Commit 8 audit revision (see
+     docs/design-system-commit-8-audit.md §8.4b). */
   .status-info {
     background: color-mix(in oklab, var(--accent-deep) 10%, transparent);
     border: 1px solid color-mix(in oklab, var(--accent-deep) 30%, transparent);

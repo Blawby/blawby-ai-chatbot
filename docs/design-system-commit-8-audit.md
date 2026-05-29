@@ -134,25 +134,29 @@ switching — likely none of these). After the sweep, delete
 
 After PR-9 / PR-10, three aliases remain in `src/index.css`:
 
-| Alias | TSX callers | TSX files | CSS def lines | Safe to delete? |
+| Alias | TSX callers | TSX files | CSS def lines | Status |
 |---|---:|---:|---:|---|
-| `.status-info` / `.status-success` / `.status-warning` / `.status-error` | ~46 | 19 | 4 (in index.css) | Need migration first. |
+| `.status-info` / `.status-success` / `.status-warning` / `.status-error` | ~46 | 19 | 4 (in index.css) | **KEPT** — revised in PR #660. Not aliases, real DS-tokenized tinted surfaces. |
 | `.input-surface` | ~47 | 24 | 1 (in index.css) | Need migration first. Most are inside input primitives. |
-| `.card-surface` | 0 | 0 (only definitions in index.css) | 4 | **Safe to delete now.** All callers already migrated. |
-| `.segmented-toggle*` | 0 (only inside SegmentedToggle.tsx) | 1 | 10 (in index.css) | Delete after 8.3. |
+| `.card-surface` | 0 | 0 (only definitions in index.css) | 4 | ✅ Deleted in PR #655. |
+| `.segmented-toggle*` | 0 (only inside SegmentedToggle.tsx) | 1 | 10 (in index.css) | ✅ Deleted in PR #659 with the primitive. |
 
 **Recommended:**
 
-- **8.4a (quick win)**: Delete `.card-surface` aliases from `src/index.css`
-  immediately — zero TSX callers. Verify build green.
-- **8.4b**: Sweep `.status-*` callers → `<Pill>` primitive. 19 files,
-  ~46 occurrences. Each call site needs visual review to map tone.
+- ✅ **8.4a**: Delete `.card-surface` aliases — landed in PR #655.
+- ❌ **8.4b** *(originally: sweep `.status-*` to `<Pill>`)* — REVISED in
+  PR #660. `.status-*` are **tinted surface containers**, not Pill aliases.
+  Already DS-tokenized (color-mix on `--pos`/`--warn`/`--neg`/`--accent-deep`
+  at 10% bg + 30% border + full text). They serve a distinct role from
+  both `<Pill>` (inline span badges) and `<Alert>` (icon + structured
+  content). **Kept.** CSS comment updated.
 - **8.4c**: Sweep `.input-surface` callers → DS Input primitive. 24 files.
   Lots are in `src/shared/ui/input/*` — the input primitives themselves
   already use the `.input-surface` class; replacing means rewriting
   their CSS to match the chat-first `.input` style.
-- **8.4d**: Delete `.input-surface`, `.status-*`, `.segmented-toggle*`
-  from `src/index.css` after their sweeps land.
+- **8.4d**: Delete `.input-surface` from `src/index.css` after 8.4c sweep
+  lands. `.status-*` stays (per 8.4b revision). `.segmented-toggle*` and
+  `.card-surface` already deleted.
 
 ---
 
@@ -206,7 +210,7 @@ In dependency order (each can be its own PR):
    - Revised: ReportDataTable kept as `<table>` (genuinely tabular report data — same justification as InvoicesTable line items).
    - **Remaining 4 conversions** (IntakeTemplatesPage, PracticeMattersPage, IntakesPage, EngagementsPage) deferred to a follow-up PR; each touches a larger file (385–2260 LOC) and deserves its own focused review.
 5. ~~**PR-16**: `refactor(ds): migrate SegmentedToggle callers to Seg; delete SegmentedToggle (8.3)`.~~ ✅ **landed in PR #659 (commit `6368e7b6`).** All 13 callers swept to Seg (none needed the animated thumb). SegmentedToggle.tsx (96L) + .segmented-toggle* CSS (~40L) + barrel exports deleted. Net -138 lines.
-6. **PR-17**: `refactor(ds): migrate .status-* callers to <Pill>; delete alias (8.4b/d-partial)`.
+6. ~~**PR-17**: `refactor(ds): migrate .status-* callers to <Pill>; delete alias (8.4b/d-partial)`.~~ ❌ **REVISED in PR #660.** The original "migrate to Pill" recommendation was wrong — `.status-*` classes are **tinted surface containers** (banner/notice backgrounds), not Pill aliases. They're already DS-tokenized via color-mix on `--pos`/`--warn`/`--neg`/`--accent-deep`. Distinct from `<Pill>` (inline span badges) and `<Alert>` (icon + structured content). **Kept.** CSS comment updated to clarify the intent.
 7. **PR-18**: `refactor(ds): migrate .input-surface callers to DS Input; delete alias (8.4c/d-partial)`.
 8. **PR-19**: `chore(ds): a11y guards + AA verification + final grep gates (8.5)`.
 
