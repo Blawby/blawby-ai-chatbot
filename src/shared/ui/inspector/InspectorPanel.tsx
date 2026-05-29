@@ -3,8 +3,7 @@ import type { Conversation, ConversationMode, SetupFieldsPayload } from '@/share
 import { getUserDetail, updateConversationMatter, updateUserDetail, getPracticeDetails, type UserDetailRecord, type PracticeDetails } from '@/shared/lib/apiClient';
 import { getMatter, type BackendMatter } from '@/features/matters/services/mattersApi';
 import { MATTER_STATUS_LABELS, MATTER_WORKFLOW_STATUSES, isMatterStatus, type MatterStatus } from '@/shared/types/matterStatus';
-import { InvoiceStatusBadge } from '@/features/invoices/components/InvoiceStatusBadge';
-import type { InvoiceStatus } from '@/features/invoices/types';
+import { InvoiceInspector } from '@/features/invoices/components/InvoiceInspector';
 import { Button } from '@/shared/ui/Button';
 import { Combobox, type ComboboxOption, Input, Textarea } from '@/shared/ui/input';
 import { StackedAvatars, UserCard } from '@/shared/ui/profile';
@@ -108,9 +107,6 @@ type InspectorPanelProps = {
 
 const isValidMatterStatus = (value: unknown): value is MatterStatus =>
   typeof value === 'string' && isMatterStatus(value);
-
-const isValidInvoiceStatus = (value: unknown): value is InvoiceStatus =>
-  typeof value === 'string' && ['draft', 'pending', 'sent', 'open', 'overdue', 'paid', 'void', 'cancelled'].includes(value);
 
 export const InspectorPanel = ({
   entityType,
@@ -1943,27 +1939,14 @@ export const InspectorPanel = ({
         ) : null}
 
         {entityType === 'invoice' ? (
-          <div className="pb-4">
-            <InspectorHeaderEntity
-              chip="INVOICE"
-              title={invoiceMatterTitle ?? 'Invoice'}
-              subtitle={invoiceClientName ?? undefined}
-              statusBadge={
-                isValidInvoiceStatus(invoiceStatus)
-                  ? <InvoiceStatusBadge status={invoiceStatus} />
-                  : <span className="text-[11px] text-input-placeholder">—</span>
-              }
-            />
-            <div className="">
-              <InspectorGroup label="Invoice Details">
-                <InfoRow label="Contact" value={invoiceClientName ?? undefined} muted={!invoiceClientName} />
-                <InfoRow label="Matter" value={invoiceMatterTitle ?? undefined} muted={!invoiceMatterTitle} />
-                <InfoRow label="Due Date" value={invoiceDueDate ?? undefined} muted={!invoiceDueDate} />
-                <InfoRow label="Total Amount" value={invoiceTotal ?? undefined} muted={!invoiceTotal} />
-                <InfoRow label="Amount Due" value={invoiceAmountDue ?? undefined} muted={!invoiceAmountDue} />
-              </InspectorGroup>
-            </div>
-          </div>
+          <InvoiceInspector
+            clientName={invoiceClientName}
+            matterTitle={invoiceMatterTitle}
+            status={invoiceStatus}
+            total={invoiceTotal}
+            amountDue={invoiceAmountDue}
+            dueDate={invoiceDueDate}
+          />
         ) : null}
       </div>
       <Dialog

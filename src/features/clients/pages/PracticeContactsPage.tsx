@@ -5,7 +5,6 @@ import { useLocation } from 'preact-iso';
 import { Copy, X, MessagesSquare, Plus, User } from 'lucide-preact';
 
 import { DetailHeader } from '@/shared/ui/layout/DetailHeader';
-import { AccentHeroSurface } from '@/shared/ui/layout/AccentHeroSurface';
 import { ResponsiveDefinitionGrid } from '@/shared/ui/layout/ResponsiveDefinitionGrid';
 import { Panel } from '@/shared/ui/layout/Panel';
 import { WorkspacePlaceholderState } from '@/shared/ui/layout/WorkspacePlaceholderState';
@@ -100,19 +99,25 @@ const PendingInvitationDetailPanel = ({
   return (
     <div className="h-full overflow-y-auto @container">
       <div className="space-y-6">
-        <AccentHeroSurface>
+        <section
+          className="relative overflow-hidden rounded-r-md border"
+          style={{
+            background: 'linear-gradient(180deg, color-mix(in oklab, var(--accent) 12%, var(--card)), var(--card))',
+            borderColor: 'color-mix(in oklab, var(--accent) 30%, var(--rule))',
+          }}
+        >
           <div className="px-6 pb-12 pt-10">
             <div className="flex flex-col items-center text-center">
               <Avatar name={invitation.email} size="xl" />
               <div className="mt-8 min-w-0 max-w-full">
-                <h3 className="truncate pb-1 text-4xl font-semibold leading-[1.15] text-[rgb(var(--accent-foreground))] md:text-5xl">{invitation.email}</h3>
-                <p className="mt-2 truncate pb-0.5 text-base leading-snug text-[rgb(var(--accent-foreground))]/80 md:text-lg">
+                <h3 className="truncate pb-1 text-4xl font-semibold leading-[1.15] text-ink md:text-5xl">{invitation.email}</h3>
+                <p className="mt-2 truncate pb-0.5 text-base leading-snug text-ink-2 md:text-lg">
                   Pending contact invitation
                 </p>
               </div>
             </div>
           </div>
-        </AccentHeroSurface>
+        </section>
 
         <section className="panel rounded-2xl">
           <ResponsiveDefinitionGrid>
@@ -212,20 +217,26 @@ const ClientDetailPanel = ({
   return (
     <div className={cn('h-full overflow-y-auto @container', paddingClassName)}>
       <div className="space-y-6">
-        <AccentHeroSurface>
+        <section
+          className="relative overflow-hidden rounded-r-md border"
+          style={{
+            background: 'linear-gradient(180deg, color-mix(in oklab, var(--accent) 12%, var(--card)), var(--card))',
+            borderColor: 'color-mix(in oklab, var(--accent) 30%, var(--rule))',
+          }}
+        >
           <div className="px-6 pb-12 pt-10">
             <div className="flex flex-col items-center text-center">
               <Avatar name={client.name} size="xl" />
               <div className="mt-8 min-w-0 max-w-full">
-                <h3 className="truncate pb-1 text-4xl font-semibold leading-[1.15] text-[rgb(var(--accent-foreground))] md:text-5xl">{client.name}</h3>
-                <p className="mt-2 truncate pb-0.5 text-base leading-snug text-[rgb(var(--accent-foreground))]/80 md:text-lg">{client.email}</p>
+                <h3 className="truncate pb-1 text-4xl font-semibold leading-[1.15] text-ink md:text-5xl">{client.name}</h3>
+                <p className="mt-2 truncate pb-0.5 text-base leading-snug text-ink-2 md:text-lg">{client.email}</p>
                 {messagingHint ? (
-                  <p className="mt-2 text-xs text-[rgb(var(--accent-foreground))]/70">{messagingHint}</p>
+                  <p className="mt-2 text-xs text-dim">{messagingHint}</p>
                 ) : null}
               </div>
             </div>
           </div>
-        </AccentHeroSurface>
+        </section>
 
         <section className="panel rounded-2xl">
           <ResponsiveDefinitionGrid>
