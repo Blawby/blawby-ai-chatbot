@@ -2,7 +2,7 @@ import { FunctionComponent } from 'preact';
 import { useEffect, useState } from 'preact/hooks';
 import { useTranslation } from '@/shared/i18n/hooks';
 import { Button } from '@/shared/ui/Button';
-import { SegmentedToggle } from '@/shared/ui/input';
+import { Seg } from '@/design-system/patterns';
 import { Check } from 'lucide-preact';
 
 import { Icon } from '@/shared/ui/Icon';
@@ -155,7 +155,7 @@ const PricingView: FunctionComponent<PricingViewProps> = ({ className, onUpgrade
       <div className="mx-auto w-full max-w-xl px-2 pt-2 pb-2 md:px-3 md:pt-3 md:pb-3">
         {showBillingSelector ? (
           <div className="flex justify-center pb-1">
-            <SegmentedToggle<BillingPeriod>
+            <Seg<BillingPeriod>
               className="w-full max-w-[420px]"
               value={billingPeriod}
               options={billingOptions}

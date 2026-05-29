@@ -5,7 +5,7 @@ import { Receipt } from 'lucide-preact';
 import { Button } from '@/shared/ui/Button';
 import { InfoCard } from '@/shared/ui/cards/InfoCard';
 import { DetailRow } from '@/shared/ui/detail/DetailRow';
-import { SegmentedToggle } from '@/shared/ui/input/SegmentedToggle';
+import { Seg } from '@/design-system/patterns';
 import { TimeEntriesPanel } from '@/features/matters/components/time-entries/TimeEntriesPanel';
 import { MatterExpensesPanel } from '@/features/matters/components/expenses/MatterExpensesPanel';
 import { InvoicesSection } from '@/features/matters/components/billing/InvoicesSection';
@@ -137,7 +137,7 @@ export const MatterBillingTab = ({
 }: MatterBillingTabProps) => (
   <BillingErrorBoundary onRetry={onRetry}>
     <div className="space-y-5">
-      <SegmentedToggle<BillingSubTab>
+      <Seg<BillingSubTab>
         value={subTab}
         options={BILLING_SEGMENTS.map((segment) => ({ value: segment.id, label: segment.label }))}
         onChange={onSubTabChange}

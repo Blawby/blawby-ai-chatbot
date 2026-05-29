@@ -19,9 +19,9 @@ export interface SegProps<T extends string> {
  * Seg — chat-first segmented control (DESIGN_SYSTEM §7 refactor mapping).
  *
  * Simple inline-flex of buttons with right-border separators; active state
- * via `.seg-on` (ink bg + accent fg). No animated thumb — that's the
- * `SegmentedToggle` primitive's job, which remains for callers that want
- * the sliding indicator. Pick per surface.
+ * via `.seg-on` (ink bg + accent fg). The animated-thumb `SegmentedToggle`
+ * has been swept and deleted (PR-16); this is now the canonical segmented
+ * control for the codebase.
  */
 export function Seg<T extends string>({
   value,

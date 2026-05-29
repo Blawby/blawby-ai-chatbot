@@ -4,7 +4,7 @@ import { useLocation } from 'preact-iso';
 import { Briefcase, Plus } from 'lucide-preact';
 
 import { Button } from '@/shared/ui/Button';
-import { SegmentedToggle } from '@/shared/ui/input/SegmentedToggle';
+import { Seg } from '@/design-system/patterns';
 import { DataTable, type DataTableColumn, type DataTableRow } from '@/shared/ui/table/DataTable';
 import { WorkspacePlaceholderState } from '@/shared/ui/layout/WorkspacePlaceholderState';
 import { InfiniteScroll } from '@/shared/ui/layout/InfiniteScroll';
@@ -292,7 +292,7 @@ export const EngagementsPage: FunctionComponent<EngagementsPageProps> = ({
   return (
     <div className="flex h-full flex-col min-h-0 bg-paper">
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line-subtle px-4 py-3 md:px-6">
-        <SegmentedToggle<StatusFilter>
+        <Seg<StatusFilter>
           value={activeTab}
           options={STATUS_FILTERS.map((filter) => ({ value: filter.id, label: filter.label }))}
           onChange={setActiveTab}

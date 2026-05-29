@@ -1,7 +1,7 @@
 import type { ComponentChildren, FunctionComponent } from 'preact';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { Page } from '@/shared/ui/layout/Page';
-import { SegmentedToggle } from '@/shared/ui/input';
+import { Seg } from '@/design-system/patterns';
 import { cn } from '@/shared/utils/cn';
 import { ProgressRing } from '@/shared/ui/ProgressRing';
 import InspectorPanel from '@/shared/ui/inspector/InspectorPanel';
@@ -452,7 +452,7 @@ export const WorkspaceSetupSection: FunctionComponent<WorkspaceSetupSectionProps
             ) : null}
           </div>
           {showSidebarPreview ? (
-            <SegmentedToggle<PreviewTab>
+            <Seg<PreviewTab>
               className="w-full max-w-[360px]"
               value={previewTab}
               options={previewTabOptions.map((option) => ({ value: option.id, label: option.label }))}

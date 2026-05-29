@@ -5,7 +5,7 @@ import { Search, SquarePen } from 'lucide-preact';
 import { Avatar } from '@/shared/ui/profile/atoms/Avatar';
 import { Input } from '@/shared/ui/input/Input';
 import { Button } from '@/shared/ui/Button';
-import { SegmentedToggle, type SegmentedToggleOption } from '@/shared/ui/input/SegmentedToggle';
+import { Seg, type SegOption } from '@/design-system/patterns';
 import { cn } from '@/shared/utils/cn';
 import ConversationListView from '@/features/chat/views/ConversationListView';
 import type { Conversation } from '@/shared/types/conversation';
@@ -22,7 +22,7 @@ interface ConversationPreview {
 
 interface MessagesListPanelTabs<T extends string> {
   value: T;
-  options: ReadonlyArray<SegmentedToggleOption<T>>;
+  options: ReadonlyArray<SegOption<T>>;
   onChange: (value: T) => void;
 }
 
@@ -118,7 +118,7 @@ const MessagesListPanel: FunctionComponent<MessagesListPanelProps> = ({
       </header>
       {tabs && tabs.options.length > 0 ? (
         <div className="px-4 pb-3">
-          <SegmentedToggle
+          <Seg
             value={tabs.value}
             options={tabs.options}
             onChange={tabs.onChange}

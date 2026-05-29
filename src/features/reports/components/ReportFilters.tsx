@@ -1,7 +1,7 @@
 import type { FunctionComponent } from 'preact';
 import { DatePicker } from '@/shared/ui/input/DatePicker';
 import { Input } from '@/shared/ui/input/Input';
-import { SegmentedToggle } from '@/shared/ui/input/SegmentedToggle';
+import { Seg } from '@/design-system/patterns';
 import { cn } from '@/shared/utils/cn';
 import type { FilterSpec } from '@/features/reports/config/reportCollection';
 
@@ -40,7 +40,7 @@ export const ReportFilters: FunctionComponent<ReportFiltersProps> = ({ filters, 
           return (
             <div key={f.id} className="flex flex-col gap-1">
               <label className="text-xs font-medium text-ink">{f.label}</label>
-              <SegmentedToggle<ReportPeriod>
+              <Seg<ReportPeriod>
                 value={current}
                 options={PERIOD_OPTIONS}
                 ariaLabel={f.label}

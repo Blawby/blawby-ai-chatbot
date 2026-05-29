@@ -4,7 +4,8 @@ import { PageHeader } from '@/shared/ui/layout/PageHeader';
 import { Page } from '@/shared/ui/layout/Page';
 import { WorkspacePlaceholderState } from '@/shared/ui/layout/WorkspacePlaceholderState';
 import { Button } from '@/shared/ui/Button';
-import { CurrencyInput, Input, SegmentedToggle } from '@/shared/ui/input';
+import { CurrencyInput, Input } from '@/shared/ui/input';
+import { Seg } from '@/design-system/patterns';
 import { DataTable, type DataTableColumn, type DataTableRow } from '@/shared/ui/table/DataTable';
 import { type TimelineItem, type TimelinePerson } from '@/shared/ui/activity/ActivityTimeline';
 import { Dialog, DialogBody } from '@/shared/ui/dialog';
@@ -2161,7 +2162,7 @@ export const PracticeMattersPage = ({
       )}
 
       <header className="flex flex-wrap items-center justify-between gap-3 px-6 py-3">
-        <SegmentedToggle<MatterFilterCategory>
+        <Seg<MatterFilterCategory>
           value={matterCategoryFilter}
           options={MATTER_FILTER_CATEGORIES.map((category) => ({
             value: category.id,
