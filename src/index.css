@@ -1611,6 +1611,330 @@
     gap: 8px;
     margin-top: 8px;
   }
+
+  /* ----------------------------------------------------------------
+   * Chat patterns — DESIGN_SYSTEM.md §3
+   * Composite AI/chat surfaces. Consumed by src/design-system/patterns/*.
+   * ---------------------------------------------------------------- */
+
+  /* §3.1 AI summary — gold-tinted hero block */
+  .ai-summary {
+    background: linear-gradient(180deg, color-mix(in oklab, var(--accent) 12%, var(--card)), var(--card));
+    border: 1px solid color-mix(in oklab, var(--accent) 30%, var(--rule));
+    border-radius: var(--r-md);
+    padding: 20px 22px;
+    box-shadow: var(--shadow-1);
+  }
+  .ai-summary-label {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--accent-deep);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .ai-summary-verify {
+    color: var(--pos);
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+  }
+  .ai-summary-verify::before {
+    content: "";
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: var(--pos);
+  }
+  .ai-summary-body {
+    font-family: var(--serif);
+    font-size: 18px;
+    line-height: 1.5;
+    color: var(--ink);
+    margin: 8px 0 0;
+    max-width: 64ch;
+  }
+  .ai-summary-body em {
+    color: var(--accent-deep);
+    font-style: italic;
+  }
+  .ai-summary-actions {
+    display: flex;
+    gap: 6px;
+    margin-top: 14px;
+    flex-wrap: wrap;
+  }
+
+  /* §3.2 Staged-action — IOLTA approval gate */
+  .staged-action {
+    background: linear-gradient(
+      180deg,
+      color-mix(in oklab, var(--accent) 22%, var(--card)),
+      color-mix(in oklab, var(--accent) 10%, var(--card))
+    );
+    border: 1px solid color-mix(in oklab, var(--accent) 50%, var(--rule));
+    border-radius: var(--r-md);
+    padding: 14px 16px;
+    box-shadow:
+      0 1px 0 rgba(255, 255, 255, 0.5) inset,
+      0 8px 24px -18px color-mix(in oklab, var(--accent-deep) 50%, transparent);
+  }
+  .staged-action-label {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--accent-deep);
+  }
+  .staged-action-title {
+    font-family: var(--serif);
+    font-size: 20px;
+    margin-top: 4px;
+    line-height: 1.2;
+    color: var(--ink);
+  }
+  .staged-action-desc {
+    font-size: 12.5px;
+    color: var(--ink-2);
+    margin-top: 4px;
+    line-height: 1.5;
+  }
+  .staged-action-actions {
+    display: flex;
+    gap: 6px;
+    margin-top: 12px;
+    flex-wrap: wrap;
+  }
+
+  /* §3.3 Citations — pill row beneath AI responses */
+  .citations {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    margin-top: 14px;
+  }
+
+  /* §3.4 Matter chip — inline entity reference */
+  .matter-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 2px 9px 3px;
+    border-radius: var(--r-xs);
+    background: var(--rule-soft);
+    border: 1px solid var(--rule);
+    font-size: 13px;
+    color: var(--ink);
+    cursor: pointer;
+    transition: background 0.12s, border-color 0.12s;
+    line-height: 1.4;
+    font-family: var(--sans);
+  }
+  .matter-chip:hover {
+    background: color-mix(in oklab, var(--accent) 12%, var(--card));
+    border-color: color-mix(in oklab, var(--accent) 40%, var(--rule));
+  }
+  .matter-chip-pin {
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: var(--dim-2);
+    flex-shrink: 0;
+  }
+  .matter-chip-urgent .matter-chip-pin {
+    background: var(--neg);
+  }
+  .matter-chip-active {
+    background: var(--card);
+    border-color: var(--ink);
+    box-shadow: 0 0 0 1px var(--ink);
+  }
+
+  /* §3.5 Tool-use line */
+  .tool-use {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.06em;
+    color: var(--dim);
+    text-transform: uppercase;
+  }
+  .tool-use code {
+    font-family: var(--mono);
+    color: var(--ink-2);
+    background: var(--rule-soft);
+    padding: 1px 6px;
+    border-radius: 3px;
+    text-transform: none;
+    letter-spacing: 0;
+    font-size: 10.5px;
+  }
+
+  /* §3.6 Observation — "I noticed" left-border accent strip */
+  .observation {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 16px 18px;
+    border-left: 2px solid var(--accent);
+    background: linear-gradient(90deg, var(--accent-soft), transparent 80%);
+    border-radius: 0 var(--r-md) var(--r-md) 0;
+  }
+  .observation-label {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--accent-deep);
+  }
+  .observation-text {
+    font-family: var(--serif);
+    font-size: 18px;
+    line-height: 1.45;
+    color: var(--ink);
+    max-width: 54ch;
+    font-style: italic;
+  }
+  .observation-actions {
+    display: flex;
+    gap: 6px;
+    margin-top: 8px;
+    flex-wrap: wrap;
+  }
+
+  /* §3.7 Composer — sticky bottom chat input */
+  .composer-wrap {
+    position: sticky;
+    bottom: 0;
+    padding: 18px 24px 26px;
+    background: linear-gradient(180deg, transparent, var(--paper) 28%);
+  }
+  .composer {
+    background: var(--card);
+    border: 1px solid var(--rule);
+    border-radius: var(--r-md);
+    padding: 14px 16px 12px;
+    box-shadow: var(--shadow-2);
+  }
+  .composer-tabs {
+    display: flex;
+    gap: 4px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--rule);
+    margin-bottom: 12px;
+  }
+  .composer-tab {
+    padding: 6px 10px;
+    border-radius: var(--r-xs);
+    background: transparent;
+    border: 0;
+    cursor: pointer;
+    font-family: var(--mono);
+    font-size: 10.5px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--dim);
+  }
+  .composer-tab[data-active="true"] {
+    background: var(--rule-soft);
+    color: var(--ink);
+  }
+  .composer-input {
+    font-family: var(--sans);
+    font-size: 16px;
+    color: var(--ink);
+    line-height: 1.5;
+    min-height: 24px;
+    width: 100%;
+    background: transparent;
+    border: 0;
+    outline: none;
+    resize: none;
+  }
+  .composer-input::placeholder { color: var(--dim-2); }
+  .composer-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 10px;
+    flex-wrap: wrap;
+  }
+  .composer-ctx {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-family: var(--mono);
+    font-size: 10.5px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    padding: 4px 8px;
+    border-radius: var(--r-xs);
+    border: 1px dashed var(--rule);
+    color: var(--dim);
+  }
+  .composer-ctx-remove {
+    cursor: pointer;
+    color: var(--dim-2);
+    background: transparent;
+    border: 0;
+    padding: 0;
+    line-height: 1;
+  }
+  .composer-hint {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.05em;
+    color: var(--dim-2);
+    margin-top: 8px;
+    text-transform: uppercase;
+  }
+  .composer-hint kbd {
+    background: var(--rule-soft);
+    border: 1px solid var(--rule);
+    padding: 1px 5px;
+    border-radius: 3px;
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--ink-2);
+  }
+
+  /* §3.14 Briefing card grid (Assistant) */
+  .briefing-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+  }
+  .briefing-grid-card {
+    background: var(--card);
+    border: 1px solid var(--rule);
+    border-radius: var(--r-md);
+    padding: 18px;
+    transition: transform 0.15s, box-shadow 0.15s, border-color 0.15s;
+    box-shadow: var(--shadow-1);
+  }
+  .briefing-grid-card:hover {
+    transform: translateY(-1px);
+    box-shadow: var(--shadow-2);
+    border-color: var(--paper-edge);
+  }
+  .briefing-grid-card-span-2 {
+    grid-column: 1 / span 2;
+  }
+  .briefing-grid-card-feature {
+    background: linear-gradient(
+      180deg,
+      color-mix(in oklab, var(--accent) 18%, var(--card)) 0%,
+      var(--card) 100%
+    );
+    border-color: color-mix(in oklab, var(--accent) 50%, var(--rule));
+    box-shadow:
+      0 1px 0 rgba(255, 255, 255, 0.5) inset,
+      0 12px 32px -18px color-mix(in oklab, var(--accent-deep) 60%, transparent);
+  }
 }
 
 @layer utilities {
