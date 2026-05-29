@@ -1,23 +1,27 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'preact/hooks';
+import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import type { Conversation, ConversationMode, SetupFieldsPayload } from '@/shared/types/conversation';
 import { updateConversationMatter, type PracticeDetails } from '@/shared/lib/apiClient';
 import type { BackendMatter } from '@/features/matters/services/mattersApi';
 import { useUserDetail } from '@/shared/hooks/useUserDetail';
 import { useMatterDetail } from '@/shared/hooks/useMatterDetail';
 import { usePracticeDetail } from '@/shared/hooks/usePracticeDetail';
-import { MATTER_STATUS_LABELS, MATTER_WORKFLOW_STATUSES, isMatterStatus, type MatterStatus } from '@/shared/types/matterStatus';
+import type { MatterStatus } from '@/shared/types/matterStatus';
 import { InvoiceInspector } from '@/features/invoices/components/InvoiceInspector';
 import { ClientInspector } from '@/features/clients/components/ClientInspector';
+import { MatterInspector } from '@/features/matters/components/MatterInspector';
 import { Button } from '@/shared/ui/Button';
 import { Combobox, type ComboboxOption, Input, Textarea } from '@/shared/ui/input';
-import { StackedAvatars, UserCard } from '@/shared/ui/profile';
+import {
+  InspectorIdentity,
+  renderCompactIdentity,
+  renderIdentityStack,
+} from './identityHelpers';
 import { STATE_OPTIONS } from '@/shared/ui/address/AddressFields';
 import { InspectorSectionSkeleton } from '@/shared/ui/layout';
 import {
   InfoRow,
   InspectorEditableRow,
   InspectorGroup,
-  InspectorHeaderEntity,
   InspectorHeaderPerson,
   InspectorHeaderHero,
 } from './InspectorPrimitives';
@@ -31,7 +35,6 @@ import { resolveStrengthTier, resolveStrengthLabel, resolveStrengthStyle, resolv
 import type { PracticeSetupStatus } from '@/features/practice-setup/utils/status';
 import type { BusinessOnboardingStatus } from '@/shared/hooks/usePracticeManagement';
 import { SetupInspectorContent } from './SetupInspectorContent';
-import { MatterFilesSection } from './MatterFilesSection';
 
 type InspectorConfig =
   | { type: 'conversation' }
@@ -40,14 +43,6 @@ type InspectorConfig =
   | { type: 'invoice' };
 
 type InspectorEntityType = InspectorConfig['type'];
-
-type InspectorIdentity = {
-  userId: string;
-  name: string;
-  email?: string;
-  image?: string | null;
-  role: string;
-};
 
 type InspectorPanelProps = {
   entityType: InspectorEntityType;
@@ -106,8 +101,6 @@ type InspectorPanelProps = {
   showCloseButton?: boolean;
 };
 
-const isValidMatterStatus = (value: unknown): value is MatterStatus =>
-  typeof value === 'string' && isMatterStatus(value);
 
 export const InspectorPanel = ({
   entityType,
@@ -122,7 +115,7 @@ export const InspectorPanel = ({
   onConversationMatterChange,
   matterClientName,
   matterAssigneeNames,
-  matterBillingLabel,
+  matterBillingLabel: _matterBillingLabel,
   matterCreatedLabel,
   matterUpdatedLabel,
   matterClientId,
@@ -175,11 +168,6 @@ export const InspectorPanel = ({
   const [isSavingTags, setIsSavingTags] = useState(false);
   const [isSavingMatter, setIsSavingMatter] = useState(false);
   const [activeConversationEditor, setActiveConversationEditor] = useState<'assignment' | 'priority' | 'tags' | 'matter' | 'intakePracticeArea' | 'intakeCity' | 'intakeState' | 'intakeOpposingParty' | 'intakeDesiredOutcome' | 'intakeDescription' | 'intakeName' | 'intakeEmail' | 'intakePhone' | null>(null);
-  const [activeMatterEditor, setActiveMatterEditor] = useState<
-    'status' | 'person' | 'responsible' | 'originating' | 'urgency' | 'caseNumber' | 'matterType' | 'court' | 'judge' | 'opposingParty' | 'opposingCounsel' | 'team' | null
-  >(null);
-  const [isSavingMatterStatus, setIsSavingMatterStatus] = useState(false);
-  const [isSavingMatterField, setIsSavingMatterField] = useState(false);
   const [localIntakeDraft, setLocalIntakeDraft] = useState<string | null>(null);
   const skipBlurRef = useRef(false);
 
@@ -236,15 +224,6 @@ export const InspectorPanel = ({
     ],
     [conversationMembers]
   );
-  const matterStatusOptions = useMemo<ComboboxOption[]>(
-    () => MATTER_WORKFLOW_STATUSES.map((status) => ({
-      value: status,
-      label: MATTER_STATUS_LABELS[status],
-    })),
-    []
-  );
-
-
   const currentTags = useMemo(
     () => Array.isArray(conversation?.tags) ? conversation.tags.filter((tag) => typeof tag === 'string' && tag.trim().length > 0) : [],
     [conversation?.tags]
@@ -325,7 +304,6 @@ export const InspectorPanel = ({
   // their data on the new key, but UI editor state is per-entity-instance.
   useEffect(() => {
     setActiveConversationEditor(null);
-    setActiveMatterEditor(null);
     setLocalIntakeDraft(null);
     setLocalError(null);
   }, [conversation?.id, entityId, entityType]);
@@ -334,120 +312,8 @@ export const InspectorPanel = ({
     setLocalIntakeDraft(null);
   }, [activeConversationEditor]);
 
-  const [inspectorMatterStatus, setInspectorMatterStatus] = useState<MatterStatus | null>(
-    isValidMatterStatus(matterDetail?.status) ? matterDetail.status : null
-  );
-  useEffect(() => {
-    setInspectorMatterStatus(isValidMatterStatus(matterDetail?.status) ? matterDetail.status : null);
-  }, [entityId, entityType, matterDetail?.status]);
-  const canEditMatterStatus = Boolean(onMatterStatusChange && matterDetail && !isLoading && inspectorMatterStatus);
-  const canEditMatterFields = Boolean(onMatterPatchChange && matterDetail && !isLoading);
-  const matterDetailRecord = matterDetail as Record<string, unknown> | null;
-  const resolvedMatterClientName = matterClientName
-    ?? resolveString(matterDetailRecord?.client_name)
-    ?? null;
-  const resolvedMatterClientId = matterClientId
-    ?? resolveString(matterDetailRecord?.client_id)
-    ?? null;
-  const resolvedMatterUrgency = matterUrgency
-    ?? resolveString(matterDetailRecord?.urgency)
-    ?? null;
-  const resolvedMatterResponsibleAttorneyId = matterResponsibleAttorneyId
-    ?? resolveString(matterDetailRecord?.responsible_attorney_id)
-    ?? null;
-  const resolvedMatterOriginatingAttorneyId = matterOriginatingAttorneyId
-    ?? resolveString(matterDetailRecord?.originating_attorney_id)
-    ?? null;
-  const resolvedMatterCaseNumber = matterCaseNumber
-    ?? resolveString(matterDetailRecord?.case_number)
-    ?? null;
-  const resolvedMatterType = matterType
-    ?? resolveString(matterDetailRecord?.matter_type)
-    ?? null;
-  const resolvedMatterCourt = matterCourt
-    ?? resolveString(matterDetailRecord?.court)
-    ?? null;
-  const resolvedMatterJudge = matterJudge
-    ?? resolveString(matterDetailRecord?.judge)
-    ?? null;
-  const resolvedMatterOpposingParty = matterOpposingParty
-    ?? resolveString(matterDetailRecord?.opposing_party)
-    ?? null;
-  const resolvedMatterOpposingCounsel = matterOpposingCounsel
-    ?? resolveString(matterDetailRecord?.opposing_counsel)
-    ?? null;
-  const _resolvedMatterBillingLabel = matterBillingLabel
-    ?? resolveString(matterDetailRecord?.billing_type)
-    ?? null;
-  const resolvedMatterCreatedLabel = matterCreatedLabel
-    ?? resolveString(matterDetailRecord?.created_at)
-    ?? null;
-  const resolvedMatterUpdatedLabel = matterUpdatedLabel
-    ?? resolveString(matterDetailRecord?.updated_at)
-    ?? null;
-  const resolvedMatterAssigneeIds = useMemo(() => {
-    // Prefer assignee_ids if present and non-empty
-    if (Array.isArray(matterDetailRecord?.assignee_ids) && matterDetailRecord.assignee_ids.length > 0) {
-      return matterDetailRecord.assignee_ids.filter((id): id is string => typeof id === 'string' && id.trim().length > 0);
-    }
-    // Fallback: extract ids from assignees array if available
-    const assignees = Array.isArray(matterDetailRecord?.assignees) ? matterDetailRecord.assignees : [];
-    return assignees
-      .map((assignee) => {
-        if (!assignee || typeof assignee !== 'object') return '';
-        const row = assignee as Record<string, unknown>;
-        return typeof row.id === 'string' ? row.id : '';
-      })
-      .filter((id): id is string => id.length > 0);
-  }, [matterDetailRecord?.assignee_ids, matterDetailRecord?.assignees]);
-  const resolvedMatterAssigneeNames = useMemo(() => {
-    if (matterAssigneeNames && matterAssigneeNames.length > 0) return matterAssigneeNames;
-    const assigneesValue = matterDetailRecord?.assignees;
-    const assignees = Array.isArray(assigneesValue) ? assigneesValue : [];
-    const namesFromRows = assignees
-      .map((assignee) => {
-        if (typeof assignee === 'string') return assignee.trim();
-        if (!assignee || typeof assignee !== 'object') return '';
-        const row = assignee as Record<string, unknown>;
-        return resolveString(row.name) ?? resolveString(row.email) ?? '';
-      })
-      .filter((name): name is string => name.length > 0);
-    if (namesFromRows.length > 0) return namesFromRows;
-    const assigneeIds = Array.isArray(matterDetailRecord?.assignee_ids)
-      ? [...matterDetailRecord.assignee_ids].filter((id) => typeof id === 'string' || typeof id === 'number')
-      : [];
-    return assigneeIds
-      .map((id) => String(id).trim())
-      .filter((id) => id.length > 0)
-      .map((id) => `User ${id.slice(0, 6)}`);
-  }, [matterAssigneeNames, matterDetailRecord]);
-  const resolvedMatterClientLabel = useMemo(() => {
-    if (resolvedMatterClientName) return resolvedMatterClientName;
-    if (resolvedMatterClientId) {
-      const option = matterClientOptions.find((entry) => entry.value === resolvedMatterClientId);
-      if (option?.label) return option.label;
-      return `Client ${resolvedMatterClientId.slice(0, 6)}`;
-    }
-    return 'Unassigned client';
-  }, [resolvedMatterClientId, resolvedMatterClientName, matterClientOptions]);
-  const matterClientOptionsWithNone = useMemo<ComboboxOption[]>(() => {
-    const hasEmptyOption = matterClientOptions.some((option) => option.value === '');
-    return hasEmptyOption
-      ? matterClientOptions
-      : [{ value: '', label: '— none —' }, ...matterClientOptions];
-  }, [matterClientOptions]);
-  const resolveMatterClientIdentity = useCallback(() => {
-    if (!resolvedMatterClientId) {
-      return resolvedMatterClientName
-        ? { name: resolvedMatterClientName, image: null }
-        : null;
-    }
-    const client = matterClients.find((entry) => entry.userId === resolvedMatterClientId);
-    if (client) return client;
-    return resolvedMatterClientName
-      ? { userId: resolvedMatterClientId, name: resolvedMatterClientName, image: null, role: 'client' }
-      : { userId: resolvedMatterClientId, name: `Client ${resolvedMatterClientId.slice(0, 6)}`, image: null, role: 'client' };
-  }, [matterClients, resolvedMatterClientId, resolvedMatterClientName]);
+  // matter-specific resolved fields, identity helpers, and matterTeamIdentities
+  // all live inside MatterInspector now.
   const conversationPeople = useMemo(() => {
     const people = new Map<string, { id: string; name: string; image?: string | null }>();
     const clientId = resolveString(userDetail?.user_id) ?? resolveString(userDetail?.id);
@@ -475,163 +341,9 @@ export const InspectorPanel = ({
     }
     return [...people.values()];
   }, [assignedConversationMember, userDetail, conversation, assignedMemberLabel]);
-  const resolveAttorneyLabel = useCallback((id: string | null) => {
-    if (!id) return 'Not set';
-    const option = matterAssigneeOptions.find((entry) => entry.value === id);
-    return option?.label ?? `User ${id.slice(0, 6)}`;
-  }, [matterAssigneeOptions]);
-  const resolveAttorneyIdentity = useCallback((id: string | null) => {
-    if (!id) return null;
-    const member = conversationMembers.find((entry) => entry.userId === id);
-    if (member) return member;
-    const option = matterAssigneeOptions.find((entry) => entry.value === id);
-    if (option?.label) {
-      return {
-        userId: id,
-        name: option.label,
-        email: option.meta,
-        image: null,
-        role: 'member',
-      };
-    }
-    return {
-      userId: id,
-      name: `User ${id.slice(0, 6)}`,
-      image: null,
-      role: 'member',
-    };
-  }, [conversationMembers, matterAssigneeOptions]);
-  const matterTeamIdentities = useMemo(() => {
-    const identities = new Map<string, { id: string; name: string; image?: string | null }>();
-
-    const addIdentity = (identity: Pick<InspectorIdentity, 'userId' | 'name' | 'image'> | null | undefined) => {
-      if (!identity?.userId || !identity.name) return;
-      identities.set(identity.userId, {
-        id: identity.userId,
-        name: identity.name,
-        image: identity.image ?? null,
-      });
-    };
-
-    addIdentity(resolveAttorneyIdentity(resolvedMatterResponsibleAttorneyId));
-    addIdentity(resolveAttorneyIdentity(resolvedMatterOriginatingAttorneyId));
-
-    const assigneeIds = Array.isArray(matterDetailRecord?.assignee_ids)
-      ? matterDetailRecord.assignee_ids.filter((id): id is string => typeof id === 'string' && id.trim().length > 0)
-      : [];
-    assigneeIds.forEach((id) => addIdentity(resolveAttorneyIdentity(id)));
-
-    // Always add fallback identities for non-empty names that aren't already present
-    resolvedMatterAssigneeNames.forEach((name, index) => {
-      if (!name.trim()) return;
-      
-      // Check if this name is already present in existing identities
-      const nameAlreadyExists = [...identities.values()].some(identity => identity.name === name);
-      if (!nameAlreadyExists) {
-        identities.set(`matter-assignee-${index}`, {
-          id: `matter-assignee-${index}`,
-          name,
-          image: null,
-        });
-      }
-    });
-
-    return [...identities.values()];
-  }, [
-    matterDetailRecord?.assignee_ids,
-    resolveAttorneyIdentity,
-    resolvedMatterAssigneeNames,
-    resolvedMatterOriginatingAttorneyId,
-    resolvedMatterResponsibleAttorneyId,
-  ]);
-  const renderCompactIdentity = useCallback((identity: Pick<InspectorIdentity, 'name' | 'image'> | null) => {
-    if (!identity) return null;
-    return (
-      <UserCard
-        name={identity.name}
-        image={identity.image ?? null}
-        size="sm"
-        className="px-0 py-0"
-      />
-    );
-  }, []);
-  const renderIdentityStack = useCallback((
-    users: Array<{ id: string; name: string; image?: string | null }>,
-    emptyLabel: string,
-    singularLabel: string,
-    pluralLabel: string,
-  ) => {
-    if (users.length === 0) {
-      return <span className="text-input-placeholder">{emptyLabel}</span>;
-    }
-
-    return (
-      <div className="flex items-center gap-3">
-        <StackedAvatars users={users} size="sm" max={4} className="shrink-0" />
-        <div className="min-w-0">
-          <p className="truncate text-[14px] text-input-text">
-            {users.map((user) => user.name).join(', ')}
-          </p>
-          <p className="text-[11px] uppercase tracking-wider text-input-placeholder">
-            {users.length} {users.length === 1 ? singularLabel : pluralLabel}
-          </p>
-        </div>
-      </div>
-    );
-  }, []);
-  const matterUrgencyLabel = useMemo(() => {
-    if (!resolvedMatterUrgency) return 'Not set';
-    return resolvedMatterUrgency.replace(/_/g, ' ').replace(/\b\w/g, (char) => char.toUpperCase());
-  }, [resolvedMatterUrgency]);
-  const urgencyOptions = useMemo<ComboboxOption[]>(
-    () => [
-      { value: '', label: 'Not set' },
-      { value: 'routine', label: 'Routine' },
-      { value: 'time_sensitive', label: 'Time Sensitive' },
-      { value: 'emergency', label: 'Emergency' },
-    ],
-    []
-  );
-  const handleMatterStatusChange = async (value: string) => {
-    if (!canEditMatterStatus || !onMatterStatusChange || !isMatterStatus(value)) return;
-    setError(null);
-    setIsSavingMatterStatus(true);
-    try {
-      await Promise.resolve(onMatterStatusChange(value));
-      setInspectorMatterStatus(value);
-      setActiveMatterEditor(null);
-    } catch (nextError: unknown) {
-      setError(nextError instanceof Error ? nextError.message : 'Failed to update matter status');
-    } finally {
-      setIsSavingMatterStatus(false);
-    }
-  };
-  const handleMatterPatchChange = async (patch: Record<string, unknown>) => {
-    if (!canEditMatterFields || !onMatterPatchChange) return;
-    setError(null);
-    setIsSavingMatterField(true);
-    try {
-      const keyMap: Record<string, string> = {
-        clientId: 'client_id',
-        responsibleAttorneyId: 'responsible_attorney_id',
-        originatingAttorneyId: 'originating_attorney_id',
-        caseNumber: 'case_number',
-        matterType: 'matter_type',
-        opposingParty: 'opposing_party',
-        opposingCounsel: 'opposing_counsel',
-        assigneeIds: 'assignee_ids',
-      };
-      const normalizedPatch = Object.fromEntries(
-        Object.entries(patch).map(([key, value]) => [keyMap[key] ?? key, value])
-      );
-      await Promise.resolve(onMatterPatchChange(normalizedPatch));
-      setActiveMatterEditor(null);
-    } catch (nextError: unknown) {
-      setError(nextError instanceof Error ? nextError.message : 'Failed to update matter');
-    } finally {
-      setIsSavingMatterField(false);
-    }
-  };
+  // matterTeamIdentities, matterUrgencyLabel, and the matter-specific resolved
+  // fields live inside MatterInspector now. renderCompactIdentity and
+  // renderIdentityStack are imported from identityHelpers.
   const handleConversationAssignmentChange = async (value: string) => {
     if (!onConversationAssignedToChange) return;
     setError(null);
@@ -730,12 +442,7 @@ export const InspectorPanel = ({
             <InspectorSectionSkeleton wideRows={[true, false, true, false]} />
           </div>
         ) : null}
-        {/* Client loading skeleton is rendered by ClientInspector itself */}
-        {isLoading && entityType === 'matter' ? (
-          <div className="py-3">
-            <InspectorSectionSkeleton wideRows={[true, false, true, false]} />
-          </div>
-        ) : null}
+        {/* Client + matter loading skeletons are rendered by their per-feature inspectors */}
         {error ? <p className="px-4 py-3 text-sm text-red-400">{error}</p> : null}
 
         {entityType === 'conversation' && !isLoading ? (
@@ -1249,386 +956,33 @@ export const InspectorPanel = ({
           </div>
         ) : null}
 
-        {entityType === 'matter' && !isLoading ? (
-          <div className="pb-4">
-            <InspectorHeaderEntity
-              chip="MATTER"
-              title={matterDetail?.title ?? 'Matter'}
-              subtitle={undefined}
-              statusBadge={null}
-            />
-            <div className="">
-              <InspectorGroup
-                label="Status"
-                onToggle={canEditMatterStatus
-                  ? () => setActiveMatterEditor((prev) => (prev === 'status' ? null : 'status'))
-                  : undefined}
-                isOpen={activeMatterEditor === 'status'}
-                disabled={isSavingMatterStatus}
-              >
-                <InspectorEditableRow
-                  label=""
-                  summary={inspectorMatterStatus ? MATTER_STATUS_LABELS[inspectorMatterStatus] : '—'}
-                  summaryMuted={!inspectorMatterStatus}
-                  isOpen={activeMatterEditor === 'status'}
-                >
-                  <div className="relative z-40">
-                    <Combobox
-                      value={inspectorMatterStatus ?? ''}
-                      onChange={(value) => { void handleMatterStatusChange(value); }}
-                      options={matterStatusOptions}
-                      searchable={false}
-                      
-                      defaultOpen
-                      hideTrigger
-                      placeholder="Select status"
-                      disabled={isSavingMatterStatus || !canEditMatterStatus}
-                    />
-                  </div>
-                </InspectorEditableRow>
-              </InspectorGroup>
-              <InspectorGroup
-                label="Client"
-                onToggle={canEditMatterFields
-                  ? () => setActiveMatterEditor((prev) => (prev === 'person' ? null : 'person'))
-                  : undefined}
-                isOpen={activeMatterEditor === 'person'}
-                disabled={isSavingMatterField}
-              >
-                <InspectorEditableRow
-                  label=""
-                  summary={renderCompactIdentity(resolveMatterClientIdentity()) ?? resolvedMatterClientLabel}
-                  summaryMuted={!resolvedMatterClientId && !resolvedMatterClientName}
-                  isOpen={activeMatterEditor === 'person'}
-                >
-                  <div className="relative z-30">
-                    <Combobox
-                      value={resolvedMatterClientId ?? ''}
-                      onChange={(value) => { void handleMatterPatchChange({ clientId: value === '' ? null : value }); }}
-                      options={matterClientOptionsWithNone}
-                      searchable
-                      
-                      defaultOpen
-                      hideTrigger
-                      placeholder="Select client"
-                      disabled={isSavingMatterField || !canEditMatterFields}
-                    />
-                  </div>
-                </InspectorEditableRow>
-              </InspectorGroup>
-              <InspectorGroup
-                label="Team"
-                onToggle={canEditMatterFields
-                  ? () => setActiveMatterEditor((prev) => (prev === 'team' ? null : 'team'))
-                  : undefined}
-                isOpen={activeMatterEditor === 'team'}
-                disabled={isSavingMatterField}
-              >
-                <InspectorEditableRow
-                  label=""
-                  summary={renderIdentityStack(
-                    matterTeamIdentities,
-                    'No team members assigned',
-                    'team member',
-                    'team members',
-                  )}
-                  summaryMuted={matterTeamIdentities.length === 0}
-                  isOpen={activeMatterEditor === 'team'}
-                >
-                  <div className="relative z-30">
-                    <Combobox
-                      multiple
-                      value={resolvedMatterAssigneeIds}
-                      onChange={(value) => { void handleMatterPatchChange({ assigneeIds: value }); }}
-                      options={matterAssigneeOptions}
-                      searchable
-                      defaultOpen
-                      hideTrigger
-                      placeholder="Select team members"
-                      disabled={isSavingMatterField || !canEditMatterFields}
-                    />
-                  </div>
-                </InspectorEditableRow>
-              </InspectorGroup>
-              <InspectorGroup
-                label="Responsible Attorney"
-                onToggle={canEditMatterFields
-                  ? () => setActiveMatterEditor((prev) => (prev === 'responsible' ? null : 'responsible'))
-                  : undefined}
-                isOpen={activeMatterEditor === 'responsible'}
-                disabled={isSavingMatterField}
-              >
-                <InspectorEditableRow
-                  label=""
-                  summary={renderCompactIdentity(resolveAttorneyIdentity(resolvedMatterResponsibleAttorneyId))}
-                  summaryMuted={!resolvedMatterResponsibleAttorneyId}
-                  isOpen={activeMatterEditor === 'responsible'}
-                >
-                  <div className="relative z-30">
-                    <Combobox
-                      value={resolvedMatterResponsibleAttorneyId ?? ''}
-                      onChange={(value) => { void handleMatterPatchChange({ responsibleAttorneyId: value === '' ? null : value }); }}
-                      options={[{ value: '', label: 'Not set' }, ...matterAssigneeOptions]}
-                      searchable
-                      
-                      defaultOpen
-                      hideTrigger
-                      placeholder="Select attorney"
-                      disabled={isSavingMatterField || !canEditMatterFields}
-                    />
-                  </div>
-                </InspectorEditableRow>
-              </InspectorGroup>
-              <InspectorGroup
-                label="Originating Attorney"
-                onToggle={canEditMatterFields
-                  ? () => setActiveMatterEditor((prev) => (prev === 'originating' ? null : 'originating'))
-                  : undefined}
-                isOpen={activeMatterEditor === 'originating'}
-                disabled={isSavingMatterField}
-              >
-                <InspectorEditableRow
-                  label=""
-                  summary={renderCompactIdentity(resolveAttorneyIdentity(resolvedMatterOriginatingAttorneyId)) ?? resolveAttorneyLabel(resolvedMatterOriginatingAttorneyId)}
-                  summaryMuted={!resolvedMatterOriginatingAttorneyId}
-                  isOpen={activeMatterEditor === 'originating'}
-                >
-                  <div className="relative z-30">
-                    <Combobox
-                      value={resolvedMatterOriginatingAttorneyId ?? ''}
-                      onChange={(value) => { void handleMatterPatchChange({ originatingAttorneyId: value === '' ? null : value }); }}
-                      options={[{ value: '', label: 'Not set' }, ...matterAssigneeOptions]}
-                      searchable
-                      
-                      defaultOpen
-                      hideTrigger
-                      placeholder="Select attorney"
-                      disabled={isSavingMatterField || !canEditMatterFields}
-                    />
-                  </div>
-                </InspectorEditableRow>
-              </InspectorGroup>
-              <InspectorGroup
-                label="Urgency"
-                onToggle={canEditMatterFields
-                  ? () => setActiveMatterEditor((prev) => (prev === 'urgency' ? null : 'urgency'))
-                  : undefined}
-                isOpen={activeMatterEditor === 'urgency'}
-                disabled={isSavingMatterField}
-              >
-                <InspectorEditableRow
-                  label=""
-                  summary={matterUrgencyLabel}
-                  summaryMuted={!resolvedMatterUrgency}
-                  isOpen={activeMatterEditor === 'urgency'}
-                >
-                  <div className="relative z-30">
-                    <Combobox
-                      value={resolvedMatterUrgency ?? ''}
-                      onChange={(value) => { void handleMatterPatchChange({ urgency: value === '' ? null : value }); }}
-                      options={urgencyOptions}
-                      searchable={false}
-                      
-                      defaultOpen
-                      hideTrigger
-                      disabled={isSavingMatterField || !canEditMatterFields}
-                    />
-                  </div>
-                </InspectorEditableRow>
-              </InspectorGroup>
-              <InspectorGroup
-                label="Case Number"
-                onToggle={canEditMatterFields
-                  ? () => setActiveMatterEditor((prev) => (prev === 'caseNumber' ? null : 'caseNumber'))
-                  : undefined}
-                isOpen={activeMatterEditor === 'caseNumber'}
-                disabled={isSavingMatterField}
-              >
-                <InspectorEditableRow
-                  label=""
-                  summary={resolvedMatterCaseNumber ?? 'Not set'}
-                  summaryMuted={!resolvedMatterCaseNumber}
-                  isOpen={activeMatterEditor === 'caseNumber'}
-                >
-                  <div className="relative z-30">
-                    <Combobox
-                      value={resolvedMatterCaseNumber ?? ''}
-                      onChange={(value) => { void handleMatterPatchChange({ caseNumber: value }); }}
-                      options={[]}
-                      allowCustomValues
-                      
-                      defaultOpen
-                      hideTrigger
-                      addNewLabel="Set case number"
-                      placeholder="Enter case number"
-                      disabled={isSavingMatterField || !canEditMatterFields}
-                    />
-                  </div>
-                </InspectorEditableRow>
-              </InspectorGroup>
-              <InspectorGroup
-                label="Matter Type"
-                onToggle={canEditMatterFields
-                  ? () => setActiveMatterEditor((prev) => (prev === 'matterType' ? null : 'matterType'))
-                  : undefined}
-                isOpen={activeMatterEditor === 'matterType'}
-                disabled={isSavingMatterField}
-              >
-                <InspectorEditableRow
-                  label=""
-                  summary={resolvedMatterType ?? 'Not set'}
-                  summaryMuted={!resolvedMatterType}
-                  isOpen={activeMatterEditor === 'matterType'}
-                >
-                  <div className="relative z-30">
-                    <Combobox
-                      value={resolvedMatterType ?? ''}
-                      onChange={(value) => { void handleMatterPatchChange({ matterType: value }); }}
-                      options={[]}
-                      allowCustomValues
-                      
-                      defaultOpen
-                      hideTrigger
-                      addNewLabel="Set matter type"
-                      placeholder="Enter matter type"
-                      disabled={isSavingMatterField || !canEditMatterFields}
-                    />
-                  </div>
-                </InspectorEditableRow>
-              </InspectorGroup>
-              <InspectorGroup
-                label="Court"
-                onToggle={canEditMatterFields
-                  ? () => setActiveMatterEditor((prev) => (prev === 'court' ? null : 'court'))
-                  : undefined}
-                isOpen={activeMatterEditor === 'court'}
-                disabled={isSavingMatterField}
-              >
-                <InspectorEditableRow
-                  label=""
-                  summary={resolvedMatterCourt ?? 'Not set'}
-                  summaryMuted={!resolvedMatterCourt}
-                  isOpen={activeMatterEditor === 'court'}
-                >
-                  <div className="relative z-30">
-                    <Combobox
-                      value={resolvedMatterCourt ?? ''}
-                      onChange={(value) => { void handleMatterPatchChange({ court: value }); }}
-                      options={[]}
-                      allowCustomValues
-                      
-                      defaultOpen
-                      hideTrigger
-                      addNewLabel="Set court"
-                      placeholder="Enter court"
-                      disabled={isSavingMatterField || !canEditMatterFields}
-                    />
-                  </div>
-                </InspectorEditableRow>
-              </InspectorGroup>
-              <InspectorGroup
-                label="Judge"
-                onToggle={canEditMatterFields
-                  ? () => setActiveMatterEditor((prev) => (prev === 'judge' ? null : 'judge'))
-                  : undefined}
-                isOpen={activeMatterEditor === 'judge'}
-                disabled={isSavingMatterField}
-              >
-                <InspectorEditableRow
-                  label=""
-                  summary={resolvedMatterJudge ?? 'Not set'}
-                  summaryMuted={!resolvedMatterJudge}
-                  isOpen={activeMatterEditor === 'judge'}
-                >
-                  <div className="relative z-30">
-                    <Combobox
-                      value={resolvedMatterJudge ?? ''}
-                      onChange={(value) => { void handleMatterPatchChange({ judge: value }); }}
-                      options={[]}
-                      allowCustomValues
-                      
-                      defaultOpen
-                      hideTrigger
-                      addNewLabel="Set judge"
-                      placeholder="Enter judge"
-                      disabled={isSavingMatterField || !canEditMatterFields}
-                    />
-                  </div>
-                </InspectorEditableRow>
-              </InspectorGroup>
-              <InspectorGroup
-                label="Opposing Party"
-                onToggle={canEditMatterFields
-                  ? () => setActiveMatterEditor((prev) => (prev === 'opposingParty' ? null : 'opposingParty'))
-                  : undefined}
-                isOpen={activeMatterEditor === 'opposingParty'}
-                disabled={isSavingMatterField}
-              >
-                <InspectorEditableRow
-                  label=""
-                  summary={resolvedMatterOpposingParty ?? 'Not set'}
-                  summaryMuted={!resolvedMatterOpposingParty}
-                  isOpen={activeMatterEditor === 'opposingParty'}
-                >
-                  <div className="relative z-30">
-                    <Combobox
-                      value={resolvedMatterOpposingParty ?? ''}
-                      onChange={(value) => { void handleMatterPatchChange({ opposingParty: value }); }}
-                      options={[]}
-                      allowCustomValues
-                      
-                      defaultOpen
-                      hideTrigger
-                      addNewLabel="Set opposing party"
-                      placeholder="Enter opposing party"
-                      disabled={isSavingMatterField || !canEditMatterFields}
-                    />
-                  </div>
-                </InspectorEditableRow>
-              </InspectorGroup>
-              <InspectorGroup
-                label="Opposing Counsel"
-                onToggle={canEditMatterFields
-                  ? () => setActiveMatterEditor((prev) => (prev === 'opposingCounsel' ? null : 'opposingCounsel'))
-                  : undefined}
-                isOpen={activeMatterEditor === 'opposingCounsel'}
-                disabled={isSavingMatterField}
-              >
-                <InspectorEditableRow
-                  label=""
-                  summary={resolvedMatterOpposingCounsel ?? 'Not set'}
-                  summaryMuted={!resolvedMatterOpposingCounsel}
-                  isOpen={activeMatterEditor === 'opposingCounsel'}
-                >
-                  <div className="relative z-30">
-                    <Combobox
-                      value={resolvedMatterOpposingCounsel ?? ''}
-                      onChange={(value) => { void handleMatterPatchChange({ opposingCounsel: value }); }}
-                      options={[]}
-                      allowCustomValues
-                      
-                      defaultOpen
-                      hideTrigger
-                      addNewLabel="Set opposing counsel"
-                      placeholder="Enter opposing counsel"
-                      disabled={isSavingMatterField || !canEditMatterFields}
-                    />
-                  </div>
-                </InspectorEditableRow>
-              </InspectorGroup>
-              <InspectorGroup label="Files & Media">
-                <MatterFilesSection
-                  practiceId={practiceId}
-                  matterId={entityId}
-                />
-              </InspectorGroup>
-              <InspectorGroup label="Record">
-                <InfoRow label="Created" value={resolvedMatterCreatedLabel ?? undefined} />
-                <InfoRow label="Updated" value={resolvedMatterUpdatedLabel ?? undefined} />
-              </InspectorGroup>
-            </div>
-          </div>
+        {entityType === 'matter' && practiceId && entityId ? (
+          <MatterInspector
+            practiceId={practiceId}
+            entityId={entityId}
+            matterClientName={matterClientName}
+            matterAssigneeNames={matterAssigneeNames}
+            matterCreatedLabel={matterCreatedLabel}
+            matterUpdatedLabel={matterUpdatedLabel}
+            matterClientId={matterClientId}
+            matterUrgency={matterUrgency}
+            matterResponsibleAttorneyId={matterResponsibleAttorneyId}
+            matterOriginatingAttorneyId={matterOriginatingAttorneyId}
+            matterCaseNumber={matterCaseNumber}
+            matterType={matterType}
+            matterCourt={matterCourt}
+            matterJudge={matterJudge}
+            matterOpposingParty={matterOpposingParty}
+            matterOpposingCounsel={matterOpposingCounsel}
+            matterClientOptions={matterClientOptions}
+            matterClients={matterClients}
+            matterAssigneeOptions={matterAssigneeOptions}
+            conversationMembers={conversationMembers}
+            onMatterStatusChange={onMatterStatusChange}
+            onMatterPatchChange={onMatterPatchChange}
+          />
         ) : null}
+
 
         {entityType === 'client' && practiceId && entityId ? (
           <ClientInspector practiceId={practiceId} entityId={entityId} />
