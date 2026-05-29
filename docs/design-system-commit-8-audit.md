@@ -202,6 +202,9 @@ In dependency order (each can be its own PR):
 2. ~~**PR-13**: `chore(ds): replace text-input-* family (8.1a)` — big mechanical PR.~~ ✅ **landed in PR #656 (commit `054c0cf9`).** Net +1446/-1446 across 244 files. Note: `text-input-*` was actually dead (missing from tailwind config); replacement with `text-ink` / `text-dim-2` is a real visual change. CSS bundle grew ~5 kB.
 3. ~~**PR-14**: `chore(ds): replace bg-surface-* + bg-accent-N + font-display + rounded-xl (8.1b/c/d combined)` — second mechanical sweep.~~ ✅ **landed in PR #657 (commit `9acfe6ca`).** Net +542/-542 across 185 files. CSS bundle 149→156 kB. Discovered additional dead families (text-accent-N, ring-accent-N, border-accent-N, *-error/*-success/*-foreground variants) out of scope here — those go in a dedicated PR with semantic mapping.
 4. **PR-15**: `refactor(ds): DataTable → CSS grid for 6 non-invoice tables (8.2)`.
+   - ✅ **8.2a landed in PR #658 (commit `81558f59`)** — FilesList + DeliveriesListView converted to EntityList.
+   - Revised: ReportDataTable kept as `<table>` (genuinely tabular report data — same justification as InvoicesTable line items).
+   - **Remaining 4 conversions** (IntakeTemplatesPage, PracticeMattersPage, IntakesPage, EngagementsPage) deferred to a follow-up PR; each touches a larger file (385–2260 LOC) and deserves its own focused review.
 5. **PR-16**: `refactor(ds): migrate SegmentedToggle callers to Seg; delete SegmentedToggle (8.3)`.
 6. **PR-17**: `refactor(ds): migrate .status-* callers to <Pill>; delete alias (8.4b/d-partial)`.
 7. **PR-18**: `refactor(ds): migrate .input-surface callers to DS Input; delete alias (8.4c/d-partial)`.
