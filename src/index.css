@@ -1266,6 +1266,333 @@
     justify-content: space-between;
     margin-bottom: 10px;
   }
+
+  /* ============================================================
+     DS LAYOUT PRIMITIVES — BrandMark, LeftRail, FocusDrawer,
+     SplitDetail, PageHeader
+     Canonical class shapes for the Commit 5 layout primitives.
+     ============================================================ */
+
+  /* BrandMark */
+  .brand-mark {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 8px;
+  }
+
+  .brand-mark-glyph {
+    font-family: var(--serif);
+    font-style: italic;
+    font-size: 22px;
+    line-height: 1;
+    color: var(--accent);
+    transform: translateY(2px);
+  }
+
+  .brand-mark-word {
+    font-family: var(--sans);
+    font-size: 20px;
+    letter-spacing: -0.01em;
+    color: var(--ink);
+  }
+
+  .brand-mark-sm .brand-mark-glyph { font-size: 18px; }
+  .brand-mark-sm .brand-mark-word { font-size: 16px; }
+
+  /* LeftRail — desktop 240px sticky text-label rail */
+  .left-rail {
+    display: flex;
+    flex-direction: column;
+    width: 240px;
+    flex-shrink: 0;
+    background: var(--paper);
+    border-right: 1px solid var(--rule);
+    position: sticky;
+    top: 0;
+    height: 100dvh;
+    overflow: hidden;
+  }
+
+  .left-rail-brand {
+    display: flex;
+    align-items: center;
+    padding: 18px 20px;
+    border-bottom: 1px solid var(--rule);
+  }
+
+  .left-rail-scroll {
+    flex: 1;
+    overflow-y: auto;
+    padding: 12px 12px 24px;
+  }
+
+  .left-rail-section + .left-rail-section {
+    margin-top: 18px;
+  }
+
+  .left-rail-section-label {
+    font-family: var(--mono);
+    font-size: 10.5px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--dim);
+    padding: 8px 12px;
+  }
+
+  .left-rail-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    padding: 8px 12px;
+    font-size: 13.5px;
+    color: var(--ink);
+    background: transparent;
+    border: 0;
+    border-radius: var(--r-sm);
+    cursor: pointer;
+    text-align: left;
+    transition: background 0.14s ease, color 0.14s ease;
+  }
+
+  .left-rail-item:hover:not(.active) {
+    background: var(--paper-2);
+  }
+
+  .left-rail-item.active {
+    background: var(--ink);
+    color: var(--accent);
+  }
+
+  .left-rail-item.danger {
+    color: var(--neg);
+  }
+
+  .left-rail-item.danger:hover:not(.active) {
+    background: color-mix(in oklab, var(--neg) 10%, transparent);
+  }
+
+  .left-rail-item:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 3px var(--accent-soft);
+  }
+
+  .left-rail-item-label {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .left-rail-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 18px;
+    padding: 1px 6px;
+    font-family: var(--mono);
+    font-size: 10.5px;
+    border-radius: var(--r-pill);
+    background: var(--accent);
+    color: var(--accent-ink);
+  }
+
+  .left-rail-footer {
+    border-top: 1px solid var(--rule);
+    padding: 12px;
+  }
+
+  /* LeftRail — mobile bottom bar */
+  .left-rail-mobile {
+    display: flex;
+    align-items: stretch;
+    width: 100%;
+    background: var(--paper);
+    border-top: 1px solid var(--rule);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+
+  .left-rail-mobile-item {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    padding: 8px 4px;
+    background: transparent;
+    border: 0;
+    color: var(--dim);
+    font-size: 11px;
+    cursor: pointer;
+    position: relative;
+  }
+
+  .left-rail-mobile-item:hover:not(.active) {
+    color: var(--ink);
+    background: var(--paper-2);
+  }
+
+  .left-rail-mobile-item.active {
+    color: var(--accent-deep);
+  }
+
+  .left-rail-mobile-item.danger {
+    color: var(--neg);
+  }
+
+  .left-rail-mobile-item:focus-visible {
+    outline: none;
+    box-shadow: inset 0 0 0 3px var(--accent-soft);
+  }
+
+  .left-rail-mobile-label {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 100%;
+  }
+
+  /* FocusDrawer */
+  .focus-drawer {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    background: var(--card);
+    border-left: 1px solid var(--paper-edge);
+  }
+
+  .focus-drawer-inline {
+    width: 400px;
+    flex-shrink: 0;
+    position: sticky;
+    top: 0;
+    height: 100dvh;
+    box-shadow: var(--shadow-3);
+  }
+
+  .focus-drawer-overlay {
+    max-width: 480px;
+    width: 100%;
+    height: 100dvh;
+    box-shadow: var(--shadow-3);
+  }
+
+  .focus-drawer-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 16px 18px;
+    border-bottom: 1px solid var(--rule);
+  }
+
+  .focus-drawer-title {
+    font-family: var(--serif);
+    font-size: 17px;
+    color: var(--ink);
+    line-height: 1.3;
+  }
+
+  .focus-drawer-subtitle {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.06em;
+    color: var(--dim);
+    margin-top: 4px;
+    text-transform: uppercase;
+  }
+
+  .focus-drawer-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 18px;
+  }
+
+  /* SplitDetail */
+  .split-detail {
+    display: flex;
+    align-items: stretch;
+    min-height: 0;
+    flex: 1;
+  }
+
+  .split-detail-list {
+    width: 380px;
+    flex-shrink: 0;
+    border-right: 1px solid var(--rule);
+    overflow-y: auto;
+  }
+
+  .split-detail-pane {
+    flex: 1;
+    min-width: 0;
+    overflow-y: auto;
+  }
+
+  /* Helper class for split-detail-list items — caller applies .active for the
+     3px gold left accent border. */
+  .split-detail-list-item {
+    display: block;
+    border-left: 3px solid transparent;
+    padding: 12px 16px;
+    transition: background 0.14s ease, border-color 0.14s ease;
+    cursor: pointer;
+  }
+
+  .split-detail-list-item:hover {
+    background: var(--paper-2);
+  }
+
+  .split-detail-list-item.active {
+    border-left-color: var(--accent);
+    background: var(--paper-2);
+  }
+
+  /* PageHeader — DS within-page heading: crumb + serif H1 + lede + rule */
+  .page-header {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid var(--rule);
+    margin-bottom: 24px;
+  }
+
+  .page-header-crumb {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--dim);
+  }
+
+  .page-header-title {
+    font-family: var(--serif);
+    font-weight: 400;
+    letter-spacing: -0.012em;
+    line-height: 1.1;
+    font-size: 28px;
+    color: var(--ink);
+    margin: 0;
+  }
+
+  .page-header-lede {
+    font-size: 15px;
+    line-height: 1.5;
+    color: var(--ink-2);
+    max-width: 56ch;
+    margin: 4px 0 0;
+  }
+
+  .page-header-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    margin-top: 8px;
+  }
 }
 
 @layer utilities {
