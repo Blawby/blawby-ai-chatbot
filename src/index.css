@@ -1935,6 +1935,335 @@
       0 1px 0 rgba(255, 255, 255, 0.5) inset,
       0 12px 32px -18px color-mix(in oklab, var(--accent-deep) 60%, transparent);
   }
+
+  /* ----------------------------------------------------------------
+   * Data-display patterns — DESIGN_SYSTEM.md §3.9, §3.13, §3.15
+   * Consumed by src/design-system/patterns/*.
+   * ---------------------------------------------------------------- */
+
+  /* §3.13 StatStrip — 5-cell horizontal header strip */
+  .stat-strip {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 0;
+    border: 1px solid var(--rule);
+    border-radius: var(--r-md);
+    overflow: hidden;
+    background: var(--card);
+  }
+  .stat-strip-cell {
+    padding: 16px 20px;
+    border-right: 1px solid var(--rule);
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .stat-strip-cell:last-child {
+    border-right: none;
+  }
+  .stat-strip-label {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--dim);
+  }
+  .stat-strip-value {
+    font-family: var(--serif);
+    font-size: 26px;
+    line-height: 1;
+    letter-spacing: -0.012em;
+    font-feature-settings: "tnum";
+    color: var(--ink);
+  }
+  .stat-strip-value small {
+    font-family: var(--mono);
+    font-size: 10.5px;
+    color: var(--dim);
+    margin-left: 4px;
+  }
+  .stat-strip-extra {
+    font-family: var(--mono);
+    font-size: 10.5px;
+    color: var(--dim);
+    margin-top: 4px;
+  }
+  .stat-strip-extra-warn {
+    color: var(--neg);
+  }
+
+  /* §3.15 JourneyProgress — client-portal 5-step horizontal indicator */
+  .journey {
+    padding: 32px 28px;
+    position: relative;
+  }
+  .journey-line {
+    position: absolute;
+    left: 56px;
+    right: 56px;
+    top: 50px;
+    height: 2px;
+    background: var(--rule);
+  }
+  .journey-line-fill {
+    position: absolute;
+    left: 56px;
+    top: 50px;
+    height: 2px;
+    background: var(--accent);
+  }
+  .journey-steps {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 12px;
+    position: relative;
+  }
+  .journey-step {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    text-align: center;
+    position: relative;
+    z-index: 2;
+  }
+  .journey-step-mark {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: var(--card);
+    border: 2px solid var(--rule);
+    display: grid;
+    place-items: center;
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--dim);
+  }
+  .journey-step-done .journey-step-mark {
+    background: var(--ink);
+    border-color: var(--ink);
+    color: var(--accent);
+  }
+  .journey-step-now .journey-step-mark {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: var(--accent-ink);
+    box-shadow: 0 0 0 5px var(--accent-soft);
+  }
+  .journey-step-name {
+    font-family: var(--serif);
+    font-size: 14px;
+    line-height: 1.25;
+    max-width: 14ch;
+    color: var(--dim);
+  }
+  .journey-step-done .journey-step-name {
+    color: var(--ink-2);
+  }
+  .journey-step-now .journey-step-name {
+    color: var(--ink);
+    font-weight: 500;
+  }
+  .journey-step-when {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--dim);
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+  @media (max-width: 720px) {
+    .journey-steps {
+      grid-template-columns: repeat(3, 1fr);
+    }
+    .journey-line,
+    .journey-line-fill {
+      display: none;
+    }
+  }
+
+  /* §3.9 LetterPaper — print-safe document shell.
+     Uses FIXED hex values (not vars) so the document renders identically
+     regardless of app theme. Per spec, this is intentional. */
+  .letter-paper {
+    background: white;
+    max-width: 720px;
+    margin: 0 auto;
+    padding: 56px 60px 72px;
+    color: #15140F;
+    font-family: var(--serif);
+    line-height: 1.6;
+    font-size: 14.5px;
+    box-shadow:
+      0 1px 0 rgba(255, 255, 255, 0.6) inset,
+      0 32px 64px -40px rgba(15, 30, 54, 0.4);
+    border: 1px solid #d3d6df;
+    border-radius: var(--r-xs);
+  }
+  .letter-paper-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    padding-bottom: 18px;
+    border-bottom: 1px solid #d3d6df;
+    margin-bottom: 28px;
+  }
+  .letter-paper-firm {
+    font-family: var(--serif);
+    font-size: 22px;
+    line-height: 1;
+    letter-spacing: -0.012em;
+    color: #0f1e36;
+  }
+  .letter-paper-firm em {
+    font-style: italic;
+    color: oklch(0.55 0.12 78);
+  }
+  .letter-paper-addr {
+    font-family: var(--sans);
+    font-size: 11.5px;
+    line-height: 1.5;
+    color: #6b7790;
+    text-align: right;
+  }
+  .letter-paper h1 {
+    font-family: var(--serif);
+    font-weight: 400;
+    font-size: 28px;
+    letter-spacing: -0.012em;
+    margin: 0 0 12px;
+    line-height: 1.15;
+  }
+  .letter-paper-date {
+    font-family: var(--sans);
+    font-size: 12px;
+    color: #6b7790;
+    margin-bottom: 18px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+  .letter-paper p {
+    margin: 0 0 14px;
+    font-family: var(--serif);
+  }
+  .letter-paper p.letter-paper-intro {
+    font-size: 16px;
+    line-height: 1.55;
+  }
+  .letter-paper h2 {
+    font-family: var(--serif);
+    font-weight: 400;
+    font-size: 18px;
+    margin: 32px 0 10px;
+    letter-spacing: -0.005em;
+    border-top: 1px solid #d3d6df;
+    padding-top: 22px;
+  }
+  .letter-paper-placeholder {
+    background: color-mix(in oklab, oklch(0.72 0.13 82) 20%, transparent);
+    color: oklch(0.4 0.1 80);
+    padding: 0 4px;
+    border-radius: 2px;
+    font-family: var(--mono);
+    font-size: 12px;
+    letter-spacing: 0.02em;
+  }
+  .letter-paper-placeholder-resolved {
+    background: color-mix(in oklab, oklch(0.55 0.1 155) 14%, transparent);
+    color: oklch(0.35 0.1 155);
+    font-family: var(--serif);
+    font-size: 14.5px;
+    letter-spacing: 0;
+  }
+  .letter-paper-fee {
+    border: 1px solid #d3d6df;
+    border-radius: 4px;
+    padding: 18px 22px;
+    margin: 18px 0 26px;
+    background: #f6f3ea;
+  }
+  .letter-paper-fee-head {
+    font-family: var(--mono);
+    font-size: 10.5px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: #6b7790;
+    margin-bottom: 10px;
+  }
+  .letter-paper-fee dl {
+    margin: 0;
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 6px 24px;
+    font-family: var(--serif);
+  }
+  .letter-paper-fee dl dt {
+    color: #2a3b5a;
+  }
+  .letter-paper-fee dl dd {
+    margin: 0;
+    text-align: right;
+    font-feature-settings: "tnum";
+  }
+  .letter-paper-fee-total {
+    margin-top: 14px;
+    padding-top: 12px;
+    border-top: 1px solid #d3d6df;
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    font-family: var(--serif);
+  }
+  .letter-paper-fee-total b {
+    font-size: 22px;
+    letter-spacing: -0.012em;
+    font-feature-settings: "tnum";
+    font-weight: 400;
+  }
+  @media print {
+    .letter-paper {
+      box-shadow: none;
+      border: none;
+      max-width: none;
+    }
+  }
+
+  /* §7 Seg — chat-first segmented control (DESIGN_SYSTEM mentions Seg
+     under "Refactor mapping" — replaces .segmented-toggle*). Simpler
+     than SegmentedToggle (no animated thumb); active state via .seg-on.
+     SegmentedToggle stays for callers with the animated-thumb need;
+     final consolidation is part of Commit 8 feature sweep. */
+  .seg {
+    display: inline-flex;
+    border: 1px solid var(--rule);
+    border-radius: var(--r-xs);
+    background: var(--card);
+  }
+  .seg button {
+    appearance: none;
+    border: none;
+    background: transparent;
+    padding: 5px 10px;
+    font-family: var(--sans);
+    font-size: 12px;
+    color: var(--ink-2);
+    cursor: pointer;
+    border-right: 1px solid var(--rule);
+    line-height: 1.4;
+  }
+  .seg button:last-child {
+    border-right: none;
+  }
+  .seg button:hover:not(:disabled) {
+    background: var(--rule-soft);
+  }
+  .seg button:disabled {
+    cursor: not-allowed;
+    opacity: 0.5;
+  }
+  .seg button.seg-on {
+    background: var(--ink);
+    color: var(--accent);
+  }
 }
 
 @layer utilities {

@@ -25,3 +25,20 @@ export type {
   ComposerTab,
   ComposerContextChip
 } from './Composer';
+
+export { StatStrip } from './StatStrip';
+export type { StatStripProps, StatStripCell } from './StatStrip';
+
+export { JourneyProgress } from './JourneyProgress';
+export type { JourneyProgressProps, JourneyStep, JourneyStepStatus } from './JourneyProgress';
+
+export { LetterPaper } from './LetterPaper';
+export type {
+  LetterPaperProps,
+  LetterPaperPlaceholderProps,
+  LetterPaperFeeProps,
+  LetterPaperFeeRow
+} from './LetterPaper';
+
+export { Seg } from './Seg';
+export type { SegProps, SegOption } from './Seg';
