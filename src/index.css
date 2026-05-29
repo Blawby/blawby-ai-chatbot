@@ -1454,17 +1454,22 @@
     max-width: 100%;
   }
 
-  /* FocusDrawer */
+  /* FocusDrawer — overlay/inline drawer attached to an edge */
   .focus-drawer {
     display: flex;
     flex-direction: column;
     width: 100%;
     background: var(--card);
-    border-left: 1px solid var(--paper-edge);
   }
 
+  /* Edge border depends on which side the drawer sits on */
+  .focus-drawer.right { border-left: 1px solid var(--paper-edge); }
+  .focus-drawer.left { border-right: 1px solid var(--paper-edge); }
+  .focus-drawer.bottom { border-top: 1px solid var(--paper-edge); }
+
+  /* Inline (desktop) — sticky side rail. Bottom inline isn't supported; the
+     component falls back to overlay presentation for `position='bottom'`. */
   .focus-drawer-inline {
-    width: 400px;
     flex-shrink: 0;
     position: sticky;
     top: 0;
@@ -1472,11 +1477,24 @@
     box-shadow: var(--shadow-3);
   }
 
+  .focus-drawer-inline.right,
+  .focus-drawer-inline.left { width: 400px; }
+
+  /* Overlay (mobile) — portaled, anchored to the chosen edge */
   .focus-drawer-overlay {
+    box-shadow: var(--shadow-3);
+  }
+
+  .focus-drawer-overlay.right,
+  .focus-drawer-overlay.left {
     max-width: 480px;
     width: 100%;
     height: 100dvh;
-    box-shadow: var(--shadow-3);
+  }
+
+  .focus-drawer-overlay.bottom {
+    width: 100%;
+    max-height: 70dvh;
   }
 
   .focus-drawer-header {
@@ -2050,6 +2068,14 @@
     animation: ui-surface-in-right 160ms cubic-bezier(0.16, 1, 0.3, 1);
   }
 
+  .ui-surface-enter-left {
+    animation: ui-surface-in-left 160ms cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .ui-surface-enter-bottom {
+    animation: ui-surface-in-bottom 160ms cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
   @keyframes ui-fade-in {
     from {
       opacity: 0;
@@ -2084,10 +2110,36 @@
     }
   }
 
+  @keyframes ui-surface-in-left {
+    from {
+      opacity: 0;
+      transform: translateX(-8px);
+    }
+
+    to {
+      opacity: 1;
+      transform: translateX(0);
+    }
+  }
+
+  @keyframes ui-surface-in-bottom {
+    from {
+      opacity: 0;
+      transform: translateY(8px);
+    }
+
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
   @media (prefers-reduced-motion: reduce) {
     .ui-overlay-enter,
     .ui-surface-enter,
-    .ui-surface-enter-right {
+    .ui-surface-enter-right,
+    .ui-surface-enter-left,
+    .ui-surface-enter-bottom {
       animation: none !important;
     }
 
