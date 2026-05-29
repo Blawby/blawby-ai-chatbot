@@ -1,7 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import type { Conversation, ConversationMode, SetupFieldsPayload } from '@/shared/types/conversation';
-import { getUserDetail, updateConversationMatter, updateUserDetail, getPracticeDetails, type UserDetailRecord, type PracticeDetails } from '@/shared/lib/apiClient';
-import { getMatter, type BackendMatter } from '@/features/matters/services/mattersApi';
+import { updateConversationMatter, type UserDetailRecord, type PracticeDetails } from '@/shared/lib/apiClient';
+import type { BackendMatter } from '@/features/matters/services/mattersApi';
+import { useUserDetail } from '@/shared/hooks/useUserDetail';
+import { useMatterDetail } from '@/shared/hooks/useMatterDetail';
+import { usePracticeDetail } from '@/shared/hooks/usePracticeDetail';
 import { MATTER_STATUS_LABELS, MATTER_WORKFLOW_STATUSES, isMatterStatus, type MatterStatus } from '@/shared/types/matterStatus';
 import { InvoiceInspector } from '@/features/invoices/components/InvoiceInspector';
 import { Button } from '@/shared/ui/Button';
@@ -167,14 +170,8 @@ export const InspectorPanel = ({
   const resolveString = (value: unknown): string | null =>
     typeof value === 'string' && value.trim().length > 0 ? value.trim() : null;
   const { session } = useSessionContext();
-  const userCacheRef = useRef<Map<string, UserDetailRecord | null>>(new Map());
-  const practiceCacheRef = useRef<Map<string, PracticeDetails | null>>(new Map());
-  const matterCacheRef = useRef<Map<string, BackendMatter | null>>(new Map());
-  const [userDetail, setUserDetail] = useState<UserDetailRecord | null>(null);
-  const [practiceDetail, setPracticeDetail] = useState<PracticeDetails | null>(propPracticeDetails ?? null);
-  const [matterDetail, setMatterDetail] = useState<BackendMatter | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
+  const [localError, setLocalError] = useState<string | null>(null);
+  const setError = setLocalError;
   const [isSavingAssignment, setIsSavingAssignment] = useState(false);
   const [isSavingPriority, setIsSavingPriority] = useState(false);
   const [isSavingTags, setIsSavingTags] = useState(false);
@@ -199,13 +196,40 @@ export const InspectorPanel = ({
     country: 'US',
   });
   const skipBlurRef = useRef(false);
-  const lastPracticeIdRef = useRef<string | null>(practiceId);
 
   const conversationUserId = conversation?.user_id ?? null;
   const conversationMatterId = conversation?.matter_id ?? null;
   const resolvedConversationMode = conversationMode ?? conversation?.user_info?.mode;
 
-  const makeCacheKey = (pId: string, eId: string) => `${pId}:${eId}`;
+  // Drive the per-entity data hooks from entityType.
+  const targetUserId = entityType === 'conversation'
+    ? conversationUserId
+    : entityType === 'client'
+      ? entityId
+      : null;
+  const targetMatterId = entityType === 'conversation'
+    ? conversationMatterId
+    : entityType === 'matter'
+      ? entityId
+      : null;
+
+  const userResult = useUserDetail(practiceId, targetUserId, {
+    enabled: entityType === 'conversation' || entityType === 'client',
+  });
+  const matterResult = useMatterDetail(practiceId, targetMatterId, {
+    enabled: entityType === 'conversation' || entityType === 'matter',
+  });
+  const practiceResult = usePracticeDetail(practiceId, {
+    enabled: entityType === 'conversation' && !isClientView,
+    fallback: propPracticeDetails ?? null,
+  });
+
+  const userDetail = userResult.data;
+  const matterDetail = matterResult.data;
+  const practiceDetail = practiceResult.data;
+  const isLoading = userResult.isLoading || matterResult.isLoading || practiceResult.isLoading;
+  // Local mutation errors take precedence; fall back to fetch errors from any hook.
+  const error = localError ?? userResult.error ?? matterResult.error ?? practiceResult.error;
   const priorityOptions = useMemo<ComboboxOption[]>(
     () => [
       { value: 'low', label: 'Low' },
@@ -311,122 +335,19 @@ export const InspectorPanel = ({
     [currentTags]
   );
 
-  useEffect(() => {
-    if (lastPracticeIdRef.current !== practiceId) {
-      userCacheRef.current.clear();
-      matterCacheRef.current.clear();
-      practiceCacheRef.current.clear();
-      lastPracticeIdRef.current = practiceId;
-    }
-  }, [practiceId]);
-
+  // Reset editor state when the entity changes — the hooks themselves swap
+  // their data on the new key, but UI editor state is per-entity-instance.
   useEffect(() => {
     setActiveConversationEditor(null);
     setActiveMatterEditor(null);
     setActivePersonEditor(null);
     setLocalIntakeDraft(null);
+    setLocalError(null);
   }, [conversation?.id, entityId, entityType]);
 
   useEffect(() => {
     setLocalIntakeDraft(null);
   }, [activeConversationEditor]);
-
-  useEffect(() => {
-    setUserDetail(null);
-    setPracticeDetail(propPracticeDetails ?? null);
-    setMatterDetail(null);
-    if (!practiceId || !entityId) return;
-    const controller = new AbortController();
-    setError(null);
-    setIsLoading(true);
-
-    const load = async () => {
-      try {
-        if (entityType === 'invoice') {
-          return;
-        }
-
-        if (entityType === 'conversation') {
-          const userId = conversationUserId;
-          const matterId = conversationMatterId;
-
-          // Handle practice details independently from user details
-          if (propPracticeDetails) {
-            setPracticeDetail(propPracticeDetails);
-          } else if (!isClientView) {
-            // Only attempt to load practice details in non-client view
-            try {
-              const practiceDetail = await getPracticeDetails(practiceId, { signal: controller.signal });
-              setPracticeDetail(practiceDetail);
-            } catch (err: unknown) {
-              const error = err as Error;
-              // Only clear state for real errors, not aborted requests
-              if (!controller.signal.aborted && error?.name !== 'AbortError') {
-                setPracticeDetail(null);
-              }
-            }
-          } else {
-            // Client view - set null if no prop details provided
-            setPracticeDetail(null);
-          }
-
-          // Handle user details separately, regardless of practice details
-          if (userId) {
-            const cacheKey = makeCacheKey(practiceId, userId);
-            if (userCacheRef.current.has(cacheKey)) {
-              setUserDetail(userCacheRef.current.get(cacheKey) ?? null);
-            } else {
-              const detail = await getUserDetail(practiceId, userId, { signal: controller.signal });
-              userCacheRef.current.set(cacheKey, detail);
-              setUserDetail(detail);
-            }
-          }
-
-          if (matterId) {
-            const cacheKey = makeCacheKey(practiceId, matterId);
-            if (matterCacheRef.current.has(cacheKey)) {
-              setMatterDetail(matterCacheRef.current.get(cacheKey) ?? null);
-            } else {
-              const detail = await getMatter(practiceId, matterId, { signal: controller.signal });
-              matterCacheRef.current.set(cacheKey, detail);
-              setMatterDetail(detail);
-            }
-          }
-          return;
-        }
-
-        const cacheKey = makeCacheKey(practiceId, entityId);
-        if (entityType === 'matter') {
-          if (matterCacheRef.current.has(cacheKey)) {
-            setMatterDetail(matterCacheRef.current.get(cacheKey) ?? null);
-          } else {
-            const detail = await getMatter(practiceId, entityId, { signal: controller.signal });
-            matterCacheRef.current.set(cacheKey, detail);
-            setMatterDetail(detail);
-          }
-          return;
-        }
-
-        if (userCacheRef.current.has(cacheKey)) {
-          setUserDetail(userCacheRef.current.get(cacheKey) ?? null);
-        } else {
-          const detail = await getUserDetail(practiceId, entityId, { signal: controller.signal });
-          userCacheRef.current.set(cacheKey, detail);
-          setUserDetail(detail);
-        }
-      } catch (nextError: unknown) {
-        if ((nextError as DOMException)?.name === 'AbortError') return;
-        setError(nextError instanceof Error ? nextError.message : 'Failed to load inspector data');
-      } finally {
-        if (!controller.signal.aborted) {
-          setIsLoading(false);
-        }
-      }
-    };
-
-    void load();
-    return () => controller.abort();
-  }, [conversationMatterId, conversationUserId, entityId, entityType, practiceId, isClientView, propPracticeDetails]);
 
   const [inspectorMatterStatus, setInspectorMatterStatus] = useState<MatterStatus | null>(
     isValidMatterStatus(matterDetail?.status) ? matterDetail.status : null
@@ -835,25 +756,7 @@ export const InspectorPanel = ({
     setError(null);
     setIsSavingPersonField(true);
     try {
-      await updateUserDetail(practiceId, entityId, payload);
-      setUserDetail((prev) => {
-        if (!prev) return prev;
-        const previousUser = prev.user;
-        return {
-          ...prev,
-          ...(payload.address ? { address: payload.address } as Record<string, unknown> : {}),
-          user: previousUser
-        };
-      });
-      const cacheKey = makeCacheKey(practiceId, entityId);
-      const cached = userCacheRef.current.get(cacheKey);
-      if (cached) {
-        userCacheRef.current.set(cacheKey, {
-          ...cached,
-          ...(payload.address ? { address: payload.address } as Record<string, unknown> : {}),
-          user: cached.user
-        });
-      }
+      await userResult.mutate(payload);
       setActivePersonEditor(null);
     } catch (nextError: unknown) {
       setError(nextError instanceof Error ? nextError.message : 'Failed to update contact');
@@ -880,19 +783,7 @@ export const InspectorPanel = ({
     setError(null);
     setIsArchivingPerson(true);
     try {
-      await updateUserDetail(practiceId, entityId, { status, event_name: eventName });
-      setUserDetail((prev) => {
-        if (!prev) return prev;
-        return { ...prev, status };
-      });
-      const cacheKey = makeCacheKey(practiceId, entityId);
-      const cached = userCacheRef.current.get(cacheKey);
-      if (cached) {
-        userCacheRef.current.set(cacheKey, {
-          ...cached,
-          status
-        });
-      }
+      await userResult.mutate({ status, event_name: eventName });
       setActivePersonEditor(null);
       setIsArchiveConfirmOpen(false);
     } catch (nextError: unknown) {
