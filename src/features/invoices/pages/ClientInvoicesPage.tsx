@@ -6,7 +6,7 @@ import type { InvoiceSummary } from '@/features/invoices/types';
 import { InvoiceStatusBadge } from '@/features/invoices/components/InvoiceStatusBadge';
 import { InvoicesTable } from '@/features/invoices/components/InvoicesTable';
 import { ColumnEditor, type ColumnEditorOption } from '@/shared/ui/table';
-import { SegmentedToggle } from '@/shared/ui/input/SegmentedToggle';
+import { Seg } from '@/design-system/patterns';
 import {
   CLIENT_SAFE_INVOICE_COLUMNS,
   DEFAULT_INVOICE_COLUMN_DEFS,
@@ -120,7 +120,7 @@ export function ClientInvoicesPage({
     return (
       <div className="flex min-h-0 flex-1 flex-col gap-4 p-4 sm:p-6">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <SegmentedToggle<ClientInvoiceTabId>
+          <Seg<ClientInvoiceTabId>
             value={activeTab}
             options={CLIENT_INVOICE_TAB_OPTIONS}
             onChange={setActiveTab}

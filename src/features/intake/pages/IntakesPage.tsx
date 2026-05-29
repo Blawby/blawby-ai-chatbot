@@ -3,7 +3,7 @@ import { useCallback, useEffect, useRef, useState } from 'preact/hooks';
 import { useLocation } from 'preact-iso';
 import { Inbox } from 'lucide-preact';
 
-import { SegmentedToggle } from '@/shared/ui/input/SegmentedToggle';
+import { Seg } from '@/design-system/patterns';
 import { DataTable, type DataTableColumn, type DataTableRow } from '@/shared/ui/table/DataTable';
 import { WorkspacePlaceholderState } from '@/shared/ui/layout/WorkspacePlaceholderState';
 import { InfiniteScroll } from '@/shared/ui/layout/InfiniteScroll';
@@ -277,7 +277,7 @@ export const IntakesPage: FunctionComponent<IntakesPageProps> = ({
   return (
     <div className="flex h-full flex-col min-h-0 bg-paper">
       <div className="border-b border-line-subtle bg-paper px-4 py-3 md:px-6">
-        <SegmentedToggle<TriageFilter>
+        <Seg<TriageFilter>
           value={triageFilter}
           options={TRIAGE_FILTERS.map((filter) => ({ value: filter.id, label: filter.label }))}
           onChange={handleFilterChange}

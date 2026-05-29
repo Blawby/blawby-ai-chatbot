@@ -619,48 +619,6 @@
     box-shadow: none;
   }
 
-  /* Segmented toggle */
-  .segmented-toggle {
-    @apply relative inline-flex items-center rounded-full border border-rule bg-paper-2 p-1;
-    box-shadow: none;
-  }
-
-  .segmented-toggle-thumb {
-    @apply pointer-events-none absolute top-1 bottom-1 rounded-full;
-    background-color: rgb(var(--accent-soft));
-
-    transition: left 300ms ease-out, width 300ms ease-out;
-    box-shadow: inset 0 0 0 1px rgb(var(--accent-border));
-  }
-
-  .segmented-toggle-item {
-    @apply relative z-10 rounded-full px-3 py-1.5 text-sm font-medium transition-colors duration-200;
-  }
-
-  .segmented-toggle-item-active {
-    @apply text-ink;
-  }
-
-  .segmented-toggle-item-inactive {
-    @apply text-dim;
-  }
-
-  .segmented-toggle-item-inactive:hover:not(:disabled) {
-    @apply text-ink;
-  }
-
-  .segmented-toggle--compact {
-    @apply p-0.5;
-  }
-
-  .segmented-toggle--compact .segmented-toggle-thumb {
-    @apply top-0.5 bottom-0.5;
-  }
-
-  .segmented-toggle--compact .segmented-toggle-item {
-    @apply px-3 py-1 text-xs;
-  }
-
   /* ============================================================
      MARKDOWN / CHAT
      

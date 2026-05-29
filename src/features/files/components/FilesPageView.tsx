@@ -4,7 +4,7 @@ import { Folder, Upload } from 'lucide-preact';
 import { Page } from '@/shared/ui/layout/Page';
 import { WorkspacePlaceholderState } from '@/shared/ui/layout/WorkspacePlaceholderState';
 import { Button } from '@/shared/ui/Button';
-import { SegmentedToggle } from '@/shared/ui/input/SegmentedToggle';
+import { Seg } from '@/design-system/patterns';
 import { CollectionToolbar } from '@/shared/ui/collection/CollectionToolbar';
 import { useMobileDetection } from '@/shared/hooks/useMobileDetection';
 
@@ -90,7 +90,7 @@ export const FilesPageView = ({ practiceId, practiceSlug, scope, userId = null }
           <CollectionToolbar
             actions={headerActions}
             filters={
-              <SegmentedToggle<AssociationFilter>
+              <Seg<AssociationFilter>
                 value={association}
                 options={ASSOCIATION_OPTIONS.map((opt) => ({ value: opt.id, label: opt.label }))}
                 onChange={setAssociation}

@@ -3,7 +3,7 @@ import type { FunctionComponent } from 'preact';
 import { Dialog, DialogBody, DialogFooter } from '@/shared/ui/dialog';
 import { Button } from '@/shared/ui/Button';
 import { Input } from '@/shared/ui/input/Input';
-import { SegmentedToggle } from '@/shared/ui/input/SegmentedToggle';
+import { Seg } from '@/design-system/patterns';
 import { useToastContext } from '@/shared/contexts/ToastContext';
 import { reportsApi } from '@/features/reports/services/reportsApi';
 import type { ReportFrequency } from '@/features/reports/services/reportsTypes';
@@ -72,7 +72,7 @@ export const ScheduleModal: FunctionComponent<ScheduleModalProps> = ({
         <div className="flex flex-col gap-4">
           <div className="flex flex-col gap-1">
             <span className="text-xs font-medium text-ink">Frequency</span>
-            <SegmentedToggle<ReportFrequency>
+            <Seg<ReportFrequency>
               value={frequency}
               options={FREQ_OPTIONS}
               ariaLabel="Frequency"

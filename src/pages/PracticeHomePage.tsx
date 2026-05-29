@@ -9,7 +9,7 @@ import { useClientsData } from '@/shared/hooks/useClientsData';
 import { useNavigation } from '@/shared/utils/navigation';
 import { signOut } from '@/shared/utils/auth';
 import { Button } from '@/shared/ui/Button';
-import { SegmentedToggle, type SegmentedToggleOption } from '@/shared/ui/input/SegmentedToggle';
+import { Seg, type SegOption } from '@/design-system/patterns';
 import { LeftRail, BrandMark, type LeftRailItem } from '@/design-system/layout';
 import { OrgSwitcherMenu } from '@/shared/ui/nav/OrgSwitcherMenu';
 import { SidebarProfileMenu } from '@/shared/ui/nav/SidebarProfileMenu';
@@ -28,7 +28,7 @@ type CashflowRange = '7d' | '30d' | 'all';
 
 const SETUP_DISMISSED_STORAGE_KEY = 'blawby:practice-home:setup-dismissed';
 
-const CASHFLOW_RANGES: ReadonlyArray<SegmentedToggleOption<CashflowRange>> = [
+const CASHFLOW_RANGES: ReadonlyArray<SegOption<CashflowRange>> = [
   { value: '7d', label: 'Last 7 days' },
   { value: '30d', label: 'Last 30 days' },
   { value: 'all', label: 'All-time' },
@@ -416,7 +416,7 @@ const PracticeHomePage = () => {
         <section className="flex flex-col gap-4">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <h2 className="text-lg font-semibold text-ink">Cashflow</h2>
-            <SegmentedToggle<CashflowRange>
+            <Seg<CashflowRange>
               value={cashflowRange}
               options={CASHFLOW_RANGES}
               onChange={setCashflowRange}

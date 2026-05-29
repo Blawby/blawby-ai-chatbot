@@ -1,7 +1,7 @@
 import { Inbox } from 'lucide-preact';
 
 import { InfoCard } from '@/shared/ui/cards/InfoCard';
-import { SegmentedToggle } from '@/shared/ui/input/SegmentedToggle';
+import { Seg } from '@/design-system/patterns';
 import { MatterTasksPanel } from '@/features/matters/components/tasks/MatterTasksPanel';
 import { MatterMilestonesPanel } from '@/features/matters/components/milestones/MatterMilestonesPanel';
 
@@ -84,7 +84,7 @@ export const MatterWorkTab = ({
 
   return (
     <div className="space-y-5">
-      <SegmentedToggle<WorkSubTab>
+      <Seg<WorkSubTab>
         value={subTab}
         options={WORK_SEGMENTS.map((segment) => ({ value: segment.id, label: segment.label }))}
         onChange={onSubTabChange}
