@@ -1,0 +1,660 @@
+<!doctype html>
+<html lang="en" data-theme="">
+<head>
+<meta charset="utf-8" />
+<title>Blawby — Tasks</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,opsz,wght@0,8..60,300..900;1,8..60,300..900&family=Geist:wght@300;400;500;600;700&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="tokens.css">
+<style>
+  body{
+    background-image: radial-gradient(rgba(15,30,54,0.025) 1px, transparent 1.2px);
+    background-size: 3px 3px;
+    background-attachment: fixed;
+  }
+  .app{ display:grid; grid-template-columns: 240px 1fr 400px; min-height:100vh; max-width:1640px; margin:0 auto; }
+
+  /* ===== left rail (shared) ===== */
+  .rail{ border-right:1px solid var(--rule); padding:22px 16px 16px; display:flex;flex-direction:column;gap:18px; position:sticky;top:0;height:100vh; background: color-mix(in oklab, var(--paper) 96%, var(--card)); }
+  .rail .brand-mark-word{ font-family: var(--sans); font-weight: 500; }
+  .rail .meta{ font-family:var(--mono);font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--dim); margin-top:-8px; padding-left:30px; }
+  .new-btn{ width:100%; background:var(--ink);color:var(--paper); border:1px solid var(--ink); border-radius: var(--r-xs); padding:11px 14px; font-size:13px;font-weight:500; display:flex;align-items:center;justify-content:space-between; cursor:pointer; transition: all .18s ease; }
+  .new-btn:hover{ background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+  .new-btn kbd{ font-family:var(--mono); font-size:10px; background:rgba(255,255,255,.12); color:var(--paper-2); padding:2px 6px; border-radius:3px; }
+  .rail-section{ display:flex; flex-direction:column; gap:2px; }
+  .rail-label{ font-family:var(--mono); font-size:9.5px; letter-spacing:.12em; text-transform:uppercase; color:var(--dim-2); padding:0 8px 4px; }
+  .rail-item{ display:flex; align-items:center; gap:10px; padding:7px 10px; border-radius: var(--r-xs); font-size:13px; color:var(--ink-2); cursor:pointer; transition: background .12s, color .12s; text-decoration:none; }
+  .rail-item:hover{ background: var(--rule-soft); color: var(--ink); }
+  .rail-item .dot{ width:6px; height:6px; border-radius:50%; background:var(--dim-2); flex-shrink:0; }
+  .rail-item.now{ background: var(--accent-soft); color: var(--ink); }
+  .rail-item.now .dot{ background: var(--accent); }
+  .rail-item .count{ margin-left:auto; font-family:var(--mono); font-size:10px; color:var(--dim); letter-spacing:.04em; }
+  .rail-item.unread .count{ color:var(--neg); }
+  .user-chip{ margin-top:auto; display:flex; align-items:center; gap:10px; padding:9px 10px; border-radius: var(--r-xs); border:1px solid var(--rule); background: var(--card); cursor:pointer; }
+  .user-chip .who{ font-size:12.5px; line-height:1.2; }
+  .user-chip .who small{ display:block; color:var(--dim); font-size:10.5px; }
+  .user-chip .caret{ margin-left:auto; color:var(--dim-2); }
+
+  /* ===== center ===== */
+  .center{ padding:36px 56px 80px; display:flex; flex-direction:column; min-width:0; }
+
+  .page-head{ display:flex; justify-content:space-between; align-items:flex-end; padding-bottom: 16px; border-bottom: 1px solid var(--rule); margin-bottom: 24px; }
+  .page-head .crumb{ font-family: var(--mono); font-size: 10.5px; letter-spacing:.16em; text-transform:uppercase; color:var(--dim); margin-bottom: 4px; }
+  .page-head h1{ font-family: var(--serif); font-weight:400; font-size: 56px; line-height: 1; letter-spacing:-.022em; margin:0; }
+  .page-head h1 em{ color: var(--accent); }
+  .page-head .right{ display:flex; gap: 24px; align-items: flex-end; }
+  .page-head .right .stat{ text-align: right; }
+  .page-head .right .stat .v{ font-family: var(--serif); font-size: 24px; line-height: 1; letter-spacing:-.012em; font-feature-settings: "tnum"; }
+  .page-head .right .stat .v.neg{ color: var(--neg); }
+  .page-head .right .stat .v.acc{ color: var(--accent-deep); }
+  .page-head .right .stat .l{ font-family: var(--mono); font-size: 10px; letter-spacing:.1em; text-transform: uppercase; color: var(--dim); margin-top: 4px; }
+
+  .ask{ display:flex; align-items:center; gap:10px; background: var(--card); border: 1px solid var(--rule); border-radius: var(--r-md); padding: 12px 16px; margin-bottom: 16px; box-shadow: var(--shadow-1); }
+  .ask .av{ width: 26px; height: 26px; border-radius: 50%; background: var(--ink); color: var(--accent); display: grid; place-items: center; font-family: var(--serif); font-style: italic; font-size: 14px; }
+  .ask .input{ flex: 1; font-size: 14.5px; color: var(--ink); outline: none; }
+  .ask .input:empty::before{ content: attr(data-ph); color: var(--dim-2); }
+  .ask .kbd{ font-family: var(--mono); font-size: 10px; color: var(--dim); padding: 3px 6px; background: var(--rule-soft); border-radius: 3px; }
+
+  /* feature pick */
+  .pick{
+    background: linear-gradient(180deg, color-mix(in oklab, var(--accent) 18%, var(--card)), color-mix(in oklab, var(--accent) 6%, var(--card)));
+    border: 1px solid color-mix(in oklab, var(--accent) 45%, var(--rule));
+    border-radius: var(--r-md);
+    padding: 26px 28px;
+    margin-bottom: 32px;
+    box-shadow: 0 1px 0 rgba(255,255,255,.5) inset, 0 12px 32px -22px color-mix(in oklab, var(--accent-deep) 60%, transparent);
+    display:grid; grid-template-columns: 1fr 240px; gap: 32px; align-items: center;
+  }
+  .pick .lab{
+    display:flex; align-items:center; gap: 10px;
+    font-family: var(--mono); font-size: 10.5px;
+    letter-spacing:.14em; text-transform: uppercase;
+    color: var(--accent-deep); margin-bottom: 8px;
+  }
+  .pick .lab .tag{
+    font-family: var(--sans); font-size: 10.5px; font-weight: 500;
+    letter-spacing: 0; text-transform: none;
+    color: var(--neg);
+    padding: 2px 8px; border-radius: var(--r-pill);
+    background: color-mix(in oklab, var(--neg) 10%, var(--card));
+    border: 1px solid color-mix(in oklab, var(--neg) 30%, var(--rule));
+  }
+  .pick h2{
+    font-family: var(--serif); font-weight: 400;
+    font-size: 36px; line-height: 1.1; letter-spacing:-.018em;
+    margin: 0 0 8px; text-wrap: balance;
+  }
+  .pick h2 em{ color: var(--accent-deep); }
+  .pick p{ font-size: 14.5px; line-height: 1.55; color: var(--ink-2); margin: 0 0 14px; max-width: 56ch; }
+  .pick .acts{ display: flex; gap: 6px; flex-wrap: wrap; }
+  .pick .countdown{
+    text-align: center;
+    border-left: 1px solid color-mix(in oklab, var(--accent) 35%, var(--rule));
+    padding-left: 32px;
+  }
+  .pick .countdown .v{ font-family: var(--serif); font-size: 56px; line-height: 1; letter-spacing:-.02em; color: var(--accent-deep); font-feature-settings: "tnum"; }
+  .pick .countdown .l{ font-family: var(--mono); font-size: 10px; letter-spacing:.1em; text-transform: uppercase; color: var(--dim); margin-top: 6px; }
+  .pick .countdown .why{ font-size: 12px; color: var(--ink-2); margin-top: 14px; line-height: 1.4; max-width: 26ch; margin-left: auto; margin-right: auto; }
+
+  /* group header */
+  .group-head{
+    display:flex; align-items:flex-end; justify-content:space-between;
+    margin: 4px 0 12px;
+  }
+  .group-head h3{ font-family: var(--serif); font-weight: 400; font-size: 28px; line-height: 1; letter-spacing:-.012em; margin: 0; display:flex; align-items: baseline; gap: 12px; }
+  .group-head h3 em{ color: var(--accent); }
+  .group-head h3 .count{ font-family: var(--mono); font-size: 12px; letter-spacing:.08em; text-transform: uppercase; color: var(--dim); }
+  .group-head .acts{ display: flex; gap: 6px; }
+
+  /* tasks list */
+  .tasks{
+    border: 1px solid var(--rule); border-radius: var(--r-md);
+    background: var(--card); overflow: hidden;
+    margin-bottom: 32px;
+  }
+  .task{
+    display:grid;
+    grid-template-columns: 22px 1fr 180px 140px 30px;
+    gap: 16px;
+    padding: 16px 22px;
+    border-bottom: 1px solid var(--rule);
+    align-items: start;
+    cursor: pointer;
+    transition: background .12s;
+    position: relative;
+  }
+  .task:last-child{ border-bottom: none; }
+  .task:hover{ background: var(--rule-soft); }
+  .task.active{ background: color-mix(in oklab, var(--accent) 7%, var(--card)); }
+  .task.active::before{
+    content:""; position:absolute; left:0; top:0; bottom:0; width: 3px; background: var(--accent);
+  }
+  .task .check{
+    width: 18px; height: 18px; border-radius: 4px;
+    border: 1px solid var(--ink-3); background: var(--card);
+    margin-top: 1px;
+    transition: all .14s;
+  }
+  .task:hover .check{ border-color: var(--ink); }
+  .task.done .check{ background: var(--ink); border-color: var(--ink); position: relative; }
+  .task.done .check::after{ content:"✓"; position: absolute; inset: 0; display: grid; place-items: center; color: var(--accent); font-size: 12px; line-height: 1; }
+  .task.done .what .title{ color: var(--dim); text-decoration: line-through; text-decoration-color: var(--dim-2); }
+
+  .task .what{ display:flex; flex-direction:column; gap: 4px; min-width: 0; }
+  .task .what .title{
+    font-family: var(--serif); font-size: 18px;
+    line-height: 1.25; letter-spacing:-.005em; color: var(--ink);
+    text-wrap: balance;
+  }
+  .task .what .title em{ color: var(--accent-deep); }
+  .task .what .meta{
+    font-size: 12.5px; color: var(--ink-2);
+    display:flex; align-items: center; gap: 6px; flex-wrap: wrap;
+  }
+  .task .what .meta .matter{ display:inline-flex; align-items: center; gap: 6px; }
+  .task .what .meta .matter::before{
+    content:""; width: 5px; height: 5px; border-radius: 50%; background: var(--dim-2);
+  }
+  .task .what .meta .matter.urgent::before{ background: var(--neg); }
+  .task .what .meta .sep{ color: var(--dim-2); }
+  .task .what .ai-note{
+    font-family: var(--serif); font-size: 13.5px; font-style: italic;
+    color: var(--accent-deep); line-height: 1.45;
+    margin-top: 2px;
+    display:inline-flex; align-items: baseline; gap: 6px; max-width: 60ch;
+  }
+  .task .what .ai-note::before{
+    content:"B."; font-family: var(--serif); font-style: italic;
+    color: var(--accent); font-size: 12px;
+    background: var(--ink);
+    width: 16px; height: 16px; border-radius: 50%;
+    display: inline-grid; place-items: center;
+    flex-shrink: 0; transform: translateY(2px);
+  }
+
+  .task .due{
+    font-family: var(--mono); font-size: 11px;
+    letter-spacing:.06em; text-transform: uppercase;
+    color: var(--ink-2);
+  }
+  .task .due .when{ display:block; font-family: var(--serif); font-size: 16px; line-height: 1; text-transform: none; letter-spacing:-.005em; color: var(--ink); margin-bottom: 4px; }
+  .task.urgent .due .when{ color: var(--neg); }
+
+  .task .tags{ display:flex; flex-direction: column; gap: 4px; align-items: flex-start; }
+  .task .tag{
+    font-family: var(--mono); font-size: 9.5px;
+    letter-spacing:.06em; text-transform: uppercase;
+    padding: 3px 9px; border-radius: var(--r-pill);
+    border: 1px solid var(--rule); background: var(--paper);
+    color: var(--dim);
+    display:inline-flex; align-items: center; gap: 5px;
+  }
+  .task .tag::before{ content:""; width: 5px; height: 5px; border-radius: 50%; background: var(--dim-2); }
+  .task .tag.staged{ color: var(--accent-deep); border-color: color-mix(in oklab, var(--accent) 30%, var(--rule)); background: color-mix(in oklab, var(--accent) 10%, var(--card)); }
+  .task .tag.staged::before{ background: var(--accent); }
+  .task .tag.client{ color: var(--ink-2); }
+  .task .tag.client::before{ background: var(--ink-3); }
+  .task .tag.money{ color: var(--warn); border-color: color-mix(in oklab, var(--warn) 30%, var(--rule)); }
+  .task .tag.money::before{ background: var(--warn); }
+  .task .tag.court{ color: var(--neg); border-color: color-mix(in oklab, var(--neg) 30%, var(--rule)); }
+  .task .tag.court::before{ background: var(--neg); }
+  .task .tag.intake{ color: var(--accent-deep); }
+  .task .tag.intake::before{ background: var(--accent); }
+
+  .task .arrow{ font-family: var(--mono); font-size: 12px; color: var(--dim); text-align: right; padding-top: 3px; }
+  .task:hover .arrow{ color: var(--accent-deep); }
+
+  /* AI handles row */
+  .ai-handles{
+    background: color-mix(in oklab, var(--accent) 6%, var(--card));
+    border: 1px dashed color-mix(in oklab, var(--accent) 30%, var(--rule));
+    border-radius: var(--r-md);
+    padding: 16px 22px;
+    display:flex; align-items: center; gap: 14px;
+    margin-bottom: 32px;
+  }
+  .ai-handles .av{ width: 32px; height: 32px; border-radius: 50%; background: var(--ink); color: var(--accent); display: grid; place-items: center; font-family: var(--serif); font-style: italic; font-size: 16px; flex-shrink: 0; }
+  .ai-handles .copy{ flex: 1; }
+  .ai-handles .copy .lab{ font-family: var(--mono); font-size: 10px; letter-spacing:.12em; text-transform: uppercase; color: var(--accent-deep); margin-bottom: 4px; }
+  .ai-handles .copy .t{ font-family: var(--serif); font-size: 18px; line-height: 1.35; color: var(--ink); font-style: italic; }
+  .ai-handles .copy .t em{ color: var(--accent-deep); }
+  .ai-handles .acts{ display:flex; gap: 6px; flex-shrink: 0; }
+
+  /* ===== right focus drawer ===== */
+  .focus{ border-left:1px solid var(--rule); padding: 28px 22px; position: sticky; top: 0; height: 100vh; overflow-y: auto; display:flex; flex-direction:column; gap: 14px; background: color-mix(in oklab, var(--paper) 96%, var(--card)); }
+  .focus::-webkit-scrollbar{ width: 0; }
+  .focus-head .kind{ font-family: var(--mono); font-size: 10px; letter-spacing:.14em; text-transform: uppercase; color: var(--dim); display:inline-flex; align-items: center; gap: 8px; }
+  .focus-head .kind .pulse{ width: 7px; height: 7px; border-radius: 50%; background: var(--neg); animation: pulse 2s infinite; }
+  @keyframes pulse{ 0%{ box-shadow:0 0 0 0 color-mix(in oklab, var(--neg) 50%, transparent); } 70%{ box-shadow:0 0 0 8px transparent; } 100%{ box-shadow:0 0 0 0 transparent; } }
+  .focus-head h2{ font-family: var(--serif); font-weight: 400; font-size: 28px; line-height: 1.1; letter-spacing:-.012em; margin: 8px 0 4px; }
+  .focus-head h2 em{ color: var(--accent); }
+  .focus-head .sub{ font-size: 13px; color: var(--ink-2); }
+  .focus-head .ro{
+    font-family: var(--mono); font-size: 9.5px;
+    letter-spacing:.1em; text-transform: uppercase;
+    color: var(--dim-2); margin-top: 8px;
+    display:inline-flex; align-items:center; gap:6px;
+  }
+  .focus-head .ro::before{ content:""; width: 5px; height: 5px; border-radius: 50%; background: var(--dim-2); }
+
+  .staged{
+    background: linear-gradient(180deg, color-mix(in oklab, var(--accent) 22%, var(--card)), color-mix(in oklab, var(--accent) 10%, var(--card)));
+    border: 1px solid color-mix(in oklab, var(--accent) 50%, var(--rule));
+    border-radius: var(--r-md);
+    padding: 16px 18px;
+    box-shadow: 0 1px 0 rgba(255,255,255,.5) inset, 0 10px 28px -22px color-mix(in oklab, var(--accent-deep) 50%, transparent);
+  }
+  .staged .lab{ font-family: var(--mono); font-size: 10px; letter-spacing:.12em; text-transform: uppercase; color: var(--accent-deep); display:inline-flex; align-items: center; gap: 8px; }
+  .staged .lab .pulse{ width: 6px; height: 6px; border-radius: 50%; background: var(--accent); }
+  .staged h3{ font-family: var(--serif); font-weight: 400; font-size: 21px; line-height: 1.2; margin: 6px 0 6px; }
+  .staged .desc{ font-size: 13px; color: var(--ink-2); line-height: 1.55; margin: 0 0 12px; }
+  .staged .desc em{ color: var(--accent-deep); }
+  .staged .acts{ display: flex; gap: 6px; flex-wrap: wrap; }
+  .staged .acts .chip.primary{ background: var(--ink); color: var(--accent); border-color: var(--ink); }
+  .staged .acts .chip.primary:hover{ background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+
+  .section-label{ display:flex; align-items:center; justify-content:space-between; font-family: var(--mono); font-size: 10px; letter-spacing:.14em; text-transform: uppercase; color: var(--dim); margin: 8px 0 2px; }
+  .section-label a{ font-family: var(--sans); font-size: 11px; color: var(--ink-2); text-transform: none; letter-spacing: 0; border-bottom: 1px dotted var(--dim-2); cursor: pointer; }
+
+  .field-list{ background: var(--card); border: 1px solid var(--rule); border-radius: var(--r-md); padding: 4px 14px; }
+  .field-list .f{ display: grid; grid-template-columns: 88px 1fr; gap: 10px; padding: 9px 0; border-bottom: 1px solid var(--rule); font-size: 13px; }
+  .field-list .f:last-child{ border-bottom: none; }
+  .field-list .f .k{ font-family: var(--mono); font-size: 10px; letter-spacing:.08em; text-transform: uppercase; color: var(--dim); padding-top: 2px; }
+  .field-list .f .v{ color: var(--ink); }
+  .field-list .f .v em{ color: var(--accent-deep); }
+
+  .focus-actions{ display:flex; gap:6px; flex-wrap:wrap; }
+  .focus-footer{ margin-top: auto; padding-top: 14px; border-top: 1px solid var(--rule); font-family: var(--mono); font-size: 10px; letter-spacing:.06em; text-transform: uppercase; color: var(--dim-2); line-height: 1.6; }
+  .focus-footer b{ color: var(--ink-2); font-weight: 500; }
+
+  @media (max-width: 1280px){ .app{ grid-template-columns: 240px 1fr; } .focus{ display:none; } }
+  @media (max-width: 980px){
+    .app{ grid-template-columns: 1fr; } .rail{ display:none; }
+    .center{ padding: 24px 22px 80px; } .page-head h1{ font-size: 40px; }
+    .pick{ grid-template-columns: 1fr; gap: 22px; } .pick .countdown{ border-left: none; border-top: 1px solid color-mix(in oklab, var(--accent) 35%, var(--rule)); padding-left: 0; padding-top: 22px; }
+    .task{ grid-template-columns: 22px 1fr 100px; gap: 12px; }
+    .task > :nth-child(4){ display: none; }
+    .task > :nth-child(5){ display: none; }
+  }
+</style>
+</head>
+<body>
+
+<div class="app">
+
+  <!-- ============ LEFT RAIL ============ -->
+  <aside class="rail" data-screen-label="rail">
+    <a href="Assistant.html" class="brand-mark">
+      <span class="brand-mark-glyph">B</span>
+      <span class="brand-mark-word">Blawby</span>
+    </a>
+    <div class="meta">Demo Owner Local · solo</div>
+    <button class="new-btn"><span>＋  New conversation</span><kbd>⌘N</kbd></button>
+
+    <div class="rail-section">
+      <div class="rail-label">Workspace</div>
+      <a class="rail-item" href="Assistant.html"><span class="dot"></span>Assistant</a>
+      <a class="rail-item" href="Conversations.html"><span class="dot"></span>Conversations<span class="count">14</span></a>
+      <a class="rail-item unread" href="Intakes.html"><span class="dot"></span>Intakes<span class="count">3 new</span></a>
+      <a class="rail-item" href="Matters.html"><span class="dot"></span>Matters<span class="count">4</span></a>
+      <a class="rail-item" href="Clients.html"><span class="dot"></span>Clients<span class="count">11</span></a>
+      <a class="rail-item" href="Calendar.html"><span class="dot"></span>Calendar<span class="count">3 this wk</span></a>
+      <a class="rail-item now"><span class="dot"></span>Tasks<span class="count">9</span></a>
+      <a class="rail-item" href="Invoices.html"><span class="dot"></span>Invoices<span class="count">2</span></a>
+      <a class="rail-item" href="Trust.html"><span class="dot"></span>Trust ledger</a>
+    </div>
+
+    <div class="rail-section">
+      <div class="rail-label">Smart filters</div>
+      <a class="rail-item"><span class="dot" style="background:var(--neg)"></span>Today · 4</a>
+      <a class="rail-item"><span class="dot" style="background:var(--warn)"></span>This week · 5</a>
+      <a class="rail-item"><span class="dot" style="background:var(--accent)"></span>Staged by AI · 3</a>
+      <a class="rail-item"><span class="dot"></span>Waiting on client · 2</a>
+    </div>
+
+    <div class="rail-section">
+      <div class="rail-label">Other</div>
+      <a class="rail-item" href="Reports.html"><span class="dot"></span>Reports</a>
+      <a class="rail-item" href="Settings.html"><span class="dot"></span>Settings</a>
+    </div>
+
+    <div class="user-chip">
+      <div class="avatar user">DO</div>
+      <div class="who">Demo Owner<small>demo.owner.local@blawby.test</small></div>
+      <div class="caret">⌃</div>
+    </div>
+  </aside>
+
+  <!-- ============ CENTER ============ -->
+  <main class="center" data-screen-label="tasks-main">
+
+    <header class="page-head">
+      <div>
+        <div class="crumb">Tuesday · November 25 · 9 open</div>
+        <h1>If you do <em>one thing</em> today.</h1>
+      </div>
+      <div class="right">
+        <div class="stat"><div class="v neg">4</div><div class="l">today</div></div>
+        <div class="stat"><div class="v">5</div><div class="l">this week</div></div>
+        <div class="stat"><div class="v acc">3</div><div class="l">AI handling</div></div>
+      </div>
+    </header>
+
+    <div class="ask">
+      <div class="av">B</div>
+      <div class="input" contenteditable="true" data-ph="Ask — 'what's most urgent?' · 'reassign Park items to Tomorrow' · 'snooze low-priority for the week'">What can wait until next week?</div>
+      <span class="kbd">⌘K</span>
+    </div>
+
+    <!-- THE PICK -->
+    <div class="pick">
+      <div>
+        <div class="lab">
+          <span>If you do one thing today</span>
+          <span class="tag">3h window · stakes high</span>
+        </div>
+        <h2>Triage <em>Sarah Chen's</em> intake before noon.</h2>
+        <p>Custody modification, exchange Saturday. Mecklenburg ✓ · no conflicts ✓ · case strength <b>4.2/5</b> · willing on a $3k retainer. She needs to know by tonight whether you're taking it — anything later and she'll go to the next firm on her list.</p>
+        <div class="acts">
+          <button class="chip primary">Open intake ↗</button>
+          <button class="chip">Accept &amp; send invite</button>
+          <button class="chip">Draft engagement first</button>
+          <button class="chip warn">Decline with reason</button>
+        </div>
+      </div>
+      <div class="countdown">
+        <div class="v">2h 47m</div>
+        <div class="l">decision window</div>
+        <div class="why">Average response time for accepted intakes in your practice is <b style="color:var(--ink-2);font-weight:500">3h 12m.</b></div>
+      </div>
+    </div>
+
+    <!-- TODAY -->
+    <div class="group-head">
+      <h3>Today <em>·</em> <span class="count">4 open · 2 done</span></h3>
+      <div class="acts">
+        <button class="chip">Reorder by impact</button>
+        <button class="chip">Snooze all to tomorrow</button>
+      </div>
+    </div>
+
+    <div class="tasks">
+
+      <div class="task active urgent">
+        <div class="check"></div>
+        <div class="what">
+          <div class="title">Triage Sarah Chen's intake — accept, decline, or ask one more question</div>
+          <div class="meta">
+            <span class="matter urgent">Chen · custody modification · intake</span>
+            <span class="sep">·</span>
+            <span>Drafted engagement waiting</span>
+          </div>
+          <div class="ai-note">I'd accept this one. Strong fit for your fixed-fee custody package and she's a good responder by text.</div>
+        </div>
+        <div class="due"><span class="when">By noon</span>3h window</div>
+        <div class="tags">
+          <span class="tag intake">intake</span>
+          <span class="tag staged">eng. drafted</span>
+        </div>
+        <div class="arrow">→</div>
+      </div>
+
+      <div class="task urgent">
+        <div class="check"></div>
+        <div class="what">
+          <div class="title">Reply to Bianca about settlement timing</div>
+          <div class="meta">
+            <span class="matter urgent">Martinez · auto injury · settled</span>
+            <span class="sep">·</span>
+            <span>State Farm check cleared 9:11 am</span>
+          </div>
+          <div class="ai-note">Reply staged — explains the Monday hold, avoids a Friday commitment, offers a bridge-resource referral.</div>
+        </div>
+        <div class="due"><span class="when">Same day</span>client anxious</div>
+        <div class="tags">
+          <span class="tag staged">reply staged</span>
+          <span class="tag client">client</span>
+        </div>
+        <div class="arrow">→</div>
+      </div>
+
+      <div class="task">
+        <div class="check"></div>
+        <div class="what">
+          <div class="title">Walk Marcus Park through the <em>healthcare directive</em> addition</div>
+          <div class="meta">
+            <span class="matter">Park · will revision · pending engagement</span>
+            <span class="sep">·</span>
+            <span>Zoom link sent</span>
+          </div>
+        </div>
+        <div class="due"><span class="when">14:00</span>45 min</div>
+        <div class="tags">
+          <span class="tag client">call</span>
+        </div>
+        <div class="arrow">→</div>
+      </div>
+
+      <div class="task">
+        <div class="check"></div>
+        <div class="what">
+          <div class="title">Approve Alvarez asset-disclosure response to opposing counsel</div>
+          <div class="meta">
+            <span class="matter">Alvarez · separation · drafting</span>
+            <span class="sep">·</span>
+            <span>Requests 2-week deadline extension</span>
+          </div>
+          <div class="ai-note">Standard professional courtesy ask. I matched their tone and kept it short.</div>
+        </div>
+        <div class="due"><span class="when">EOD</span>opp. waiting</div>
+        <div class="tags">
+          <span class="tag staged">staged reply</span>
+        </div>
+        <div class="arrow">→</div>
+      </div>
+
+      <div class="task done">
+        <div class="check"></div>
+        <div class="what">
+          <div class="title">Confirm filing receipt with Mecklenburg probate clerk</div>
+          <div class="meta">
+            <span class="matter">Johnson · estate</span>
+            <span class="sep">·</span>
+            <span>Done 7:48 am</span>
+          </div>
+        </div>
+        <div class="due"><span class="when">Morning</span></div>
+        <div class="tags">
+          <span class="tag court">court ops</span>
+        </div>
+        <div class="arrow">✓</div>
+      </div>
+
+      <div class="task done">
+        <div class="check"></div>
+        <div class="what">
+          <div class="title">Review overnight intake summaries (3)</div>
+          <div class="meta">
+            <span class="matter">Practice queue</span>
+            <span class="sep">·</span>
+            <span>Done 7:02 am · briefing</span>
+          </div>
+        </div>
+        <div class="due"><span class="when">First thing</span></div>
+        <div class="tags">
+          <span class="tag intake">intake</span>
+        </div>
+        <div class="arrow">✓</div>
+      </div>
+
+    </div>
+
+    <!-- AI handles -->
+    <div class="ai-handles">
+      <div class="av">B</div>
+      <div class="copy">
+        <div class="lab">I'm handling these without you</div>
+        <div class="t">5 routine items today — <em>autopilot replies</em> on three threads, automated trust reconciliation, and the Dec 1 disbursement queue.</div>
+      </div>
+      <div class="acts">
+        <button class="chip">Show 5</button>
+        <button class="chip">Pause autopilot</button>
+      </div>
+    </div>
+
+    <!-- THIS WEEK -->
+    <div class="group-head">
+      <h3>This week <em>·</em> <span class="count">5 open</span></h3>
+      <div class="acts">
+        <button class="chip">Group by matter</button>
+      </div>
+    </div>
+
+    <div class="tasks">
+
+      <div class="task urgent">
+        <div class="check"></div>
+        <div class="what">
+          <div class="title">File Johnson probate brief — <em>still missing two exhibits</em></div>
+          <div class="meta">
+            <span class="matter urgent">Johnson · estate · hearing Fri</span>
+            <span class="sep">·</span>
+            <span>Mecklenburg #2024-EP-441</span>
+          </div>
+          <div class="ai-note">Doc request drafted to client's son for original will scan. The other exhibit is in the matter folder, just needs final.</div>
+        </div>
+        <div class="due"><span class="when">Thu EOD</span>1d 7h</div>
+        <div class="tags">
+          <span class="tag court">court deadline</span>
+          <span class="tag staged">req. drafted</span>
+        </div>
+        <div class="arrow">→</div>
+      </div>
+
+      <div class="task">
+        <div class="check"></div>
+        <div class="what">
+          <div class="title">Send retainer replenishment to D. Johnson</div>
+          <div class="meta">
+            <span class="matter">Johnson · estate</span>
+            <span class="sep">·</span>
+            <span>Trust at $612 · 18% of refresh level</span>
+          </div>
+          <div class="ai-note">Replenishment request for $2,500 staged — matches the schedule in her engagement letter.</div>
+        </div>
+        <div class="due"><span class="when">Wed</span>before hearing</div>
+        <div class="tags">
+          <span class="tag staged">staged invoice</span>
+          <span class="tag money">$2,500</span>
+        </div>
+        <div class="arrow">→</div>
+      </div>
+
+      <div class="task">
+        <div class="check"></div>
+        <div class="what">
+          <div class="title">Sign Martinez disbursement once State Farm hold lifts</div>
+          <div class="meta">
+            <span class="matter">Martinez · auto injury · settled</span>
+            <span class="sep">·</span>
+            <span>Hold lifts Mon Dec 1</span>
+          </div>
+        </div>
+        <div class="due"><span class="when">Mon 12/1</span>automated</div>
+        <div class="tags">
+          <span class="tag money">$8,840 net</span>
+        </div>
+        <div class="arrow">→</div>
+      </div>
+
+      <div class="task">
+        <div class="check"></div>
+        <div class="what">
+          <div class="title">Tomas Vega · close-out or one more attempt</div>
+          <div class="meta">
+            <span class="matter">Vega · contract review · stale</span>
+            <span class="sep">·</span>
+            <span>21 days silent</span>
+          </div>
+          <div class="ai-note">I'd offer to close — three reply attempts at our standard cadence, no response. I drafted a warm sign-off you can send.</div>
+        </div>
+        <div class="due"><span class="when">By Fri</span>your call</div>
+        <div class="tags">
+          <span class="tag staged">close-out drafted</span>
+        </div>
+        <div class="arrow">→</div>
+      </div>
+
+      <div class="task">
+        <div class="check"></div>
+        <div class="what">
+          <div class="title">Prep agenda for Nguyen landlord-response call</div>
+          <div class="meta">
+            <span class="matter">Nguyen · commercial lease dispute</span>
+            <span class="sep">·</span>
+            <span>Thu Dec 3 · 11 am</span>
+          </div>
+        </div>
+        <div class="due"><span class="when">Wed Dec 2</span>day before</div>
+        <div class="tags">
+          <span class="tag client">prep</span>
+        </div>
+        <div class="arrow">→</div>
+      </div>
+
+    </div>
+
+  </main>
+
+  <!-- ============ RIGHT FOCUS DRAWER ============ -->
+  <aside class="focus" data-screen-label="focus-drawer">
+    <header class="focus-head">
+      <div class="kind"><span class="pulse"></span>Open task · today</div>
+      <h2>Triage <em>Sarah Chen's</em> intake</h2>
+      <div class="sub">Custody modification · Mecklenburg County · willing on $3,000 retainer</div>
+      <div class="ro">read-only — writes via assistant</div>
+    </header>
+
+    <div class="focus-actions">
+      <a class="chip primary" href="Intakes.html">Open intake ↗</a>
+      <button class="chip">Accept</button>
+      <button class="chip">Decline</button>
+    </div>
+
+    <div class="staged">
+      <div class="lab"><span class="pulse"></span>Staged action · approve to send</div>
+      <h3>Engagement letter · fixed-fee custody package</h3>
+      <p class="desc">Drafted from your standard custody template, scoped to a modification (not original action). Fixed fee <em>$3,000</em>, paid as $1,500 on engagement and $1,500 at exchange. Acknowledgments and signature block included.</p>
+      <div class="acts">
+        <button class="chip primary">Approve &amp; send ↗</button>
+        <button class="chip">Preview letter</button>
+        <button class="chip">Edit fee</button>
+      </div>
+    </div>
+
+    <div class="section-label">Why this is the pick</div>
+    <div class="field-list">
+      <div class="f"><div class="k">Case strength</div><div class="v"><em>4.2 / 5</em> · clean modification grounds</div></div>
+      <div class="f"><div class="k">Fit score</div><div class="v">High · matches your custody focus area</div></div>
+      <div class="f"><div class="k">Conflicts</div><div class="v" style="color:var(--pos)">Cleared</div></div>
+      <div class="f"><div class="k">Jurisdiction</div><div class="v" style="color:var(--pos)">Mecklenburg ✓</div></div>
+      <div class="f"><div class="k">Sentiment</div><div class="v"><em>Anxious — Sat exchange</em></div></div>
+      <div class="f"><div class="k">Time-to-decide</div><div class="v">Your avg <b style="font-weight:500">3h 12m</b></div></div>
+    </div>
+
+    <div class="section-label">If you say no</div>
+    <div class="field-list">
+      <div class="f"><div class="k">Draft decline</div><div class="v">Warm, with two referrals — Forrester Law and Ng Family Law</div></div>
+      <div class="f"><div class="k">Time saved</div><div class="v">~$120 in admin avoided · 90 min freed</div></div>
+    </div>
+
+    <div class="focus-footer">
+      Decision recorded to <b>practice_assistant_actions</b> · auditable forever
+    </div>
+  </aside>
+
+</div>
+
+</body>
+</html>

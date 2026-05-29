@@ -436,7 +436,7 @@
     <div>
       <div class="meta">Blawby app · v0.2 · chat-first</div>
       <h1>The practice that <em>runs itself.</em></h1>
-      <p class="lede sub">Four screens on one design system, pulled forward from the marketing site — navy &amp; gold, Source Serif 4 + Geist. Click a card to open the full screen.</p>
+      <p class="lede sub">Nineteen screens on one design system &mdash; navy &amp; gold, Source Serif 4 + Geist. Twelve from the refactor, four added last round, and three this round (Engagement review, Intake builder, Engagement templates). Click a card to open the full screen.</p>
     </div>
     <div class="right">
       <div class="meta">design system</div>
@@ -529,7 +529,7 @@
         <h3>The home screen <em>is the chat.</em></h3>
         <p>Opens to an AI-written morning briefing. Entities the AI mentions auto-pin to the right; staged writes wait for your approval before touching the database.</p>
         <div class="foot">
-          <span class="pill"><span class="dot gold"></span>main app</span>
+          <span class="pill gold">main app</span>
           <span class="arrow">Open →</span>
         </div>
       </div>
@@ -1002,6 +1002,643 @@
       </div>
     </a>
 
+    <!-- ============ NEW THIS ROUND ============ -->
+    <style>
+      /* Conversations thumbnail */
+      .tn-conv{ display:grid; grid-template-columns: 130px 1fr 90px; padding:14px; gap:6px; }
+      .tn-conv .list{ background: var(--paper-2); border-radius: var(--r-xs); padding:6px; display:flex; flex-direction:column; gap:4px; overflow:hidden; }
+      .tn-conv .list .it{ background: var(--card); border:1px solid var(--rule); border-radius:2px; padding:4px 5px; display:flex; flex-direction:column; gap:2px; }
+      .tn-conv .list .it.on{ border-color: var(--accent); box-shadow: -2px 0 0 var(--accent); }
+      .tn-conv .list .it .who{ font-family: var(--serif); font-size:8px; line-height:1; }
+      .tn-conv .list .it .pv{ font-size:6.5px; color: var(--ink-2); line-height:1.3; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
+      .tn-conv .list .it .tg{ font-family: var(--mono); font-size:5.5px; padding:1px 4px; border-radius:999px; align-self:flex-start; }
+      .tn-conv .list .it .tg.urg{ background: color-mix(in oklab, var(--neg) 14%, var(--card)); color: var(--neg); }
+      .tn-conv .list .it .tg.auto{ background: color-mix(in oklab, var(--accent) 14%, var(--card)); color: var(--accent-deep); }
+      .tn-conv .conv{ display:flex; flex-direction:column; gap:5px; padding:2px; }
+      .tn-conv .conv .crumb{ font-family:var(--mono); font-size:5.5px; letter-spacing:.08em; text-transform:uppercase; color:var(--dim); }
+      .tn-conv .conv .h{ font-family:var(--serif); font-size:11px; line-height:1.15; letter-spacing:-.01em; }
+      .tn-conv .conv .h em{ color:var(--accent); }
+      .tn-conv .conv .day{ font-family:var(--mono); font-size:5.5px; letter-spacing:.1em; text-transform:uppercase; color:var(--dim); text-align:center; padding:2px 0; border-top:1px solid var(--rule); border-bottom:1px solid var(--rule); }
+      .tn-conv .conv .bub{ background:var(--card); border:1px solid var(--rule); border-radius:3px; padding:4px 6px; font-size:7px; line-height:1.4; color:var(--ink-2); max-width: 78%; }
+      .tn-conv .conv .bub.client{ align-self:flex-start; }
+      .tn-conv .conv .bub.ai{ background: linear-gradient(180deg, color-mix(in oklab, var(--accent) 12%, var(--card)), var(--card)); border-color: color-mix(in oklab, var(--accent) 30%, var(--rule)); align-self:flex-start; }
+      .tn-conv .conv .bub.me{ align-self:flex-end; background:var(--ink); color:var(--paper); border-color:var(--ink); }
+      .tn-conv .conv .staged{ background: linear-gradient(180deg, color-mix(in oklab, var(--accent) 22%, var(--card)), color-mix(in oklab, var(--accent) 10%, var(--card))); border:1px solid color-mix(in oklab, var(--accent) 45%, var(--rule)); border-radius:3px; padding:5px 6px; }
+      .tn-conv .conv .staged .lab{ font-family:var(--mono); font-size:5.5px; letter-spacing:.1em; text-transform:uppercase; color:var(--accent-deep); }
+      .tn-conv .conv .staged .ti{ font-family:var(--serif); font-size:9px; line-height:1; margin-top:2px; }
+      .tn-conv .drawer{ background:var(--paper-2); border-radius:var(--r-xs); padding:6px; display:flex; flex-direction:column; gap:4px; }
+      .tn-conv .drawer .h{ font-family:var(--serif); font-size:10px; letter-spacing:-.005em; }
+      .tn-conv .drawer .h em{ color:var(--accent); }
+      .tn-conv .drawer .st{ background:var(--card); border:1px solid var(--rule); border-radius:var(--r-xs); padding:3px 5px; }
+      .tn-conv .drawer .st .l{ font-family:var(--mono); font-size:6px; color:var(--dim); letter-spacing:.06em; text-transform:uppercase; }
+      .tn-conv .drawer .st .v{ font-family:var(--serif); font-size:11px; line-height:1; font-feature-settings:"tnum"; }
+
+      /* Clients thumbnail */
+      .tn-clients{ display:flex; flex-direction:column; padding:14px; gap:8px; }
+      .tn-clients .ask{ background:var(--card); border:1px solid var(--rule); border-radius:var(--r-xs); padding:6px 8px; display:flex; gap:6px; align-items:center; }
+      .tn-clients .ask .av{ width:12px; height:12px; border-radius:50%; background:var(--ink); flex-shrink:0; }
+      .tn-clients .ask .l{ flex:1; height:5px; border-radius:2px; background:var(--rule); }
+      .tn-clients .answer{ background: linear-gradient(180deg, color-mix(in oklab, var(--accent) 12%, var(--card)), var(--card)); border:1px solid color-mix(in oklab, var(--accent) 30%, var(--rule)); border-radius:var(--r-xs); padding:6px 8px; display:flex; flex-direction:column; gap:3px; }
+      .tn-clients .answer .h{ font-family:var(--serif); font-size:11px; line-height:1.2; }
+      .tn-clients .answer .h em{ color:var(--accent-deep); }
+      .tn-clients .answer .l{ height:3px; border-radius:2px; background:var(--rule); }
+      .tn-clients .dir{ background:var(--card); border:1px solid var(--rule); border-radius:var(--r-xs); flex:1; display:flex; flex-direction:column; }
+      .tn-clients .dir .r{ display:grid; grid-template-columns: 14px 1.6fr 1fr 60px 60px; gap:6px; padding:4px 8px; border-bottom:1px dotted var(--rule); align-items:center; }
+      .tn-clients .dir .r:last-child{ border-bottom:none; }
+      .tn-clients .dir .r.head{ background:var(--paper-2); font-family:var(--mono); font-size:5.5px; letter-spacing:.1em; text-transform:uppercase; color:var(--dim); }
+      .tn-clients .dir .r.on{ background: color-mix(in oklab, var(--accent) 7%, var(--card)); border-left: 2px solid var(--accent); padding-left:6px; }
+      .tn-clients .dir .av{ width:12px; height:12px; border-radius:50%; background: linear-gradient(135deg, var(--ink-2), var(--ink)); }
+      .tn-clients .dir .av.urg{ background: linear-gradient(135deg, color-mix(in oklab, var(--neg) 80%, var(--ink)), var(--neg)); }
+      .tn-clients .dir .nm{ font-family:var(--serif); font-size:8.5px; line-height:1; }
+      .tn-clients .dir .mt{ font-size:7px; color:var(--ink-2); line-height:1.3; }
+      .tn-clients .dir .b{ height:3px; border-radius:2px; background:var(--rule-soft); }
+      .tn-clients .dir .b i{ display:block; height:100%; border-radius:2px; background:var(--accent); }
+      .tn-clients .dir .b.warn i{ background:var(--neg); }
+      .tn-clients .dir .b.ok i{ background:var(--pos); }
+      .tn-clients .dir .pi{ font-family:var(--mono); font-size:5.5px; padding:1px 4px; border-radius:999px; align-self:flex-start; background:var(--paper); border:1px solid var(--rule); color:var(--dim); }
+      .tn-clients .dir .pi.calm{ background: color-mix(in oklab, var(--pos) 14%, var(--card)); color:var(--pos); }
+      .tn-clients .dir .pi.anx{ background: color-mix(in oklab, var(--warn) 14%, var(--card)); color:var(--warn); }
+      .tn-clients .dir .pi.frust{ background: color-mix(in oklab, var(--neg) 14%, var(--card)); color:var(--neg); }
+
+      /* Calendar thumbnail */
+      .tn-cal{ display:flex; flex-direction:column; padding:14px; gap:6px; }
+      .tn-cal .h{ font-family:var(--serif); font-size:12px; line-height:1.1; letter-spacing:-.012em; }
+      .tn-cal .h em{ color:var(--accent); }
+      .tn-cal .ai{ background: linear-gradient(180deg, color-mix(in oklab, var(--accent) 12%, var(--card)), var(--card)); border:1px solid color-mix(in oklab, var(--accent) 30%, var(--rule)); border-radius:var(--r-xs); padding:5px 7px; display:flex; flex-direction:column; gap:2px; }
+      .tn-cal .ai .lab{ font-family:var(--mono); font-size:5.5px; letter-spacing:.12em; text-transform:uppercase; color:var(--accent-deep); }
+      .tn-cal .ai .t{ font-family:var(--serif); font-size:10px; line-height:1.2; }
+      .tn-cal .ai .t em{ color:var(--accent-deep); font-style:italic; }
+      .tn-cal .week{ display:grid; grid-template-columns: repeat(7, 1fr); border:1px solid var(--rule); border-radius:var(--r-xs); background:var(--card); overflow:hidden; }
+      .tn-cal .week .d{ padding:5px 4px; border-right:1px solid var(--rule); display:flex; flex-direction:column; gap:3px; min-height:60px; }
+      .tn-cal .week .d:last-child{ border-right:none; }
+      .tn-cal .week .d.wknd{ background: color-mix(in oklab, var(--paper-2) 60%, var(--card)); }
+      .tn-cal .week .d.today .n{ color: var(--accent-deep); }
+      .tn-cal .week .d .nm{ font-family:var(--mono); font-size:5px; letter-spacing:.1em; text-transform:uppercase; color:var(--dim); }
+      .tn-cal .week .d .n{ font-family:var(--serif); font-size:10px; line-height:1; }
+      .tn-cal .week .d .ev{ background:var(--paper); border:1px solid var(--rule); border-left:2px solid var(--dim-2); border-radius:2px; padding:2px 3px; font-size:5.5px; line-height:1.2; color:var(--ink-2); }
+      .tn-cal .week .d .ev.court{ border-left-color:var(--neg); background: color-mix(in oklab, var(--neg) 5%, var(--paper)); }
+      .tn-cal .week .d .ev.dl{ border-left-color:var(--warn); background: color-mix(in oklab, var(--warn) 5%, var(--paper)); }
+      .tn-cal .week .d .ev.call{ border-left-color:var(--accent); }
+      .tn-cal .up{ background:var(--card); border:1px solid var(--rule); border-radius:var(--r-xs); flex:1; display:flex; flex-direction:column; }
+      .tn-cal .up .r{ display:grid; grid-template-columns: 24px 14px 1fr 50px; gap:5px; padding:3px 6px; border-bottom:1px dotted var(--rule); align-items:center; }
+      .tn-cal .up .r:last-child{ border-bottom:none; }
+      .tn-cal .up .r .dt{ font-family:var(--serif); font-size:9px; line-height:1; font-feature-settings:"tnum"; }
+      .tn-cal .up .r.urg .dt{ color:var(--neg); }
+      .tn-cal .up .r .ic{ width:11px; height:11px; border-radius:50%; display:grid; place-items:center; font-family:var(--serif); font-style:italic; font-size:7px; }
+      .tn-cal .up .r .ic.court{ background: color-mix(in oklab, var(--neg) 14%, var(--card)); color:var(--neg); border:1px solid color-mix(in oklab, var(--neg) 30%, var(--rule)); }
+      .tn-cal .up .r .ic.dl{ background: color-mix(in oklab, var(--warn) 14%, var(--card)); color:var(--warn); border:1px solid color-mix(in oklab, var(--warn) 30%, var(--rule)); }
+      .tn-cal .up .r .ic.call{ background: color-mix(in oklab, var(--accent) 14%, var(--card)); color:var(--accent-deep); border:1px solid color-mix(in oklab, var(--accent) 30%, var(--rule)); }
+      .tn-cal .up .r .tt{ font-family:var(--serif); font-size:7.5px; line-height:1.15; }
+      .tn-cal .up .r .pi{ font-family:var(--mono); font-size:5.5px; letter-spacing:.06em; text-transform:uppercase; padding:1px 5px; border-radius:999px; background:var(--paper); border:1px solid var(--rule); color:var(--dim); justify-self:start; }
+      .tn-cal .up .r .pi.dr{ background: color-mix(in oklab, var(--accent) 10%, var(--card)); border-color: color-mix(in oklab, var(--accent) 30%, var(--rule)); color:var(--accent-deep); }
+      .tn-cal .up .r .pi.gap{ background: color-mix(in oklab, var(--neg) 10%, var(--card)); border-color: color-mix(in oklab, var(--neg) 30%, var(--rule)); color:var(--neg); }
+
+      /* Tasks thumbnail */
+      .tn-tasks{ display:flex; flex-direction:column; padding:14px; gap:6px; }
+      .tn-tasks .pick{ background: linear-gradient(180deg, color-mix(in oklab, var(--accent) 18%, var(--card)), color-mix(in oklab, var(--accent) 6%, var(--card))); border:1px solid color-mix(in oklab, var(--accent) 45%, var(--rule)); border-radius:var(--r-xs); padding:8px 10px; display:grid; grid-template-columns: 1fr 60px; gap:10px; align-items:center; }
+      .tn-tasks .pick .lab{ font-family:var(--mono); font-size:5.5px; letter-spacing:.12em; text-transform:uppercase; color:var(--accent-deep); margin-bottom:2px; }
+      .tn-tasks .pick .ti{ font-family:var(--serif); font-size:14px; line-height:1.1; letter-spacing:-.018em; }
+      .tn-tasks .pick .ti em{ color:var(--accent-deep); }
+      .tn-tasks .pick .l{ height:3px; background:var(--rule); border-radius:2px; margin-top:4px; }
+      .tn-tasks .pick .cd{ text-align:center; border-left:1px solid color-mix(in oklab, var(--accent) 35%, var(--rule)); padding-left:10px; }
+      .tn-tasks .pick .cd .v{ font-family:var(--serif); font-size:18px; line-height:1; letter-spacing:-.02em; color:var(--accent-deep); font-feature-settings:"tnum"; }
+      .tn-tasks .pick .cd .l{ font-family:var(--mono); font-size:5px; letter-spacing:.1em; text-transform:uppercase; color:var(--dim); margin-top:3px; background:none; height:auto; }
+      .tn-tasks .list{ background:var(--card); border:1px solid var(--rule); border-radius:var(--r-xs); flex:1; display:flex; flex-direction:column; }
+      .tn-tasks .list .r{ display:grid; grid-template-columns: 12px 1fr 50px 60px; gap:6px; padding:4px 8px; border-bottom:1px dotted var(--rule); align-items:start; }
+      .tn-tasks .list .r:last-child{ border-bottom:none; }
+      .tn-tasks .list .ck{ width:9px; height:9px; border-radius:2px; border:1px solid var(--ink-3); margin-top:1px; }
+      .tn-tasks .list .r.done .ck{ background:var(--ink); border-color:var(--ink); position:relative; }
+      .tn-tasks .list .r.done .ck::after{ content:"✓"; position:absolute; inset:0; display:grid; place-items:center; color:var(--accent); font-size:6px; }
+      .tn-tasks .list .r.on{ background: color-mix(in oklab, var(--accent) 7%, var(--card)); }
+      .tn-tasks .list .tt{ font-family:var(--serif); font-size:7.5px; line-height:1.2; }
+      .tn-tasks .list .tt em{ color:var(--accent-deep); }
+      .tn-tasks .list .r.done .tt{ color:var(--dim); text-decoration:line-through; text-decoration-color:var(--dim-2); }
+      .tn-tasks .list .dt{ font-family:var(--mono); font-size:6.5px; color:var(--ink-2); letter-spacing:.04em; text-transform:uppercase; }
+      .tn-tasks .list .r.urg .dt{ color:var(--neg); }
+      .tn-tasks .list .pi{ font-family:var(--mono); font-size:5.5px; letter-spacing:.06em; text-transform:uppercase; padding:1px 5px; border-radius:999px; background:var(--paper); border:1px solid var(--rule); color:var(--dim); justify-self:start; }
+      .tn-tasks .list .pi.st{ background: color-mix(in oklab, var(--accent) 10%, var(--card)); color:var(--accent-deep); border-color: color-mix(in oklab, var(--accent) 30%, var(--rule)); }
+    </style>
+
+    <a href="Conversations.html" class="screen-card">
+      <div class="thumb">
+        <div class="tn tn-conv">
+          <div class="list">
+            <div class="it on"><div class="who">B. Martinez</div><div class="pv">Settlement check came — when do I see my part?</div><div class="tg urg">urgent</div></div>
+            <div class="it"><div class="who">S. Chen</div><div class="pv">Mecklenburg, 3 kids, exchange Saturday.</div><div class="tg auto">autopilot</div></div>
+            <div class="it"><div class="who">D. Johnson</div><div class="pv">Filed and uploaded. Clerk confirmed.</div></div>
+            <div class="it"><div class="who">M. Park</div><div class="pv">Engagement looks good — add directive?</div></div>
+            <div class="it"><div class="who">R. Alvarez</div><div class="pv">Drafted asset disclosure response.</div><div class="tg auto">autopilot</div></div>
+          </div>
+          <div class="conv">
+            <div class="crumb">Matters · Martinez · Auto Injury</div>
+            <div class="h"><em>Bianca</em> wants to know when she sees her settlement.</div>
+            <div class="day">Today</div>
+            <div class="bub client">Settlement check came — when do I see my part?</div>
+            <div class="bub ai">The check cleared this morning. Hold runs through Mon Dec 1.</div>
+            <div class="staged">
+              <div class="lab">staged reply · awaits you</div>
+              <div class="ti">Tuesday Dec 2 disbursement</div>
+            </div>
+          </div>
+          <div class="drawer">
+            <div class="h"><em>Bianca</em></div>
+            <div class="st"><div class="l">net</div><div class="v">$8,840</div></div>
+            <div class="st"><div class="l">hold lifts</div><div class="v">Dec 1</div></div>
+            <div class="st"><div class="l">tone</div><div class="v" style="font-family:var(--sans);font-size:8px;font-style:italic;color:var(--accent-deep)">anxious</div></div>
+          </div>
+        </div>
+      </div>
+      <div class="meta">
+        <div class="ix">13 · Conversations</div>
+        <h3>The chat is the <em>inbox.</em></h3>
+        <p>Every client thread in one rail. Autopilot handles routine replies; money-adjacent or anxious tones escalate to you. Every AI draft sits as a staged reply you approve, edit, or rewrite before it sends.</p>
+        <div class="foot">
+          <span class="pill gold">new this round</span>
+          <span class="arrow">Open →</span>
+        </div>
+      </div>
+    </a>
+
+    <a href="Clients.html" class="screen-card">
+      <div class="thumb">
+        <div class="tn tn-clients">
+          <div class="ask"><div class="av"></div><div class="l"></div></div>
+          <div class="answer">
+            <div class="h">Three clients <em>overdue</em> for a check-in.</div>
+            <div class="l" style="width:80%"></div>
+            <div class="l" style="width:60%"></div>
+          </div>
+          <div class="dir">
+            <div class="r head"><div></div><div>Client</div><div>Matter</div><div>Retain.</div><div>Mood</div></div>
+            <div class="r on">
+              <div class="av urg"></div>
+              <div><div class="nm">B. Martinez</div><div class="mt">Settlement</div></div>
+              <div class="b ok"><i style="width:100%"></i></div>
+              <div></div>
+              <div class="pi anx">anxious</div>
+            </div>
+            <div class="r">
+              <div class="av"></div>
+              <div><div class="nm">D. Johnson</div><div class="mt">Estate · probate</div></div>
+              <div class="b warn"><i style="width:18%"></i></div>
+              <div></div>
+              <div class="pi frust">frustrated</div>
+            </div>
+            <div class="r">
+              <div class="av"></div>
+              <div><div class="nm">M. Park</div><div class="mt">Will revision</div></div>
+              <div class="b"><i style="width:0%"></i></div>
+              <div></div>
+              <div class="pi calm">calm</div>
+            </div>
+            <div class="r">
+              <div class="av"></div>
+              <div><div class="nm">R. Alvarez</div><div class="mt">Separation</div></div>
+              <div class="b ok"><i style="width:68%"></i></div>
+              <div></div>
+              <div class="pi calm">calm</div>
+            </div>
+            <div class="r">
+              <div class="av"></div>
+              <div><div class="nm">T. Vega</div><div class="mt">LLC · stale</div></div>
+              <div class="b warn"><i style="width:6%"></i></div>
+              <div></div>
+              <div class="pi">silent</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="meta">
+        <div class="ix">14 · Clients</div>
+        <h3>The directory <em>answers questions.</em></h3>
+        <p>"Who needs a check-in?" → AI summary up top, then the table reshapes around what you asked. Each row carries retainer health and a sentiment read drawn from the last five turns — so you spot brewing trouble before it lands in your inbox.</p>
+        <div class="foot">
+          <span class="pill gold">new this round</span>
+          <span class="arrow">Open →</span>
+        </div>
+      </div>
+    </a>
+
+    <a href="Calendar.html" class="screen-card">
+      <div class="thumb">
+        <div class="tn tn-cal">
+          <div class="h">What this week <em>wants from you.</em></div>
+          <div class="ai">
+            <div class="lab">Assistant</div>
+            <div class="t"><em>Friday 9am</em> — Johnson probate. Brief missing 2 exhibits.</div>
+          </div>
+          <div class="week">
+            <div class="d"><div class="nm">M</div><div class="n">23</div><div class="ev call">Call</div></div>
+            <div class="d"><div class="nm">T</div><div class="n">24</div></div>
+            <div class="d today"><div class="nm">W</div><div class="n">25</div><div class="ev call">Park</div></div>
+            <div class="d"><div class="nm">T</div><div class="n">26</div><div class="ev dl">File</div></div>
+            <div class="d"><div class="nm">F</div><div class="n">27</div><div class="ev court">Court</div></div>
+            <div class="d wknd"><div class="nm">S</div><div class="n">28</div></div>
+            <div class="d wknd"><div class="nm">S</div><div class="n">29</div></div>
+          </div>
+          <div class="up">
+            <div class="r urg">
+              <div class="dt">26</div>
+              <div class="ic dl">!</div>
+              <div class="tt">File Johnson brief — <em>2 exhibits missing</em></div>
+              <div class="pi gap">2 gaps</div>
+            </div>
+            <div class="r urg">
+              <div class="dt">27</div>
+              <div class="ic court">§</div>
+              <div class="tt">Johnson · probate hearing</div>
+              <div class="pi dr">3 of 5</div>
+            </div>
+            <div class="r">
+              <div class="dt">30</div>
+              <div class="ic dl">!</div>
+              <div class="tt">Alvarez · asset disclosure exchange</div>
+              <div class="pi">ready</div>
+            </div>
+            <div class="r">
+              <div class="dt">12/1</div>
+              <div class="ic call">✓</div>
+              <div class="tt">Martinez · settlement <em>hold lifts</em></div>
+              <div class="pi">automated</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="meta">
+        <div class="ix">15 · Calendar</div>
+        <h3>Deadlines that <em>know</em> what's missing.</h3>
+        <p>Week strip plus a 14-day list — court appearances, filing deadlines, calls, milestones. Every row carries a prep status the AI computed from the matter folder, so you see "3 of 5 ready" before you click in. Gaps show as staged actions, not red flags.</p>
+        <div class="foot">
+          <span class="pill gold">new this round</span>
+          <span class="arrow">Open →</span>
+        </div>
+      </div>
+    </a>
+
+    <a href="Tasks.html" class="screen-card">
+      <div class="thumb">
+        <div class="tn tn-tasks">
+          <div class="pick">
+            <div>
+              <div class="lab">If you do one thing today</div>
+              <div class="ti">Triage <em>Sarah Chen's</em> intake.</div>
+              <div class="l" style="width:80%"></div>
+              <div class="l" style="width:55%"></div>
+            </div>
+            <div class="cd">
+              <div class="v">2h 47m</div>
+              <div class="l">window</div>
+            </div>
+          </div>
+          <div class="list">
+            <div class="r on urg">
+              <div class="ck"></div>
+              <div class="tt">Triage <em>Sarah Chen</em></div>
+              <div class="dt">By noon</div>
+              <div class="pi st">eng. drafted</div>
+            </div>
+            <div class="r urg">
+              <div class="ck"></div>
+              <div class="tt">Reply to Bianca · settlement</div>
+              <div class="dt">Same day</div>
+              <div class="pi st">staged</div>
+            </div>
+            <div class="r">
+              <div class="ck"></div>
+              <div class="tt">Park · walk through directive</div>
+              <div class="dt">14:00</div>
+              <div class="pi">call</div>
+            </div>
+            <div class="r">
+              <div class="ck"></div>
+              <div class="tt">Approve Alvarez asset response</div>
+              <div class="dt">EOD</div>
+              <div class="pi st">staged</div>
+            </div>
+            <div class="r done">
+              <div class="ck"></div>
+              <div class="tt">Confirm filing receipt</div>
+              <div class="dt">Morning</div>
+              <div class="pi">done</div>
+            </div>
+            <div class="r done">
+              <div class="ck"></div>
+              <div class="tt">Review overnight intakes</div>
+              <div class="dt">7:02 am</div>
+              <div class="pi">done</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="meta">
+        <div class="ix">16 · Tasks</div>
+        <h3>One pick. Everything else can <em>wait.</em></h3>
+        <p>A granular to-do across the practice, prioritized by the assistant. The feature card up top is <em>the</em> thing — narrow window, high stakes, one decision. Everything else groups into today, this week, and the items the AI is handling for you. The chip on each row tells you what it has already prepared.</p>
+        <div class="foot">
+          <span class="pill gold">new this round</span>
+          <span class="arrow">Open →</span>
+        </div>
+      </div>
+    </a>
+
+    <!-- ============ ROUND 3 NEW SCREENS ============ -->
+    <style>
+      /* Engagement review (client-facing) thumbnail */
+      .tn-er{ display:flex; flex-direction:column; padding:14px; gap:6px; background: linear-gradient(180deg, color-mix(in oklab, var(--accent) 6%, var(--paper)), var(--paper)); }
+      .tn-er .greet{ display:flex; gap:6px; align-items:flex-start; padding-bottom:6px; border-bottom:1px solid var(--rule); }
+      .tn-er .greet .av{ width:14px; height:14px; border-radius:50%; background:var(--ink); color:var(--accent); font-family:var(--serif); font-style:italic; font-size:9px; display:grid; place-items:center; flex-shrink:0; }
+      .tn-er .greet .h{ font-family:var(--serif); font-size:10px; line-height:1.2; letter-spacing:-.012em; flex:1; }
+      .tn-er .greet .h em{ color:var(--accent); }
+      .tn-er .strip{ display:grid; grid-template-columns: repeat(3, 1fr); border:1px solid var(--rule); border-radius:var(--r-xs); background:var(--card); overflow:hidden; }
+      .tn-er .strip .c{ padding:3px 5px; border-right:1px solid var(--rule); }
+      .tn-er .strip .c:last-child{ border-right:none; }
+      .tn-er .strip .c .l{ font-family:var(--mono); font-size:5.5px; letter-spacing:.12em; text-transform:uppercase; color:var(--dim); }
+      .tn-er .strip .c .v{ font-family:var(--serif); font-size:8px; line-height:1; }
+      .tn-er .strip .c .v.pos{ color:var(--pos); }
+      .tn-er .letter{ background:#fff; border:1px solid #d3d6df; border-radius:var(--r-xs); padding:8px 10px; display:flex; flex-direction:column; gap:4px; box-shadow: 0 4px 14px -10px rgba(15,30,54,.3); color:#15140f; flex:1; }
+      .tn-er .letter .firm{ font-family:var(--serif); font-size:8px; color:#0f1e36; padding-bottom:3px; border-bottom:1px solid #d3d6df; }
+      .tn-er .letter .firm em{ color: oklch(0.55 0.12 78); }
+      .tn-er .letter .h2{ font-family:var(--serif); font-size:9px; line-height:1.1; color:#15140f; }
+      .tn-er .letter .h2 em{ color: oklch(0.55 0.12 78); }
+      .tn-er .letter .l{ height:2.5px; background:#e3e7ee; border-radius:2px; }
+      .tn-er .letter .fee{ background:#f6f3ea; border:1px solid #d3d6df; border-radius:2px; padding:4px 6px; display:flex; justify-content:space-between; }
+      .tn-er .letter .fee .lab{ font-family:var(--mono); font-size:5.5px; letter-spacing:.1em; text-transform:uppercase; color:#6b7790; }
+      .tn-er .letter .fee .v{ font-family:var(--serif); font-size:9px; }
+      .tn-er .ack{ background:var(--card); border:1px solid var(--rule); border-radius:var(--r-xs); padding:5px 8px; display:flex; flex-direction:column; gap:3px; }
+      .tn-er .ack .lab{ font-family:var(--mono); font-size:5.5px; letter-spacing:.12em; text-transform:uppercase; color:var(--dim); }
+      .tn-er .ack .row{ display:flex; gap:5px; align-items:center; }
+      .tn-er .ack .ck{ width:9px; height:9px; border-radius:2px; border:1px solid var(--ink-3); flex-shrink:0; }
+      .tn-er .ack .ck.on{ background:var(--ink); border-color:var(--ink); position:relative; }
+      .tn-er .ack .ck.on::after{ content:"✓"; position:absolute; inset:0; display:grid; place-items:center; color:var(--accent); font-size:6px; }
+      .tn-er .ack .row .l{ flex:1; height:2.5px; background:var(--rule); border-radius:2px; }
+      .tn-er .sig{ background:var(--card); border:1px solid var(--rule); border-radius:var(--r-xs); padding:6px 8px; display:flex; flex-direction:column; gap:4px; }
+      .tn-er .sig .lab{ font-family:var(--mono); font-size:5.5px; letter-spacing:.12em; text-transform:uppercase; color:var(--dim); }
+      .tn-er .sig .pad{ background:var(--paper); border:1px dashed var(--rule); border-radius:2px; padding:6px 8px; min-height:24px; display:grid; place-items:center; }
+      .tn-er .sig .pad .mark{ font-family:'Source Serif 4'; font-style:italic; font-size:14px; line-height:1; color:var(--ink); transform:rotate(-3deg); }
+      .tn-er .decide{ display:flex; gap:5px; justify-content:flex-end; }
+      .tn-er .decide .b{ font-family:var(--sans); font-size:7px; padding:3px 7px; border-radius:2px; border:1px solid var(--rule); background:var(--card); color:var(--ink-2); }
+      .tn-er .decide .b.p{ background:var(--ink); color:var(--paper); border-color:var(--ink); }
+
+      /* Intake builder thumbnail */
+      .tn-ib{ display:grid; grid-template-columns: 50px 1fr 90px; padding:14px; gap:6px; }
+      .tn-ib .rail{ background:var(--paper-2); border-radius:var(--r-xs); padding:8px 5px; display:flex; flex-direction:column; gap:4px; }
+      .tn-ib .rail .it{ height:4px; background:var(--rule); border-radius:2px; }
+      .tn-ib .rail .it.on{ background:var(--ink); height:7px; }
+      .tn-ib .main{ display:flex; flex-direction:column; gap:5px; padding:2px; }
+      .tn-ib .crumb{ font-family:var(--mono); font-size:5.5px; letter-spacing:.08em; text-transform:uppercase; color:var(--dim); }
+      .tn-ib .h{ font-family:var(--serif); font-size:13px; line-height:1.1; letter-spacing:-.015em; }
+      .tn-ib .h em{ color:var(--accent); }
+      .tn-ib .ai{ background: linear-gradient(180deg, color-mix(in oklab, var(--accent) 14%, var(--card)), var(--card)); border:1px solid color-mix(in oklab, var(--accent) 35%, var(--rule)); border-radius:var(--r-xs); padding:5px 7px; display:flex; gap:5px; align-items:center; }
+      .tn-ib .ai .av{ width:10px; height:10px; border-radius:50%; background:var(--ink); flex-shrink:0; }
+      .tn-ib .ai .l{ flex:1; height:3px; background:var(--rule-soft); border-radius:2px; }
+      .tn-ib .tabs{ display:flex; gap:8px; border-bottom:1px solid var(--rule); padding-bottom:2px; }
+      .tn-ib .tabs .t{ font-family:var(--sans); font-size:6.5px; color:var(--dim); }
+      .tn-ib .tabs .t.on{ color:var(--ink); border-bottom:1px solid var(--accent); padding-bottom:1px; }
+      .tn-ib .qs{ background:var(--card); border:1px solid var(--rule); border-radius:var(--r-xs); flex:1; display:flex; flex-direction:column; }
+      .tn-ib .qs .q{ display:grid; grid-template-columns: 16px 1fr 35px; gap:5px; padding:4px 6px; border-bottom:1px dotted var(--rule); align-items:center; }
+      .tn-ib .qs .q:last-child{ border-bottom:none; }
+      .tn-ib .qs .q.on{ background: color-mix(in oklab, var(--accent) 7%, var(--card)); }
+      .tn-ib .qs .q.sg{ background: linear-gradient(90deg, var(--accent-soft), transparent 80%); }
+      .tn-ib .qs .ix{ width:14px; height:14px; border-radius:50%; background:var(--paper-2); border:1px solid var(--rule); font-family:var(--mono); font-size:6px; display:grid; place-items:center; color:var(--ink-2); }
+      .tn-ib .qs .q.sg .ix{ background: color-mix(in oklab, var(--accent) 14%, var(--card)); color:var(--accent-deep); border-color: color-mix(in oklab, var(--accent) 35%, var(--rule)); }
+      .tn-ib .qs .tx{ font-family:var(--serif); font-size:7.5px; line-height:1.15; }
+      .tn-ib .qs .tx em{ color:var(--accent-deep); }
+      .tn-ib .qs .pi{ font-family:var(--mono); font-size:5.5px; padding:1px 4px; border-radius:999px; background:var(--paper); border:1px solid var(--rule); color:var(--dim); justify-self:start; }
+      .tn-ib .qs .pi.req{ background: color-mix(in oklab, var(--neg) 10%, var(--card)); color:var(--neg); border-color: color-mix(in oklab, var(--neg) 30%, var(--rule)); }
+      .tn-ib .qs .pi.ai{ background: color-mix(in oklab, var(--accent) 10%, var(--card)); color:var(--accent-deep); border-color: color-mix(in oklab, var(--accent) 30%, var(--rule)); }
+      .tn-ib .preview{ display:flex; flex-direction:column; gap:4px; }
+      .tn-ib .preview .lab{ font-family:var(--mono); font-size:5.5px; letter-spacing:.12em; text-transform:uppercase; color:var(--dim); display:inline-flex; align-items:center; gap:4px; }
+      .tn-ib .preview .lab::before{ content:""; width:4px; height:4px; border-radius:50%; background:var(--pos); }
+      .tn-ib .browser{ background:var(--card); border:1px solid var(--rule); border-radius:var(--r-xs); overflow:hidden; flex:1; display:flex; flex-direction:column; box-shadow: var(--shadow-1); }
+      .tn-ib .browser .chr{ padding:3px 5px; background:var(--paper-2); border-bottom:1px solid var(--rule); display:flex; gap:3px; align-items:center; }
+      .tn-ib .browser .chr i{ display:block; width:4px; height:4px; border-radius:50%; background:var(--dim-2); opacity:.4; }
+      .tn-ib .browser .chr .url{ flex:1; font-family:var(--mono); font-size:5px; color:var(--dim); padding:1px 4px; background:var(--card); border-radius:999px; border:1px solid var(--rule); }
+      .tn-ib .browser .convo{ padding:4px; display:flex; flex-direction:column; gap:3px; flex:1; }
+      .tn-ib .browser .bub{ font-size:5.5px; padding:3px 5px; border-radius:2px; max-width:80%; line-height:1.2; }
+      .tn-ib .browser .bub.ai{ align-self:flex-start; background: linear-gradient(180deg, color-mix(in oklab, var(--accent) 14%, var(--card)), var(--card)); border:1px solid color-mix(in oklab, var(--accent) 30%, var(--rule)); color:var(--ink); }
+      .tn-ib .browser .bub.cl{ align-self:flex-end; background:var(--ink); color:var(--paper); }
+
+      /* Engagement templates thumbnail — clean library list, no editor */
+      .tn-et{ display:flex; flex-direction:column; padding:14px; gap:6px; }
+      .tn-et .ah{ font-family:var(--mono); font-size:5.5px; letter-spacing:.12em; text-transform:uppercase; color:var(--dim); display:flex; align-items:baseline; gap:6px; padding: 2px 0; }
+      .tn-et .ah b{ font-family:var(--serif); font-size:9.5px; letter-spacing:-.005em; color:var(--ink); text-transform:none; font-weight:400; }
+      .tn-et .ah b em{ color:var(--accent); }
+      .tn-et .ah .add{ margin-left:auto; font-family:var(--mono); font-size:5px; color:var(--ink-2); border-bottom:1px dotted var(--dim-2); }
+      .tn-et .t{ background:var(--card); border:1px solid var(--rule); border-radius:var(--r-xs); padding:6px 8px; display:grid; grid-template-columns: 1fr 60px; gap:8px; align-items:start; }
+      .tn-et .t .row{ display:flex; align-items:baseline; gap:5px; flex-wrap:wrap; margin-bottom:3px; }
+      .tn-et .t .nm{ font-family:var(--serif); font-size:9px; line-height:1; }
+      .tn-et .t .nm em{ color:var(--accent-deep); }
+      .tn-et .t .tag{ font-family:var(--mono); font-size:5px; letter-spacing:.06em; text-transform:uppercase; padding:1px 4px; border-radius:999px; background:var(--paper); border:1px solid var(--rule); color:var(--dim); display:inline-flex; align-items:center; gap:3px; }
+      .tn-et .t .tag::before{ content:""; width:3px; height:3px; border-radius:50%; background:var(--dim-2); }
+      .tn-et .t .tag.live::before{ background:var(--pos); }
+      .tn-et .t .tag.live{ color:var(--pos); border-color: color-mix(in oklab, var(--pos) 25%, var(--rule)); }
+      .tn-et .t .tag.draft::before{ background:var(--warn); }
+      .tn-et .t .tag.draft{ color:var(--warn); border-color: color-mix(in oklab, var(--warn) 30%, var(--rule)); }
+      .tn-et .t .ls{ display:flex; flex-direction:column; gap:2px; margin-bottom:3px; }
+      .tn-et .t .ls .l{ height:2px; background:var(--rule); border-radius:2px; }
+      .tn-et .t .m{ font-family:var(--mono); font-size:5px; letter-spacing:.06em; text-transform:uppercase; color:var(--dim); }
+      .tn-et .t .fee{ text-align:right; display:flex; flex-direction:column; gap:2px; }
+      .tn-et .t .fee .mode{ font-family:var(--mono); font-size:5px; letter-spacing:.08em; text-transform:uppercase; color:var(--dim); }
+      .tn-et .t .fee .amt{ font-family:var(--serif); font-size:14px; line-height:1; letter-spacing:-.018em; color:var(--ink); font-feature-settings:"tnum"; }
+      .tn-et .t .fee .amt em{ color:var(--accent-deep); }
+      .tn-et .obs{ background: linear-gradient(90deg, var(--accent-soft), transparent 90%); border-left:2px solid var(--accent); padding:3px 6px; border-radius:0 var(--r-xs) var(--r-xs) 0; margin-top:1px; }
+      .tn-et .obs .lab{ font-family:var(--mono); font-size:5px; letter-spacing:.12em; text-transform:uppercase; color:var(--accent-deep); }
+      .tn-et .obs .t{ font-family:var(--serif); font-style:italic; font-size:6.5px; line-height:1.3; color:var(--ink); margin-top:1px; }
+      .tn-et .obs .t em{ color:var(--accent-deep); }
+    </style>
+
+    <a href="EngagementReview.html" class="screen-card">
+      <div class="thumb">
+        <div class="tn tn-er">
+          <div class="greet">
+            <div class="av">B</div>
+            <div class="h">Hi Bianca — <em>here's the agreement</em> Sarah wants to sign with you.</div>
+          </div>
+          <div class="strip">
+            <div class="c"><div class="l">matter</div><div class="v">Custody mod.</div></div>
+            <div class="c"><div class="l">fee</div><div class="v">$3,000 fixed</div></div>
+            <div class="c"><div class="l">status</div><div class="v pos">Awaiting</div></div>
+          </div>
+          <div class="letter">
+            <div class="firm">Law Offices of <em>Sarah Chen</em>, PLLC</div>
+            <div class="h2">Scope of <em>representation</em></div>
+            <div class="l" style="width:90%"></div>
+            <div class="l" style="width:75%"></div>
+            <div class="l" style="width:80%"></div>
+            <div class="fee">
+              <span class="lab">Total fixed-fee</span>
+              <span class="v">$3,215</span>
+            </div>
+          </div>
+          <div class="ack">
+            <div class="lab">Three acknowledgments</div>
+            <div class="row"><div class="ck on"></div><div class="l" style="width:70%"></div></div>
+            <div class="row"><div class="ck on"></div><div class="l" style="width:80%"></div></div>
+            <div class="row"><div class="ck"></div><div class="l" style="width:65%"></div></div>
+          </div>
+          <div class="sig">
+            <div class="lab">Sign here</div>
+            <div class="pad"><div class="mark">Bianca Martinez</div></div>
+          </div>
+          <div class="decide">
+            <div class="b">Decline</div>
+            <div class="b p">Accept &amp; engage ↗</div>
+          </div>
+        </div>
+      </div>
+      <div class="meta">
+        <div class="ix">17 · Engagement review</div>
+        <h3>The page <em>clients</em> sign on.</h3>
+        <p>Lightweight client-facing surface for review and acceptance. AI greeting summarizes what they're about to sign, the letter renders on white paper, three acknowledgments + a canvas signature pad, accept or decline. Signature is recorded with timestamp, IP, and device fingerprint for audit.</p>
+        <div class="foot">
+          <span class="pill gold">round 3</span>
+          <span class="arrow">Open →</span>
+        </div>
+      </div>
+    </a>
+
+    <a href="IntakeBuilder.html" class="screen-card">
+      <div class="thumb">
+        <div class="tn tn-ib">
+          <div class="rail">
+            <div class="it"></div>
+            <div class="it"></div>
+            <div class="it on"></div>
+            <div class="it"></div>
+            <div class="it"></div>
+            <div class="it"></div>
+            <div class="it"></div>
+          </div>
+          <div class="main">
+            <div class="crumb">Settings · Intelligence · Intake forms</div>
+            <div class="h">Custody <em>modification</em> intake</div>
+            <div class="ai"><div class="av"></div><div class="l"></div></div>
+            <div class="tabs">
+              <span class="t on">Questions</span>
+              <span class="t">Branching</span>
+              <span class="t">Payment</span>
+              <span class="t">Triage</span>
+            </div>
+            <div class="qs">
+              <div class="q sg">
+                <div class="ix">03</div>
+                <div class="tx">Does the other parent have <em>their own counsel?</em></div>
+                <div class="pi ai">staged</div>
+              </div>
+              <div class="q on">
+                <div class="ix">02</div>
+                <div class="tx">Is there a <em>court order</em> in place?</div>
+                <div class="pi req">req</div>
+              </div>
+              <div class="q">
+                <div class="ix">04</div>
+                <div class="tx">Which county issued the order?</div>
+                <div class="pi">jur</div>
+              </div>
+              <div class="q">
+                <div class="ix">05</div>
+                <div class="tx">When does this need to resolve?</div>
+                <div class="pi">urg</div>
+              </div>
+              <div class="q">
+                <div class="ix">08</div>
+                <div class="tx">Anyone in <em>immediate danger?</em></div>
+                <div class="pi req">safety</div>
+              </div>
+            </div>
+          </div>
+          <div class="preview">
+            <div class="lab">Live</div>
+            <div class="browser">
+              <div class="chr"><i></i><i></i><i></i><div class="url">blawby.com/p/…</div></div>
+              <div class="convo">
+                <div class="bub ai">In a sentence — what's going on?</div>
+                <div class="bub cl">my ex is refusing visitation</div>
+                <div class="bub ai">Is there a court order?</div>
+                <div class="bub cl">Yes</div>
+                <div class="bub ai">Does the other parent have counsel?</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="meta">
+        <div class="ix">18 · Intake builder</div>
+        <h3>Intakes you <em>describe,</em> not click together.</h3>
+        <p>Practice-side authoring. Tell the assistant what you want this intake to ask — it stages questions, branching, and payment logic that you approve before going live. Live widget preview on the right shows clients exactly what they'll see. Triage rules at the bottom translate intake answers to accept / refer / escalate.</p>
+        <div class="foot">
+          <span class="pill gold">round 3</span>
+          <span class="arrow">Open →</span>
+        </div>
+      </div>
+    </a>
+
+    <a href="EngagementTemplates.html" class="screen-card">
+      <div class="thumb">
+        <div class="tn tn-et">
+          <div class="ah"><b>Family <em>law</em></b> · 3 templates<span class="add">＋ add</span></div>
+          <div class="t">
+            <div>
+              <div class="row">
+                <div class="nm">Custody <em>modification</em></div>
+                <span class="tag live">live</span>
+              </div>
+              <div class="ls"><div class="l" style="width:88%"></div><div class="l" style="width:72%"></div></div>
+              <div class="m">14 placeholders · used 11×</div>
+            </div>
+            <div class="fee"><div class="mode">Fixed</div><div class="amt">$3,000</div></div>
+          </div>
+          <div class="t">
+            <div>
+              <div class="row">
+                <div class="nm">Original custody action</div>
+                <span class="tag live">live</span>
+              </div>
+              <div class="ls"><div class="l" style="width:80%"></div><div class="l" style="width:62%"></div></div>
+              <div class="m">17 placeholders · 6×</div>
+            </div>
+            <div class="fee"><div class="mode">Hourly</div><div class="amt">$280<span style="font-family:var(--mono);font-size:6px;letter-spacing:.06em;color:var(--dim);margin-left:1px">/hr</span></div></div>
+          </div>
+          <div class="ah" style="margin-top:2px"><b>Estate</b> · 2 templates<span class="add">＋ add</span></div>
+          <div class="t">
+            <div>
+              <div class="row">
+                <div class="nm">Will <em>revision</em></div>
+                <span class="tag live">live</span>
+              </div>
+              <div class="ls"><div class="l" style="width:78%"></div><div class="l" style="width:55%"></div></div>
+              <div class="m">10 placeholders · 3×</div>
+              <div class="obs">
+                <div class="lab">I noticed</div>
+                <div class="t">NC RPC 1.15A trust clause is <em>missing.</em></div>
+              </div>
+            </div>
+            <div class="fee"><div class="mode">Fixed</div><div class="amt">$800</div></div>
+          </div>
+          <div class="t">
+            <div>
+              <div class="row">
+                <div class="nm">LLC formation + filings</div>
+                <span class="tag draft">draft</span>
+              </div>
+              <div class="ls"><div class="l" style="width:70%"></div><div class="l" style="width:48%"></div></div>
+              <div class="m">9 placeholders · 1×</div>
+            </div>
+            <div class="fee"><div class="mode">Fixed</div><div class="amt">$1,400</div></div>
+          </div>
+        </div>
+      </div>
+      <div class="meta">
+        <div class="ix">19 · Engagement templates</div>
+        <h3>The library the assistant <em>drafts from.</em></h3>
+        <p>A clean list grouped by practice area and fee mode. Each card shows the gist, placeholder count, usage, and the last client it was sent to. Click any template to open it in the existing Engagement builder — this page is for finding the right one, not editing it.</p>
+        <div class="foot">
+          <span class="pill gold">round 3</span>
+          <span class="arrow">Open →</span>
+        </div>
+      </div>
+    </a>
+
   </div>
 
   <footer class="foot">
@@ -1010,8 +1647,8 @@
       <span style="color:var(--dim-2)">edit tokens to retheme everything</span>
     </div>
     <div style="text-align:right">
-      12 screens · 1 design system<br>
-      <span style="color:var(--dim-2)">tokens.css is the source of truth</span>
+      19 screens · 1 design system<br>
+      <span style="color:var(--dim-2)">tokens.css is the source of truth · 3 more added this round</span>
     </div>
   </footer>
 

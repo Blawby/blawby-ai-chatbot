@@ -1,0 +1,608 @@
+<!doctype html>
+<html lang="en" data-theme="">
+<head>
+<meta charset="utf-8" />
+<title>Blawby — Clients</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,opsz,wght@0,8..60,300..900;1,8..60,300..900&family=Geist:wght@300;400;500;600;700&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="tokens.css">
+<style>
+  body{
+    background-image: radial-gradient(rgba(15,30,54,0.025) 1px, transparent 1.2px);
+    background-size: 3px 3px;
+    background-attachment: fixed;
+  }
+
+  .app{ display:grid; grid-template-columns: 240px 1fr 400px; min-height:100vh; max-width:1640px; margin:0 auto; }
+
+  /* ===== left rail ===== */
+  .rail{
+    border-right:1px solid var(--rule);
+    padding:22px 16px 16px;
+    display:flex;flex-direction:column;gap:18px;
+    position:sticky;top:0;height:100vh;
+    background: color-mix(in oklab, var(--paper) 96%, var(--card));
+  }
+  .rail .brand-mark-word{ font-family: var(--sans); font-weight: 500; }
+  .rail .meta{ font-family:var(--mono);font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--dim); margin-top:-8px; padding-left:30px; }
+  .new-btn{
+    width:100%; background:var(--ink);color:var(--paper);
+    border:1px solid var(--ink); border-radius: var(--r-xs);
+    padding:11px 14px; font-size:13px;font-weight:500;
+    display:flex;align-items:center;justify-content:space-between; cursor:pointer; transition: all .18s ease;
+  }
+  .new-btn:hover{ background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+  .new-btn kbd{ font-family:var(--mono); font-size:10px; background:rgba(255,255,255,.12); color:var(--paper-2); padding:2px 6px; border-radius:3px; }
+  .rail-section{ display:flex; flex-direction:column; gap:2px; }
+  .rail-label{ font-family:var(--mono); font-size:9.5px; letter-spacing:.12em; text-transform:uppercase; color:var(--dim-2); padding:0 8px 4px; }
+  .rail-item{
+    display:flex; align-items:center; gap:10px;
+    padding:7px 10px; border-radius: var(--r-xs);
+    font-size:13px; color:var(--ink-2); cursor:pointer;
+    transition: background .12s, color .12s; text-decoration:none;
+  }
+  .rail-item:hover{ background: var(--rule-soft); color: var(--ink); }
+  .rail-item .dot{ width:6px; height:6px; border-radius:50%; background:var(--dim-2); flex-shrink:0; }
+  .rail-item.now{ background: var(--accent-soft); color: var(--ink); }
+  .rail-item.now .dot{ background: var(--accent); }
+  .rail-item .count{ margin-left:auto; font-family:var(--mono); font-size:10px; color:var(--dim); letter-spacing:.04em; }
+  .rail-item.unread .count{ color:var(--neg); }
+  .user-chip{
+    margin-top:auto; display:flex; align-items:center; gap:10px;
+    padding:9px 10px; border-radius: var(--r-xs);
+    border:1px solid var(--rule); background: var(--card); cursor:pointer;
+  }
+  .user-chip .who{ font-size:12.5px; line-height:1.2; }
+  .user-chip .who small{ display:block; color:var(--dim); font-size:10.5px; }
+  .user-chip .caret{ margin-left:auto; color:var(--dim-2); }
+
+  /* ===== center ===== */
+  .center{ padding:36px 56px 80px; display:flex; flex-direction:column; min-width:0; }
+
+  .page-head{
+    display:flex; justify-content:space-between; align-items:flex-end;
+    padding-bottom: 16px; border-bottom: 1px solid var(--rule);
+    margin-bottom: 24px;
+  }
+  .page-head .crumb{ font-family: var(--mono); font-size: 10.5px; letter-spacing:.16em; text-transform:uppercase; color:var(--dim); margin-bottom: 4px; }
+  .page-head h1{ font-family: var(--serif); font-weight:400; font-size: 56px; line-height: 1; letter-spacing:-.022em; margin:0; }
+  .page-head h1 em{ color: var(--accent); }
+  .page-head .right{ font-family: var(--mono); font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--dim); text-align: right; line-height: 1.6; }
+  .page-head .right b{ font-weight: 500; color: var(--ink); }
+
+  /* ask bar */
+  .ask{
+    display:flex; align-items:center; gap:10px;
+    background: var(--card); border: 1px solid var(--rule);
+    border-radius: var(--r-md); padding: 12px 16px;
+    margin-bottom: 16px;
+    box-shadow: var(--shadow-1);
+  }
+  .ask .av{ width: 26px; height: 26px; border-radius: 50%; background: var(--ink); color: var(--accent); display: grid; place-items: center; font-family: var(--serif); font-style: italic; font-size: 14px; }
+  .ask .input{ flex: 1; font-size: 14.5px; color: var(--ink); outline: none; }
+  .ask .input:empty::before{ content: attr(data-ph); color: var(--dim-2); }
+  .ask .kbd{ font-family: var(--mono); font-size: 10px; color: var(--dim); padding: 3px 6px; background: var(--rule-soft); border-radius: 3px; }
+
+  /* AI summary card */
+  .answer{
+    background: linear-gradient(180deg, color-mix(in oklab, var(--accent) 14%, var(--card)), var(--card));
+    border: 1px solid color-mix(in oklab, var(--accent) 30%, var(--rule));
+    border-radius: var(--r-md);
+    padding: 20px 24px;
+    box-shadow: var(--shadow-1);
+    margin-bottom: 22px;
+  }
+  .answer .lab{
+    display:flex; align-items:center; gap:10px;
+    font-family: var(--mono); font-size: 10px;
+    letter-spacing:.12em; text-transform: uppercase;
+    color: var(--accent-deep); margin-bottom: 4px;
+  }
+  .answer .lab .verify{
+    color: var(--pos); display:inline-flex; align-items:center; gap:5px;
+  }
+  .answer .lab .verify::before{ content:""; width: 5px; height: 5px; border-radius: 50%; background: var(--pos); }
+  .answer .lede{
+    font-family: var(--serif); font-size: 26px; line-height: 1.2;
+    letter-spacing:-.012em; color: var(--ink);
+    margin: 4px 0 8px; max-width: 60ch; text-wrap: balance;
+  }
+  .answer .lede em{ color: var(--accent-deep); }
+  .answer p{ font-size: 14px; line-height: 1.55; color: var(--ink-2); margin: 0 0 12px; max-width: 62ch; }
+  .answer .cites{ display: flex; gap: 5px; flex-wrap: wrap; }
+  .answer .acts{ display:flex; gap:6px; flex-wrap:wrap; margin-top: 14px; }
+
+  /* filter row */
+  .filters{
+    display:flex; gap:8px; padding: 14px 0;
+    align-items:center; flex-wrap: wrap;
+    border-bottom: 1px solid var(--rule);
+    margin-bottom: 0;
+  }
+  .filter{
+    font-family: var(--mono); font-size: 10.5px;
+    letter-spacing:.06em; text-transform:uppercase;
+    padding: 5px 10px; border-radius: var(--r-pill);
+    border: 1px solid var(--rule); background: var(--card);
+    color: var(--dim); cursor:pointer;
+    display:inline-flex; align-items:center; gap:6px;
+  }
+  .filter:hover{ border-color: var(--ink-3); color: var(--ink-2); }
+  .filter.on{ background: var(--ink); color: var(--paper); border-color: var(--ink); }
+  .filter .n{ color: var(--accent); }
+  .filter.warn .n{ color: var(--neg); }
+  .filter .sep{ width: 1px; height: 14px; background: var(--rule); margin: 0 4px; }
+  .filters .seg{ display: inline-flex; }
+  .filters .seg .filter{ border-radius: 0; border-right-width: 0; }
+  .filters .seg .filter:first-child{ border-radius: var(--r-pill) 0 0 var(--r-pill); }
+  .filters .seg .filter:last-child{ border-radius: 0 var(--r-pill) var(--r-pill) 0; border-right-width: 1px; }
+
+  /* directory table */
+  .dir{
+    border: 1px solid var(--rule); border-top: none;
+    border-radius: 0 0 var(--r-md) var(--r-md);
+    background: var(--card);
+    overflow: hidden;
+  }
+  .dir .row{
+    display:grid;
+    grid-template-columns: 28px 1.8fr 1.6fr 1fr 1fr 110px 100px;
+    gap: 16px;
+    padding: 14px 18px;
+    align-items: center;
+    border-bottom: 1px solid var(--rule);
+    font-size: 13.5px;
+    cursor: pointer;
+    transition: background .12s;
+  }
+  .dir .row:last-child{ border-bottom: none; }
+  .dir .row:hover{ background: var(--rule-soft); }
+  .dir .row.active{ background: color-mix(in oklab, var(--accent) 7%, var(--card)); }
+  .dir .row.active::before{
+    content:""; position: absolute; left: 0; width: 3px; height: 100%; background: var(--accent);
+  }
+  .dir .head{
+    background: var(--paper-2); padding: 10px 18px;
+    font-family: var(--mono); font-size: 10px;
+    letter-spacing:.12em; text-transform:uppercase;
+    color: var(--dim); cursor: default;
+  }
+  .dir .head:hover{ background: var(--paper-2); }
+  .dir .name{
+    display:flex; align-items:center; gap:10px;
+    font-family: var(--serif); font-size: 17px;
+    line-height: 1.1; letter-spacing:-.005em;
+    color: var(--ink);
+  }
+  .dir .name .av{
+    width: 26px; height: 26px; border-radius: 50%;
+    background: linear-gradient(135deg, var(--ink-2), var(--ink));
+    color: var(--paper); font-family: var(--sans); font-weight: 500;
+    font-size: 10.5px; display: grid; place-items: center; flex-shrink: 0;
+  }
+  .dir .name .av.urg{ background: linear-gradient(135deg, color-mix(in oklab, var(--neg) 80%, var(--ink)), var(--neg)); }
+  .dir .matter{ color: var(--ink-2); font-size: 13px; line-height: 1.4; }
+  .dir .matter .area{ display: block; font-family: var(--mono); font-size: 10px; letter-spacing:.08em; text-transform: uppercase; color: var(--dim); margin-top: 2px; }
+  .dir .last{ font-family: var(--mono); font-size: 11px; letter-spacing: .04em; text-transform: uppercase; color: var(--ink-2); }
+  .dir .last em{ color: var(--dim); font-style: normal; display: block; font-size: 10px; margin-top: 2px; }
+  .dir .retainer{ display:flex; flex-direction:column; gap:4px; }
+  .dir .retainer .amt{ font-family: var(--mono); font-size: 12.5px; font-feature-settings: "tnum"; color: var(--ink); }
+  .dir .retainer .bar{ height: 3px; background: var(--rule-soft); border-radius: var(--r-pill); overflow: hidden; }
+  .dir .retainer .bar i{ display:block; height: 100%; background: var(--accent); }
+  .dir .retainer.warn .bar i{ background: var(--neg); }
+  .dir .retainer.ok .bar i{ background: var(--pos); }
+  .dir .retainer.warn .amt{ color: var(--neg); }
+  .dir .sentiment{
+    font-family: var(--mono); font-size: 9.5px;
+    letter-spacing:.08em; text-transform: uppercase;
+    padding: 3px 9px; border-radius: var(--r-pill);
+    border: 1px solid var(--rule); background: var(--paper);
+    color: var(--dim);
+    display:inline-flex; align-items: center; gap: 5px;
+    justify-self: start;
+  }
+  .dir .sentiment::before{ content:""; width: 5px; height: 5px; border-radius: 50%; background: var(--dim-2); }
+  .dir .sentiment.calm::before{ background: var(--pos); }
+  .dir .sentiment.calm{ color: var(--pos); border-color: color-mix(in oklab, var(--pos) 30%, var(--rule)); }
+  .dir .sentiment.anxious::before{ background: var(--warn); }
+  .dir .sentiment.anxious{ color: var(--warn); border-color: color-mix(in oklab, var(--warn) 30%, var(--rule)); }
+  .dir .sentiment.frustrated::before{ background: var(--neg); }
+  .dir .sentiment.frustrated{ color: var(--neg); border-color: color-mix(in oklab, var(--neg) 30%, var(--rule)); }
+  .dir .arrow{ text-align: right; font-family: var(--mono); font-size: 11px; color: var(--dim); }
+  .dir .row:hover .arrow{ color: var(--accent-deep); }
+
+  /* ===== right focus drawer ===== */
+  .focus{
+    border-left:1px solid var(--rule);
+    padding: 28px 22px;
+    position: sticky; top: 0; height: 100vh;
+    overflow-y: auto;
+    display:flex; flex-direction:column; gap: 14px;
+    background: color-mix(in oklab, var(--paper) 96%, var(--card));
+  }
+  .focus::-webkit-scrollbar{ width: 0; }
+  .focus-head .kind{ font-family: var(--mono); font-size: 10px; letter-spacing:.14em; text-transform: uppercase; color: var(--dim); }
+  .focus-head h2{ font-family: var(--serif); font-weight: 400; font-size: 30px; line-height: 1.05; letter-spacing:-.012em; margin: 8px 0 4px; }
+  .focus-head h2 em{ color: var(--accent); }
+  .focus-head .sub{ font-size: 13px; color: var(--ink-2); }
+  .focus-head .ro{
+    font-family: var(--mono); font-size: 9.5px;
+    letter-spacing:.1em; text-transform: uppercase;
+    color: var(--dim-2); margin-top: 8px;
+    display:inline-flex; align-items:center; gap:6px;
+  }
+  .focus-head .ro::before{ content:""; width: 5px; height: 5px; border-radius: 50%; background: var(--dim-2); }
+
+  .focus-grid{ display:grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .stat-tile{ background: var(--card); border: 1px solid var(--rule); border-radius: var(--r-md); padding: 12px 14px; }
+  .stat-tile .lab{ font-family: var(--mono); font-size: 9.5px; letter-spacing:.12em; text-transform: uppercase; color: var(--dim); }
+  .stat-tile .val{ font-family: var(--serif); font-size: 22px; letter-spacing:-.01em; margin-top: 4px; line-height: 1; font-feature-settings: "tnum"; }
+  .stat-tile .val small{ font-size: 11px; font-family: var(--mono); color: var(--dim); margin-left: 4px; }
+  .stat-tile .val.neg{ color: var(--neg); }
+  .stat-tile .bar{ margin-top: 8px; }
+
+  .observe{
+    border-left: 2px solid var(--accent);
+    background: linear-gradient(90deg, var(--accent-soft), transparent 90%);
+    padding: 12px 14px; border-radius: 0 var(--r-md) var(--r-md) 0;
+  }
+  .observe .lab{ font-family: var(--mono); font-size: 9.5px; letter-spacing:.12em; text-transform: uppercase; color: var(--accent-deep); }
+  .observe .txt{ font-family: var(--serif); font-style: italic; font-size: 16px; line-height: 1.4; color: var(--ink); margin-top: 6px; }
+  .observe .acts{ display:flex; gap: 6px; margin-top: 10px; flex-wrap: wrap; }
+
+  .section-label{
+    display:flex; align-items:center; justify-content:space-between;
+    font-family: var(--mono); font-size: 10px;
+    letter-spacing:.14em; text-transform: uppercase;
+    color: var(--dim); margin: 10px 0 2px;
+  }
+  .section-label a{ font-family: var(--sans); font-size: 11px; color: var(--ink-2); text-transform: none; letter-spacing: 0; border-bottom: 1px dotted var(--dim-2); cursor: pointer; }
+
+  .field-list{ background: var(--card); border: 1px solid var(--rule); border-radius: var(--r-md); padding: 4px 14px; }
+  .field-list .f{ display: grid; grid-template-columns: 86px 1fr; gap: 10px; padding: 9px 0; border-bottom: 1px solid var(--rule); font-size: 13px; }
+  .field-list .f:last-child{ border-bottom: none; }
+  .field-list .f .k{ font-family: var(--mono); font-size: 10px; letter-spacing:.08em; text-transform: uppercase; color: var(--dim); padding-top: 2px; }
+  .field-list .f .v{ color: var(--ink); }
+  .field-list .f .v em{ color: var(--accent-deep); }
+
+  .matter-strip{ background: var(--card); border: 1px solid var(--rule); border-radius: var(--r-md); padding: 4px 14px; }
+  .matter-strip .m{
+    display:grid; grid-template-columns: 8px 1fr auto; gap: 10px;
+    padding: 10px 0; border-bottom: 1px solid var(--rule);
+    align-items:center; font-size: 13px;
+  }
+  .matter-strip .m:last-child{ border-bottom:none; }
+  .matter-strip .m .pin{ width: 6px; height: 6px; border-radius: 50%; background: var(--dim-2); }
+  .matter-strip .m.urgent .pin{ background: var(--neg); }
+  .matter-strip .m.healthy .pin{ background: var(--pos); }
+  .matter-strip .m .what b{ display:block; font-weight: 500; }
+  .matter-strip .m .what em{ display:block; font-family: var(--mono); font-style: normal; font-size: 10px; letter-spacing:.06em; text-transform: uppercase; color: var(--dim); margin-top: 2px; }
+  .matter-strip .m .num{ font-family: var(--mono); font-size: 12px; font-feature-settings: "tnum"; color: var(--ink-2); }
+
+  .focus-actions{ display:flex; gap:6px; flex-wrap:wrap; }
+  .focus-footer{
+    margin-top: auto; padding-top: 14px; border-top: 1px solid var(--rule);
+    font-family: var(--mono); font-size: 10px;
+    letter-spacing:.06em; text-transform: uppercase;
+    color: var(--dim-2); line-height: 1.6;
+  }
+  .focus-footer b{ color: var(--ink-2); font-weight: 500; }
+
+  @media (max-width: 1280px){
+    .app{ grid-template-columns: 240px 1fr; }
+    .focus{ display:none; }
+  }
+  @media (max-width: 980px){
+    .app{ grid-template-columns: 1fr; }
+    .rail{ display:none; }
+    .center{ padding: 24px 22px 80px; }
+    .page-head h1{ font-size: 40px; }
+    .dir .row{ grid-template-columns: 1.6fr 1fr 110px; }
+    .dir .row > :nth-child(1){ display: none; }
+    .dir .row > :nth-child(4), .dir .row > :nth-child(5){ display: none; }
+  }
+</style>
+</head>
+<body>
+
+<div class="app">
+
+  <!-- ============ LEFT RAIL ============ -->
+  <aside class="rail" data-screen-label="rail">
+    <a href="Assistant.html" class="brand-mark">
+      <span class="brand-mark-glyph">B</span>
+      <span class="brand-mark-word">Blawby</span>
+    </a>
+    <div class="meta">Demo Owner Local · solo</div>
+    <button class="new-btn"><span>＋  New conversation</span><kbd>⌘N</kbd></button>
+
+    <div class="rail-section">
+      <div class="rail-label">Workspace</div>
+      <a class="rail-item" href="Assistant.html"><span class="dot"></span>Assistant</a>
+      <a class="rail-item" href="Conversations.html"><span class="dot"></span>Conversations<span class="count">14</span></a>
+      <a class="rail-item unread" href="Intakes.html"><span class="dot"></span>Intakes<span class="count">3 new</span></a>
+      <a class="rail-item" href="Matters.html"><span class="dot"></span>Matters<span class="count">4</span></a>
+      <a class="rail-item now"><span class="dot"></span>Clients<span class="count">11</span></a>
+      <a class="rail-item" href="Invoices.html"><span class="dot"></span>Invoices<span class="count">2</span></a>
+      <a class="rail-item" href="Trust.html"><span class="dot"></span>Trust ledger</a>
+    </div>
+
+    <div class="rail-section">
+      <div class="rail-label">Recent</div>
+      <a class="rail-item"><span class="dot" style="background:var(--neg)"></span>Bianca Martinez</a>
+      <a class="rail-item"><span class="dot" style="background:var(--accent)"></span>D. Johnson</a>
+      <a class="rail-item"><span class="dot"></span>Marcus Park</a>
+    </div>
+
+    <div class="rail-section">
+      <div class="rail-label">Other</div>
+      <a class="rail-item" href="Reports.html"><span class="dot"></span>Reports</a>
+      <a class="rail-item" href="Settings.html"><span class="dot"></span>Settings</a>
+    </div>
+
+    <div class="user-chip">
+      <div class="avatar user">DO</div>
+      <div class="who">Demo Owner<small>demo.owner.local@blawby.test</small></div>
+      <div class="caret">⌃</div>
+    </div>
+  </aside>
+
+  <!-- ============ CENTER ============ -->
+  <main class="center" data-screen-label="clients-main">
+
+    <header class="page-head">
+      <div>
+        <div class="crumb">Workspace · 11 active</div>
+        <h1>Clients you <em>haven't heard from.</em></h1>
+      </div>
+      <div class="right">
+        <b>11</b> active · <b>3</b> on retainer<br>
+        <b>2</b> awaiting documents<br>
+        Avg. last contact <b>9 days</b>
+      </div>
+    </header>
+
+    <div class="ask">
+      <div class="av">B</div>
+      <div class="input" contenteditable="true" data-ph="Ask — 'who needs a check-in?' · 'who hasn't paid in 30 days?' · 'show clients with low retainers'">Who needs a check-in this week?</div>
+      <span class="kbd">⌘K</span>
+    </div>
+
+    <div class="answer">
+      <div class="lab">
+        <span>Assistant · answered in 0.8s</span>
+        <span class="verify">grounded in 6 sources</span>
+      </div>
+      <div class="lede">Three clients are <em>overdue</em> for a check-in — and one of them just got bad news.</div>
+      <p>
+        <span class="matter-chip" style="display:inline-flex;align-items:center;gap:6px;padding:2px 9px;border-radius:var(--r-xs);background:var(--rule-soft);border:1px solid var(--rule);font-size:13px;color:var(--ink);"><span style="width:5px;height:5px;border-radius:50%;background:var(--neg)"></span>D. Johnson</span>
+        has gone 14 days without contact and her estate matter has a hearing Friday. <span class="matter-chip" style="display:inline-flex;align-items:center;gap:6px;padding:2px 9px;border-radius:var(--r-xs);background:var(--rule-soft);border:1px solid var(--rule);font-size:13px;color:var(--ink);"><span style="width:5px;height:5px;border-radius:50%;background:var(--accent)"></span>Marcus Park</span>
+        is sitting on his engagement letter — sentiment looks <em>calm but slow.</em> <span class="matter-chip" style="display:inline-flex;align-items:center;gap:6px;padding:2px 9px;border-radius:var(--r-xs);background:var(--rule-soft);border:1px solid var(--rule);font-size:13px;color:var(--ink);"><span style="width:5px;height:5px;border-radius:50%;background:var(--dim-2)"></span>Tomas Vega</span>
+        hasn't replied in 21 days — I'd offer to close out.
+      </p>
+      <div class="cites">
+        <span class="pill live">matters · 11 rows</span>
+        <span class="pill">matter_events · 38</span>
+        <span class="pill">contact_forms · 11</span>
+        <span class="pill">sentiment_snapshots · 11</span>
+      </div>
+      <div class="acts">
+        <button class="chip primary">Stage 3 check-in messages ↗</button>
+        <button class="chip">See criteria</button>
+        <button class="chip">Save as smart filter</button>
+      </div>
+    </div>
+
+    <div class="filters">
+      <span class="filter on">All <span class="n">11</span></span>
+      <span class="filter warn">Needs check-in <span class="n">3</span></span>
+      <span class="filter">On retainer <span class="n">3</span></span>
+      <span class="filter">Active matter <span class="n">4</span></span>
+      <span class="filter">Awaiting docs <span class="n">2</span></span>
+      <span class="filter">Closed <span class="n">2</span></span>
+      <span class="sep"></span>
+      <div class="seg">
+        <span class="filter on">By last contact</span>
+        <span class="filter">By matter health</span>
+        <span class="filter">A → Z</span>
+      </div>
+    </div>
+
+    <div class="dir">
+      <div class="row head">
+        <div></div>
+        <div>Client</div>
+        <div>Primary matter</div>
+        <div>Retainer</div>
+        <div>Last contact</div>
+        <div>Sentiment</div>
+        <div></div>
+      </div>
+
+      <div class="row active" style="position:relative">
+        <div></div>
+        <div class="name"><div class="av urg">BM</div>Bianca Martinez</div>
+        <div class="matter">Settlement disbursement <span class="area">auto injury · settled</span></div>
+        <div class="retainer ok"><div class="amt">$14,200 <small style="color:var(--dim);font-size:10px">trust</small></div><div class="bar"><i style="width:100%"></i></div></div>
+        <div class="last">2h ago<em>via portal</em></div>
+        <div class="sentiment anxious">anxious</div>
+        <div class="arrow">→</div>
+      </div>
+
+      <div class="row">
+        <div></div>
+        <div class="name"><div class="av">DJ</div>D. Johnson</div>
+        <div class="matter">Estate · probate filing<span class="area">estate planning · hearing Fri</span></div>
+        <div class="retainer warn"><div class="amt">$612</div><div class="bar"><i style="width:18%"></i></div></div>
+        <div class="last">14 days<em>last call</em></div>
+        <div class="sentiment frustrated">frustrated</div>
+        <div class="arrow">→</div>
+      </div>
+
+      <div class="row">
+        <div></div>
+        <div class="name"><div class="av">MP</div>Marcus Park</div>
+        <div class="matter">Will revision + healthcare directive<span class="area">estate · engagement sent</span></div>
+        <div class="retainer"><div class="amt">— <small style="color:var(--dim);font-size:10px">awaiting deposit</small></div><div class="bar"><i style="width:0%"></i></div></div>
+        <div class="last">3 days<em>via email</em></div>
+        <div class="sentiment calm">calm</div>
+        <div class="arrow">→</div>
+      </div>
+
+      <div class="row">
+        <div></div>
+        <div class="name"><div class="av">RA</div>Robert &amp; J. Alvarez</div>
+        <div class="matter">Separation agreement<span class="area">family · drafting</span></div>
+        <div class="retainer ok"><div class="amt">$3,400</div><div class="bar"><i style="width:68%"></i></div></div>
+        <div class="last">Mon<em>autopilot</em></div>
+        <div class="sentiment calm">calm</div>
+        <div class="arrow">→</div>
+      </div>
+
+      <div class="row">
+        <div></div>
+        <div class="name"><div class="av">TN</div>Tien Nguyen</div>
+        <div class="matter">Commercial lease dispute<span class="area">litigation · pre-suit</span></div>
+        <div class="retainer ok"><div class="amt">$5,800</div><div class="bar"><i style="width:88%"></i></div></div>
+        <div class="last">Mon<em>via portal</em></div>
+        <div class="sentiment calm">calm</div>
+        <div class="arrow">→</div>
+      </div>
+
+      <div class="row">
+        <div></div>
+        <div class="name"><div class="av">SC</div>Sarah Chen</div>
+        <div class="matter">Custody modification<span class="area">family · intake</span></div>
+        <div class="retainer"><div class="amt">— <small style="color:var(--dim);font-size:10px">prospective</small></div><div class="bar"><i style="width:0%"></i></div></div>
+        <div class="last">12m<em>autopilot</em></div>
+        <div class="sentiment anxious">anxious</div>
+        <div class="arrow">→</div>
+      </div>
+
+      <div class="row">
+        <div></div>
+        <div class="name"><div class="av">LO</div>Lola Okafor</div>
+        <div class="matter">Habitability claim<span class="area">housing · intake</span></div>
+        <div class="retainer"><div class="amt">— <small style="color:var(--dim);font-size:10px">prospective</small></div><div class="bar"><i style="width:0%"></i></div></div>
+        <div class="last">Fri<em>autopilot</em></div>
+        <div class="sentiment calm">calm</div>
+        <div class="arrow">→</div>
+      </div>
+
+      <div class="row">
+        <div></div>
+        <div class="name"><div class="av">TV</div>Tomas Vega</div>
+        <div class="matter">Contract review · LLC formation<span class="area">corporate · waiting</span></div>
+        <div class="retainer warn"><div class="amt">$80</div><div class="bar"><i style="width:6%"></i></div></div>
+        <div class="last">21 days<em>via email</em></div>
+        <div class="sentiment" style="color:var(--dim)">silent</div>
+        <div class="arrow">→</div>
+      </div>
+
+      <div class="row">
+        <div></div>
+        <div class="name"><div class="av">JP</div>J. Patel</div>
+        <div class="matter">Small claims · resolved<span class="area">litigation · closed Nov 21</span></div>
+        <div class="retainer ok"><div class="amt">$0 <small style="color:var(--dim);font-size:10px">disbursed</small></div><div class="bar"><i style="width:0%;background:var(--dim-2)"></i></div></div>
+        <div class="last">Fri<em>thank-you note</em></div>
+        <div class="sentiment calm">grateful</div>
+        <div class="arrow">→</div>
+      </div>
+
+      <div class="row">
+        <div></div>
+        <div class="name"><div class="av">AK</div>Aisha Kim</div>
+        <div class="matter">Contract review · LLC<span class="area">corporate · intake</span></div>
+        <div class="retainer"><div class="amt">— <small style="color:var(--dim);font-size:10px">prospective</small></div><div class="bar"><i style="width:0%"></i></div></div>
+        <div class="last">Thu<em>uploaded docs</em></div>
+        <div class="sentiment calm">calm</div>
+        <div class="arrow">→</div>
+      </div>
+
+      <div class="row">
+        <div></div>
+        <div class="name"><div class="av">EC</div>E. Castillo</div>
+        <div class="matter">Custody enforcement<span class="area">family · paused</span></div>
+        <div class="retainer warn"><div class="amt">$220</div><div class="bar"><i style="width:10%"></i></div></div>
+        <div class="last">11 days<em>via portal</em></div>
+        <div class="sentiment anxious">anxious</div>
+        <div class="arrow">→</div>
+      </div>
+
+    </div>
+  </main>
+
+  <!-- ============ RIGHT FOCUS DRAWER ============ -->
+  <aside class="focus" data-screen-label="focus-drawer">
+    <header class="focus-head">
+      <div class="kind">Selected client</div>
+      <h2>Bianca <em>Martinez</em></h2>
+      <div class="sub">Client since Aug 4, 2026 · counsel Sarah Tucker</div>
+      <div class="ro">read-only · writes via assistant</div>
+    </header>
+
+    <div class="focus-actions">
+      <a class="chip primary" href="Conversations.html">Open thread ↗</a>
+      <a class="chip" href="Matter.html">Open matter</a>
+      <button class="chip">Call</button>
+    </div>
+
+    <div class="observe">
+      <div class="lab">I noticed</div>
+      <div class="txt">Her last three messages mentioned timing or money — she's anxious about Friday rent.</div>
+      <div class="acts">
+        <button class="chip primary">Stage warm reply</button>
+        <button class="chip">Add care-note to file</button>
+      </div>
+    </div>
+
+    <div class="section-label">At a glance</div>
+    <div class="focus-grid">
+      <div class="stat-tile"><div class="lab">Active matters</div><div class="val">1</div></div>
+      <div class="stat-tile"><div class="lab">Lifetime value</div><div class="val">$18,420</div></div>
+      <div class="stat-tile"><div class="lab">Trust held</div><div class="val">$14,200</div><div class="bar"><i style="width:100%;background:var(--pos)"></i></div></div>
+      <div class="stat-tile"><div class="lab">Unbilled</div><div class="val">$0</div></div>
+    </div>
+
+    <div class="section-label">Contact <a>edit</a></div>
+    <div class="field-list">
+      <div class="f"><div class="k">Email</div><div class="v">bianca.m@example.com</div></div>
+      <div class="f"><div class="k">Phone</div><div class="v">(704) 555-0182</div></div>
+      <div class="f"><div class="k">Pref. channel</div><div class="v">Text + portal</div></div>
+      <div class="f"><div class="k">Languages</div><div class="v">English, Spanish</div></div>
+      <div class="f"><div class="k">Tone</div><div class="v"><em>Anxious about timing — keep concrete</em></div></div>
+      <div class="f"><div class="k">Conflicts</div><div class="v" style="color:var(--pos)">Cleared</div></div>
+    </div>
+
+    <div class="section-label">Matters</div>
+    <div class="matter-strip">
+      <div class="m healthy">
+        <div class="pin"></div>
+        <div class="what"><b>Auto Injury · Martinez v. Greene</b><em>settled · awaiting disbursement</em></div>
+        <div class="num">$8,840 net</div>
+      </div>
+      <div class="m">
+        <div class="pin"></div>
+        <div class="what"><b>Consultation · landlord notice</b><em>closed Jun 2026 · referred</em></div>
+        <div class="num">—</div>
+      </div>
+    </div>
+
+    <div class="section-label">Recent</div>
+    <div class="field-list">
+      <div class="f"><div class="k">9:42 am</div><div class="v"><b>Bianca</b> asked about disbursement timing</div></div>
+      <div class="f"><div class="k">9:11 am</div><div class="v">Settlement check <b>cleared into trust</b> · $14,200</div></div>
+      <div class="f"><div class="k">Mon</div><div class="v">Assistant acknowledged State Farm correspondence</div></div>
+      <div class="f"><div class="k">Fri</div><div class="v">Sarah scheduled walk-through call</div></div>
+    </div>
+
+    <div class="focus-footer">
+      Sentiment snapshot computed at <b>9:43 am</b> from last 5 turns · <a style="color:var(--ink-2);border-bottom:1px dotted var(--dim-2)">audit</a>
+    </div>
+  </aside>
+
+</div>
+
+</body>
+</html>
