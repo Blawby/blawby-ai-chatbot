@@ -10,7 +10,13 @@ import { InvoiceInspector } from '@/features/invoices/components/InvoiceInspecto
 import { ClientInspector } from '@/features/clients/components/ClientInspector';
 import { Button } from '@/shared/ui/Button';
 import { Combobox, type ComboboxOption, Input, Textarea } from '@/shared/ui/input';
-import { StackedAvatars, UserCard } from '@/shared/ui/profile';
+import {
+  InspectorIdentity,
+  resolveAttorneyLabel as resolveAttorneyLabelHelper,
+  resolveAttorneyIdentity as resolveAttorneyIdentityHelper,
+  renderCompactIdentity,
+  renderIdentityStack,
+} from './identityHelpers';
 import { STATE_OPTIONS } from '@/shared/ui/address/AddressFields';
 import { InspectorSectionSkeleton } from '@/shared/ui/layout';
 import {
@@ -40,14 +46,6 @@ type InspectorConfig =
   | { type: 'invoice' };
 
 type InspectorEntityType = InspectorConfig['type'];
-
-type InspectorIdentity = {
-  userId: string;
-  name: string;
-  email?: string;
-  image?: string | null;
-  role: string;
-};
 
 type InspectorPanelProps = {
   entityType: InspectorEntityType;
@@ -475,32 +473,14 @@ export const InspectorPanel = ({
     }
     return [...people.values()];
   }, [assignedConversationMember, userDetail, conversation, assignedMemberLabel]);
-  const resolveAttorneyLabel = useCallback((id: string | null) => {
-    if (!id) return 'Not set';
-    const option = matterAssigneeOptions.find((entry) => entry.value === id);
-    return option?.label ?? `User ${id.slice(0, 6)}`;
-  }, [matterAssigneeOptions]);
-  const resolveAttorneyIdentity = useCallback((id: string | null) => {
-    if (!id) return null;
-    const member = conversationMembers.find((entry) => entry.userId === id);
-    if (member) return member;
-    const option = matterAssigneeOptions.find((entry) => entry.value === id);
-    if (option?.label) {
-      return {
-        userId: id,
-        name: option.label,
-        email: option.meta,
-        image: null,
-        role: 'member',
-      };
-    }
-    return {
-      userId: id,
-      name: `User ${id.slice(0, 6)}`,
-      image: null,
-      role: 'member',
-    };
-  }, [conversationMembers, matterAssigneeOptions]);
+  const resolveAttorneyLabel = useCallback(
+    (id: string | null) => resolveAttorneyLabelHelper(id, matterAssigneeOptions),
+    [matterAssigneeOptions],
+  );
+  const resolveAttorneyIdentity = useCallback(
+    (id: string | null) => resolveAttorneyIdentityHelper(id, conversationMembers, matterAssigneeOptions),
+    [conversationMembers, matterAssigneeOptions],
+  );
   const matterTeamIdentities = useMemo(() => {
     const identities = new Map<string, { id: string; name: string; image?: string | null }>();
 
@@ -544,41 +524,7 @@ export const InspectorPanel = ({
     resolvedMatterOriginatingAttorneyId,
     resolvedMatterResponsibleAttorneyId,
   ]);
-  const renderCompactIdentity = useCallback((identity: Pick<InspectorIdentity, 'name' | 'image'> | null) => {
-    if (!identity) return null;
-    return (
-      <UserCard
-        name={identity.name}
-        image={identity.image ?? null}
-        size="sm"
-        className="px-0 py-0"
-      />
-    );
-  }, []);
-  const renderIdentityStack = useCallback((
-    users: Array<{ id: string; name: string; image?: string | null }>,
-    emptyLabel: string,
-    singularLabel: string,
-    pluralLabel: string,
-  ) => {
-    if (users.length === 0) {
-      return <span className="text-input-placeholder">{emptyLabel}</span>;
-    }
-
-    return (
-      <div className="flex items-center gap-3">
-        <StackedAvatars users={users} size="sm" max={4} className="shrink-0" />
-        <div className="min-w-0">
-          <p className="truncate text-[14px] text-input-text">
-            {users.map((user) => user.name).join(', ')}
-          </p>
-          <p className="text-[11px] uppercase tracking-wider text-input-placeholder">
-            {users.length} {users.length === 1 ? singularLabel : pluralLabel}
-          </p>
-        </div>
-      </div>
-    );
-  }, []);
+  // renderCompactIdentity and renderIdentityStack now imported from identityHelpers
   const matterUrgencyLabel = useMemo(() => {
     if (!resolvedMatterUrgency) return 'Not set';
     return resolvedMatterUrgency.replace(/_/g, ' ').replace(/\b\w/g, (char) => char.toUpperCase());
