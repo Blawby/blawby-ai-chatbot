@@ -32,7 +32,7 @@ export const ClientMattersGrid = ({
       {loading ? (
         <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {[1, 2, 3].map((i) => (
-            <div key={i} className="space-y-3 rounded-xl bg-surface-overlay/80 p-6 outline outline-1 outline-line-glass/40">
+            <div key={i} className="space-y-3 rounded-r-md bg-card/80 p-6 outline outline-1 outline-line-glass/40">
               <SkeletonLoader variant="text" width="w-32" />
               <SkeletonLoader variant="text" width="w-24" />
               <SkeletonLoader variant="text" width="w-20" />
@@ -40,7 +40,7 @@ export const ClientMattersGrid = ({
           ))}
         </div>
       ) : error ? (
-        <div className="mt-6 rounded-xl border border-card-border bg-card px-3 py-2 text-sm text-ink">
+        <div className="mt-6 rounded-r-md border border-card-border bg-card px-3 py-2 text-sm text-ink">
           {error}
         </div>
       ) : matters.length === 0 ? (
@@ -50,15 +50,15 @@ export const ClientMattersGrid = ({
           {matters.map((matter) => (
             <li
               key={matter.id}
-              className="overflow-hidden rounded-xl bg-surface-overlay/80 outline outline-1 outline-line-glass/40 backdrop-blur-xl"
+              className="overflow-hidden rounded-r-md bg-card/80 outline outline-1 outline-line-glass/40 backdrop-blur-xl"
             >
               <button
                 type="button"
                 onClick={() => onViewMatter?.(matter.id)}
-                className="block w-full text-left transition-colors hover:bg-surface-utility/20"
+                className="block w-full text-left transition-colors hover:bg-paper-2/20"
               >
-                <div className="flex items-start gap-3 border-b border-line-subtle bg-surface-overlay/70 p-5">
-                  <div className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-surface-utility/30">
+                <div className="flex items-start gap-3 border-b border-line-subtle bg-card/70 p-5">
+                  <div className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-paper-2/30">
                     <Icon icon={Briefcase} className="h-5 w-5 text-dim-2" aria-hidden />
                   </div>
                   <div className="min-w-0 flex-1">
@@ -68,7 +68,7 @@ export const ClientMattersGrid = ({
                     ) : null}
                   </div>
                 </div>
-                <dl className="divide-y divide-line-subtle bg-surface-overlay/60 px-5 py-3 text-sm">
+                <dl className="divide-y divide-line-subtle bg-card/60 px-5 py-3 text-sm">
                   <div className="flex justify-between gap-x-4 py-2">
                     <dt className="text-dim-2">Status</dt>
                     <dd className="text-ink">{matter.statusLabel ?? '—'}</dd>

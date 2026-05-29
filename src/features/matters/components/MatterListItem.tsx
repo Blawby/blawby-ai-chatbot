@@ -20,7 +20,7 @@ export const MatterListItem = ({ matter, onSelect, isSelected = false }: MatterL
   const rowClassName = cn(
     'relative w-full text-left flex items-center gap-3 px-4 py-3 transition-all duration-150',
     isSelected ? SELECTED_ACCENT_SURFACE_CLASS : '',
-    isInteractive ? 'hover:bg-surface-card-hover cursor-pointer' : 'cursor-default'
+    isInteractive ? 'hover:bg-paper-2 cursor-pointer' : 'cursor-default'
   );
 
   const content = (
@@ -28,14 +28,14 @@ export const MatterListItem = ({ matter, onSelect, isSelected = false }: MatterL
       {isSelected ? (
         <span
           aria-hidden="true"
-          className="pointer-events-none absolute inset-y-2 left-0 w-[3px] rounded-full bg-accent-500"
+          className="pointer-events-none absolute inset-y-2 left-0 w-[3px] rounded-full bg-accent"
         />
       ) : null}
       <div className="relative shrink-0">
         <Avatar
           name={matter.clientName}
           size="sm"
-          className="bg-surface-card-raised text-ink ring-1 ring-line-subtle"
+          className="bg-card text-ink ring-1 ring-line-subtle"
         />
         <MatterStatusDot
           status={matter.status}

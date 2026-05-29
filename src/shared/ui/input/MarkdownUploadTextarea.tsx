@@ -274,16 +274,16 @@ export const MarkdownUploadTextarea = ({
         </label>
       ) : null}
 
-      <div className="overflow-hidden rounded-2xl border border-line-subtle bg-surface-panel/80 shadow-glass backdrop-blur-xl dark:bg-surface-overlay/70">
+      <div className="overflow-hidden rounded-2xl border border-line-subtle bg-paper-2/80 shadow-glass backdrop-blur-xl dark:bg-card/70">
         {showTabs ? (
-          <div className="flex items-center justify-between gap-3 border-b border-line-subtle bg-surface-panel/70 px-2 py-2 dark:bg-surface-overlay/80">
+          <div className="flex items-center justify-between gap-3 border-b border-line-subtle bg-paper-2/70 px-2 py-2 dark:bg-card/80">
             <div className="flex min-w-0 items-center gap-2 @xl:flex @xl:flex-none @xl:items-center @xl:gap-1">
               <button
                 type="button"
                 className={cn(
-                  'rounded-xl px-3 py-2 text-sm font-medium transition-colors @xl:px-3 @xl:py-1.5',
+                  'rounded-r-md px-3 py-2 text-sm font-medium transition-colors @xl:px-3 @xl:py-1.5',
                   activeTab === 'write'
-                    ? 'bg-surface-workspace/90 text-ink shadow-sm ring-1 ring-line-subtle dark:bg-surface-overlay/90'
+                    ? 'bg-paper/90 text-ink shadow-sm ring-1 ring-line-subtle dark:bg-card/90'
                     : 'text-dim-2 hover:text-ink'
                 )}
                 onClick={() => setActiveTab('write')}
@@ -293,9 +293,9 @@ export const MarkdownUploadTextarea = ({
               <button
                 type="button"
                 className={cn(
-                  'rounded-xl px-3 py-2 text-sm font-medium transition-colors @xl:px-3 @xl:py-1.5',
+                  'rounded-r-md px-3 py-2 text-sm font-medium transition-colors @xl:px-3 @xl:py-1.5',
                   activeTab === 'preview'
-                    ? 'bg-surface-workspace/90 text-ink shadow-sm ring-1 ring-line-subtle dark:bg-surface-overlay/90'
+                    ? 'bg-paper/90 text-ink shadow-sm ring-1 ring-line-subtle dark:bg-card/90'
                     : 'text-dim-2 hover:text-ink'
                 )}
                 onClick={() => setActiveTab('preview')}
@@ -308,7 +308,7 @@ export const MarkdownUploadTextarea = ({
                 <DropdownMenuTrigger asChild>
                   <button
                     type="button"
-                    className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-line-subtle bg-surface-overlay/40 text-dim-2 transition-colors hover:text-ink"
+                    className="inline-flex h-9 w-9 items-center justify-center rounded-r-md border border-line-subtle bg-card/40 text-dim-2 transition-colors hover:text-ink"
                     aria-label="Formatting options"
                   >
                     <Icon icon={MoreVertical} className="h-4 w-4" aria-hidden="true" />
@@ -317,63 +317,63 @@ export const MarkdownUploadTextarea = ({
                 <DropdownMenuContent align="end" className="w-64 p-1.5">
                   <DropdownMenuItem
                     onSelect={() => prependToLine('# ', 'Heading')}
-                    className="flex items-center gap-2 rounded-xl px-3 py-2"
+                    className="flex items-center gap-2 rounded-r-md px-3 py-2"
                   >
-                    <span className="inline-flex h-6 w-6 items-center justify-center rounded-md border border-line-subtle bg-surface-overlay/50 text-xs font-semibold">H</span>
+                    <span className="inline-flex h-6 w-6 items-center justify-center rounded-md border border-line-subtle bg-card/50 text-xs font-semibold">H</span>
                     <span>Heading</span>
                   </DropdownMenuItem>
                   <DropdownMenuItem
                     onSelect={() => replaceSelection('**', '**', 'bold text')}
-                    className="flex items-center gap-2 rounded-xl px-3 py-2"
+                    className="flex items-center gap-2 rounded-r-md px-3 py-2"
                   >
-                    <span className="inline-flex h-6 w-6 items-center justify-center rounded-md border border-line-subtle bg-surface-overlay/50 text-xs font-semibold">B</span>
+                    <span className="inline-flex h-6 w-6 items-center justify-center rounded-md border border-line-subtle bg-card/50 text-xs font-semibold">B</span>
                     <span>Bold</span>
                   </DropdownMenuItem>
                   <DropdownMenuItem
                     onSelect={() => replaceSelection('*', '*', 'italic text')}
-                    className="flex items-center gap-2 rounded-xl px-3 py-2"
+                    className="flex items-center gap-2 rounded-r-md px-3 py-2"
                   >
-                    <span className="inline-flex h-6 w-6 items-center justify-center rounded-md border border-line-subtle bg-surface-overlay/50 text-xs italic font-semibold">I</span>
+                    <span className="inline-flex h-6 w-6 items-center justify-center rounded-md border border-line-subtle bg-card/50 text-xs italic font-semibold">I</span>
                     <span>Italic</span>
                   </DropdownMenuItem>
                   <DropdownMenuItem
                     onSelect={() => prependToLine('> ', 'Quoted text')}
-                    className="flex items-center gap-2 rounded-xl px-3 py-2"
+                    className="flex items-center gap-2 rounded-r-md px-3 py-2"
                   >
                     <Icon icon={PanelLeft} className="h-4 w-4" aria-hidden="true" />
                     <span>Quote</span>
                   </DropdownMenuItem>
                   <DropdownMenuItem
                     onSelect={() => replaceSelection('```\n', '\n```', 'code')}
-                    className="flex items-center gap-2 rounded-xl px-3 py-2"
+                    className="flex items-center gap-2 rounded-r-md px-3 py-2"
                   >
                     <Icon icon={Code} className="h-4 w-4" aria-hidden="true" />
                     <span>Code</span>
                   </DropdownMenuItem>
                   <DropdownMenuItem
                     onSelect={() => replaceSelection('[', '](https://)', 'link text')}
-                    className="flex items-center gap-2 rounded-xl px-3 py-2"
+                    className="flex items-center gap-2 rounded-r-md px-3 py-2"
                   >
                     <Icon icon={Link} className="h-4 w-4" aria-hidden="true" />
                     <span>Link</span>
                   </DropdownMenuItem>
                   <DropdownMenuItem
                     onSelect={() => prependToLine('- ', 'List item')}
-                    className="flex items-center gap-2 rounded-xl px-3 py-2"
+                    className="flex items-center gap-2 rounded-r-md px-3 py-2"
                   >
                     <Icon icon={List} className="h-4 w-4" aria-hidden="true" />
                     <span>Bulleted list</span>
                   </DropdownMenuItem>
                   <DropdownMenuItem
                     onSelect={() => prependToLine('1. ', 'List item')}
-                    className="flex items-center gap-2 rounded-xl px-3 py-2"
+                    className="flex items-center gap-2 rounded-r-md px-3 py-2"
                   >
                     <Icon icon={ListOrdered} className="h-4 w-4" aria-hidden="true" />
                     <span>Numbered list</span>
                   </DropdownMenuItem>
                   <DropdownMenuItem
                     onSelect={() => prependToLine('- [ ] ', 'Task')}
-                    className="flex items-center gap-2 rounded-xl px-3 py-2"
+                    className="flex items-center gap-2 rounded-r-md px-3 py-2"
                   >
                     <Icon icon={FileText} className="h-4 w-4" aria-hidden="true" />
                     <span>Task list</span>
@@ -425,7 +425,7 @@ export const MarkdownUploadTextarea = ({
           <div
             className={cn(
               'relative border border-transparent transition-colors',
-              isDragActive ? 'border-accent-500/60 bg-accent-500/5' : ''
+              isDragActive ? 'border-accent-500/60 bg-accent/5' : ''
             )}
           >
             <textarea
@@ -468,7 +468,7 @@ export const MarkdownUploadTextarea = ({
               }}
             />
             {isDragActive && (
-              <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-surface-overlay/70 text-sm font-medium text-ink">
+              <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-card/70 text-sm font-medium text-ink">
                 Drop files to upload and insert links
               </div>
             )}
@@ -493,7 +493,7 @@ export const MarkdownUploadTextarea = ({
                     {value}
                   </ReactMarkdown>
                 ) : (
-                  <div className="mt-2 flex justify-center rounded border border-line-subtle bg-surface-panel p-2 dark:border-line-subtle dark:bg-surface-panel/40">
+                  <div className="mt-2 flex justify-center rounded border border-line-subtle bg-paper-2 p-2 dark:border-line-subtle dark:bg-paper-2/40">
                     <LoadingSpinner size="sm" ariaLabel="Loading preview" />
                   </div>
                 )}
@@ -543,7 +543,7 @@ export const MarkdownUploadTextarea = ({
       ) : null}
 
       {uploadItems.length > 0 && (
-        <div className="space-y-1 rounded-xl border border-line-subtle bg-surface-overlay/50 px-3 py-2">
+        <div className="space-y-1 rounded-r-md border border-line-subtle bg-card/50 px-3 py-2">
           {uploadItems.map((item) => (
             <div key={item.id} className="flex items-center gap-2 text-xs text-dim-2">
               <Icon icon={FileText} className="h-4 w-4" aria-hidden="true"  />

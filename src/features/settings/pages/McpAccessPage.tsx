@@ -96,7 +96,7 @@ export const McpAccessPage = ({ app, onBack }: McpAccessPageProps) => {
                     <div key={scope.id} className="space-y-1">
                       <div className="flex items-center gap-2">
                         <span className="text-sm font-medium text-ink">{scope.title}</span>
-                        <code className="rounded bg-surface-utility/10 px-1.5 py-0.5 font-mono text-xs text-dim-2">
+                        <code className="rounded bg-paper-2/10 px-1.5 py-0.5 font-mono text-xs text-dim-2">
                           {scope.id}
                         </code>
                       </div>

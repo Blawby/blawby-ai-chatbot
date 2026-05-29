@@ -43,7 +43,7 @@ export const BillingActionsWidget = ({
             <LoadingSpinner size="md" />
           </div>
         ) : error ? (
-          <div className="rounded-xl border border-card-border bg-card px-3 py-2 text-sm text-ink">
+          <div className="rounded-r-md border border-card-border bg-card px-3 py-2 text-sm text-ink">
             {error}
           </div>
         ) : actions.length === 0 ? (
@@ -52,7 +52,7 @@ export const BillingActionsWidget = ({
           <div className="space-y-4">
             {actions.map((action) => (
               <Fragment key={action.id}>
-                <div className="rounded-xl border border-line-subtle bg-surface px-4 py-3">
+                <div className="rounded-r-md border border-line-subtle bg-surface px-4 py-3">
                   <div className="flex items-start justify-between gap-4">
                     <div className="flex gap-3">
                       <div className="text-lg" aria-hidden="true">{ICONS[action.reason]}</div>

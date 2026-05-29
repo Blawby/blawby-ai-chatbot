@@ -62,7 +62,7 @@ export const InvoiceLineItemsForm = ({ lineItems, onChange, billingIncrementMinu
       </div>
 
       {lineItems.length === 0 ? (
-        <div className="rounded-xl border border-dashed border-line-subtle p-8 text-center bg-surface-utility/20">
+        <div className="rounded-r-md border border-dashed border-line-subtle p-8 text-center bg-paper-2/20">
            <p className="text-sm text-dim-2">No line items added yet.</p>
            {!readOnly ? (
              <Button

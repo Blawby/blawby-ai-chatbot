@@ -45,9 +45,9 @@ export const MatterDetailSkeleton = () => (
       </div>
 
       {/* Segmented tab group placeholder */}
-      <div className="mt-5 inline-flex gap-1 rounded-2xl border border-line-subtle bg-surface-card-raised p-1">
+      <div className="mt-5 inline-flex gap-1 rounded-2xl border border-line-subtle bg-card p-1">
         {[0, 1, 2, 3, 4].map((i) => (
-          <div key={i} className="skeleton-bar h-9 w-9 rounded-xl" />
+          <div key={i} className="skeleton-bar h-9 w-9 rounded-r-md" />
         ))}
       </div>
 

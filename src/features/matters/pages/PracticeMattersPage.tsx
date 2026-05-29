@@ -133,7 +133,7 @@ const matterStatusBadgeClass = (status: MatterStatus): string => {
   const base = 'inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium whitespace-nowrap';
   if (ACTIVE_STATUSES.has(status)) return `${base} status-success`;
   if (status === 'closed' || DECLINED_STATUSES.has(status)) {
-    return `${base} border border-line-subtle bg-surface-card-hover text-dim-2`;
+    return `${base} border border-line-subtle bg-paper-2 text-dim-2`;
   }
   return `${base} status-warning`;
 };
@@ -233,7 +233,7 @@ const _DetailField = ({ label, value }: { label: string; value: string }) => (
 // Error / warning banners — token-compliant
 // ---------------------------------------------------------------------------
 const WarningBanner = ({ children }: { children: preact.ComponentChildren }) => (
-  <div className="status-warning rounded-xl px-4 py-3 text-sm">{children}</div>
+  <div className="status-warning rounded-r-md px-4 py-3 text-sm">{children}</div>
 );
 
 const ErrorBanner = ({ children }: { children: preact.ComponentChildren }) => (
@@ -2176,7 +2176,7 @@ export const PracticeMattersPage = ({
             type="button"
             onClick={() => setIsShortcutsHelpOpen(true)}
             aria-label="Show keyboard shortcuts"
-            className="hidden h-8 w-8 items-center justify-center rounded-full text-dim-2 transition-colors hover:bg-surface-card-hover hover:text-ink md:inline-flex"
+            className="hidden h-8 w-8 items-center justify-center rounded-full text-dim-2 transition-colors hover:bg-paper-2 hover:text-ink md:inline-flex"
           >
             <span className="text-sm font-semibold">?</span>
           </button>
@@ -2188,7 +2188,7 @@ export const PracticeMattersPage = ({
             disabled={!activePracticeId}
           >
             New Matter
-            <kbd className="ml-2 hidden rounded border border-line-utility bg-surface-card-hover px-1.5 py-0.5 text-[10px] font-medium text-dim-2 md:inline">
+            <kbd className="ml-2 hidden rounded border border-line-utility bg-paper-2 px-1.5 py-0.5 text-[10px] font-medium text-dim-2 md:inline">
               N
             </kbd>
           </Button>
@@ -2211,7 +2211,7 @@ export const PracticeMattersPage = ({
             stickyHeader
             className="panel overflow-hidden"
             bodyClassName="bg-transparent"
-            rowClassName="transition-colors duration-150 hover:!bg-surface-card-hover"
+            rowClassName="transition-colors duration-150 hover:!bg-paper-2"
           />
         )}
       </div>
@@ -2233,7 +2233,7 @@ export const PracticeMattersPage = ({
               ].map((s) => (
                 <li key={s.key} className="flex items-center justify-between gap-4">
                   <span className="text-sm text-ink">{s.desc}</span>
-                  <kbd className="rounded border border-line-utility bg-surface-card-hover px-2 py-0.5 text-xs font-medium text-dim-2">
+                  <kbd className="rounded border border-line-utility bg-paper-2 px-2 py-0.5 text-xs font-medium text-dim-2">
                     {s.key}
                   </kbd>
                 </li>

@@ -87,7 +87,7 @@ export const FilesInspectorPanel = ({ file, practiceSlug, scope, onClose }: File
   return (
     <aside
       aria-label="File details"
-      className="flex h-full w-full flex-col overflow-hidden rounded-2xl border border-line-subtle bg-surface-card"
+      className="flex h-full w-full flex-col overflow-hidden rounded-2xl border border-line-subtle bg-card"
     >
       <header className="flex items-center justify-between border-b border-line-subtle px-4 py-3">
         <h2 className="text-sm font-semibold text-ink">Details</h2>
@@ -95,18 +95,18 @@ export const FilesInspectorPanel = ({ file, practiceSlug, scope, onClose }: File
           type="button"
           onClick={onClose}
           aria-label="Close inspector"
-          className="flex h-7 w-7 items-center justify-center rounded-md text-dim-2 hover:bg-surface-panel hover:text-ink"
+          className="flex h-7 w-7 items-center justify-center rounded-md text-dim-2 hover:bg-paper-2 hover:text-ink"
         >
           <Icon icon={X} className="h-4 w-4" />
         </button>
       </header>
 
       <div className="flex-1 space-y-5 overflow-y-auto px-4 py-5">
-        <div className="flex aspect-[4/3] w-full items-center justify-center overflow-hidden rounded-xl bg-surface-panel">
+        <div className="flex aspect-[4/3] w-full items-center justify-center overflow-hidden rounded-r-md bg-paper-2">
           {isImage && previewUrl ? (
             <img src={previewUrl} alt={file.fileName} className="h-full w-full object-contain" />
           ) : isImage && previewLoading ? (
-            <div className="h-full w-full animate-pulse bg-surface-panel" />
+            <div className="h-full w-full animate-pulse bg-paper-2" />
           ) : (
             <div className={`flex h-20 w-20 items-center justify-center rounded-2xl ${fileType.color}`}>
               <Icon icon={fileType.icon} className="h-10 w-10 text-ink" />

@@ -65,7 +65,7 @@ const ToastComponent: FunctionComponent<ToastProps> = ({ toast, onRemove }) => {
   };
 
   return (
-    <div className={`max-w-sm w-full ${getStatusClass()} rounded-xl p-4 relative animate-toast-in`}>
+    <div className={`max-w-sm w-full ${getStatusClass()} rounded-r-md p-4 relative animate-toast-in`}>
       <div className="flex items-start">
         <div className="flex-shrink-0">
           {getIcon()}

@@ -52,7 +52,7 @@ const OUTCOMES: Record<PaymentOutcome, OutcomeConfig> = {
     headline: 'Verifying your payment…',
     body: 'Please wait a moment while we confirm your payment status.',
     badge: 'Checking status',
-    badgeClass: 'bg-surface-utility/15 text-dim-2 border-line-subtle',
+    badgeClass: 'bg-paper-2/15 text-dim-2 border-line-subtle',
   },
 };
 
@@ -107,7 +107,7 @@ const PaymentResultPage: FunctionComponent<{ practiceSlug?: string }> = ({ pract
           
           <div className="card p-8 sm:p-10 space-y-6">
             <div className="flex justify-center">
-              <div className="rounded-full bg-surface-subtle/50 p-4 border border-line-subtle shadow-sm">
+              <div className="rounded-full bg-paper-2/50 p-4 border border-line-subtle shadow-sm">
                 <Icon className={`w-10 h-10 ${config.iconColor}`} aria-hidden="true" />
               </div>
             </div>

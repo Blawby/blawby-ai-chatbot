@@ -317,22 +317,22 @@ export const IntakePaymentForm: FunctionComponent<IntakePaymentFormProps> = ({
   return (
     <form onSubmit={handleSubmit} className="space-y-5">
       {(!stripe || !elements) && (
-        <div className="flex justify-center rounded-xl border border-line-subtle bg-surface-panel/60 px-4 py-3 backdrop-blur-md">
+        <div className="flex justify-center rounded-r-md border border-line-subtle bg-paper-2/60 px-4 py-3 backdrop-blur-md">
           <LoadingSpinner size="sm" ariaLabel="Loading secure payment form" />
         </div>
       )}
-      <div className={variant === 'card' ? "panel p-5" : "rounded-xl border border-line-subtle bg-surface-panel/60 p-4"}>
+      <div className={variant === 'card' ? "panel p-5" : "rounded-r-md border border-line-subtle bg-paper-2/60 p-4"}>
         <PaymentElement options={{ layout: 'tabs' }} />
       </div>
 
       {errorMessage && (
-        <div className="rounded-xl border border-accent-error/30 bg-accent-error/10 px-4 py-3 text-sm text-accent-error-foreground backdrop-blur-xl dark:text-accent-error-light">
+        <div className="rounded-r-md border border-accent-error/30 bg-accent-error/10 px-4 py-3 text-sm text-accent-error-foreground backdrop-blur-xl dark:text-accent-error-light">
           {errorMessage}
         </div>
       )}
 
       {callbackWarning && (
-        <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-700 backdrop-blur-xl dark:text-amber-200">
+        <div className="rounded-r-md border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-700 backdrop-blur-xl dark:text-amber-200">
           {callbackWarning}
         </div>
       )}

@@ -267,7 +267,7 @@ const OpenTasksCard = ({
               <button
                 type="button"
                 onClick={onTaskClick}
-                className="flex w-full items-center justify-between gap-3 rounded-lg px-2 py-2 text-left transition-colors hover:bg-surface-card-hover"
+                className="flex w-full items-center justify-between gap-3 rounded-lg px-2 py-2 text-left transition-colors hover:bg-paper-2"
               >
                 <span className="flex min-w-0 items-center gap-2.5">
                   {task.status === 'in_progress' ? (

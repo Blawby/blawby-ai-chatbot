@@ -11,7 +11,7 @@ import { resolveIntakeTitle } from '@/features/intake/utils/intakeTitle';
 const statusTone: Record<string, string> = {
   accepted: 'bg-emerald-500/10 text-emerald-700 ring-emerald-500/20 dark:text-emerald-300',
   declined: 'bg-rose-500/10 text-rose-700 ring-rose-500/20 dark:text-rose-300',
-  pending_review: 'ring-line-subtle bg-surface-overlay/80 text-dim-2',
+  pending_review: 'ring-line-subtle bg-card/80 text-dim-2',
 };
 
 type RecentIntakesGridProps = {
@@ -56,7 +56,7 @@ export const RecentIntakesGrid = ({
           ))}
         </div>
       ) : error ? (
-        <div className="mt-6 rounded-xl border border-card-border bg-card px-3 py-2 text-sm text-ink">
+        <div className="mt-6 rounded-r-md border border-card-border bg-card px-3 py-2 text-sm text-ink">
           {error}
         </div>
       ) : intakes.length === 0 ? (
@@ -91,7 +91,7 @@ export const RecentIntakesGrid = ({
                   <Avatar 
                     name={contactName}
                     size="lg" 
-                    className="h-12 w-12 rounded-xl"
+                    className="h-12 w-12 rounded-r-md"
                   />
                   <div className="flex-1">
                     <p className="text-sm font-medium text-ink">{title}</p>

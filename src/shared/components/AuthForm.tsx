@@ -412,13 +412,13 @@ const AuthForm = ({
           </div>
 
           {error && (
-            <div className="mt-4 rounded-xl panel border-accent-error/20 p-3">
+            <div className="mt-4 rounded-r-md panel border-accent-error/20 p-3">
               <p className="text-sm text-accent-error-light">{error}</p>
             </div>
           )}
 
           {message && (
-            <div className="mt-4 rounded-xl panel border-emerald-500/20 p-3">
+            <div className="mt-4 rounded-r-md panel border-emerald-500/20 p-3">
               <p className="text-sm text-emerald-400">{message}</p>
             </div>
           )}

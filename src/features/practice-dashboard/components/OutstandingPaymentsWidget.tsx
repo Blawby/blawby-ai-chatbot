@@ -28,7 +28,7 @@ export const OutstandingPaymentsWidget = ({
           <LoadingSpinner size="md" />
         </div>
       ) : error ? (
-        <div className="rounded-xl border border-card-border bg-card px-3 py-2 text-sm text-ink">
+        <div className="rounded-r-md border border-card-border bg-card px-3 py-2 text-sm text-ink">
           {error}
         </div>
       ) : summary ? (

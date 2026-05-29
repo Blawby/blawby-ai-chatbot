@@ -81,7 +81,7 @@ export const MatterDetailHeader = ({
           ) : (
             <div
               aria-hidden="true"
-              className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-surface-card-raised text-lg font-semibold text-ink"
+              className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-card text-lg font-semibold text-ink"
             >
               {heroInitial(clientEmail, clientLabel, title)}
             </div>
@@ -141,7 +141,7 @@ export const MatterDetailHeader = ({
                     <button
                       type="button"
                       onClick={item.onClick}
-                      className="flex w-full items-center gap-2 rounded-md px-2.5 py-2 text-left text-sm text-ink transition-colors hover:bg-surface-card-hover"
+                      className="flex w-full items-center gap-2 rounded-md px-2.5 py-2 text-left text-sm text-ink transition-colors hover:bg-paper-2"
                     >
                       {Icon ? <Icon className="h-4 w-4 text-dim-2" aria-hidden="true" /> : null}
                       {item.label}
@@ -169,7 +169,7 @@ export const MatterDetailHeader = ({
                       <button
                         type="button"
                         onClick={item.onClick}
-                        className="flex w-full items-center gap-2 rounded-md px-2.5 py-2 text-left text-sm text-ink transition-colors hover:bg-surface-card-hover"
+                        className="flex w-full items-center gap-2 rounded-md px-2.5 py-2 text-left text-sm text-ink transition-colors hover:bg-paper-2"
                       >
                         {Icon ? <Icon className="h-4 w-4 text-dim-2" aria-hidden="true" /> : null}
                         {item.label}

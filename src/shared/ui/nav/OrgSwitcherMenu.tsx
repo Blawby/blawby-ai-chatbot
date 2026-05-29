@@ -188,8 +188,8 @@ export const OrgSwitcherMenu: FunctionComponent<OrgSwitcherMenuProps> = ({
           aria-label="Switch practice"
           className={
             collapsed
-              ? 'z-50 w-72 rounded-xl border p-1 shadow-[0_8px_24px_rgba(0,0,0,0.4)] bg-[rgb(var(--sidebar-menu-bg))] border-[rgb(var(--sidebar-menu-border))]'
-              : 'absolute left-0 right-0 top-full z-50 mt-2 rounded-xl border p-1 shadow-[0_8px_24px_rgba(0,0,0,0.4)] bg-[rgb(var(--sidebar-menu-bg))] border-[rgb(var(--sidebar-menu-border))]'
+              ? 'z-50 w-72 rounded-r-md border p-1 shadow-[0_8px_24px_rgba(0,0,0,0.4)] bg-[rgb(var(--sidebar-menu-bg))] border-[rgb(var(--sidebar-menu-border))]'
+              : 'absolute left-0 right-0 top-full z-50 mt-2 rounded-r-md border p-1 shadow-[0_8px_24px_rgba(0,0,0,0.4)] bg-[rgb(var(--sidebar-menu-bg))] border-[rgb(var(--sidebar-menu-border))]'
           }
           style={collapsed ? fixedStyle : undefined}
         >

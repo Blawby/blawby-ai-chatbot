@@ -142,7 +142,7 @@ const SearchEntry: FunctionComponent = () => {
           value={input}
           onInput={(e) => setInput((e.currentTarget as HTMLInputElement).value)}
           placeholder="conversation_id"
-          className="flex-1 rounded-md border border-input-border bg-surface-app px-3 py-2 text-sm"
+          className="flex-1 rounded-md border border-input-border bg-paper px-3 py-2 text-sm"
           aria-label="Conversation id"
         />
         <Button type="submit" disabled={!input.trim()}>
@@ -292,7 +292,7 @@ const IntakeTimelineRow: FunctionComponent<IntakeTimelineRowProps> = ({ turn }) 
   const provenanceLabel = PROVENANCE_LABELS[turn.provenance] ?? turn.provenance;
 
   return (
-    <li className="rounded-md border border-input-border bg-surface-app">
+    <li className="rounded-md border border-input-border bg-paper">
       <button
         type="button"
         className="flex w-full items-center justify-between gap-3 px-3 py-2 text-left"
@@ -344,7 +344,7 @@ const ExpandedSection: FunctionComponent<{ label: string; children: ComponentChi
 }) => (
   <details className="mb-2" open>
     <summary className="cursor-pointer text-xs font-medium text-ink/70">{label}</summary>
-    <div className="mt-1 rounded bg-surface-utility/40 p-2 dark:bg-surface-utility/20">{children}</div>
+    <div className="mt-1 rounded bg-paper-2/40 p-2 dark:bg-paper-2/20">{children}</div>
   </details>
 );
 

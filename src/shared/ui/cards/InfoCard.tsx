@@ -23,7 +23,7 @@ export const InfoCard = ({
 }: InfoCardProps) => (
   <section
     className={cn(
-      'card flex flex-col rounded-xl p-5',
+      'card flex flex-col rounded-r-md p-5',
       bodyGap === 'sm' ? 'gap-3' : 'gap-4',
       className
     )}

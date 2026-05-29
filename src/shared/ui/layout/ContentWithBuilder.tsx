@@ -29,7 +29,7 @@ export function ContentWithBuilder({
     >
       <aside
         className={cn(
-          'min-h-0 overflow-x-visible overflow-y-auto bg-surface-navigation px-4 py-4',
+          'min-h-0 overflow-x-visible overflow-y-auto bg-paper-2 px-4 py-4',
           sidebarClassName
         )}
       >
@@ -40,7 +40,7 @@ export function ContentWithBuilder({
       </main>
       <aside
         className={cn(
-          'min-h-0 overflow-y-auto bg-surface-utility px-4 py-4',
+          'min-h-0 overflow-y-auto bg-paper-2 px-4 py-4',
           inspectorClassName
         )}
       >

@@ -239,8 +239,8 @@ export const DebugOverlay: FunctionComponent<DebugOverlayProps> = ({ isVisible =
         {isExpanded && (
           <div className="mt-2 pt-2 border-t border-line-subtle" role="region" aria-label="Additional debug information">
             <div className="text-xs text-dim-2">
-              <div>Press <kbd className="bg-surface-utility/40 px-1 rounded">Esc</kbd> to collapse</div>
-              <div>Press <kbd className="bg-surface-utility/40 px-1 rounded">Enter</kbd> or <kbd className="bg-surface-utility/40 px-1 rounded">Space</kbd> to toggle</div>
+              <div>Press <kbd className="bg-paper-2/40 px-1 rounded">Esc</kbd> to collapse</div>
+              <div>Press <kbd className="bg-paper-2/40 px-1 rounded">Enter</kbd> or <kbd className="bg-paper-2/40 px-1 rounded">Space</kbd> to toggle</div>
             </div>
           </div>
         )}

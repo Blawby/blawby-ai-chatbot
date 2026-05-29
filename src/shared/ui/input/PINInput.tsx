@@ -117,7 +117,7 @@ export function PINInput({
           disabled={disabled}
           aria-label={`Digit ${i + 1}`}
           className={cn(
-            'input-surface text-center font-medium rounded-xl',
+            'input-surface text-center font-medium rounded-r-md',
             sizeClasses[size],
             'focus-visible:outline-none',
             error && 'input-surface isError',

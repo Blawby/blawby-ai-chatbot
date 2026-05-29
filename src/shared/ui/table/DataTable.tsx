@@ -228,7 +228,7 @@ export const DataTable = ({
       <table className={cn('min-w-full', tableClassName)}>
         {caption ? <caption className="sr-only">{caption}</caption> : null}
         <thead>
-          <tr className={cn('border-b border-line-subtle', stickyHeader && 'sticky top-0 z-10 bg-surface-workspace')}>
+          <tr className={cn('border-b border-line-subtle', stickyHeader && 'sticky top-0 z-10 bg-paper')}>
             {columns.map((column, index) => {
               const isPrimary = column.id === primaryColumn?.id || (index === 0 && !primaryColumn);
               const isLast = index === columns.length - 1;
@@ -262,7 +262,7 @@ export const DataTable = ({
             })}
           </tr>
         </thead>
-        <tbody className={cn('bg-surface-workspace divide-y divide-line-subtle', bodyClassName)}>
+        <tbody className={cn('bg-paper divide-y divide-line-subtle', bodyClassName)}>
           {(() => {
             const renderRows = rowsOverride ?? paddedRows;
             const sourceRows = rowsOverride ?? rows;

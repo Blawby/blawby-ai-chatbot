@@ -548,7 +548,7 @@ function InspectorPanelPreview() {
         role="dialog"
         aria-modal="true"
         aria-label="Inspector preview"
-        className="ui-surface-enter-right absolute inset-y-0 right-0 z-10 flex w-full max-w-[min(42rem,100vw)] flex-col overflow-hidden bg-surface-inspector shadow-glass"
+        className="ui-surface-enter-right absolute inset-y-0 right-0 z-10 flex w-full max-w-[min(42rem,100vw)] flex-col overflow-hidden bg-paper-2 shadow-glass"
       >
         <InspectorPanel
           entityType="invoice"
@@ -676,7 +676,7 @@ function PreviewSurface({
         <div className="mb-4 flex justify-between items-center border-b border-line-subtle pb-2">
           <span className={cn(
             "rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider",
-            theme === 'light' ? "bg-accent-500/10 text-accent-600" : "bg-accent-400/20 text-accent-300"
+            theme === 'light' ? "bg-accent/10 text-accent-600" : "bg-accent/80/20 text-accent-300"
           )}>
             {theme === 'light' ? 'Light Mode' : 'Dark Mode'}
           </span>
@@ -856,7 +856,7 @@ function GalleryCard({ item, previewNonce }: { item: DialogInventoryItem; previe
       <div className="space-y-2">
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-bold text-ink">{item.name}</h2>
-          <span className="rounded-full bg-accent-500/10 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-[rgb(var(--accent-foreground))]">
+          <span className="rounded-full bg-accent/10 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-[rgb(var(--accent-foreground))]">
             {item.section}
           </span>
         </div>
@@ -886,14 +886,14 @@ function GalleryCard({ item, previewNonce }: { item: DialogInventoryItem; previe
                 <iframe
                   key={`light-${previewNonce}`}
                   src={`${frameSrcBase}?theme=light`}
-                  className="w-full rounded-xl bg-transparent"
+                  className="w-full rounded-r-md bg-transparent"
                   style={{ height: item.frameHeight ?? 400 }}
                   title={`${item.name} Light Mode Preview`}
                   loading="lazy"
                 />
               ) : (
                 <div className="flex items-center justify-center p-8" style={{ height: item.frameHeight ?? 400 }}>
-                  <SkeletonLoader variant="rect" height="100%" width="100%" className="rounded-xl opacity-20" />
+                  <SkeletonLoader variant="rect" height="100%" width="100%" className="rounded-r-md opacity-20" />
                 </div>
               )}
             </div>
@@ -901,28 +901,28 @@ function GalleryCard({ item, previewNonce }: { item: DialogInventoryItem; previe
           <div className="space-y-2 min-h-[320px]">
             <p className="text-[10px] font-bold uppercase tracking-widest text-dim-2">Dark Mode</p>
             <div 
-              className="relative overflow-visible rounded-2xl border border-line-subtle bg-surface-workspace p-4 shadow-glass dark"
+              className="relative overflow-visible rounded-2xl border border-line-subtle bg-paper p-4 shadow-glass dark"
               style={{ isolation: 'isolate' }}
             >
               {isLoaded && frameSrcBase ? (
                 <iframe
                   key={`dark-${previewNonce}`}
                   src={`${frameSrcBase}?theme=dark`}
-                  className="w-full rounded-xl bg-transparent"
+                  className="w-full rounded-r-md bg-transparent"
                   style={{ height: item.frameHeight ?? 400 }}
                   title={`${item.name} Dark Mode Preview`}
                   loading="lazy"
                 />
               ) : (
                 <div className="flex items-center justify-center p-8" style={{ height: item.frameHeight ?? 400 }}>
-                  <SkeletonLoader variant="rect" height="100%" width="100%" className="rounded-xl opacity-10" />
+                  <SkeletonLoader variant="rect" height="100%" width="100%" className="rounded-r-md opacity-10" />
                 </div>
               )}
             </div>
           </div>
         </div>
       ) : (
-        <div className="flex h-32 items-center justify-center rounded-2xl bg-surface-utility/5 text-xs text-dim-2 italic">
+        <div className="flex h-32 items-center justify-center rounded-2xl bg-paper-2/5 text-xs text-dim-2 italic">
           No preview available
         </div>
       )}

@@ -232,17 +232,17 @@ export const MFAEnrollmentPage = ({
 
           {/* QR Code */}
           <div className="flex justify-center">
-            <div className="panel p-4 rounded-xl">
+            <div className="panel p-4 rounded-r-md">
               {/* Mock QR Code - in real app, you'd use a QR code library */}
-              <div className="w-48 h-48 bg-surface-base rounded flex items-center justify-center">
+              <div className="w-48 h-48 bg-paper rounded flex items-center justify-center">
                 <div className="text-center">
-                  <div className="w-32 h-32 bg-surface-app-frame dark:bg-surface-workspace rounded grid grid-cols-8 gap-1 p-2">
+                  <div className="w-32 h-32 bg-paper dark:bg-paper rounded grid grid-cols-8 gap-1 p-2">
                     {/* Mock QR pattern - stable pattern that doesn't flicker */}
                     {qrPattern.map((isWhite, i) => (
                       <div
                         key={i}
                         className={`w-full h-full rounded-sm ${
-                          isWhite ? 'bg-surface-workspace dark:bg-surface-app-frame' : 'bg-surface-app-frame dark:bg-surface-workspace'
+                          isWhite ? 'bg-paper dark:bg-paper' : 'bg-paper dark:bg-paper'
                         }`}
                       />
                     ))}
@@ -272,7 +272,7 @@ export const MFAEnrollmentPage = ({
               <SectionDivider className="w-full" />
             </div>
             <div className="relative flex justify-center text-sm">
-              <span className="px-2 bg-surface-base text-dim-2">
+              <span className="px-2 bg-paper text-dim-2">
                 {t('settings:mfa.then')}
               </span>
             </div>

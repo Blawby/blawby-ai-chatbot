@@ -189,7 +189,7 @@ export const ClientIntakesView: FunctionComponent<ClientIntakesViewProps> = ({
 
   if (isLoading) {
     return (
-      <div className="flex h-full items-center justify-center bg-surface-workspace">
+      <div className="flex h-full items-center justify-center bg-paper">
         <LoadingSpinner ariaLabel="Loading intake" />
       </div>
     );
@@ -197,7 +197,7 @@ export const ClientIntakesView: FunctionComponent<ClientIntakesViewProps> = ({
 
   if (error) {
     return (
-      <div className="flex h-full flex-col min-h-0 bg-surface-workspace">
+      <div className="flex h-full flex-col min-h-0 bg-paper">
         <DetailHeader title="Intake Forms" showBack={Boolean(intakeUuid)} onBack={intakeUuid ? onBack : undefined} />
         <div className="p-6 text-sm text-error">{error}</div>
       </div>

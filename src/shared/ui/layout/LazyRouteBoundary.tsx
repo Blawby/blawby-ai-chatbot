@@ -5,7 +5,7 @@ import { Button } from '@/shared/ui/Button';
 import { RouteFallback } from './RouteFallback';
 
 export const ChunkLoadFallback = () => (
-  <div className="m-6 rounded-xl border border-accent-error/30 bg-accent-error/5 p-6 text-sm text-ink">
+  <div className="m-6 rounded-r-md border border-accent-error/30 bg-accent-error/5 p-6 text-sm text-ink">
     <p className="font-semibold">This page failed to load.</p>
     <p className="mt-1 text-dim-2">
       A code chunk could not be downloaded. Reload to try again.

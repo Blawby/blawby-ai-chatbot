@@ -863,7 +863,7 @@ export const PracticeContactsPage = ({
         <ul>
           {letters.map((letter) => (
             <li key={letter} data-letter={letter}>
-              <div className="sticky top-0 z-10 bg-surface-collection/80 backdrop-blur-sm px-4 py-1.5 text-xs font-semibold text-dim-2 border-y border-line-subtle">
+              <div className="sticky top-0 z-10 bg-paper-2/80 backdrop-blur-sm px-4 py-1.5 text-xs font-semibold text-dim-2 border-y border-line-subtle">
                 {letter}
               </div>
               {groupedClients[letter].map((client) => {
@@ -913,7 +913,7 @@ export const PracticeContactsPage = ({
         </ul>
       </div>
           {letters.length > 0 ? (
-        <div className="pointer-events-auto absolute right-1 top-1/2 z-20 -translate-y-1/2 hidden md:flex flex-col items-center gap-1 text-[11px] font-medium text-dim-2 bg-surface-workspace/80">
+        <div className="pointer-events-auto absolute right-1 top-1/2 z-20 -translate-y-1/2 hidden md:flex flex-col items-center gap-1 text-[11px] font-medium text-dim-2 bg-paper/80">
           {letters.map((letter) => (
             <Button
               key={letter}
@@ -931,8 +931,8 @@ export const PracticeContactsPage = ({
                 'relative h-4 w-4 min-h-0 min-w-0 p-0 text-[11px] flex items-center justify-center rounded-full transition-colors',
                 "before:absolute before:-inset-3.5 before:content-['']",
                 activeLetter === letter
-                  ? 'text-accent-foreground font-bold bg-accent-500'
-                  : 'text-dim-2 hover:text-ink hover:bg-surface-utility/40'
+                  ? 'text-accent-foreground font-bold bg-accent'
+                  : 'text-dim-2 hover:text-ink hover:bg-paper-2/40'
               )}
             >
               {letter}

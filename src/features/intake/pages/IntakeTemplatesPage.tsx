@@ -357,7 +357,7 @@ type StatPillProps = {
 
 function _StatPill({ label, value }: StatPillProps) {
   return (
-    <div className="rounded-xl border border-line-subtle bg-surface-card px-3 py-2">
+    <div className="rounded-r-md border border-line-subtle bg-card px-3 py-2">
       <p className="text-lg font-semibold text-ink">{value}</p>
       <p className="text-xs text-dim-2">{label}</p>
     </div>
@@ -421,7 +421,7 @@ function SectionCard({ number, icon, title, badge, isActive, isOpen, onToggle, o
   return (
     <div
       className={cn(
-        'rounded-xl border bg-surface-card transition-colors',
+        'rounded-r-md border bg-card transition-colors',
         isActive ? 'border-line-subtle border-l-[3px] border-l-accent-500' : 'border-line-subtle',
       )}
     >
@@ -443,8 +443,8 @@ function SectionCard({ number, icon, title, badge, isActive, isOpen, onToggle, o
             className={cn(
               'rounded-full px-2 py-0.5 text-[11px] font-medium',
               badge.tone === 'required'
-                ? 'bg-accent-500 text-[rgb(var(--accent-foreground))]'
-                : 'bg-surface-input text-dim-2',
+                ? 'bg-accent text-[rgb(var(--accent-foreground))]'
+                : 'bg-card text-dim-2',
             )}
           >
             {badge.label}
@@ -507,7 +507,7 @@ function QuestionRow({ label, preview, isSelected, isLocked, badgeLabel, onSelec
       aria-grabbed={draggable ? false : undefined}
       className={cn(
         'flex items-center gap-1 rounded-lg px-2 py-1.5 text-sm transition-colors',
-        isSelected ? 'bg-accent-500/10' : 'hover:bg-surface-input/60',
+        isSelected ? 'bg-accent/10' : 'hover:bg-card/60',
       )}
       draggable={draggable}
       onDragStart={dragHandlers?.onDragStart}
@@ -543,7 +543,7 @@ function QuestionRow({ label, preview, isSelected, isLocked, badgeLabel, onSelec
 
 function LockedFieldChip({ label }: { label: string }) {
   return (
-    <span className="inline-flex items-center gap-1 rounded-full border border-line-subtle bg-surface-input px-2 py-0.5 text-[11px] font-medium text-dim-2">
+    <span className="inline-flex items-center gap-1 rounded-full border border-line-subtle bg-card px-2 py-0.5 text-[11px] font-medium text-dim-2">
       <Lock className="h-3 w-3" />
       {label}
     </span>
@@ -997,7 +997,7 @@ function TemplateEditor({
         onInput={(event) => handleNameChange((event.currentTarget as HTMLInputElement).value)}
         placeholder="New intake form"
         disabled={isSaving}
-        className="w-full min-w-0 rounded-lg border border-transparent bg-transparent px-2 py-1 text-base font-semibold text-ink outline-none transition-colors placeholder:text-dim-2 hover:border-line-subtle focus:border-line-subtle focus:bg-surface-utility/10"
+        className="w-full min-w-0 rounded-lg border border-transparent bg-transparent px-2 py-1 text-base font-semibold text-ink outline-none transition-colors placeholder:text-dim-2 hover:border-line-subtle focus:border-line-subtle focus:bg-paper-2/10"
         aria-label="Form title"
       />
       {slugError ? <p className="mt-1 text-xs text-rose-500">{slugError}</p> : null}
@@ -1074,7 +1074,7 @@ function TemplateEditor({
           hasChanges
             ? 'border-amber-500/25 bg-amber-500/10 text-amber-700 dark:text-amber-300'
             : hasSavedDraft
-              ? 'border-line-subtle bg-surface-input text-dim-2'
+              ? 'border-line-subtle bg-card text-dim-2'
               : 'border-emerald-500/20 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300',
         )}
       >
@@ -1117,7 +1117,7 @@ function TemplateEditor({
     <div className="flex flex-col gap-3 overflow-visible">
       <SectionHeaderLabel>FORM STRUCTURE</SectionHeaderLabel>
       {discardPending ? (
-        <div className="rounded-xl border border-rose-500/20 bg-rose-500/10 p-3">
+        <div className="rounded-r-md border border-rose-500/20 bg-rose-500/10 p-3">
           <p className="text-sm font-semibold text-ink">Discard draft changes?</p>
           <div className="mt-3 flex gap-2">
             <Button
@@ -1335,8 +1335,8 @@ function TemplateEditor({
 
   const livePreview = (
     <div className="flex h-full flex-col items-center py-4">
-      <div className="w-full max-w-[380px] overflow-hidden rounded-xl border border-line-subtle bg-surface-card shadow-glass">
-        <div className="flex h-11 items-center justify-between border-b border-line-subtle bg-surface-utility/50 px-3">
+      <div className="w-full max-w-[380px] overflow-hidden rounded-r-md border border-line-subtle bg-card shadow-glass">
+        <div className="flex h-11 items-center justify-between border-b border-line-subtle bg-paper-2/50 px-3">
           <div className="min-w-0">
             <p className="text-sm font-semibold text-ink">Widget preview</p>
             <p className="truncate text-xs text-dim-2">{practiceSlug || 'public form'} / {draftTemplate.slug || 'new'}</p>
@@ -1346,7 +1346,7 @@ function TemplateEditor({
             target="_blank"
             rel="noreferrer"
             aria-label="Open public form preview"
-            className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-dim-2 transition-colors hover:bg-surface-input hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-500/40"
+            className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-dim-2 transition-colors hover:bg-card hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-500/40"
           >
             <ExternalLink className="h-4 w-4" aria-hidden="true" />
           </a>
@@ -1438,7 +1438,7 @@ function TemplateEditor({
             <button
               type="button"
               disabled
-              className="flex items-center justify-between rounded-lg border border-line-subtle bg-surface-input px-3 py-2 text-left text-sm text-ink"
+              className="flex items-center justify-between rounded-lg border border-line-subtle bg-card px-3 py-2 text-left text-sm text-ink"
             >
               <span>Free text</span>
               <ChevronDown className="h-4 w-4 text-dim-2" />
@@ -1758,8 +1758,8 @@ function TemplateEditor({
       contentMaxWidth={null}
       sidebar={formStructure}
       inspector={inspectorPanel}
-      sidebarClassName="bg-surface-navigation px-3 py-4 border-0"
-      inspectorClassName="bg-surface-utility p-0 border-0"
+      sidebarClassName="bg-paper-2 px-3 py-4 border-0"
+      inspectorClassName="bg-paper-2 p-0 border-0"
       actions={headerActions}
     >
       {livePreview}
@@ -1894,7 +1894,7 @@ function TemplateListView({
                 onClick={(e) => e.stopPropagation()}
                 disabled={isSaving}
                 aria-label={`Actions for ${template.name}`}
-                className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-dim-2 transition-colors hover:bg-surface-utility/10 hover:text-ink disabled:opacity-60"
+                className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-dim-2 transition-colors hover:bg-paper-2/10 hover:text-ink disabled:opacity-60"
               >
                 <MoreVertical className="h-4 w-4" />
               </button>
@@ -1944,7 +1944,7 @@ function TemplateListView({
         stickyHeader
         className="panel overflow-hidden"
         bodyClassName="bg-transparent"
-        rowClassName="transition-colors duration-150 hover:!bg-surface-card-hover"
+        rowClassName="transition-colors duration-150 hover:!bg-paper-2"
         emptyState="No intake forms yet."
       />
       {embedTarget ? (
@@ -1966,7 +1966,7 @@ function TemplateListView({
           </p>
           <p className="mt-2 text-sm text-dim-2">
             Links using{' '}
-            <code className="rounded bg-surface-utility px-1.5 py-0.5 font-mono text-xs">
+            <code className="rounded bg-paper-2 px-1.5 py-0.5 font-mono text-xs">
               ?template={deleteTarget?.slug}
             </code>{' '}
             will use the default flow.

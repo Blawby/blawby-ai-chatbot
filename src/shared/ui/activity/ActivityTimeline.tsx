@@ -170,14 +170,14 @@ export const ActivityTimeline = ({
                     name={item.person.name}
                     src={item.person.imageUrl}
                     size="md"
-                    className="ring-1 ring-line-utility/30 bg-surface-utility/10 text-ink"
+                    className="ring-1 ring-line-utility/30 bg-paper-2/10 text-ink"
                   />
-                  <span className="absolute -right-1 -bottom-1 flex h-4 w-4 items-center justify-center rounded-full bg-surface-overlay text-ink ring-1 ring-line-utility/30 shadow-sm sm:h-5 sm:w-5">
+                  <span className="absolute -right-1 -bottom-1 flex h-4 w-4 items-center justify-center rounded-full bg-card text-ink ring-1 ring-line-utility/30 shadow-sm sm:h-5 sm:w-5">
                     <Icon icon={MessagesSquare} className="h-2.5 w-2.5 sm:h-3 sm:w-3" aria-hidden="true"  />
                   </span>
                 </div>
               ) : (
-                <div className="relative z-10 flex h-8 w-8 items-center justify-center rounded-full bg-surface-overlay text-ink ring-1 ring-line-subtle shadow-sm">
+                <div className="relative z-10 flex h-8 w-8 items-center justify-center rounded-full bg-card text-ink ring-1 ring-line-subtle shadow-sm">
                   {item.type === 'paid' ? (
                     <Icon icon={CheckCircle2} aria-hidden="true" className="h-5 w-5 text-accent-success"  />
                   ) : TYPE_ICONS[item.type] ? (
@@ -351,7 +351,7 @@ export const ActivityTimeline = ({
           name={composerPerson?.name ?? 'You'}
           src={composerPerson?.imageUrl ?? null}
           size="sm"
-          className="ring-1 ring-line-subtle bg-surface-utility/10 text-ink dark:ring-line-subtle sm:mt-1"
+          className="ring-1 ring-line-subtle bg-paper-2/10 text-ink dark:ring-line-subtle sm:mt-1"
         />
         <form className="flex-auto space-y-2" onSubmit={handleSubmit}>
           <MarkdownUploadTextarea

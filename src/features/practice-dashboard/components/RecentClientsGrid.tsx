@@ -9,7 +9,7 @@ import { formatCurrency } from '@/shared/utils/currencyFormatter';
 import { formatDate } from '@/shared/utils/dateTime';
 import type { RecentClient } from '@/features/practice-dashboard/hooks/usePracticeBillingData';
 
-const neutralTone = 'ring-line-subtle bg-surface-overlay/80 text-dim-2';
+const neutralTone = 'ring-line-subtle bg-card/80 text-dim-2';
 const statusTone: Record<string, string> = {
   paid: 'bg-emerald-500/10 text-emerald-700 ring-emerald-500/20 dark:text-emerald-300',
   overdue: 'bg-rose-500/10 text-rose-700 ring-rose-500/20 dark:text-rose-300',
@@ -52,7 +52,7 @@ export const RecentClientsGrid = ({
           ))}
         </div>
       ) : error ? (
-        <div className="mt-6 rounded-xl border border-card-border bg-card px-3 py-2 text-sm text-ink">
+        <div className="mt-6 rounded-r-md border border-card-border bg-card px-3 py-2 text-sm text-ink">
           {error}
         </div>
       ) : clients.length === 0 ? (
@@ -62,14 +62,14 @@ export const RecentClientsGrid = ({
           {clients.map((client) => (
             <li
               key={client.id}
-              className="overflow-hidden rounded-xl bg-surface-overlay/80 outline outline-1 outline-line-glass/40 backdrop-blur-xl"
+              className="overflow-hidden rounded-r-md bg-card/80 outline outline-1 outline-line-glass/40 backdrop-blur-xl"
             >
-              <div className="flex items-center gap-x-4 border-b border-line-subtle bg-surface-overlay/70 p-6">
+              <div className="flex items-center gap-x-4 border-b border-line-subtle bg-card/70 p-6">
                 <Avatar 
                   src={client.avatarUrl} 
                   name={client.name} 
                   size="lg" 
-                  className="h-12 w-12 rounded-xl"
+                  className="h-12 w-12 rounded-r-md"
                 />
                 <div className="flex-1">
                   <p className="text-sm font-medium text-ink">{client.name}</p>
@@ -93,7 +93,7 @@ export const RecentClientsGrid = ({
                 </DropdownMenu>
               </div>
               {client.lastInvoice ? (
-                <dl className="-my-3 divide-y divide-line-subtle bg-surface-overlay/60 px-6 py-4 text-sm">
+                <dl className="-my-3 divide-y divide-line-subtle bg-card/60 px-6 py-4 text-sm">
                   <div className="flex justify-between gap-x-4 py-3">
                     <dt className="text-dim-2">Last invoice</dt>
                     <dd className="text-ink">

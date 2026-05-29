@@ -499,7 +499,7 @@ export const AcceptInvitationPage = () => {
           )}
         </div>
         {hasEmailMismatch && (
-          <div className="mt-4 rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-200 backdrop-blur-xl">
+          <div className="mt-4 rounded-r-md border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-200 backdrop-blur-xl">
             You’re signed in with a different email. Switch accounts to continue with the invited email.
           </div>
         )}
@@ -599,7 +599,7 @@ export const AcceptInvitationPage = () => {
         )}
       </div>
       {hasEmailMismatch && (
-        <div className="mt-4 rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-200 backdrop-blur-xl">
+        <div className="mt-4 rounded-r-md border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-200 backdrop-blur-xl">
           You’re signed in with {sessionEmail}. Switch accounts to accept with {effectiveInvitedEmail}.
         </div>
       )}

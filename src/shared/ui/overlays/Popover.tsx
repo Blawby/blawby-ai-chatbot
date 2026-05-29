@@ -88,7 +88,7 @@ export function Popover({
       {isOpen && (
         <div
           className={cn(
-            'absolute z-[100] min-w-[200px] rounded-xl panel p-3',
+            'absolute z-[100] min-w-[200px] rounded-r-md panel p-3',
             'shadow-lg',
             sideStyles[placement] ?? sideStyles['bottom-start'],
             className,

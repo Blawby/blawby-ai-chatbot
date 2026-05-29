@@ -44,7 +44,7 @@ export const ClientActionRequiredWidget = ({
           <LoadingSpinner size="md" />
         </div>
       ) : error ? (
-        <div className="rounded-xl border border-card-border bg-card px-3 py-2 text-sm text-ink">
+        <div className="rounded-r-md border border-card-border bg-card px-3 py-2 text-sm text-ink">
           {error}
         </div>
       ) : items.length === 0 ? (
@@ -55,7 +55,7 @@ export const ClientActionRequiredWidget = ({
             const ItemIcon = ICONS[item.reason];
             return (
               <Fragment key={item.id}>
-                <div className="rounded-xl border border-line-subtle bg-surface px-4 py-3">
+                <div className="rounded-r-md border border-line-subtle bg-surface px-4 py-3">
                   <div className="flex items-start justify-between gap-4">
                     <div className="flex min-w-0 gap-3">
                       <Icon

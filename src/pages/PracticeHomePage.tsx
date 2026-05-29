@@ -371,9 +371,9 @@ const PracticeHomePage = () => {
                 </button>
               </div>
             </div>
-            <div className="mt-4 h-1.5 w-full overflow-hidden rounded-full bg-surface-card-hover">
+            <div className="mt-4 h-1.5 w-full overflow-hidden rounded-full bg-paper-2">
               <div
-                className="h-full rounded-full bg-accent-500 transition-[width] motion-reduce:transition-none"
+                className="h-full rounded-full bg-accent transition-[width] motion-reduce:transition-none"
                 style={{ width: `${progressPct}%` }}
                 role="progressbar"
                 aria-valuenow={completeCount}
@@ -389,11 +389,11 @@ const PracticeHomePage = () => {
                   type="button"
                   disabled={!step.href}
                   onClick={() => handleSetupStep(step)}
-                  className="flex min-h-[116px] flex-col gap-2.5 rounded-lg border border-line-subtle bg-surface-card-hover p-4 text-left transition-colors hover:bg-surface-card focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-500/40 disabled:cursor-default disabled:hover:bg-surface-card-hover"
+                  className="flex min-h-[116px] flex-col gap-2.5 rounded-lg border border-line-subtle bg-paper-2 p-4 text-left transition-colors hover:bg-card focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-500/40 disabled:cursor-default disabled:hover:bg-paper-2"
                 >
                   <div className="flex items-center gap-2.5">
                     {step.complete ? (
-                      <span className="flex h-[22px] w-[22px] items-center justify-center rounded-full bg-accent-500 text-[rgb(var(--accent-foreground))]">
+                      <span className="flex h-[22px] w-[22px] items-center justify-center rounded-full bg-accent text-[rgb(var(--accent-foreground))]">
                         <Check className="h-3.5 w-3.5" strokeWidth={3} aria-hidden="true" />
                       </span>
                     ) : (
@@ -427,9 +427,9 @@ const PracticeHomePage = () => {
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
               {[0, 1, 2, 3].map((item) => (
                 <div key={item} className="rounded-2xl border border-card-border bg-card p-5">
-                  <div className="h-3 w-24 rounded-full bg-surface-card-hover" />
-                  <div className="mt-4 h-8 w-28 rounded-full bg-surface-card-hover" />
-                  <div className="mt-3 h-3 w-36 rounded-full bg-surface-card-hover" />
+                  <div className="h-3 w-24 rounded-full bg-paper-2" />
+                  <div className="mt-4 h-8 w-28 rounded-full bg-paper-2" />
+                  <div className="mt-3 h-3 w-36 rounded-full bg-paper-2" />
                 </div>
               ))}
             </div>
@@ -490,12 +490,12 @@ const PracticeHomePage = () => {
                     type="button"
                     onClick={() => handleIntakeOpen(row.uuid)}
                     className={[
-                      'group grid w-full grid-cols-1 gap-2 px-5 py-4 text-left transition-colors hover:bg-surface-card-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-500/40 md:grid-cols-[260px_1fr_140px_110px] md:items-center md:gap-4',
+                      'group grid w-full grid-cols-1 gap-2 px-5 py-4 text-left transition-colors hover:bg-paper-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-500/40 md:grid-cols-[260px_1fr_140px_110px] md:items-center md:gap-4',
                       idx > 0 ? 'border-t border-line-subtle' : '',
                     ].filter(Boolean).join(' ')}
                   >
                     <div className="flex min-w-0 items-center gap-2.5">
-                      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-surface-card-hover text-[11px] font-semibold text-ink">
+                      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-paper-2 text-[11px] font-semibold text-ink">
                         {initialsFor(contactName)}
                       </span>
                       <span className="truncate text-sm font-medium text-ink">{contactName}</span>
@@ -519,10 +519,10 @@ const PracticeHomePage = () => {
             <div className="overflow-hidden rounded-2xl border border-card-border bg-card">
               {[0, 1, 2].map((row) => (
                 <div key={row} className="grid grid-cols-1 gap-2 border-t border-line-subtle px-5 py-4 first:border-t-0 md:grid-cols-[260px_1fr_140px_110px] md:items-center md:gap-4">
-                  <div className="h-4 w-36 rounded-full bg-surface-card-hover" />
-                  <div className="h-4 w-48 rounded-full bg-surface-card-hover" />
-                  <div className="h-4 w-24 rounded-full bg-surface-card-hover" />
-                  <div className="h-6 w-20 rounded-full bg-surface-card-hover md:ml-auto" />
+                  <div className="h-4 w-36 rounded-full bg-paper-2" />
+                  <div className="h-4 w-48 rounded-full bg-paper-2" />
+                  <div className="h-4 w-24 rounded-full bg-paper-2" />
+                  <div className="h-6 w-20 rounded-full bg-paper-2 md:ml-auto" />
                 </div>
               ))}
             </div>

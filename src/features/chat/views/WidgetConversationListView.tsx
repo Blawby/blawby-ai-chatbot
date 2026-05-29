@@ -48,7 +48,7 @@ const WidgetConversationListEmptyState = ({
 }: { title: string; hint: string }) => (
   <div className="flex flex-1 items-center justify-center px-6 py-10">
     <div className="flex max-w-xs flex-col items-center gap-3 text-center">
-      <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-surface-overlay/60 ring-1 ring-line-subtle">
+      <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-card/60 ring-1 ring-line-subtle">
         <Icon
           icon={MessageSquare}
           className="h-6 w-6 text-dim-2"
@@ -155,7 +155,7 @@ const WidgetConversationListView: FunctionComponent<WidgetConversationListViewPr
                   type="button"
                   className={cn(
                     'flex w-full items-start gap-3 px-3 py-3 text-left transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-500/50',
-                    isActive ? 'bg-surface-utility/10' : 'hover:bg-surface-utility/5'
+                    isActive ? 'bg-paper-2/10' : 'hover:bg-paper-2/5'
                   )}
                   onClick={() => onSelectConversation(conversation.id)}
                 >
@@ -188,7 +188,7 @@ const WidgetConversationListView: FunctionComponent<WidgetConversationListViewPr
                           <span className={chatTypography.headerTime}>{timeLabel}</span>
                         )}
                         {isUnread && (
-                          <span className="inline-flex min-w-5 items-center justify-center rounded-full bg-accent-500 px-1.5 py-0.5 text-[11px] font-semibold text-[rgb(var(--accent-foreground))]">
+                          <span className="inline-flex min-w-5 items-center justify-center rounded-full bg-accent px-1.5 py-0.5 text-[11px] font-semibold text-[rgb(var(--accent-foreground))]">
                             {unreadCount}
                           </span>
                         )}

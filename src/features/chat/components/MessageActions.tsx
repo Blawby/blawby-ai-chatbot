@@ -253,7 +253,7 @@ export const MessageActions: FunctionComponent<MessageActionsProps> = ({
 											href={url}
 											target="_blank"
 											rel="noopener noreferrer"
-											className={`btn ${action.variant === 'primary' ? 'btn-primary' : 'btn-secondary'} btn-sm shrink-0 no-underline inline-flex items-center justify-center px-4 rounded-xl font-semibold transition-all hover:opacity-90 active:scale-[0.98] h-8 text-xs`}
+											className={`btn ${action.variant === 'primary' ? 'btn-primary' : 'btn-secondary'} btn-sm shrink-0 no-underline inline-flex items-center justify-center px-4 rounded-r-md font-semibold transition-all hover:opacity-90 active:scale-[0.98] h-8 text-xs`}
 										>
 											{action.label}
 										</a>
@@ -284,7 +284,7 @@ export const MessageActions: FunctionComponent<MessageActionsProps> = ({
 										<button
 											key={getChatActionKey(action, idx)}
 											type="button"
-											className={`btn ${action.variant === 'primary' ? 'btn-primary' : 'btn-secondary'} btn-sm shrink-0 no-underline inline-flex items-center justify-center px-4 rounded-xl font-semibold transition-all hover:opacity-90 active:scale-[0.98] h-8 text-xs`}
+											className={`btn ${action.variant === 'primary' ? 'btn-primary' : 'btn-secondary'} btn-sm shrink-0 no-underline inline-flex items-center justify-center px-4 rounded-r-md font-semibold transition-all hover:opacity-90 active:scale-[0.98] h-8 text-xs`}
 											onClick={() => navigate(`${parsed.pathname}${parsed.search}${parsed.hash}`)}
 										>
 											{action.label}
@@ -297,7 +297,7 @@ export const MessageActions: FunctionComponent<MessageActionsProps> = ({
 										href={action.url}
 										target="_blank"
 										rel="noopener noreferrer"
-										className={`btn ${action.variant === 'primary' ? 'btn-primary' : 'btn-secondary'} btn-sm shrink-0 no-underline inline-flex items-center justify-center px-4 rounded-xl font-semibold transition-all hover:opacity-90 active:scale-[0.98] h-8 text-xs`}
+										className={`btn ${action.variant === 'primary' ? 'btn-primary' : 'btn-secondary'} btn-sm shrink-0 no-underline inline-flex items-center justify-center px-4 rounded-r-md font-semibold transition-all hover:opacity-90 active:scale-[0.98] h-8 text-xs`}
 									>
 										{action.label}
 									</a>
@@ -413,8 +413,8 @@ export const MessageActions: FunctionComponent<MessageActionsProps> = ({
 			{/* Display generated PDF */}
 			{generatedPDF && (
 				<div className="my-2">
-					<div className="flex items-center gap-2 p-3 rounded-xl panel">
-						<div className="w-8 h-8 rounded bg-surface-utility/60 dark:bg-surface-utility/10 flex items-center justify-center flex-shrink-0">
+					<div className="flex items-center gap-2 p-3 rounded-r-md panel">
+						<div className="w-8 h-8 rounded bg-paper-2/60 dark:bg-paper-2/10 flex items-center justify-center flex-shrink-0">
 							<Icon icon={FileIcon} className="w-4 h-4 text-ink"  />
 						</div>
 						<div className="flex-1 min-w-0">

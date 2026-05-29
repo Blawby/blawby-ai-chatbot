@@ -9,8 +9,8 @@ interface InvoiceListKpiRowProps {
 const SkeletonStat = ({ label }: { label: string }) => (
   <div className="panel rounded-2xl p-4">
     <p className="text-xs text-dim-2">{label}</p>
-    <div className="mt-2 h-7 w-24 animate-pulse rounded bg-surface-utility/40" />
-    <div className="mt-2 h-3 w-16 animate-pulse rounded bg-surface-utility/30" />
+    <div className="mt-2 h-7 w-24 animate-pulse rounded bg-paper-2/40" />
+    <div className="mt-2 h-3 w-16 animate-pulse rounded bg-paper-2/30" />
   </div>
 );
 

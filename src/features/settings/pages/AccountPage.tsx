@@ -1025,7 +1025,7 @@ export const AccountPage = ({
                 ]}
                 onChange={handleDomainChange}
                 placeholder={t('settings:account.links.selectOption')}
-                className="border-0 bg-transparent px-3 py-1 hover:bg-surface-workspace/10 focus:ring-2 focus:ring-accent-500"
+                className="border-0 bg-transparent px-3 py-1 hover:bg-paper/10 focus:ring-2 focus:ring-accent-500"
                 searchable={false}
               />
             </SettingRow>
@@ -1035,7 +1035,7 @@ export const AccountPage = ({
               label="LinkedIn"
               labelNode={
                 <div className="flex items-center gap-3">
-                  <div className="w-4 h-4 bg-surface-app-frame rounded flex items-center justify-center">
+                  <div className="w-4 h-4 bg-paper rounded flex items-center justify-center">
                     <span className="text-[rgb(var(--accent-foreground))] text-xs font-bold">in</span>
                   </div>
                   <FormLabel>LinkedIn</FormLabel>

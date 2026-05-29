@@ -101,7 +101,7 @@ export const WorkDiaryCalendar = ({ selectedWeekStart, onSelectWeek }: WorkDiary
               className={[
                 'h-9 w-9 rounded-full text-sm font-medium transition-colors',
                 isCurrentMonth ? 'text-ink' : 'text-dim-2',
-                isSelectedWeek ? 'bg-surface-card-raised text-ink' : 'hover:bg-surface-card-hover',
+                isSelectedWeek ? 'bg-card text-ink' : 'hover:bg-paper-2',
                 isToday ? 'ring-2 ring-accent-500' : 'ring-1 ring-transparent'
               ].join(' ')}
             >

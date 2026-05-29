@@ -73,7 +73,7 @@ export const UnbilledSummaryCard = ({
           {(matter.milestones ?? []).map((milestone) => {
             if (!milestone.id) return null;
             return (
-              <div key={milestone.id} className="flex items-center justify-between rounded-xl border border-line-subtle px-3 py-2">
+              <div key={milestone.id} className="flex items-center justify-between rounded-r-md border border-line-subtle px-3 py-2">
                 <div className="min-w-0">
                   <p className="truncate text-sm font-medium text-ink">{milestone.description}</p>
                   <p className="text-xs text-dim-2">{formatCurrency(milestone.amount)}</p>

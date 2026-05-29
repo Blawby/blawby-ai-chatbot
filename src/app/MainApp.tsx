@@ -669,7 +669,7 @@ export function MainApp({
           </a>
         ) : null}
         {conversationHeaderMatterLabel ? (
-          <span className="inline-flex min-w-0 items-center gap-1.5 truncate rounded-full bg-accent-500/10 px-2 py-0.5 text-accent-utility">
+          <span className="inline-flex min-w-0 items-center gap-1.5 truncate rounded-full bg-accent/10 px-2 py-0.5 text-accent-utility">
             <Icon icon={Briefcase} className="h-3.5 w-3.5 shrink-0" />
             <span className="truncate">{conversationHeaderMatterLabel}</span>
           </span>
@@ -688,8 +688,8 @@ export function MainApp({
     if (!isPracticeWorkspace) return undefined;
     if (isSocketReady) return undefined;
     return (
-      <span className="inline-flex items-center gap-1 rounded-full bg-accent-500/15 px-2 py-0.5 text-[11px] font-semibold text-accent-utility">
-        <span className="h-1.5 w-1.5 rounded-full bg-accent-500" aria-hidden="true" />
+      <span className="inline-flex items-center gap-1 rounded-full bg-accent/15 px-2 py-0.5 text-[11px] font-semibold text-accent-utility">
+        <span className="h-1.5 w-1.5 rounded-full bg-accent" aria-hidden="true" />
         Unread
       </span>
     );

@@ -98,7 +98,7 @@ export function EntityList<T extends { id: string }>({
               type="button"
               className={cn(
                 'w-full text-left transition-colors duration-150 border-b border-line-subtle',
-                isSelected ? SELECTED_ACCENT_SURFACE_CLASS : 'hover:bg-surface-utility/40',
+                isSelected ? SELECTED_ACCENT_SURFACE_CLASS : 'hover:bg-paper-2/40',
                 onSelect && 'cursor-pointer'
               )}
               onClick={onSelect ? () => onSelect(item) : undefined}

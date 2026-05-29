@@ -343,7 +343,7 @@ const MessageComposer = ({
         )}
         <div className="message-composer-container">
           {replyTo && (
-            <div className="flex items-center justify-between gap-3 rounded-t-2xl bg-surface-utility/40 dark:bg-surface-utility/20 px-4 py-1.5 text-sm text-ink -mx-2 -mt-1">
+            <div className="flex items-center justify-between gap-3 rounded-t-2xl bg-paper-2/40 dark:bg-paper-2/20 px-4 py-1.5 text-sm text-ink -mx-2 -mt-1">
               <div className="flex min-w-0 items-center gap-2">
                 <span className="text-ink/70">
                   <Trans
@@ -481,7 +481,7 @@ const MessageComposer = ({
                 <div 
                   id="mention-listbox"
                   role="listbox"
-                  className="absolute bottom-full left-2 right-2 z-40 mb-2 overflow-hidden rounded-xl border border-line-subtle bg-surface-workspace dark:bg-surface-overlay/95 shadow-glass backdrop-blur-2xl"
+                  className="absolute bottom-full left-2 right-2 z-40 mb-2 overflow-hidden rounded-r-md border border-line-subtle bg-paper dark:bg-card/95 shadow-glass backdrop-blur-2xl"
                 >
                   <div className="max-h-56 overflow-y-auto py-1">
                     {filteredMentionCandidates.map((candidate, index) => (
@@ -495,8 +495,8 @@ const MessageComposer = ({
                         onClick={() => handleMentionSelect(index)}
                         className={`flex w-full items-center justify-between px-3 py-2 text-left text-sm transition-colors ${
                           index === mentionFocusIndex
-                            ? 'bg-accent-500/15 text-[rgb(var(--accent-foreground))]'
-                            : 'text-ink hover:bg-surface-utility/40'
+                            ? 'bg-accent/15 text-[rgb(var(--accent-foreground))]'
+                            : 'text-ink hover:bg-paper-2/40'
                         }`}
                       >
                         <span className="truncate">{candidate.name}</span>

@@ -184,7 +184,7 @@ export const UploadDestinationDialog = ({
           disabled={isLoading}
         />
         {error ? (
-          <div className="status-error flex items-center justify-between gap-3 rounded-xl px-3 py-2 text-sm">
+          <div className="status-error flex items-center justify-between gap-3 rounded-r-md px-3 py-2 text-sm">
             <span className="min-w-0 flex-1 truncate">{error}</span>
             <Button variant="ghost" size="sm" onClick={() => { void refetch(); }}>
               Retry
@@ -192,7 +192,7 @@ export const UploadDestinationDialog = ({
           </div>
         ) : null}
         {!isLoading && options.length === 0 && !error ? (
-          <div className="flex items-center justify-between gap-3 rounded-xl border border-line-subtle bg-surface-panel/50 px-3 py-3 text-sm text-dim-2">
+          <div className="flex items-center justify-between gap-3 rounded-r-md border border-line-subtle bg-paper-2/50 px-3 py-3 text-sm text-dim-2">
             <span className="min-w-0 flex-1">
               {clientUserId
                 ? "You don't have any matters or intakes yet. Open a conversation with the practice to get started."
@@ -213,7 +213,7 @@ export const UploadDestinationDialog = ({
             emptyStateLabel={null}
           />
         ) : options.length > 0 ? (
-          <p className="rounded-xl border border-line-subtle bg-surface-panel/50 px-3 py-4 text-sm text-dim-2">
+          <p className="rounded-r-md border border-line-subtle bg-paper-2/50 px-3 py-4 text-sm text-dim-2">
             Pick a destination above to enable the upload area.
           </p>
         ) : null}

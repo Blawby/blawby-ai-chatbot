@@ -39,9 +39,9 @@ const summaryItemBase = 'min-w-0 flex flex-col gap-1';
 const gridBase = 'grid grid-cols-1 gap-x-4 gap-y-5 @lg:grid-cols-2 @3xl:grid-cols-4 @3xl:gap-x-6';
 const wrapperBase = 'card relative overflow-hidden rounded-[20px] @container p-5 sm:p-7';
 const labelClass = 'text-[10px] font-semibold uppercase tracking-[0.14em] text-dim-2';
-const kpiValueClass = 'font-display text-[28px] font-bold leading-none tracking-tight tabular-nums text-ink';
-const denseValueClass = 'font-display text-[24px] font-bold leading-none tracking-tight tabular-nums text-ink';
-const iconSquareClass = 'inline-flex h-7 w-7 items-center justify-center rounded-lg border border-card-border bg-surface-card-raised text-accent-utility';
+const kpiValueClass = 'font-serif text-[28px] font-bold leading-none tracking-tight tabular-nums text-ink';
+const denseValueClass = 'font-serif text-[24px] font-bold leading-none tracking-tight tabular-nums text-ink';
+const iconSquareClass = 'inline-flex h-7 w-7 items-center justify-center rounded-lg border border-card-border bg-card text-accent-utility';
 const revealClass = 'motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-bottom-1 motion-safe:duration-300';
 
 const Halo = () => (
@@ -182,7 +182,7 @@ export const MatterSummaryCards = ({
                 size="xs"
                 onClick={() => onCreateInvoice?.()}
                 disabled={!onCreateInvoice}
-                className="w-full justify-center font-display font-semibold tracking-wide"
+                className="w-full justify-center font-serif font-semibold tracking-wide"
               >
                 Invoice
               </Button>
@@ -248,13 +248,13 @@ export const MatterSummaryCards = ({
               <p className={cn(labelClass, 'leading-tight')}>{billingTypeLabel}</p>
             </div>
             {Array.isArray(billingRateLines) ? (
-              <div className="mt-3 space-y-1 font-display text-base font-semibold leading-snug tabular-nums text-ink">
+              <div className="mt-3 space-y-1 font-serif text-base font-semibold leading-snug tabular-nums text-ink">
                 {billingRateLines.map((line) => (
                   <p key={line}>{line}</p>
                 ))}
               </div>
             ) : (
-              <p className="mt-3 font-display text-lg font-semibold leading-snug tabular-nums text-ink">{billingRateLines}</p>
+              <p className="mt-3 font-serif text-lg font-semibold leading-snug tabular-nums text-ink">{billingRateLines}</p>
             )}
           </div>
           <div
@@ -275,7 +275,7 @@ export const MatterSummaryCards = ({
               size="md"
               onClick={() => onCreateInvoice?.()}
               disabled={!onCreateInvoice}
-              className="justify-center rounded-full px-8 font-display font-semibold tracking-wide shadow-sm"
+              className="justify-center rounded-full px-8 font-serif font-semibold tracking-wide shadow-sm"
             >
               Invoice
             </Button>

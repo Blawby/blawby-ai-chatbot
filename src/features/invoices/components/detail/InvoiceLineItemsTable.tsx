@@ -24,7 +24,7 @@ export const InvoiceLineItemsTable = ({ detail }: InvoiceLineItemsTableProps) =>
         <div className="mt-3 overflow-x-auto">
           <table className="min-w-full divide-y divide-line-subtle text-sm">
             <thead>
-              <tr className="text-left text-xs uppercase tracking-wider text-dim-2 bg-surface-utility/30">
+              <tr className="text-left text-xs uppercase tracking-wider text-dim-2 bg-paper-2/30">
                 <th className="px-5 py-3 font-medium">Description</th>
                 <th className="px-5 py-3 w-20 text-right font-medium">Qty</th>
                 <th className="px-5 py-3 w-32 text-right font-medium">Unit price</th>
@@ -47,7 +47,7 @@ export const InvoiceLineItemsTable = ({ detail }: InvoiceLineItemsTableProps) =>
                 </tr>
               ))}
             </tbody>
-            <tfoot className="bg-surface-utility/10 text-sm">
+            <tfoot className="bg-paper-2/10 text-sm">
               <tr>
                 <td colSpan={3} className="px-5 py-2 text-right text-dim-2">Subtotal</td>
                 <td className="px-5 py-2 text-right text-ink tabular-nums">{formatCurrency(subtotal ?? 0)}</td>

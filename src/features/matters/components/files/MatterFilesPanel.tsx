@@ -126,7 +126,7 @@ export function MatterFilesPanel({ matterId, matterTitle = null, isPrivilegedUpl
       />
 
       {error ? (
-        <div className="status-error rounded-xl px-3 py-2 text-sm">{error}</div>
+        <div className="status-error rounded-r-md px-3 py-2 text-sm">{error}</div>
       ) : null}
     </div>
   );

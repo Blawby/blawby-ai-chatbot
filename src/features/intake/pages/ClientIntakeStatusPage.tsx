@@ -50,7 +50,7 @@ const statusPillClass = (kind: ClientIntakeStatusKind): string => {
       return 'bg-accent-warning/15 text-accent-warning ring-accent-warning/30';
     case 'submitted':
     default:
-      return 'bg-surface-utility/40 text-ink ring-line-subtle/30';
+      return 'bg-paper-2/40 text-ink ring-line-subtle/30';
   }
 };
 
@@ -62,7 +62,7 @@ const Card: FunctionComponent<{ children: ComponentChildren; className?: string 
 }) => (
   <section
     className={cn(
-      'rounded-xl border border-card-border bg-surface-card p-4 sm:p-5',
+      'rounded-r-md border border-card-border bg-card p-4 sm:p-5',
       className,
     )}
   >
@@ -108,7 +108,7 @@ export const ClientIntakeStatusPage: FunctionComponent<ClientIntakeStatusPagePro
 }) => {
   if (!intake) {
     return (
-      <div className="flex h-full flex-col min-h-0 bg-surface-workspace">
+      <div className="flex h-full flex-col min-h-0 bg-paper">
         <DetailHeader title="Intake Forms" showBack={Boolean(onBack)} onBack={onBack} />
         <div className="p-6 text-sm text-dim-2">
           You have not submitted any intakes yet.
@@ -118,7 +118,7 @@ export const ClientIntakeStatusPage: FunctionComponent<ClientIntakeStatusPagePro
   }
 
   return (
-    <div className="flex h-full flex-col min-h-0 bg-surface-workspace">
+    <div className="flex h-full flex-col min-h-0 bg-paper">
       <DetailHeader title="Intake Forms" showBack={Boolean(onBack)} onBack={onBack} />
 
       <div className="flex-1 min-h-0 overflow-y-auto">
@@ -141,7 +141,7 @@ export const ClientIntakeStatusPage: FunctionComponent<ClientIntakeStatusPagePro
 
           {/* Next step */}
           {intake.nextStep ? (
-            <Card className="bg-surface-utility/30">
+            <Card className="bg-paper-2/30">
               <SectionHeading>Next Step</SectionHeading>
               <p className="mt-1.5 whitespace-pre-wrap text-sm leading-relaxed text-ink/90">
                 {intake.nextStep}

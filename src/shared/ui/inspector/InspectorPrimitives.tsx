@@ -68,7 +68,7 @@ export const InspectorGroup = ({
               disabled={disabled}
               aria-expanded={isOpen}
               aria-label="Toggle group options"
-              className={`flex h-7 w-7 items-center justify-center rounded-md text-dim-2 transition hover:bg-surface-app-frame/60 dark:hover:bg-surface-panel/40 hover:text-ink disabled:cursor-not-allowed disabled:opacity-50 ${isOpen ? 'bg-surface-app-frame/60 dark:bg-surface-panel/40 text-ink' : ''}`}
+              className={`flex h-7 w-7 items-center justify-center rounded-md text-dim-2 transition hover:bg-paper/60 dark:hover:bg-paper-2/40 hover:text-ink disabled:cursor-not-allowed disabled:opacity-50 ${isOpen ? 'bg-paper/60 dark:bg-paper-2/40 text-ink' : ''}`}
             >
               <Settings className="h-4 w-4" />
             </button>
@@ -131,7 +131,7 @@ export const InspectorEditableRow = ({
             onClick={onToggle}
             disabled={disabled}
             aria-expanded={isOpen}
-            className={`flex-shrink-0 ${label ? '-mt-1' : 'mt-0.5'} inline-flex h-7 w-7 items-center justify-center rounded-md text-dim-2 transition hover:bg-surface-app-frame/60 dark:hover:bg-surface-panel/40 hover:text-ink disabled:cursor-not-allowed disabled:opacity-50 ${isOpen ? 'bg-surface-app-frame/60 dark:bg-surface-panel/40 text-ink' : ''}`}
+            className={`flex-shrink-0 ${label ? '-mt-1' : 'mt-0.5'} inline-flex h-7 w-7 items-center justify-center rounded-md text-dim-2 transition hover:bg-paper/60 dark:hover:bg-paper-2/40 hover:text-ink disabled:cursor-not-allowed disabled:opacity-50 ${isOpen ? 'bg-paper/60 dark:bg-paper-2/40 text-ink' : ''}`}
             aria-label={`${isOpen ? 'Close' : 'Open'} ${label} controls`}
           >
             <Settings className="h-4 w-4" />
@@ -165,7 +165,7 @@ export const InspectorHeaderPerson = ({
         name={name} 
         size="xl" 
         className="h-14 w-14"
-        bgClassName="bg-surface-app-frame/60 dark:bg-white/[0.08]"
+        bgClassName="bg-paper/60 dark:bg-white/[0.08]"
       />
       <p className="mt-3 text-[15px] font-semibold text-ink">{name}</p>
       {secondaryLine ? (
@@ -227,7 +227,7 @@ export const InspectorHeaderHero = ({
             name={name} 
             size="xl" 
             className="h-24 w-24"
-            bgClassName="bg-surface-workspace/10 shadow-2xl ring-1 ring-white/10 ring-inset"
+            bgClassName="bg-paper/10 shadow-2xl ring-1 ring-white/10 ring-inset"
           />
           <div className="absolute inset-0 rounded-full border border-[rgb(var(--surface-workspace))]/10 pointer-events-none" />
         </div>

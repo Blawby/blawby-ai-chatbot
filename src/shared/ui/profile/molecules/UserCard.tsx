@@ -80,14 +80,14 @@ export const UserCard = ({
           onClick={onClick}
           aria-label={ariaLabel ?? `Select ${name}`}
           className={cn(
-            'flex-1 text-left rounded-xl px-3 py-2 transition-colors hover:bg-[rgb(var(--surface-utility)/0.06)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgb(var(--accent-500))]',
+            'flex-1 text-left rounded-r-md px-3 py-2 transition-colors hover:bg-[rgb(var(--surface-utility)/0.06)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgb(var(--accent-500))]',
             className
           )}
         >
           {clickableBody}
         </button>
       ) : (
-        <div className={cn('flex-1 rounded-xl px-3 py-2', className)}>{clickableBody}</div>
+        <div className={cn('flex-1 rounded-r-md px-3 py-2', className)}>{clickableBody}</div>
       )}
       {trailing && <div className="shrink-0">{trailing}</div>}
     </div>

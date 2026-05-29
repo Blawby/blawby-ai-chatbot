@@ -236,7 +236,7 @@ function triageBadgeClass(status?: string | null): string {
     case 'rejected':
       return 'bg-error/10 text-error ring-error/20';
     case 'spam':
-      return 'bg-surface-utility/40 text-dim-2 ring-line-subtle/30';
+      return 'bg-paper-2/40 text-dim-2 ring-line-subtle/30';
     case 'pending_review':
     default:
       return 'bg-warning/10 text-warning ring-warning/20';
@@ -254,7 +254,7 @@ const SectionLabel: FunctionComponent<{ children: ComponentChildren; className?:
 const Card: FunctionComponent<{ children: ComponentChildren; className?: string }> = ({ children, className }) => (
   <section
     className={cn(
-      'rounded-xl border border-card-border bg-surface-card p-4 sm:p-6',
+      'rounded-r-md border border-card-border bg-card p-4 sm:p-6',
       className,
     )}
   >
@@ -299,7 +299,7 @@ const DetailSkeleton: FunctionComponent<{ onBack: () => void }> = ({ onBack }) =
     <div className="flex-1 min-h-0 overflow-y-auto">
       <div className="grid h-full grid-cols-1 xl:grid-cols-[minmax(0,1fr)_280px]">
         <div className="space-y-4 p-6">
-          <div className="rounded-xl border border-card-border bg-surface-card p-6 space-y-3">
+          <div className="rounded-r-md border border-card-border bg-card p-6 space-y-3">
             <SkeletonLoader variant="text" width="w-32" height="h-3" />
             <SkeletonLoader variant="title" width="w-3/4" height="h-7" />
             <SkeletonLoader variant="text" width="w-48" height="h-3" />
@@ -309,7 +309,7 @@ const DetailSkeleton: FunctionComponent<{ onBack: () => void }> = ({ onBack }) =
               <SkeletonLoader variant="text" width="w-5/6" height="h-3" />
             </div>
           </div>
-          <div className="rounded-xl border border-card-border bg-surface-card p-6 space-y-4">
+          <div className="rounded-r-md border border-card-border bg-card p-6 space-y-4">
             <SkeletonLoader variant="text" width="w-32" height="h-3" />
             <div className="grid grid-cols-2 gap-4">
               {[0, 1, 2, 3].map((i) => (
@@ -320,16 +320,16 @@ const DetailSkeleton: FunctionComponent<{ onBack: () => void }> = ({ onBack }) =
               ))}
             </div>
           </div>
-          <div className="rounded-xl border border-card-border bg-surface-card p-6 space-y-3">
+          <div className="rounded-r-md border border-card-border bg-card p-6 space-y-3">
             <SkeletonLoader variant="text" width="w-32" height="h-3" />
             <MessageRowSkeleton lineWidths={['w-40', 'w-56']} />
             <MessageRowSkeleton lineWidths={['w-64', 'w-44']} />
           </div>
         </div>
-        <aside className="hidden xl:block space-y-4 border-l border-line-subtle bg-surface-panel p-6">
+        <aside className="hidden xl:block space-y-4 border-l border-line-subtle bg-paper-2 p-6">
           <SkeletonLoader variant="button" width="w-full" />
           <SkeletonLoader variant="button" width="w-full" />
-          <div className="rounded-xl border border-card-border bg-surface-card p-4 space-y-3">
+          <div className="rounded-r-md border border-card-border bg-card p-4 space-y-3">
             <div className="flex items-center gap-3">
               <SkeletonLoader variant="avatar" />
               <div className="flex-1 space-y-1.5">
@@ -1116,7 +1116,7 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
         <SectionLabel>Conversation</SectionLabel>
         <p className="mt-1 text-xs text-dim-2">Continue the client thread from this intake.</p>
       </div>
-      <div className="min-h-0 flex-1 overflow-hidden bg-surface-overlay/20 touch-pan-y">
+      <div className="min-h-0 flex-1 overflow-hidden bg-card/20 touch-pan-y">
         {previewLoading && previewMessages.length === 0 ? (
           <div className="space-y-3 px-4 py-4">
             <MessageRowSkeleton lineWidths={['w-40', 'w-56']} />
@@ -1219,7 +1219,7 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
     <>
       <Button
         variant="primary"
-        className="btn-primary btn-md w-full !bg-accent-500 text-[rgb(var(--accent-foreground))]"
+        className="btn-primary btn-md w-full !bg-accent text-[rgb(var(--accent-foreground))]"
         disabled={isSubmitting}
         onClick={() => openTriageDialog('accepted')}
       >
@@ -1247,7 +1247,7 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
         <Avatar
           name={name ?? ''}
           size="md"
-          className="bg-surface-utility/40 text-ink ring-1 ring-line-subtle"
+          className="bg-paper-2/40 text-ink ring-1 ring-line-subtle"
         />
         <div className="min-w-0">
           <p className="truncate text-sm font-semibold text-ink">{name ?? 'Unnamed lead'}</p>
@@ -1310,7 +1310,7 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
   ) : null;
 
   return (
-    <div className="flex h-full flex-col min-h-0 bg-surface-workspace">
+    <div className="flex h-full flex-col min-h-0 bg-paper">
       <DetailHeader
         title={name ?? intakeTitle}
         showBack
@@ -1345,7 +1345,7 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
           </div>
 
           {/* Desktop right panel */}
-          <aside className="hidden xl:flex flex-col gap-4 border-l border-line-subtle bg-surface-panel p-6">
+          <aside className="hidden xl:flex flex-col gap-4 border-l border-line-subtle bg-paper-2 p-6">
             {isPending ? <div className="flex flex-col gap-3">{triageActions}</div> : null}
             {engagementActionCard}
             {aboutCard}
@@ -1409,7 +1409,7 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
                       'flex items-center gap-2 rounded-lg border px-3 py-2 text-left text-sm transition-colors',
                       generateTemplateId === t.id
                         ? 'border-accent bg-accent/10 text-[rgb(var(--accent-foreground))]'
-                        : 'border-card-border bg-surface-card text-ink hover:bg-surface-overlay/40',
+                        : 'border-card-border bg-card text-ink hover:bg-card/40',
                     )}
                     onClick={() => setGenerateTemplateId(t.id)}
                   >
