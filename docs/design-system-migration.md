@@ -8,35 +8,70 @@ Branch: `feat/ds-full-migration` (off `staging` @ `5c42ac78`).
 
 ## Where We Are
 
-Foundation complete. **3 of 8 commits landed.** Build green at every commit.
+Commit 4 complete on `feat/ds-migration-pt2` (off `feat/ds-full-migration`). **4 of 8 commits landed.** Build green at every commit. Split into 4 sub-commits.
 
 | Commit | SHA | Status | What landed |
 |---|---|---|---|
 | 1 — Foundation | `b03558c4` | ✅ | Tokens, fonts, Tailwind config, `src/index.css` surgical rewrite, glass aliases removed |
 | 2 — Theme mechanism | `e5f409b0` | ✅ | `.dark` class → `data-theme` attribute (7 sites + boot script + DebugDialogsPage) |
 | 3 — accentColors removal | `6876d6ed` | ✅ | `brandColor.ts` (pure validator), 9 importers updated, AudioRecordingUI uses `--accent-rgb` |
-| 4 — Primitives | — | pending | Refactor Button/Input/Textarea/Switch/Alert/Avatar/Dialog; create Label/Pill/Chip/Bar/Card; delete Tag/RoleBadge/StatusBadge/OnboardingStatusBadge/ProgressBar; sweep ~120 callers |
-| 5 — Layout | — | pending | Create LeftRail/FocusDrawer/SplitDetail/PageHeader/BrandMark; delete 8 legacy components (~1564 lines); refactor 4 shells |
+| 4a — Primitives (additive) | `a01d5a2a` | ✅ | New `src/design-system/primitives/` (Label/Pill/Chip/Bar/Card) + matching CSS classes added to `src/index.css` |
+| 4b — CSS rewrites | `95dd97c7` | ✅ | `.btn-*` rewritten to DS tokens (2px radius, ink/paper/accent palette); `.card-*` aliases collapsed to canonical DS shape; `.input-surface` + `.status-*` rewritten to use valid DS tokens; `.btn-inverted` deleted |
+| 4c — Primitive refactors + sweep | `c6212140` | ✅ | Refactored Button (new `accent` variant) / Input / Textarea / Switch / Alert / Avatar (`kind` prop) / Dialog; swept 5 StatusBadge callers → `<Pill>` (3 wrappers + 2 direct) |
+| 4d — Deletions | `85d708be` | ✅ | Deleted `shared/ui/badges/*`, `shared/ui/tag/*`, `shared/ui/feedback/ProgressBar.tsx` + barrel updates |
+| 5a — Layout primitives | `3976faad` | ✅ | Created `src/design-system/layout/` (BrandMark, LeftRail, FocusDrawer, SplitDetail) + matching CSS shapes. Pure additive — 789 lines new. |
+| 5b — PageHeader rewrite | `f5a31630` | ✅ | Rewrote `src/shared/ui/layout/PageHeader.tsx` to DS spec (mono crumb + Source Serif H1 + lede + rule). Two existing callers unchanged. |
+| 5c — Shells refactor + legacy deletions | — | **deferred** | WorkspacePage (1666L) / WidgetApp (865L) / PracticeHomePage (554L) / ClientHomePage (151L) shells need rewiring to LeftRail; AppShell's sidebar/desktopSidebarCollapsed/mobileSidebar contract needs the matching update; assistant conversation panel must be extracted from PracticeSidebar; 4 test files reference NavRail. Delete NavRail/Sidebar/PracticeSidebar/ClientSidebar/MobileInspectorOverlay/WorkspaceShellHeader after refactor. **Drawer (4 callers) and InspectorPanel (2005L content) stay — no DS replacement spec yet; flag for separate planning.** |
 | 6 — Chat patterns | — | pending | Create AISummary/StagedAction/Observation/Composer/ToolUseLine/Citations; delete ChatDockedAction/AIThinkingIndicator; IOLTA manual smoke |
 | 7 — Data display | — | pending | Create StatStrip/JourneyProgress/LetterPaper/MatterChip/Seg; delete StatCard/NextStepsCard/ActivityTimeline×2; print test |
-| 8 — Feature sweep | — | pending | ~269 TSX files swept for 8 violation patterns; DataTable audit; final zero-violation grep; AA contrast spot; `prefers-reduced-motion` check |
+| 8 — Feature sweep | — | pending | ~269 TSX files swept for 8 violation patterns; DataTable audit; final zero-violation grep; AA contrast spot; `prefers-reduced-motion` check; final removal of `.status-*` / `.input-surface` / `.card-surface` aliases once their TSX callers move to DS primitives |
 
-PR open at the foundation checkpoint. Next session resumes at Commit 4.
+PR #644 was merged. PR #645 (`feat/ds-migration-pt2`) holds Commits 4 + 5a/5b. Next session resumes at **Commit 5c** — the shell refactors. The planning gaps around `Drawer` and `InspectorPanel` deletions need product-side resolution before they can be ripped out.
+
+### Commit 4 — scope deltas worth noting
+
+The doc-anticipated caller scope for the dead primitives was much larger than reality. Verified at branch start:
+
+| Primitive | Doc estimate | Actual production callers |
+|---|---|---|
+| StatusBadge | ~40 sites | **5** (3 thin wrappers + 2 direct) |
+| OnboardingStatusBadge | ~2 sites | **0** (dead code) |
+| RoleBadge | ~5 sites | **0** (dead code) |
+| ProgressBar | ~10 sites | **0** (dead code) |
+| Tag / TagInput | ~15 sites | **0** (stories + README only) |
+
+CSS sweep similarly trimmed:
+
+- The doc called for deleting `.status-*` / `.segmented-toggle*` / `.card-muted` / `.card-raised` / `.side-card` / `.empty-state` / `.input-surface` in Commit 4. Each had 21–29 production caller files — too broad for this commit. They were instead **rewritten** in 4b to alias the DS canonical shapes so they render correctly during the transition. Final deletion follows in Commit 8 once callers move to `<Pill>` / `<Card>` / `.input`.
+- `.btn-inverted` was deleted (verified 0 TSX callers).
 
 ---
 
 ## Resume Instructions (first thing the next session does)
 
 ```powershell
-git checkout feat/ds-full-migration
-git log --oneline staging..HEAD                  # expect 3 commits + this doc commit
+git checkout feat/ds-migration-pt2
+git log --oneline staging..HEAD                  # expect 4a-4d + doc + 5a + 5b
 npm install                                       # if dependencies changed since last checkout
 npm run build                                     # must pass
 npm run lint:src                                  # expect: 1 pre-existing error (Message.tsx:191)
 npm run type-check                                # expect: 4 pre-existing errors (WorkspacePage.tsx contactName/contactEmail)
 ```
 
-Then open this doc, read the **Detailed Handoff** section for Commit 4, and start.
+Open this doc, read **Commit 5c — open items** below, then start the shell refactors.
+
+### Commit 5c — open items for the next session
+
+Plan-level decisions to make *before* coding:
+
+1. **InspectorPanel (2005L) replacement strategy** — currently 4 callers (WorkspacePage, WidgetApp, DebugDialogsPage, WorkspaceSetupSection). The migration doc said "delete" but provided no replacement for the 2005 lines of entity-specific rendering (conversation/matter/client/invoice). Options:
+   - (a) Leave InspectorPanel content intact for Commit 5c; swap to `FocusDrawer` *container* only; refactor InspectorPanel internals in a later commit.
+   - (b) Refactor InspectorPanel into per-entity components owned by their feature folders (e.g. `src/features/matters/components/MatterInspector.tsx`) as part of Commit 5c. Larger scope.
+2. **Drawer (4 callers in files/chat) replacement** — used by `ChatContainer`, `FilesPageView`, `FileDetailDrawer`, `FilesCollectionPanel`. Doc says delete but FocusDrawer is right-rail-specific. Either generalize FocusDrawer to support left/bottom too, or keep Drawer.
+3. **AccentHeroSurface (1 caller, 31L)** — used by `PracticeContactsPage`. Trivial to inline the gradient styling at the caller; delete after.
+4. **Assistant conversation panel extraction** — currently lives inside `PracticeSidebar`. After Sidebar deletion, render the assistant conversation list as a standalone panel adjacent to LeftRail in WorkspacePage's chat shell.
+5. **AppShell refactor** — its `sidebar`, `desktopSidebarCollapsed`, `mobileSidebar`, `mobileSidebarOpen`, `onMobileSidebarClose` props all assume the legacy Sidebar pattern. Either drop these props (per locked decision §5 — no sidebar collapse) and have shells own their LeftRail composition directly, or keep AppShell as a thin wrapper.
+6. **Test updates** — 4 files reference deleted components: `tests/component/nav-rail.test.tsx` (likely delete entirely), `tests/component/widget-app.test.tsx`, `tests/component/app-shell.test.tsx`, `src/features/invoices/pages/__tests__/InvoicesPages.test.tsx` (NavRail import).
 
 ---
 

@@ -8,6 +8,7 @@ type ButtonVariant =
   | 'secondary'
   | 'ghost'
   | 'icon'
+  | 'accent'
   | 'danger'
   | 'warning'
   | 'danger-ghost'
@@ -89,6 +90,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
     secondary: 'btn-secondary',
     ghost: 'btn-ghost',
     icon: 'btn-icon',
+    accent: 'btn-accent',
     danger: 'btn-danger',
     warning: 'btn-warning',
     'danger-ghost': 'btn-danger-ghost',
@@ -109,7 +111,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
     return `btn-${resolvedSize}`;
   };
 
-  const hasVariantOverride = /\bbtn-(primary|secondary|ghost|icon|danger|warning|danger-ghost|accent-ghost|outline|link|menu-item|tab)\b/.test(className);
+  const hasVariantOverride = /\bbtn-(primary|secondary|ghost|icon|accent|danger|warning|danger-ghost|accent-ghost|outline|link|menu-item|tab)\b/.test(className);
   const hasSizeOverride = /\bbtn-(xs|sm|md|lg|icon-xs|icon-sm|icon-md|icon-lg)\b/.test(className);
 
   const classes = [

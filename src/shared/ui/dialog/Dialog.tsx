@@ -132,12 +132,18 @@ export const Dialog: FunctionComponent<DialogProps> = ({
         aria-describedby={description ? descriptionId : ariaDescribedBy}
         tabIndex={-1}
         className={cn(
-          'ui-surface-enter card relative flex max-h-[90dvh] w-full max-w-lg flex-col rounded-2xl text-input-text',
+          'ui-surface-enter relative flex max-h-[90dvh] w-full max-w-lg flex-col text-ink',
           // Re-enable pointer events on the card; the non-blocking wrapper
           // above turns them off for click-through.
           nonBlocking && 'pointer-events-auto',
           contentClassName
         )}
+        style={{
+          background: 'var(--card)',
+          border: '1px solid var(--paper-edge)',
+          borderRadius: 'var(--r-md)',
+          boxShadow: 'var(--shadow-2)',
+        }}
       >
         {(title || description || showCloseButton) && (
           <DialogHeader

@@ -162,74 +162,89 @@
   }
 
 
+  /* Canonical DS card. .card-surface kept as alias for legacy callers.
+     Sweep to single .card happens in Commit 8. */
   .card,
   .card-surface {
-    @apply rounded-2xl border;
     position: relative;
-    background-color: rgb(var(--card-rgb));
-    border-color: rgb(var(--rule-rgb));
+    background: var(--card);
+    border: 1px solid var(--rule);
+    border-radius: var(--r-md);
+    padding: 18px;
+    box-shadow: var(--shadow-1);
   }
 
   .card-hover,
   .card-surface-hover {
-    @apply transition-all duration-200;
+    transition: background 0.18s ease, box-shadow 0.18s ease;
   }
 
   .card-hover:hover,
   .card-surface-hover:hover {
-    background-color: rgb(var(--paper-2-rgb));
-    box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.04), 0 8px 22px rgb(0 0 0 / 0.16);
+    background: var(--paper-2);
+    box-shadow: var(--shadow-2);
   }
 
+  /* Muted/empty-state — softer paper-2 fill, dim text. Used for placeholders. */
   .card-muted,
   .empty-state {
-    background-color: rgb(var(--surface-card) / 0.72);
-    border-color: rgb(var(--border-subtle));
-    color: rgb(var(--text-muted));
+    background: var(--paper-2);
+    border: 1px solid var(--rule);
+    border-radius: var(--r-md);
+    color: var(--dim);
     box-shadow: none;
+    padding: 18px;
   }
 
+  /* Raised/side — same shape as .card but with paper-edge accent border */
   .card-raised,
   .side-card {
-    background-color: rgb(var(--surface-card-raised));
-    border-color: rgb(var(--border-default));
+    background: var(--card);
+    border: 1px solid var(--paper-edge);
+    border-radius: var(--r-md);
+    padding: 18px;
+    box-shadow: var(--shadow-2);
   }
 
   .panel {
-    @apply rounded-2xl border;
     position: relative;
-    background-color: rgb(var(--paper-2-rgb));
-    border-color: rgb(var(--rule-rgb));
+    background: var(--paper-2);
+    border: 1px solid var(--rule);
+    border-radius: var(--r-md);
   }
 
+  /* Legacy .input-surface kept for 29 callers in src/shared/ui/input/*.
+     Mirrors DS .input shape (var(--card), var(--rule), focus uses
+     accent-soft ring). Sweep to .input happens in Commit 8. */
   .input-surface {
-    @apply rounded-xl border text-ink placeholder:text-dim/80;
-    background-color: rgb(var(--card-rgb));
-    border-color: rgb(var(--rule-rgb));
+    background: var(--card);
+    border: 1px solid var(--rule);
+    border-radius: var(--r-xs);
+    color: var(--ink);
+  }
+
+  .input-surface::placeholder {
+    color: var(--dim);
+    opacity: 0.8;
   }
 
   .input-surface:focus,
   .input-surface.isOpen {
     outline: none;
-    @apply border-accent/40;
-
-    box-shadow: 0 0 0 3px rgb(var(--accent-rgb) / 0.14);
+    border-color: var(--ink);
+    box-shadow: 0 0 0 3px var(--accent-soft);
   }
 
-  .input-surface.isError:focus,
-  .input-surface.isError {
-    @apply ring-0;
-    box-shadow:
-      0 0 0 2px rgb(var(--neg-rgb) / 0.4),
-      0 0 12px rgb(var(--neg-rgb) / 0.2);
+  .input-surface.isError,
+  .input-surface.isError:focus {
+    border-color: var(--neg);
+    box-shadow: 0 0 0 3px color-mix(in oklab, var(--neg) 20%, transparent);
   }
 
-  .input-surface.isSuccess:focus,
-  .input-surface.isSuccess {
-    @apply ring-0;
-    box-shadow:
-      0 0 0 2px rgb(var(--pos-rgb) / 0.4),
-      0 0 12px rgb(var(--pos-rgb) / 0.2);
+  .input-surface.isSuccess,
+  .input-surface.isSuccess:focus {
+    border-color: var(--pos);
+    box-shadow: 0 0 0 3px color-mix(in oklab, var(--pos) 20%, transparent);
   }
 
 
@@ -335,222 +350,193 @@
      ============================================================ */
   /* stylelint-disable declaration-empty-line-before */
 
-  /* Base shared across all button variants */
+  /* Base shared across all button variants — DS-tokens, 2px radius, 1px border */
   .btn {
-    @apply inline-flex items-center justify-center rounded-full font-medium transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.98] select-none px-4 py-2 text-sm;
-    border: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 10px 18px;
+    font-size: 14px;
+    line-height: 1;
+    font-weight: 500;
+    border-radius: var(--r-xs);
+    border: 1px solid transparent;
+    background: transparent;
+    color: var(--ink);
+    transition: background 0.18s ease, color 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
+    font-family: var(--sans);
+    cursor: pointer;
+    -webkit-user-select: none;
+    user-select: none;
   }
 
-  /* Sizes */
-  .btn-xs {
-    @apply px-2.5 py-1 text-xs;
+  .btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
   }
 
-  .btn-sm {
-    @apply px-3 py-1.5 text-xs;
+  .btn:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 3px var(--accent-soft);
   }
 
-  .btn-md {
-    @apply px-4 py-2 text-sm;
-  }
-
-  .btn-lg {
-    @apply px-6 py-3 text-base;
-  }
+  /* Sizes (override base padding/font-size) */
+  .btn-xs { padding: 4px 10px; font-size: 12px; }
+  .btn-sm { padding: 6px 12px; font-size: 12.5px; }
+  .btn-md { padding: 10px 18px; font-size: 14px; }
+  .btn-lg { padding: 16px 26px; font-size: 15px; }
 
   /* Icon-only size helpers (pair with a variant) */
-  .btn-icon-xs {
-    @apply w-9 h-9 p-0 text-xs;
-  }
+  .btn-icon-xs { width: 28px; height: 28px; padding: 0; }
+  .btn-icon-sm { width: 32px; height: 32px; padding: 0; }
+  .btn-icon-md { width: 36px; height: 36px; padding: 0; }
+  .btn-icon-lg { width: 44px; height: 44px; padding: 0; }
 
-  .btn-icon-sm {
-    @apply w-11 h-11 p-0 text-xs;
-  }
-
-  .btn-icon-md {
-    @apply w-10 h-10 p-0 text-sm;
-  }
-
-  .btn-icon-lg {
-    @apply w-12 h-12 p-0 text-base;
-  }
-
-  /* Primary — solid accent */
+  /* Primary — solid ink, hover swaps to accent */
   .btn-primary {
-    background-color: rgb(var(--accent-500));
-    color: rgb(var(--accent-foreground));
+    background: var(--ink);
+    color: var(--paper);
+    border-color: var(--ink);
   }
 
   .btn-primary:hover:not(:disabled) {
-    background-color: rgb(var(--accent-600));
+    background: var(--accent);
+    border-color: var(--accent);
+    color: var(--accent-ink);
   }
 
-  .btn-primary:focus {
-    @apply ring-accent/50;
-  }
-
-  /* Secondary — neutral elevated surface */
+  /* Secondary — soft paper-2 with rule border */
   .btn-secondary {
-    @apply border border-rule bg-paper-2 text-ink;
-    box-shadow: none;
+    background: var(--paper-2);
+    color: var(--ink);
+    border-color: var(--rule);
   }
 
   .btn-secondary:hover:not(:disabled) {
-    background-color: rgb(var(--surface-card-hover));
-    box-shadow: none;
+    background: var(--card);
+    border-color: var(--ink);
   }
 
-  .btn-secondary:focus {
-    @apply ring-black/20 dark:ring-white/40;
-  }
-
-  /* Ghost — no bg until hover */
-  .btn-ghost {
-    @apply bg-transparent text-ink;
-    box-shadow: none;
+  /* Ghost — rule border, no fill until hover */
+  .btn-ghost,
+  .btn-icon {
+    background: transparent;
+    color: var(--ink);
+    border-color: var(--rule);
   }
 
   .btn-ghost:hover:not(:disabled),
   .btn-icon:hover:not(:disabled) {
-    background-color: rgb(var(--surface-card-hover));
-    box-shadow: none;
+    background: var(--paper-2);
+    border-color: var(--ink);
   }
 
-  .btn-ghost:focus,
-  .btn-icon:focus {
-    @apply ring-black/20 dark:ring-white/40;
+  /* Accent — solid gold */
+  .btn-accent {
+    background: var(--accent);
+    color: var(--accent-ink);
+    border-color: var(--accent);
   }
 
-  /* Icon — same as ghost, used for icon-only controls */
-  .btn-icon {
-    @apply bg-transparent text-ink;
-    box-shadow: none;
+  .btn-accent:hover:not(:disabled) {
+    background: var(--accent-deep);
+    border-color: var(--accent-deep);
+    color: var(--paper);
   }
 
-  /* Inverted — legacy glass variant. The original ship used backdrop-blur + white/20
-     tint + colored rim and glow shadows; flattened per DESIGN.md's No-Glow rule and
-     the AI-tool-template anti-ref. Now renders as a solid accent button identical in
-     feel to btn-primary so existing variant="inverted" call sites (none at the time
-     of this edit) stay viable. */
-  .btn-inverted {
-    background-color: rgb(var(--accent-500));
-    color: rgb(var(--accent-foreground));
-  }
-
-  .btn-inverted:hover:not(:disabled) {
-    background-color: rgb(var(--accent-600));
-  }
-
-  .btn-inverted:focus {
-    @apply ring-accent/50;
-  }
-
-  /* Danger — red glass */
+  /* Danger — neg color-mix fill, neg text */
   .btn-danger {
-    @apply bg-red-500/10 text-red-400;
-    box-shadow: none;
+    background: color-mix(in oklab, var(--neg) 12%, transparent);
+    color: var(--neg);
+    border-color: color-mix(in oklab, var(--neg) 30%, transparent);
   }
 
   .btn-danger:hover:not(:disabled) {
-    @apply bg-red-500/20 text-red-300;
-    box-shadow: none;
+    background: color-mix(in oklab, var(--neg) 20%, transparent);
+    border-color: var(--neg);
   }
 
-  .btn-danger:focus {
-    @apply ring-red-500/50;
-  }
-
-  /* Warning — orange destructive */
+  /* Warning — warn color-mix fill, warn text */
   .btn-warning {
-    @apply bg-orange-500/10 text-orange-400;
-    box-shadow: none;
+    background: color-mix(in oklab, var(--warn) 12%, transparent);
+    color: var(--warn);
+    border-color: color-mix(in oklab, var(--warn) 30%, transparent);
   }
 
   .btn-warning:hover:not(:disabled) {
-    @apply bg-orange-500/20 text-orange-300;
-    box-shadow: none;
+    background: color-mix(in oklab, var(--warn) 20%, transparent);
+    border-color: var(--warn);
   }
 
-  .btn-warning:focus {
-    @apply ring-orange-500/50;
-  }
-
-  /* Danger ghost — red text, no bg until hover */
+  /* Danger ghost — neg text only, transparent until hover */
   .btn-danger-ghost {
-    @apply bg-transparent text-red-500 dark:text-red-400;
-    box-shadow: none;
+    background: transparent;
+    color: var(--neg);
+    border-color: transparent;
   }
 
   .btn-danger-ghost:hover:not(:disabled) {
-    @apply bg-red-500/10 text-red-400 dark:text-red-300;
-    box-shadow: none;
+    background: color-mix(in oklab, var(--neg) 10%, transparent);
   }
 
-  .btn-danger-ghost:focus {
-    @apply ring-red-500/50;
-  }
-
-  /* Accent ghost — accent text, no bg until hover */
+  /* Accent ghost — accent-deep text, soft accent fill on hover */
   .btn-accent-ghost {
-    @apply bg-transparent text-accent dark:text-accent;
-    box-shadow: none;
+    background: transparent;
+    color: var(--accent-deep);
+    border-color: transparent;
   }
 
   .btn-accent-ghost:hover:not(:disabled) {
-    background-color: rgb(var(--accent-muted));
-    @apply text-accent dark:text-accent;
-    box-shadow: none;
+    background: var(--accent-soft);
   }
 
-  .btn-accent-ghost:focus {
-    @apply ring-accent/50;
-  }
-
-  /* Outline — clear bg, defined rim */
+  /* Outline — rule border, no fill */
   .btn-outline {
-    @apply border border-rule bg-transparent text-ink;
-    box-shadow: none;
+    background: transparent;
+    color: var(--ink);
+    border-color: var(--rule);
   }
 
   .btn-outline:hover:not(:disabled) {
-    background-color: rgb(var(--surface-card-hover));
-    box-shadow: none;
+    background: var(--paper-2);
+    border-color: var(--ink);
   }
 
-  .btn-outline:focus {
-    @apply ring-white/20;
-  }
-
-  /* Link — text only, no glass */
+  /* Link — text only, accent-deep color, underline on hover */
   .btn-link {
-    @apply bg-transparent text-accent shadow-none rounded-none;
-    box-shadow: none;
+    background: transparent;
+    color: var(--accent-deep);
+    border: 0;
+    border-radius: 0;
+    padding: 0;
+    font-weight: 400;
   }
 
   .btn-link:hover:not(:disabled) {
-    @apply text-accent underline;
-  }
-
-  .btn-link:focus {
-    @apply ring-accent/50;
+    text-decoration: underline;
+    color: var(--accent);
   }
 
   /* Menu item — full width, left-aligned, used in dropdowns/nav */
   .btn-menu-item {
-    @apply w-full rounded-xl px-3 py-2.5 text-left text-sm text-ink bg-transparent justify-between;
-    box-shadow: none;
+    width: 100%;
+    background: transparent;
+    color: var(--ink);
+    border: 0;
+    border-radius: var(--r-sm);
+    padding: 8px 12px;
+    justify-content: space-between;
+    text-align: left;
+    font-size: 14px;
   }
 
   .btn-menu-item:hover:not(:disabled) {
-    @apply bg-white/10;
+    background: var(--paper-2);
   }
 
   .btn-menu-item:focus:not(:focus-visible) {
-    @apply ring-0 ring-offset-0;
-  }
-
-  .btn-menu-item:focus-visible {
-    @apply outline-none ring-2 ring-accent/50 ring-offset-0 bg-white/15;
+    box-shadow: none;
   }
 
   .file-menu-item,
@@ -561,26 +547,30 @@
   }
 
   .file-menu-item:focus-visible {
-    @apply ring-2 ring-accent/60 ring-offset-0 bg-white/15;
-    box-shadow: 0 0 0 2px rgb(var(--accent-500) / 0.35);
+    outline: none;
+    box-shadow: 0 0 0 3px var(--accent-soft);
+    background: var(--paper-2);
   }
 
   /* Tab — for segmented navigation */
   .btn-tab {
-    @apply bg-transparent text-dim rounded-xl px-3 py-2 text-sm;
-    box-shadow: none;
+    background: transparent;
+    color: var(--dim);
+    border: 0;
+    border-radius: var(--r-sm);
+    padding: 8px 12px;
+    font-size: 13px;
   }
 
   .btn-tab:hover:not(:disabled) {
-    background-color: rgb(var(--surface-card-hover));
-    @apply text-ink;
+    background: var(--paper-2);
+    color: var(--ink);
   }
 
   .btn-tab[aria-selected="true"],
   .btn-tab.active {
-    background-color: rgb(var(--accent-soft));
-    color: rgb(var(--input-text));
-    box-shadow: inset 0 0 0 1px rgb(var(--accent-border));
+    background: var(--accent-soft);
+    color: var(--ink);
   }
 
   /* stylelint-enable declaration-empty-line-before */
@@ -602,24 +592,34 @@
     background-color: rgb(var(--paper-2-rgb));
   }
 
-  /* Semantic status surfaces */
+  /* Semantic status surfaces — DS tokens, color-mix for tinted bg.
+     Used by FormMessage, SettingsBadge, PracticeMattersPage, InfoCard,
+     RoleBadge, StatusBadge wrappers. Sweep to <Pill> happens in Commit 8. */
   .status-info {
-    @apply border border-blue-500/20 bg-blue-500/10 text-[rgb(var(--info-foreground))] dark:bg-blue-500/10;
+    background: color-mix(in oklab, var(--accent-deep) 10%, transparent);
+    border: 1px solid color-mix(in oklab, var(--accent-deep) 30%, transparent);
+    color: var(--accent-deep);
     box-shadow: none;
   }
 
   .status-success {
-    @apply border border-green-500/20 bg-green-500/10 text-[rgb(var(--success-foreground))] dark:bg-green-500/10;
+    background: color-mix(in oklab, var(--pos) 10%, transparent);
+    border: 1px solid color-mix(in oklab, var(--pos) 30%, transparent);
+    color: var(--pos);
     box-shadow: none;
   }
 
   .status-warning {
-    @apply border border-orange-500/20 bg-orange-500/10 text-[rgb(var(--warning-foreground))] dark:bg-orange-500/10;
+    background: color-mix(in oklab, var(--warn) 10%, transparent);
+    border: 1px solid color-mix(in oklab, var(--warn) 30%, transparent);
+    color: var(--warn);
     box-shadow: none;
   }
 
   .status-error {
-    @apply border border-red-500/20 bg-red-500/10 text-[rgb(var(--error-foreground))] dark:bg-red-500/10;
+    background: color-mix(in oklab, var(--neg) 10%, transparent);
+    border: 1px solid color-mix(in oklab, var(--neg) 30%, transparent);
+    color: var(--neg);
     box-shadow: none;
   }
 
@@ -1009,6 +1009,589 @@
 
   .text-body {
     @apply text-ink;
+  }
+
+  /* ============================================================
+     DS PRIMITIVES — Label, Pill, Chip, Bar, Card-hd, Avatar,
+     Field, Input/Textarea/Select, Toggle
+     Canonical class shapes per design-system spec.
+     Existing .btn/.card/.input-surface remain until Commit 4b.
+     ============================================================ */
+
+  .label {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--dim);
+    display: inline-block;
+  }
+
+  .field {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .field > label {
+    font-family: var(--mono);
+    font-size: 10.5px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--dim);
+  }
+
+  .pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-family: var(--mono);
+    font-size: 10.5px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    padding: 3px 8px;
+    border: 1px solid var(--rule);
+    border-radius: var(--r-pill);
+    color: var(--dim);
+    background: var(--paper);
+  }
+
+  .pill.dot::before {
+    content: "";
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--dim-2);
+    display: inline-block;
+    flex-shrink: 0;
+  }
+
+  .pill.live::before  { background: var(--pos); }
+  .pill.warn::before  { background: var(--warn); }
+  .pill.urgent::before { background: var(--neg); }
+  .pill.gold::before  { background: var(--accent); }
+
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 10px;
+    font-size: 12.5px;
+    line-height: 1;
+    border: 1px solid var(--rule);
+    background: var(--card);
+    color: var(--ink-2);
+    border-radius: var(--r-xs);
+    cursor: pointer;
+    transition: background 0.14s, transform 0.12s, border-color 0.14s;
+    font-family: var(--sans);
+  }
+
+  .chip:hover {
+    background: var(--paper-2);
+    transform: translateY(-1px);
+  }
+
+  .chip.primary {
+    background: var(--ink);
+    color: var(--paper);
+    border-color: var(--ink);
+  }
+
+  .chip.primary:hover {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: var(--accent-ink);
+  }
+
+  .chip.accent {
+    background: var(--accent);
+    color: var(--accent-ink);
+    border-color: var(--accent);
+  }
+
+  .chip.warn {
+    color: var(--neg);
+    border-color: color-mix(in oklab, var(--neg) 30%, var(--rule));
+  }
+
+  .bar {
+    height: 4px;
+    background: var(--rule-soft);
+    border-radius: var(--r-pill);
+    overflow: hidden;
+    width: 100%;
+  }
+
+  .bar > i {
+    display: block;
+    height: 100%;
+    background: var(--accent);
+    transition: width 0.3s ease;
+  }
+
+  .bar.warn > i { background: var(--neg); }
+  .bar.ok > i { background: var(--pos); }
+
+  .avatar {
+    display: inline-grid;
+    place-items: center;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: var(--ink);
+    color: var(--accent);
+    font-family: var(--serif);
+    font-style: italic;
+    font-size: 14px;
+    flex-shrink: 0;
+    overflow: hidden;
+  }
+
+  .avatar.lg {
+    width: 40px;
+    height: 40px;
+    font-size: 18px;
+  }
+
+  .avatar.user {
+    background: linear-gradient(135deg, var(--ink-2), var(--ink));
+    color: var(--paper);
+    font-family: var(--sans);
+    font-style: normal;
+    font-weight: 600;
+    font-size: 11px;
+  }
+
+  .avatar.staff {
+    background: var(--accent-soft);
+    color: var(--accent-deep);
+  }
+
+  .input,
+  .textarea,
+  .select {
+    font-family: var(--sans);
+    font-size: 14px;
+    color: var(--ink);
+    background: var(--card);
+    border: 1px solid var(--rule);
+    border-radius: var(--r-xs);
+    padding: 11px 12px;
+    outline: none;
+    transition: border-color 0.14s, box-shadow 0.14s;
+    width: 100%;
+  }
+
+  .input:focus,
+  .textarea:focus,
+  .select:focus {
+    border-color: var(--ink);
+    box-shadow: 0 0 0 3px var(--accent-soft);
+  }
+
+  .input.is-error,
+  .textarea.is-error,
+  .select.is-error {
+    border-color: var(--neg);
+  }
+
+  .input.is-error:focus,
+  .textarea.is-error:focus,
+  .select.is-error:focus {
+    box-shadow: 0 0 0 3px color-mix(in oklab, var(--neg) 20%, transparent);
+  }
+
+  .input.is-success,
+  .textarea.is-success,
+  .select.is-success {
+    border-color: var(--pos);
+  }
+
+  .input.is-success:focus,
+  .textarea.is-success:focus,
+  .select.is-success:focus {
+    box-shadow: 0 0 0 3px color-mix(in oklab, var(--pos) 20%, transparent);
+  }
+
+  .textarea {
+    resize: vertical;
+    min-height: 84px;
+    line-height: 1.5;
+  }
+
+  .toggle {
+    position: relative;
+    display: inline-block;
+    width: 36px;
+    height: 20px;
+    background: var(--rule);
+    border-radius: var(--r-pill);
+    transition: background 0.18s;
+    cursor: pointer;
+    flex-shrink: 0;
+    border: 0;
+    padding: 0;
+  }
+
+  .toggle::after {
+    content: "";
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 16px;
+    height: 16px;
+    background: var(--card);
+    border-radius: 50%;
+    transition: transform 0.18s;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.15);
+  }
+
+  .toggle.on { background: var(--accent); }
+  .toggle.on::after { transform: translateX(16px); }
+
+  .toggle:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 3px var(--accent-soft);
+  }
+
+  .toggle:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  .card-hd {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 10px;
+  }
+
+  /* ============================================================
+     DS LAYOUT PRIMITIVES — BrandMark, LeftRail, FocusDrawer,
+     SplitDetail, PageHeader
+     Canonical class shapes for the Commit 5 layout primitives.
+     ============================================================ */
+
+  /* BrandMark */
+  .brand-mark {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 8px;
+  }
+
+  .brand-mark-glyph {
+    font-family: var(--serif);
+    font-style: italic;
+    font-size: 22px;
+    line-height: 1;
+    color: var(--accent);
+    transform: translateY(2px);
+  }
+
+  .brand-mark-word {
+    font-family: var(--sans);
+    font-size: 20px;
+    letter-spacing: -0.01em;
+    color: var(--ink);
+  }
+
+  .brand-mark-sm .brand-mark-glyph { font-size: 18px; }
+  .brand-mark-sm .brand-mark-word { font-size: 16px; }
+
+  /* LeftRail — desktop 240px sticky text-label rail */
+  .left-rail {
+    display: flex;
+    flex-direction: column;
+    width: 240px;
+    flex-shrink: 0;
+    background: var(--paper);
+    border-right: 1px solid var(--rule);
+    position: sticky;
+    top: 0;
+    height: 100dvh;
+    overflow: hidden;
+  }
+
+  .left-rail-brand {
+    display: flex;
+    align-items: center;
+    padding: 18px 20px;
+    border-bottom: 1px solid var(--rule);
+  }
+
+  .left-rail-scroll {
+    flex: 1;
+    overflow-y: auto;
+    padding: 12px 12px 24px;
+  }
+
+  .left-rail-section + .left-rail-section {
+    margin-top: 18px;
+  }
+
+  .left-rail-section-label {
+    font-family: var(--mono);
+    font-size: 10.5px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--dim);
+    padding: 8px 12px;
+  }
+
+  .left-rail-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    padding: 8px 12px;
+    font-size: 13.5px;
+    color: var(--ink);
+    background: transparent;
+    border: 0;
+    border-radius: var(--r-sm);
+    cursor: pointer;
+    text-align: left;
+    transition: background 0.14s ease, color 0.14s ease;
+  }
+
+  .left-rail-item:hover:not(.active) {
+    background: var(--paper-2);
+  }
+
+  .left-rail-item.active {
+    background: var(--ink);
+    color: var(--accent);
+  }
+
+  .left-rail-item.danger {
+    color: var(--neg);
+  }
+
+  .left-rail-item.danger:hover:not(.active) {
+    background: color-mix(in oklab, var(--neg) 10%, transparent);
+  }
+
+  .left-rail-item:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 3px var(--accent-soft);
+  }
+
+  .left-rail-item-label {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .left-rail-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 18px;
+    padding: 1px 6px;
+    font-family: var(--mono);
+    font-size: 10.5px;
+    border-radius: var(--r-pill);
+    background: var(--accent);
+    color: var(--accent-ink);
+  }
+
+  .left-rail-footer {
+    border-top: 1px solid var(--rule);
+    padding: 12px;
+  }
+
+  /* LeftRail — mobile bottom bar */
+  .left-rail-mobile {
+    display: flex;
+    align-items: stretch;
+    width: 100%;
+    background: var(--paper);
+    border-top: 1px solid var(--rule);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+
+  .left-rail-mobile-item {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    padding: 8px 4px;
+    background: transparent;
+    border: 0;
+    color: var(--dim);
+    font-size: 11px;
+    cursor: pointer;
+    position: relative;
+  }
+
+  .left-rail-mobile-item:hover:not(.active) {
+    color: var(--ink);
+    background: var(--paper-2);
+  }
+
+  .left-rail-mobile-item.active {
+    color: var(--accent-deep);
+  }
+
+  .left-rail-mobile-item.danger {
+    color: var(--neg);
+  }
+
+  .left-rail-mobile-item:focus-visible {
+    outline: none;
+    box-shadow: inset 0 0 0 3px var(--accent-soft);
+  }
+
+  .left-rail-mobile-label {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 100%;
+  }
+
+  /* FocusDrawer */
+  .focus-drawer {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    background: var(--card);
+    border-left: 1px solid var(--paper-edge);
+  }
+
+  .focus-drawer-inline {
+    width: 400px;
+    flex-shrink: 0;
+    position: sticky;
+    top: 0;
+    height: 100dvh;
+    box-shadow: var(--shadow-3);
+  }
+
+  .focus-drawer-overlay {
+    max-width: 480px;
+    width: 100%;
+    height: 100dvh;
+    box-shadow: var(--shadow-3);
+  }
+
+  .focus-drawer-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 16px 18px;
+    border-bottom: 1px solid var(--rule);
+  }
+
+  .focus-drawer-title {
+    font-family: var(--serif);
+    font-size: 17px;
+    color: var(--ink);
+    line-height: 1.3;
+  }
+
+  .focus-drawer-subtitle {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.06em;
+    color: var(--dim);
+    margin-top: 4px;
+    text-transform: uppercase;
+  }
+
+  .focus-drawer-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 18px;
+  }
+
+  /* SplitDetail */
+  .split-detail {
+    display: flex;
+    align-items: stretch;
+    min-height: 0;
+    flex: 1;
+  }
+
+  .split-detail-list {
+    width: 380px;
+    flex-shrink: 0;
+    border-right: 1px solid var(--rule);
+    overflow-y: auto;
+  }
+
+  .split-detail-pane {
+    flex: 1;
+    min-width: 0;
+    overflow-y: auto;
+  }
+
+  /* Helper class for split-detail-list items — caller applies .active for the
+     3px gold left accent border. */
+  .split-detail-list-item {
+    display: block;
+    border-left: 3px solid transparent;
+    padding: 12px 16px;
+    transition: background 0.14s ease, border-color 0.14s ease;
+    cursor: pointer;
+  }
+
+  .split-detail-list-item:hover {
+    background: var(--paper-2);
+  }
+
+  .split-detail-list-item.active {
+    border-left-color: var(--accent);
+    background: var(--paper-2);
+  }
+
+  /* PageHeader — DS within-page heading: crumb + serif H1 + lede + rule */
+  .page-header {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid var(--rule);
+    margin-bottom: 24px;
+  }
+
+  .page-header-crumb {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--dim);
+  }
+
+  .page-header-title {
+    font-family: var(--serif);
+    font-weight: 400;
+    letter-spacing: -0.012em;
+    line-height: 1.1;
+    font-size: 28px;
+    color: var(--ink);
+    margin: 0;
+  }
+
+  .page-header-lede {
+    font-size: 15px;
+    line-height: 1.5;
+    color: var(--ink-2);
+    max-width: 56ch;
+    margin: 4px 0 0;
+  }
+
+  .page-header-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    margin-top: 8px;
   }
 }
 

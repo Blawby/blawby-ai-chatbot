@@ -4,7 +4,7 @@ import { useUniqueId } from '@/shared/hooks/useUniqueId';
 
 /**
  * Textarea component with configurable maxLength enforcement behavior.
- * 
+ *
  * @param enforceMaxLength - Controls how maxLength is enforced:
  *   - 'soft' (default): Removes HTML maxLength attribute, only shows validation/counter
  *   - 'hard': Keeps HTML maxLength to prevent typing, but truncates external values to prevent blocking
@@ -70,26 +70,16 @@ export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(({
   onKeyDown
 }, ref) => {
   const localTextareaRef = useRef<HTMLTextAreaElement | null>(null);
-  // Generate stable ID for accessibility
   const generatedId = useUniqueId('textarea');
   const textareaId = id || generatedId;
 
-  // TODO: Add i18n support when useTranslation hook is available
-  // const { t } = useTranslation(namespace);
-  // const displayLabel = labelKey ? t(labelKey) : label;
-  // const displayDescription = descriptionKey ? t(descriptionKey) : description;
-  // const displayPlaceholder = placeholderKey ? t(placeholderKey) : placeholder;
-  // const displayError = errorKey ? t(errorKey) : error;
-  
   const displayLabel = label;
   const displayDescription = description;
   const displayPlaceholder = placeholder;
   const displayError = error;
 
-  // Track if component is mounted to skip initial render in effect
   const isMountedRef = useRef(false);
 
-  // Initialize internalValue with proper truncation based on enforceMaxLength
   const getInitialValue = () => {
     if (enforceMaxLength === 'hard' || enforceMaxLength === 'truncate') {
       if (maxLength && value && value.length > maxLength) {
@@ -99,13 +89,9 @@ export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(({
     return value;
   };
 
-  // Internal state to manage truncated value for hard and truncate modes
   const [internalValue, setInternalValue] = useState(getInitialValue);
 
-
-  // Handle external value changes and truncation for hard and truncate modes
   useEffect(() => {
-    // Skip initial render
     if (!isMountedRef.current) {
       isMountedRef.current = true;
       return;
@@ -123,19 +109,12 @@ export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(({
     }
   }, [value, maxLength, enforceMaxLength]);
 
-  // Determine the actual value to use based on enforceMaxLength mode
   const actualValue = (enforceMaxLength === 'truncate' || enforceMaxLength === 'hard') ? internalValue : value;
 
   const sizeClasses = {
-    sm: 'px-2 py-1 text-sm',
-    md: 'px-3 py-2.5 text-sm',
+    sm: 'px-2 py-1 text-xs',
+    md: '',
     lg: 'px-4 py-3 text-base'
-  };
-
-  const variantClasses = {
-    default: 'border-input-border focus:ring-accent-500 focus:border-accent-500',
-    error: 'border-red-300 focus:ring-red-500 focus:border-red-500',
-    success: 'border-green-300 focus:ring-green-500 focus:border-green-500'
   };
 
   const resizeClasses = {
@@ -145,14 +124,16 @@ export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(({
     both: 'resize'
   };
 
+  const isError = variant === 'error' || Boolean(displayError);
+  const isSuccess = variant === 'success';
+
   const textareaClasses = cn(
-    'w-full border rounded-xl text-input-text placeholder:text-input-placeholder',
-    'focus:outline-none focus:ring-2 ring-inset focus:ring-offset-0 transition-colors',
+    'textarea',
     sizeClasses[size],
     resizeClasses[resize],
-    variantClasses[variant],
+    isError && 'is-error',
+    isSuccess && 'is-success',
     disabled && 'opacity-50 cursor-not-allowed',
-    variant === 'default' ? 'input-surface border-input-border' : 'bg-input-bg',
     className
   );
 
@@ -168,12 +149,12 @@ export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(({
   return (
     <div className="w-full">
       {displayLabel && (
-        <label htmlFor={textareaId} className="block text-sm font-medium text-input-text mb-1">
+        <label htmlFor={textareaId} className="label mb-1.5 block">
           {displayLabel}
-          {required && <span className="text-red-500 ml-1">*</span>}
+          {required && <span className="text-neg ml-1" aria-hidden="true">*</span>}
         </label>
       )}
-      
+
       <textarea
         id={textareaId}
         name={name}
@@ -223,26 +204,26 @@ export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(({
         maxLength={enforceMaxLength === 'soft' ? undefined : maxLength}
         className={textareaClasses}
       />
-      
-        {displayError && (
-          <p className="text-xs text-accent-error dark:text-accent-error-light mt-1">
-            {displayError}
-          </p>
-        )}
-      
+
+      {displayError && (
+        <p className="text-xs text-neg mt-1">
+          {displayError}
+        </p>
+      )}
+
       <div className="flex justify-between items-center mt-1">
         {displayDescription && (
-          <p className="text-xs text-input-placeholder">
+          <p className="text-xs text-dim">
             {displayDescription}
           </p>
         )}
-        
+
         {showCharCount && maxLength && (
           <p className={cn(
-            'text-xs ml-auto',
-            isOverLimit ? 'text-accent-error dark:text-accent-error-light' : 
-            isNearLimit ? 'text-accent-warning dark:text-accent-warning-light' : 
-            'text-input-placeholder'
+            'text-xs ml-auto tabular-nums',
+            isOverLimit ? 'text-neg' :
+            isNearLimit ? 'text-warn' :
+            'text-dim'
           )}>
             {currentLength}/{maxLength}
           </p>
