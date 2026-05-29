@@ -205,7 +205,7 @@ In dependency order (each can be its own PR):
    - ✅ **8.2a landed in PR #658 (commit `81558f59`)** — FilesList + DeliveriesListView converted to EntityList.
    - Revised: ReportDataTable kept as `<table>` (genuinely tabular report data — same justification as InvoicesTable line items).
    - **Remaining 4 conversions** (IntakeTemplatesPage, PracticeMattersPage, IntakesPage, EngagementsPage) deferred to a follow-up PR; each touches a larger file (385–2260 LOC) and deserves its own focused review.
-5. **PR-16**: `refactor(ds): migrate SegmentedToggle callers to Seg; delete SegmentedToggle (8.3)`.
+5. ~~**PR-16**: `refactor(ds): migrate SegmentedToggle callers to Seg; delete SegmentedToggle (8.3)`.~~ ✅ **landed in PR #659 (commit `6368e7b6`).** All 13 callers swept to Seg (none needed the animated thumb). SegmentedToggle.tsx (96L) + .segmented-toggle* CSS (~40L) + barrel exports deleted. Net -138 lines.
 6. **PR-17**: `refactor(ds): migrate .status-* callers to <Pill>; delete alias (8.4b/d-partial)`.
 7. **PR-18**: `refactor(ds): migrate .input-surface callers to DS Input; delete alias (8.4c/d-partial)`.
 8. **PR-19**: `chore(ds): a11y guards + AA verification + final grep gates (8.5)`.
