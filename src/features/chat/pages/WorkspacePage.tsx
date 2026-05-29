@@ -22,7 +22,11 @@ import { usePracticeInvitations } from '@/shared/hooks/usePracticeInvitations';
 import { DraftConversationView } from '@/features/chat/components/DraftConversationView';
 import { getPracticeRoleLabel } from '@/shared/utils/practiceRoles';
 import { AppShell } from '@/shared/ui/layout/AppShell';
-import { WorkspaceShellHeader } from '@/shared/ui/layout/WorkspaceShellHeader';
+import { LeftRail, BrandMark, type LeftRailItem } from '@/design-system/layout';
+import { OrgSwitcherMenu } from '@/shared/ui/nav/OrgSwitcherMenu';
+import { SidebarProfileMenu } from '@/shared/ui/nav/SidebarProfileMenu';
+import { signOut } from '@/shared/utils/auth';
+import type { IconComponent } from '@/shared/ui/Icon';
 import { WorkspaceMainPane } from '@/shared/ui/layout/WorkspaceMainPane';
 import type { WorkspaceMainPaneLayout } from '@/shared/ui/layout/WorkspaceMainPane';
 import { Panel } from '@/shared/ui/layout/Panel';
@@ -41,7 +45,6 @@ import { useWorkspaceAutoNavigation } from './hooks/useWorkspaceAutoNavigation';
 import { useRecentMessage } from './hooks/useRecentMessage';
 import { useToastContext } from '@/shared/contexts/ToastContext';
 import { useSessionContext, useMemberRoleContext } from '@/shared/contexts/SessionContext';
-import { useCommandPalette } from '@/features/search/contexts/CommandPaletteContext';
 import { normalizePracticeRole } from '@/shared/utils/practiceRoles';
 import {
   getWorkspaceActiveHref,
@@ -49,15 +52,7 @@ import {
   shouldShowWorkspaceMobileMenuButton,
   WORKSPACE_REPORT_SECTION_TITLES,
 } from '@/shared/utils/workspaceShell';
-import {
-  type SecondaryNavItem,
-  type WorkspaceSection,
-  buildSidebarConfig,
-} from '@/shared/config/navConfig';
 import { useSidebarCounts } from '@/shared/hooks/useSidebarCounts';
-import NavRail from '@/shared/ui/nav/NavRail';
-import { PracticeSidebar } from '@/shared/ui/nav/PracticeSidebar';
-import { ClientSidebar } from '@/shared/ui/nav/ClientSidebar';
 import InspectorPanel from '@/shared/ui/inspector/InspectorPanel';
 import { SettingsContent, type SettingsView } from '@/features/settings/pages/SettingsContent';
 import { PracticeCoveragePage } from '@/features/settings/pages/PracticeCoveragePage';
@@ -237,27 +232,8 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
 }) => {
   const location = useLocation();
   const { navigate } = useNavigation();
-  const { open: openCommandPalette } = useCommandPalette();
   const [previewTab, setPreviewTab] = useState<PreviewTab>('home');
   const [setupSidebarView, setSetupSidebarView] = useState<'info' | 'preview'>('info');
-  const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
-  // Persist desktop sidebar collapsed state across reloads/visits.
-  const [isDesktopSidebarCollapsed, setIsDesktopSidebarCollapsed] = useState<boolean>(() => {
-    if (typeof window === 'undefined') return false;
-    try {
-      return window.localStorage.getItem('blawby:sidebar:collapsed') === '1';
-    } catch {
-      return false;
-    }
-  });
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    try {
-      window.localStorage.setItem('blawby:sidebar:collapsed', isDesktopSidebarCollapsed ? '1' : '0');
-    } catch {
-      // localStorage may be disabled (private mode, quota); persistence is best-effort.
-    }
-  }, [isDesktopSidebarCollapsed]);
   const [isInspectorOpen, setIsInspectorOpen] = useState(false);
   const [conversationPendingDelete, setConversationPendingDelete] = useState<Conversation | null>(null);
   const [optimisticallyReadConversationIds, setOptimisticallyReadConversationIds] = useState<Set<string>>(new Set());
@@ -293,14 +269,14 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
     conversationsPath,
     withWidgetQuery,
     isIntakeTemplateEditorRoute,
-    isIntakeResponseDetailRoute,
+    isIntakeResponseDetailRoute: _isIntakeResponseDetailRoute,
     selectedMatterIdFromPath,
     isMatterNonListRoute,
     selectedContactIdFromPath,
     isEngagementCreateRoute,
-    isEngagementDetailRoute,
+    isEngagementDetailRoute: _isEngagementDetailRoute,
     isEngagementEditRoute,
-    isReportDeliveryDetailRoute,
+    isReportDeliveryDetailRoute: _isReportDeliveryDetailRoute,
     previewUrls,
     handleDashboardCreateInvoice,
     workspaceSection,
@@ -961,14 +937,6 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
   const isFullscreenEditorRoute = (view === 'intakes' && isIntakeTemplateEditorRoute)
     || isEngagementCreateRoute
     || isEngagementEditRoute;
-  const isLocalDetailHeaderRoute = isIntakeResponseDetailRoute
-    || Boolean(selectedMatterIdFromPath)
-    || Boolean(selectedContactIdFromPath)
-    || view === 'invoiceDetail'
-    || view === 'settings'
-    || view === 'coverage'
-    || (isEngagementDetailRoute && !isEngagementEditRoute)
-    || isReportDeliveryDetailRoute;
   const showBottomNav = !isFullscreenEditorRoute && shouldShowWorkspaceBottomNav({
     isMobileLayout,
     workspace,
@@ -981,23 +949,8 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
   });
 
   const handleNavActivate = () => {
-    setIsMobileNavOpen(false);
     setIsInspectorOpen(false);
   };
-  const bottomNav = showBottomNav && navConfig.rail.length > 0 ? (
-    <NavRail
-      variant="bottom"
-      items={navConfig.rail}
-      activeHref={activeHref}
-      onItemActivate={handleNavActivate}
-      maxItems={5}
-      onOverflowClick={() => setIsMobileNavOpen(true)}
-    />
-  ) : undefined;
-
-  const sidebarConfig = navConfig.rail.length > 0 && !isFullscreenEditorRoute
-    ? buildSidebarConfig(navConfig, workspaceSection)
-    : null;
 
   // Active item resolution for the unified Sidebar:
   // 1. Settings: match path against secondary items by href.
@@ -1005,60 +958,10 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
   //    active sub-filter.
   // 3. Else, use the best-matching rail item id (longest matching prefix, so
   //    /matters wins over Home's basePath even though both technically match).
-  const sidebarActiveItemId = (() => {
-    let bestRailId: string | null = null;
-    let bestRailScore = -1;
-    for (const item of navConfig.rail) {
-      const targets = item.matchHrefs ?? [item.href];
-      for (const target of targets) {
-        const matches = activeHref === target || activeHref.startsWith(`${target}/`);
-        if (!matches) continue;
-        if (target.length > bestRailScore) {
-          bestRailScore = target.length;
-          bestRailId = item.id;
-        }
-      }
-    }
-
-    if (workspaceSection === 'settings' && navConfig.secondary) {
-      // Longest-prefix-match: nested settings (e.g. practice/team) must beat
-      // their parent (practice). Plain startsWith would always pick whichever
-      // item appears first in the array, which is the parent.
-      let bestSettingsId: string | null = null;
-      let bestSettingsScore = -1;
-      for (const section of navConfig.secondary) {
-        for (const item of section.items) {
-          if (!item.href) continue;
-          const matches = activeHref === item.href || activeHref.startsWith(`${item.href}/`);
-          if (!matches) continue;
-          if (item.href.length > bestSettingsScore) {
-            bestSettingsScore = item.href.length;
-            bestSettingsId = item.id;
-          }
-        }
-      }
-      if (bestSettingsId) return bestSettingsId;
-    }
-
-    const matchedSidebarItem = sidebarConfig?.sections
-      .flatMap((s) => s.items)
-      .find((i) => i.id === bestRailId);
-    if (matchedSidebarItem?.children?.length && activeSecondaryFilter) {
-      return activeSecondaryFilter;
-    }
-
-    return bestRailId ?? workspaceSection;
-  })();
-
-  const handleSidebarSubItemSelect = (id: string, item: SecondaryNavItem) => {
-    if (workspaceSection === 'settings') {
-      if (item.href) navigate(item.href);
-      handleNavActivate();
-      return;
-    }
-    handleSecondaryFilterSelect(id);
-    handleNavActivate();
-  };
+  // sidebarActiveItemId + handleSidebarSubItemSelect were used by the legacy
+  // unified Sidebar's expandable-secondary-nav UX. LeftRail uses href-based
+  // active matching (built into the component) and doesn't render secondary
+  // sub-items in the rail — secondary nav now lives inside the page content.
 
   const sidebarUser = session?.user
     ? {
@@ -1079,40 +982,8 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
       }
     : null;
 
-  // Workspace shell header (Pencil rt13A / RuuTq).
-  const SECTION_TITLES: Record<WorkspaceSection, string> = {
-    home: 'Home',
-    conversations: 'Messages',
-    intakes: 'Intakes',
-    engagements: 'Engagements',
-    matters: 'Matters',
-    files: 'Files',
-    invoices: 'Invoices',
-    reports: 'Reports',
-    settings: 'Settings',
-    coverage: 'Coverage',
-    assistant: 'Assistant',
-  };
-  const baseHeaderTitle = SECTION_TITLES[workspaceSection] ?? 'Home';
-  const sectionHeaderTitle = workspaceSection === 'intakes'
-    ? activeSecondaryFilter === 'forms' ? 'Forms' : 'Responses'
-    : baseHeaderTitle;
-  // Reflect draft state in the shell header so the user has a clear visual
-  // anchor for "I'm composing a new conversation" — important on mobile where
-  // the listPanel isn't visible alongside the draft view.
-  const draftHeaderLabel = draftConversation
-    ? (draftConversation.kind === 'practice_assistant' ? 'Blawby AI' : (draftConversation.contactName?.trim() || 'New conversation'))
-    : null;
-  const headerTitle = draftHeaderLabel ?? sectionHeaderTitle;
-  const shellHeader = sidebarOrg ? (
-    <WorkspaceShellHeader
-      orgInitial={sidebarOrg.initial}
-      title={headerTitle}
-      onMenuClick={() => setIsMobileNavOpen(true)}
-      onSearchClick={() => openCommandPalette()}
-    />
-  ) : undefined;
-
+  // WorkspaceShellHeader was removed per locked decision §5 (no top bar in
+  // chat-first DS). Section titles now live inside each page's main view.
   // Sidebar counts come from the /api/practice/:id/sidebar/counts worker
   // endpoint (Pencil GtRGH badges). All sections — matters, intakes, inbox,
   // invoices, files — are computed server-side; the active workspaceSection
@@ -1124,48 +995,51 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
     { enabled: isPracticeWorkspace },
   );
 
-  // Build the per-workspace sidebar as a function so we can render it twice —
-  // once for the desktop column (respects collapsed state) and once for the
-  // mobile drawer (always expanded so the rail icons don't show in the overlay).
-  const renderSidebarTree = (forceExpanded: boolean) => {
-    if (!sidebarConfig || !sidebarOrg || !practiceSlug) return undefined;
-    const commonProps = {
-      org: {
-        id: currentPractice?.id,
-        slug: currentPractice?.slug || practiceSlug,
+  // Build LeftRail items from the same nav config that PracticeSidebar /
+  // ClientSidebar consumed. NavRailItem maps cleanly to LeftRailItem (only
+  // icon type differs slightly). sidebarCounts merges into items.badge so
+  // unread counts surface in the rail.
+  const railItems = useMemo<LeftRailItem[]>(() => {
+    if (!practiceSlug || navConfig.rail.length === 0) return [];
+    return navConfig.rail.map((item) => ({
+      id: item.id,
+      label: item.label,
+      icon: item.icon as IconComponent,
+      href: item.href,
+      matchHrefs: item.matchHrefs,
+      badge: sidebarCounts?.[item.id] ?? item.badge ?? null,
+      variant: item.variant,
+      isAction: item.isAction,
+      onClick: item.onClick,
+      prefetch: item.prefetch,
+    }));
+  }, [navConfig.rail, practiceSlug, sidebarCounts]);
+
+  const brandMark = sidebarOrg && currentPractice?.id && practiceSlug ? (
+    <OrgSwitcherMenu
+      org={{
+        id: currentPractice.id,
         name: sidebarOrg.name,
         initial: sidebarOrg.initial,
         subtitle: sidebarOrg.plan,
-        logoUrl: currentPractice?.logo ?? null,
-      },
-      user: sidebarUser,
-      collapsed: isDesktopSidebarCollapsed,
-      forceExpanded,
-      onToggleCollapsed: () => setIsDesktopSidebarCollapsed((v) => !v),
-      onItemActivate: handleNavActivate,
-      activeItemId: sidebarActiveItemId,
-      workspaceSection,
-      onSecondaryItemClick: handleSidebarSubItemSelect,
-    };
-    return isPracticeWorkspace ? (
-      <PracticeSidebar
-        {...commonProps}
-        practiceSlug={practiceSlug}
-        counts={sidebarCounts}
-        assistantConversations={assistantConversations}
-        assistantConversationPreviews={conversationPreviews}
-        assistantConversationsLoading={resolvedConversationsLoading}
-        assistantConversationsError={resolvedConversationsError}
-        activeConversationId={activeConversationId}
-        onSelectAssistantConversation={handleSelectConversation}
-        onNewAssistantConversation={() => void handleStartConversation('PRACTICE_ASSISTANT', { forceNew: true })}
-      />
-    ) : (
-      <ClientSidebar {...commonProps} practiceSlug={practiceSlug} />
-    );
-  };
-  const sidebarNav = renderSidebarTree(false);
-  const mobileSidebarNav = renderSidebarTree(true);
+        logoUrl: currentPractice.logo ?? null,
+      }}
+      collapsed={false}
+    />
+  ) : sidebarOrg ? (
+    <BrandMark word={sidebarOrg.name} />
+  ) : (
+    <BrandMark />
+  );
+
+  const profileFooter = sidebarUser ? (
+    <SidebarProfileMenu
+      user={sidebarUser}
+      onAccount={() => practiceSlug && navigate(`${normalizedBase}/settings/account`)}
+      onSettings={() => practiceSlug && navigate(`${normalizedBase}/settings/general`)}
+      onSignOut={() => void signOut({ navigate })}
+    />
+  ) : null;
   const showMobileMenuButton = shouldShowWorkspaceMobileMenuButton({
     isMobileLayout,
     hasSecondaryNav: Boolean(navConfig.secondary?.length),
@@ -1565,28 +1439,43 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
     }
   };
 
-  const shouldRenderShellHeader = !isFullscreenEditorRoute && !isLocalDetailHeaderRoute;
-  
+  const showLeftRail = !isFullscreenEditorRoute && railItems.length > 0;
+
   return (
     <>
-      <AppShell
-        className="bg-transparent h-dvh"
-        accentBackdropVariant="none"
-        header={shouldRenderShellHeader ? shellHeader : undefined}
-        sidebar={isFullscreenEditorRoute ? undefined : sidebarNav}
-        desktopSidebarCollapsed={isDesktopSidebarCollapsed}
-        mobileSidebar={isFullscreenEditorRoute ? undefined : mobileSidebarNav}
-        listPanel={isFullscreenEditorRoute ? undefined : (conversationListPanel ?? assistantListPanel ?? matterListPanel ?? contactsListPanel ?? invoicesListPanel)}
-        inspector={activeInspector ?? undefined}
-        inspectorMobileOpen={detailInspectorOpen && (isMobileLayout || !isXlViewport)}
-        onInspectorMobileClose={() => setIsInspectorOpen(false)}
-        mobileSidebarOpen={isMobileNavOpen}
-        onMobileSidebarClose={() => setIsMobileNavOpen(false)}
-        main={unifiedMainShell}
-        mainClassName="min-h-0 h-full overflow-hidden"
-        bottomBar={bottomNav}
-        bottomBarClassName={showBottomNav ? 'pb-[env(safe-area-inset-bottom)]' : undefined}
-      />
+      <div className="flex h-dvh flex-col lg:flex-row">
+        {showLeftRail && (
+          <LeftRail
+            variant="desktop"
+            items={railItems}
+            activeHref={activeHref}
+            onItemActivate={handleNavActivate}
+            brandMark={brandMark}
+            footer={profileFooter}
+            className="hidden lg:flex"
+          />
+        )}
+        <AppShell
+          className="flex-1 min-w-0 bg-transparent"
+          accentBackdropVariant="none"
+          listPanel={isFullscreenEditorRoute ? undefined : (conversationListPanel ?? assistantListPanel ?? matterListPanel ?? contactsListPanel ?? invoicesListPanel)}
+          inspector={activeInspector ?? undefined}
+          inspectorMobileOpen={detailInspectorOpen && (isMobileLayout || !isXlViewport)}
+          onInspectorMobileClose={() => setIsInspectorOpen(false)}
+          main={unifiedMainShell}
+          mainClassName="min-h-0 h-full overflow-hidden"
+        />
+        {showBottomNav && showLeftRail && (
+          <LeftRail
+            variant="mobile"
+            items={railItems}
+            activeHref={activeHref}
+            onItemActivate={handleNavActivate}
+            maxItems={5}
+            className="lg:hidden"
+          />
+        )}
+      </div>
       <AddContactDialog
         practiceId={practiceId ?? null}
         isOpen={isAddClientDialogOpen}

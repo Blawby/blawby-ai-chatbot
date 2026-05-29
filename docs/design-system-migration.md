@@ -46,15 +46,15 @@ From `design_handoff_blawby_chat_first/DESIGN_SYSTEM.md §0`:
 | 5e.2 — ClientHomePage to LeftRail | `8246f45c` | ✅ in PR #650 | First shell migrated. Establishes the pattern: build LeftRailItem[] from getXxxNavConfig().rail; LeftRail + main flex composition; drop AppShell entirely for shells that don't need its multi-column grid. |
 | 5e.3 — PracticeHomePage to LeftRail | `b221d125` | ✅ in PR #650 | Same pattern + merges live sidebarCounts into items.badge; OrgSwitcherMenu in brandMark slot. |
 | 5e.4 — WidgetApp to LeftRail mobile + FocusDrawer | `eda94046` | ✅ in PR #650 | NavRail → LeftRail mobile variant; MobileInspectorOverlay → FocusDrawer; hidden prop pattern → conditional render. |
-| 5e.5 — WorkspacePage refactor | — | **pending — PR-8 scope** | Biggest, riskiest (1666 lines). Replaces PracticeSidebar/ClientSidebar/NavRail with LeftRail. Drops isDesktopSidebarCollapsed + `blawby:sidebar:collapsed` localStorage. |
-| 5e.6 — Extract ConversationListPanel | — | **pending — PR-8 scope** | 340px thread-list column per Conversations.html 4-column spec |
-| 5e.1 — Drop AppShell sidebar props | — | **pending — PR-8 scope** | After WorkspacePage migrates, AppShell's sidebar/desktopSidebarCollapsed/mobileSidebar/mobileSidebarOpen/onMobileSidebarClose props become safe to remove |
-| 5e.7 — Delete legacy nav + tests + dead CSS | — | **pending — PR-8 scope** | NavRail, Sidebar, PracticeSidebar, ClientSidebar, MobileInspectorOverlay, WorkspaceShellHeader + `.nav-item-*` / `.workspace-header*` CSS + 4 test files |
+| 5e.5 — WorkspacePage refactor | `df70062c` | ✅ in PR #651 | Final shell migrated. WorkspacePage net −111 lines. Drops isDesktopSidebarCollapsed + localStorage + isMobileNavOpen + WorkspaceShellHeader. Composes LeftRail outside AppShell. AssistantListPanel still feeds AppShell.listPanel; formalization as standalone ConversationListPanel deferred to a smaller follow-up. |
+| 5e.1 — Drop AppShell sidebar props | `27156831` | ✅ in PR #651 | All 6 sidebar props gone from AppShell. Grid simplified. AppShell net 247L → 173L. Deleted broken app-shell.test.tsx (locked answer #6). |
+| 5e.7 — Delete legacy nav + tests | `51bcea43` | ✅ in PR #651 | Deleted NavRail, PracticeSidebar, ClientSidebar, MobileInspectorOverlay, WorkspaceShellHeader (~1041 lines) + 3 remaining nav-shell test files. AppShell's mobile inspector overlay swapped from MobileInspectorOverlay → FocusDrawer. Sidebar.tsx kept alive (still hosts Sidebar.Org + Sidebar.UserRow primitives that OrgSwitcherMenu + SidebarProfileMenu consume). |
+| 5e.6 — Extract ConversationListPanel | — | **deferred** | The assistant conversations already render via assistantListPanel → AppShell.listPanel. Formalizing as a standalone `ConversationListPanel` (per Conversations.html 340px column spec) is now a small focused cleanup that can ride a follow-up PR. |
 | 6 — Chat patterns | — | pending | AISummary, StagedAction, Citations, Observation, Composer, ToolUseLine, BriefingGrid, MatterChip; IOLTA manual smoke |
 | 7 — Data display | — | pending | StatStrip, JourneyProgress, LetterPaper, Seg; print test |
 | 8 — Feature sweep | — | pending | TSX feature-files swept for the 8 violation patterns; DataTable audit; AA contrast spot; `prefers-reduced-motion` check; final delete of `.status-*` / `.input-surface` / `.card-surface` aliases |
 
-PR series: #644 (foundation, merged) → #645 (Commit 4 + 5a + 5b, merged) → #646 (5c.1–5c.4, merged) → #647 (5d.1–5d.3, merged) → #648 (5d.4a + 5d.4b, merged) → #649 (5d.5, merged) → **#650 (this PR — 5e.2 + 5e.3 + 5e.4)** → PR-8 (5e.5 WorkspacePage + 5e.6 ConversationListPanel + 5e.1 AppShell prop drop + 5e.7 deletions).
+PR series: #644 (foundation, merged) → #645 (Commit 4 + 5a + 5b, merged) → #646 (5c.1–5c.4, merged) → #647 (5d.1–5d.3, merged) → #648 (5d.4a + 5d.4b, merged) → #649 (5d.5, merged) → #650 (5e.2/3/4, merged) → **#651 (this PR — 5e.5 + 5e.1 + 5e.7).** **All shell + nav-stack refactors complete.** Remaining: Commit 6 (chat patterns), Commit 7 (data display), Commit 8 (feature sweep).
 
 ---
 
