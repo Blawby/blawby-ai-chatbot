@@ -1,18 +1,17 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import type { Conversation, ConversationMode, SetupFieldsPayload } from '@/shared/types/conversation';
-import { updateConversationMatter, type UserDetailRecord, type PracticeDetails } from '@/shared/lib/apiClient';
+import { updateConversationMatter, type PracticeDetails } from '@/shared/lib/apiClient';
 import type { BackendMatter } from '@/features/matters/services/mattersApi';
 import { useUserDetail } from '@/shared/hooks/useUserDetail';
 import { useMatterDetail } from '@/shared/hooks/useMatterDetail';
 import { usePracticeDetail } from '@/shared/hooks/usePracticeDetail';
 import { MATTER_STATUS_LABELS, MATTER_WORKFLOW_STATUSES, isMatterStatus, type MatterStatus } from '@/shared/types/matterStatus';
 import { InvoiceInspector } from '@/features/invoices/components/InvoiceInspector';
+import { ClientInspector } from '@/features/clients/components/ClientInspector';
 import { Button } from '@/shared/ui/Button';
 import { Combobox, type ComboboxOption, Input, Textarea } from '@/shared/ui/input';
 import { StackedAvatars, UserCard } from '@/shared/ui/profile';
-import { AddressExperienceForm } from '@/shared/ui/address/AddressExperienceForm';
 import { STATE_OPTIONS } from '@/shared/ui/address/AddressFields';
-import { Dialog } from '@/shared/ui/dialog';
 import { InspectorSectionSkeleton } from '@/shared/ui/layout';
 import {
   InfoRow,
@@ -26,7 +25,6 @@ import { X } from 'lucide-preact';
 
 import { useSessionContext } from '@/shared/contexts/SessionContext';
 import { CONTACT_RELATIONSHIP_STATUS_LABELS } from '@/shared/domain/contacts';
-import type { Address } from '@/shared/types/address';
 import type { IntakeConversationState, DerivedIntakeStatus } from '@/shared/types/intake';
 import type { PracticeIntakeDetail } from '@/features/intake/api/intakesApi';
 import { resolveStrengthTier, resolveStrengthLabel, resolveStrengthStyle, resolveStrengthDescription } from '@/shared/utils/intakeStrength';
@@ -182,19 +180,7 @@ export const InspectorPanel = ({
   >(null);
   const [isSavingMatterStatus, setIsSavingMatterStatus] = useState(false);
   const [isSavingMatterField, setIsSavingMatterField] = useState(false);
-  const [activePersonEditor, setActivePersonEditor] = useState<'address' | null>(null);
-  const [isSavingPersonField, setIsSavingPersonField] = useState(false);
-  const [isArchivingPerson, setIsArchivingPerson] = useState(false);
-  const [isArchiveConfirmOpen, setIsArchiveConfirmOpen] = useState(false);
   const [localIntakeDraft, setLocalIntakeDraft] = useState<string | null>(null);
-  const [personAddressDraft, setPersonAddressDraft] = useState<Address>({
-    address: '',
-    apartment: '',
-    city: '',
-    state: '',
-    postalCode: '',
-    country: 'US',
-  });
   const skipBlurRef = useRef(false);
 
   const conversationUserId = conversation?.user_id ?? null;
@@ -340,7 +326,6 @@ export const InspectorPanel = ({
   useEffect(() => {
     setActiveConversationEditor(null);
     setActiveMatterEditor(null);
-    setActivePersonEditor(null);
     setLocalIntakeDraft(null);
     setLocalError(null);
   }, [conversation?.id, entityId, entityType]);
@@ -705,66 +690,6 @@ export const InspectorPanel = ({
       setIsSavingMatter(false);
     }
   };
-  const readAddressFromDetail = (detail: UserDetailRecord | null): Address => {
-    const record = detail as unknown as Record<string, unknown> | null;
-    const addressValue = record?.address;
-    const address = (addressValue && typeof addressValue === 'object')
-      ? addressValue as Record<string, unknown>
-      : {};
-    const line1 = typeof address.address === 'string'
-      ? address.address
-      : (typeof address.line1 === 'string' ? address.line1 : '');
-    const line2 = typeof address.apartment === 'string'
-      ? address.apartment
-      : (typeof address.line2 === 'string' ? address.line2 : '');
-    const city = typeof address.city === 'string' ? address.city : '';
-    const state = typeof address.state === 'string' ? address.state : '';
-    const postalCode = typeof address.postalCode === 'string'
-      ? address.postalCode
-      : (typeof address.postal_code === 'string' ? address.postal_code : '');
-    const country = typeof address.country === 'string' && address.country.trim().length > 0
-      ? address.country
-      : 'US';
-    return {
-      address: line1,
-      apartment: line2,
-      city,
-      state,
-      postalCode,
-      country,
-    };
-  };
-  const formatAddressSummary = (detail: UserDetailRecord | null): string => {
-    const value = readAddressFromDetail(detail);
-    const parts = [
-      value.address,
-      value.apartment ?? '',
-      [value.city, value.state, value.postalCode].filter(Boolean).join(' '),
-      value.country
-    ].map((part) => part.trim()).filter(Boolean);
-    return parts.length > 0 ? parts.join(', ') : '—';
-  };
-  const openPersonEditor = (editor: 'address') => {
-    setError(null);
-    setPersonAddressDraft(readAddressFromDetail(userDetail));
-    setActivePersonEditor((prev) => (prev === editor ? null : editor));
-  };
-  const handlePersonFieldUpdate = async (
-    payload: Partial<{ address: Partial<Address> }>
-  ) => {
-    if (!practiceId || !entityId) return;
-    setError(null);
-    setIsSavingPersonField(true);
-    try {
-      await userResult.mutate(payload);
-      setActivePersonEditor(null);
-    } catch (nextError: unknown) {
-      setError(nextError instanceof Error ? nextError.message : 'Failed to update contact');
-    } finally {
-      setIsSavingPersonField(false);
-    }
-  };
-  
   const handleIntakeFieldChange = async (patch: Partial<IntakeConversationState>, shouldClose = true) => {
     if (!onIntakeFieldsChange || !intakeConversationState) return;
     setError(null);
@@ -773,23 +698,6 @@ export const InspectorPanel = ({
       if (shouldClose) setActiveConversationEditor(null);
     } catch (nextError: unknown) {
       setError(nextError instanceof Error ? nextError.message : `Failed to update fields`);
-    }
-  };
-  const handlePersonStatusChange = async (
-    status: 'archived' | 'active',
-    eventName: 'Archive Contact' | 'Restore Contact'
-  ) => {
-    if (!practiceId || !entityId) return;
-    setError(null);
-    setIsArchivingPerson(true);
-    try {
-      await userResult.mutate({ status, event_name: eventName });
-      setActivePersonEditor(null);
-      setIsArchiveConfirmOpen(false);
-    } catch (nextError: unknown) {
-      setError(nextError instanceof Error ? nextError.message : 'Failed to update contact status');
-    } finally {
-      setIsArchivingPerson(false);
     }
   };
 
@@ -822,11 +730,7 @@ export const InspectorPanel = ({
             <InspectorSectionSkeleton wideRows={[true, false, true, false]} />
           </div>
         ) : null}
-        {isLoading && entityType === 'client' ? (
-          <div className="py-3">
-            <InspectorSectionSkeleton wideRows={[true, false, false]} />
-          </div>
-        ) : null}
+        {/* Client loading skeleton is rendered by ClientInspector itself */}
         {isLoading && entityType === 'matter' ? (
           <div className="py-3">
             <InspectorSectionSkeleton wideRows={[true, false, true, false]} />
@@ -1726,107 +1630,8 @@ export const InspectorPanel = ({
           </div>
         ) : null}
 
-        {entityType === 'client' && !isLoading ? (
-          <div className="pb-4">
-            <InspectorHeaderPerson
-              name={userDetail?.user?.name ?? userDetail?.user?.email ?? 'Unknown'}
-              secondaryLine={userDetail?.user?.email ?? undefined}
-            />
-            <div className="">
-              <InspectorGroup label="Email">
-                <InfoRow label="" value={userDetail?.user?.email ?? undefined} muted={!userDetail?.user?.email} />
-              </InspectorGroup>
-              <InspectorGroup label="Phone">
-                <InfoRow label="" value={userDetail?.user?.phone ?? undefined} muted={!userDetail?.user?.phone} />
-              </InspectorGroup>
-              <InspectorGroup label="Relationship status">
-                <InfoRow
-                  label=""
-                  value={userDetail?.status ? CONTACT_RELATIONSHIP_STATUS_LABELS[userDetail.status] : undefined}
-                  muted={!userDetail?.status}
-                />
-              </InspectorGroup>
-              <InspectorGroup
-                label="Address"
-                onToggle={() => openPersonEditor('address')}
-                isOpen={activePersonEditor === 'address'}
-                disabled={isSavingPersonField}
-              >
-                <InspectorEditableRow
-                  label=""
-                  summary={formatAddressSummary(userDetail)}
-                  summaryMuted={formatAddressSummary(userDetail) === '—'}
-                  isOpen={activePersonEditor === 'address'}
-                >
-                  <div className="space-y-2">
-                    <AddressExperienceForm
-                      initialValues={{ address: personAddressDraft }}
-                      fields={['address']}
-                      required={[]}
-                      variant="plain"
-                      showSubmitButton={false}
-                      disabled={isSavingPersonField}
-                      onValuesChange={(updates) => {
-                        const nextAddress = updates.address;
-                        if (!nextAddress || typeof nextAddress !== 'object') return;
-                        setPersonAddressDraft((prev) => ({
-                          ...prev,
-                          ...nextAddress,
-                        }));
-                      }}
-                      addressOptions={{
-                        enableAutocomplete: true,
-                        showCountry: true,
-                        stackedFields: true,
-                      }}
-                    />
-                    <div className="flex justify-end gap-2">
-                      <Button
-                        variant="secondary"
-                        size="sm"
-                        onClick={() => setActivePersonEditor(null)}
-                        disabled={isSavingPersonField}
-                      >
-                        Cancel
-                      </Button>
-                      <Button
-                        size="sm"
-                        onClick={() => void handlePersonFieldUpdate({ address: personAddressDraft })}
-                        disabled={isSavingPersonField}
-                      >
-                        Save
-                      </Button>
-                    </div>
-                  </div>
-                </InspectorEditableRow>
-              </InspectorGroup>
-              <InspectorGroup label="Record">
-                <div className="px-5 py-1.5">
-                  {userDetail?.status === 'archived' ? (
-                    <div className="flex items-center justify-between gap-2">
-                      <p className="text-[13px] text-input-placeholder">This contact is archived.</p>
-                      <Button
-                        size="sm"
-                        onClick={() => { void handlePersonStatusChange('active', 'Restore Contact'); }}
-                        disabled={isArchivingPerson || isSavingPersonField}
-                      >
-                        {isArchivingPerson ? 'Restoring...' : 'Restore'}
-                      </Button>
-                    </div>
-                  ) : (
-                    <Button
-                      variant="danger"
-                      size="sm"
-                      onClick={() => setIsArchiveConfirmOpen(true)}
-                      disabled={isArchivingPerson || isSavingPersonField}
-                    >
-                      {isArchivingPerson ? 'Archiving...' : 'Archive'}
-                    </Button>
-                  )}
-                </div>
-              </InspectorGroup>
-            </div>
-          </div>
+        {entityType === 'client' && practiceId && entityId ? (
+          <ClientInspector practiceId={practiceId} entityId={entityId} />
         ) : null}
 
         {entityType === 'invoice' ? (
@@ -1840,38 +1645,6 @@ export const InspectorPanel = ({
           />
         ) : null}
       </div>
-      <Dialog
-        isOpen={isArchiveConfirmOpen}
-        onClose={() => {
-          if (isArchivingPerson) return;
-          setIsArchiveConfirmOpen(false);
-        }}
-        title="Archive contact"
-      >
-        <div className="space-y-4">
-          <p className="text-sm text-input-placeholder">
-            Archive this contact? They will move to the Archived list and can be restored later.
-          </p>
-          <div className="flex justify-end gap-2">
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={() => setIsArchiveConfirmOpen(false)}
-              disabled={isArchivingPerson}
-            >
-              Cancel
-            </Button>
-            <Button
-              variant="danger"
-              size="sm"
-            onClick={() => { void handlePersonStatusChange('archived', 'Archive Contact'); }}
-              disabled={isArchivingPerson}
-            >
-              {isArchivingPerson ? 'Archiving...' : 'Archive'}
-            </Button>
-          </div>
-        </div>
-      </Dialog>
     </div>
   );
 };
