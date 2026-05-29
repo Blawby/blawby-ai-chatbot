@@ -146,8 +146,8 @@ const FileMenu: FunctionComponent<FileMenuProps> = ({
         aria-expanded={isOpen}
         className={`shadow-lg border disabled:opacity-60 disabled:cursor-not-allowed focus:outline-none focus:ring-0 focus-visible:ring-2 focus-visible:ring-line-subtle focus-visible:ring-offset-0 active:scale-100 ${
           isOpen
-            ? 'bg-surface-utility/20 border-line-subtle'
-            : 'bg-surface-utility/10 border-line-subtle hover:bg-surface-utility/20 hover:border-line-subtle hover:scale-105'
+            ? 'bg-paper-2/20 border-line-subtle'
+            : 'bg-paper-2/10 border-line-subtle hover:bg-paper-2/20 hover:border-line-subtle hover:scale-105'
         }`}
         icon={Plus} iconClassName="w-5 h-5"
       />
@@ -159,7 +159,7 @@ const FileMenu: FunctionComponent<FileMenuProps> = ({
           aria-labelledby="attachment-menu-button"
           className={`
             absolute bottom-full left-0 mb-2 min-w-[220px]
-            p-1 rounded-xl border border-line-subtle bg-surface-overlay/95 backdrop-blur-2xl shadow-glass transition-all duration-200
+            p-1 rounded-r-md border border-line-subtle bg-card/95 backdrop-blur-2xl shadow-glass transition-all duration-200
             ${isClosing ? 'opacity-0 scale-95 pointer-events-none' : 'opacity-100 scale-100'}
           `}
           style={{ zIndex: THEME.zIndex.fileMenu }}

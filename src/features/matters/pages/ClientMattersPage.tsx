@@ -438,7 +438,7 @@ export const ClientMattersPage = ({
                     'transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-500 rounded-t-sm',
                     'after:absolute after:bottom-0 after:left-0 after:right-0 after:h-0.5 after:rounded-full after:transition-all after:duration-150',
                     isActive
-                      ? 'text-ink after:bg-accent-500'
+                      ? 'text-ink after:bg-accent'
                       : 'text-dim-2 hover:text-ink after:bg-transparent hover:after:bg-line-subtle'
                   ].join(' ')}
                 >

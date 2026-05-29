@@ -155,10 +155,10 @@ export default function OAuthConsentPage() {
   };
 
   return (
-    <div className="flex min-h-screen w-full items-center justify-center bg-surface-app px-4 py-10">
-      <div className="w-full max-w-md rounded-2xl border border-line-subtle bg-surface-card p-6 shadow-sm">
+    <div className="flex min-h-screen w-full items-center justify-center bg-paper px-4 py-10">
+      <div className="w-full max-w-md rounded-2xl border border-line-subtle bg-card p-6 shadow-sm">
         <div className="flex flex-col items-center text-center">
-          <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-full border border-line-subtle bg-surface-utility/10">
+          <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-full border border-line-subtle bg-paper-2/10">
             <Icon icon={Sparkles} className="h-6 w-6 text-ink" aria-hidden="true" />
           </div>
           <h1 className="text-lg font-semibold text-ink">Authorize access</h1>

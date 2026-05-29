@@ -198,14 +198,14 @@ export default function DebugChatPage() {
         </p>
       </header>
 
-      <section className="panel space-y-3 rounded-xl p-4">
+      <section className="panel space-y-3 rounded-r-md p-4">
         <div className="flex flex-wrap items-center gap-2">
           <Button variant="secondary" size="sm" onClick={resetState}>
             Reset chat
           </Button>
         </div>
 
-        <div className="h-[640px] overflow-hidden rounded-xl border border-input-border/60 bg-transparent">
+        <div className="h-[640px] overflow-hidden rounded-r-md border border-input-border/60 bg-transparent">
           <ChatContainer
             messages={messages}
             conversationTitle="Debug Chat"

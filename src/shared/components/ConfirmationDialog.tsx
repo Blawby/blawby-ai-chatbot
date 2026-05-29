@@ -148,7 +148,7 @@ export default function ConfirmationDialog({
                 <div className="space-y-2">
                   <label htmlFor={confirmationInputId} className="block text-sm font-medium text-ink">
                     {confirmationLabel}
-                    <span className="font-mono text-xs font-bold bg-surface-utility/40 border border-line-utility/50 dark:border-white/20 px-2 py-0.5 rounded shadow-sm ml-2 text-ink inline-flex items-center">
+                    <span className="font-mono text-xs font-bold bg-paper-2/40 border border-line-utility/50 dark:border-white/20 px-2 py-0.5 rounded shadow-sm ml-2 text-ink inline-flex items-center">
                       {confirmationValue}
                     </span>
                   </label>
@@ -162,7 +162,7 @@ export default function ConfirmationDialog({
                     onMouseDown={(e) => e.stopPropagation()}
                     placeholder={`Type "${confirmationValue}" to confirm`}
                     className={cn(
-                      'input-surface w-full rounded-xl px-3 py-2 text-sm',
+                      'input-surface w-full rounded-r-md px-3 py-2 text-sm',
                       error ? 'isError' : ''
                     )}
                     aria-invalid={Boolean(error)}
@@ -178,7 +178,7 @@ export default function ConfirmationDialog({
 
                 {/* Success Message */}
                 {showSuccessMessage && successMessage && (
-                  <div className="status-success rounded-xl py-2.5 px-3 text-sm">
+                  <div className="status-success rounded-r-md py-2.5 px-3 text-sm">
                     {successMessage.title && (
                       <p className="mb-1 text-sm font-semibold">
                         {successMessage.title}
@@ -206,7 +206,7 @@ export default function ConfirmationDialog({
                       onMouseDown={(e) => e.stopPropagation()}
                       placeholder={passwordPlaceholder}
                       className={cn(
-                        'input-surface w-full rounded-xl px-3 py-2 text-sm',
+                        'input-surface w-full rounded-r-md px-3 py-2 text-sm',
                         passwordError ? 'isError' : ''
                       )}
                       aria-invalid={Boolean(passwordError)}

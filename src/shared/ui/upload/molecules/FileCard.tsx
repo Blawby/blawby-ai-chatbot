@@ -66,7 +66,7 @@ export const FileCard = ({
   if (variant === 'tile') {
     const fileType = getFileTypeConfig(fileName, mimeType);
     const tileClassName = cn(
-      'group relative flex w-full flex-col overflow-hidden rounded-2xl border border-line-subtle bg-surface-card text-left transition-all',
+      'group relative flex w-full flex-col overflow-hidden rounded-2xl border border-line-subtle bg-card text-left transition-all',
       onClick ? 'cursor-pointer hover:border-line-subtle hover:shadow-md focus:outline-none focus:ring-2 focus:ring-accent-500' : '',
       className
     );
@@ -93,7 +93,7 @@ export const FileCard = ({
     ) : null;
     const renderTileContent = () => (
       <>
-        <div className="relative flex aspect-[4/3] w-full items-center justify-center overflow-hidden bg-surface-panel">
+        <div className="relative flex aspect-[4/3] w-full items-center justify-center overflow-hidden bg-paper-2">
           {isImage && imageUrl ? (
             <img
               src={imageUrl}
@@ -107,7 +107,7 @@ export const FileCard = ({
             </div>
           )}
           {shouldShowTileStatus ? (
-            <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-input-text/45 px-4 text-center text-surface-card backdrop-blur-[1px] dark:bg-surface-app-frame/75">
+            <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-input-text/45 px-4 text-center text-surface-card backdrop-blur-[1px] dark:bg-paper/75">
               {status === 'uploading' || status === 'processing' || status === 'analyzing' ? (
                 <LoadingSpinner size="sm" ariaLabel={tileStatusLabel ?? 'File status'} />
               ) : null}
@@ -115,9 +115,9 @@ export const FileCard = ({
                 <span className="text-xs font-semibold">{tileStatusLabel}</span>
               ) : null}
               {status === 'uploading' || progress !== undefined ? (
-                <div className="h-1.5 w-full max-w-32 overflow-hidden rounded-full bg-surface-card/30">
+                <div className="h-1.5 w-full max-w-32 overflow-hidden rounded-full bg-card/30">
                   <div
-                    className="h-full rounded-full bg-accent-500"
+                    className="h-full rounded-full bg-accent"
                     style={{ width: `${Math.min(100, Math.max(0, resolvedProgress))}%` }}
                   />
                 </div>

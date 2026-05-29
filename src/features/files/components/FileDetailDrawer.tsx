@@ -47,11 +47,11 @@ const FileDetailContent = ({ file }: { file: OrgFile }) => {
 
   return (
     <div className="space-y-5">
-      <div className="flex aspect-[4/3] w-full items-center justify-center overflow-hidden rounded-2xl bg-surface-panel">
+      <div className="flex aspect-[4/3] w-full items-center justify-center overflow-hidden rounded-2xl bg-paper-2">
         {isImage && previewUrl ? (
           <img src={previewUrl} alt={file.fileName} className="h-full w-full object-contain" />
         ) : isImage && previewLoading ? (
-          <div className="h-full w-full animate-pulse bg-surface-panel" />
+          <div className="h-full w-full animate-pulse bg-paper-2" />
         ) : (
           <div className={`flex h-20 w-20 items-center justify-center rounded-2xl ${fileType.color}`}>
             <Icon icon={fileType.icon} className="h-10 w-10 text-ink" />
@@ -138,7 +138,7 @@ export const FileDetailDrawer = ({ file, isOpen, onClose }: FileDetailDrawerProp
   if (isMobile) {
     return (
       <Fullscreen isOpen={isOpen} onClose={onClose} ariaLabel={`File ${file.fileName}`}>
-        <div className="flex h-full flex-col bg-surface-workspace">
+        <div className="flex h-full flex-col bg-paper">
           <div className="flex-1 overflow-y-auto px-4 py-6">
             <FileDetailContent file={file} />
           </div>

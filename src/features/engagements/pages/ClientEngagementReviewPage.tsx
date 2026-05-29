@@ -181,7 +181,7 @@ const SignaturePad: FunctionComponent<{
         <canvas
           ref={canvasRef}
           className={cn(
-            'block h-32 w-full cursor-crosshair rounded-lg border border-dashed border-card-border bg-surface-card',
+            'block h-32 w-full cursor-crosshair rounded-lg border border-dashed border-card-border bg-card',
             disabled && 'cursor-not-allowed opacity-60',
           )}
           onMouseDown={(e) => startDraw(e as unknown as MouseEvent)}
@@ -292,7 +292,7 @@ const EngagementLetter: FunctionComponent<{
   const noGuarantee = proposal?.no_guarantee_language;
 
   return (
-    <article className="rounded-2xl border border-card-border bg-surface-card p-6 sm:p-10 space-y-6 leading-relaxed text-ink">
+    <article className="rounded-2xl border border-card-border bg-card p-6 sm:p-10 space-y-6 leading-relaxed text-ink">
       <header className="text-center space-y-2 border-b border-line-subtle pb-6">
         <h1 className="text-xl font-bold uppercase tracking-widest">Engagement Letter</h1>
         <p className="text-sm font-medium">{practiceName}</p>
@@ -464,14 +464,14 @@ export const ClientEngagementReviewPage: FunctionComponent<ClientEngagementRevie
 
   return (
     <div className="min-h-dvh bg-app-background">
-      <header className="sticky top-0 z-10 border-b border-card-border bg-surface-overlay/80 backdrop-blur-xl">
+      <header className="sticky top-0 z-10 border-b border-card-border bg-card/80 backdrop-blur-xl">
         <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-3 sm:px-6">
           <div className="flex min-w-0 items-center gap-2">
             {onBack && (
               <button
                 type="button"
                 onClick={onBack}
-                className="rounded-md p-1.5 text-dim-2 hover:bg-surface-card-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/40"
+                className="rounded-md p-1.5 text-dim-2 hover:bg-paper-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/40"
                 aria-label="Back"
               >
                 <ChevronLeft className="h-5 w-5" />

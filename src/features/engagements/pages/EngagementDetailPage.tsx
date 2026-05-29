@@ -48,7 +48,7 @@ import { useEngagementDetail } from '../hooks/useEngagementDetail';
 
 const STATUS_VARIANTS: Record<EngagementStatus, { label: string; className: string }> = {
   draft:    { label: 'Draft',    className: 'bg-amber-500/10 text-amber-700 ring-amber-500/20 dark:text-amber-300' },
-  sent:     { label: 'Sent',     className: 'bg-surface-overlay/60 text-dim-2 ring-line-subtle' },
+  sent:     { label: 'Sent',     className: 'bg-card/60 text-dim-2 ring-line-subtle' },
   accepted: { label: 'Accepted', className: 'bg-emerald-500/10 text-emerald-700 ring-emerald-500/20 dark:text-emerald-300' },
   declined: { label: 'Declined', className: 'bg-rose-500/10 text-rose-700 ring-rose-500/20 dark:text-rose-300' },
 };
@@ -66,8 +66,8 @@ const CONFLICT_VARIANTS: Record<ConflictStatus, { label: string; className: stri
   clear:             { label: 'Clear',             className: 'bg-emerald-500/10 text-emerald-700 ring-emerald-500/20 dark:text-emerald-300' },
   review_required:   { label: 'Review Required',   className: 'bg-amber-500/10 text-amber-700 ring-amber-500/20 dark:text-amber-300' },
   conflicted:        { label: 'Conflicted',        className: 'bg-rose-500/10 text-rose-700 ring-rose-500/20 dark:text-rose-300' },
-  unknown:           { label: 'Unknown',           className: 'bg-surface-overlay/60 text-dim-2 ring-line-subtle' },
-  insufficient_data: { label: 'Insufficient Data', className: 'bg-surface-overlay/60 text-dim-2 ring-line-subtle' },
+  unknown:           { label: 'Unknown',           className: 'bg-card/60 text-dim-2 ring-line-subtle' },
+  insufficient_data: { label: 'Insufficient Data', className: 'bg-card/60 text-dim-2 ring-line-subtle' },
 };
 
 // ── Display helpers ──────────────────────────────────────────────────────────
@@ -235,7 +235,7 @@ const FeeStructureCard: FunctionComponent<{ proposal: ProposalData | null }> = (
 const ContractBodyCard: FunctionComponent<{ engagement: EngagementDetail }> = ({ engagement }) => (
   <SectionCard title="Contract body">
     {engagement.contract_body?.trim() ? (
-      <div className="max-h-[360px] overflow-y-auto whitespace-pre-wrap rounded-lg border border-line-subtle bg-surface-overlay/30 p-3 text-sm leading-relaxed text-ink">
+      <div className="max-h-[360px] overflow-y-auto whitespace-pre-wrap rounded-lg border border-line-subtle bg-card/30 p-3 text-sm leading-relaxed text-ink">
         {engagement.contract_body}
       </div>
     ) : (
@@ -499,7 +499,7 @@ const ConversationPreviewCard: FunctionComponent<ConversationPreviewCardProps> =
       <button
         type="button"
         onClick={onToggle}
-        className="flex w-full items-center justify-between gap-3 p-5 text-left transition-colors hover:bg-surface-card-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/40 sm:p-6"
+        className="flex w-full items-center justify-between gap-3 p-5 text-left transition-colors hover:bg-paper-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/40 sm:p-6"
       >
         <div className="flex min-w-0 items-center gap-3">
           <MessagesSquare className="h-4 w-4 shrink-0 text-dim-2" />
@@ -514,7 +514,7 @@ const ConversationPreviewCard: FunctionComponent<ConversationPreviewCardProps> =
       </button>
       {isExpanded && !isMobile && (
         <div className="border-t border-line-subtle">
-          <div className="h-[320px] bg-surface-overlay/20">
+          <div className="h-[320px] bg-card/20">
             <ConversationContent
               isLoading={isLoading}
               error={error}
@@ -1126,7 +1126,7 @@ export const EngagementDetailPage: FunctionComponent<EngagementDetailPageProps> 
   const statusBanner = (() => {
     if (isSent) {
       return (
-        <div className="rounded-xl border border-line-subtle bg-surface-overlay/40 p-4 text-sm text-ink">
+        <div className="rounded-r-md border border-line-subtle bg-card/40 p-4 text-sm text-ink">
           <p className="font-medium">Awaiting client response</p>
           <p className="mt-1 text-dim-2">The client received this engagement and will accept or decline online.</p>
         </div>
@@ -1134,7 +1134,7 @@ export const EngagementDetailPage: FunctionComponent<EngagementDetailPageProps> 
     }
     if (isAccepted) {
       return (
-        <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/10 p-4 text-sm text-emerald-700 dark:text-emerald-300">
+        <div className="rounded-r-md border border-emerald-500/20 bg-emerald-500/10 p-4 text-sm text-emerald-700 dark:text-emerald-300">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <p className="font-medium">Engagement active</p>
@@ -1155,7 +1155,7 @@ export const EngagementDetailPage: FunctionComponent<EngagementDetailPageProps> 
     }
     if (isDeclined) {
       return (
-        <div className="rounded-xl border border-rose-500/20 bg-rose-500/10 p-4 text-sm text-rose-700 dark:text-rose-300">
+        <div className="rounded-r-md border border-rose-500/20 bg-rose-500/10 p-4 text-sm text-rose-700 dark:text-rose-300">
           <p className="font-medium">Declined</p>
           <p className="mt-1 text-rose-700/80 dark:text-rose-200/80">This engagement was marked declined.</p>
         </div>

@@ -116,7 +116,7 @@ export const Fullscreen: FunctionComponent<FullscreenProps> = ({
             size="icon-xs"
             onClick={onClose}
             aria-label="Close"
-            className="absolute right-4 top-4 z-10 rounded-full text-dim-2 hover:bg-surface-hover hover:text-ink"
+            className="absolute right-4 top-4 z-10 rounded-full text-dim-2 hover:bg-paper-2 hover:text-ink"
             icon={<Icon icon={X} className="h-4 w-4" />}
           />
         )}

@@ -115,10 +115,10 @@ const DocumentChecklist: FunctionComponent<DocumentChecklistProps> = ({
         {documents.map((doc) => (
           <div
             key={doc.id}
-            className={`border rounded-xl p-4 transition-all duration-300 ${
+            className={`border rounded-r-md p-4 transition-all duration-300 ${
               dragOverId === doc.id 
-                ? 'border-accent-500 bg-accent-500/10 scale-[1.02]' 
-                : 'border-line-subtle bg-surface-utility/5'
+                ? 'border-accent-500 bg-accent/10 scale-[1.02]' 
+                : 'border-line-subtle bg-paper-2/5'
             }`}
             onDrop={(e) => handleDrop(doc.id, e)}
             onDragOver={(e) => handleDragOver(doc.id, e)}
@@ -144,7 +144,7 @@ const DocumentChecklist: FunctionComponent<DocumentChecklistProps> = ({
                       ? 'bg-emerald-500/10 text-emerald-400'
                       : doc.status === 'pending'
                       ? 'bg-amber-500/10 text-amber-400'
-                      : 'bg-surface-utility/5 text-dim-2'
+                      : 'bg-paper-2/5 text-dim-2'
                   }`}>
                     {getStatusText(doc.status, doc.required)}
                   </span>

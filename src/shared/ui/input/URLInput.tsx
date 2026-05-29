@@ -121,7 +121,7 @@ export const URLInput = forwardRef<HTMLInputElement, URLInputProps>(({
   };
 
   const inputClasses = cn(
-    'w-full rounded-xl text-ink placeholder:text-dim-2',
+    'w-full rounded-r-md text-ink placeholder:text-dim-2',
     'focus:outline-none transition-all duration-200',
     'input-surface border-none',
     sizeClasses[size],

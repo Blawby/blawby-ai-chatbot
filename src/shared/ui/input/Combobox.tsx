@@ -105,11 +105,11 @@ function Chip({
   return (
     <span
       className={cn(
-        'inline-flex max-w-full items-center gap-1 rounded-xl border text-xs font-medium',
+        'inline-flex max-w-full items-center gap-1 rounded-r-md border text-xs font-medium',
         compact ? 'min-h-8 px-3 py-1 text-sm' : 'px-2 py-0.5',
         isCustom
-          ? 'border-accent-500/25 bg-accent-500/12 text-accent-utility'
-          : 'border-line-subtle bg-surface-utility/10 text-ink'
+          ? 'border-accent-500/25 bg-accent/12 text-accent-utility'
+          : 'border-line-subtle bg-paper-2/10 text-ink'
       )}
     >
       <span className="truncate">{label}</span>
@@ -167,8 +167,8 @@ function DropdownOption({
         'group relative flex w-full items-center justify-between px-3 py-2.5 text-left text-sm transition-all',
         option.disabled && 'cursor-not-allowed opacity-45',
         isSelected || isFocused
-          ? 'bg-accent-500/15 text-ink'
-          : 'text-ink hover:bg-surface-utility/10 dark:hover:bg-surface-utility/20',
+          ? 'bg-accent/15 text-ink'
+          : 'text-ink hover:bg-paper-2/10 dark:hover:bg-paper-2/20',
         option.disabled && 'hover:bg-transparent dark:hover:bg-transparent'
       )}
     >
@@ -580,7 +580,7 @@ export function Combobox({
           onClick={() => (isOpen ? close() : open())}
           onKeyDown={handleKeyDown}
           className={cn(
-            'input-surface relative flex w-full gap-2 rounded-xl px-3 py-2.5 transition-all duration-200',
+            'input-surface relative flex w-full gap-2 rounded-r-md px-3 py-2.5 transition-all duration-200',
             isOpen && 'isOpen',
             'items-center',
             !disabled && 'cursor-pointer'
@@ -601,8 +601,8 @@ export function Combobox({
           tabIndex={-1}
           onMouseDown={(e) => e.preventDefault()}
           className={cn(
-            'z-[60] w-full overflow-hidden rounded-xl absolute',
-            'bg-surface-overlay shadow-glass border border-line-subtle',
+            'z-[60] w-full overflow-hidden rounded-r-md absolute',
+            'bg-card shadow-glass border border-line-subtle',
             hideTrigger ? 'top-0 mt-1' : (direction === 'up' ? 'bottom-full mb-1 top-auto' : 'top-full mt-1')
           )}
         >
@@ -620,7 +620,7 @@ export function Combobox({
                 }}
                 onKeyDown={handleKeyDown}
                 className={cn(
-                  'w-full rounded-xl bg-surface-utility/10 px-3 py-1.5 text-sm text-ink',
+                  'w-full rounded-r-md bg-paper-2/10 px-3 py-1.5 text-sm text-ink',
                   'placeholder:text-dim-2/60',
                   'focus:outline-none focus:ring-2 ring-inset focus:ring-accent-500/30'
                 )}
@@ -647,11 +647,11 @@ export function Combobox({
                 className={cn(
                   'flex w-full items-center gap-2.5 px-3 py-2 text-left text-sm transition-colors',
                   clampedFocus === 0
-                    ? 'bg-accent-500/15 text-ink'
-                    : 'text-ink hover:bg-surface-utility/10 focus:bg-surface-utility/20'
+                    ? 'bg-accent/15 text-ink'
+                    : 'text-ink hover:bg-paper-2/10 focus:bg-paper-2/20'
                 )}
               >
-                <span className="flex h-5 w-5 flex-shrink-0 items-center justify-center rounded bg-accent-500/20 text-accent-utility">
+                <span className="flex h-5 w-5 flex-shrink-0 items-center justify-center rounded bg-accent/20 text-accent-utility">
                   <Icon icon={Plus} className="h-3.5 w-3.5"  />
                 </span>
                 <span>
@@ -701,7 +701,7 @@ export function Combobox({
             </div>
           ) : allowCustomValues && filteredOptions.length === 0 && !showAddRow ? (
             <div className="flex items-center gap-2 border-t border-line-subtle px-3 py-2 text-xs text-dim-2">
-              <span className="flex h-4 w-4 flex-shrink-0 items-center justify-center rounded bg-accent-500/20 text-accent-utility">
+              <span className="flex h-4 w-4 flex-shrink-0 items-center justify-center rounded bg-accent/20 text-accent-utility">
                 <Icon icon={Plus} className="h-3 w-3" />
               </span>
               <span>Type a name and press Enter to add a new option.</span>

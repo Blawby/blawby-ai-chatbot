@@ -107,7 +107,7 @@ const MediaRow: FunctionComponent<MediaRowProps> = ({ media, onPreview, onError 
       role="button"
       tabIndex={0}
       aria-busy={busy}
-      className="cursor-pointer transition-all duration-200 hover:scale-[1.02] focus:outline-none focus:ring-2 focus:ring-accent-500/50 rounded-xl"
+      className="cursor-pointer transition-all duration-200 hover:scale-[1.02] focus:outline-none focus:ring-2 focus:ring-accent-500/50 rounded-r-md"
       onClick={() => { void handleActivate(); }}
       onKeyDown={(e) => {
         if (e.key === 'Enter' || e.key === ' ') {
@@ -140,7 +140,7 @@ const MediaRow: FunctionComponent<MediaRowProps> = ({ media, onPreview, onError 
               onClick={(e) => { void handleDownload(e); }}
               title="Download file"
               disabled={busy}
-              className="p-1.5 surface-hover rounded-xl text-dim-2 hover:text-ink"
+              className="p-1.5 surface-hover rounded-r-md text-dim-2 hover:text-ink"
             >
               <Icon icon={Download} className="w-3.5 h-3.5" />
             </Button>

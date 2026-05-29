@@ -182,7 +182,7 @@ function TemplateEditor({ initial, serviceOptions, onSave, onDelete, onBack, isS
           </div>
 
           {/* Fee configuration */}
-          <div className="flex flex-col gap-3 rounded-xl border border-line-subtle bg-surface-card p-4">
+          <div className="flex flex-col gap-3 rounded-r-md border border-line-subtle bg-card p-4">
             <p className="text-sm font-semibold text-ink">Fee arrangement</p>
             <div className="flex flex-wrap gap-2">
               {(Object.keys(FEE_TYPE_LABELS) as EngagementFeeType[]).map((type) => (
@@ -193,7 +193,7 @@ function TemplateEditor({ initial, serviceOptions, onSave, onDelete, onBack, isS
                   className={cn(
                     'rounded-full border px-3 py-1 text-sm font-medium transition-colors',
                     template.feeType === type
-                      ? 'border-accent-500 bg-accent-500/10 text-[rgb(var(--accent-foreground))]'
+                      ? 'border-accent-500 bg-accent/10 text-[rgb(var(--accent-foreground))]'
                       : 'border-line-subtle text-dim-2 hover:border-line-subtle hover:text-ink',
                   )}
                 >
@@ -291,7 +291,7 @@ function TemplateEditor({ initial, serviceOptions, onSave, onDelete, onBack, isS
                 key={key}
                 type="button"
                 onClick={() => insertPlaceholder(key)}
-                className="flex flex-col items-start rounded-lg px-2.5 py-2 text-left transition-colors hover:bg-surface-input"
+                className="flex flex-col items-start rounded-lg px-2.5 py-2 text-left transition-colors hover:bg-card"
               >
                 <span className="font-mono text-xs text-accent-500">{key}</span>
                 <span className="text-xs text-dim-2">{description}</span>
@@ -327,20 +327,20 @@ function TemplateListView({ templates, onNew, onEdit }: ListViewProps) {
       </div>
 
       {templates.length === 0 ? (
-        <div className="flex flex-col items-center gap-3 rounded-xl border border-dashed border-line-subtle py-12 text-center">
+        <div className="flex flex-col items-center gap-3 rounded-r-md border border-dashed border-line-subtle py-12 text-center">
           <FileText className="h-8 w-8 text-dim-2" />
           <p className="text-sm font-medium text-ink">No templates yet</p>
           <p className="text-xs text-dim-2">Create your first engagement letter template to get started.</p>
           <Button icon={Plus} onClick={onNew} size="sm" variant="secondary">New template</Button>
         </div>
       ) : (
-        <div className="flex flex-col divide-y divide-line-subtle overflow-hidden rounded-xl border border-line-subtle">
+        <div className="flex flex-col divide-y divide-line-subtle overflow-hidden rounded-r-md border border-line-subtle">
           {templates.map((template) => (
             <button
               key={template.id}
               type="button"
               onClick={() => onEdit(template)}
-              className="flex items-center justify-between gap-4 px-4 py-3.5 text-left transition-colors hover:bg-surface-card"
+              className="flex items-center justify-between gap-4 px-4 py-3.5 text-left transition-colors hover:bg-card"
             >
               <div className="min-w-0">
                 <p className="truncate text-sm font-medium text-ink">{template.name}</p>

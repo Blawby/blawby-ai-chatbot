@@ -56,7 +56,7 @@ export const DialogHeader: FunctionComponent<DialogHeaderProps> = ({
           size="icon-xs"
           onClick={onClose}
           aria-label="Close"
-          className="mt-0.5 shrink-0 rounded-full text-dim-2 hover:bg-surface-hover hover:text-ink"
+          className="mt-0.5 shrink-0 rounded-full text-dim-2 hover:bg-paper-2 hover:text-ink"
           icon={<Icon icon={X} className="h-4 w-4" />}
         />
       )}

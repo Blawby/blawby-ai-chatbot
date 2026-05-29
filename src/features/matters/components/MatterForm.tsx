@@ -441,7 +441,7 @@ const MatterFormInner = ({
               (close) => (
                 <button
                   type="button"
-                  className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-accent-utility hover:bg-surface-card-hover"
+                  className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-accent-utility hover:bg-paper-2"
                   onMouseDown={(e) => e.preventDefault()}
                   onClick={() => {
                     close();

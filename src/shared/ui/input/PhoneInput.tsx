@@ -372,7 +372,7 @@ export const PhoneInput = forwardRef<HTMLInputElement, PhoneInputProps>(({
   const isInvalid = Boolean(error) || showInvalidValidation;
 
   const inputClasses = cn(
-    'w-full rounded-xl text-ink placeholder:text-dim-2',
+    'w-full rounded-r-md text-ink placeholder:text-dim-2',
     'focus:outline-none transition-all duration-200',
     'input-surface border-none',
     sizeClasses[size],
@@ -417,7 +417,7 @@ export const PhoneInput = forwardRef<HTMLInputElement, PhoneInputProps>(({
               aria-haspopup="listbox"
               aria-label={`Select country. Current: ${currentCountry.name} (+${currentCountry.callingCode})`}
               className={cn(
-                'inline-flex items-center rounded-l-xl rounded-r-none text-ink hover:bg-surface-utility/40 focus:outline-none focus:ring-2 ring-inset focus:ring-accent-500 transition-colors input-surface border-r border-line-subtle',
+                'inline-flex items-center rounded-l-xl rounded-r-none text-ink hover:bg-paper-2/40 focus:outline-none focus:ring-2 ring-inset focus:ring-accent-500 transition-colors input-surface border-r border-line-subtle',
                 sizeClasses[size],
                 disabled && 'opacity-50 cursor-not-allowed',
               )}
@@ -429,7 +429,7 @@ export const PhoneInput = forwardRef<HTMLInputElement, PhoneInputProps>(({
 
             {isDropdownOpen && (
               <div
-                className="absolute z-10 panel border border-line-subtle rounded-xl shadow-glass w-64 top-full left-0 mt-1"
+                className="absolute z-10 panel border border-line-subtle rounded-r-md shadow-glass w-64 top-full left-0 mt-1"
                 role="dialog"
               >
                 <div className="p-2 border-b border-line-subtle">
@@ -475,8 +475,8 @@ export const PhoneInput = forwardRef<HTMLInputElement, PhoneInputProps>(({
                         onClick={() => selectCountry(country)}
                         onMouseEnter={() => setFocusedIndex(index)}
                         className={cn(
-                          'inline-flex w-full px-3 py-2 text-sm text-ink hover:bg-surface-utility/40 focus:outline-none',
-                          index === focusedIndex && 'bg-surface-utility/60',
+                          'inline-flex w-full px-3 py-2 text-sm text-ink hover:bg-paper-2/40 focus:outline-none',
+                          index === focusedIndex && 'bg-paper-2/60',
                           country.iso === selectedIso && 'font-medium',
                         )}
                         tabIndex={-1}
@@ -527,7 +527,7 @@ export const PhoneInput = forwardRef<HTMLInputElement, PhoneInputProps>(({
             data-testid={dataTestId}
             className={cn(
               inputClasses,
-              showCountryCode ? 'rounded-l-none border-l-0' : 'rounded-xl',
+              showCountryCode ? 'rounded-l-none border-l-0' : 'rounded-r-md',
               'rounded-r-xl',
             )}
           />

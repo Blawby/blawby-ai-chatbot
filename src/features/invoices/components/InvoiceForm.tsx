@@ -397,7 +397,7 @@ export const InvoiceForm = forwardRef<InvoiceFormHandle, InvoiceFormProps>(({
       >
         <>
             {!resolvedReadOnly && !isValidConnectedAccount ? (
-              <div className="status-warning rounded-xl px-4 py-3 text-sm">
+              <div className="status-warning rounded-r-md px-4 py-3 text-sm">
                 Complete Stripe onboarding to enable invoicing.
               </div>
             ) : null}
@@ -511,7 +511,7 @@ export const InvoiceForm = forwardRef<InvoiceFormHandle, InvoiceFormProps>(({
             <Textarea label="Notes to client" value={notes} onChange={handleNotesChange} rows={3} disabled={resolvedReadOnly} />
             <Textarea label="Internal memo" value={memo} onChange={handleMemoChange} rows={2} disabled={resolvedReadOnly} />
             {sendError ? (
-              <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-800">
+              <div className="rounded-r-md border border-red-200 bg-red-50 p-4 text-sm text-red-800">
                 <p>{sendError}</p>
                 {createdInvoiceId ? (
                   <div className="mt-2">

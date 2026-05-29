@@ -89,15 +89,15 @@ export default function DebugStylesPage() {
         <div className="grid gap-4 md:grid-cols-3">
           <div className="card p-4">
             <p className="font-medium text-ink">card</p>
-            <p className="text-sm text-dim-2">Content cards. <code>bg-surface-card</code>, <code>border-subtle</code>, <code>rounded-2xl</code>.</p>
+            <p className="text-sm text-dim-2">Content cards. <code>bg-card</code>, <code>border-subtle</code>, <code>rounded-2xl</code>.</p>
           </div>
           <div className="panel p-4">
             <p className="font-medium text-ink">panel</p>
-            <p className="text-sm text-dim-2">Section containers. <code>bg-surface-section</code>, <code>border-subtle</code>, <code>rounded-2xl</code>.</p>
+            <p className="text-sm text-dim-2">Section containers. <code>bg-paper-2</code>, <code>border-subtle</code>, <code>rounded-2xl</code>.</p>
           </div>
-          <div className="input-surface rounded-xl p-4">
+          <div className="input-surface rounded-r-md p-4">
             <p className="font-medium text-ink">input-surface</p>
-            <p className="text-sm text-dim-2">Input backgrounds. <code>bg-surface-input</code>, <code>border-subtle</code>, <code>rounded-xl</code>.</p>
+            <p className="text-sm text-dim-2">Input backgrounds. <code>bg-card</code>, <code>border-subtle</code>, <code>rounded-r-md</code>.</p>
           </div>
         </div>
       </section>
@@ -109,7 +109,7 @@ export default function DebugStylesPage() {
         </p>
         <div className="grid gap-3 md:grid-cols-2">
           {buttonVariants.map((variant) => (
-            <div key={variant} className="panel flex items-center gap-3 rounded-xl p-3">
+            <div key={variant} className="panel flex items-center gap-3 rounded-r-md p-3">
               <Button variant={variant}>{variant}</Button>
               <code className="text-xs text-dim-2">variant=&quot;{variant}&quot;</code>
             </div>
@@ -119,7 +119,7 @@ export default function DebugStylesPage() {
 
       <section className="space-y-4 pt-4">
         <h2 className="text-xs font-semibold uppercase tracking-widest text-dim-2">Button Sizes</h2>
-        <div className="panel flex flex-wrap items-center gap-3 rounded-xl p-3">
+        <div className="panel flex flex-wrap items-center gap-3 rounded-r-md p-3">
           {buttonSizes.map((size) => (
             <Button key={size} size={size} variant="secondary">
               {size}
@@ -139,10 +139,10 @@ export default function DebugStylesPage() {
       <section className="space-y-4 pt-4">
         <h2 className="text-xs font-semibold uppercase tracking-widest text-dim-2">Nav State Tokens</h2>
         <div className="grid gap-3 md:grid-cols-2">
-          <button type="button" className="nav-item-active rounded-xl px-3 py-2 text-left">
+          <button type="button" className="nav-item-active rounded-r-md px-3 py-2 text-left">
             Active nav item (`nav-item-active`)
           </button>
-          <button type="button" className="nav-item-inactive rounded-xl px-3 py-2 text-left">
+          <button type="button" className="nav-item-inactive rounded-r-md px-3 py-2 text-left">
             Inactive nav item (`nav-item-inactive`)
           </button>
         </div>
@@ -151,22 +151,22 @@ export default function DebugStylesPage() {
       <section className="space-y-4 pt-4">
         <h2 className="text-xs font-semibold uppercase tracking-widest text-dim-2">Status Utilities</h2>
         <p className="text-sm text-dim-2">
-          Semantic status banners for inline feedback. Uses `rounded-xl`.
+          Semantic status banners for inline feedback. Uses `rounded-r-md`.
         </p>
         <div className="grid gap-4 md:grid-cols-2">
-          <div className="status-info rounded-xl p-3">
+          <div className="status-info rounded-r-md p-3">
             <p className="text-sm font-semibold">status-info</p>
             <p className="text-sm opacity-90">Information or neutral feedback.</p>
           </div>
-          <div className="status-success rounded-xl p-3">
+          <div className="status-success rounded-r-md p-3">
             <p className="text-sm font-semibold">status-success</p>
             <p className="text-sm opacity-90">Operation completed successfully.</p>
           </div>
-          <div className="status-warning rounded-xl p-3">
+          <div className="status-warning rounded-r-md p-3">
             <p className="text-sm font-semibold">status-warning</p>
             <p className="text-sm opacity-90">Warning or attention required.</p>
           </div>
-          <div className="status-error rounded-xl p-3">
+          <div className="status-error rounded-r-md p-3">
             <p className="text-sm font-semibold">status-error</p>
             <p className="text-sm opacity-90">Critical failure or invalid input.</p>
           </div>
@@ -179,11 +179,11 @@ export default function DebugStylesPage() {
           Accent-colored surfaces should use `text-[rgb(var(--accent-foreground))]` for contrast-safe text/icons.
         </p>
         <div className="grid gap-4 md:grid-cols-2">
-          <div className="rounded-xl bg-accent-500 p-4 text-[rgb(var(--accent-foreground))]">
+          <div className="rounded-r-md bg-accent p-4 text-[rgb(var(--accent-foreground))]">
             <p className="font-medium">Correct: accent foreground token</p>
             <p className="text-sm opacity-90">Remains readable across accent theme changes.</p>
           </div>
-          <div className="rounded-xl bg-accent-500 p-4 text-[rgb(var(--accent-foreground))]">
+          <div className="rounded-r-md bg-accent p-4 text-[rgb(var(--accent-foreground))]">
             <p className="font-medium">Avoid: hardcoded `text-white`</p>
             <p className="text-sm opacity-90">Can fail contrast on some accent colors.</p>
           </div>
@@ -196,12 +196,12 @@ export default function DebugStylesPage() {
           Status is communicated through colored rings on the <code>input-surface</code> base.
         </p>
         <div className="grid gap-4 md:grid-cols-2">
-          <div className="panel rounded-xl p-4 space-y-4">
+          <div className="panel rounded-r-md p-4 space-y-4">
             <div className="space-y-1">
               <label htmlFor="defaultInput" className="text-xs font-medium text-dim-2">Default / Focus</label>
               <input
                 id="defaultInput"
-                className="input-surface w-full rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-accent-500/30"
+                className="input-surface w-full rounded-r-md px-3 py-2 text-sm focus:ring-2 focus:ring-accent-500/30"
                 placeholder="Standard state"
               />
             </div>
@@ -209,17 +209,17 @@ export default function DebugStylesPage() {
               <label htmlFor="errorInput" className="text-xs font-medium text-dim-2">Error</label>
               <input
                 id="errorInput"
-                className="input-surface w-full rounded-xl px-3 py-2 text-sm ring-2 ring-accent-error/40 focus:ring-accent-error/60"
+                className="input-surface w-full rounded-r-md px-3 py-2 text-sm ring-2 ring-accent-error/40 focus:ring-accent-error/60"
                 placeholder="Invalid value"
               />
             </div>
           </div>
-          <div className="panel rounded-xl p-4 space-y-4">
+          <div className="panel rounded-r-md p-4 space-y-4">
             <div className="space-y-1">
               <label htmlFor="successInput" className="text-xs font-medium text-dim-2">Success</label>
               <input
                 id="successInput"
-                className="input-surface w-full rounded-xl px-3 py-2 text-sm ring-2 ring-accent-success/40 focus:ring-accent-success/60"
+                className="input-surface w-full rounded-r-md px-3 py-2 text-sm ring-2 ring-accent-success/40 focus:ring-accent-success/60"
                 placeholder="Valid value"
               />
             </div>
@@ -228,7 +228,7 @@ export default function DebugStylesPage() {
               <input
                 id="disabledInput"
                 disabled
-                className="input-surface w-full rounded-xl px-3 py-2 text-sm opacity-50 cursor-not-allowed focus:ring-0"
+                className="input-surface w-full rounded-r-md px-3 py-2 text-sm opacity-50 cursor-not-allowed focus:ring-0"
                 placeholder="Locked"
               />
             </div>
@@ -242,7 +242,7 @@ export default function DebugStylesPage() {
           Height baseline should align with Combobox for `md` controls.
         </p>
         <div className="grid gap-4 md:grid-cols-2">
-          <div className="panel rounded-xl p-4">
+          <div className="panel rounded-r-md p-4">
             <Input
               label="Input"
               value={inputValue}
@@ -250,7 +250,7 @@ export default function DebugStylesPage() {
               placeholder="Enter matter title"
             />
           </div>
-          <div className="panel rounded-xl p-4">
+          <div className="panel rounded-r-md p-4">
             <Combobox
               label="Combobox"
               value={comboboxValue}
@@ -259,7 +259,7 @@ export default function DebugStylesPage() {
               placeholder="Pick a stage"
             />
           </div>
-          <div className="panel rounded-xl p-4">
+          <div className="panel rounded-r-md p-4">
             <CurrencyInput
               label="Currency Input"
               value={currencyValue}
@@ -267,14 +267,14 @@ export default function DebugStylesPage() {
               placeholder="0"
             />
           </div>
-          <div className="panel rounded-xl p-4">
+          <div className="panel rounded-r-md p-4">
             <DatePicker
               label="Date Picker"
               value={dateValue}
               onChange={setDateValue}
             />
           </div>
-          <div className="panel rounded-xl p-4 md:col-span-2">
+          <div className="panel rounded-r-md p-4 md:col-span-2">
             <Textarea
               label="Textarea"
               rows={3}
@@ -292,7 +292,7 @@ export default function DebugStylesPage() {
           One component, four modes. `multiple` and `allowCustomValues` toggle behavior; this is not a separate component.
         </p>
         <div className="grid gap-4 md:grid-cols-2 overflow-visible">
-          <div className="panel relative z-40 rounded-xl p-4 overflow-visible">
+          <div className="panel relative z-40 rounded-r-md p-4 overflow-visible">
             <Combobox
               label="Single (dropdown mode)"
               value={selectValue}
@@ -301,7 +301,7 @@ export default function DebugStylesPage() {
               searchable={false}
             />
           </div>
-          <div className="panel relative z-40 rounded-xl p-4 overflow-visible">
+          <div className="panel relative z-40 rounded-r-md p-4 overflow-visible">
             <Combobox
               label="Single (searchable)"
               placeholder="Pick a stage"
@@ -311,7 +311,7 @@ export default function DebugStylesPage() {
               leading={renderUserAvatar({ name: 'Demo User' }, 'xs', 'h-4 w-4 text-dim-2')}
             />
           </div>
-          <div className="panel relative z-30 rounded-xl p-4 overflow-visible">
+          <div className="panel relative z-30 rounded-r-md p-4 overflow-visible">
             <Combobox
               label="Multi (chips)"
               placeholder="Pick one or more stages"
@@ -323,7 +323,7 @@ export default function DebugStylesPage() {
               leading={renderUserAvatar({ name: 'Demo User' }, 'xs', 'h-4 w-4 text-dim-2')}
             />
           </div>
-          <div className="panel relative z-30 rounded-xl p-4 overflow-visible">
+          <div className="panel relative z-30 rounded-r-md p-4 overflow-visible">
             <Combobox
               label="Combobox (multi + custom)"
               placeholder="Type to add tags"
@@ -344,7 +344,7 @@ export default function DebugStylesPage() {
           Five sizes (<code>xs sm md lg xl</code>) with optional <code>status</code> dot (<code>active</code> = emerald, <code>inactive</code> = amber).
           Image falls back to initials extracted from <code>name</code>.
         </p>
-        <div className="panel rounded-xl p-4">
+        <div className="panel rounded-r-md p-4">
           <div className="flex flex-wrap items-end gap-6">
             {(['xs', 'sm', 'md', 'lg', 'xl'] as const).map((size) => (
               <div key={size} className="flex flex-col items-center gap-2">
@@ -371,7 +371,7 @@ export default function DebugStylesPage() {
         <p className="text-sm text-dim-2">
           Pass a <code>users</code> array and a <code>max</code> cap. Overflow renders a <code>+N</code> badge using the <code>input-surface</code> surface.
         </p>
-        <div className="panel rounded-xl p-4 flex flex-wrap items-center gap-8">
+        <div className="panel rounded-r-md p-4 flex flex-wrap items-center gap-8">
           <div className="flex flex-col gap-1">
             <StackedAvatars users={sampleUsers} size="sm" max={3} />
             <code className="text-[10px] text-dim-2">size=sm max=3</code>
@@ -398,7 +398,7 @@ export default function DebugStylesPage() {
           Pass <code>onClick</code> to make it a button (adds hover + focus ring).
         </p>
         <div className="grid gap-3 md:grid-cols-2">
-          <div className="panel rounded-xl p-1">
+          <div className="panel rounded-r-md p-1">
             <UserCard
               name="Alice Chen"
               secondary="alice@lawfirm.com"
@@ -407,7 +407,7 @@ export default function DebugStylesPage() {
               status="active"
             />
           </div>
-          <div className="panel rounded-xl p-1">
+          <div className="panel rounded-r-md p-1">
             <UserCard
               name="Bob Ramirez"
               secondary="bob@lawfirm.com"
@@ -417,7 +417,7 @@ export default function DebugStylesPage() {
               trailing={<Button size="xs" variant="ghost">Manage</Button>}
             />
           </div>
-          <div className="panel rounded-xl overflow-hidden">
+          <div className="panel rounded-r-md overflow-hidden">
             <UserCard
               name="Carol Singh"
               secondary="carol@lawfirm.com"
@@ -425,7 +425,7 @@ export default function DebugStylesPage() {
               onClick={() => alert('UserCard clicked')}
             />
           </div>
-          <div className="panel rounded-xl overflow-hidden">
+          <div className="panel rounded-r-md overflow-hidden">
             <UserCard
               name="David Kim"
               secondary="Member"

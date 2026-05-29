@@ -32,7 +32,7 @@ export const ProfileDropdown = ({
       role="menu"
       aria-orientation="vertical"
       aria-label="Profile menu"
-      className={`absolute bottom-full right-0 mb-2 w-full max-w-xs rounded-xl shadow-glass border border-line-subtle py-2 z-50 bg-surface-overlay ${className}`}
+      className={`absolute bottom-full right-0 mb-2 w-full max-w-xs rounded-r-md shadow-glass border border-line-subtle py-2 z-50 bg-card ${className}`}
     >
       {/* Settings */}
       <ProfileMenuItem

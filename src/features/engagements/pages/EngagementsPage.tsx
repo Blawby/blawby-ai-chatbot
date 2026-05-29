@@ -54,9 +54,9 @@ const engagementStatusBadge = (status: EngagementStatus | string | undefined): S
     case 'draft':
       return { label: 'Draft', className: 'bg-amber-500/10 text-amber-700 ring-amber-500/20 dark:text-amber-300' };
     case 'sent':
-      return { label: 'Sent', className: 'bg-surface-overlay/60 text-dim-2 ring-line-subtle' };
+      return { label: 'Sent', className: 'bg-card/60 text-dim-2 ring-line-subtle' };
     default:
-      return { label: '—', className: 'bg-surface-overlay/60 text-dim-2 ring-line-subtle' };
+      return { label: '—', className: 'bg-card/60 text-dim-2 ring-line-subtle' };
   }
 };
 
@@ -117,7 +117,7 @@ const EngagementMobileCard: FunctionComponent<{
     <button
       type="button"
       onClick={onClick}
-      className="w-full rounded-xl border border-card-border bg-surface-card px-4 py-3 text-left transition-colors hover:bg-surface-card-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/40"
+      className="w-full rounded-r-md border border-card-border bg-card px-4 py-3 text-left transition-colors hover:bg-paper-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/40"
     >
       <div className="flex items-start justify-between gap-3 pb-3">
         <span className="font-semibold text-ink break-words">{name}</span>
@@ -290,7 +290,7 @@ export const EngagementsPage: FunctionComponent<EngagementsPageProps> = ({
     : `No ${activeTab} engagements yet.`;
 
   return (
-    <div className="flex h-full flex-col min-h-0 bg-surface-workspace">
+    <div className="flex h-full flex-col min-h-0 bg-paper">
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line-subtle px-4 py-3 md:px-6">
         <SegmentedToggle<StatusFilter>
           value={activeTab}
@@ -333,7 +333,7 @@ export const EngagementsPage: FunctionComponent<EngagementsPageProps> = ({
                 stickyHeader
                 className="panel overflow-hidden"
                 bodyClassName="bg-transparent"
-                rowClassName="transition-colors duration-150 hover:!bg-surface-card-hover"
+                rowClassName="transition-colors duration-150 hover:!bg-paper-2"
                 hasMore={hasMore}
                 isLoadingMore={isLoadingMore}
                 onLoadMore={loadMore}
@@ -345,7 +345,7 @@ export const EngagementsPage: FunctionComponent<EngagementsPageProps> = ({
               {isLoading && engagements.length === 0 ? (
                 <div className="flex flex-col gap-3 px-4 py-3">
                   {Array.from({ length: 5 }).map((_, i) => (
-                    <div key={`skeleton-${i}`} className="h-32 rounded-xl bg-surface-card animate-pulse" />
+                    <div key={`skeleton-${i}`} className="h-32 rounded-r-md bg-card animate-pulse" />
                   ))}
                 </div>
               ) : (

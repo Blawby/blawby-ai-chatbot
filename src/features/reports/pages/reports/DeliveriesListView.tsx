@@ -84,7 +84,7 @@ export const DeliveriesListView: FunctionComponent<DeliveriesListViewProps> = ({
         stickyHeader
         className="panel overflow-hidden"
         bodyClassName="bg-transparent"
-        rowClassName="transition-colors duration-150 hover:!bg-surface-card-hover"
+        rowClassName="transition-colors duration-150 hover:!bg-paper-2"
         hasMore={hasMore}
         isLoadingMore={loading && items.length > 0}
         onLoadMore={loadMore}

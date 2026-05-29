@@ -147,7 +147,7 @@ export const DraftConversationView: FunctionComponent<DraftConversationViewProps
   const comboboxValue = isPracticeAssistant ? '__blawby_ai__' : (draftContact?.kind === 'user' ? draftContact.userId : '');
 
   return (
-    <div className="flex h-full min-h-0 flex-col bg-surface-workspace">
+    <div className="flex h-full min-h-0 flex-col bg-paper">
       <header className="flex items-center justify-between gap-3 border-b border-line-subtle px-4 py-3 sm:px-6">
         <div className="flex min-w-0 flex-1 items-center gap-3">
           <Avatar
@@ -219,7 +219,7 @@ export const DraftConversationView: FunctionComponent<DraftConversationViewProps
               }}
               className={cn(
                 'flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm',
-                'text-ink hover:bg-surface-utility/10 focus-visible:bg-surface-utility/10',
+                'text-ink hover:bg-paper-2/10 focus-visible:bg-paper-2/10',
               )}
             >
               <span className="text-accent-utility">+ Invite a new contact</span>

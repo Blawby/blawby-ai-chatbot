@@ -32,7 +32,7 @@ const ConversationListSkeleton = ({ rows = 6 }: { rows?: number }) => (
       return (
         <div
           key={i}
-          className="mb-1 flex w-full items-start gap-3 rounded-xl px-3 py-2.5"
+          className="mb-1 flex w-full items-start gap-3 rounded-r-md px-3 py-2.5"
           aria-hidden="true"
         >
           <SkeletonLoader variant="avatar" />
@@ -61,7 +61,7 @@ const ConversationListEmptyState = ({
 }: { title: string; hint: string }) => (
   <div className="flex h-full flex-1 items-center justify-center px-6 py-10">
     <div className="flex max-w-xs flex-col items-center gap-3 text-center">
-      <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-surface-overlay/60 ring-1 ring-line-subtle">
+      <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-card/60 ring-1 ring-line-subtle">
         <Icon
           icon={MessageSquare}
           className="h-6 w-6 text-dim-2"
@@ -107,7 +107,7 @@ const ConversationItem = memo(({ conversation, preview, fallbackName, isActive, 
       type="button"
       aria-current={isActive ? 'page' : undefined}
       className={cn(
-        'flex w-full items-start gap-3 rounded-xl px-3 py-2.5 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-500/50',
+        'flex w-full items-start gap-3 rounded-r-md px-3 py-2.5 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-500/50',
         isActive ? 'nav-item-active' : 'nav-item-inactive'
       )}
     >
@@ -166,7 +166,7 @@ const ConversationItem = memo(({ conversation, preview, fallbackName, isActive, 
         aria-hidden="true"
         className={cn(
           'mt-2 h-2 w-2 flex-shrink-0 rounded-full transition-opacity',
-          isUnread ? 'bg-accent-500 opacity-100' : 'opacity-0'
+          isUnread ? 'bg-accent opacity-100' : 'opacity-0'
         )}
       />
       {isUnread && (

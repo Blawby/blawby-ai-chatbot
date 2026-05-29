@@ -47,7 +47,7 @@ export function ContextMenu({ children, items, className }: ContextMenuProps) {
         <div
           ref={menuRef}
           role="menu"
-          className="fixed z-[100] min-w-[160px] rounded-xl panel py-1.5 shadow-lg"
+          className="fixed z-[100] min-w-[160px] rounded-r-md panel py-1.5 shadow-lg"
           style={{ top: position.y, left: position.x }}
         >
           {items.map((item, i) => {
@@ -66,7 +66,7 @@ export function ContextMenu({ children, items, className }: ContextMenuProps) {
                 }}
                 className={cn(
                   'flex w-full items-center gap-2.5 px-3 py-1.5 text-sm text-left transition-colors',
-                  'hover:bg-surface-utility/10',
+                  'hover:bg-paper-2/10',
                   'disabled:opacity-45 disabled:cursor-not-allowed',
                   item.destructive && 'text-red-500',
                   !item.destructive && 'text-ink',

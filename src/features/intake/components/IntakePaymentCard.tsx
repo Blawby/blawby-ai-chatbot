@@ -33,7 +33,7 @@ export const IntakePaymentCard: FunctionComponent<IntakePaymentCardProps> = ({ p
           href={paymentRequest.paymentLinkUrl}
           target="_blank"
           rel="noopener noreferrer"
-          className="btn btn-primary w-full text-center no-underline inline-flex items-center justify-center h-10 px-4 rounded-xl font-semibold transition-all hover:opacity-90 active:scale-[0.98]"
+          className="btn btn-primary w-full text-center no-underline inline-flex items-center justify-center h-10 px-4 rounded-r-md font-semibold transition-all hover:opacity-90 active:scale-[0.98]"
         >
           {buttonLabel}
         </a>
@@ -42,7 +42,7 @@ export const IntakePaymentCard: FunctionComponent<IntakePaymentCardProps> = ({ p
           type="button"
           disabled
           aria-disabled="true"
-          className="inline-flex h-10 w-full cursor-not-allowed items-center justify-center rounded-xl bg-accent-500 px-4 text-center font-semibold text-[rgb(var(--accent-foreground))] opacity-70"
+          className="inline-flex h-10 w-full cursor-not-allowed items-center justify-center rounded-r-md bg-accent px-4 text-center font-semibold text-[rgb(var(--accent-foreground))] opacity-70"
           title="Preview only"
         >
           {buttonLabel}

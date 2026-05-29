@@ -35,7 +35,7 @@ export class ErrorBoundary extends Component<Props, State> {
                     <h2 className="text-xl font-bold text-accent-error-light mb-4">Something went wrong</h2>
                     <details className="my-4">
                         <summary className="cursor-pointer text-accent-500 font-medium hover:text-accent-400 transition-colors">Error details</summary>
-                        <pre className="mt-2 p-4 bg-surface-workspace/40 dark:bg-surface-utility/10 border border-line-subtle rounded-xl overflow-x-auto text-sm text-accent-error/80">{this.state.error?.message}</pre>
+                        <pre className="mt-2 p-4 bg-paper/40 dark:bg-paper-2/10 border border-line-subtle rounded-r-md overflow-x-auto text-sm text-accent-error/80">{this.state.error?.message}</pre>
                     </details>
                     <Button 
                         variant="primary"

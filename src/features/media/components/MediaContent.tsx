@@ -28,19 +28,19 @@ const MediaContent: FunctionComponent<MediaContentProps> = ({ media }) => {
     const renderMediaContent = () => {
         if (isLoading && !renderUrl) {
             return (
-                <div className="flex h-64 w-64 animate-pulse items-center justify-center rounded-xl bg-surface-panel" />
+                <div className="flex h-64 w-64 animate-pulse items-center justify-center rounded-r-md bg-paper-2" />
             );
         }
         if (!renderUrl) {
             return (
-                <div className="flex h-64 w-64 items-center justify-center rounded-xl bg-surface-panel text-sm text-dim-2">
+                <div className="flex h-64 w-64 items-center justify-center rounded-r-md bg-paper-2 text-sm text-dim-2">
                     Preview unavailable
                 </div>
             );
         }
         if (media.category === 'video') {
             return (
-                <div className="max-w-full max-h-[80vh] rounded-xl overflow-hidden shadow-2xl">
+                <div className="max-w-full max-h-[80vh] rounded-r-md overflow-hidden shadow-2xl">
                     {!isVideoPlayIconing ? (
                         <div
                             className="relative cursor-pointer max-w-full max-h-[80vh]"
@@ -61,7 +61,7 @@ const MediaContent: FunctionComponent<MediaContentProps> = ({ media }) => {
                                 muted
                                 playsInline
                             />
-                            <div className="absolute inset-0 bg-surface-app-frame/80 flex flex-col items-center justify-center gap-2">
+                            <div className="absolute inset-0 bg-paper/80 flex flex-col items-center justify-center gap-2">
                                 <Icon icon={Play} className="text-[rgb(var(--accent-foreground))] w-12 h-12"  />
                                 <p className="text-[rgb(var(--accent-foreground))] text-sm font-medium">Click to play</p>
                             </div>
@@ -84,7 +84,7 @@ const MediaContent: FunctionComponent<MediaContentProps> = ({ media }) => {
             <img
                 src={renderUrl}
                 alt={media.name}
-                className="max-w-full max-h-[80vh] object-contain rounded-xl shadow-2xl cursor-default"
+                className="max-w-full max-h-[80vh] object-contain rounded-r-md shadow-2xl cursor-default"
             />
         );
     };

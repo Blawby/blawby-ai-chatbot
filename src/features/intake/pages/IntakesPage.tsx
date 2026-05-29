@@ -275,8 +275,8 @@ export const IntakesPage: FunctionComponent<IntakesPageProps> = ({
         : 'No leads have come in yet. New consultation inquiries will appear here.';
 
   return (
-    <div className="flex h-full flex-col min-h-0 bg-surface-workspace">
-      <div className="border-b border-line-subtle bg-surface-workspace px-4 py-3 md:px-6">
+    <div className="flex h-full flex-col min-h-0 bg-paper">
+      <div className="border-b border-line-subtle bg-paper px-4 py-3 md:px-6">
         <SegmentedToggle<TriageFilter>
           value={triageFilter}
           options={TRIAGE_FILTERS.map((filter) => ({ value: filter.id, label: filter.label }))}
@@ -309,7 +309,7 @@ export const IntakesPage: FunctionComponent<IntakesPageProps> = ({
                 stickyHeader
                 className="panel overflow-hidden"
                 bodyClassName="bg-transparent"
-                rowClassName="transition-colors duration-150 hover:!bg-surface-card-hover"
+                rowClassName="transition-colors duration-150 hover:!bg-paper-2"
                 hasMore={hasMore}
                 isLoadingMore={isLoadingMore}
                 onLoadMore={loadMore}
@@ -321,7 +321,7 @@ export const IntakesPage: FunctionComponent<IntakesPageProps> = ({
               {isLoading && rows.length === 0 ? (
                 <div className="flex flex-col gap-3 px-4 py-3">
                   {Array.from({ length: 5 }).map((_, i) => (
-                    <div key={`skeleton-${i}`} className="h-32 rounded-xl bg-surface-card animate-pulse" />
+                    <div key={`skeleton-${i}`} className="h-32 rounded-r-md bg-card animate-pulse" />
                   ))}
                 </div>
               ) : (
@@ -368,7 +368,7 @@ const IntakeMobileCard: FunctionComponent<IntakeMobileCardProps> = ({ item, onCl
     <button
       type="button"
       onClick={onClick}
-      className="w-full rounded-xl border border-card-border bg-surface-card px-4 py-3 text-left transition-colors hover:bg-surface-card-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/40"
+      className="w-full rounded-r-md border border-card-border bg-card px-4 py-3 text-left transition-colors hover:bg-paper-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/40"
     >
       <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-2 text-sm">
         {rows.map(({ label, value }) => (

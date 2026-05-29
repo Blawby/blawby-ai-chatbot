@@ -36,8 +36,8 @@ export const RadioGroupWithDescriptions = ({
               !isFirst && 'border-t border-line-subtle',
               'focus-within:outline-none focus-within:ring-2 ring-inset focus-within:ring-accent-500/50 focus-within:ring-inset',
               isSelected
-                ? 'bg-surface-panel/40 ring-1 ring-inset ring-accent-500/45 text-ink'
-                : 'text-ink hover:bg-surface-panel/10'
+                ? 'bg-paper-2/40 ring-1 ring-inset ring-accent-500/45 text-ink'
+                : 'text-ink hover:bg-paper-2/10'
             )}
           >
             <input
@@ -53,12 +53,12 @@ export const RadioGroupWithDescriptions = ({
               className={cn(
                 'mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full border',
                 isSelected
-                  ? 'border-accent-500/50 bg-accent-500/20'
-                  : 'border-line-subtle bg-surface-panel/20'
+                  ? 'border-accent-500/50 bg-accent/20'
+                  : 'border-line-subtle bg-paper-2/20'
               )}
               aria-hidden="true"
             >
-              {isSelected && <span className="h-1.5 w-1.5 rounded-full bg-accent-500" />}
+              {isSelected && <span className="h-1.5 w-1.5 rounded-full bg-accent" />}
             </span>
             <span className="flex flex-col">
               <span className="block text-sm font-medium text-ink">

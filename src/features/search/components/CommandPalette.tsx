@@ -210,7 +210,7 @@ function ScopePills({ scopes }: { scopes: SearchScope[] }) {
       {scopes.map((scope) => (
         <span
           key={scope}
-          className="text-xs font-medium px-2 py-1 rounded-md bg-surface-card-hover text-ink"
+          className="text-xs font-medium px-2 py-1 rounded-md bg-paper-2 text-ink"
         >
           in:{scope}
         </span>
@@ -249,8 +249,8 @@ function ResultGroups({
                 className={cn(
                   'w-full flex items-start gap-3 px-3 py-2 rounded-lg text-left transition-colors',
                   active
-                    ? 'bg-surface-card-hover'
-                    : 'hover:bg-surface-card-hover/60',
+                    ? 'bg-paper-2'
+                    : 'hover:bg-paper-2/60',
                   item.archived ? 'opacity-60' : '',
                 )}
               >
@@ -300,7 +300,7 @@ function SuggestionsList({
           key={`${s.source}:${s.query}`}
           type="button"
           onClick={() => onPick(s.query)}
-          className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-left hover:bg-surface-card-hover/60"
+          className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-left hover:bg-paper-2/60"
         >
           <Search size={14} className="text-ink/40" aria-hidden="true" />
           <span className="text-sm text-ink flex-1">{s.query}</span>
@@ -354,7 +354,7 @@ function RecentsList({
           key={q}
           type="button"
           onClick={() => onPick(q)}
-          className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-left hover:bg-surface-card-hover/60"
+          className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-left hover:bg-paper-2/60"
         >
           <Search size={14} className="text-ink/40" aria-hidden="true" />
           <span className="text-sm text-ink">{q}</span>

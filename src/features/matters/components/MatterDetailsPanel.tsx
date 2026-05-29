@@ -167,7 +167,7 @@ const SectionHeader = ({
   onCancel: () => void;
 }) => (
   <div className="mb-4 flex items-center justify-between">
-    <h4 className="font-display text-sm font-semibold tracking-tight text-ink">
+    <h4 className="font-serif text-sm font-semibold tracking-tight text-ink">
       {title}
     </h4>
     {isEditing ? (
@@ -199,7 +199,7 @@ const SectionHeader = ({
         icon={Pencil} iconClassName="h-4 w-4"
         className={cn(
           'text-dim-2 transition-all',
-          'hover:bg-surface-card-hover hover:text-ink focus-visible:text-ink'
+          'hover:bg-paper-2 hover:text-ink focus-visible:text-ink'
         )}
         aria-label={`Edit ${title.toLowerCase()}`}
       />
@@ -382,7 +382,7 @@ export const MatterDetailsPanel = ({
   return (
     <div className="panel divide-y divide-white/[0.06]">
       <div className="flex items-center justify-between px-5 py-4">
-        <h3 className="font-display text-sm font-semibold tracking-tight text-ink">Matter details</h3>
+        <h3 className="font-serif text-sm font-semibold tracking-tight text-ink">Matter details</h3>
         <span aria-hidden="true" className="h-px w-8 bg-gradient-to-r from-accent-500/0 via-accent-500/60 to-accent-500/0" />
       </div>
 
@@ -391,7 +391,7 @@ export const MatterDetailsPanel = ({
         <div className="group px-5 py-4">
           <SectionHeader title="Case" {...sectionProps('identifiers')} />
           {saveError && editing === 'identifiers' && (
-            <div className="mt-3 mb-3 p-2.5 rounded-xl bg-red-500/10 border border-red-500/20 text-xs text-red-400">
+            <div className="mt-3 mb-3 p-2.5 rounded-r-md bg-red-500/10 border border-red-500/20 text-xs text-red-400">
               {saveError}
             </div>
           )}
@@ -442,7 +442,7 @@ export const MatterDetailsPanel = ({
         <div className="group px-5 py-4">
           <SectionHeader title="Parties" {...sectionProps('parties')} />
           {saveError && editing === 'parties' && (
-            <div className="mt-3 mb-3 p-2.5 rounded-xl bg-red-500/10 border border-red-500/20 text-xs text-red-400">
+            <div className="mt-3 mb-3 p-2.5 rounded-r-md bg-red-500/10 border border-red-500/20 text-xs text-red-400">
               {saveError}
             </div>
           )}
@@ -489,7 +489,7 @@ export const MatterDetailsPanel = ({
         <div className="group px-5 py-4">
           <SectionHeader title="Jurisdiction" {...sectionProps('jurisdiction')} />
           {saveError && editing === 'jurisdiction' && (
-            <div className="mt-3 mb-3 p-2.5 rounded-xl bg-red-500/10 border border-red-500/20 text-xs text-red-400">
+            <div className="mt-3 mb-3 p-2.5 rounded-r-md bg-red-500/10 border border-red-500/20 text-xs text-red-400">
               {saveError}
             </div>
           )}
@@ -529,7 +529,7 @@ export const MatterDetailsPanel = ({
         <div className="group px-5 py-4">
           <SectionHeader title="Attorneys" {...sectionProps('attorneys')} />
           {saveError && editing === 'attorneys' && (
-            <div className="mt-3 mb-3 p-2.5 rounded-xl bg-red-500/10 border border-red-500/20 text-xs text-red-400">
+            <div className="mt-3 mb-3 p-2.5 rounded-r-md bg-red-500/10 border border-red-500/20 text-xs text-red-400">
               {saveError}
             </div>
           )}
@@ -583,7 +583,7 @@ export const MatterDetailsPanel = ({
         <div className="group px-5 py-4">
           <SectionHeader title="Financial" {...sectionProps('financial')} />
           {saveError && editing === 'financial' && (
-            <div className="mt-3 mb-3 p-2.5 rounded-xl bg-red-500/10 border border-red-500/20 text-xs text-red-400">
+            <div className="mt-3 mb-3 p-2.5 rounded-r-md bg-red-500/10 border border-red-500/20 text-xs text-red-400">
               {saveError}
             </div>
           )}

@@ -32,7 +32,7 @@ export const UploadQueueRow = ({
   const resolvedProgress = clampProgress(progress);
 
   return (
-    <div className="rounded-xl border border-line-subtle bg-surface-utility/35 px-3 py-2">
+    <div className="rounded-r-md border border-line-subtle bg-paper-2/35 px-3 py-2">
       <div className="flex items-start gap-3">
         <FileIcon fileName={fileName} mimeType={mimeType} size="sm" />
         <div className="min-w-0 flex-1">
@@ -83,7 +83,7 @@ export const UploadQueueRow = ({
       {status === 'uploading' ? (
         <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-line-glass/20">
           <div
-            className="h-full rounded-full bg-accent-500 transition-[width] duration-200"
+            className="h-full rounded-full bg-accent transition-[width] duration-200"
             style={{ width: `${resolvedProgress}%` }}
           />
         </div>

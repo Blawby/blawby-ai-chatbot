@@ -48,7 +48,7 @@ export const WorkspacePlaceholderState = ({
   <div className={cn('flex h-full items-center justify-center p-6', className)}>
     <div className="panel w-full max-w-lg rounded-[28px] border border-line-subtle px-8 py-8 text-center shadow-[0_24px_80px_rgba(0,0,0,0.18)] backdrop-blur-xl">
       {icon ? (
-        <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full border border-line-subtle bg-surface-utility/10">
+        <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full border border-line-subtle bg-paper-2/10">
           <Icon icon={icon} className="h-6 w-6 text-dim-2" aria-hidden="true" />
         </div>
       ) : null}

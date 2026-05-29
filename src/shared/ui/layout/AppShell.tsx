@@ -97,7 +97,7 @@ export const AppShell = ({
 
   return (
     <div
-      className={cn('relative grid h-full min-h-full w-full bg-surface-app-frame', gridClassName, className)}
+      className={cn('relative grid h-full min-h-full w-full bg-paper', gridClassName, className)}
       style={{ '--app-md-grid-cols': mdGridCols, '--app-lg-grid-cols': lgGridCols, '--app-xl-grid-cols': xlGridCols } as JSX.CSSProperties}
     >
       {backgroundDecor && (
@@ -127,7 +127,7 @@ export const AppShell = ({
       {hasListPanel && (
         <aside
           className={cn(
-            'relative z-10 p-2 row-start-2 min-h-0 overflow-y-auto bg-surface-collection hidden md:block',
+            'relative z-10 p-2 row-start-2 min-h-0 overflow-y-auto bg-paper-2 hidden md:block',
             listPanelColStartClass,
             listPanelClassName
           )}
@@ -138,7 +138,7 @@ export const AppShell = ({
 
       <main
         className={cn(
-          'relative z-10 row-start-2 min-h-0 h-full flex flex-col bg-surface-workspace',
+          'relative z-10 row-start-2 min-h-0 h-full flex flex-col bg-paper',
           mainColStartClass,
           mainClassName
         )}
@@ -149,7 +149,7 @@ export const AppShell = ({
       {hasInspector && (
         <aside
           className={cn(
-            'relative z-10 row-start-2 min-h-0 overflow-y-auto bg-surface-nav-secondary hidden xl:block',
+            'relative z-10 row-start-2 min-h-0 overflow-y-auto bg-paper-2 hidden xl:block',
             inspectorColStartClass,
             inspectorClassName
           )}

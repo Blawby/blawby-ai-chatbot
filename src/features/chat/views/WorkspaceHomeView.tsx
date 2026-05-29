@@ -83,7 +83,7 @@ const WorkspaceHomeView: FunctionComponent<WorkspaceHomeViewProps> = ({
             type="button"
             onClick={onOpenRecentMessage}
             disabled={!canOpenRecentMessage}
-            className="card px-5 py-5 text-left transition-all duration-300 hover:scale-[1.01] hover:bg-surface-utility/40 dark:hover:bg-surface-utility/10 hover:shadow-glass active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-70"
+            className="card px-5 py-5 text-left transition-all duration-300 hover:scale-[1.01] hover:bg-paper-2/40 dark:hover:bg-paper-2/10 hover:shadow-glass active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-70"
             aria-label={t('workspace.home.recentMessage')}
           >
             <div className="text-xs font-semibold uppercase tracking-wide text-dim-2">
@@ -117,12 +117,12 @@ const WorkspaceHomeView: FunctionComponent<WorkspaceHomeViewProps> = ({
           type="button"
           onClick={onSendMessage}
           disabled={!canSendMessage}
-          className="card flex w-full items-center justify-between px-6 py-5 text-left text-ink transition-all duration-300 hover:scale-[1.01] hover:bg-surface-utility/40 dark:hover:bg-surface-utility/10 hover:shadow-glass active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-70"
+          className="card flex w-full items-center justify-between px-6 py-5 text-left text-ink transition-all duration-300 hover:scale-[1.01] hover:bg-paper-2/40 dark:hover:bg-paper-2/10 hover:shadow-glass active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-70"
           aria-label={t('workspace.home.sendMessage')}
         >
           <span className="text-lg font-bold tracking-tight">{t('workspace.home.sendMessage')}</span>
           <span
-            className="inline-flex items-center justify-center w-10 h-10 rounded-full bg-accent-500 text-[rgb(var(--accent-foreground))] pointer-events-none transition-all duration-300"
+            className="inline-flex items-center justify-center w-10 h-10 rounded-full bg-accent text-[rgb(var(--accent-foreground))] pointer-events-none transition-all duration-300"
             aria-hidden="true"
           >
             <Icon icon={Send} className="h-5 w-5" aria-hidden="true"  />

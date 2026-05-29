@@ -168,7 +168,7 @@ export function ClientInvoicesPage({
           onLoadMore={hasMore ? loadMore : undefined}
           renderItem={(invoice) => (
             <div
-              className={cn('w-full px-4 py-3 text-left hover:bg-surface-utility/10')}
+              className={cn('w-full px-4 py-3 text-left hover:bg-paper-2/10')}
             >
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">

@@ -107,7 +107,7 @@ export const IntakeFilesPanel: FunctionComponent<IntakeFilesPanelProps> = ({
 
   return (
     <section
-      className={`rounded-xl border border-card-border bg-surface-card p-4 sm:p-6 ${className ?? ''}`}
+      className={`rounded-r-md border border-card-border bg-card p-4 sm:p-6 ${className ?? ''}`}
     >
       <FilesCollectionPanel
         files={orgFiles}

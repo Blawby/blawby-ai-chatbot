@@ -192,7 +192,7 @@ export const TimeEntriesPanel = ({
                 key={day.dateKey}
                 type="button"
                 onClick={() => openNewEntry(day.dateKey)}
-                className="w-full text-left px-4 py-3 sm:px-6 hover:bg-surface-card-hover transition-colors"
+                className="w-full text-left px-4 py-3 sm:px-6 hover:bg-paper-2 transition-colors"
               >
                 <div className="grid gap-2 sm:grid-cols-12 sm:items-center">
                   <div className="text-sm font-medium text-dim-2 sm:col-span-3">
@@ -202,7 +202,7 @@ export const TimeEntriesPanel = ({
                     <div className="flex items-center gap-3">
                       <div className="flex-1 h-2 rounded-full bg-line-subtle">
                         <div
-                          className="h-2 rounded-full bg-accent-500"
+                          className="h-2 rounded-full bg-accent"
                           style={{ width: `${day.progressPercentage}%` }}
                         />
                       </div>

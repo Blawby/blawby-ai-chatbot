@@ -55,7 +55,7 @@ export const ChatDockedAction: FunctionComponent<ChatDockedActionProps> = ({
               size="icon-sm"
               onClick={onClose}
               aria-label="Dismiss"
-              className="shrink-0 text-dim-2 hover:bg-surface-hover hover:text-ink"
+              className="shrink-0 text-dim-2 hover:bg-paper-2 hover:text-ink"
             >
               <Icon icon={X} className="h-5 w-5" />
             </Button>

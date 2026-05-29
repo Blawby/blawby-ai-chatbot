@@ -200,9 +200,9 @@ const EngagementLetterPreview: FunctionComponent<{
   const today = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
 
   return (
-    <div className="rounded-xl border border-card-border bg-surface-card text-sm leading-relaxed text-ink shadow-sm overflow-hidden">
+    <div className="rounded-r-md border border-card-border bg-card text-sm leading-relaxed text-ink shadow-sm overflow-hidden">
       {/* Letterhead */}
-      <div className="border-b border-line-subtle bg-surface-overlay/20 px-6 py-4 space-y-0.5">
+      <div className="border-b border-line-subtle bg-card/20 px-6 py-4 space-y-0.5">
         <p className="text-xs font-semibold uppercase tracking-widest text-dim-2">
           {practiceName || 'Your Practice'}
         </p>
@@ -232,7 +232,7 @@ const EngagementLetterPreview: FunctionComponent<{
 
         {/* Fee summary */}
         {form.billingType ? (
-          <div className="rounded-lg border border-line-subtle bg-surface-overlay/30 px-4 py-3 space-y-1">
+          <div className="rounded-lg border border-line-subtle bg-card/30 px-4 py-3 space-y-1">
             <p className="text-xs font-semibold uppercase tracking-widest text-dim-2">Fee Summary</p>
             <p className="text-xs">{billingSummaryLine(form)}</p>
             {form.feeNotes.trim() && (
@@ -272,7 +272,7 @@ const SelectedIntakeCard: FunctionComponent<{
   const email = intake.metadata?.email?.trim() || '';
   const subject = resolveIntakeTitle(intake.metadata, '');
   return (
-    <div className="flex items-start justify-between gap-3 rounded-lg border border-card-border bg-surface-card px-3 py-2.5">
+    <div className="flex items-start justify-between gap-3 rounded-lg border border-card-border bg-card px-3 py-2.5">
       <div className="min-w-0 flex-1">
         <p className="truncate font-medium text-ink">{name}</p>
         {email && <p className="truncate text-sm text-dim-2">{email}</p>}

@@ -71,10 +71,10 @@ export const WidgetPreviewFrame = ({
     <div className="w-full">
       {showTitle ? <h3 className="mb-3 text-sm font-semibold text-ink">{title}</h3> : null}
       <div className={cn(
-        'mx-auto w-full max-w-[380px] overflow-hidden bg-surface-card',
-        framed && 'rounded-xl border border-line-subtle shadow-glass',
+        'mx-auto w-full max-w-[380px] overflow-hidden bg-card',
+        framed && 'rounded-r-md border border-line-subtle shadow-glass',
       )}>
-        <div className={cn('relative w-full overflow-hidden bg-surface-ground', viewportClassName)}>
+        <div className={cn('relative w-full overflow-hidden bg-paper', viewportClassName)}>
           <WidgetPreviewApp
             key={previewKey}
             practiceId={previewPracticeId}

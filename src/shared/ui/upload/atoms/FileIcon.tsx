@@ -38,7 +38,7 @@ export const FileIcon = ({
 
   return (
     <div className={cn(
-      'rounded-xl flex items-center justify-center',
+      'rounded-r-md flex items-center justify-center',
       config.color,
       sizeClasses[size],
       className

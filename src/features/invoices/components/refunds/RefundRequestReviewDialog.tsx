@@ -102,7 +102,7 @@ export const RefundRequestReviewDialog = ({
       disableBackdropClick={loading}
     >
       <DialogBody className="space-y-4">
-        <div className="rounded-xl border border-line-subtle bg-surface-utility/30 px-4 py-3 text-sm">
+        <div className="rounded-r-md border border-line-subtle bg-paper-2/30 px-4 py-3 text-sm">
           <div className="flex items-center justify-between">
             <span className="text-dim-2">Amount</span>
             <span className="font-semibold text-ink">

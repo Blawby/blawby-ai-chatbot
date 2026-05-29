@@ -36,7 +36,7 @@ export const CollectionToolbar = ({
   return (
     <section
       className={cn(
-        'rounded-2xl border border-line-subtle bg-surface-panel/70 backdrop-blur-xl',
+        'rounded-2xl border border-line-subtle bg-paper-2/70 backdrop-blur-xl',
         compact ? 'p-3' : 'p-4 sm:p-5',
         className
       )}
