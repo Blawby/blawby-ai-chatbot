@@ -1468,7 +1468,7 @@ type UserDetailBasePayload = {
   event_name?: string;
 };
 
-type UpdateUserDetailPayload = UserDetailBasePayload & Record<string, unknown>;
+export type UpdateUserDetailPayload = UserDetailBasePayload & Record<string, unknown>;
 
 const normalizeOptionalText = (value: unknown): string | undefined => {
   if (typeof value !== 'string') return undefined;
