@@ -89,12 +89,8 @@ import {
 
 import {
   BackendActivityEventSchema,
-  BackendActivityActorTypeSchema,
-  BackendActivityEventTypeSchema,
   BackendActivityListResponseSchema,
   type BackendActivityEvent,
-  type BackendActivityActorType,
-  type BackendActivityEventType,
   type BackendActivityListResponse,
 } from '../../../worker/types/wire/activity';
 
@@ -148,8 +144,6 @@ describe('wire schemas — type/zod parity', () => {
 
   it('activity wire types match z.infer of their schemas', () => {
     expectTypeOf<z.infer<typeof BackendActivityEventSchema>>().toEqualTypeOf<BackendActivityEvent>();
-    expectTypeOf<z.infer<typeof BackendActivityActorTypeSchema>>().toEqualTypeOf<BackendActivityActorType>();
-    expectTypeOf<z.infer<typeof BackendActivityEventTypeSchema>>().toEqualTypeOf<BackendActivityEventType>();
     expectTypeOf<z.infer<typeof BackendActivityListResponseSchema>>().toEqualTypeOf<BackendActivityListResponse>();
   });
 });

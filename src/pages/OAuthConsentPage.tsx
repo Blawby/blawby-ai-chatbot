@@ -26,6 +26,13 @@ interface OAuthConsentResponse {
   redirectURI?: string;
 }
 
+interface OAuthPublicClientInfo {
+  clientId: string;
+  name: string;
+  icon?: string | null;
+  uri?: string | null;
+}
+
 const getOAuthQuery = (): string => {
   if (typeof window === 'undefined') return '';
   return window.location.search.replace(/^\?/, '');
@@ -37,6 +44,8 @@ export default function OAuthConsentPage() {
   const { session, isPending } = useSessionContext();
   const { showError } = useToastContext();
   const [submitting, setSubmitting] = useState<'accept' | 'deny' | null>(null);
+  const [clientInfo, setClientInfo] = useState<OAuthPublicClientInfo | null>(null);
+  const [clientInfoPending, setClientInfoPending] = useState(false);
 
   const query = location.query as Record<string, string | undefined>;
   const oauthQuery = getOAuthQuery();
@@ -45,7 +54,7 @@ export default function OAuthConsentPage() {
 
   const requestedScopes = useMemo(() => parseScopeString(scopeParam), [scopeParam]);
   const scopeGroups = useMemo(() => groupMcpScopes(requestedScopes), [requestedScopes]);
-  const appName = clientId?.trim() || 'An application';
+  const appName = clientInfo?.name?.trim() || clientId?.trim() || 'An application';
 
   // Consent requires an authenticated, non-anonymous user. Better Auth only
   // redirects here mid-flow once signed in, but guard the direct-navigation case.
@@ -56,9 +65,45 @@ export default function OAuthConsentPage() {
         typeof window !== 'undefined'
           ? `${window.location.pathname}${window.location.search}`
           : '/oauth/consent';
-      navigate(`/auth?returnTo=${encodeURIComponent(returnTo)}`, true);
+      navigate(`/login?redirect=${encodeURIComponent(returnTo)}`, true);
     }
   }, [isPending, session?.user, navigate]);
+
+  useEffect(() => {
+    if (!clientId) {
+      setClientInfo(null);
+      setClientInfoPending(false);
+      return;
+    }
+
+    const controller = new AbortController();
+    setClientInfoPending(true);
+    void fetch(
+      `${getWorkerApiUrl()}/api/auth/oauth2/public-client-info?client_id=${encodeURIComponent(clientId)}`,
+      {
+        credentials: 'include',
+        signal: controller.signal,
+      },
+    )
+      .then(async (response) => {
+        if (!response.ok) return null;
+        return (await response.json()) as OAuthPublicClientInfo;
+      })
+      .then((payload) => {
+        setClientInfo(payload ?? null);
+      })
+      .catch((error: unknown) => {
+        if (error instanceof Error && error.name === 'AbortError') return;
+        setClientInfo(null);
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) {
+          setClientInfoPending(false);
+        }
+      });
+
+    return () => controller.abort();
+  }, [clientId]);
 
   if (isPending || !session?.user || session.user.is_anonymous) {
     return <LoadingScreen />;
@@ -77,7 +122,6 @@ export default function OAuthConsentPage() {
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({
           accept,
-          scope: scopeParam ?? '',
           oauth_query: oauthQuery,
         }),
       });
@@ -86,6 +130,9 @@ export default function OAuthConsentPage() {
         const message =
           (payload && 'error' in payload ? payload.error?.message : undefined)
           ?? (payload && 'message' in payload ? payload.message : undefined)
+          ?? ((response.status === 400 || response.status === 403)
+            ? 'This consent request is invalid or expired. Start the connection flow again from your MCP client.'
+            : undefined)
           ?? `Authorization server returned ${response.status}`;
         showError('Consent failed', message);
         setSubmitting(null);
@@ -118,6 +165,16 @@ export default function OAuthConsentPage() {
           <p className="mt-1 text-sm text-input-placeholder">
             <span className="font-medium text-input-text">{appName}</span> wants to connect to your Blawby account.
           </p>
+          {clientInfo?.uri ? (
+            <a
+              href={clientInfo.uri}
+              target="_blank"
+              rel="noreferrer"
+              className="mt-2 text-xs text-input-placeholder underline-offset-2 hover:underline"
+            >
+              {clientInfo.uri}
+            </a>
+          ) : null}
         </div>
 
         {!oauthQuery ? (
@@ -126,6 +183,21 @@ export default function OAuthConsentPage() {
           </Alert>
         ) : (
           <>
+            {clientInfoPending ? (
+              <p className="mt-6 text-sm text-input-placeholder">Loading client details…</p>
+            ) : null}
+
+            {clientInfo?.icon ? (
+              <div className="mt-6 flex justify-center">
+                <img
+                  src={clientInfo.icon}
+                  alt={`${appName} icon`}
+                  className="h-12 w-12 rounded-full border border-line-subtle object-cover"
+                  loading="lazy"
+                />
+              </div>
+            ) : null}
+
             <div className="mt-6 space-y-5">
               {requestedScopes.length === 0 ? (
                 <p className="text-sm text-input-placeholder">No specific permissions were requested.</p>
@@ -168,7 +240,7 @@ export default function OAuthConsentPage() {
             </div>
 
             <p className="mt-4 text-center text-xs text-input-placeholder">
-              This authorizes identity access only. Practice data access is not granted by this screen.
+              You can revoke access later from your MCP integration settings.
             </p>
           </>
         )}

@@ -19,13 +19,18 @@ export interface CorsOptions {
 }
 
 // Default CORS configuration
+//
+// MCP-specific headers (`Mcp-Session-Id`, `Mcp-Protocol-Version`,
+// `Last-Event-ID`) are in allowedHeaders so browser-based MCP clients can
+// negotiate the Streamable HTTP transport. `Mcp-Session-Id` is also in
+// exposeHeaders so clients can read it from the initialize response.
 const DEFAULT_CORS_OPTIONS: Required<CorsOptions> = {
   allowedOrigins: '*',
   allowedMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'X-Captcha-Token', 'X-Turnstile-Token', 'Cache-Control'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'X-Captcha-Token', 'X-Turnstile-Token', 'Cache-Control', 'Mcp-Session-Id', 'Mcp-Protocol-Version', 'Last-Event-ID'],
   allowCredentials: false,
   maxAge: 86400, // 24 hours
-  exposeHeaders: ['Content-Disposition', 'Content-Length']
+  exposeHeaders: ['Content-Disposition', 'Content-Length', 'Mcp-Session-Id', 'Mcp-Protocol-Version']
 };
 
 // Security headers following Cloudflare best practices
@@ -173,10 +178,10 @@ export function createProductionCorsOptions(allowedDomains: string[]): CorsOptio
   return {
     allowedOrigins: allowedDomains,
     allowedMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Cookie', 'X-Captcha-Token', 'X-Turnstile-Token', 'Cache-Control'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Cookie', 'X-Captcha-Token', 'X-Turnstile-Token', 'Cache-Control', 'Mcp-Session-Id', 'Mcp-Protocol-Version', 'Last-Event-ID'],
     allowCredentials: true,
     maxAge: 86400,
-    exposeHeaders: ['Content-Disposition', 'Content-Length']
+    exposeHeaders: ['Content-Disposition', 'Content-Length', 'Mcp-Session-Id', 'Mcp-Protocol-Version']
   };
 }
 
@@ -189,10 +194,10 @@ export function createDevelopmentCorsOptions(): CorsOptions {
   return {
     allowedOrigins: '*',
     allowedMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Cookie', 'X-Captcha-Token', 'X-Turnstile-Token', 'Cache-Control'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Cookie', 'X-Captcha-Token', 'X-Turnstile-Token', 'Cache-Control', 'Mcp-Session-Id', 'Mcp-Protocol-Version', 'Last-Event-ID'],
     allowCredentials: false, // Cannot be true with wildcard origin
     maxAge: 86400,
-    exposeHeaders: ['Content-Disposition', 'Content-Length']
+    exposeHeaders: ['Content-Disposition', 'Content-Length', 'Mcp-Session-Id', 'Mcp-Protocol-Version']
   };
 }
 

@@ -71,6 +71,13 @@ class_name = "MatterProgressRoom"
 name = "PRESENCE_ROOM"
 class_name = "PresenceRoom"
 
+# MCP session DO (U6 of the MCP agent surface plan).
+# Uses SQLite storage for the per-session 7-day event replay buffer so
+# replay queries stay scoped per-session and avoid global D1 contention.
+[[durable_objects.bindings]]
+name = "MCP_SESSION"
+class_name = "McpSession"
+
 [[migrations]]
 tag = "v4"
 new_classes = ["MatterProgressRoom"]
@@ -78,6 +85,10 @@ new_classes = ["MatterProgressRoom"]
 [[migrations]]
 tag = "v5"
 new_classes = ["PresenceRoom"]
+
+[[migrations]]
+tag = "v6"
+new_sqlite_classes = ["McpSession"]
 
 
 [env.dev]
@@ -136,6 +147,10 @@ class_name = "MatterProgressRoom"
 name = "PRESENCE_ROOM"
 class_name = "PresenceRoom"
 
+[[env.dev.durable_objects.bindings]]
+name = "MCP_SESSION"
+class_name = "McpSession"
+
 [[env.dev.migrations]]
 tag = "v2"
 new_classes = ["ChatRoom"]
@@ -147,6 +162,10 @@ new_classes = ["MatterProgressRoom"]
 [[env.dev.migrations]]
 tag = "v5"
 new_classes = ["PresenceRoom"]
+
+[[env.dev.migrations]]
+tag = "v6"
+new_sqlite_classes = ["McpSession"]
 
 [env.dev.vars]
 NODE_ENV = "development"
@@ -231,6 +250,10 @@ class_name = "MatterProgressRoom"
 name = "PRESENCE_ROOM"
 class_name = "PresenceRoom"
 
+[[env.staging.durable_objects.bindings]]
+name = "MCP_SESSION"
+class_name = "McpSession"
+
 [[env.staging.migrations]]
 tag = "v6"
 new_classes = ["MatterDiffStore"]
@@ -242,6 +265,10 @@ deleted_classes = ["MatterDiffStore"]
 [[env.staging.migrations]]
 tag = "v8"
 new_classes = ["PresenceRoom"]
+
+[[env.staging.migrations]]
+tag = "v9"
+new_sqlite_classes = ["McpSession"]
 
 [env.staging.vars]
 NODE_ENV = "staging"
@@ -287,6 +314,9 @@ new_classes = ["MatterProgressRoom"]
 [[env.production.migrations]]
 tag = "v6"
 new_classes = ["PresenceRoom"]
+[[env.production.migrations]]
+tag = "v7"
+new_sqlite_classes = ["McpSession"]
 [[env.production.r2_buckets]]
 binding = "FILES_BUCKET"
 bucket_name = "blawby-ai-files"
@@ -334,6 +364,10 @@ class_name = "MatterProgressRoom"
 [[env.production.durable_objects.bindings]]
 name = "PRESENCE_ROOM"
 class_name = "PresenceRoom"
+
+[[env.production.durable_objects.bindings]]
+name = "MCP_SESSION"
+class_name = "McpSession"
 
 [env.production.vars]
 NODE_ENV = "production"

@@ -129,6 +129,11 @@ export interface Env {
   MATTER_PROGRESS: DurableObjectNamespace;
   CHAT_COUNTER: DurableObjectNamespace;
   PRESENCE_ROOM: DurableObjectNamespace;
+  // U6 of MCP plan: per-session DO holding the live MCP transport
+  // (WebSocket-hibernating), per-session event replay buffer in DO SQLite
+  // storage, and the protocol version negotiation state.
+  // See docs/plans/2026-05-15-002-feat-blawby-mcp-agent-surface-plan.md.
+  MCP_SESSION: DurableObjectNamespace;
   FILES_BUCKET?: R2Bucket;
   ADOBE_CLIENT_ID?: string;
   ADOBE_CLIENT_SECRET?: string;
@@ -149,7 +154,33 @@ export interface Env {
   REQUIRE_EMAIL_VERIFICATION?: string | boolean;
   ENABLE_PUSH_NOTIFICATIONS?: string | boolean;
 
+  /**
+   * Idempotency salt — required for MCP rollout (U12 of the MCP agent
+   * surface plan). Direct-write and high-risk tools refuse to derive
+   * keys without it, so MCP simply doesn't function while the salt is
+   * unset — that's the desired posture.
+   *
+   * Non-MCP callers (ActivityService cursor signing) fall back to a
+   * placeholder when this is unset; historical behavior preserved.
+   *
+   * Set via `wrangler secret put IDEMPOTENCY_SALT` per env. Rotation
+   * requires a coordinated 24h drain since in-flight idempotency keys
+   * are invalidated immediately.
+   */
   IDEMPOTENCY_SALT?: string;
+
+  // MCP server config.
+  // MCP_BACKEND_AUDIENCE — canonical resource URL for the
+  //   /.well-known/oauth-protected-resource document and JWT `aud` enforcement.
+  //   If unset, derived from the request URL (local dev).
+  // MCP_BACKEND_TOKEN — service token the Worker sends when calling backend
+  //   REST endpoints from MCP tool handlers.
+  // WORKER_EVENT_SECRET — secret backend sends in `x-worker-secret` header
+  //   on the /api/mcp/internal/events ingest route.
+  MCP_BACKEND_AUDIENCE?: string;
+  MCP_BACKEND_TOKEN?: string;
+  WORKER_EVENT_SECRET?: string;
+
   CLOUDFLARE_ACCOUNT_ID?: string;
   CLOUDFLARE_API_TOKEN?: string;
   CLOUDFLARE_PUBLIC_URL?: string;

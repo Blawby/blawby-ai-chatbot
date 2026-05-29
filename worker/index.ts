@@ -27,6 +27,13 @@ import { handleGlobalSearch } from './routes/search.js';
 import { handlePresence } from './routes/presence.js';
 import { handleAiChat } from './routes/aiChat.js';
 import { handleAiIntent } from './routes/aiIntent.js';
+import {
+  handleMcp,
+  handleMcpWebSocket,
+  handleMcpInternalEvents,
+  handleOAuthProtectedResource,
+} from './routes/mcp/index.js';
+import { withMCPAuth } from './middleware/mcpAuth.js';
 import { handleGenerateEngagement } from './routes/generateEngagement.js';
 import { handlePracticeAssistant } from './routes/practiceAssistant.js';
 import { withAuth, withCache, withRateLimit } from './middleware/compose.js';
@@ -117,6 +124,26 @@ const matchesBackendProxy: RouteMatcher = (path) =>
 // `/api/ai/intent` before `/api/ai/chat`).
 export const routes: RouteEntry[] = [
   { mode: 'proxy', match: prefix('/api/auth'), handler: (req, env) => handleAuthProxy(req, env) },
+  // MCP scaffolding (U6) + auth middleware (U7). Order matters: the more-
+  // specific `/api/mcp/internal/events` and `/api/mcp/ws` must come before
+  // the catch-all `/api/mcp`.
+  //
+  // The internal events route stays UNAUTHENTICATED at the Bearer-JWT layer
+  // — it's service-to-service and uses x-worker-secret single-factor auth.
+  // The well-known resource doc is also unauthenticated; the spec requires
+  // it to be publicly discoverable.
+  //
+  // Everything else under `/api/mcp` is wrapped with withMCPAuth: validates
+  // Bearer JWT against backend JWKS, checks audience and scope, then sets
+  // X-Mcp-* identity headers forwarded to the McpSession DO.
+  { mode: 'owned', match: exact('/api/mcp/internal/events'), handler: handleMcpInternalEvents },
+  { mode: 'owned', match: exact('/api/mcp/ws'), handler: withMCPAuth(handleMcpWebSocket) },
+  { mode: 'owned', match: exact('/api/mcp'), handler: withMCPAuth(handleMcp) },
+  {
+    mode: 'owned',
+    match: exact('/.well-known/oauth-protected-resource'),
+    handler: handleOAuthProtectedResource,
+  },
   { mode: 'proxy', match: regex(/^\/api\/practice\/[^/]+\/team$/), handler: (req, env) => handlePracticeTeam(req, env) },
   {
     mode: 'owned',
@@ -385,3 +412,4 @@ export { ChatRoom } from './durable-objects/ChatRoom';
 export { ChatCounterObject } from './durable-objects/ChatCounterObject';
 export { MatterProgressRoom } from './durable-objects/MatterProgressRoom';
 export { PresenceRoom } from './durable-objects/PresenceRoom';
+export { McpSession } from './durable-objects/McpSession';

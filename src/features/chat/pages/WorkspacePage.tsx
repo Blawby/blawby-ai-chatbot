@@ -1258,7 +1258,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
       error={resolvedConversationsError}
       onSelectConversation={handleSelectConversation}
       onCompose={handleEnterDraftMode}
-      draftEntry={draftConversation
+      draftEntry={draftConversation?.kind === 'user'
         ? { contactName: draftConversation.contactName, contactEmail: draftConversation.contactEmail }
         : null}
       onSelectDraftEntry={handleEnterDraftMode}
@@ -1350,7 +1350,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
           error={resolvedConversationsError}
           onSelectConversation={handleSelectConversation}
           onCompose={handleEnterDraftMode}
-          draftEntry={draftConversation
+          draftEntry={draftConversation?.kind === 'user'
             ? { contactName: draftConversation.contactName, contactEmail: draftConversation.contactEmail }
             : null}
           onSelectDraftEntry={handleEnterDraftMode}

@@ -188,7 +188,8 @@ const Message: FunctionComponent<MessageProps> = memo(({
 	}
 
 	const hasContent = Boolean(content);
-	const shouldShowIndicator = isLoading && !hasContent;
+	void isLoading;
+	void hasContent;
 	
 	const hasOnlyMedia = files.length > 0 && !content && files.every(file => 
 		file.type.startsWith('image/') || 

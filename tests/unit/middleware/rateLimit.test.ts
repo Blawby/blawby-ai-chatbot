@@ -27,6 +27,8 @@ const createMockEnv = (): {
     CHAT_ROOM: {} as Env['CHAT_ROOM'],
     MATTER_PROGRESS: {} as Env['MATTER_PROGRESS'],
     PRESENCE_ROOM: {} as Env['PRESENCE_ROOM'],
+    MCP_SESSION: {} as Env['MCP_SESSION'],
+    IDEMPOTENCY_SALT: 'test-salt',
     ONESIGNAL_APP_ID: 'test-app',
     ONESIGNAL_REST_API_KEY: 'test-key',
   };

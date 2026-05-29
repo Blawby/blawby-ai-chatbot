@@ -438,6 +438,11 @@ function AppShell() {
               <AuthPage {...props} />
             </Suspense>
           )} />
+          <Route path="/login" component={(props) => (
+            <Suspense fallback={<LoadingScreen />}>
+              <AuthPage {...props} />
+            </Suspense>
+          )} />
           <Route path="/auth/accept-invitation" component={(props) => (
             <Suspense fallback={<LoadingScreen />}>
               <AcceptInvitationPage {...props} />
