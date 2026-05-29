@@ -162,10 +162,8 @@
   }
 
 
-  /* Canonical DS card. .card-surface kept as alias for legacy callers.
-     Sweep to single .card happens in Commit 8. */
-  .card,
-  .card-surface {
+  /* Canonical DS card. */
+  .card {
     position: relative;
     background: var(--card);
     border: 1px solid var(--rule);
@@ -174,13 +172,11 @@
     box-shadow: var(--shadow-1);
   }
 
-  .card-hover,
-  .card-surface-hover {
+  .card-hover {
     transition: background 0.18s ease, box-shadow 0.18s ease;
   }
 
-  .card-hover:hover,
-  .card-surface-hover:hover {
+  .card-hover:hover {
     background: var(--paper-2);
     box-shadow: var(--shadow-2);
   }
