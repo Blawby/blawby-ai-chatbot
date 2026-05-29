@@ -7,12 +7,14 @@ import { usePracticeDetails } from '@/shared/hooks/usePracticeDetails';
 import { useSidebarCounts } from '@/shared/hooks/useSidebarCounts';
 import { useClientsData } from '@/shared/hooks/useClientsData';
 import { useNavigation } from '@/shared/utils/navigation';
+import { signOut } from '@/shared/utils/auth';
 import { Button } from '@/shared/ui/Button';
 import { SegmentedToggle, type SegmentedToggleOption } from '@/shared/ui/input/SegmentedToggle';
-import { PracticeSidebar } from '@/shared/ui/nav/PracticeSidebar';
-import { WorkspaceShellHeader } from '@/shared/ui/layout/WorkspaceShellHeader';
-import { AppShell } from '@/shared/ui/layout/AppShell';
-import { useCommandPalette } from '@/features/search/contexts/CommandPaletteContext';
+import { LeftRail, BrandMark, type LeftRailItem } from '@/design-system/layout';
+import { OrgSwitcherMenu } from '@/shared/ui/nav/OrgSwitcherMenu';
+import { SidebarProfileMenu } from '@/shared/ui/nav/SidebarProfileMenu';
+import { getPracticeNavConfig } from '@/shared/config/navConfig';
+import type { IconComponent } from '@/shared/ui/Icon';
 import { usePracticeBillingData } from '@/features/practice-dashboard/hooks/usePracticeBillingData';
 import { listIntakes, type IntakeListItem } from '@/features/intake/api/intakesApi';
 import { resolveIntakeTitle } from '@/features/intake/utils/intakeTitle';
@@ -82,8 +84,6 @@ const PracticeHomePage = () => {
     practiceSlug: urlPracticeSlug,
   });
   const { navigate } = useNavigation();
-  const [desktopCollapsed, setDesktopCollapsed] = useState(false);
-  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [cashflowRange, setCashflowRange] = useState<CashflowRange>('7d');
   const [setupDismissed, setSetupDismissed] = useState<boolean>(() => {
     if (typeof window === 'undefined') return false;
@@ -212,7 +212,6 @@ const PracticeHomePage = () => {
     return () => controller.abort();
   }, [activePracticeId]);
 
-  const sidebarUser = { name: userName, email: userEmail, image: userImage };
   const invoicesTotal = rawSidebarCounts?.invoices?.total ?? 0;
   const activeClientCount = activeClientsData.items.length;
   const billingComplete = Boolean(
@@ -263,37 +262,50 @@ const PracticeHomePage = () => {
   const hasIntakes = recentIntakes.length > 0;
   const pendingIntakeCount = rawSidebarCounts?.intakes?.pending_review ?? 0;
 
-  const renderSidebar = (forceExpanded: boolean) =>
-    practiceSlug ? (
-      <PracticeSidebar
-        practiceSlug={practiceSlug}
-        org={{
-          id: currentPractice?.id,
-          slug: currentPractice?.slug ?? practiceSlug,
-          name: orgName,
-          initial: orgInitial,
-          logoUrl: currentPractice?.logo ?? null,
-        }}
-        user={sidebarUser}
-        collapsed={desktopCollapsed}
-        forceExpanded={forceExpanded}
-        onToggleCollapsed={() => setDesktopCollapsed((v) => !v)}
-        onItemActivate={() => setMobileSidebarOpen(false)}
-        activeItemId="home"
-        workspaceSection="home"
-        counts={sidebarCounts}
-      />
-    ) : null;
+  // Build LeftRail items from the practice nav config + live sidebar counts.
+  const railItems = useMemo<LeftRailItem[]>(() => {
+    if (!practiceSlug) return [];
+    const config = getPracticeNavConfig(
+      { practiceSlug, role: null, canAccessPractice: true },
+      'home',
+    );
+    return config.rail.map((item) => ({
+      id: item.id,
+      label: item.label,
+      icon: item.icon as IconComponent,
+      href: item.href,
+      matchHrefs: item.matchHrefs,
+      badge: sidebarCounts?.[item.id] ?? item.badge ?? null,
+      variant: item.variant,
+      isAction: item.isAction,
+      onClick: item.onClick,
+      prefetch: item.prefetch,
+    }));
+  }, [practiceSlug, sidebarCounts]);
 
-  const { open: openCommandPalette } = useCommandPalette();
-  const header = (
-    <WorkspaceShellHeader
-      orgInitial={orgInitial}
-      title="Home"
-      onMenuClick={() => setMobileSidebarOpen(true)}
-      onSearchClick={() => openCommandPalette()}
+  const brandMark = currentPractice?.id && practiceSlug ? (
+    <OrgSwitcherMenu
+      org={{
+        id: currentPractice.id,
+        name: orgName,
+        initial: orgInitial,
+        subtitle: 'Practice',
+        logoUrl: currentPractice.logo ?? null,
+      }}
+      collapsed={false}
     />
+  ) : (
+    <BrandMark />
   );
+
+  const profileFooter = session?.user ? (
+    <SidebarProfileMenu
+      user={{ name: userName, email: userEmail, image: userImage }}
+      onAccount={() => practiceBasePath && navigate(`${practiceBasePath}/settings/account`)}
+      onSettings={() => practiceBasePath && navigate(`${practiceBasePath}/settings/general`)}
+      onSignOut={() => void signOut({ navigate })}
+    />
+  ) : null;
 
   const handleNewInvoice = () => {
     if (practiceBasePath) navigate(`${practiceBasePath}/invoices/new`);
@@ -536,18 +548,23 @@ const PracticeHomePage = () => {
   );
 
   return (
-    <AppShell
-      className="bg-transparent h-dvh"
-      accentBackdropVariant="none"
-      header={header}
-      sidebar={renderSidebar(false)}
-      desktopSidebarCollapsed={desktopCollapsed}
-      mobileSidebar={renderSidebar(true)}
-      mobileSidebarOpen={mobileSidebarOpen}
-      onMobileSidebarClose={() => setMobileSidebarOpen(false)}
-      main={main}
-      mainClassName="min-h-0 h-full overflow-hidden"
-    />
+    <div className="flex h-dvh flex-col lg:flex-row">
+      <LeftRail
+        variant="desktop"
+        items={railItems}
+        brandMark={brandMark}
+        footer={profileFooter}
+        className="hidden lg:flex"
+      />
+      <main className="flex-1 min-h-0 overflow-hidden order-first lg:order-none">
+        {main}
+      </main>
+      <LeftRail
+        variant="mobile"
+        items={railItems}
+        className="lg:hidden"
+      />
+    </div>
   );
 };
 
