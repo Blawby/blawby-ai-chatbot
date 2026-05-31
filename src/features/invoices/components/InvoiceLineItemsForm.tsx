@@ -102,7 +102,7 @@ export const InvoiceLineItemsForm = ({ lineItems, onChange, billingIncrementMinu
                       variant="ghost"
                       onClick={() => setEditingItem({ item, index })}
                       icon={SquarePen}
-                      iconClassName="h-4 w-4 text-dim-2 hover:text-accent-foreground"
+                      iconClassName="h-4 w-4 text-dim-2 hover:text-accent"
                       aria-label="Edit item"
                       title="Edit item"
                     />
@@ -111,7 +111,7 @@ export const InvoiceLineItemsForm = ({ lineItems, onChange, billingIncrementMinu
                       variant="ghost"
                       onClick={() => removeItem(index)}
                       icon={Trash2}
-                      iconClassName="h-4 w-4 text-dim-2 hover:text-accent-error-light"
+                      iconClassName="h-4 w-4 text-dim-2 hover:text-neg"
                       aria-label="Delete item"
                       title="Delete item"
                     />

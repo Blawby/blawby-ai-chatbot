@@ -289,7 +289,7 @@ const OpenTasksCard = ({
         <button
           type="button"
           onClick={onViewTasks}
-          className="text-center text-[13px] font-medium text-accent-500 hover:text-accent-600 dark:text-accent-400 dark:hover:text-accent-300"
+          className="text-center text-[13px] font-medium text-accent hover:text-accent-deep dark:text-accent dark:hover:text-accent-deep"
         >
           View all tasks
         </button>
@@ -343,7 +343,7 @@ const RecentActivityCard = ({
         <button
           type="button"
           onClick={onViewAllActivity}
-          className="text-center text-[13px] font-medium text-accent-500 hover:text-accent-600 dark:text-accent-400 dark:hover:text-accent-300"
+          className="text-center text-[13px] font-medium text-accent hover:text-accent-deep dark:text-accent dark:hover:text-accent-deep"
         >
           View all activity
         </button>
@@ -417,7 +417,7 @@ const BillingCard = ({
       <button
         type="button"
         onClick={onViewTimesheet}
-        className="text-center text-[13px] font-medium text-accent-500 hover:text-accent-600 dark:text-accent-400 dark:hover:text-accent-300"
+        className="text-center text-[13px] font-medium text-accent hover:text-accent-deep dark:text-accent dark:hover:text-accent-deep"
       >
         View timesheet
       </button>
@@ -446,7 +446,7 @@ const RecentFilesCard = ({
     <button
       type="button"
       onClick={onViewFiles}
-      className="text-center text-[13px] font-medium text-accent-500 hover:text-accent-600 dark:text-accent-400 dark:hover:text-accent-300"
+      className="text-center text-[13px] font-medium text-accent hover:text-accent-deep dark:text-accent dark:hover:text-accent-deep"
     >
       View all files
     </button>

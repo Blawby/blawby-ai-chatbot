@@ -95,13 +95,13 @@ export const Checkbox = forwardRef<HTMLInputElement, CheckboxProps>(({
   };
 
   const variantClasses = {
-    default: 'border-input-border focus:ring-accent-500 focus:border-accent-500',
+    default: 'border-input-border focus:ring-accent focus:border-accent',
     error: 'border-red-300 focus:ring-red-500 focus:border-red-500',
     success: 'border-green-300 focus:ring-green-500 focus:border-green-500'
   };
 
   const checkboxClasses = cn(
-    'rounded border text-accent-600',
+    'rounded border text-accent',
     'focus:outline-none focus:ring-2 ring-inset focus:ring-offset-0 transition-colors',
     sizeClasses[size],
     variantClasses[variant],

@@ -409,7 +409,7 @@ export default function DebugConversationsPage() {
     <main className="mx-auto max-w-[1480px] space-y-4 p-4 md:p-6">
       <header className="space-y-2">
         <div className="flex flex-wrap items-center gap-2">
-          <Icon icon={MessagesSquare} className="h-6 w-6 text-accent-500" aria-hidden="true"  />
+          <Icon icon={MessagesSquare} className="h-6 w-6 text-accent" aria-hidden="true"  />
           <h1 className="text-2xl font-semibold text-ink">Debug Conversations</h1>
           <span className="rounded-full border border-line-subtle bg-paper-2/60 px-2.5 py-1 text-xs font-medium text-dim-2">
             No API

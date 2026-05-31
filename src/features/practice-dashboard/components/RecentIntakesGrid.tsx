@@ -74,7 +74,7 @@ export const RecentIntakesGrid = ({
               >
                 <button
                   className={
-                    `flex w-full items-center gap-x-4 border-b border-line-subtle p-6 text-left ${actionable ? 'cursor-pointer focus-visible:ring-2 focus-visible:ring-accent-400 focus:outline-none' : ''}`
+                    `flex w-full items-center gap-x-4 border-b border-line-subtle p-6 text-left ${actionable ? 'cursor-pointer focus-visible:ring-2 focus-visible:ring-accent focus:outline-none' : ''}`
                   }
                   role={actionable ? 'button' : undefined}
                   tabIndex={actionable ? 0 : -1}

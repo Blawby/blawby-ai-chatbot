@@ -931,7 +931,7 @@ export const PracticeContactsPage = ({
                 'relative h-4 w-4 min-h-0 min-w-0 p-0 text-[11px] flex items-center justify-center rounded-full transition-colors',
                 "before:absolute before:-inset-3.5 before:content-['']",
                 activeLetter === letter
-                  ? 'text-accent-foreground font-bold bg-accent'
+                  ? 'text-accent-ink font-bold bg-accent'
                   : 'text-dim-2 hover:text-ink hover:bg-paper-2/40'
               )}
             >

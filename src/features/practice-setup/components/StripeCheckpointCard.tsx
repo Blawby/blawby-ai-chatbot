@@ -31,7 +31,7 @@ export function StripeCheckpointCard({
   return (
     <div className="card mt-4 space-y-4 border border-line-subtle p-4 text-ink">
       <div className="flex items-start gap-3">
-        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-accent/12 text-lg text-[rgb(var(--accent-foreground))]">
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-accent/12 text-lg text-accent-ink">
           $
         </div>
         <div className="min-w-0 space-y-1">

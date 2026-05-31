@@ -117,10 +117,10 @@ export function PINInput({
           disabled={disabled}
           aria-label={`Digit ${i + 1}`}
           className={cn(
-            'input-surface text-center font-medium rounded-r-md',
+            'field text-center font-medium rounded-r-md',
             sizeClasses[size],
             'focus-visible:outline-none',
-            error && 'input-surface isError',
+            error && 'field is-error',
             'disabled:opacity-45 disabled:cursor-not-allowed',
             'transition-all duration-200',
           )}

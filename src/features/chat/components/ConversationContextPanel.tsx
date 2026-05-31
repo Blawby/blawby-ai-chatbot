@@ -224,7 +224,7 @@ const ConversationContextPanel: FunctionComponent<ConversationContextPanelProps>
               onOpenMatter && matter ? (
                 <button
                   type="button"
-                  className="inline-flex items-center gap-1 text-right text-ink hover:text-accent-utility focus:outline-none focus-visible:underline"
+                  className="inline-flex items-center gap-1 text-right text-ink hover:text-accent focus:outline-none focus-visible:underline"
                   onClick={() => onOpenMatter(matter.id)}
                 >
                   <span className="truncate">{matterTitle}</span>

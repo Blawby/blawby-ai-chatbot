@@ -4,13 +4,13 @@ import { formatCurrency } from '@/shared/utils/currencyFormatter';
 import type { DashboardStat } from '@/features/practice-dashboard/hooks/usePracticeBillingData';
 
 const toneClass: Record<NonNullable<DashboardStat['tone']>, string> = {
-  positive: 'text-accent-300',
+  positive: 'text-accent/70',
   negative: 'text-ink',
   neutral: 'text-dim-2'
 };
 
 const changeToneClass: Record<NonNullable<DashboardStat['changeTone']>, string> = {
-  positive: 'text-accent-300',
+  positive: 'text-accent/70',
   negative: 'text-ink',
   neutral: 'text-dim-2'
 };

@@ -96,7 +96,7 @@ const SlugField = ({
       <p className="mt-2 text-xs text-dim-2">
         <span>{urlLabel}: </span>
         <span className="font-mono text-ink">
-          {origin}/practice/<span className="text-accent-500">{previewSlug}</span>
+          {origin}/practice/<span className="text-accent">{previewSlug}</span>
         </span>
       </p>
       {showSuggestion ? (
@@ -104,7 +104,7 @@ const SlugField = ({
           type="button"
           onClick={() => onAcceptSuggestion(suggested)}
           disabled={disabled}
-          className="mt-1 text-xs text-accent-500 hover:underline disabled:opacity-50"
+          className="mt-1 text-xs text-accent hover:underline disabled:opacity-50"
         >
           {suggestPrefix} <span className="font-mono">{suggested}</span> {suggestSuffix}
         </button>

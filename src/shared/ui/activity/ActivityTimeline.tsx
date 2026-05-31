@@ -179,7 +179,7 @@ export const ActivityTimeline = ({
               ) : (
                 <div className="relative z-10 flex h-8 w-8 items-center justify-center rounded-full bg-card text-ink ring-1 ring-line-subtle shadow-sm">
                   {item.type === 'paid' ? (
-                    <Icon icon={CheckCircle2} aria-hidden="true" className="h-5 w-5 text-accent-success"  />
+                    <Icon icon={CheckCircle2} aria-hidden="true" className="h-5 w-5 text-pos"  />
                   ) : TYPE_ICONS[item.type] ? (
                     (() => {
                       const Icon = TYPE_ICONS[item.type];
@@ -301,7 +301,7 @@ export const ActivityTimeline = ({
                           return (
                             <button
                               type="button"
-                              className="font-semibold text-ink hover:text-accent-300"
+                              className="font-semibold text-ink hover:text-accent-deep"
                               onClick={() => onTaskClick(actionMeta.taskId)}
                             >
                               {trimmed}
@@ -317,7 +317,7 @@ export const ActivityTimeline = ({
                           {actionMeta?.type === 'task_event' && onTaskClick ? (
                             <button
                               type="button"
-                              className="font-semibold text-ink hover:text-accent-300"
+                              className="font-semibold text-ink hover:text-accent-deep"
                               onClick={() => onTaskClick(actionMeta.taskId)}
                             >
                               {rest}

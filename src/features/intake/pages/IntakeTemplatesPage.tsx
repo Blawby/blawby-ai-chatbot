@@ -30,7 +30,7 @@ import { Dialog, DialogBody, DialogFooter } from '@/shared/ui/dialog';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/shared/ui/dropdown';
 import { cn } from '@/shared/utils/cn';
 import { usePracticeManagement } from '@/shared/hooks/usePracticeManagement';
-import { DataTable, type DataTableColumn, type DataTableRow } from '@/shared/ui/table/DataTable';
+import { EntityList } from '@/shared/ui/list/EntityList';
 import { usePracticeDetails } from '@/shared/hooks/usePracticeDetails';
 import { useToastContext } from '@/shared/contexts/ToastContext';
 import { useNavigation } from '@/shared/utils/navigation';
@@ -422,7 +422,7 @@ function SectionCard({ number, icon, title, badge, isActive, isOpen, onToggle, o
     <div
       className={cn(
         'rounded-r-md border bg-card transition-colors',
-        isActive ? 'border-line-subtle border-l-[3px] border-l-accent-500' : 'border-line-subtle',
+        isActive ? 'border-line-subtle border-l-[3px] border-l-accent' : 'border-line-subtle',
       )}
     >
       <div className="flex items-center gap-2 p-3.5">
@@ -443,7 +443,7 @@ function SectionCard({ number, icon, title, badge, isActive, isOpen, onToggle, o
             className={cn(
               'rounded-full px-2 py-0.5 text-[11px] font-medium',
               badge.tone === 'required'
-                ? 'bg-accent text-[rgb(var(--accent-foreground))]'
+                ? 'bg-accent text-accent-ink'
                 : 'bg-card text-dim-2',
             )}
           >
@@ -521,7 +521,7 @@ function QuestionRow({ label, preview, isSelected, isLocked, badgeLabel, onSelec
           type="button"
           onKeyDown={handleGripKey}
           aria-label={`Reorder ${displayLabel} — Arrow Up or Down to move`}
-          className="inline-flex h-5 w-3.5 shrink-0 cursor-grab items-center justify-center rounded text-dim-2 hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-500/45"
+          className="inline-flex h-5 w-3.5 shrink-0 cursor-grab items-center justify-center rounded text-dim-2 hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/45"
         >
           <GripVertical className="h-3.5 w-3.5" aria-hidden="true" />
         </button>
@@ -1346,7 +1346,7 @@ function TemplateEditor({
             target="_blank"
             rel="noreferrer"
             aria-label="Open public form preview"
-            className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-dim-2 transition-colors hover:bg-card hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-500/40"
+            className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-dim-2 transition-colors hover:bg-card hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40"
           >
             <ExternalLink className="h-4 w-4" aria-hidden="true" />
           </a>
@@ -1364,7 +1364,7 @@ function TemplateEditor({
           <div
             aria-hidden="true"
             className={cn(
-              'pointer-events-none absolute inset-0 rounded-b-xl ring-2 ring-accent-500 transition-opacity duration-500',
+              'pointer-events-none absolute inset-0 rounded-b-xl ring-2 ring-accent transition-opacity duration-500',
               showPreviewPing ? 'opacity-100' : 'opacity-0',
             )}
           />
@@ -1781,13 +1781,6 @@ type TemplateListViewProps = {
   onDelete: (template: IntakeTemplate) => Promise<void>;
 };
 
-const TEMPLATE_TABLE_COLUMNS: DataTableColumn[] = [
-  { id: 'name', label: 'Form', isPrimary: true },
-  { id: 'questions', label: 'Questions', align: 'right', hideAt: 'sm' },
-  { id: 'responses', label: 'Responses', align: 'right' },
-  { id: 'actions', label: '', isAction: true, align: 'right' },
-];
-
 function TemplateListView({
   defaultTemplate,
   existingTemplates,
@@ -1852,100 +1845,127 @@ function TemplateListView({
     () => draftTemplates.filter((template) => !publishedSlugs.has(template.slug)),
     [draftTemplates, publishedSlugs],
   );
-  const allTemplates = [defaultTemplate, ...existingTemplates, ...draftOnlyTemplates];
-
-  const rows: DataTableRow[] = allTemplates.map((template) => {
-    const isDefault = template.slug === defaultTemplate.slug;
-    const hasDraft = draftBySlug.has(template.slug);
-    const isDraftOnly = !publishedSlugs.has(template.slug);
-    const publicUrl = getPublicFormUrl(practiceSlug, template.slug);
-    return {
-      id: template.slug,
-      onClick: () => isDraftOnly ? onEdit(template) : onOpen(template),
-      cells: {
-        name: (
-          <div className="min-w-0">
-            <div className="flex min-w-0 items-center gap-2">
-              <p className="truncate font-medium text-ink">{template.name}</p>
-              {hasDraft ? (
-                <span className="shrink-0 rounded-full border border-amber-500/25 bg-amber-500/10 px-2 py-0.5 text-[11px] font-medium text-amber-700 dark:text-amber-300">
-                  Draft
-                </span>
-              ) : null}
-            </div>
-            {isDefault ? <p className="text-xs text-dim-2">Default form</p> : isDraftOnly ? <p className="text-xs text-dim-2">Not published yet</p> : null}
-          </div>
-        ),
-        questions: <span className="tabular-nums">{template.fields.length}</span>,
-        responses: (
-          <button
-            type="button"
-            onClick={(e) => { e.stopPropagation(); onViewResponses(template); }}
-            className="tabular-nums hover:underline"
-          >
-            {responseCounts[template.slug] ?? 0}
-          </button>
-        ),
-        actions: (
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <button
-                type="button"
-                onClick={(e) => e.stopPropagation()}
-                disabled={isSaving}
-                aria-label={`Actions for ${template.name}`}
-                className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-dim-2 transition-colors hover:bg-paper-2/10 hover:text-ink disabled:opacity-60"
-              >
-                <MoreVertical className="h-4 w-4" />
-              </button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="min-w-[180px]">
-              {!isDraftOnly ? (
-                <DropdownMenuItem
-                  onSelect={() => {
-                    copyTextToClipboard(
-                      publicUrl,
-                      () => showSuccess('Link copied', 'The form URL is ready to share.'),
-                      (message) => showError('Copy failed', message),
-                    );
-                  }}
-                >
-                  Copy URL
-                </DropdownMenuItem>
-              ) : null}
-              {!isDraftOnly ? (
-                <DropdownMenuItem onSelect={() => setEmbedTarget(template)}>
-                  Copy embed code
-                </DropdownMenuItem>
-              ) : null}
-              {!isDefault ? (
-                <DropdownMenuItem onSelect={() => onEdit(template)}>Edit</DropdownMenuItem>
-              ) : null}
-              {!isDefault ? (
-                <DropdownMenuItem onSelect={() => setDeleteTarget(template)}>Archive</DropdownMenuItem>
-              ) : null}
-            </DropdownMenuContent>
-          </DropdownMenu>
-        ),
-      },
-    };
-  });
+  // EntityList requires `T extends { id: string }`; IntakeTemplate is keyed by slug.
+  const allTemplates = [defaultTemplate, ...existingTemplates, ...draftOnlyTemplates].map(
+    (template) => ({ ...template, id: template.slug }),
+  );
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-4 p-4 sm:p-6">
       <div className="flex justify-end">
         <Button icon={Plus} onClick={onNew} disabled={isSaving}>New form</Button>
       </div>
-      <DataTable
-        columns={TEMPLATE_TABLE_COLUMNS}
-        rows={rows}
-        loading={!responseCountsLoaded}
-        density="compact"
-        stickyHeader
+      <EntityList
+        items={allTemplates}
+        onSelect={(template) => {
+          const isDraftOnly = !publishedSlugs.has(template.slug);
+          return isDraftOnly ? onEdit(template) : onOpen(template);
+        }}
+        isLoading={!responseCountsLoaded}
+        emptyState={<div className="text-sm text-dim-2">No intake forms yet.</div>}
         className="panel overflow-hidden"
-        bodyClassName="bg-transparent"
-        rowClassName="transition-colors duration-150 hover:!bg-paper-2"
-        emptyState="No intake forms yet."
+        renderItem={(template) => {
+          const isDefault = template.slug === defaultTemplate.slug;
+          const hasDraft = draftBySlug.has(template.slug);
+          const isDraftOnly = !publishedSlugs.has(template.slug);
+          const publicUrl = getPublicFormUrl(practiceSlug, template.slug);
+          return (
+            <div className="flex w-full items-center gap-4 px-4 py-3 hover:bg-paper-2/10">
+              <div className="min-w-0 flex-1">
+                <div className="flex min-w-0 items-center gap-2">
+                  <p className="truncate font-medium text-ink">{template.name}</p>
+                  {hasDraft ? (
+                    <span className="shrink-0 rounded-full border border-amber-500/25 bg-amber-500/10 px-2 py-0.5 text-[11px] font-medium text-amber-700 dark:text-amber-300">
+                      Draft
+                    </span>
+                  ) : null}
+                </div>
+                {isDefault ? (
+                  <p className="text-xs text-dim-2">Default form</p>
+                ) : isDraftOnly ? (
+                  <p className="text-xs text-dim-2">Not published yet</p>
+                ) : null}
+              </div>
+              <span className="hidden min-w-[80px] text-right text-sm tabular-nums text-dim-2 sm:block">
+                {template.fields.length}
+              </span>
+              {/*
+                EntityList wraps each row in a <button>; HTML forbids nested
+                <button>. Render the Responses count as a role="button" span
+                with keyboard handlers so it stays interactive without
+                invalid markup.
+              */}
+              <span
+                role="button"
+                tabIndex={0}
+                onClick={(e) => { e.stopPropagation(); onViewResponses(template); }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    onViewResponses(template);
+                  }
+                }}
+                className="min-w-[80px] text-right text-sm tabular-nums text-dim-2 hover:underline focus:outline-none focus-visible:underline"
+              >
+                {responseCounts[template.slug] ?? 0}
+              </span>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  {/*
+                    Same reason as above — use a span with role="button"
+                    instead of a nested <button>. The DropdownMenu primitive
+                    forwards refs/handlers via asChild.
+                  */}
+                  <span
+                    role="button"
+                    tabIndex={0}
+                    aria-disabled={isSaving}
+                    onClick={(e) => e.stopPropagation()}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.stopPropagation();
+                      }
+                    }}
+                    aria-label={`Actions for ${template.name}`}
+                    className={cn(
+                      'inline-flex h-8 w-8 items-center justify-center rounded-lg text-dim-2 transition-colors hover:bg-paper-2/10 hover:text-ink',
+                      isSaving && 'pointer-events-none opacity-60',
+                    )}
+                  >
+                    <MoreVertical className="h-4 w-4" />
+                  </span>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="min-w-[180px]">
+                  {!isDraftOnly ? (
+                    <DropdownMenuItem
+                      onSelect={() => {
+                        copyTextToClipboard(
+                          publicUrl,
+                          () => showSuccess('Link copied', 'The form URL is ready to share.'),
+                          (message) => showError('Copy failed', message),
+                        );
+                      }}
+                    >
+                      Copy URL
+                    </DropdownMenuItem>
+                  ) : null}
+                  {!isDraftOnly ? (
+                    <DropdownMenuItem onSelect={() => setEmbedTarget(template)}>
+                      Copy embed code
+                    </DropdownMenuItem>
+                  ) : null}
+                  {!isDefault ? (
+                    <DropdownMenuItem onSelect={() => onEdit(template)}>Edit</DropdownMenuItem>
+                  ) : null}
+                  {!isDefault ? (
+                    <DropdownMenuItem onSelect={() => setDeleteTarget(template)}>Archive</DropdownMenuItem>
+                  ) : null}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
+          );
+        }}
       />
       {embedTarget ? (
         <EmbedCodeDialog
@@ -2203,7 +2223,7 @@ export default function IntakeTemplatesPage({
   if (practiceLoading || !currentPractice) {
     return (
       <div className="flex min-h-0 flex-1 flex-col gap-4 p-4 sm:p-6">
-        <DataTable columns={TEMPLATE_TABLE_COLUMNS} rows={[]} loading className="panel overflow-hidden" bodyClassName="bg-transparent" />
+        <EntityList items={[]} isLoading renderItem={() => null} onSelect={() => {}} className="panel overflow-hidden" />
       </div>
     );
   }

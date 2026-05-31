@@ -354,7 +354,7 @@ export const PhoneInput = forwardRef<HTMLInputElement, PhoneInputProps>(({
   } as const;
 
   const variantClasses = {
-    default: 'focus:ring-2 ring-inset focus:ring-accent-500/30',
+    default: 'focus:ring-2 ring-inset focus:ring-accent/30',
     error: 'ring-2 ring-inset ring-red-500/40 focus:ring-red-500/60',
     success: 'ring-2 ring-inset ring-green-500/40',
   } as const;
@@ -374,12 +374,12 @@ export const PhoneInput = forwardRef<HTMLInputElement, PhoneInputProps>(({
   const inputClasses = cn(
     'w-full rounded-r-md text-ink placeholder:text-dim-2',
     'focus:outline-none transition-all duration-200',
-    'input-surface border-none',
+    'field border-none',
     sizeClasses[size],
     showCountryCode ? null : iconPaddingClasses[size],
     showValidation && trimmedValue.length > 0 ? rightIconPaddingClasses[size] : null,
     variantClasses[variant],
-    isInvalid && variant === 'default' && 'isError',
+    isInvalid && variant === 'default' && 'is-error',
     disabled && 'opacity-50 cursor-not-allowed',
     className,
   );
@@ -417,7 +417,7 @@ export const PhoneInput = forwardRef<HTMLInputElement, PhoneInputProps>(({
               aria-haspopup="listbox"
               aria-label={`Select country. Current: ${currentCountry.name} (+${currentCountry.callingCode})`}
               className={cn(
-                'inline-flex items-center rounded-l-xl rounded-r-none text-ink hover:bg-paper-2/40 focus:outline-none focus:ring-2 ring-inset focus:ring-accent-500 transition-colors input-surface border-r border-line-subtle',
+                'inline-flex items-center rounded-l-xl rounded-r-none text-ink hover:bg-paper-2/40 focus:outline-none focus:ring-2 ring-inset focus:ring-accent transition-colors field border-r border-line-subtle',
                 sizeClasses[size],
                 disabled && 'opacity-50 cursor-not-allowed',
               )}
@@ -446,7 +446,7 @@ export const PhoneInput = forwardRef<HTMLInputElement, PhoneInputProps>(({
                       onKeyDown={handleSearchKeyDown}
                       placeholder="Search country or code"
                       aria-label="Search country"
-                      className="w-full pl-7 pr-2 py-1 text-sm rounded-md input-surface border-none focus:outline-none focus:ring-2 ring-inset focus:ring-accent-500/30"
+                      className="w-full pl-7 pr-2 py-1 text-sm rounded-md field border-none focus:outline-none focus:ring-2 ring-inset focus:ring-accent/30"
                     />
                   </div>
                 </div>
@@ -535,9 +535,9 @@ export const PhoneInput = forwardRef<HTMLInputElement, PhoneInputProps>(({
           {showValidation && trimmedValue.length > 0 && (
             <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
               {validationIsValid ? (
-                <Icon icon={Check} className="w-4 h-4 text-accent-success" />
+                <Icon icon={Check} className="w-4 h-4 text-pos" />
               ) : (
-                <Icon icon={X} className="w-4 h-4 text-accent-error" />
+                <Icon icon={X} className="w-4 h-4 text-neg" />
               )}
             </div>
           )}

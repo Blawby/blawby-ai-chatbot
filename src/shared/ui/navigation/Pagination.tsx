@@ -64,7 +64,7 @@ export function Pagination({
               'btn rounded-lg font-medium',
               btnSize,
               page === currentPage
-                ? 'bg-accent/12 text-accent-600 dark:text-accent-400'
+                ? 'bg-accent/12 text-accent dark:text-accent'
                 : 'btn-ghost text-ink',
             )}
           >

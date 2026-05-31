@@ -89,7 +89,7 @@ export const FileInput = forwardRef<HTMLInputElement, FileInputProps>(({
 
 
   const variantClasses = {
-    default: 'border-input-border focus:ring-accent-500 focus:border-accent-500',
+    default: 'border-input-border focus:ring-accent focus:border-accent',
     error: 'border-red-300 focus:ring-red-500 focus:border-red-500',
     success: 'border-green-300 focus:ring-green-500 focus:border-green-500'
   };
@@ -160,8 +160,8 @@ export const FileInput = forwardRef<HTMLInputElement, FileInputProps>(({
         aria-disabled={disabled}
         className={cn(
           'relative border-2 border-dashed rounded-r-md transition-colors',
-          'hover:border-accent-400 dark:hover:border-accent-500',
-          isDragOver ? 'border-accent-500 bg-accent/10 dark:bg-accent-deep/20' : 'border-input-border',
+          'hover:border-accent dark:hover:border-accent',
+          isDragOver ? 'border-accent bg-accent/10 dark:bg-accent-deep/20' : 'border-input-border',
           variantClasses[variant],
           disabled && 'opacity-50 cursor-not-allowed',
           className
@@ -201,7 +201,7 @@ export const FileInput = forwardRef<HTMLInputElement, FileInputProps>(({
           
           <div className="mt-4">
             <p className="text-sm text-dim-2">
-              <span className="font-medium text-accent-600 dark:text-accent-400">
+              <span className="font-medium text-accent dark:text-accent">
                 Click to upload
               </span>
               {' '}or drag and drop
@@ -218,7 +218,7 @@ export const FileInput = forwardRef<HTMLInputElement, FileInputProps>(({
       {showFileList && files.length > 0 && (
         <div className="mt-3 space-y-2">
           {files.map((file, index) => (
-            <div key={index} className="input-surface flex items-center justify-between p-2 rounded">
+            <div key={index} className="field flex items-center justify-between p-2 rounded">
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium text-ink truncate">
                   {file.name}
@@ -237,7 +237,7 @@ export const FileInput = forwardRef<HTMLInputElement, FileInputProps>(({
                 </button>
               )}
               {effectiveMaxFileSize && file.size > effectiveMaxFileSize && (
-                <span className="text-xs text-accent-error">
+                <span className="text-xs text-neg">
                   File too large (max {formatFileSize(effectiveMaxFileSize)})
                 </span>
               )}
@@ -245,7 +245,7 @@ export const FileInput = forwardRef<HTMLInputElement, FileInputProps>(({
           ))}
           
           {effectiveMaxTotalSize && totalSize > effectiveMaxTotalSize && (
-            <p className="text-xs text-accent-error">
+            <p className="text-xs text-neg">
               Total size exceeds {formatFileSize(effectiveMaxTotalSize)}
             </p>
           )}

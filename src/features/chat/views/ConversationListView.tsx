@@ -107,7 +107,7 @@ const ConversationItem = memo(({ conversation, preview, fallbackName, isActive, 
       type="button"
       aria-current={isActive ? 'page' : undefined}
       className={cn(
-        'flex w-full items-start gap-3 rounded-r-md px-3 py-2.5 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-500/50',
+        'flex w-full items-start gap-3 rounded-r-md px-3 py-2.5 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50',
         isActive ? 'nav-item-active' : 'nav-item-inactive'
       )}
     >
@@ -124,7 +124,7 @@ const ConversationItem = memo(({ conversation, preview, fallbackName, isActive, 
             <span className={cn(
               'block truncate',
               chatTypography.previewName,
-              isUnread ? 'font-bold text-accent-utility' : 'text-ink'
+              isUnread ? 'font-bold text-accent' : 'text-ink'
             )}>
               {title}
             </span>
@@ -140,13 +140,13 @@ const ConversationItem = memo(({ conversation, preview, fallbackName, isActive, 
             {timeLabel && (
               <span className={cn(
                 chatTypography.headerTime,
-                isUnread ? 'font-medium text-accent-utility/75' : 'text-dim-2'
+                isUnread ? 'font-medium text-accent/75' : 'text-dim-2'
               )}>{timeLabel}</span>
             )}
           </div>
         </div>
         {isTyping ? (
-          <div className="mt-0.5 flex items-center gap-1.5 text-xs leading-5 text-accent-utility">
+          <div className="mt-0.5 flex items-center gap-1.5 text-xs leading-5 text-accent">
             <span className="human-typing-indicator__dot" aria-hidden="true" />
             <span className="italic">{t('workspace.conversationList.typing', { defaultValue: 'typing…' })}</span>
           </div>
@@ -154,7 +154,7 @@ const ConversationItem = memo(({ conversation, preview, fallbackName, isActive, 
           <div className={cn(
             'mt-0.5 truncate text-xs leading-5',
             isUnread
-              ? 'font-semibold text-accent-utility/85'
+              ? 'font-semibold text-accent/85'
               : 'text-dim-2'
           )}>
             <ChatText text={previewText} className="truncate" />

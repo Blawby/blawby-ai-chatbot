@@ -201,7 +201,7 @@ export const InvoiceBuilderSurface = forwardRef<InvoiceFormHandle, InvoiceBuilde
   if (mode === 'edit' && displayErrorMessage && !resolvedInvoice) {
     return (
       <div className="flex min-h-0 flex-1 flex-col gap-6">
-        <div className="rounded-r-md border border-accent-error/30 bg-accent-error/10 px-4 py-3 text-sm text-accent-error-foreground">
+        <div className="rounded-r-md border border-neg/30 bg-neg/10 px-4 py-3 text-sm text-neg">
           {displayErrorMessage}
         </div>
       </div>
@@ -211,7 +211,7 @@ export const InvoiceBuilderSurface = forwardRef<InvoiceFormHandle, InvoiceBuilde
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-6">
       {displayErrorMessage ? (
-        <div className="rounded-r-md border border-accent-error/30 bg-accent-error/10 px-4 py-3 text-sm text-accent-error-foreground">
+        <div className="rounded-r-md border border-neg/30 bg-neg/10 px-4 py-3 text-sm text-neg">
           {displayErrorMessage}
         </div>
       ) : null}

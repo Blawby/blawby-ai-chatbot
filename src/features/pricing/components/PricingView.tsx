@@ -191,7 +191,7 @@ const PricingView: FunctionComponent<PricingViewProps> = ({ className, onUpgrade
               <ul className="space-y-3 text-base text-dim-2">
                 {features.map((feature) => (
                   <li key={feature} className="flex items-start gap-2">
-                    <Icon icon={Check} className="mt-0.5 h-5 w-5 flex-none text-accent-500"  />
+                    <Icon icon={Check} className="mt-0.5 h-5 w-5 flex-none text-accent"  />
                     <span>{feature}</span>
                   </li>
                 ))}

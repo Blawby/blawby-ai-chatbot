@@ -154,7 +154,7 @@ const WidgetConversationListView: FunctionComponent<WidgetConversationListViewPr
                   key={conversation.id}
                   type="button"
                   className={cn(
-                    'flex w-full items-start gap-3 px-3 py-3 text-left transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-500/50',
+                    'flex w-full items-start gap-3 px-3 py-3 text-left transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50',
                     isActive ? 'bg-paper-2/10' : 'hover:bg-paper-2/5'
                   )}
                   onClick={() => onSelectConversation(conversation.id)}
@@ -188,14 +188,14 @@ const WidgetConversationListView: FunctionComponent<WidgetConversationListViewPr
                           <span className={chatTypography.headerTime}>{timeLabel}</span>
                         )}
                         {isUnread && (
-                          <span className="inline-flex min-w-5 items-center justify-center rounded-full bg-accent px-1.5 py-0.5 text-[11px] font-semibold text-[rgb(var(--accent-foreground))]">
+                          <span className="inline-flex min-w-5 items-center justify-center rounded-full bg-accent px-1.5 py-0.5 text-[11px] font-semibold text-accent-ink">
                             {unreadCount}
                           </span>
                         )}
                       </div>
                     </div>
                     {isTyping ? (
-                      <div className="flex items-center gap-1.5 text-sm italic text-accent-utility">
+                      <div className="flex items-center gap-1.5 text-sm italic text-accent">
                         <span className="human-typing-indicator__dot" aria-hidden="true" />
                         <span>{t('workspace.conversationList.typing', { defaultValue: 'typing…' })}</span>
                       </div>

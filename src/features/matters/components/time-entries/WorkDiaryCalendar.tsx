@@ -102,7 +102,7 @@ export const WorkDiaryCalendar = ({ selectedWeekStart, onSelectWeek }: WorkDiary
                 'h-9 w-9 rounded-full text-sm font-medium transition-colors',
                 isCurrentMonth ? 'text-ink' : 'text-dim-2',
                 isSelectedWeek ? 'bg-card text-ink' : 'hover:bg-paper-2',
-                isToday ? 'ring-2 ring-accent-500' : 'ring-1 ring-transparent'
+                isToday ? 'ring-2 ring-accent' : 'ring-1 ring-transparent'
               ].join(' ')}
             >
               {day.getUTCDate()}

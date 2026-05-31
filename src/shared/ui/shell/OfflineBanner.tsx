@@ -27,7 +27,7 @@ export function OfflineBanner({ className }: OfflineBannerProps) {
       role="alert"
       className={cn(
         'fixed top-0 inset-x-0 z-[400] flex items-center justify-center gap-2 px-4 py-2',
-        'bg-accent-warning text-surface-card text-sm font-medium backdrop-blur-sm',
+        'bg-warn text-surface-card text-sm font-medium backdrop-blur-sm',
         className,
       )}
     >

@@ -162,8 +162,8 @@ export default function ConfirmationDialog({
                     onMouseDown={(e) => e.stopPropagation()}
                     placeholder={`Type "${confirmationValue}" to confirm`}
                     className={cn(
-                      'input-surface w-full rounded-r-md px-3 py-2 text-sm',
-                      error ? 'isError' : ''
+                      'field w-full rounded-r-md px-3 py-2 text-sm',
+                      error ? 'is-error' : ''
                     )}
                     aria-invalid={Boolean(error)}
                     aria-describedby={error ? `${confirmationInputId}-error` : undefined}
@@ -206,8 +206,8 @@ export default function ConfirmationDialog({
                       onMouseDown={(e) => e.stopPropagation()}
                       placeholder={passwordPlaceholder}
                       className={cn(
-                        'input-surface w-full rounded-r-md px-3 py-2 text-sm',
-                        passwordError ? 'isError' : ''
+                        'field w-full rounded-r-md px-3 py-2 text-sm',
+                        passwordError ? 'is-error' : ''
                       )}
                       aria-invalid={Boolean(passwordError)}
                       aria-describedby={passwordError ? `${confirmationPasswordId}-error` : undefined}

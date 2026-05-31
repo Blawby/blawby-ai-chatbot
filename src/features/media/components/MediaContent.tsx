@@ -62,8 +62,8 @@ const MediaContent: FunctionComponent<MediaContentProps> = ({ media }) => {
                                 playsInline
                             />
                             <div className="absolute inset-0 bg-paper/80 flex flex-col items-center justify-center gap-2">
-                                <Icon icon={Play} className="text-[rgb(var(--accent-foreground))] w-12 h-12"  />
-                                <p className="text-[rgb(var(--accent-foreground))] text-sm font-medium">Click to play</p>
+                                <Icon icon={Play} className="text-accent-ink w-12 h-12"  />
+                                <p className="text-accent-ink text-sm font-medium">Click to play</p>
                             </div>
                         </div>
                     ) : (

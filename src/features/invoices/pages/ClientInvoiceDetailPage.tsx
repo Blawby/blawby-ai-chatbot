@@ -125,7 +125,7 @@ export function ClientInvoiceDetailPage({
   }
 
   if (error && !detail) {
-    return <div className="p-6 text-sm text-accent-error-light">{error}</div>;
+    return <div className="p-6 text-sm text-neg">{error}</div>;
   }
 
   if (!detail) {
@@ -258,7 +258,7 @@ export function ClientInvoiceDetailPage({
               </p>
             ) : null}
             {refundRequestError ? (
-              <p className="mt-2 text-xs text-accent-error-light">{refundRequestError}</p>
+              <p className="mt-2 text-xs text-neg">{refundRequestError}</p>
             ) : null}
 
             <h4 className="mt-5 text-xs font-semibold uppercase tracking-[0.08em] text-dim-2">Refund request timeline</h4>

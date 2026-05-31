@@ -41,13 +41,13 @@ const wrapperBase = 'card relative overflow-hidden rounded-[20px] @container p-5
 const labelClass = 'text-[10px] font-semibold uppercase tracking-[0.14em] text-dim-2';
 const kpiValueClass = 'font-serif text-[28px] font-bold leading-none tracking-tight tabular-nums text-ink';
 const denseValueClass = 'font-serif text-[24px] font-bold leading-none tracking-tight tabular-nums text-ink';
-const iconSquareClass = 'inline-flex h-7 w-7 items-center justify-center rounded-lg border border-card-border bg-card text-accent-utility';
+const iconSquareClass = 'inline-flex h-7 w-7 items-center justify-center rounded-lg border border-card-border bg-card text-accent';
 const revealClass = 'motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-bottom-1 motion-safe:duration-300';
 
 const Halo = () => (
   <div
     aria-hidden="true"
-    className="pointer-events-none absolute -right-16 -top-16 h-48 w-48 rounded-full bg-[radial-gradient(circle_at_center,rgb(var(--accent-500)/0.035),transparent_70%)] blur-2xl"
+    className="pointer-events-none absolute -right-16 -top-16 h-48 w-48 rounded-full bg-[radial-gradient(circle_at_center,rgb(var(--accent-rgb)/0.035),transparent_70%)] blur-2xl"
   />
 );
 
@@ -191,7 +191,7 @@ export const MatterSummaryCards = ({
                   <button
                     type="button"
                     onClick={() => onViewTimesheet()}
-                    className="text-xs font-semibold text-accent-500 transition-colors hover:text-accent-600"
+                    className="text-xs font-semibold text-accent transition-colors hover:text-accent-deep"
                   >
                     View timesheet
                   </button>
@@ -226,7 +226,7 @@ export const MatterSummaryCards = ({
             {onLearnMore ? (
               <button
                 type="button"
-                className="mt-1 self-start text-xs font-semibold text-accent-500 transition-colors hover:text-accent-600"
+                className="mt-1 self-start text-xs font-semibold text-accent transition-colors hover:text-accent-deep"
                 onClick={onLearnMore}
               >
                 Learn more
@@ -284,7 +284,7 @@ export const MatterSummaryCards = ({
                 <button
                   type="button"
                   onClick={() => onViewTimesheet()}
-                  className="text-sm font-semibold text-accent-500 transition-colors hover:text-accent-600"
+                  className="text-sm font-semibold text-accent transition-colors hover:text-accent-deep"
                 >
                   View timesheet
                 </button>

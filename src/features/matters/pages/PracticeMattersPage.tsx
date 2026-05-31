@@ -6,7 +6,7 @@ import { WorkspacePlaceholderState } from '@/shared/ui/layout/WorkspacePlacehold
 import { Button } from '@/shared/ui/Button';
 import { CurrencyInput, Input } from '@/shared/ui/input';
 import { Seg } from '@/design-system/patterns';
-import { DataTable, type DataTableColumn, type DataTableRow } from '@/shared/ui/table/DataTable';
+import { EntityList } from '@/shared/ui/list/EntityList';
 import { type TimelineItem, type TimelinePerson } from '@/shared/ui/activity/ActivityTimeline';
 import { Dialog, DialogBody } from '@/shared/ui/dialog';
 import { Folder, SquarePen, Plus } from 'lucide-preact';
@@ -2104,34 +2104,6 @@ export const PracticeMattersPage = ({
     ? sortedMatterSummaries
     : sortedMatterSummaries.filter((matter) => matterStatusCategory(matter.status) === matterCategoryFilter);
 
-  const headerCellClassName = 'text-xs font-medium text-dim-2';
-  const tableColumns: DataTableColumn[] = [
-    { id: 'title', label: 'Matter Name', isPrimary: true, headerClassName: headerCellClassName },
-    { id: 'client', label: 'Client', hideAt: 'sm', headerClassName: headerCellClassName },
-    { id: 'practiceArea', label: 'Practice Area', hideAt: 'md', headerClassName: headerCellClassName },
-    { id: 'status', label: 'Status', headerClassName: headerCellClassName },
-    { id: 'created', label: 'Created', align: 'right', hideAt: 'sm', headerClassName: headerCellClassName },
-  ];
-
-  const tableRows: DataTableRow[] = filteredMatterSummaries.map((matter) => {
-    const statusLabel = MATTER_STATUS_LABELS[matter.status];
-    return {
-      id: matter.id,
-      onClick: () => goToDetail(matter.id),
-      cells: {
-        title: <span className="truncate font-medium text-ink">{matter.title}</span>,
-        client: <span className="truncate">{matter.clientName}</span>,
-        practiceArea: matter.practiceArea ?? '—',
-        status: (
-          <span className={matterStatusBadgeClass(matter.status)}>
-            {statusLabel}
-          </span>
-        ),
-        created: <span className="tabular-nums">{formatRelativeTime(matter.createdAt)}</span>,
-      },
-    };
-  });
-
   const showEmpty = !showLoading && !mattersError && sortedMatterSummaries.length === 0;
   const showFilteredEmpty = !showLoading && !mattersError && sortedMatterSummaries.length > 0 && filteredMatterSummaries.length === 0;
   const filteredEmptyMessage = (() => {
@@ -2204,15 +2176,30 @@ export const PracticeMattersPage = ({
             {filteredEmptyMessage}
           </div>
         ) : (
-          <DataTable
-            columns={tableColumns}
-            rows={tableRows}
-            loading={showLoading}
-            density="compact"
-            stickyHeader
+          <EntityList
+            items={filteredMatterSummaries}
+            onSelect={(matter) => goToDetail(matter.id)}
+            isLoading={showLoading}
             className="panel overflow-hidden"
-            bodyClassName="bg-transparent"
-            rowClassName="transition-colors duration-150 hover:!bg-paper-2"
+            renderItem={(matter) => (
+              <div className="flex w-full items-center gap-4 px-4 py-3 hover:bg-paper-2/10">
+                <span className="min-w-0 flex-1 truncate text-sm font-medium text-ink">
+                  {matter.title}
+                </span>
+                <span className="hidden min-w-[140px] truncate text-sm text-dim-2 sm:block">
+                  {matter.clientName}
+                </span>
+                <span className="hidden min-w-[140px] truncate text-sm text-dim-2 md:block">
+                  {matter.practiceArea ?? '—'}
+                </span>
+                <span className={`min-w-[80px] text-sm ${matterStatusBadgeClass(matter.status)}`}>
+                  {MATTER_STATUS_LABELS[matter.status]}
+                </span>
+                <span className="hidden min-w-[80px] text-right text-sm tabular-nums text-dim-2 sm:block">
+                  {formatRelativeTime(matter.createdAt)}
+                </span>
+              </div>
+            )}
           />
         )}
       </div>

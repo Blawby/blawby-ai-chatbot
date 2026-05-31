@@ -131,7 +131,7 @@ export const FilesInspectorPanel = ({ file, practiceSlug, scope, onClose }: File
                 <button
                   type="button"
                   onClick={() => navigate(href)}
-                  className="text-accent-500 hover:underline"
+                  className="text-accent hover:underline"
                 >
                   {association.label}
                 </button>

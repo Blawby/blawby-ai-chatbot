@@ -314,7 +314,7 @@ export function PracticeContactEditorPage({
           </div>
         ) : null}
         {error ? (
-          <div className="rounded-r-md border border-accent-error/30 bg-accent-error/10 px-4 py-3 text-sm text-accent-error-foreground">
+          <div className="rounded-r-md border border-neg/30 bg-neg/10 px-4 py-3 text-sm text-neg">
             {error}
           </div>
         ) : null}

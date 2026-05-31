@@ -145,7 +145,7 @@ const ToggleColumnRow = ({
     className={cn(
       'flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm transition-colors',
       'hover:bg-paper-2/10',
-      'focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-500/50',
+      'focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/50',
       checked ? 'text-ink' : 'text-dim-2',
     )}
   >
@@ -154,7 +154,7 @@ const ToggleColumnRow = ({
       className={cn(
         'inline-flex h-4 w-4 shrink-0 items-center justify-center rounded border transition-colors',
         checked
-          ? 'border-accent-500 bg-accent text-accent-foreground'
+          ? 'border-accent bg-accent text-accent-ink'
           : 'border-input-border bg-input-bg',
       )}
     >

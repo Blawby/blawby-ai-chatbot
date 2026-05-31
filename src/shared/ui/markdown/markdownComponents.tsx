@@ -129,13 +129,13 @@ export const markdownComponents: Components = {
     const isBlock = typeof className === 'string' && className.includes('language-');
     if (isBlock) {
       return (
-        <code className="block font-mono text-sm leading-relaxed text-[rgb(var(--accent-100))]" {...props}>
+        <code className="block font-mono text-sm leading-relaxed text-accent" {...props}>
           {children}
         </code>
       );
     }
     return (
-      <code className="px-1.5 py-0.5 rounded font-mono text-[0.85em] bg-[rgb(var(--surface-utility))]/10 text-[rgb(var(--accent-300))]" {...props}>
+      <code className="px-1.5 py-0.5 rounded font-mono text-[0.85em] bg-[rgb(var(--surface-utility))]/10 text-accent" {...props}>
         {children}
       </code>
     );
@@ -159,7 +159,7 @@ export const markdownComponents: Components = {
 
   blockquote({ children, ...props }) {
     return (
-      <blockquote className="pl-4 border-l-2 border-[rgb(var(--accent-500))]/40 text-[rgb(var(--input-placeholder))] italic my-3" {...props}>
+      <blockquote className="pl-4 border-l-2 border-accent/40 text-[rgb(var(--input-placeholder))] italic my-3" {...props}>
         {children}
       </blockquote>
     );
@@ -184,7 +184,7 @@ function MarkdownAnchor({ href, children, ...props }: MarkdownAnchorProps) {
   const isMention = Boolean(hrefValue?.startsWith('mention://'));
   const isExternal = Boolean(hrefValue && (hrefValue.startsWith('http') || hrefValue.startsWith('//')));
   const isInternalRoute = Boolean(hrefValue && hrefValue.startsWith('/') && !hrefValue.startsWith('//'));
-  const linkClassName = 'text-accent-500 hover:text-accent-400 underline underline-offset-2 transition-colors duration-150';
+  const linkClassName = 'text-accent hover:text-accent-deep underline underline-offset-2 transition-colors duration-150';
 
   if (isMention) {
     let cleanLabel = linkText.trim();
@@ -195,7 +195,7 @@ function MarkdownAnchor({ href, children, ...props }: MarkdownAnchorProps) {
       cleanLabel = `@${cleanLabel}`;
     }
 
-    const pillClass = 'mention-token nav-item-active text-[rgb(var(--accent-foreground))] inline-flex items-center rounded-full px-2 py-0 text-[0.85em] font-semibold leading-relaxed no-underline mx-0.5 ring-1 ring-accent-400/25 whitespace-nowrap align-baseline';
+    const pillClass = 'mention-token nav-item-active text-accent-ink inline-flex items-center rounded-full px-2 py-0 text-[0.85em] font-semibold leading-relaxed no-underline mx-0.5 ring-1 ring-accent/25 whitespace-nowrap align-baseline';
 
     return (
       <span className={pillClass} title={cleanLabel}>

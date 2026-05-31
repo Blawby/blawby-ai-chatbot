@@ -142,8 +142,8 @@ export const UserProfileDisplay = ({
   if (loading) {
     return (
       <div className={`flex items-center ${isCollapsed ? 'justify-center py-2' : 'gap-3 px-3 py-2'}`}>
-        <div className="input-surface w-8 h-8 rounded-full animate-pulse" />
-        {!isCollapsed && <div className="input-surface w-20 h-4 rounded animate-pulse" />}
+        <div className="field w-8 h-8 rounded-full animate-pulse" />
+        {!isCollapsed && <div className="field w-20 h-4 rounded animate-pulse" />}
       </div>
     );
   }
@@ -162,7 +162,7 @@ export const UserProfileDisplay = ({
           />
           {!isCollapsed && (
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-[rgb(var(--accent-error))]">
+              <p className="text-sm font-medium text-neg">
                 Failed to load session
               </p>
               <p className="text-xs text-[rgb(var(--input-placeholder))]">

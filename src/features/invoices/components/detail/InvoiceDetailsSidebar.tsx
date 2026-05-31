@@ -119,7 +119,7 @@ export const InvoiceDetailsSidebar = ({ detail }: InvoiceDetailsSidebarProps) =>
                   href={detail.stripeHostedInvoiceUrl}
                   target="_blank"
                   rel="noreferrer"
-                  className="truncate text-accent-foreground underline decoration-current/40 underline-offset-2"
+                  className="truncate text-accent underline decoration-current/40 underline-offset-2"
                 >
                   Open
                 </a>

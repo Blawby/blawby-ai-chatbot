@@ -412,8 +412,8 @@ const AuthForm = ({
           </div>
 
           {error && (
-            <div className="mt-4 rounded-r-md panel border-accent-error/20 p-3">
-              <p className="text-sm text-accent-error-light">{error}</p>
+            <div className="mt-4 rounded-r-md panel border-neg/20 p-3">
+              <p className="text-sm text-neg">{error}</p>
             </div>
           )}
 
@@ -455,7 +455,7 @@ const AuthForm = ({
                 type="button"
                 onClick={handleToggleMode}
                 disabled={loading || disableActions}
-                className="text-accent-500 hover:text-accent-400"
+                className="text-accent hover:text-accent-deep"
               >
                 {resolvedMode === 'signup' 
                   ? t('signup.hasAccount', { signInLink: t('signup.signInLink') })

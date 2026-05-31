@@ -211,7 +211,7 @@ export const AddressFields = forwardRef<HTMLDivElement, AddressFieldsProps>(
               size={size}
               className={cn(
                 fieldCn('address'),
-                streetAddressProps?.isOpen && 'ring-2 ring-accent-500/50'
+                streetAddressProps?.isOpen && 'ring-2 ring-accent/50'
               )}
               autoComplete="off"
               role="combobox"
@@ -278,7 +278,7 @@ export const AddressFields = forwardRef<HTMLDivElement, AddressFieldsProps>(
                           className={cn(
                             'w-full px-3 py-2 text-left text-sm transition-colors duration-150',
                             isActive
-                              ? 'bg-accent/15 text-accent-400'
+                              ? 'bg-accent/15 text-accent'
                               : 'text-ink hover:bg-paper-2/10'
                           )}
                         >

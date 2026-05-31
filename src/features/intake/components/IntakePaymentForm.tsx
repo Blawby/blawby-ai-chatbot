@@ -326,7 +326,7 @@ export const IntakePaymentForm: FunctionComponent<IntakePaymentFormProps> = ({
       </div>
 
       {errorMessage && (
-        <div className="rounded-r-md border border-accent-error/30 bg-accent-error/10 px-4 py-3 text-sm text-accent-error-foreground backdrop-blur-xl dark:text-accent-error-light">
+        <div className="rounded-r-md border border-neg/30 bg-neg/10 px-4 py-3 text-sm text-neg backdrop-blur-xl">
           {errorMessage}
         </div>
       )}

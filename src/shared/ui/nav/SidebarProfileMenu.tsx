@@ -195,7 +195,7 @@ const ThemeSelector: FunctionComponent<{
             aria-checked={active}
             onClick={() => onChange(option.value)}
             className={cn(
-              'flex flex-1 items-center justify-center gap-1.5 rounded px-2 py-1.5 text-[12px] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-500/50',
+              'flex flex-1 items-center justify-center gap-1.5 rounded px-2 py-1.5 text-[12px] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50',
               active
                 ? 'bg-[rgb(var(--sidebar-menu-bg))] text-[rgb(var(--sidebar-text))] shadow-sm'
                 : 'text-[rgb(var(--sidebar-text-secondary))] hover:text-[rgb(var(--sidebar-text))]',
@@ -229,7 +229,7 @@ const ProfileMenuItem: FunctionComponent<{
       role="menuitem"
       onClick={onClick}
       className={cn(
-        'group flex h-9 w-full items-center gap-2 rounded-md px-2 text-left text-[13px] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-500/50',
+        'group flex h-9 w-full items-center gap-2 rounded-md px-2 text-left text-[13px] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50',
         isDanger
           ? 'text-red-400 hover:bg-red-500/10 hover:text-red-300'
           : 'text-[rgb(var(--sidebar-text))] hover:bg-[rgb(var(--sidebar-hover-bg))]',

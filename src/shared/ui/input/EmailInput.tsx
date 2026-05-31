@@ -98,18 +98,18 @@ export const EmailInput = forwardRef<HTMLInputElement, EmailInputProps>(({
 
   const variantClasses = {
     default: '',
-    error: 'isError',
-    success: 'isSuccess'
+    error: 'is-error',
+    success: 'is-success'
   };
 
   const inputClasses = cn(
     'w-full rounded-r-md text-ink placeholder:text-dim-2',
     'focus:outline-none transition-all duration-200',
-    'input-surface border-none',
+    'field border-none',
     sizeClasses[size],
     iconPaddingClasses[size],
     variantClasses[variant],
-    isInvalid && 'isError',
+    isInvalid && 'is-error',
     disabled && 'opacity-50 cursor-not-allowed',
     className
   );
@@ -167,22 +167,22 @@ export const EmailInput = forwardRef<HTMLInputElement, EmailInputProps>(({
         {showValidationIcon && (
           <div className="absolute inset-y-0 right-0 z-10 flex items-center pr-3 pointer-events-none">
             {isEmailValid ? (
-              <Icon icon={Check} className="w-4 h-4 text-accent-success"  />
+              <Icon icon={Check} className="w-4 h-4 text-pos"  />
             ) : (
-              <Icon icon={X} className="w-4 h-4 text-accent-error"  />
+              <Icon icon={X} className="w-4 h-4 text-neg"  />
             )}
           </div>
         )}
       </div>
       
       {displayError && (
-        <p id={externalErrorId} className="text-xs text-accent-error mt-1" role="alert" aria-live="assertive">
+        <p id={externalErrorId} className="text-xs text-neg mt-1" role="alert" aria-live="assertive">
           {displayError}
         </p>
       )}
       
       {showValidation && value && !isEmailValid && !displayError && (
-        <p id={validationErrorId} className="text-xs text-accent-error mt-1">
+        <p id={validationErrorId} className="text-xs text-neg mt-1">
           Please enter a valid email address
         </p>
       )}

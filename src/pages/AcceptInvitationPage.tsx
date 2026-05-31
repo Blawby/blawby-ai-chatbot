@@ -159,7 +159,7 @@ const Card = ({ tone = 'default', children }: { tone?: 'default' | 'error'; chil
       className={cn(
         "mx-auto max-w-xl rounded-2xl border p-6 text-sm",
         tone === 'error'
-          ? "border-accent-error/30 bg-accent-error/5 text-accent-error-foreground backdrop-blur-xl"
+          ? "border-neg/30 bg-neg/5 text-neg backdrop-blur-xl"
           : "card text-ink"
       )}
     >
@@ -432,7 +432,7 @@ export const AcceptInvitationPage = () => {
           <Logo size="lg" />
         </div>
         <h1 className="text-xl font-semibold text-ink">Unable to load invitation</h1>
-        <p className="mt-2 text-sm text-accent-error-light">{preAuthError}</p>
+        <p className="mt-2 text-sm text-neg">{preAuthError}</p>
         <div className="mt-4 flex flex-wrap gap-3">
           <Button variant="ghost" onClick={() => navigate('/auth', true)}>
             Back to sign in
@@ -535,7 +535,7 @@ export const AcceptInvitationPage = () => {
           <Logo size="lg" />
         </div>
         <h1 className="text-xl font-semibold text-ink">Unable to load invitation</h1>
-        <p className="mt-2 text-sm text-accent-error-light">{inviteState.message}</p>
+        <p className="mt-2 text-sm text-neg">{inviteState.message}</p>
         <div className="mt-4 flex flex-wrap gap-3">
           <Button variant="secondary" onClick={fetchInvitation}>
             Try again

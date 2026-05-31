@@ -276,7 +276,7 @@ const Message: FunctionComponent<MessageProps> = memo(({
 					<button
 						type="button"
 												className={onReplyPreviewClick
-													? 'relative flex min-w-0 items-center gap-2 pl-7 text-left text-xs text-dim-2 cursor-pointer transition hover:text-accent-foreground'
+													? 'relative flex min-w-0 items-center gap-2 pl-7 text-left text-xs text-dim-2 cursor-pointer transition hover:text-accent'
 													: 'relative flex min-w-0 items-center gap-2 pl-7 text-left text-xs text-dim-2 cursor-default pointer-events-none'
 												}
 						onClick={onReplyPreviewClick}
@@ -292,7 +292,7 @@ const Message: FunctionComponent<MessageProps> = memo(({
 								className="flex-shrink-0 mt-0.5 relative z-10"
 							/>
 						)}
-						<span className="font-semibold text-accent-foreground">{replyPreview.authorName}</span>
+						<span className="font-semibold text-accent">{replyPreview.authorName}</span>
 						<span className="truncate text-dim-2">
 							{replyPreview.isMissing ? 'Original message unavailable' : replyPreview.content}
 						</span>

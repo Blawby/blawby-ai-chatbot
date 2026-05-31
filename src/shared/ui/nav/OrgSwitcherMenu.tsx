@@ -163,7 +163,7 @@ export const OrgSwitcherMenu: FunctionComponent<OrgSwitcherMenuProps> = ({
   const triggerLogo = (
     <span
       aria-hidden="true"
-      className="flex h-7 w-7 shrink-0 items-center justify-center overflow-hidden rounded-md bg-[rgb(var(--accent-500))] text-sm font-bold text-[rgb(var(--accent-foreground))]"
+      className="flex h-7 w-7 shrink-0 items-center justify-center overflow-hidden rounded-md bg-accent text-sm font-bold text-accent-ink"
     >
       {org.logoUrl ? (
         <img src={org.logoUrl} alt="" className="h-full w-full object-cover" />
@@ -224,7 +224,7 @@ export const OrgSwitcherMenu: FunctionComponent<OrgSwitcherMenuProps> = ({
                       }}
                       disabled={isSwitching}
                       className={cn(
-                        'flex w-full items-center gap-2.5 rounded-md px-2 py-2 text-left text-[13px] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-500/50',
+                        'flex w-full items-center gap-2.5 rounded-md px-2 py-2 text-left text-[13px] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50',
                         isActive
                           ? 'bg-[rgb(var(--sidebar-hover-bg))] text-[rgb(var(--sidebar-text))]'
                           : 'text-[rgb(var(--sidebar-text))] hover:bg-[rgb(var(--sidebar-hover-bg))]'
@@ -232,7 +232,7 @@ export const OrgSwitcherMenu: FunctionComponent<OrgSwitcherMenuProps> = ({
                     >
                       <span
                         aria-hidden="true"
-                        className="flex h-6 w-6 shrink-0 items-center justify-center rounded bg-[rgb(var(--accent-500))] text-[11px] font-bold text-[rgb(var(--accent-foreground))]"
+                        className="flex h-6 w-6 shrink-0 items-center justify-center rounded bg-accent text-[11px] font-bold text-accent-ink"
                       >
                         {initialFor(name)}
                       </span>
@@ -243,7 +243,7 @@ export const OrgSwitcherMenu: FunctionComponent<OrgSwitcherMenuProps> = ({
                         </span>
                       </span>
                       {isActive ? (
-                        <Icon icon={Check} className="h-4 w-4 text-accent-utility" aria-hidden />
+                        <Icon icon={Check} className="h-4 w-4 text-accent" aria-hidden />
                       ) : null}
                     </button>
                   </li>
@@ -259,7 +259,7 @@ export const OrgSwitcherMenu: FunctionComponent<OrgSwitcherMenuProps> = ({
               setIsOpen(false);
               setCreateOpen(true);
             }}
-            className="flex h-9 w-full items-center gap-2 rounded-md px-2 text-left text-[13px] text-[rgb(var(--sidebar-text))] transition-colors hover:bg-[rgb(var(--sidebar-hover-bg))] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-500/50"
+            className="flex h-9 w-full items-center gap-2 rounded-md px-2 text-left text-[13px] text-[rgb(var(--sidebar-text))] transition-colors hover:bg-[rgb(var(--sidebar-hover-bg))] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50"
           >
             <Icon icon={Plus} className="h-4 w-4 text-[rgb(var(--sidebar-text-secondary))]" aria-hidden />
             <span>Create practice</span>

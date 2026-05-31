@@ -271,7 +271,7 @@ export function PracticeMatterCreatePage({
     >
       <DialogBody>
         {convertError ? (
-          <div className="mb-4 rounded-r-md border border-accent-error/30 bg-accent-error/10 px-4 py-3 text-sm text-accent-error">
+          <div className="mb-4 rounded-r-md border border-neg/30 bg-neg/10 px-4 py-3 text-sm text-neg">
             {convertError}
           </div>
         ) : null}

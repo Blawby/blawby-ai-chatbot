@@ -100,7 +100,7 @@ const OnboardingActions: FunctionComponent<OnboardingActionsProps> = ({
         </div>
 
         {missingFields.length > 0 && (
-          <div className="rounded-r-md bg-accent-warning/10 border border-accent-warning/30 p-3">
+          <div className="rounded-r-md bg-warn/10 border border-warn/30 p-3">
             <p className="text-sm text-yellow-800">
               <strong>Still needed:</strong> {missingFields.join(', ')}
             </p>
@@ -108,8 +108,8 @@ const OnboardingActions: FunctionComponent<OnboardingActionsProps> = ({
         )}
 
         {saveError && (
-          <div className="rounded-r-md bg-accent-error/10 border border-accent-error/30 p-3">
-            <p className="text-sm text-accent-error-foreground">
+          <div className="rounded-r-md bg-neg/10 border border-neg/30 p-3">
+            <p className="text-sm text-neg">
               <strong>Error:</strong> {saveError}
             </p>
           </div>

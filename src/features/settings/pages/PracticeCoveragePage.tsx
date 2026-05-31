@@ -225,7 +225,7 @@ export const PracticeCoveragePage = ({ className, onBack }: PracticeCoveragePage
 
 
         {servicesError && (
-          <p className="text-xs text-accent-error dark:text-accent-error-light mb-4">
+          <p className="text-xs text-neg dark:text-neg mb-4">
             {servicesError}
           </p>
         )}

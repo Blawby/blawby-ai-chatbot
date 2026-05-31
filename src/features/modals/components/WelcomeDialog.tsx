@@ -59,7 +59,7 @@ const WelcomeDialog = ({ isOpen, onClose, onComplete, workspace }: WelcomeDialog
                     href="https://blawby.com/help"
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-accent-500 hover:text-accent-400 underline"
+                    className="text-accent hover:text-accent-deep underline"
                   >
                     {t('onboarding.welcome.helpCenter')}
                   </a>

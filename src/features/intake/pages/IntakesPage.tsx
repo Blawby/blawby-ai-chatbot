@@ -4,7 +4,7 @@ import { useLocation } from 'preact-iso';
 import { Inbox } from 'lucide-preact';
 
 import { Seg } from '@/design-system/patterns';
-import { DataTable, type DataTableColumn, type DataTableRow } from '@/shared/ui/table/DataTable';
+import { EntityList } from '@/shared/ui/list/EntityList';
 import { WorkspacePlaceholderState } from '@/shared/ui/layout/WorkspacePlaceholderState';
 import { InfiniteScroll } from '@/shared/ui/layout/InfiniteScroll';
 import type { IconComponent } from '@/shared/ui/Icon';
@@ -220,50 +220,9 @@ export const IntakesPage: FunctionComponent<IntakesPageProps> = ({
     );
   }
 
-  const headerCellClass = 'text-xs font-semibold uppercase tracking-wide text-dim-2';
-  const columns: DataTableColumn[] = [
-    {
-      id: 'subject',
-      label: 'Subject',
-      isPrimary: true,
-      headerClassName: headerCellClass,
-    },
-    {
-      id: 'contact',
-      label: 'Contact',
-      hideAt: 'sm',
-      headerClassName: headerCellClass,
-      mobileClassName: 'text-dim-2',
-    },
-    {
-      id: 'status',
-      label: 'Status',
-      headerClassName: headerCellClass,
-    },
-    {
-      id: 'date',
-      label: 'Date',
-      align: 'right',
-      hideAt: 'sm',
-      headerClassName: headerCellClass,
-    },
-  ];
-
-  const rows: DataTableRow[] = items.map((item) => {
-    const triage = triageStatusVariant(item.triage_status);
-    const subject = resolveIntakeTitle(item.metadata, item.metadata?.name?.trim() || 'Anonymous Lead');
-    const contact = item.metadata?.email?.trim() || item.metadata?.name?.trim() || '—';
-    return {
-      id: item.uuid,
-      onClick: () => handleSelectIntake(item),
-      cells: {
-        subject: <span className="truncate font-medium text-ink">{subject}</span>,
-        contact: <span className="truncate text-dim-2">{contact}</span>,
-        status: <span className={cn('font-medium', triage.className)}>{triage.label}</span>,
-        date: <span className="tabular-nums text-dim-2">{formatRelativeTime(item.created_at)}</span>,
-      },
-    };
-  });
+  // EntityList requires `T extends { id: string }`; IntakeListItem only has `uuid`,
+  // so wrap each row with an `id` alias for selection identity.
+  const entityRows = items.map((item) => ({ id: item.uuid, item }));
 
   const showEmpty = !isLoading && !error && items.length === 0 && !hasMore;
   const emptyMessage = triageFilter === 'pending_review'
@@ -287,7 +246,7 @@ export const IntakesPage: FunctionComponent<IntakesPageProps> = ({
       </div>
 
       {/* List body */}
-      <div className="flex-1 min-h-0 overflow-y-auto">
+      <div className="flex-1 min-h-0 flex flex-col">
         {error ? (
           <div className="p-6 text-sm text-error">{error}</div>
         ) : showEmpty ? (
@@ -299,26 +258,45 @@ export const IntakesPage: FunctionComponent<IntakesPageProps> = ({
           />
         ) : (
           <>
-            {/* Desktop table */}
-            <div className="hidden md:block px-6 py-4">
-              <DataTable
-                columns={columns}
-                rows={rows}
-                loading={isLoading && rows.length === 0}
-                density="compact"
-                stickyHeader
-                className="panel overflow-hidden"
-                bodyClassName="bg-transparent"
-                rowClassName="transition-colors duration-150 hover:!bg-paper-2"
-                hasMore={hasMore}
+            {/* Desktop list */}
+            <div className="hidden md:flex md:flex-1 md:min-h-0 md:flex-col md:px-6 md:py-4">
+              <EntityList
+                items={entityRows}
+                onSelect={({ item }) => handleSelectIntake(item)}
+                isLoading={isLoading && items.length === 0}
                 isLoadingMore={isLoadingMore}
-                onLoadMore={loadMore}
+                onLoadMore={hasMore ? loadMore : undefined}
+                className="panel overflow-hidden"
+                renderItem={({ item }) => {
+                  const triage = triageStatusVariant(item.triage_status);
+                  const subject = resolveIntakeTitle(
+                    item.metadata,
+                    item.metadata?.name?.trim() || 'Anonymous Lead'
+                  );
+                  const contact = item.metadata?.email?.trim() || item.metadata?.name?.trim() || '—';
+                  return (
+                    <div className="flex w-full items-center gap-4 px-4 py-3 hover:bg-paper-2/10">
+                      <span className="min-w-[160px] flex-1 truncate text-sm font-medium text-ink">
+                        {subject}
+                      </span>
+                      <span className="hidden min-w-[160px] truncate text-sm text-dim-2 sm:block">
+                        {contact}
+                      </span>
+                      <span className={cn('min-w-[120px] text-sm font-medium', triage.className)}>
+                        {triage.label}
+                      </span>
+                      <span className="hidden min-w-[100px] text-right text-sm tabular-nums text-dim-2 sm:block">
+                        {formatRelativeTime(item.created_at)}
+                      </span>
+                    </div>
+                  );
+                }}
               />
             </div>
 
             {/* Mobile cards */}
-            <div className="md:hidden">
-              {isLoading && rows.length === 0 ? (
+            <div className="flex-1 min-h-0 overflow-y-auto md:hidden">
+              {isLoading && items.length === 0 ? (
                 <div className="flex flex-col gap-3 px-4 py-3">
                   {Array.from({ length: 5 }).map((_, i) => (
                     <div key={`skeleton-${i}`} className="h-32 rounded-r-md bg-card animate-pulse" />

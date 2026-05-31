@@ -27,7 +27,7 @@ export const VoidInvoiceConfirmDialog = ({
       isOpen={isOpen}
       onClose={onCancel}
       title={
-        <span className="flex items-center gap-2 text-accent-error-light">
+        <span className="flex items-center gap-2 text-neg">
           <AlertTriangle className="h-5 w-5" aria-hidden="true" />
           Void this invoice?
         </span>

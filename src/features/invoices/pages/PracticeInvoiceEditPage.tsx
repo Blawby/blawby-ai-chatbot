@@ -57,11 +57,11 @@ export function PracticeInvoiceEditPage({
   }, [invoiceId, invoicesPath, navigate, showError]);
 
   if (!practiceId) {
-    return <div className="p-6 text-sm text-accent-error-light">Practice context is missing from this route.</div>;
+    return <div className="p-6 text-sm text-neg">Practice context is missing from this route.</div>;
   }
 
   if (!invoiceId) {
-    return <div className="p-6 text-sm text-accent-error-light">Invoice ID is missing from this route.</div>;
+    return <div className="p-6 text-sm text-neg">Invoice ID is missing from this route.</div>;
   }
 
   return (

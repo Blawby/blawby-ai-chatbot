@@ -209,36 +209,35 @@
     border-radius: var(--r-md);
   }
 
-  /* Legacy .input-surface kept for 29 callers in src/shared/ui/input/*.
-     Mirrors DS .input shape (var(--card), var(--rule), focus uses
-     accent-soft ring). Sweep to .input happens in Commit 8. */
-  .input-surface {
+  /* Tokenized input surface — bg + border + ring. No padding/width/font;
+     callers add layout. Form controls should use .input/.textarea/.select. */
+  .field {
     background: var(--card);
     border: 1px solid var(--rule);
     border-radius: var(--r-xs);
     color: var(--ink);
   }
 
-  .input-surface::placeholder {
+  .field::placeholder {
     color: var(--dim);
     opacity: 0.8;
   }
 
-  .input-surface:focus,
-  .input-surface.isOpen {
+  .field:focus,
+  .field.is-open {
     outline: none;
     border-color: var(--ink);
     box-shadow: 0 0 0 3px var(--accent-soft);
   }
 
-  .input-surface.isError,
-  .input-surface.isError:focus {
+  .field.is-error,
+  .field.is-error:focus {
     border-color: var(--neg);
     box-shadow: 0 0 0 3px color-mix(in oklab, var(--neg) 20%, transparent);
   }
 
-  .input-surface.isSuccess,
-  .input-surface.isSuccess:focus {
+  .field.is-success,
+  .field.is-success:focus {
     border-color: var(--pos);
     box-shadow: 0 0 0 3px color-mix(in oklab, var(--pos) 20%, transparent);
   }
@@ -283,11 +282,11 @@
     @apply pointer-events-none absolute bottom-[-1px] left-0 h-0.5 w-full;
 
     background: linear-gradient(90deg,
-        rgb(var(--accent-500) / 0) 0%,
-        rgb(var(--accent-500) / 0.95) 20%,
-        rgb(var(--accent-500) / 1) 45%,
-        rgb(var(--accent-500) / 0.95) 70%,
-        rgb(var(--accent-500) / 0) 100%);
+        rgb(var(--accent-rgb) / 0) 0%,
+        rgb(var(--accent-rgb) / 0.95) 20%,
+        rgb(var(--accent-rgb) / 1) 45%,
+        rgb(var(--accent-rgb) / 0.95) 70%,
+        rgb(var(--accent-rgb) / 0) 100%);
     transform: translateX(-100%);
     animation: workspace-header-progress 1.15s linear infinite;
   }
@@ -588,9 +587,14 @@
     background-color: rgb(var(--paper-2-rgb));
   }
 
-  /* Semantic status surfaces — DS tokens, color-mix for tinted bg.
-     Used by FormMessage, SettingsBadge, PracticeMattersPage, InfoCard,
-     RoleBadge, StatusBadge wrappers. Sweep to <Pill> happens in Commit 8. */
+  /* Semantic status surfaces — DS-tokenized tinted banner/notice
+     containers. Distinct from <Pill> (inline span badges) and <Alert>
+     (icon + structured content): these are bare tinted surfaces that
+     callers compose with their own padding/layout/text. Used by
+     FormMessage, SettingsBadge, Toast, InfoCard, PasswordInput
+     wrappers plus inline error/warning notices across feature files.
+     Confirmed kept in Commit 8 audit revision (see
+     docs/design-system-commit-8-audit.md §8.4b). */
   .status-info {
     background: color-mix(in oklab, var(--accent-deep) 10%, transparent);
     border: 1px solid color-mix(in oklab, var(--accent-deep) 30%, transparent);
@@ -969,7 +973,7 @@
      DS PRIMITIVES — Label, Pill, Chip, Bar, Card-hd, Avatar,
      Field, Input/Textarea/Select, Toggle
      Canonical class shapes per design-system spec.
-     Existing .btn/.card/.input-surface remain until Commit 4b.
+     Existing .btn/.card/.field remain until Commit 4b.
      ============================================================ */
 
   .label {
@@ -2860,6 +2864,19 @@
       animation: none;
       background-image: none;
       background-color: rgb(var(--input-placeholder) / 0.24);
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .animate-toast-in,
+    .animate-float-in,
+    .animate-progress-indeterminate,
+    .workspace-header__loading,
+    .ai-thinking-indicator__dot,
+    .human-typing-indicator__dot {
+      animation: none !important;
+      transition: none !important;
+      transform: none !important;
     }
   }
 

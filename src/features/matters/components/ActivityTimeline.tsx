@@ -105,7 +105,7 @@ const ActivityTimeline: FunctionComponent<ActivityTimelineProps> = ({
                     {index < events.length - 1 && (
                       <div className="absolute left-3 top-8 bottom-0 w-px bg-line-default" />
                     )}
-                    <div className="input-surface relative flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center">
+                    <div className="field relative flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center">
                       <IconComponent className="w-3 h-3 text-dim-2" />
                     </div>
                     <div className="flex-1 min-w-0">

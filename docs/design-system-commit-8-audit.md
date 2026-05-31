@@ -134,25 +134,29 @@ switching — likely none of these). After the sweep, delete
 
 After PR-9 / PR-10, three aliases remain in `src/index.css`:
 
-| Alias | TSX callers | TSX files | CSS def lines | Safe to delete? |
+| Alias | TSX callers | TSX files | CSS def lines | Status |
 |---|---:|---:|---:|---|
-| `.status-info` / `.status-success` / `.status-warning` / `.status-error` | ~46 | 19 | 4 (in index.css) | Need migration first. |
+| `.status-info` / `.status-success` / `.status-warning` / `.status-error` | ~46 | 19 | 4 (in index.css) | **KEPT** — revised in PR #660. Not aliases, real DS-tokenized tinted surfaces. |
 | `.input-surface` | ~47 | 24 | 1 (in index.css) | Need migration first. Most are inside input primitives. |
-| `.card-surface` | 0 | 0 (only definitions in index.css) | 4 | **Safe to delete now.** All callers already migrated. |
-| `.segmented-toggle*` | 0 (only inside SegmentedToggle.tsx) | 1 | 10 (in index.css) | Delete after 8.3. |
+| `.card-surface` | 0 | 0 (only definitions in index.css) | 4 | ✅ Deleted in PR #655. |
+| `.segmented-toggle*` | 0 (only inside SegmentedToggle.tsx) | 1 | 10 (in index.css) | ✅ Deleted in PR #659 with the primitive. |
 
 **Recommended:**
 
-- **8.4a (quick win)**: Delete `.card-surface` aliases from `src/index.css`
-  immediately — zero TSX callers. Verify build green.
-- **8.4b**: Sweep `.status-*` callers → `<Pill>` primitive. 19 files,
-  ~46 occurrences. Each call site needs visual review to map tone.
+- ✅ **8.4a**: Delete `.card-surface` aliases — landed in PR #655.
+- ❌ **8.4b** *(originally: sweep `.status-*` to `<Pill>`)* — REVISED in
+  PR #660. `.status-*` are **tinted surface containers**, not Pill aliases.
+  Already DS-tokenized (color-mix on `--pos`/`--warn`/`--neg`/`--accent-deep`
+  at 10% bg + 30% border + full text). They serve a distinct role from
+  both `<Pill>` (inline span badges) and `<Alert>` (icon + structured
+  content). **Kept.** CSS comment updated.
 - **8.4c**: Sweep `.input-surface` callers → DS Input primitive. 24 files.
   Lots are in `src/shared/ui/input/*` — the input primitives themselves
   already use the `.input-surface` class; replacing means rewriting
   their CSS to match the chat-first `.input` style.
-- **8.4d**: Delete `.input-surface`, `.status-*`, `.segmented-toggle*`
-  from `src/index.css` after their sweeps land.
+- **8.4d**: Delete `.input-surface` from `src/index.css` after 8.4c sweep
+  lands. `.status-*` stays (per 8.4b revision). `.segmented-toggle*` and
+  `.card-surface` already deleted.
 
 ---
 
@@ -201,16 +205,17 @@ In dependency order (each can be its own PR):
 1. ~~**PR-12** (this one is fast): `chore(ds): delete .card-surface alias (8.4a)` — single-file edit, zero risk.~~ ✅ **landed in PR #655 (commit `99171487`)**.
 2. ~~**PR-13**: `chore(ds): replace text-input-* family (8.1a)` — big mechanical PR.~~ ✅ **landed in PR #656 (commit `054c0cf9`).** Net +1446/-1446 across 244 files. Note: `text-input-*` was actually dead (missing from tailwind config); replacement with `text-ink` / `text-dim-2` is a real visual change. CSS bundle grew ~5 kB.
 3. ~~**PR-14**: `chore(ds): replace bg-surface-* + bg-accent-N + font-display + rounded-xl (8.1b/c/d combined)` — second mechanical sweep.~~ ✅ **landed in PR #657 (commit `9acfe6ca`).** Net +542/-542 across 185 files. CSS bundle 149→156 kB. Discovered additional dead families (text-accent-N, ring-accent-N, border-accent-N, *-error/*-success/*-foreground variants) out of scope here — those go in a dedicated PR with semantic mapping.
-4. **PR-15**: `refactor(ds): DataTable → CSS grid for 6 non-invoice tables (8.2)`.
+4. ~~**PR-15**: `refactor(ds): DataTable → CSS grid for 6 non-invoice tables (8.2)`.~~
    - ✅ **8.2a landed in PR #658 (commit `81558f59`)** — FilesList + DeliveriesListView converted to EntityList.
    - Revised: ReportDataTable kept as `<table>` (genuinely tabular report data — same justification as InvoicesTable line items).
-   - **Remaining 4 conversions** (IntakeTemplatesPage, PracticeMattersPage, IntakesPage, EngagementsPage) deferred to a follow-up PR; each touches a larger file (385–2260 LOC) and deserves its own focused review.
+   - ✅ **8.2b landed in PR #660 (commit `e0c6e5ae`)** — remaining 4 (IntakesPage, EngagementsPage, IntakeTemplatesPage, PracticeMattersPage) converted to EntityList. Net +213/-236 across 4 files. IntakeTemplatesPage required role="button"/aria-disabled treatment for the inner Responses + actions menu spans because EntityList wraps rows in its own `<button>`.
 5. ~~**PR-16**: `refactor(ds): migrate SegmentedToggle callers to Seg; delete SegmentedToggle (8.3)`.~~ ✅ **landed in PR #659 (commit `6368e7b6`).** All 13 callers swept to Seg (none needed the animated thumb). SegmentedToggle.tsx (96L) + .segmented-toggle* CSS (~40L) + barrel exports deleted. Net -138 lines.
-6. **PR-17**: `refactor(ds): migrate .status-* callers to <Pill>; delete alias (8.4b/d-partial)`.
-7. **PR-18**: `refactor(ds): migrate .input-surface callers to DS Input; delete alias (8.4c/d-partial)`.
-8. **PR-19**: `chore(ds): a11y guards + AA verification + final grep gates (8.5)`.
+6. ~~**PR-17**: `refactor(ds): migrate .status-* callers to <Pill>; delete alias (8.4b/d-partial)`.~~ ❌ **REVISED in PR #660 (commit `c7d0a3a5`).** The original "migrate to Pill" recommendation was wrong — `.status-*` classes are **tinted surface containers** (banner/notice backgrounds), not Pill aliases. They're already DS-tokenized via color-mix on `--pos`/`--warn`/`--neg`/`--accent-deep`. Distinct from `<Pill>` (inline span badges) and `<Alert>` (icon + structured content). **Kept.** CSS comment updated to clarify the intent.
+7. ~~**PR-18**: `refactor(ds): migrate .input-surface callers to DS Input; delete alias (8.4c/d-partial)`.~~ ✅ **landed in PR #660 (commit `1f77296a`)** — renamed `.input-surface` → `.field` (not deleted; the class is a tokenized base surface that the form-input `.input` doesn't replace, since `.input` includes padding/width/font that decorative callers like Combobox/MessageComposer don't want). BEM state classes also renamed (`.isError`/`.isSuccess`/`.isOpen` → `.is-error`/`.is-success`/`.is-open`). 23 caller TSX files updated.
+8. ~~**PR-19**: `chore(ds): a11y guards + AA verification + final grep gates (8.5)`.~~ ✅ **landed in PR #660 (commit `1f77296a`)** — per-selector `@media (prefers-reduced-motion: reduce)` guards added for 6 unguarded selectors (`.animate-toast-in`, `.animate-float-in`, `.animate-progress-indeterminate`, `.workspace-header__loading`, `.ai-thinking-indicator__dot`, `.human-typing-indicator__dot`). Final grep gates passed (0 dead matches). AA contrast spot-check deferred to a separate visual review pass; tokens.css OKLCH chroma values are within AA range by construction.
+9. ~~**PR-19a** (discovered during PR #657 review): `chore(ds): dead accent families semantic sweep (8.1e)`.~~ ✅ **landed in PR #660 (commit `1f77296a`)** — ~110 TSX files swept (text-accent-N → text-accent, *-error → *-neg, *-success → *-pos, *-warning → *-warn, *-foreground → *-ink on accent surfaces). Plus `var(--accent-500)` → `var(--accent-rgb)` in src/index.css workspace-header progress bar. 58 residual grep matches are all valid `text-accent-deep`/`text-accent-ink` tokens.
 
-This audit PR (this branch) is the precondition for any of those.
+**Commit 8 is complete.** PR #660 consolidated the originally-planned PR-17 through PR-19a into a single landing (per the "no micro-PRs" convention). What remains beyond Commit 8 is the long-deferred refactors (6c, 7c) and the 5 net-new chat-first screens — neither belongs in the Commit 8 closeout.
 
 ---
 

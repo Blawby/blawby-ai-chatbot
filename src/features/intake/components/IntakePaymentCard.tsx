@@ -42,7 +42,7 @@ export const IntakePaymentCard: FunctionComponent<IntakePaymentCardProps> = ({ p
           type="button"
           disabled
           aria-disabled="true"
-          className="inline-flex h-10 w-full cursor-not-allowed items-center justify-center rounded-r-md bg-accent px-4 text-center font-semibold text-[rgb(var(--accent-foreground))] opacity-70"
+          className="inline-flex h-10 w-full cursor-not-allowed items-center justify-center rounded-r-md bg-accent px-4 text-center font-semibold text-accent-ink opacity-70"
           title="Preview only"
         >
           {buttonLabel}

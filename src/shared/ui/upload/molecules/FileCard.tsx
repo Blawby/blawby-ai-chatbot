@@ -67,7 +67,7 @@ export const FileCard = ({
     const fileType = getFileTypeConfig(fileName, mimeType);
     const tileClassName = cn(
       'group relative flex w-full flex-col overflow-hidden rounded-2xl border border-line-subtle bg-card text-left transition-all',
-      onClick ? 'cursor-pointer hover:border-line-subtle hover:shadow-md focus:outline-none focus:ring-2 focus:ring-accent-500' : '',
+      onClick ? 'cursor-pointer hover:border-line-subtle hover:shadow-md focus:outline-none focus:ring-2 focus:ring-accent' : '',
       className
     );
     const shouldShowTileStatus = status === 'uploading'
