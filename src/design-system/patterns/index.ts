@@ -42,3 +42,19 @@ export type {
 
 export { Seg } from './Seg';
 export type { SegProps, SegOption } from './Seg';
+
+export { AIAskBar } from './AIAskBar';
+export type { AIAskBarProps, AIAskBarContextChip } from './AIAskBar';
+
+export { AIAnswerCard } from './AIAnswerCard';
+export type {
+  AIAnswerCardProps,
+  AIAnswerCardAction,
+  AIAnswerCardSource
+} from './AIAnswerCard';
+
+export { AIRibbon } from './AIRibbon';
+export type { AIRibbonProps, AIRibbonVariant, AIRibbonAction } from './AIRibbon';
+
+export { PlaceholderToken, parsePlaceholders } from './PlaceholderToken';
+export type { PlaceholderTokenProps, PlaceholderParsed } from './PlaceholderToken';

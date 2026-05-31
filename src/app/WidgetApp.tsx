@@ -8,6 +8,7 @@ import { X, Home, MessagesSquare, Info } from 'lucide-preact';
 import ChatContainer from '@/features/chat/components/ChatContainer';
 import InspectorPanel from '@/shared/ui/inspector/InspectorPanel';
 import WorkspaceHomeView from '@/features/chat/views/WorkspaceHomeView';
+import { IntakeFirmBar } from '@/features/intake/components/IntakeFirmBar';
 import { useToastContext } from '@/shared/contexts/ToastContext';
 import WidgetConversationListView from '@/features/chat/views/WidgetConversationListView';
 import { useConversations } from '@/shared/hooks/useConversations';
@@ -27,7 +28,6 @@ import type { ConversationMetadata, ConversationMode } from '@/shared/types/conv
 import type { UIPracticeConfig } from '@/shared/hooks/usePracticeConfig';
 import DragDropOverlay from '@/shared/ui/DragDropOverlay';
 import { resolveStrengthStyle, resolveStrengthTier } from '@/shared/utils/intakeStrength';
-import { DetailHeader } from '@/shared/ui/layout/DetailHeader';
 import { resolveConsultationState } from '@/shared/utils/consultationState';
 import { FocusDrawer } from '@/design-system/layout';
 import { features } from '@/config/features';
@@ -79,12 +79,19 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
   bootstrapSession,
   intakeTemplate: intakeTemplateProp,
 }) => {
-  // Single navigation state (no 'disclaimer' step)
-  const [view, setView] = useState<'home' | 'list' | 'chat'>(routeConversationId ? 'chat' : 'home');
+  // Chat-first public intake: the public widget opens straight into the
+  // conversation surface (Intake.html) instead of the card-grid home — the
+  // home view remains reachable via the bottom-rail Home button and via the
+  // chat header back button. routeConversationId still wins when present so
+  // deep-linked conversations behave as before.
+  const [view, setView] = useState<'home' | 'list' | 'chat'>('chat');
   const [setupConversationId, setConversationId] = useState<string | null>(null);
   const [bootstrapIgnored, setBootstrapIgnored] = useState(false);
   const creatingConversationRef = useRef<Promise<string> | null>(null);
-  const [conversationMode, setConversationMode] = useState<ConversationMode | null>(null);
+  // Default to REQUEST_CONSULTATION so the chat surface mounts immediately
+  // (`canChat` requires either a conversation or a mode) and the AI starts the
+  // canonical intake flow on first turn.
+  const [conversationMode, setConversationMode] = useState<ConversationMode | null>('REQUEST_CONSULTATION');
   
   // Disclaimer & Mode tracking
   const [pendingMode, setPendingMode] = useState<ConversationMode | null>(null);
@@ -554,6 +561,43 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
     return relative ? t('workspace.header.activeRelative', { time: relative }) : t('workspace.header.inactive');
   }, [filteredMessagesForHeader, isSocketReady, t]);
 
+  // Compose the firm-bar sub-line per Intake.html — practice area, jurisdiction,
+  // bar number (when available). Falls back gracefully when fields are absent;
+  // returns an empty string only when nothing useful is set, which IntakeFirmBar
+  // treats as "hide the line entirely".
+  const firmBarSubtitle = useMemo(() => {
+    const segments: string[] = [];
+    const servicesRaw = cachedPracticeDetails?.services;
+    if (Array.isArray(servicesRaw) && servicesRaw.length > 0) {
+      const names = servicesRaw
+        .map((s) => {
+          if (!s || typeof s !== 'object') return null;
+          const name = (s as Record<string, unknown>).name;
+          return typeof name === 'string' && name.trim() ? name.trim() : null;
+        })
+        .filter((n): n is string => Boolean(n));
+      if (names.length > 0) {
+        segments.push(names.length <= 2 ? names.join(', ') : `${names.slice(0, 2).join(', ')} +${names.length - 2}`);
+      }
+    }
+    const city = cachedPracticeDetails?.city?.trim();
+    const stateAbbr = cachedPracticeDetails?.state?.trim();
+    if (city || stateAbbr) {
+      segments.push([city, stateAbbr].filter(Boolean).join(', '));
+    }
+    const metadata = cachedPracticeDetails?.metadata;
+    const barRaw = metadata && typeof metadata === 'object'
+      ? (metadata as Record<string, unknown>).barNumber ?? (metadata as Record<string, unknown>).bar_number
+      : undefined;
+    const bar = typeof barRaw === 'string' && barRaw.trim() ? barRaw.trim() : null;
+    if (bar && stateAbbr) {
+      segments.push(`${stateAbbr} Bar #${bar}`);
+    } else if (bar) {
+      segments.push(`Bar #${bar}`);
+    }
+    return segments.join(' · ');
+  }, [cachedPracticeDetails]);
+
   const isReady = useMemo(() => currentUserId !== null && isSocketReady && messagesReady, [currentUserId, isSocketReady, messagesReady]);
 
 
@@ -721,17 +765,39 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
                 onRequestReactions={requestMessageReactions}
                 isPublicWorkspace={true}
                 messagesReady={messagesReady}
+                disclaimerProps={
+                  widgetLegalDisclaimer && !isDisclaimerAccepted
+                    ? {
+                        text: widgetLegalDisclaimer,
+                        onAccept: handleAcceptDisclaimer,
+                        onClose: () => {
+                          // Session-only dismiss — the user can re-open by reloading.
+                          setIsDisclaimerAccepted(true);
+                          safeSetSessionItem(`blawby-widget-disclaimer-accepted:${practiceId}`, 'true');
+                        },
+                      }
+                    : undefined
+                }
                 headerContent={
-                  <DetailHeader
-                    title={practiceConfig.name ?? ''}
-                    subtitle={conversationHeaderActiveLabel}
-                    showBack={view === 'chat'}
-                    onBack={() => {
-                      setConversationMode(null);
-                      setView('home');
-                    }}
+                  <IntakeFirmBar
+                    practiceName={practiceConfig.name ?? ''}
+                    practiceLogo={practiceConfig.profileImage ?? null}
+                    subtitle={firmBarSubtitle || conversationHeaderActiveLabel}
+                    leadingAction={
+                      <Button
+                        type="button"
+                        variant="icon"
+                        size="icon-sm"
+                        onClick={() => {
+                          setConversationMode(null);
+                          setView('home');
+                        }}
+                        aria-label="Back to home"
+                      >
+                        <Icon icon={Home} className="h-5 w-5" />
+                      </Button>
+                    }
                     actions={widgetChatHeaderActions}
-                    className="workspace-conversation-header"
                   />
                 }
                 heightClassName="h-full"

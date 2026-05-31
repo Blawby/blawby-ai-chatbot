@@ -49,6 +49,7 @@ import { lazy } from 'preact/compat';
 const AuthPage = lazy(() => import('@/pages/AuthPage'));
 const AcceptInvitationPage = lazy(() => import('@/pages/AcceptInvitationPage'));
 const PracticeHomePage = lazy(() => import('@/pages/PracticeHomePage'));
+const ClientHomePage = lazy(() => import('@/pages/ClientHomePage'));
 const PracticeTrustPage = lazy(() => import('@/features/trust/pages/PracticeTrustPage'));
 const PracticeTasksPage = lazy(() => import('@/features/tasks/pages/PracticeTasksPage'));
 const PracticeCalendarPage = lazy(() => import('@/features/calendar/pages/PracticeCalendarPage'));
@@ -1122,6 +1123,14 @@ function ClientPracticeRoute({
 
   if (!resolvedPracticeId) {
     return <LoadingScreen />;
+  }
+
+  if (workspaceView === 'home') {
+    return (
+      <Suspense fallback={<LoadingScreen />}>
+        <ClientHomePage />
+      </Suspense>
+    );
   }
 
   const currentUrl = typeof window !== 'undefined'

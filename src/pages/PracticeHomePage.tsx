@@ -1,15 +1,23 @@
 import { useEffect, useMemo, useState } from 'preact/hooks';
 import { useLocation } from 'preact-iso';
-import { Plus, UserPlus, Check, X, ArrowRight } from 'lucide-preact';
+import { Check, X } from 'lucide-preact';
 import { useSessionContext } from '@/shared/contexts/SessionContext';
 import { useWorkspaceResolver } from '@/shared/hooks/useWorkspaceResolver';
 import { usePracticeDetails } from '@/shared/hooks/usePracticeDetails';
 import { useSidebarCounts } from '@/shared/hooks/useSidebarCounts';
 import { useClientsData } from '@/shared/hooks/useClientsData';
+import { useMattersData } from '@/shared/hooks/useMattersData';
 import { useNavigation } from '@/shared/utils/navigation';
 import { signOut } from '@/shared/utils/auth';
-import { Button } from '@/shared/ui/Button';
-import { Seg, type SegOption } from '@/design-system/patterns';
+import {
+  AIAnswerCard,
+  AIAskBar,
+  BriefingGrid,
+  Citations,
+  Observation,
+  StatStrip,
+} from '@/design-system/patterns';
+import { SignalPill } from '@/design-system/primitives';
 import { LeftRail, BrandMark, type LeftRailItem } from '@/design-system/layout';
 import { OrgSwitcherMenu } from '@/shared/ui/nav/OrgSwitcherMenu';
 import { SidebarProfileMenu } from '@/shared/ui/nav/SidebarProfileMenu';
@@ -23,16 +31,9 @@ import { formatCurrency } from '@/shared/utils/currencyFormatter';
 import { getMajorAmountValue, type MajorAmount } from '@/shared/utils/money';
 import { getOnboardingStatusPayload, isAbortError, isHttpError } from '@/shared/lib/apiClient';
 import { extractStripeStatusFromPayload } from '@/features/onboarding/utils';
-
-type CashflowRange = '7d' | '30d' | 'all';
+import type { BackendMatter } from '@/features/matters/services/mattersApi';
 
 const SETUP_DISMISSED_STORAGE_KEY = 'blawby:practice-home:setup-dismissed';
-
-const CASHFLOW_RANGES: ReadonlyArray<SegOption<CashflowRange>> = [
-  { value: '7d', label: 'Last 7 days' },
-  { value: '30d', label: 'Last 30 days' },
-  { value: 'all', label: 'All-time' },
-];
 
 interface SetupStep {
   id: string;
@@ -43,25 +44,91 @@ interface SetupStep {
 }
 type StripeStatus = ReturnType<typeof extractStripeStatusFromPayload>;
 
+interface AskHistoryItem {
+  id: string;
+  question: string;
+}
+
 const hasMoneyValue = (value: MajorAmount | null | undefined) =>
   Math.abs(getMajorAmountValue(value)) > 0;
 
-const intakeStatusLabel = (status: string | null | undefined) => {
-  if (status === 'accepted') return 'Accepted';
-  if (status === 'declined') return 'Declined';
-  return 'Pending';
+const URGENCY_RANK: Record<string, number> = {
+  emergency: 3,
+  time_sensitive: 2,
+  routine: 1,
 };
 
-const intakeStatusClass = (status: string | null | undefined) => {
-  if (status === 'accepted') return 'status-success';
-  if (status === 'declined') return 'status-error';
-  return 'status-warning';
+const pickPriorityIntake = (intakes: readonly IntakeListItem[]): IntakeListItem | null => {
+  if (intakes.length === 0) return null;
+  // Sort by urgency desc, then case_strength desc, then created_at desc.
+  const sorted = [...intakes]
+    .filter((row) => row.triage_status === 'pending_review')
+    .sort((a, b) => {
+      const ru = (URGENCY_RANK[a.urgency ?? ''] ?? 0) - (URGENCY_RANK[b.urgency ?? ''] ?? 0);
+      if (ru !== 0) return -ru;
+      const rs = (a.case_strength ?? 0) - (b.case_strength ?? 0);
+      if (rs !== 0) return -rs;
+      return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+    });
+  return sorted[0] ?? intakes[0] ?? null;
 };
 
-const initialsFor = (name: string) => {
-  const parts = name.trim().split(/\s+/).filter(Boolean);
-  if (parts.length === 0) return '?';
-  return parts.slice(0, 2).map((part) => part.charAt(0).toUpperCase()).join('');
+const matterUpdatedAt = (matter: BackendMatter): number => {
+  const raw = matter.updated_at ?? matter.created_at ?? null;
+  if (!raw) return 0;
+  const t = new Date(raw).getTime();
+  return Number.isFinite(t) ? t : 0;
+};
+
+const STALL_THRESHOLD_MS = 7 * 24 * 60 * 60 * 1000;
+
+const pickStalledMatters = (matters: readonly BackendMatter[]): BackendMatter[] => {
+  const now = Date.now();
+  return matters
+    .filter((m) => {
+      const status = String(m.status ?? '').toLowerCase();
+      if (status === 'closed' || status === 'archived') return false;
+      return now - matterUpdatedAt(m) > STALL_THRESHOLD_MS;
+    })
+    .sort((a, b) => matterUpdatedAt(a) - matterUpdatedAt(b))
+    .slice(0, 3);
+};
+
+const pickPinnedMatter = (matters: readonly BackendMatter[]): BackendMatter | null => {
+  if (matters.length === 0) return null;
+  const active = matters.filter((m) => {
+    const status = String(m.status ?? '').toLowerCase();
+    return status !== 'closed' && status !== 'archived';
+  });
+  const pool = active.length > 0 ? active : matters;
+  // Prefer urgent matters, then the most recently updated.
+  const sorted = [...pool].sort((a, b) => {
+    const au = (URGENCY_RANK[String(a.urgency ?? '').toLowerCase()] ?? 0);
+    const bu = (URGENCY_RANK[String(b.urgency ?? '').toLowerCase()] ?? 0);
+    if (au !== bu) return bu - au;
+    return matterUpdatedAt(b) - matterUpdatedAt(a);
+  });
+  return sorted[0] ?? null;
+};
+
+const MONTH_NAMES = [
+  'January', 'February', 'March', 'April', 'May', 'June',
+  'July', 'August', 'September', 'October', 'November', 'December',
+];
+const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+
+const formatGreetingDate = (now = new Date()): string => {
+  const day = DAY_NAMES[now.getDay()];
+  const month = MONTH_NAMES[now.getMonth()];
+  return `${day} · ${month} ${now.getDate()}, ${now.getFullYear()}`;
+};
+
+const greetingFor = (now = new Date()): string => {
+  const hour = now.getHours();
+  if (hour < 5) return 'Good evening';
+  if (hour < 12) return 'Good morning';
+  if (hour < 18) return 'Good afternoon';
+  return 'Good evening';
 };
 
 const PracticeHomePage = () => {
@@ -84,7 +151,6 @@ const PracticeHomePage = () => {
     practiceSlug: urlPracticeSlug,
   });
   const { navigate } = useNavigation();
-  const [cashflowRange, setCashflowRange] = useState<CashflowRange>('7d');
   const [setupDismissed, setSetupDismissed] = useState<boolean>(() => {
     if (typeof window === 'undefined') return false;
     try {
@@ -93,6 +159,7 @@ const PracticeHomePage = () => {
       return false;
     }
   });
+  const [askHistory, setAskHistory] = useState<AskHistoryItem[]>([]);
 
   const dismissSetup = () => {
     setSetupDismissed(true);
@@ -125,7 +192,7 @@ const PracticeHomePage = () => {
     void fetchDetails();
   }, [currentPractice?.id, hasDetails, fetchDetails]);
 
-  const { counts: sidebarCounts, raw: rawSidebarCounts, isLoading: countsLoading } = useSidebarCounts(
+  const { counts: sidebarCounts, raw: rawSidebarCounts } = useSidebarCounts(
     currentPractice?.id ?? null,
     'home',
   );
@@ -139,31 +206,30 @@ const PracticeHomePage = () => {
   const {
     summaryStats,
     loading: practiceBillingLoading,
-    error: practiceBillingError,
   } = usePracticeBillingData({
     practiceId: activePracticeId,
     enabled: Boolean(activePracticeId),
     matterLimit: 25,
-    windowSize: cashflowRange,
+    windowSize: '7d',
   });
+  const mattersData = useMattersData(activePracticeId ?? '', [], {
+    enabled: Boolean(activePracticeId),
+  });
+
   const [stripeStatus, setStripeStatus] = useState<StripeStatus>(null);
-  const [stripeLoading, setStripeLoading] = useState(false);
   const [stripeError, setStripeError] = useState<string | null>(null);
   const [recentIntakes, setRecentIntakes] = useState<IntakeListItem[]>([]);
   const [recentIntakesLoading, setRecentIntakesLoading] = useState(false);
-  const [recentIntakesError, setRecentIntakesError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!activePracticeId) {
       setStripeStatus(null);
       setStripeError(null);
-      setStripeLoading(false);
       return;
     }
     setStripeStatus(null);
-    const controller = new AbortController();
-    setStripeLoading(true);
     setStripeError(null);
+    const controller = new AbortController();
     void getOnboardingStatusPayload(activePracticeId, { signal: controller.signal })
       .then((payload) => {
         if (controller.signal.aborted) return;
@@ -178,9 +244,6 @@ const PracticeHomePage = () => {
         }
         setStripeStatus(null);
         setStripeError(error instanceof Error ? error.message : 'Unable to load billing setup status');
-      })
-      .finally(() => {
-        if (!controller.signal.aborted) setStripeLoading(false);
       });
     return () => controller.abort();
   }, [activePracticeId]);
@@ -188,15 +251,13 @@ const PracticeHomePage = () => {
   useEffect(() => {
     if (!activePracticeId) {
       setRecentIntakes([]);
-      setRecentIntakesError(null);
       setRecentIntakesLoading(false);
       return;
     }
     setRecentIntakes([]);
     const controller = new AbortController();
     setRecentIntakesLoading(true);
-    setRecentIntakesError(null);
-    void listIntakes(activePracticeId, { page: 1, limit: 5 }, { signal: controller.signal })
+    void listIntakes(activePracticeId, { page: 1, limit: 10 }, { signal: controller.signal })
       .then((result) => {
         if (controller.signal.aborted) return;
         setRecentIntakes(result.intakes);
@@ -204,7 +265,6 @@ const PracticeHomePage = () => {
       .catch((error) => {
         if (isAbortError(error) || controller.signal.aborted) return;
         setRecentIntakes([]);
-        setRecentIntakesError(error instanceof Error ? error.message : 'Unable to load recent intakes');
       })
       .finally(() => {
         if (!controller.signal.aborted) setRecentIntakesLoading(false);
@@ -255,12 +315,47 @@ const PracticeHomePage = () => {
       href: practiceBasePath ? `${practiceBasePath}/invoices/new` : null,
     },
   ], [activeClientCount, billingComplete, invoicesTotal, practiceBasePath, session?.user]);
-  const completeCount = setupSteps.filter((s) => s.complete).length;
-  const progressPct = (completeCount / setupSteps.length) * 100;
-  const setupLoading = countsLoading || activeClientsData.isLoading || stripeLoading;
-  const hasCashflowData = summaryStats.some((m) => hasMoneyValue(m.value));
-  const hasIntakes = recentIntakes.length > 0;
+  const completeSetupCount = setupSteps.filter((s) => s.complete).length;
+  const setupVisible = !setupDismissed && completeSetupCount < setupSteps.length;
+  const stalledMatters = useMemo(() => pickStalledMatters(mattersData.items), [mattersData.items]);
+  const pinnedMatter = useMemo(() => pickPinnedMatter(mattersData.items), [mattersData.items]);
+  const priorityIntake = useMemo(() => pickPriorityIntake(recentIntakes), [recentIntakes]);
+
+  // Snapshot stats for the greeting right rail.
+  const openMattersTotal = rawSidebarCounts?.matters?.total ?? mattersData.items.length;
   const pendingIntakeCount = rawSidebarCounts?.intakes?.pending_review ?? 0;
+  const unreadMessages = rawSidebarCounts?.conversations?.unread ?? 0;
+
+  const revenueStat = summaryStats.find((s) => s.id === 'revenue');
+  const outstandingStat = summaryStats.find((s) => s.id === 'outstanding') ?? summaryStats.find((s) => s.id === 'overdue');
+  const unbilledStat = summaryStats.find((s) => s.id === 'unbilled');
+  const hasCashflowData = summaryStats.some((m) => hasMoneyValue(m.value));
+
+  // Deterministic "I noticed" observation derived from data.
+  const observationText = useMemo<string | null>(() => {
+    if (priorityIntake) {
+      const name = priorityIntake.metadata?.name?.trim() || 'a new prospect';
+      const subject = resolveIntakeTitle(priorityIntake.metadata, '').toLowerCase();
+      const urgent = String(priorityIntake.urgency ?? '').toLowerCase() === 'emergency';
+      if (urgent && subject) {
+        return `${name} flagged their ${subject} as urgent. Worth a triage pass before the rest of the day fills up.`;
+      }
+      if (urgent) {
+        return `${name} marked their intake as urgent. A quick triage now keeps your response window comfortable.`;
+      }
+    }
+    if (stalledMatters.length >= 2) {
+      const oldestDays = Math.max(
+        1,
+        Math.round((Date.now() - matterUpdatedAt(stalledMatters[0])) / (24 * 60 * 60 * 1000))
+      );
+      return `${stalledMatters.length} active matters haven't moved in over a week — the longest is ${oldestDays} days quiet. A nudge cluster might shake something loose.`;
+    }
+    if (outstandingStat && hasMoneyValue(outstandingStat.value)) {
+      return `You have ${formatCurrency(outstandingStat.value)} sitting in unpaid invoices. A single reminder pass usually clears about a third.`;
+    }
+    return null;
+  }, [priorityIntake, stalledMatters, outstandingStat]);
 
   // Build LeftRail items from the practice nav config + live sidebar counts.
   const railItems = useMemo<LeftRailItem[]>(() => {
@@ -307,245 +402,539 @@ const PracticeHomePage = () => {
     />
   ) : null;
 
-  const handleNewInvoice = () => {
-    if (practiceBasePath) navigate(`${practiceBasePath}/invoices/new`);
+  const goToIntake = (id: string) => {
+    if (practiceBasePath) navigate(`${practiceBasePath}/intakes/responses/${encodeURIComponent(id)}`);
   };
-  const handleAddClient = () => {
-    if (practiceBasePath) navigate(`${practiceBasePath}/contacts/new`);
-  };
-  const handleViewAllIntakes = () => {
+  const goToIntakesQueue = () => {
     if (practiceBasePath) navigate(`${practiceBasePath}/intakes/responses`);
   };
-  const handleIntakeOpen = (intakeId: string) => {
-    if (practiceBasePath) navigate(`${practiceBasePath}/intakes/responses/${encodeURIComponent(intakeId)}`);
+  const goToMatter = (matterId: string) => {
+    if (practiceBasePath) navigate(`${practiceBasePath}/matters/${encodeURIComponent(matterId)}`);
+  };
+  const goToMatters = () => {
+    if (practiceBasePath) navigate(`${practiceBasePath}/matters`);
+  };
+  const goToNewInvoice = () => {
+    if (practiceBasePath) navigate(`${practiceBasePath}/invoices/new`);
   };
   const handleSetupStep = (step: SetupStep) => {
     if (step.href) navigate(step.href);
   };
 
-  const main = (
-    <div className="h-full overflow-y-auto px-6 py-8 md:px-10 md:py-10">
-      <div className="mx-auto flex max-w-6xl flex-col gap-7">
-        <div className="flex flex-wrap items-start justify-between gap-4">
-          <div className="min-w-0 max-w-full">
-            <h1 className="truncate text-2xl font-semibold text-ink">Welcome back, {firstName}</h1>
-            <p className="mt-1 text-sm text-dim-2">
-              Here&apos;s what&apos;s happening with your practice today.
-            </p>
-          </div>
-          <div className="flex flex-wrap items-center gap-3">
-            {pendingIntakeCount > 0 && (
-              <Button
-                variant="primary"
-                onClick={handleViewAllIntakes}
-              >
-                Review {pendingIntakeCount} pending {pendingIntakeCount === 1 ? 'intake' : 'intakes'}
-              </Button>
-            )}
-            <Button variant="secondary" icon={Plus} onClick={handleNewInvoice}>
-              New invoice
-            </Button>
-            <Button variant="secondary" icon={UserPlus} onClick={handleAddClient}>
-              Add client
-            </Button>
-          </div>
-        </div>
+  const handleAsk = (question: string) => {
+    // TODO(backend): wire to a real practice-assistant endpoint that returns
+    // a grounded answer + citations. Today the surface just records the
+    // question and renders a stub AIAnswerCard so the chat-first shape is
+    // visible end-to-end.
+    setAskHistory((prev) => [
+      { id: `ask:${Date.now()}`, question },
+      ...prev,
+    ].slice(0, 3));
+  };
 
-        {!setupDismissed && completeCount < setupSteps.length && (
-          <section className="card p-6 md:p-7">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <h2 className="text-base font-semibold text-ink">
-                Finish setting up your practice
-              </h2>
-              <div className="flex items-center gap-3">
-                <span className="text-sm font-medium text-dim-2">
-                  {setupLoading ? 'Checking setup' : `${completeCount} of ${setupSteps.length} complete`}
+  const greeting = greetingFor();
+  const greetingDate = formatGreetingDate();
+
+  // ── Greeting hero ────────────────────────────────────────────────────
+  const greetingHero = (
+    <header className="flex flex-wrap items-end justify-between gap-4 border-b border-rule pb-5">
+      <div className="min-w-0">
+        <div className="font-mono text-[10.5px] uppercase tracking-[0.16em] text-dim">
+          {greetingDate}
+        </div>
+        <h1 className="mt-1.5 font-serif text-[32px] font-normal leading-none tracking-tight text-ink lg:text-[56px]">
+          {greeting}, <em className="not-italic text-accent-deep">{firstName}.</em>
+        </h1>
+      </div>
+      <div className="text-right text-sm leading-relaxed text-ink-2">
+        <div className="mb-1 font-mono text-[10px] uppercase tracking-[0.14em] text-dim">
+          Practice snapshot
+        </div>
+        <div>
+          <span className="font-medium text-ink tabular-nums">{openMattersTotal}</span> open matters ·{' '}
+          <span className="font-medium text-ink tabular-nums">{pendingIntakeCount}</span> pending intakes
+        </div>
+        <div>
+          <span className="font-medium text-ink tabular-nums">{unreadMessages}</span> unread messages
+        </div>
+      </div>
+    </header>
+  );
+
+  // ── Hero feature card (priority intake) ──────────────────────────────
+  const heroCard = priorityIntake ? (() => {
+    const name = priorityIntake.metadata?.name?.trim() || 'New prospect';
+    const subject = resolveIntakeTitle(priorityIntake.metadata, `${name} intake`);
+    const urgent = String(priorityIntake.urgency ?? '').toLowerCase() === 'emergency';
+    return (
+      <BriefingGrid.Card spanTwo feature>
+        <div className="flex items-center justify-between font-mono text-[9.5px] uppercase tracking-[0.14em] text-accent-deep">
+          <span>If you do one thing today</span>
+          {urgent ? (
+            <SignalPill signal="urgent" label="Urgent" />
+          ) : (
+            <SignalPill signal="warn" label="Triage" />
+          )}
+        </div>
+        <h3 className="mt-3 font-serif text-2xl font-normal leading-tight tracking-tight text-ink">
+          Triage {name}&apos;s intake.
+        </h3>
+        <p className="mt-1.5 max-w-[46ch] text-[13.5px] leading-relaxed text-ink-2">
+          {subject}
+          {typeof priorityIntake.case_strength === 'number'
+            ? ` · case strength ${priorityIntake.case_strength.toFixed(1)} / 5`
+            : ''}
+          {' · '}submitted {formatRelativeTime(priorityIntake.created_at)}.
+        </p>
+        <div className="mt-3.5 flex flex-wrap gap-1.5">
+          <button
+            type="button"
+            className="chip primary"
+            onClick={() => goToIntake(priorityIntake.uuid)}
+          >
+            Open intake
+          </button>
+          <button
+            type="button"
+            className="chip"
+            onClick={goToIntakesQueue}
+          >
+            Open queue
+          </button>
+        </div>
+      </BriefingGrid.Card>
+    );
+  })() : (
+    <BriefingGrid.Card spanTwo feature>
+      <div className="flex items-center justify-between font-mono text-[9.5px] uppercase tracking-[0.14em] text-accent-deep">
+        <span>If you do one thing today</span>
+        <span className="font-sans text-[10.5px] normal-case tracking-normal text-accent-deep/80">All clear</span>
+      </div>
+      <h3 className="mt-3 font-serif text-2xl font-normal leading-tight tracking-tight text-ink">
+        No urgent intake waiting on you.
+      </h3>
+      <p className="mt-1.5 max-w-[46ch] text-[13.5px] leading-relaxed text-ink-2">
+        When a new prospect submits an intake, they&apos;ll show up here so you can decide fast.
+      </p>
+      <div className="mt-3.5 flex flex-wrap gap-1.5">
+        <button
+          type="button"
+          className="chip"
+          onClick={goToIntakesQueue}
+        >
+          Open queue
+        </button>
+      </div>
+    </BriefingGrid.Card>
+  );
+
+  // ── Money this week card ─────────────────────────────────────────────
+  const moneyCard = (
+    <BriefingGrid.Card>
+      <div className="flex items-center justify-between font-mono text-[9.5px] uppercase tracking-[0.14em] text-dim">
+        <span>Money this week</span>
+        <span className="font-sans text-[10.5px] normal-case tracking-normal text-ink-2">Last 7d</span>
+      </div>
+      {practiceBillingLoading && summaryStats.length === 0 ? (
+        <div className="mt-3 space-y-2">
+          <div className="h-8 w-28 rounded bg-paper-2" />
+          <div className="h-3 w-40 rounded bg-paper-2" />
+        </div>
+      ) : hasCashflowData ? (
+        <>
+          <div className="mt-3 flex items-baseline gap-2">
+            <span className="font-serif text-4xl leading-none tabular-nums text-ink">
+              {formatCurrency(revenueStat?.value ?? unbilledStat?.value ?? 0)}
+            </span>
+            <span className="font-mono text-[10px] uppercase tracking-[0.1em] text-dim">
+              {revenueStat ? 'collected · 7d' : 'unbilled · 7d'}
+            </span>
+          </div>
+          {outstandingStat && hasMoneyValue(outstandingStat.value) ? (
+            <p className="mt-2.5 text-[13px] leading-relaxed text-ink-2">
+              <span className="font-medium text-ink">{formatCurrency(outstandingStat.value)}</span>{' '}
+              awaiting payment from sent invoices.
+            </p>
+          ) : (
+            <p className="mt-2.5 text-[13px] leading-relaxed text-ink-2">
+              All sent invoices are paid.
+            </p>
+          )}
+          <div className="mt-3 flex flex-wrap gap-1.5">
+            <button type="button" className="chip primary" onClick={goToNewInvoice}>
+              Draft invoice
+            </button>
+          </div>
+        </>
+      ) : (
+        <>
+          <p className="mt-3 text-[13.5px] leading-relaxed text-ink-2">
+            No invoice activity yet — send your first to start tracking cashflow.
+          </p>
+          <div className="mt-3 flex flex-wrap gap-1.5">
+            <button type="button" className="chip primary" onClick={goToNewInvoice}>
+              Send first invoice
+            </button>
+          </div>
+        </>
+      )}
+    </BriefingGrid.Card>
+  );
+
+  // ── Intakes card ─────────────────────────────────────────────────────
+  const intakesCard = (
+    <BriefingGrid.Card>
+      <div className="flex items-center justify-between font-mono text-[9.5px] uppercase tracking-[0.14em] text-dim">
+        <span>Intakes</span>
+        <span className="font-sans text-[10.5px] normal-case tracking-normal text-ink-2">
+          {recentIntakes.length} recent
+        </span>
+      </div>
+      {recentIntakesLoading && recentIntakes.length === 0 ? (
+        <div className="mt-3 space-y-2">
+          <div className="h-4 w-3/4 rounded bg-paper-2" />
+          <div className="h-4 w-2/3 rounded bg-paper-2" />
+          <div className="h-4 w-1/2 rounded bg-paper-2" />
+        </div>
+      ) : recentIntakes.length === 0 ? (
+        <p className="mt-3 text-[13.5px] leading-relaxed text-ink-2">
+          No intake submissions yet. Once a visitor completes a form, they&apos;ll appear here.
+        </p>
+      ) : (
+        <ul className="mt-2 flex flex-col">
+          {recentIntakes.slice(0, 3).map((row, idx) => {
+            const name = row.metadata?.name?.trim() || row.metadata?.email?.trim() || 'Unknown';
+            const urgency = String(row.urgency ?? '').toLowerCase();
+            const signal: 'urgent' | 'warn' | 'quiet' =
+              urgency === 'emergency' ? 'urgent'
+              : urgency === 'time_sensitive' ? 'warn'
+              : 'quiet';
+            const label = urgency === 'emergency' ? 'urgent'
+              : urgency === 'time_sensitive' ? 'soon' : 'routine';
+            return (
+              <li
+                key={row.uuid}
+                className={`flex items-baseline gap-2 py-1.5 text-[13px] text-ink-2 ${idx > 0 ? 'border-t border-rule' : ''}`}
+              >
+                <span className="min-w-[42px] font-mono text-[11px] text-dim">
+                  {formatRelativeTime(row.created_at).replace(' ago', '')}
+                </span>
+                <span className="flex-1 truncate">
+                  <button
+                    type="button"
+                    className="font-medium text-ink hover:underline"
+                    onClick={() => goToIntake(row.uuid)}
+                  >
+                    {name}
+                  </button>
+                </span>
+                <SignalPill signal={signal} label={label} dot={false} />
+              </li>
+            );
+          })}
+        </ul>
+      )}
+      <div className="mt-3 flex flex-wrap gap-1.5">
+        <button type="button" className="chip" onClick={goToIntakesQueue}>
+          Open queue
+        </button>
+      </div>
+    </BriefingGrid.Card>
+  );
+
+  // ── Stalled matters card ─────────────────────────────────────────────
+  const stalledCard = (
+    <BriefingGrid.Card>
+      <div className="flex items-center justify-between font-mono text-[9.5px] uppercase tracking-[0.14em] text-dim">
+        <span>Matters going quiet</span>
+        <span className="font-sans text-[10.5px] normal-case tracking-normal text-ink-2">
+          {stalledMatters.length} stalled
+        </span>
+      </div>
+      {mattersData.isLoading && mattersData.items.length === 0 ? (
+        <div className="mt-3 space-y-2">
+          <div className="h-4 w-3/4 rounded bg-paper-2" />
+          <div className="h-4 w-2/3 rounded bg-paper-2" />
+        </div>
+      ) : stalledMatters.length === 0 ? (
+        <p className="mt-3 text-[13.5px] leading-relaxed text-ink-2">
+          Nothing stalled. Every active matter has moved in the past week.
+        </p>
+      ) : (
+        <ul className="mt-2 flex flex-col">
+          {stalledMatters.map((matter, idx) => {
+            const days = Math.max(
+              1,
+              Math.round((Date.now() - matterUpdatedAt(matter)) / (24 * 60 * 60 * 1000))
+            );
+            return (
+              <li
+                key={matter.id}
+                className={`flex items-baseline gap-2 py-1.5 text-[13px] text-ink-2 ${idx > 0 ? 'border-t border-rule' : ''}`}
+              >
+                <span className="min-w-[42px] font-mono text-[11px] text-dim">
+                  {days}d
                 </span>
                 <button
                   type="button"
-                  onClick={dismissSetup}
-                  aria-label="Dismiss setup checklist"
-                  className="btn btn-icon btn-icon-xs"
+                  className="flex-1 truncate text-left font-medium text-ink hover:underline"
+                  onClick={() => goToMatter(matter.id)}
                 >
-                  <X className="h-4 w-4" aria-hidden="true" />
+                  {matter.title || 'Untitled matter'}
                 </button>
-              </div>
-            </div>
-            <div className="mt-4 h-1.5 w-full overflow-hidden rounded-full bg-paper-2">
-              <div
-                className="h-full rounded-full bg-accent transition-[width] motion-reduce:transition-none"
-                style={{ width: `${progressPct}%` }}
-                role="progressbar"
-                aria-valuenow={completeCount}
-                aria-valuemin={0}
-                aria-valuemax={setupSteps.length}
-                aria-label={`${completeCount} of ${setupSteps.length} setup steps complete`}
-              />
-            </div>
-            <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-              {setupSteps.map((step, idx) => (
-                <button
-                  key={step.id}
-                  type="button"
-                  disabled={!step.href}
-                  onClick={() => handleSetupStep(step)}
-                  className="flex min-h-[116px] flex-col gap-2.5 rounded-lg border border-line-subtle bg-paper-2 p-4 text-left transition-colors hover:bg-card focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40 disabled:cursor-default disabled:hover:bg-paper-2"
-                >
-                  <div className="flex items-center gap-2.5">
-                    {step.complete ? (
-                      <span className="flex h-[22px] w-[22px] items-center justify-center rounded-full bg-accent text-accent-ink">
-                        <Check className="h-3.5 w-3.5" strokeWidth={3} aria-hidden="true" />
-                      </span>
-                    ) : (
-                      <span className="flex h-[22px] w-[22px] items-center justify-center rounded-full border border-line-subtle text-[10px] font-semibold text-ink">
-                        {idx + 1}
-                      </span>
-                    )}
-                    <span className="text-sm font-semibold text-ink">{step.title}</span>
-                  </div>
-                  <p className="text-xs leading-snug text-dim-2">{step.description}</p>
-                </button>
-              ))}
-            </div>
-            {stripeError ? (
-              <p className="mt-3 text-xs text-error">{stripeError}</p>
-            ) : null}
-          </section>
-        )}
+              </li>
+            );
+          })}
+        </ul>
+      )}
+      <div className="mt-3 flex flex-wrap gap-1.5">
+        <button type="button" className="chip" onClick={goToMatters}>
+          Show all
+        </button>
+      </div>
+    </BriefingGrid.Card>
+  );
 
-        <section className="flex flex-col gap-4">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <h2 className="text-lg font-semibold text-ink">Cashflow</h2>
-            <Seg<CashflowRange>
-              value={cashflowRange}
-              options={CASHFLOW_RANGES}
-              onChange={setCashflowRange}
-              ariaLabel="Cashflow range"
+  // ── Setup card (folded checklist) ────────────────────────────────────
+  const setupCard = setupVisible ? (
+    <BriefingGrid.Card>
+      <div className="flex items-center justify-between font-mono text-[9.5px] uppercase tracking-[0.14em] text-dim">
+        <span>Setup</span>
+        <div className="flex items-center gap-2">
+          <span className="font-sans text-[10.5px] normal-case tracking-normal text-ink-2">
+            {completeSetupCount}/{setupSteps.length} done
+          </span>
+          <button
+            type="button"
+            onClick={dismissSetup}
+            aria-label="Dismiss setup checklist"
+            className="btn btn-icon btn-icon-xs"
+          >
+            <X className="h-3.5 w-3.5" aria-hidden="true" />
+          </button>
+        </div>
+      </div>
+      <ul className="mt-3 flex flex-col gap-1.5">
+        {setupSteps.map((step, idx) => (
+          <li key={step.id}>
+            <button
+              type="button"
+              disabled={!step.href}
+              onClick={() => handleSetupStep(step)}
+              className="flex w-full items-center gap-2 rounded-r-md py-1 text-left text-[13px] text-ink-2 transition-colors hover:text-ink disabled:cursor-default disabled:hover:text-ink-2"
+            >
+              {step.complete ? (
+                <span className="flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-full bg-accent text-accent-ink">
+                  <Check className="h-3 w-3" strokeWidth={3} aria-hidden="true" />
+                </span>
+              ) : (
+                <span className="flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-full border border-rule text-[10px] font-semibold text-ink">
+                  {idx + 1}
+                </span>
+              )}
+              <span className={step.complete ? 'text-dim line-through' : 'font-medium text-ink'}>
+                {step.title}
+              </span>
+            </button>
+          </li>
+        ))}
+      </ul>
+      {stripeError ? (
+        <p className="mt-2 text-xs text-neg">{stripeError}</p>
+      ) : null}
+    </BriefingGrid.Card>
+  ) : null;
+
+  const askResponseCard = askHistory.length > 0 ? (
+    <AIAnswerCard
+      groundingLabel="Practice assistant · stub answer · just now"
+      lede={
+        <>
+          You asked <em className="text-accent-deep">{askHistory[0].question}</em> — once the
+          practice-assistant endpoint is live, the grounded answer will land here.
+        </>
+      }
+      body={
+        <p className="text-[14px] leading-relaxed text-ink-2">
+          For now, the response is a placeholder so you can see the chat-first shape. The composer
+          below will eventually call a real backend that returns the answer plus the rows it ran on.
+        </p>
+      }
+      sources={[
+        { table: 'intakes', count: recentIntakes.length },
+        { table: 'matters', count: mattersData.items.length },
+      ]}
+    />
+  ) : null;
+
+  // ── Center column ────────────────────────────────────────────────────
+  const center = (
+    <div className="flex h-full flex-col overflow-hidden">
+      <div className="flex-1 overflow-y-auto px-5 pt-6 pb-2 md:px-10 md:pt-9">
+        <div className="mx-auto flex max-w-3xl flex-col gap-7">
+          {greetingHero}
+
+          <BriefingGrid className="!grid-cols-1 lg:!grid-cols-2">
+            {heroCard}
+            {moneyCard}
+            {intakesCard}
+            {stalledCard}
+            {setupCard}
+          </BriefingGrid>
+
+          {askResponseCard}
+
+          {observationText ? (
+            <Observation>{observationText}</Observation>
+          ) : null}
+
+          {/* Sources strip — citation row visible even before the user asks. */}
+          {(recentIntakes.length > 0 || mattersData.items.length > 0) && (
+            <Citations
+              sources={[
+                { table: 'intakes', count: recentIntakes.length, isLive: true },
+                { table: 'matters', count: mattersData.items.length },
+                { table: 'invoices', count: invoicesTotal },
+              ].filter((s) => s.count > 0)}
             />
-          </div>
-          {practiceBillingLoading && summaryStats.length === 0 ? (
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-              {[0, 1, 2, 3].map((item) => (
-                <div key={item} className="rounded-2xl border border-card-border bg-card p-5">
-                  <div className="h-3 w-24 rounded-full bg-paper-2" />
-                  <div className="mt-4 h-8 w-28 rounded-full bg-paper-2" />
-                  <div className="mt-3 h-3 w-36 rounded-full bg-paper-2" />
-                </div>
-              ))}
-            </div>
-          ) : practiceBillingError ? (
-            <div className="card-muted rounded-2xl p-6">
-              <p className="text-sm font-medium text-ink">Cashflow could not load.</p>
-              <p className="mt-1 text-sm text-dim-2">{practiceBillingError}</p>
-            </div>
-          ) : hasCashflowData ? (
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-              {summaryStats.map((m) => (
-                <div
-                  key={m.id}
-                  className="flex flex-col gap-2 rounded-2xl border border-card-border bg-card p-5"
-                >
-                  <span className="text-xs font-medium text-dim-2">{m.label}</span>
-                  <span className="text-3xl font-bold tabular-nums text-ink">{formatCurrency(m.value)}</span>
-                  <span className="text-xs leading-snug text-dim-2">{m.helper}</span>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="card-muted flex flex-col items-start gap-3 rounded-2xl p-6">
-              <p className="text-sm font-medium text-ink">No invoice activity yet.</p>
-              <p className="text-sm text-dim-2">
-                Create and send an invoice, then collected revenue, overdue balances, and ready-to-invoice work will appear here.
-              </p>
-              <Button variant="secondary" icon={Plus} onClick={handleNewInvoice}>
-                Send first invoice
-              </Button>
-            </div>
           )}
-        </section>
-
-        <section className="flex flex-col gap-4">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <h2 className="text-lg font-semibold text-ink">Recent intakes</h2>
-            {hasIntakes && (
-              <Button variant="link" onClick={handleViewAllIntakes}>
-                View all
-              </Button>
-            )}
-          </div>
-          {hasIntakes ? (
-            <div className="overflow-hidden rounded-2xl border border-card-border bg-card">
-              <div className="hidden grid-cols-[260px_1fr_140px_110px] items-center gap-4 border-b border-line-subtle px-5 py-3 md:grid">
-                <span className="text-[11px] font-semibold uppercase tracking-wider text-dim-2">Client</span>
-                <span className="text-[11px] font-semibold uppercase tracking-wider text-dim-2">Subject</span>
-                <span className="text-[11px] font-semibold uppercase tracking-wider text-dim-2">Date submitted</span>
-                <span className="text-right text-[11px] font-semibold uppercase tracking-wider text-dim-2">Status</span>
-              </div>
-              {recentIntakes.map((row, idx) => {
-                const contactName = row.metadata?.name?.trim() || row.metadata?.email?.trim() || 'Unknown contact';
-                const subject = resolveIntakeTitle(row.metadata, row.metadata?.name?.trim() || 'Intake response');
-                return (
-                  <button
-                    key={row.uuid}
-                    type="button"
-                    onClick={() => handleIntakeOpen(row.uuid)}
-                    className={[
-                      'group grid w-full grid-cols-1 gap-2 px-5 py-4 text-left transition-colors hover:bg-paper-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40 md:grid-cols-[260px_1fr_140px_110px] md:items-center md:gap-4',
-                      idx > 0 ? 'border-t border-line-subtle' : '',
-                    ].filter(Boolean).join(' ')}
-                  >
-                    <div className="flex min-w-0 items-center gap-2.5">
-                      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-paper-2 text-[11px] font-semibold text-ink">
-                        {initialsFor(contactName)}
-                      </span>
-                      <span className="truncate text-sm font-medium text-ink">{contactName}</span>
-                    </div>
-                    <span className="truncate text-sm text-dim-2">{subject}</span>
-                    <span className="truncate text-sm text-dim-2">{formatRelativeTime(row.created_at)}</span>
-                    <div className="flex items-center gap-2 md:justify-end">
-                      <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${intakeStatusClass(row.triage_status)}`}>
-                        {intakeStatusLabel(row.triage_status)}
-                      </span>
-                      <ArrowRight
-                        className="hidden h-4 w-4 text-dim-2 transition-opacity group-hover:opacity-100 md:block md:opacity-0"
-                        aria-hidden="true"
-                      />
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
-          ) : recentIntakesLoading ? (
-            <div className="overflow-hidden rounded-2xl border border-card-border bg-card">
-              {[0, 1, 2].map((row) => (
-                <div key={row} className="grid grid-cols-1 gap-2 border-t border-line-subtle px-5 py-4 first:border-t-0 md:grid-cols-[260px_1fr_140px_110px] md:items-center md:gap-4">
-                  <div className="h-4 w-36 rounded-full bg-paper-2" />
-                  <div className="h-4 w-48 rounded-full bg-paper-2" />
-                  <div className="h-4 w-24 rounded-full bg-paper-2" />
-                  <div className="h-6 w-20 rounded-full bg-paper-2 md:ml-auto" />
-                </div>
-              ))}
-            </div>
-          ) : recentIntakesError ? (
-            <div className="card-muted rounded-2xl p-6">
-              <p className="text-sm font-medium text-ink">Recent intakes could not load.</p>
-              <p className="mt-1 text-sm text-dim-2">{recentIntakesError}</p>
-            </div>
-          ) : (
-            <div className="card-muted flex flex-col items-start gap-3 rounded-2xl p-6">
-              <p className="text-sm font-medium text-ink">No intake responses yet.</p>
-              <p className="text-sm text-dim-2">
-                New submissions will appear here after a visitor completes an intake form.
-              </p>
-              <Button variant="secondary" onClick={() => practiceBasePath && navigate(`${practiceBasePath}/intakes/forms`)}>
-                Manage intake forms
-              </Button>
-            </div>
-          )}
-        </section>
+        </div>
+      </div>
+      <div className="px-5 pb-5 md:px-10 md:pb-6">
+        <div className="mx-auto max-w-3xl">
+          <AIAskBar
+            placeholder="What's on your mind? — try 'who needs follow-up this week?'"
+            onSubmit={handleAsk}
+            disclaimer="Blawby never writes to your records without your approval"
+          />
+        </div>
       </div>
     </div>
   );
+
+  // ── Right focus drawer ──────────────────────────────────────────────
+  const focusDrawer = pinnedMatter ? (() => {
+    const matter = pinnedMatter;
+    const urgent = String(matter.urgency ?? '').toLowerCase() === 'emergency';
+    const opened = matter.created_at ? formatRelativeTime(matter.created_at) : '—';
+    const updated = matter.updated_at ? formatRelativeTime(matter.updated_at) : '—';
+    const matterType = matter.matter_type || 'Untitled';
+    const jurisdiction = matter.court || '—';
+
+    return (
+      <aside
+        className="hidden border-l border-rule bg-paper xl:flex xl:w-[400px] xl:shrink-0 xl:flex-col"
+        aria-label="Pinned matter"
+      >
+        <div className="flex h-full flex-col gap-4 overflow-y-auto p-6">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <div className="font-mono text-[10px] uppercase tracking-[0.14em] text-dim">
+                Matter · pinned by assistant
+              </div>
+              <h2 className="mt-2 font-serif text-[28px] font-normal leading-tight tracking-tight text-ink">
+                {matter.title || 'Untitled matter'}
+              </h2>
+              <div className="mt-1 text-[13px] text-dim">
+                {matterType}
+                {matter.case_number ? ` · ${matter.case_number}` : ''}
+              </div>
+              <div className="mt-2 flex items-center gap-2">
+                <SignalPill
+                  signal={urgent ? 'urgent' : 'healthy'}
+                  label={urgent ? 'Priority · high' : 'Active'}
+                />
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => goToMatter(matter.id)}
+              className="btn btn-icon btn-icon-xs"
+              aria-label="Open matter detail"
+              title="Open matter detail"
+            >
+              <span aria-hidden="true">↗</span>
+            </button>
+          </div>
+
+          {/* TODO(backend): once /api/practice/:id/staged-actions ships, render
+              the matter's pending StagedActions here instead of omitting the
+              slot. Per spec we must not fake a staged action — omit when none. */}
+
+          {/* TODO(backend): wire balance / unbilled / next-deadline / events-30d
+              from a dedicated matter-summary endpoint. Today the matter wire
+              type doesn't expose these aggregates, so the strip renders
+              placeholder em-dashes rather than fabricated values. */}
+          <StatStrip
+            cells={[
+              { label: 'Balance', value: <span className="tabular-nums">—</span> },
+              { label: 'Unbilled', value: <span className="tabular-nums">—</span> },
+              { label: 'Next deadline', value: '—' },
+              { label: 'Events · 30d', value: <span className="tabular-nums">—</span> },
+            ]}
+          />
+
+          <section>
+            <div className="mb-2 flex items-center justify-between font-mono text-[10px] uppercase tracking-[0.14em] text-dim">
+              <span>Facts</span>
+              <button
+                type="button"
+                className="font-sans text-[11px] normal-case tracking-normal text-ink-2 hover:underline"
+                onClick={() => goToMatter(matter.id)}
+              >
+                open detail
+              </button>
+            </div>
+            <dl className="rounded-r-md border border-rule bg-card px-3.5 py-1">
+              {[
+                { k: 'Matter #', v: matter.case_number || '—' },
+                { k: 'Type', v: matterType },
+                { k: 'Opened', v: opened },
+                { k: 'Updated', v: updated },
+                { k: 'Jurisdiction', v: jurisdiction },
+                { k: 'Opposing', v: matter.opposing_party || '—' },
+              ].map((row, idx) => (
+                <div
+                  key={row.k}
+                  className={`grid grid-cols-[92px_1fr] gap-2.5 py-2 text-[13px] ${idx > 0 ? 'border-t border-rule' : ''}`}
+                >
+                  <dt className="pt-0.5 font-mono text-[10px] uppercase tracking-[0.08em] text-dim">
+                    {row.k}
+                  </dt>
+                  <dd className="text-ink">{row.v}</dd>
+                </div>
+              ))}
+            </dl>
+          </section>
+
+          {/* TODO(backend): pull last 5 matter_events from the matter detail
+              endpoint once it exposes activity timestamps + summaries. The
+              existing useMatterDetail hook returns BackendMatter only — the
+              activity feed lives on a separate endpoint not wired here yet. */}
+          <section>
+            <div className="mb-2 flex items-center justify-between font-mono text-[10px] uppercase tracking-[0.14em] text-dim">
+              <span>Recent activity</span>
+              <button
+                type="button"
+                className="font-sans text-[11px] normal-case tracking-normal text-ink-2 hover:underline"
+                onClick={() => goToMatter(matter.id)}
+              >
+                full timeline
+              </button>
+            </div>
+            <div className="rounded-r-md border border-rule bg-card px-3.5 py-3 text-[13px] text-dim">
+              Activity timeline lives on the matter detail page. Open the matter to scan recent
+              events.
+            </div>
+          </section>
+
+          <div className="mt-auto border-t border-rule pt-3 font-mono text-[10px] uppercase tracking-[0.06em] text-dim-2">
+            Read-only · all writes via assistant
+          </div>
+        </div>
+      </aside>
+    );
+  })() : null;
 
   return (
     <div className="flex h-dvh flex-col lg:flex-row">
@@ -556,9 +945,10 @@ const PracticeHomePage = () => {
         footer={profileFooter}
         className="hidden lg:flex"
       />
-      <main className="flex-1 min-h-0 overflow-hidden order-first lg:order-none">
-        {main}
+      <main className="order-first min-h-0 flex-1 overflow-hidden lg:order-none">
+        {center}
       </main>
+      {focusDrawer}
       <LeftRail
         variant="mobile"
         items={railItems}

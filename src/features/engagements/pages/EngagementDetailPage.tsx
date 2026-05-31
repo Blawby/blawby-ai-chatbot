@@ -13,10 +13,10 @@ import {
 } from 'lucide-preact';
 
 import { Button } from '@/shared/ui/Button';
-import { DetailHeader, EditorShell } from '@/shared/ui/layout';
+import { DetailHeader } from '@/shared/ui/layout';
 import { LoadingSpinner } from '@/shared/ui/layout/LoadingSpinner';
 import { Dialog, DialogBody, DialogFooter } from '@/shared/ui/dialog';
-import { Input, Textarea, Combobox, type ComboboxOption } from '@/shared/ui/input';
+import { Textarea } from '@/shared/ui/input';
 import { useNavigation } from '@/shared/utils/navigation';
 import { useToastContext } from '@/shared/contexts/ToastContext';
 import { useSessionContext } from '@/shared/contexts/SessionContext';
@@ -30,9 +30,9 @@ import VirtualMessageList from '@/features/chat/components/VirtualMessageList';
 import type { ChatMessageUI } from '../../../../worker/types';
 
 import { EngagementDetailSkeleton } from '../components/EngagementDetailSkeleton';
+import { EngagementWorkbench } from '../components/EngagementWorkbench';
 import {
   declineEngagement,
-  patchEngagementContract,
   sendEngagementToClient,
 } from '../api/engagementsApi';
 import type {
@@ -40,7 +40,6 @@ import type {
   EngagementDetail,
   EngagementStatus,
   ProposalData,
-  ProposalFees,
 } from '../types/engagement';
 import { useEngagementDetail } from '../hooks/useEngagementDetail';
 
@@ -588,268 +587,6 @@ const ConversationContent: FunctionComponent<{
   );
 };
 
-// ── Edit form ────────────────────────────────────────────────────────────────
-
-type EditFormState = {
-  contractBody: string;
-  clientName: string;
-  matterSummary: string;
-  locationSummary: string;
-  scopeSummary: string;
-  includedServicesText: string;
-  billingType: string;
-  contingencyPercentage: string;
-  retainerAmount: string;
-  paymentFrequency: string;
-  engagementNotes: string;
-};
-
-const BILLING_TYPE_OPTIONS: ComboboxOption[] = [
-  { value: 'flat', label: 'Flat Fee' },
-  { value: 'hourly', label: 'Hourly' },
-  { value: 'contingency', label: 'Contingency' },
-  { value: 'retainer', label: 'Retainer' },
-];
-
-const PAYMENT_FREQUENCY_OPTIONS: ComboboxOption[] = [
-  { value: 'one_time', label: 'One time' },
-  { value: 'monthly', label: 'Monthly' },
-  { value: 'quarterly', label: 'Quarterly' },
-  { value: 'on_completion', label: 'On completion' },
-];
-
-const buildEditFormState = (engagement: EngagementDetail): EditFormState => {
-  const summary = engagement.proposal_data?.client_summary;
-  const rep = engagement.proposal_data?.representation;
-  const fees = engagement.proposal_data?.fees;
-  return {
-    contractBody: engagement.contract_body ?? '',
-    clientName: summary?.client_name ?? engagement.client_name ?? '',
-    matterSummary: summary?.matter_summary ?? '',
-    locationSummary: summary?.location_summary ?? '',
-    scopeSummary: rep?.scope_summary ?? '',
-    includedServicesText: (rep?.included_services ?? []).join('\n'),
-    billingType: fees?.billing_type ?? '',
-    contingencyPercentage: fees?.contingency_percentage != null ? String(fees.contingency_percentage) : '',
-    retainerAmount: fees?.retainer_amount != null ? String(fees.retainer_amount) : '',
-    paymentFrequency: fees?.payment_frequency ?? '',
-    engagementNotes: engagement.engagement_notes ?? '',
-  };
-};
-
-const mergeEditFormIntoProposal = (engagement: EngagementDetail, form: EditFormState): ProposalData => {
-  const existing = engagement.proposal_data;
-  const baseProposal: ProposalData = existing ?? {
-    representation: { scope_summary: '' },
-    fees: {},
-    risk_review: { conflict_status: 'unknown', jurisdiction_status: 'unknown' },
-    client_summary: {},
-    draft_meta: { version: 1, generated_at: new Date().toISOString() },
-  };
-
-  const includedServices = form.includedServicesText
-    .split('\n')
-    .map((s) => s.trim())
-    .filter(Boolean);
-
-  const fees: ProposalFees = {
-    ...baseProposal.fees,
-    billing_type: form.billingType || baseProposal.fees.billing_type || null,
-    contingency_percentage: form.contingencyPercentage ? Number(form.contingencyPercentage) : null,
-    retainer_amount: form.retainerAmount ? Number(form.retainerAmount) : null,
-    payment_frequency: form.paymentFrequency || baseProposal.fees.payment_frequency || null,
-  };
-
-  return {
-    ...baseProposal,
-    representation: {
-      ...baseProposal.representation,
-      scope_summary: form.scopeSummary,
-      included_services: includedServices.length > 0 ? includedServices : baseProposal.representation.included_services,
-    },
-    fees,
-    client_summary: {
-      ...baseProposal.client_summary,
-      client_name: form.clientName || baseProposal.client_summary?.client_name || null,
-      matter_summary: form.matterSummary || baseProposal.client_summary?.matter_summary || null,
-      location_summary: form.locationSummary || baseProposal.client_summary?.location_summary || null,
-    },
-    draft_meta: {
-      ...baseProposal.draft_meta,
-      version: (baseProposal.draft_meta?.version ?? 0) + 1,
-      generated_at: new Date().toISOString(),
-    },
-  };
-};
-
-interface EditModeViewProps {
-  engagement: EngagementDetail;
-  saving: boolean;
-  saveError: string | null;
-  feesEditingDisabled: boolean;
-  onSaveDraft: (form: EditFormState) => Promise<void>;
-  onReviewAndSend: (form: EditFormState) => Promise<void>;
-  onCancel: () => void;
-}
-
-const EditModeView: FunctionComponent<EditModeViewProps> = ({
-  engagement,
-  saving,
-  saveError,
-  feesEditingDisabled,
-  onSaveDraft,
-  onReviewAndSend,
-  onCancel,
-}) => {
-  const [form, setForm] = useState<EditFormState>(() => buildEditFormState(engagement));
-
-  // Refresh form when engagement payload changes (e.g. after save -> re-enter edit).
-  // Intentionally narrow the deps to id + updated_at so transient state (localStatus,
-  // dialog flags) doesn't clobber unsaved user edits.
-  useEffect(() => {
-    setForm(buildEditFormState(engagement));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [engagement.id, engagement.updated_at]);
-
-  const update = useCallback(<K extends keyof EditFormState>(field: K, value: EditFormState[K]) => {
-    setForm((prev) => ({ ...prev, [field]: value }));
-  }, []);
-
-  return (
-    <EditorShell
-      title="Edit engagement"
-      showBack
-      backVariant="close"
-      onBack={onCancel}
-      contentMaxWidth={null}
-      contentClassName="p-0"
-      actions={(
-        <>
-          <Button variant="secondary" onClick={() => onSaveDraft(form)} disabled={saving}>
-            {saving ? 'Saving...' : 'Save draft'}
-          </Button>
-          <Button variant="primary" icon={Send} iconPosition="right" onClick={() => onReviewAndSend(form)} disabled={saving}>
-            Review &amp; send
-          </Button>
-        </>
-      )}
-    >
-
-      <div className="flex-1 overflow-y-auto">
-        <form className="mx-auto max-w-3xl space-y-6 p-4 sm:p-6" onSubmit={(e) => e.preventDefault()}>
-          {saveError && (
-            <div className="rounded-lg border border-rose-500/30 bg-rose-500/10 px-3 py-2 text-sm text-rose-300">
-              {saveError}
-            </div>
-          )}
-
-          <SectionCard title="Contract body">
-            <Textarea
-              label="Engagement contract"
-              value={form.contractBody}
-              onChange={(v) => update('contractBody', v)}
-              rows={12}
-              disabled={saving}
-            />
-          </SectionCard>
-
-          <SectionCard title="Client information">
-            <div className="space-y-3">
-              <Input
-                label="Client name"
-                value={form.clientName}
-                onChange={(v) => update('clientName', v)}
-                disabled={saving}
-              />
-              <Input
-                label="Matter"
-                value={form.matterSummary}
-                onChange={(v) => update('matterSummary', v)}
-                disabled={saving}
-              />
-              <Input
-                label="Location"
-                value={form.locationSummary}
-                onChange={(v) => update('locationSummary', v)}
-                disabled={saving}
-              />
-            </div>
-          </SectionCard>
-
-          <SectionCard title="Scope of representation">
-            <div className="space-y-3">
-              <Textarea
-                label="Scope summary"
-                value={form.scopeSummary}
-                onChange={(v) => update('scopeSummary', v)}
-                rows={4}
-                disabled={saving}
-              />
-              <Textarea
-                label="Included services (one per line)"
-                value={form.includedServicesText}
-                onChange={(v) => update('includedServicesText', v)}
-                rows={4}
-                placeholder="Initial consultation&#10;Document preparation&#10;Court appearances"
-                disabled={saving}
-              />
-            </div>
-          </SectionCard>
-
-          <SectionCard title="Fee structure">
-            {feesEditingDisabled && (
-              <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-400">
-                Billing terms were captured when this engagement was sent. Edits here will not change what the client has already seen.
-              </div>
-            )}
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              <Combobox
-                label="Billing type"
-                options={BILLING_TYPE_OPTIONS}
-                value={form.billingType}
-                onChange={(v) => update('billingType', v)}
-                disabled={saving || feesEditingDisabled}
-              />
-              <Combobox
-                label="Payment frequency"
-                options={PAYMENT_FREQUENCY_OPTIONS}
-                value={form.paymentFrequency}
-                onChange={(v) => update('paymentFrequency', v)}
-                disabled={saving || feesEditingDisabled}
-              />
-              <Input
-                label="Contingency rate (%)"
-                type="number"
-                value={form.contingencyPercentage}
-                onChange={(v) => update('contingencyPercentage', v)}
-                disabled={saving || feesEditingDisabled}
-              />
-              <Input
-                label="Retainer amount"
-                type="number"
-                value={form.retainerAmount}
-                onChange={(v) => update('retainerAmount', v)}
-                disabled={saving || feesEditingDisabled}
-              />
-            </div>
-          </SectionCard>
-
-          <SectionCard title="Engagement notes">
-            <Textarea
-              label="Internal notes"
-              value={form.engagementNotes}
-              onChange={(v) => update('engagementNotes', v)}
-              rows={4}
-              placeholder="Add internal notes for your team…"
-              disabled={saving}
-            />
-          </SectionCard>
-        </form>
-      </div>
-    </EditorShell>
-  );
-};
-
 // ── Action dialogs ───────────────────────────────────────────────────────────
 
 type DialogAction = 'send' | 'decline' | null;
@@ -912,10 +649,6 @@ export const EngagementDetailPage: FunctionComponent<EngagementDetailPageProps> 
   const [dialogNote, setDialogNote] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isConversationExpanded, setIsConversationExpanded] = useState(false);
-
-  const [isSaving, setIsSaving] = useState(false);
-  const [saveError, setSaveError] = useState<string | null>(null);
-
   const isMountedRef = useRef(true);
   useEffect(() => {
     isMountedRef.current = true;
@@ -937,62 +670,6 @@ export const EngagementDetailPage: FunctionComponent<EngagementDetailPageProps> 
   const handleExitEdit = useCallback(() => {
     navigate(`${basePath}/${encodeURIComponent(engagementId)}`);
   }, [basePath, engagementId, navigate]);
-
-  const persistProposalChanges = useCallback(async (form: EditFormState): Promise<EngagementDetail | null> => {
-    if (!engagement || !practiceId) return null;
-    const merged = mergeEditFormIntoProposal(engagement, form);
-    const updated = await patchEngagementContract(practiceId, engagement.id, {
-      contract_body: form.contractBody.trim(),
-      engagement_notes: form.engagementNotes.trim(),
-      proposal_data: merged,
-    });
-    if (isMountedRef.current) {
-      setEngagementCache(updated);
-    }
-    return updated;
-  }, [engagement, practiceId, setEngagementCache]);
-
-  const handleSaveDraft = useCallback(async (form: EditFormState) => {
-    if (isSaving) return;
-    setIsSaving(true);
-    setSaveError(null);
-    try {
-      await persistProposalChanges(form);
-      if (isMountedRef.current) {
-        showSuccess('Draft saved', 'Your engagement changes have been saved.');
-        handleExitEdit();
-      }
-    } catch (err) {
-      if (isMountedRef.current) {
-        setSaveError(err instanceof Error ? err.message : 'Failed to save draft');
-      }
-    } finally {
-      if (isMountedRef.current) setIsSaving(false);
-    }
-  }, [isSaving, persistProposalChanges, showSuccess, handleExitEdit]);
-
-  const handleReviewAndSend = useCallback(async (form: EditFormState) => {
-    if (isSaving) return;
-    if (!form.contractBody.trim()) {
-      setSaveError('Contract body is required before sending.');
-      return;
-    }
-    setIsSaving(true);
-    setSaveError(null);
-    try {
-      await persistProposalChanges(form);
-      if (isMountedRef.current) {
-        handleExitEdit();
-        setDialogAction('send');
-      }
-    } catch (err) {
-      if (isMountedRef.current) {
-        setSaveError(err instanceof Error ? err.message : 'Failed to save before sending');
-      }
-    } finally {
-      if (isMountedRef.current) setIsSaving(false);
-    }
-  }, [isSaving, persistProposalChanges, handleExitEdit]);
 
   const closeDialog = useCallback(() => {
     if (isSubmitting) return;
@@ -1081,13 +758,21 @@ export const EngagementDetailPage: FunctionComponent<EngagementDetailPageProps> 
 
   if (mode === 'edit') {
     return (
-      <EditModeView
+      <EngagementWorkbench
+        mode="edit"
+        practiceId={practiceId}
         engagement={engagement}
-        saving={isSaving}
-        saveError={saveError}
+        practiceName={practiceName}
         feesEditingDisabled={feesEditingDisabled}
-        onSaveDraft={handleSaveDraft}
-        onReviewAndSend={handleReviewAndSend}
+        setEngagementCache={setEngagementCache}
+        onSaved={() => {
+          showSuccess('Draft saved', 'Your engagement changes have been saved.');
+          handleExitEdit();
+        }}
+        onSavedAndSend={() => {
+          handleExitEdit();
+          setDialogAction('send');
+        }}
         onCancel={handleExitEdit}
       />
     );

@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useState } from 'preact/hooks';
-import { FileText, Plus, Trash2 } from 'lucide-preact';
+import { Plus, Trash2 } from 'lucide-preact';
 
 import { Button } from '@/shared/ui/Button';
 import { Input, Textarea } from '@/shared/ui/input';
@@ -11,6 +11,9 @@ import { usePracticeManagement } from '@/shared/hooks/usePracticeManagement';
 import { usePracticeDetails } from '@/shared/hooks/usePracticeDetails';
 import { useToastContext } from '@/shared/contexts/ToastContext';
 import { cn } from '@/shared/utils/cn';
+import { formatCurrency } from '@/shared/utils/currencyFormatter';
+import { AIRibbon, Observation } from '@/design-system/patterns';
+import { Pill } from '@/design-system/primitives';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -305,51 +308,522 @@ function TemplateEditor({ initial, serviceOptions, onSave, onDelete, onBack, isS
 }
 
 // ---------------------------------------------------------------------------
-// List view
+// List view — area-grouped, filter chips, AI authoring strip, rich cards
+// (mirrors design_handoff_blawby_chat_first/screens/EngagementTemplates.html)
 // ---------------------------------------------------------------------------
+
+// Suggested area buckets surfaced as empty-area CTAs even when no template
+// exists for them yet — mirrors the "Pro bono" prompt in the design mock.
+const SUGGESTED_AREAS: readonly string[] = ['Family', 'Estate', 'Litigation', 'Corporate', 'Pro bono'];
+
+type StatusFilter = 'Drafts' | 'Needs review';
+
+const PLACEHOLDER_RE = /\{\{\s*[\w.-]+\s*\}\}/g;
+
+const countPlaceholders = (body: string): number => {
+  const matches = body.match(PLACEHOLDER_RE);
+  return matches ? new Set(matches.map((m) => m.replace(/\s/g, ''))).size : 0;
+};
+
+/**
+ * Until the backend tracks publish/version state on engagement templates,
+ * a template is considered a "draft" if it has no body yet. Anything with
+ * letter body content is treated as "live". Backend support will replace
+ * this with explicit `publishedAt` / `version` fields.
+ *
+ * TODO(backend): expose `publishedAt`, `version`, `lastReviewedAt`,
+ * `useCount`, `comprehensionScore`, `lastSentAt`, `lastSentClient` on
+ * the engagement template row so the card metadata can be live data.
+ */
+const isDraft = (template: EngagementLetterTemplate): boolean =>
+  template.body.trim().length === 0;
+
+/**
+ * Heuristic for "Needs review": a template missing a practice area OR
+ * missing a scope template is something the user almost certainly wants
+ * to revisit. Replace with a real `lastReviewedAt` cutoff once available.
+ */
+const needsReview = (template: EngagementLetterTemplate): boolean =>
+  !template.practiceArea.trim() || !template.scopeTemplate.trim();
+
+const titleCase = (value: string): string =>
+  value
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((word) => word[0].toUpperCase() + word.slice(1).toLowerCase())
+    .join(' ');
+
+const feeSummary = (template: EngagementLetterTemplate): { mode: string; amount: string; unit?: string } => {
+  switch (template.feeType) {
+    case 'hourly': {
+      const hourly = template.hourlyRateCents != null
+        ? formatCurrency(template.hourlyRateCents / 100)
+        : '—';
+      return {
+        mode: template.retainerCents ? 'Hourly + retainer' : 'Hourly',
+        amount: hourly,
+        unit: '/hr',
+      };
+    }
+    case 'flat':
+      return {
+        mode: 'Fixed fee',
+        amount: template.flatFeeCents != null ? formatCurrency(template.flatFeeCents / 100) : '—',
+      };
+    case 'contingency':
+      return {
+        mode: 'Contingency',
+        amount: template.contingencyPct != null ? `${template.contingencyPct}%` : '—',
+      };
+    case 'pro_bono':
+      return { mode: 'Pro bono', amount: 'Free' };
+    default:
+      return { mode: FEE_TYPE_LABELS[template.feeType], amount: '—' };
+  }
+};
+
+interface AreaBucket {
+  area: string; // display label, title-cased
+  key: string;  // normalized lookup key
+  templates: EngagementLetterTemplate[];
+}
+
+const normalize = (value: string): string => value.trim().toLowerCase();
+
+function groupByArea(templates: EngagementLetterTemplate[]): AreaBucket[] {
+  const map = new Map<string, AreaBucket>();
+  // Seed with suggested areas first so they always appear in stable order
+  // (and empty buckets render their CTA cards).
+  for (const area of SUGGESTED_AREAS) {
+    map.set(normalize(area), { area, key: normalize(area), templates: [] });
+  }
+  for (const template of templates) {
+    const raw = template.practiceArea.trim() || 'Uncategorized';
+    const key = normalize(raw);
+    const existing = map.get(key);
+    if (existing) {
+      existing.templates.push(template);
+    } else {
+      map.set(key, { area: titleCase(raw), key, templates: [template] });
+    }
+  }
+  return Array.from(map.values());
+}
+
+// -- Filter chips ------------------------------------------------------------
+
+interface FilterChipProps {
+  label: string;
+  count: number;
+  active: boolean;
+  onToggle: () => void;
+}
+
+const FilterChip = ({ label, count, active, onToggle }: FilterChipProps) => (
+  <button
+    type="button"
+    onClick={onToggle}
+    aria-pressed={active}
+    className={cn(
+      'inline-flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-1 font-mono text-[10.5px] uppercase tracking-[0.06em] transition-colors',
+      active
+        ? 'border-ink bg-ink text-paper'
+        : 'border-rule bg-card text-dim hover:border-ink-3 hover:text-ink-2',
+    )}
+  >
+    <span>{label}</span>
+    <span className="font-mono text-accent">{count}</span>
+  </button>
+);
+
+// -- Template card -----------------------------------------------------------
+
+interface TemplateCardProps {
+  template: EngagementLetterTemplate;
+  onEdit: (template: EngagementLetterTemplate) => void;
+}
+
+const TemplateCard = ({ template, onEdit }: TemplateCardProps) => {
+  const placeholderCount = useMemo(() => countPlaceholders(template.body), [template.body]);
+  const fee = useMemo(() => feeSummary(template), [template]);
+  const draft = isDraft(template);
+  const review = !draft && needsReview(template);
+
+  // Until backend exposes review state, we surface one Observation when a
+  // live template is missing scope — a concrete, actionable nudge the
+  // assistant could volunteer. (Mirrors the "trust account paragraph
+  // missing" voice in the design mock.)
+  const observation = review && !template.scopeTemplate.trim() ? (
+    <Observation label="I noticed">
+      The scope of representation paragraph is empty. Templates without a
+      scope tend to come back with revisions — want me to draft one from
+      your prior <em>{template.practiceArea || 'matters'}</em> work?
+    </Observation>
+  ) : null;
+
+  return (
+    <button
+      type="button"
+      onClick={() => onEdit(template)}
+      className={cn(
+        'group flex w-full flex-col gap-4 rounded-r-md border border-rule bg-card p-5 text-left',
+        'transition-[border-color,box-shadow,transform] duration-150',
+        'hover:-translate-y-px hover:border-paper-edge hover:shadow-2 sm:p-6',
+      )}
+    >
+      <div className="grid w-full gap-5 lg:grid-cols-[1fr_180px] lg:items-start lg:gap-7">
+        {/* Left — gist + meta */}
+        <div className="flex min-w-0 flex-col gap-2">
+          <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1.5">
+            <span className="font-serif text-xl leading-tight tracking-tight text-ink sm:text-2xl">
+              {template.name || <span className="text-dim-2">Untitled template</span>}
+            </span>
+            {draft ? (
+              <Pill tone="warn">draft</Pill>
+            ) : review ? (
+              <Pill tone="gold">needs review</Pill>
+            ) : (
+              <Pill tone="live">live</Pill>
+            )}
+          </div>
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 font-mono text-[10.5px] uppercase tracking-[0.06em] text-dim">
+            <span>
+              <span className="text-ink-2">{placeholderCount}</span> placeholders
+            </span>
+            {/* TODO(backend): replace stub `useCount`, `comprehension`, `lastSentAt` with live fields */}
+            <span className="text-dim-2">·</span>
+            <span>fee · <span className="text-ink-2">{fee.mode}</span></span>
+            {template.scopeTemplate.trim() ? (
+              <>
+                <span className="text-dim-2">·</span>
+                <span>scope set</span>
+              </>
+            ) : null}
+          </div>
+        </div>
+
+        {/* Right — fee + arrow */}
+        <div className="flex items-end justify-between gap-3 lg:h-full lg:flex-col lg:items-end lg:justify-between lg:text-right">
+          <div className="flex flex-col gap-1 lg:items-end">
+            <span className="font-mono text-[9.5px] uppercase tracking-[0.1em] text-dim">
+              {fee.mode}
+            </span>
+            <span className="font-serif text-2xl leading-none tracking-tight text-ink tabular-nums sm:text-[28px]">
+              {fee.amount}
+              {fee.unit ? (
+                <span className="ml-0.5 font-mono text-[11px] uppercase tracking-[0.06em] text-dim">
+                  {fee.unit}
+                </span>
+              ) : null}
+            </span>
+          </div>
+          <span
+            className={cn(
+              'inline-flex items-center gap-1.5 font-mono text-[11px] uppercase tracking-[0.1em] text-dim transition-colors',
+              'group-hover:text-accent-deep',
+            )}
+            aria-hidden="true"
+          >
+            Open in builder <span aria-hidden="true">→</span>
+          </span>
+        </div>
+      </div>
+      {observation ? <div className="w-full">{observation}</div> : null}
+    </button>
+  );
+};
+
+// -- Empty-area CTA ----------------------------------------------------------
+
+interface EmptyAreaCardProps {
+  area: string;
+  onAsk: () => void;
+}
+
+const EmptyAreaCard = ({ area, onAsk }: EmptyAreaCardProps) => (
+  <div className="flex flex-col items-start gap-4 rounded-r-md border border-dashed border-rule bg-paper p-5 sm:flex-row sm:items-center sm:gap-5 sm:p-6">
+    <div className="flex-1">
+      <p className="font-serif text-base text-ink sm:text-[17px]">
+        No {area.toLowerCase()} template yet
+      </p>
+      <p className="mt-1 text-sm leading-snug text-ink-2">
+        The assistant can draft one from your prior {area.toLowerCase()} matters.
+      </p>
+    </div>
+    <Button type="button" size="sm" variant="secondary" onClick={onAsk}>
+      Ask assistant
+    </Button>
+  </div>
+);
+
+// -- Area section ------------------------------------------------------------
+
+interface AreaSectionProps {
+  bucket: AreaBucket;
+  onAdd: (area: string) => void;
+  onAsk: (area: string) => void;
+  onEdit: (template: EngagementLetterTemplate) => void;
+}
+
+const AreaSection = ({ bucket, onAdd, onAsk, onEdit }: AreaSectionProps) => {
+  const count = bucket.templates.length;
+  const countLabel = count === 0 ? 'none yet' : `${count} template${count === 1 ? '' : 's'}`;
+
+  // Mobile: each section is its own <details>; desktop: always open via CSS.
+  return (
+    <details open className="group/area">
+      <summary
+        className={cn(
+          'flex cursor-pointer list-none items-baseline justify-between gap-3 py-1',
+          'lg:cursor-default',
+          // Strip default disclosure marker
+          '[&::-webkit-details-marker]:hidden',
+        )}
+      >
+        <div className="flex items-baseline gap-3">
+          <h2 className="font-serif text-xl font-normal leading-none tracking-tight text-ink sm:text-[22px]">
+            {bucket.area}
+          </h2>
+          <span className="font-mono text-[10.5px] uppercase tracking-[0.1em] text-dim">
+            {countLabel}
+          </span>
+        </div>
+        <button
+          type="button"
+          onClick={(event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            onAdd(bucket.area);
+          }}
+          className="font-mono text-[11px] uppercase tracking-[0.06em] text-ink-2 underline decoration-dim-2 decoration-dotted underline-offset-2 transition-colors hover:text-accent-deep hover:decoration-accent-deep"
+        >
+          + add
+        </button>
+      </summary>
+
+      <div className="mt-3.5">
+        {count === 0 ? (
+          <EmptyAreaCard area={bucket.area} onAsk={() => onAsk(bucket.area)} />
+        ) : (
+          <div className="grid gap-2.5 lg:grid-cols-2">
+            {bucket.templates.map((template) => (
+              <TemplateCard key={template.id} template={template} onEdit={onEdit} />
+            ))}
+          </div>
+        )}
+      </div>
+    </details>
+  );
+};
+
+// -- List view root ----------------------------------------------------------
 
 type ListViewProps = {
   templates: EngagementLetterTemplate[];
   onNew: () => void;
+  onNewInArea: (area: string) => void;
   onEdit: (template: EngagementLetterTemplate) => void;
 };
 
-function TemplateListView({ templates, onNew, onEdit }: ListViewProps) {
+function TemplateListView({ templates, onNew, onNewInArea, onEdit }: ListViewProps) {
+  const { showSuccess } = useToastContext();
+
+  const [draftPrompt, setDraftPrompt] = useState('');
+  const [areaFilters, setAreaFilters] = useState<Set<string>>(new Set());
+  const [statusFilters, setStatusFilters] = useState<Set<StatusFilter>>(new Set());
+
+  const buckets = useMemo(() => groupByArea(templates), [templates]);
+
+  const areaChips = useMemo(() => {
+    // Build chips from areas that have at least one template (avoids the
+    // chip list growing with every suggested-but-empty bucket).
+    return buckets
+      .filter((b) => b.templates.length > 0)
+      .map((b) => ({ key: b.key, label: b.area, count: b.templates.length }));
+  }, [buckets]);
+
+  const draftCount = templates.filter(isDraft).length;
+  const reviewCount = templates.filter((t) => !isDraft(t) && needsReview(t)).length;
+
+  const filteredBuckets = useMemo(() => {
+    const noFilters = areaFilters.size === 0 && statusFilters.size === 0;
+    if (noFilters) return buckets;
+
+    return buckets
+      .map((bucket) => {
+        // Area filter: keep bucket only if its key is active (or no area filters)
+        const areaPasses = areaFilters.size === 0 || areaFilters.has(bucket.key);
+        if (!areaPasses) return { ...bucket, templates: [] };
+
+        const filtered = bucket.templates.filter((t) => {
+          if (statusFilters.size === 0) return true;
+          if (statusFilters.has('Drafts') && isDraft(t)) return true;
+          if (statusFilters.has('Needs review') && !isDraft(t) && needsReview(t)) return true;
+          return false;
+        });
+        return { ...bucket, templates: filtered };
+      })
+      // When status filters are on, hide empty area sections to avoid noisy CTAs
+      .filter((b) => (statusFilters.size === 0 ? true : b.templates.length > 0));
+  }, [buckets, areaFilters, statusFilters]);
+
+  const toggleArea = useCallback((key: string) => {
+    setAreaFilters((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key); else next.add(key);
+      return next;
+    });
+  }, []);
+
+  const toggleStatus = useCallback((status: StatusFilter) => {
+    setStatusFilters((prev) => {
+      const next = new Set(prev);
+      if (next.has(status)) next.delete(status); else next.add(status);
+      return next;
+    });
+  }, []);
+
+  const clearAll = useCallback(() => {
+    setAreaFilters(new Set());
+    setStatusFilters(new Set());
+  }, []);
+
+  const handleDraft = useCallback(() => {
+    // TODO(backend): wire to a `/engagement-templates/draft-from-prompt`
+    // endpoint that returns a fully-populated EngagementLetterTemplate.
+    // Until then, surface the intent and seed a blank template so the
+    // user can paste/edit. The prompt itself is preserved in toast copy.
+    showSuccess(
+      'Draft request noted',
+      draftPrompt.trim()
+        ? `Opening a blank template — assistant authoring isn't wired yet.`
+        : 'Describe the template first, then ask the assistant to draft it.',
+    );
+    if (draftPrompt.trim()) {
+      onNew();
+    }
+  }, [draftPrompt, onNew, showSuccess]);
+
+  const handleAskAssistant = useCallback((area: string) => {
+    // TODO(backend): wire to assistant authoring; for now open a blank
+    // template pre-seeded with the area so the user can keep going.
+    onNewInArea(area);
+  }, [onNewInArea]);
+
+  const handleBrowseCommunity = useCallback(() => {
+    // TODO(backend): replace with a community-templates gallery dialog
+    // (read-only browse + import). The endpoint and UI both don't exist
+    // yet — surface the intent for now.
+    showSuccess('Community templates', 'A community template gallery is on the roadmap.');
+  }, [showSuccess]);
+
+  const totalCount = templates.length;
+  const allActive = areaFilters.size === 0 && statusFilters.size === 0;
+
   return (
-    <div className="flex flex-col gap-4 p-6">
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <p className="text-sm text-dim-2">
-            Create a template for each practice area. When you generate an engagement letter from an intake, the AI will select the matching template, fill in the client&apos;s details, and produce a ready-to-review draft.
+    <div className="mx-auto flex w-full max-w-[980px] flex-col gap-7 px-6 pb-24 pt-8 sm:px-10 lg:px-16 lg:pt-10">
+      {/* Page hero */}
+      <header className="flex flex-col gap-5 border-b border-rule pb-6 lg:flex-row lg:items-end lg:justify-between lg:gap-8">
+        <div className="min-w-0 flex-1">
+          <h1 className="font-serif text-3xl font-normal leading-[1.05] tracking-tight text-ink sm:text-4xl lg:text-[46px]">
+            Letters the assistant <em className="not-italic text-accent">drafts from.</em>
+          </h1>
+          <p className="mt-3 max-w-[58ch] text-sm leading-relaxed text-ink-2 sm:text-[14px]">
+            When an intake is accepted, the assistant picks the right template by practice area and fee structure, fills in placeholders from the intake, and shows you a finished letter to review.
+            <span className="block text-dim-2">Open any template to edit it in the builder.</span>
           </p>
         </div>
-        <Button icon={Plus} onClick={onNew} size="sm">New template</Button>
+        <div className="flex shrink-0 flex-wrap items-center gap-2">
+          <Button type="button" variant="ghost" size="sm" onClick={handleBrowseCommunity}>
+            Browse community
+          </Button>
+          <Button type="button" variant="primary" size="sm" icon={Plus} onClick={onNew}>
+            New template
+          </Button>
+        </div>
+      </header>
+
+      {/* AI authoring strip */}
+      <AIRibbon
+        variant="authoring"
+        title="Describe a template — I'll draft it"
+        editable
+        onEdit={setDraftPrompt}
+        actions={[
+          {
+            id: 'draft',
+            label: 'Draft ↗',
+            variant: 'primary',
+            onClick: handleDraft,
+          },
+        ]}
+      />
+
+      {/* Filter chips — horizontally scrollable on mobile */}
+      <div
+        className={cn(
+          'flex items-center gap-1.5 overflow-x-auto pb-1',
+          'sm:flex-wrap sm:overflow-visible sm:pb-0',
+          // hide the horizontal scrollbar visually but keep scroll
+          '[scrollbar-width:none] [&::-webkit-scrollbar]:hidden',
+        )}
+        role="group"
+        aria-label="Filter templates"
+      >
+        <FilterChip
+          label="All"
+          count={totalCount}
+          active={allActive}
+          onToggle={clearAll}
+        />
+        {areaChips.map((chip) => (
+          <FilterChip
+            key={chip.key}
+            label={chip.label}
+            count={chip.count}
+            active={areaFilters.has(chip.key)}
+            onToggle={() => toggleArea(chip.key)}
+          />
+        ))}
+        {draftCount > 0 ? (
+          <FilterChip
+            label="Drafts"
+            count={draftCount}
+            active={statusFilters.has('Drafts')}
+            onToggle={() => toggleStatus('Drafts')}
+          />
+        ) : null}
+        {reviewCount > 0 ? (
+          <FilterChip
+            label="Needs review"
+            count={reviewCount}
+            active={statusFilters.has('Needs review')}
+            onToggle={() => toggleStatus('Needs review')}
+          />
+        ) : null}
       </div>
 
-      {templates.length === 0 ? (
-        <div className="flex flex-col items-center gap-3 rounded-r-md border border-dashed border-line-subtle py-12 text-center">
-          <FileText className="h-8 w-8 text-dim-2" />
-          <p className="text-sm font-medium text-ink">No templates yet</p>
-          <p className="text-xs text-dim-2">Create your first engagement letter template to get started.</p>
-          <Button icon={Plus} onClick={onNew} size="sm" variant="secondary">New template</Button>
+      {/* Area sections */}
+      {totalCount === 0 ? (
+        <div className="flex flex-col items-start gap-3 rounded-r-md border border-dashed border-rule bg-paper p-6 sm:p-8">
+          <p className="font-serif text-lg text-ink">No templates yet</p>
+          <p className="max-w-[56ch] text-sm leading-relaxed text-ink-2">
+            Create your first engagement letter template, or describe one above and the assistant will draft it from your prior matters.
+          </p>
+          <Button type="button" variant="primary" size="sm" icon={Plus} onClick={onNew}>
+            New template
+          </Button>
         </div>
       ) : (
-        <div className="flex flex-col divide-y divide-line-subtle overflow-hidden rounded-r-md border border-line-subtle">
-          {templates.map((template) => (
-            <button
-              key={template.id}
-              type="button"
-              onClick={() => onEdit(template)}
-              className="flex items-center justify-between gap-4 px-4 py-3.5 text-left transition-colors hover:bg-card"
-            >
-              <div className="min-w-0">
-                <p className="truncate text-sm font-medium text-ink">{template.name}</p>
-                <p className="text-xs text-dim-2">
-                  {template.practiceArea || 'No practice area'} · {FEE_TYPE_LABELS[template.feeType]}
-                </p>
-              </div>
-              <span className="shrink-0 text-xs text-accent">Edit</span>
-            </button>
+        <div className="flex flex-col gap-9">
+          {filteredBuckets.map((bucket) => (
+            <AreaSection
+              key={bucket.key}
+              bucket={bucket}
+              onAdd={onNewInArea}
+              onAsk={handleAskAssistant}
+              onEdit={onEdit}
+            />
           ))}
         </div>
       )}
@@ -477,7 +951,7 @@ export const EngagementTemplatesPage = ({ onBack }: EngagementTemplatesPageProps
 
   return (
     <EditorShell
-      title="Engagement Templates"
+      title="Engagement templates"
       showBack
       onBack={onBack}
       contentMaxWidth={null}
@@ -490,6 +964,7 @@ export const EngagementTemplatesPage = ({ onBack }: EngagementTemplatesPageProps
         <TemplateListView
           templates={templates}
           onNew={() => setEditTarget(BLANK_TEMPLATE())}
+          onNewInArea={(area) => setEditTarget({ ...BLANK_TEMPLATE(), practiceArea: area })}
           onEdit={setEditTarget}
         />
       )}

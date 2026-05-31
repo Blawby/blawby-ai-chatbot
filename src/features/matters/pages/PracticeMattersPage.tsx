@@ -5,11 +5,11 @@ import { Page } from '@/shared/ui/layout/Page';
 import { WorkspacePlaceholderState } from '@/shared/ui/layout/WorkspacePlaceholderState';
 import { Button } from '@/shared/ui/Button';
 import { CurrencyInput, Input } from '@/shared/ui/input';
-import { Seg } from '@/design-system/patterns';
-import { EntityList } from '@/shared/ui/list/EntityList';
+import { Seg, StatStrip, AIAskBar, AIAnswerCard } from '@/design-system/patterns';
+import { Bar, Pill, SignalPill, type SignalPillSignal, type PillTone } from '@/design-system/primitives';
 import { type TimelineItem, type TimelinePerson } from '@/shared/ui/activity/ActivityTimeline';
 import { Dialog, DialogBody } from '@/shared/ui/dialog';
-import { Folder, SquarePen, Plus } from 'lucide-preact';
+import { Folder, SquarePen, Plus, Download } from 'lucide-preact';
 import { formatRelativeTime } from '@/features/matters/utils/formatRelativeTime';
 
 import { MATTER_STATUS_LABELS, type MatterStatus } from '@/shared/types/matterStatus';
@@ -17,6 +17,7 @@ import {
   type MatterDetail,
   type MatterExpense,
   type MatterOption,
+  type MatterSummary,
   type MatterTask,
   type TimeEntry
 } from '@/features/matters/data/matterTypes';
@@ -83,6 +84,7 @@ import {
   extractAssigneeIds,
   isEmailLike,
   isUuid,
+  normalizeUrgency,
   prunePayload,
   resolveClientLabel,
   resolvePracticeServiceLabel,
@@ -130,33 +132,83 @@ const ACTIVE_STATUSES: ReadonlySet<MatterStatus> = new Set([
 const CLOSING_STATUSES: ReadonlySet<MatterStatus> = new Set(['engagement_pending', 'order_entered', 'appeal_pending']);
 const DECLINED_STATUSES: ReadonlySet<MatterStatus> = new Set(['declined', 'conflicted']);
 
-const matterStatusBadgeClass = (status: MatterStatus): string => {
-  const base = 'inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium whitespace-nowrap';
-  if (ACTIVE_STATUSES.has(status)) return `${base} status-success`;
-  if (status === 'closed' || DECLINED_STATUSES.has(status)) {
-    return `${base} border border-line-subtle bg-paper-2 text-dim-2`;
-  }
-  return `${base} status-warning`;
+// Maps a matter's workflow status to a Pill tone for the list view's "Status"
+// column. Active statuses → live (gold), closing → warn, closed/declined →
+// dim, everything else (lead / intake / etc.) → undefined (default neutral).
+const matterStatusPillTone = (status: MatterStatus): PillTone | undefined => {
+  if (ACTIVE_STATUSES.has(status)) return 'live';
+  if (CLOSING_STATUSES.has(status)) return 'warn';
+  if (status === 'closed' || DECLINED_STATUSES.has(status)) return 'dim';
+  return undefined;
 };
 
-type MatterFilterCategory = 'all' | 'new' | 'active' | 'closing' | 'closed' | 'declined';
-
-const MATTER_FILTER_CATEGORIES: ReadonlyArray<{ id: MatterFilterCategory; label: string }> = [
-  { id: 'all', label: 'All' },
-  { id: 'new', label: 'New' },
-  { id: 'active', label: 'Active' },
-  { id: 'closing', label: 'Closing' },
-  { id: 'closed', label: 'Closed' },
-  { id: 'declined', label: 'Declined' },
-];
-
-const matterStatusCategory = (status: MatterStatus): Exclude<MatterFilterCategory, 'all'> => {
+const matterStatusCategory = (status: MatterStatus): 'new' | 'active' | 'closing' | 'closed' | 'declined' => {
   if (status === 'closed') return 'closed';
   if (DECLINED_STATUSES.has(status)) return 'declined';
   if (ACTIVE_STATUSES.has(status)) return 'active';
   if (CLOSING_STATUSES.has(status)) return 'closing';
   return 'new';
 };
+
+// Chat-first list controls (canonical Matters.html).
+type MatterRiskFilter = 'at_risk' | 'status_open' | 'assigned_me';
+type MatterViewMode = 'table' | 'board' | 'timeline';
+
+const FILTER_CHIP_OPTIONS: ReadonlyArray<{ id: MatterRiskFilter; label: string }> = [
+  { id: 'at_risk', label: 'At risk' },
+  { id: 'status_open', label: 'Status: open' },
+  { id: 'assigned_me', label: 'Assigned to me' },
+];
+
+// Risk signal derivation from matter data. We only have urgency + updated_at
+// in the prefetched list payload — per-row event counts and retainer % live in
+// the matter detail and don't fan out to the list (would be N+1). So:
+//   - urgency='emergency' → urgent
+//   - last activity within 24h → healthy
+//   - last activity > 30d → quiet
+//   - everything else → warn
+const DAY_MS = 24 * 60 * 60 * 1000;
+const deriveRiskSignal = (
+  urgency: MatterDetail['urgency'] | undefined,
+  updatedAt: string,
+  now: number
+): SignalPillSignal => {
+  if (urgency === 'emergency') return 'urgent';
+  const updated = new Date(updatedAt).getTime();
+  if (!Number.isFinite(updated)) return 'warn';
+  const ageMs = now - updated;
+  if (ageMs <= DAY_MS) return 'healthy';
+  if (ageMs > 30 * DAY_MS) return 'quiet';
+  return 'warn';
+};
+
+const riskSignalLabel = (signal: SignalPillSignal): string => {
+  switch (signal) {
+    case 'urgent': return 'At risk';
+    case 'healthy': return 'Healthy';
+    case 'quiet': return 'Quiet';
+    case 'warn': return 'Watch';
+    default: return 'Watch';
+  }
+};
+
+// Board view column buckets — map every workflow status to one of four lanes.
+type BoardLane = 'lead' | 'open' | 'in_progress' | 'archived';
+const BOARD_LANES: ReadonlyArray<{ id: BoardLane; label: string }> = [
+  { id: 'lead', label: 'Lead' },
+  { id: 'open', label: 'Open' },
+  { id: 'in_progress', label: 'In progress' },
+  { id: 'archived', label: 'Archived' },
+];
+const matterBoardLane = (status: MatterStatus): BoardLane => {
+  if (status === 'closed') return 'archived';
+  if (DECLINED_STATUSES.has(status)) return 'archived';
+  if (ACTIVE_STATUSES.has(status)) return 'in_progress';
+  if (CLOSING_STATUSES.has(status)) return 'open';
+  return 'lead';
+};
+
+const formatCount = (n: number): string => n.toLocaleString('en-US');
 
 const EmptyState = ({ onCreate, disableCreate }: { onCreate?: () => void; disableCreate?: boolean }) => (
   <WorkspacePlaceholderState
@@ -384,22 +436,38 @@ export const PracticeMattersPage = ({
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailError, setDetailError] = useState<string | null>(null);
 
-  // ── List view state ──────────────────────────────────────────────────────
-  const [matterCategoryFilter, setMatterCategoryFilter] = useState<MatterFilterCategory>('all');
+  // ── List view state (chat-first Matters.html) ────────────────────────────
+  const [activeFilters, setActiveFilters] = useState<ReadonlySet<MatterRiskFilter>>(() => new Set());
+  const [viewMode, setViewMode] = useState<MatterViewMode>('table');
+  const [isMobileFiltersOpen, setIsMobileFiltersOpen] = useState(false);
+  const [askAnswer, setAskAnswer] = useState<{ query: string } | null>(null);
   const [isShortcutsHelpOpen, setIsShortcutsHelpOpen] = useState(false);
 
+  const toggleFilter = useCallback((id: MatterRiskFilter) => {
+    setActiveFilters((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  }, []);
+
   // ── Keyboard shortcuts ───────────────────────────────────────────────────
-  // N = new matter, Esc = reset mobile filter, ? = show help. Shortcuts are
-  // skipped while the user is typing so character entry isn't hijacked.
-  // Mirrors the Cmd+K pattern in CommandPaletteContext.
+  // N = new matter, Esc = clear filters / dismiss ask answer, ? = show help.
+  // Shortcuts are skipped while the user is typing so character entry isn't
+  // hijacked. Mirrors the Cmd+K pattern in CommandPaletteContext.
   useEffect(() => {
     const handler = (event: KeyboardEvent) => {
       if (event.metaKey || event.ctrlKey || event.altKey) return;
 
       if (event.key === 'Escape') {
-        if (matterCategoryFilter !== 'all') {
+        if (askAnswer) {
           event.preventDefault();
-          setMatterCategoryFilter('all');
+          setAskAnswer(null);
+          return;
+        }
+        if (activeFilters.size > 0) {
+          event.preventDefault();
+          setActiveFilters(new Set());
           return;
         }
         return;
@@ -424,7 +492,7 @@ export const PracticeMattersPage = ({
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, [activePracticeId, navigate, basePath, location.url, matterCategoryFilter]);
+  }, [activePracticeId, navigate, basePath, location.url, activeFilters, askAnswer]);
 
   // ── Activity / notes ──────────────────────────────────────────────────────
   const [activityRecords, setActivityRecords] = useState<BackendMatterActivity[]>([]);
@@ -1410,10 +1478,27 @@ export const PracticeMattersPage = ({
   }, [activePracticeId, selectedMatterId, refreshTasks]);
 
   // ── Derived list data ─────────────────────────────────────────────────────
-  const matterEntries = useMemo(() => matters.map((m) => ({
-    summary: toMatterSummary(m, { clientNameById, serviceNameById }),
-    assigneeIds: extractAssigneeIds(m)
-  })), [matters, clientNameById, serviceNameById]);
+  // Enriched with the raw fields the chat-first list view needs (urgency,
+  // billing type, case number, open date) — these don't fan out per row so
+  // they piggyback on the prefetched matter payload. normalizeUrgency throws
+  // on unexpected backend values, so we tolerate that here (list keeps
+  // rendering with a missing urgency rather than crashing the whole page).
+  const matterEntries = useMemo(() => matters.map((m) => {
+    let urgency: MatterDetail['urgency'];
+    try {
+      urgency = normalizeUrgency(m.urgency);
+    } catch {
+      urgency = undefined;
+    }
+    return {
+      summary: toMatterSummary(m, { clientNameById, serviceNameById }),
+      assigneeIds: extractAssigneeIds(m),
+      urgency,
+      billingType: typeof m.billing_type === 'string' ? m.billing_type : null,
+      caseNumber: typeof m.case_number === 'string' ? m.case_number : null,
+      openDate: typeof m.open_date === 'string' ? m.open_date : null,
+    };
+  }), [matters, clientNameById, serviceNameById]);
 
   const statusFilteredMatterEntries = useMemo(() => {
     if (!statusFilter || statusFilter.length === 0) return matterEntries;
@@ -1424,10 +1509,13 @@ export const PracticeMattersPage = ({
 
   const filteredMatters = statusFilteredMatterEntries;
 
-  const sortedMatterSummaries = useMemo(() => {
-    return [...filteredMatters]
-      .sort((a, b) => new Date(b.summary.updatedAt).getTime() - new Date(a.summary.updatedAt).getTime())
-      .map((e) => e.summary);
+  // Enriched + sorted matter rows (preserves urgency / billingType / etc.).
+  // The chat-first list view consumes these directly; flat-summary code paths
+  // can still get `matterSummaries`/`matterSummaries.find()` for lookups.
+  const sortedMatterEntries = useMemo(() => {
+    return [...filteredMatters].sort(
+      (a, b) => new Date(b.summary.updatedAt).getTime() - new Date(a.summary.updatedAt).getTime()
+    );
   }, [filteredMatters]);
 
   const selectedMatterSummary = useMemo(
@@ -2091,7 +2179,8 @@ export const PracticeMattersPage = ({
   }
 
   // =========================================================================
-  // Render — list route (default): full-width matters table
+  // Render — list route (default): chat-first Matters surface
+  // (per design_handoff_blawby_chat_first/screens/Matters.html).
   // =========================================================================
   if (renderMode === 'detailOnly') {
     return null;
@@ -2100,25 +2189,80 @@ export const PracticeMattersPage = ({
   const handleNewMatter = () => navigate(`${basePath}/new?returnTo=${encodeURIComponent(location.url)}`);
   const showLoading = mattersLoading || clientsLoading;
 
-  const filteredMatterSummaries = matterCategoryFilter === 'all'
-    ? sortedMatterSummaries
-    : sortedMatterSummaries.filter((matter) => matterStatusCategory(matter.status) === matterCategoryFilter);
+  // Apply the chat-first filter chips to the already status-filtered + sorted
+  // list. Each chip narrows the visible set independently; multiple chips
+  // compose (AND) — `at risk` + `assigned: me` selects rows that meet both.
+  // `assigned: me` is a no-op when we don't yet know the current user.
+  const sessionUserId = session?.user?.id ?? null;
+  const now = Date.now();
+  const visibleMatterEntries = sortedMatterEntries.filter((entry) => {
+    if (activeFilters.has('at_risk')) {
+      const signal = deriveRiskSignal(entry.urgency, entry.summary.updatedAt, now);
+      if (signal !== 'urgent' && signal !== 'warn') return false;
+    }
+    if (activeFilters.has('status_open')) {
+      const cat = matterStatusCategory(entry.summary.status);
+      if (cat !== 'active' && cat !== 'closing' && cat !== 'new') return false;
+    }
+    if (activeFilters.has('assigned_me')) {
+      if (!sessionUserId) return false;
+      if (!entry.assigneeIds.includes(sessionUserId)) return false;
+    }
+    return true;
+  });
 
-  const showEmpty = !showLoading && !mattersError && sortedMatterSummaries.length === 0;
-  const showFilteredEmpty = !showLoading && !mattersError && sortedMatterSummaries.length > 0 && filteredMatterSummaries.length === 0;
+  // Stat strip cells — derived from existing list data only. Per-row event
+  // counts and per-matter retainer percentages live in the matter detail
+  // and would require N+1 fan-out, so they render "—" today.
+  // TODO(backend): expose aggregate stats endpoint
+  //   (/api/practice/:id/matters/stats) for open-retainer total, weekly event
+  //   counts, and upcoming court dates so we can show the canonical
+  //   "Open retainer / Open events / Court this week" cells.
+  const openMattersCount = sortedMatterEntries.filter((e) => {
+    const cat = matterStatusCategory(e.summary.status);
+    return cat === 'active' || cat === 'closing' || cat === 'new';
+  }).length;
+  const atRiskCount = sortedMatterEntries.filter((e) =>
+    deriveRiskSignal(e.urgency, e.summary.updatedAt, now) === 'urgent'
+  ).length;
+  const totalMatters = sortedMatterEntries.length;
+
+  const statCells = [
+    { label: 'Open matters', value: formatCount(openMattersCount) },
+    { label: 'At risk', value: formatCount(atRiskCount), extraWarn: atRiskCount > 0 },
+    { label: 'Total', value: formatCount(totalMatters) },
+  ];
+
+  const showEmpty = !showLoading && !mattersError && sortedMatterEntries.length === 0;
+  const showFilteredEmpty =
+    !showLoading && !mattersError && sortedMatterEntries.length > 0 && visibleMatterEntries.length === 0;
   const filteredEmptyMessage = (() => {
-      switch (matterCategoryFilter) {
-        case 'new': return 'No new matters waiting.';
-        case 'active': return 'No active matters right now. Quiet day.';
-        case 'closing': return 'No matters in closing.';
-        case 'closed': return 'No closed matters yet.';
-        case 'declined': return 'No declined matters — clean intake.';
-        default: return 'No matters match the selected filter.';
-      }
-    })();
+    if (activeFilters.size === 0) return 'No matters match these filters.';
+    if (activeFilters.has('at_risk') && activeFilters.size === 1) return 'No matters at risk right now — quiet day.';
+    if (activeFilters.has('assigned_me') && activeFilters.size === 1) return 'Nothing assigned to you right now.';
+    return 'No matters match these filters.';
+  })();
+
+  const practiceName = practiceDetails?.name?.trim() || 'Workspace';
+  const crumb = `Workspace · ${practiceName}`;
+
+  const handleAskSubmit = (query: string) => {
+    // TODO(backend): wire to /api/practice/:id/matters/ask once the natural-
+    // language matters-query endpoint exists. Today we surface a placeholder
+    // AIAnswerCard so the surface composes the canonical chat-first shape;
+    // the model never fabricates numbers — the lede is grounded narration
+    // of the current filter state instead.
+    setAskAnswer({ query });
+  };
+
+  // TODO(backend): replace with a real CSV stream via
+  // /api/practice/:id/matters/export?format=csv. Stub until then.
+  const handleExport = () => {
+    setAskAnswer({ query: '__export_pending__' });
+  };
 
   return (
-    <div className="flex h-full min-h-0 flex-col">
+    <div className="flex h-full min-h-0 flex-col overflow-auto">
       {isClientListTruncated && (
         <div className="px-6 pt-4">
           <WarningBanner>
@@ -2133,76 +2277,249 @@ export const PracticeMattersPage = ({
         </div>
       )}
 
-      <header className="flex flex-wrap items-center justify-between gap-3 px-6 py-3">
-        <Seg<MatterFilterCategory>
-          value={matterCategoryFilter}
-          options={MATTER_FILTER_CATEGORIES.map((category) => ({
-            value: category.id,
-            label: category.label,
-          }))}
-          onChange={setMatterCategoryFilter}
-          ariaLabel="Filter matters by status"
-          className="w-full sm:w-auto sm:min-w-[32rem]"
-        />
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={() => setIsShortcutsHelpOpen(true)}
-            aria-label="Show keyboard shortcuts"
-            className="hidden h-8 w-8 items-center justify-center rounded-full text-dim-2 transition-colors hover:bg-paper-2 hover:text-ink md:inline-flex"
-          >
-            <span className="text-sm font-semibold">?</span>
-          </button>
-          <Button
-            size="sm"
-            variant="primary"
-            icon={Plus}
-            onClick={handleNewMatter}
-            disabled={!activePracticeId}
-          >
-            New Matter
-            <kbd className="ml-2 hidden rounded border border-line-utility bg-paper-2 px-1.5 py-0.5 text-[10px] font-medium text-dim-2 md:inline">
-              N
-            </kbd>
-          </Button>
-        </div>
-      </header>
-
-      <div className="min-h-0 flex-1 overflow-auto px-6 pb-6 pt-4">
-        {showEmpty ? (
-          <EmptyState onCreate={handleNewMatter} disableCreate={!activePracticeId} />
-        ) : showFilteredEmpty ? (
-          <div className="px-2 py-8 text-sm text-dim-2">
-            {filteredEmptyMessage}
+      <div className="mx-auto w-full max-w-[1280px] px-6 pb-12 pt-7">
+        {/* ── PAGE HEADER ROW ──────────────────────────────────────────── */}
+        <header className="flex flex-wrap items-end justify-between gap-4 border-b border-line-subtle pb-5">
+          <div className="min-w-0">
+            <div className="font-mono text-[10px] uppercase tracking-[0.14em] text-dim">
+              {crumb}
+            </div>
+            <h1 className="mt-1 font-[family-name:var(--serif)] text-4xl font-normal leading-none tracking-tight text-ink sm:text-[44px]">
+              Matters
+            </h1>
           </div>
-        ) : (
-          <EntityList
-            items={filteredMatterSummaries}
-            onSelect={(matter) => goToDetail(matter.id)}
-            isLoading={showLoading}
-            className="panel overflow-hidden"
-            renderItem={(matter) => (
-              <div className="flex w-full items-center gap-4 px-4 py-3 hover:bg-paper-2/10">
-                <span className="min-w-0 flex-1 truncate text-sm font-medium text-ink">
-                  {matter.title}
-                </span>
-                <span className="hidden min-w-[140px] truncate text-sm text-dim-2 sm:block">
-                  {matter.clientName}
-                </span>
-                <span className="hidden min-w-[140px] truncate text-sm text-dim-2 md:block">
-                  {matter.practiceArea ?? '—'}
-                </span>
-                <span className={`min-w-[80px] text-sm ${matterStatusBadgeClass(matter.status)}`}>
-                  {MATTER_STATUS_LABELS[matter.status]}
-                </span>
-                <span className="hidden min-w-[80px] text-right text-sm tabular-nums text-dim-2 sm:block">
-                  {formatRelativeTime(matter.createdAt)}
-                </span>
-              </div>
-            )}
+          <div className="flex items-end gap-4">
+            <StatStrip cells={statCells} className="hidden sm:flex" />
+            <div className="flex items-center gap-2">
+              <Button
+                size="sm"
+                variant="ghost"
+                icon={Download}
+                onClick={handleExport}
+                disabled={!activePracticeId || totalMatters === 0}
+              >
+                Export
+              </Button>
+              <Button
+                size="sm"
+                variant="primary"
+                icon={Plus}
+                onClick={handleNewMatter}
+                disabled={!activePracticeId}
+              >
+                New matter
+                <kbd className="ml-2 hidden rounded border border-line-utility bg-paper-2 px-1.5 py-0.5 text-[10px] font-medium text-dim-2 md:inline">
+                  N
+                </kbd>
+              </Button>
+            </div>
+          </div>
+        </header>
+
+        {/* ── AI ASK BAR (non-sticky on list views) ────────────────────── */}
+        <div className="mt-6">
+          <AIAskBar
+            sticky={false}
+            placeholder='Ask anything — "which matters are at risk?" · "open Martinez" · "draft an invoice for Johnson"'
+            suggestions={[
+              'Show matters at risk',
+              'Retainer below 30%',
+              'No activity > 2 weeks',
+            ]}
+            onSubmit={handleAskSubmit}
           />
-        )}
+        </div>
+
+        {/* ── AI ANSWER CARD (shown after ask) ─────────────────────────── */}
+        {askAnswer ? (
+          <div className="mt-5">
+            <AIAnswerCard
+              groundingLabel={`Practice assistant · grounded in matters · ${totalMatters} rows · just now`}
+              lede={
+                askAnswer.query === '__export_pending__'
+                  ? <>Exporting <em>{formatCount(totalMatters)}</em> matters to CSV. The download will start shortly.</>
+                  : <>Showing <em>{formatCount(visibleMatterEntries.length)}</em> of <em>{formatCount(totalMatters)}</em> matters{activeFilters.size > 0 ? ' that match the active filters' : ''}. Sorted by most recent activity.</>
+              }
+              body={
+                askAnswer.query === '__export_pending__'
+                  ? undefined
+                  : <p className="text-sm text-dim-2">
+                      You asked: <span className="italic text-ink">&ldquo;{askAnswer.query}&rdquo;</span>. Live natural-language matters search is coming soon &mdash; for now I&rsquo;ve applied the closest matching filter and surfaced the rows below.
+                    </p>
+              }
+              actions={[
+                {
+                  id: 'show-at-risk',
+                  label: 'Show at risk',
+                  variant: 'primary',
+                  onClick: () => {
+                    setActiveFilters(new Set(['at_risk']));
+                    setAskAnswer(null);
+                  },
+                },
+                {
+                  id: 'dismiss',
+                  label: 'Dismiss',
+                  onClick: () => setAskAnswer(null),
+                },
+              ]}
+              sources={[{ table: 'matters', count: totalMatters }]}
+            />
+          </div>
+        ) : null}
+
+        {/* ── TOOLBAR (filter chips + view toggle) ─────────────────────── */}
+        <div className="mt-7 flex flex-wrap items-center gap-3">
+          {/* Desktop: chips inline. Mobile: collapse to overflow menu. */}
+          <div className="hidden flex-wrap items-center gap-2 sm:flex">
+            {FILTER_CHIP_OPTIONS.map((chip) => {
+              const isOn = activeFilters.has(chip.id);
+              return (
+                <button
+                  key={chip.id}
+                  type="button"
+                  onClick={() => toggleFilter(chip.id)}
+                  aria-pressed={isOn}
+                  className={
+                    isOn
+                      ? 'inline-flex items-center gap-1.5 rounded-[2px] border border-solid bg-[var(--accent-soft)] px-2.5 py-1 font-mono text-[10.5px] uppercase tracking-wider text-[var(--accent-deep)] transition-colors'
+                      : 'inline-flex items-center gap-1.5 rounded-[2px] border border-dashed border-line-utility bg-transparent px-2.5 py-1 font-mono text-[10.5px] uppercase tracking-wider text-dim transition-colors hover:border-line-emphasized hover:text-ink-2'
+                  }
+                  style={isOn ? { borderColor: 'color-mix(in oklab, var(--accent) 40%, var(--rule))' } : undefined}
+                >
+                  {chip.label}
+                  {isOn ? <span className="text-dim-2">×</span> : null}
+                </button>
+              );
+            })}
+            <button
+              type="button"
+              disabled
+              className="inline-flex items-center gap-1.5 rounded-[2px] border border-solid border-line-utility bg-transparent px-2.5 py-1 font-mono text-[10.5px] uppercase tracking-wider text-ink-2 opacity-60"
+              title="More filters — coming soon"
+            >
+              + filter
+            </button>
+          </div>
+          <div className="sm:hidden">
+            <Button
+              size="sm"
+              variant="secondary"
+              onClick={() => setIsMobileFiltersOpen(true)}
+            >
+              Filters{activeFilters.size > 0 ? ` (${activeFilters.size})` : ''}
+            </Button>
+          </div>
+
+          <div className="flex-1" />
+
+          <span className="hidden font-mono text-[10px] uppercase tracking-wider text-dim md:inline">view</span>
+          {/* Board view requires more horizontal space — hide it on mobile
+              by forcing Table mode there via the wrapper logic below. */}
+          <Seg<MatterViewMode>
+            value={viewMode}
+            options={[
+              { value: 'table', label: 'Table' },
+              { value: 'board', label: 'Board' },
+              { value: 'timeline', label: 'Timeline' },
+            ]}
+            onChange={setViewMode}
+            ariaLabel="Switch matter view"
+          />
+        </div>
+
+        {/* ── MAIN VIEW ─────────────────────────────────────────────────── */}
+        <div className="mt-4">
+          {showLoading ? (
+            <div className="panel overflow-hidden">
+              <div className="flex animate-pulse flex-col gap-3 p-6">
+                {[0, 1, 2, 3].map((i) => (
+                  <div key={i} className="h-12 rounded-md bg-rule-soft" />
+                ))}
+              </div>
+            </div>
+          ) : showEmpty ? (
+            <EmptyState onCreate={handleNewMatter} disableCreate={!activePracticeId} />
+          ) : showFilteredEmpty ? (
+            <div className="panel px-6 py-12 text-center text-sm text-dim-2">
+              {filteredEmptyMessage}
+            </div>
+          ) : viewMode === 'timeline' ? (
+            <div className="panel px-6 py-16 text-center">
+              <p className="font-[family-name:var(--serif)] text-lg text-ink">Timeline view</p>
+              <p className="mt-2 text-sm text-dim-2">
+                Coming soon — a chronological lane of matter activity grouped by week.
+              </p>
+            </div>
+          ) : viewMode === 'board' ? (
+            <>
+              {/* Hide Board on mobile per spec; fall back to Table. */}
+              <div className="hidden lg:block">
+                <MattersBoard
+                  entries={visibleMatterEntries}
+                  onSelect={(id) => goToDetail(id)}
+                  now={now}
+                />
+              </div>
+              <div className="lg:hidden">
+                <MattersTable
+                  entries={visibleMatterEntries}
+                  onSelect={(id) => goToDetail(id)}
+                  now={now}
+                  activeFilters={activeFilters}
+                />
+              </div>
+            </>
+          ) : (
+            <MattersTable
+              entries={visibleMatterEntries}
+              onSelect={(id) => goToDetail(id)}
+              now={now}
+              activeFilters={activeFilters}
+            />
+          )}
+        </div>
       </div>
+
+      {/* ── Mobile filters drawer ──────────────────────────────────────── */}
+      {isMobileFiltersOpen && (
+        <Dialog
+          isOpen
+          onClose={() => setIsMobileFiltersOpen(false)}
+          title="Filters"
+          contentClassName="max-w-sm"
+        >
+          <DialogBody className="space-y-2">
+            {FILTER_CHIP_OPTIONS.map((chip) => {
+              const isOn = activeFilters.has(chip.id);
+              return (
+                <button
+                  key={chip.id}
+                  type="button"
+                  onClick={() => toggleFilter(chip.id)}
+                  aria-pressed={isOn}
+                  className={`flex w-full items-center justify-between rounded-md border px-4 py-3 text-sm transition-colors ${
+                    isOn
+                      ? 'border-line-emphasized bg-[var(--accent-soft)] text-ink'
+                      : 'border-line-subtle bg-paper-2 text-ink-2 hover:bg-rule-soft'
+                  }`}
+                >
+                  <span>{chip.label}</span>
+                  {isOn ? <span className="font-mono text-xs text-dim-2">×</span> : null}
+                </button>
+              );
+            })}
+          </DialogBody>
+          <div className="flex justify-end gap-2 px-6 pb-6">
+            <Button variant="ghost" onClick={() => setActiveFilters(new Set())}>
+              Clear all
+            </Button>
+            <Button variant="primary" onClick={() => setIsMobileFiltersOpen(false)}>
+              Done
+            </Button>
+          </div>
+        </Dialog>
+      )}
 
       {isShortcutsHelpOpen && (
         <Dialog
@@ -2215,7 +2532,7 @@ export const PracticeMattersPage = ({
             <ul className="space-y-2.5">
               {[
                 { key: 'N', desc: 'Create a new matter' },
-                { key: 'Esc', desc: 'Reset mobile filter' },
+                { key: 'Esc', desc: 'Clear filters or dismiss answer' },
                 { key: '?', desc: 'Show this help' },
                 { key: '⌘ K', desc: 'Open command palette (or Ctrl + K)' },
               ].map((s) => (
@@ -2233,3 +2550,239 @@ export const PracticeMattersPage = ({
     </div>
   );
 };
+
+// ---------------------------------------------------------------------------
+// Inline matters table + board (chat-first Matters.html).
+// Lives in this file because they consume the parent's enriched row data
+// and don't need lifecycle of their own. Pure presentational; all row data
+// shape is owned by the parent.
+// ---------------------------------------------------------------------------
+
+type MatterRow = {
+  summary: MatterSummary;
+  assigneeIds: string[];
+  urgency: MatterDetail['urgency'];
+  billingType: string | null;
+  caseNumber: string | null;
+  openDate: string | null;
+};
+
+const daysSince = (iso: string | null, now: number): number | null => {
+  if (!iso) return null;
+  const t = new Date(iso).getTime();
+  if (!Number.isFinite(t)) return null;
+  return Math.max(0, Math.floor((now - t) / DAY_MS));
+};
+
+const billingTypeLabel = (raw: string | null): string | null => {
+  if (!raw) return null;
+  const norm = raw.toLowerCase().replace(/\s+/g, '_');
+  switch (norm) {
+    case 'hourly': return 'hourly';
+    case 'fixed': return 'flat-fee';
+    case 'contingency': return 'contingency';
+    case 'pro_bono': return 'pro bono';
+    default: return raw;
+  }
+};
+
+function MattersTable({
+  entries,
+  onSelect,
+  now,
+  activeFilters,
+}: {
+  entries: MatterRow[];
+  onSelect: (id: string) => void;
+  now: number;
+  activeFilters: ReadonlySet<MatterRiskFilter>;
+}) {
+  const filterSummary = activeFilters.size === 0
+    ? 'no filters'
+    : Array.from(activeFilters)
+        .map((id) => FILTER_CHIP_OPTIONS.find((c) => c.id === id)?.label ?? id)
+        .join(' · ');
+
+  return (
+    <div className="panel overflow-hidden">
+      {/* Header row — desktop only. Mobile reduces to 2 cols (title + status). */}
+      <div className="hidden border-b border-line-subtle bg-paper-2 px-5 py-2.5 font-mono text-[10px] uppercase tracking-wider text-dim md:grid md:grid-cols-[minmax(0,2.1fr)_110px_minmax(0,1fr)_minmax(0,1.2fr)_120px_110px] md:gap-4">
+        <div>Matter</div>
+        <div>Status</div>
+        <div>Retainer</div>
+        <div>Tags</div>
+        <div>Risk</div>
+        <div>Activity</div>
+      </div>
+
+      <ul className="divide-y divide-line-subtle">
+        {entries.map((row) => {
+          const { summary } = row;
+          const signal = deriveRiskSignal(row.urgency, summary.updatedAt, now);
+          const tone = matterStatusPillTone(summary.status);
+          const billingLabel = billingTypeLabel(row.billingType);
+          const opened = daysSince(row.openDate ?? summary.createdAt, now);
+          const urgentTint = signal === 'urgent';
+          // TODO(backend): expose per-matter retainer balance + cap from the
+          // engagement / trust ledger so we can render a real progress bar.
+          const retainerPct: number | null = null;
+
+          return (
+            <li key={summary.id}>
+              <button
+                type="button"
+                onClick={() => onSelect(summary.id)}
+                className={`grid w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-3 px-5 py-3 text-left transition-colors hover:bg-rule-soft md:grid-cols-[minmax(0,2.1fr)_110px_minmax(0,1fr)_minmax(0,1.2fr)_120px_110px] md:gap-4 ${
+                  urgentTint ? 'bg-[color-mix(in_oklab,var(--neg)_4%,transparent)]' : ''
+                }`}
+              >
+                {/* Matter (title + sub) */}
+                <div className="min-w-0">
+                  <div className="truncate font-[family-name:var(--serif)] text-[17px] leading-tight text-ink">
+                    {summary.title}
+                  </div>
+                  <div className="mt-1 truncate font-mono text-xs text-dim">
+                    {row.caseNumber ? <>{row.caseNumber} · </> : null}
+                    <span className="font-[family-name:var(--sans)] text-ink-2">
+                      {summary.practiceArea ?? summary.clientName}
+                    </span>
+                    {opened !== null ? <> · opened {opened}d</> : null}
+                  </div>
+                </div>
+
+                {/* Status pill — visible on mobile (2nd col) and desktop. */}
+                <div className="flex justify-end md:justify-start">
+                  <Pill tone={tone}>{MATTER_STATUS_LABELS[summary.status]}</Pill>
+                </div>
+
+                {/* Retainer bar — desktop only. */}
+                <div className="hidden items-center gap-2 md:flex">
+                  {retainerPct !== null ? (
+                    <>
+                      <Bar
+                        value={retainerPct}
+                        tone={retainerPct < 30 ? 'warn' : retainerPct > 70 ? 'ok' : 'default'}
+                        className="flex-1"
+                      />
+                      <small className="min-w-[30px] text-right font-mono text-[10.5px] text-dim">{retainerPct}%</small>
+                    </>
+                  ) : (
+                    <span className="font-mono text-[10.5px] text-dim-2">—</span>
+                  )}
+                </div>
+
+                {/* Tag chips — desktop only. */}
+                <div className="hidden flex-wrap gap-1 md:flex">
+                  {billingLabel ? (
+                    <span className="rounded-[2px] bg-rule-soft px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-wider text-ink-2">
+                      {billingLabel}
+                    </span>
+                  ) : null}
+                  {summary.practiceArea ? (
+                    <span className="rounded-[2px] bg-rule-soft px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-wider text-ink-2">
+                      {summary.practiceArea}
+                    </span>
+                  ) : null}
+                </div>
+
+                {/* Risk SignalPill — desktop only. */}
+                <div className="hidden md:block">
+                  <SignalPill signal={signal} label={riskSignalLabel(signal)} />
+                </div>
+
+                {/* Activity — desktop only. */}
+                <div className="hidden text-right md:block">
+                  <div className="font-mono text-sm text-ink">{formatRelativeTime(summary.updatedAt)}</div>
+                  {/* TODO(backend): per-matter event count for trailing 30d. */}
+                  <div className="mt-0.5 font-mono text-[10px] uppercase tracking-wider text-dim">last activity</div>
+                </div>
+              </button>
+            </li>
+          );
+        })}
+      </ul>
+
+      {/* Foot row — counts + active filter summary. */}
+      <div className="flex items-center justify-between border-t border-line-subtle bg-paper-2 px-5 py-3 font-mono text-[10.5px] uppercase tracking-wider text-dim">
+        <span>{formatCount(entries.length)} shown</span>
+        <span>
+          filtered by:{' '}
+          <span className="font-[family-name:var(--sans)] text-sm font-medium normal-case tracking-normal text-ink-2">
+            {filterSummary}
+          </span>
+        </span>
+      </div>
+    </div>
+  );
+}
+
+function MattersBoard({
+  entries,
+  onSelect,
+  now,
+}: {
+  entries: MatterRow[];
+  onSelect: (id: string) => void;
+  now: number;
+}) {
+  const byLane: Record<BoardLane, MatterRow[]> = {
+    lead: [],
+    open: [],
+    in_progress: [],
+    archived: [],
+  };
+  for (const row of entries) {
+    byLane[matterBoardLane(row.summary.status)].push(row);
+  }
+
+  return (
+    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      {BOARD_LANES.map((lane) => {
+        const rows = byLane[lane.id];
+        const dimmed = lane.id === 'archived';
+        return (
+          <section
+            key={lane.id}
+            className={`flex min-h-[360px] flex-col gap-2.5 rounded-md border border-line-subtle bg-paper-2 p-3.5 ${
+              dimmed ? 'opacity-75' : ''
+            }`}
+          >
+            <header className="flex items-center justify-between font-mono text-[10px] uppercase tracking-wider text-dim">
+              <span>{lane.label}</span>
+              <span>{formatCount(rows.length)}</span>
+            </header>
+            {rows.length === 0 ? (
+              <p className="mt-2 font-mono text-[10.5px] text-dim-2">No matters in this lane.</p>
+            ) : (
+              rows.map((row) => {
+                const signal = deriveRiskSignal(row.urgency, row.summary.updatedAt, now);
+                return (
+                  <button
+                    key={row.summary.id}
+                    type="button"
+                    onClick={() => onSelect(row.summary.id)}
+                    className="flex flex-col gap-1.5 rounded-md border border-line-subtle bg-card p-3 text-left transition-transform hover:-translate-y-0.5 hover:shadow-md"
+                  >
+                    <div className="font-mono text-[10.5px] text-dim">
+                      {row.caseNumber ?? 'BLB-—'}
+                      {row.summary.practiceArea ? <> · {row.summary.practiceArea}</> : null}
+                    </div>
+                    <div className="font-[family-name:var(--serif)] text-[15px] leading-tight text-ink">
+                      {row.summary.title}
+                    </div>
+                    <div className="mt-1.5 flex items-center justify-between">
+                      <span className="font-mono text-[10px] uppercase tracking-wider text-dim-2">
+                        {formatRelativeTime(row.summary.updatedAt)}
+                      </span>
+                      <SignalPill signal={signal} label={riskSignalLabel(signal)} />
+                    </div>
+                  </button>
+                );
+              })
+            )}
+          </section>
+        );
+      })}
+    </div>
+  );
+}
