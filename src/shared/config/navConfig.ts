@@ -4,6 +4,8 @@ import {
   Bot,
   Briefcase,
   Building2,
+  Calendar as CalendarIcon,
+  CheckSquare,
   Contact,
   CreditCard,
   FileText,
@@ -18,6 +20,7 @@ import {
   TrendingUp,
   User,
   Users,
+  Wallet,
 } from 'lucide-preact';
 import { SettingsNavIcon } from '@/shared/ui/nav/SettingsNavIcon';
 import { CONTACTS_DIRECTORY_LABEL } from '@/shared/domain/contacts';
@@ -79,6 +82,15 @@ const prefetchClientFilesChunk = prefetchLazyChunk(
 const prefetchEngagementsChunk = prefetchLazyChunk(
   () => import('@/features/engagements/pages/EngagementsPage')
 );
+const prefetchTrustChunk = prefetchLazyChunk(
+  () => import('@/features/trust/pages/PracticeTrustPage')
+);
+const prefetchTasksChunk = prefetchLazyChunk(
+  () => import('@/features/tasks/pages/PracticeTasksPage')
+);
+const prefetchCalendarChunk = prefetchLazyChunk(
+  () => import('@/features/calendar/pages/PracticeCalendarPage')
+);
 
 export type NavCtx = {
   practiceSlug: string;
@@ -86,7 +98,7 @@ export type NavCtx = {
   canAccessPractice: boolean;
 };
 
-export type WorkspaceSection = 'home' | 'conversations' | 'intakes' | 'engagements' | 'matters' | 'files' | 'invoices' | 'reports' | 'settings' | 'coverage' | 'assistant';
+export type WorkspaceSection = 'home' | 'conversations' | 'intakes' | 'engagements' | 'matters' | 'files' | 'invoices' | 'reports' | 'settings' | 'coverage' | 'assistant' | 'trust' | 'tasks' | 'calendar';
 
 
 
@@ -178,6 +190,22 @@ const buildPracticeRail = (basePath: string): NavRailItem[] => [
     prefetch: prefetchMattersChunk,
   },
   {
+    id: 'tasks',
+    label: 'Tasks',
+    icon: CheckSquare,
+    href: `${basePath}/tasks`,
+    matchHrefs: [`${basePath}/tasks`],
+    prefetch: prefetchTasksChunk,
+  },
+  {
+    id: 'calendar',
+    label: 'Calendar',
+    icon: CalendarIcon,
+    href: `${basePath}/calendar`,
+    matchHrefs: [`${basePath}/calendar`],
+    prefetch: prefetchCalendarChunk,
+  },
+  {
     id: 'engagements',
     label: 'Engagements',
     icon: FileText,
@@ -232,6 +260,14 @@ const buildPracticeRail = (basePath: string): NavRailItem[] => [
     href: `${basePath}/invoices`,
     matchHrefs: [`${basePath}/invoices`],
     prefetch: prefetchPracticeInvoicesChunk,
+  },
+  {
+    id: 'trust',
+    label: 'Trust',
+    icon: Wallet,
+    href: `${basePath}/trust`,
+    matchHrefs: [`${basePath}/trust`],
+    prefetch: prefetchTrustChunk,
   },
   {
     id: 'reports',
@@ -482,8 +518,11 @@ const RAIL_ID_TO_SECTION: Record<string, WorkspaceSection> = {
   intakes: 'intakes',
   engagements: 'engagements',
   matters: 'matters',
+  tasks: 'tasks',
+  calendar: 'calendar',
   files: 'files',
   invoices: 'invoices',
+  trust: 'trust',
   reports: 'reports',
   settings: 'settings',
 };

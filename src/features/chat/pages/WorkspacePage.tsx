@@ -10,6 +10,7 @@ import WorkspaceHomeView from '@/features/chat/views/WorkspaceHomeView';
 import { WorkspaceHomeSection } from '@/features/chat/components/WorkspaceHomeSection';
 import { WorkspaceSetupSection } from '@/features/chat/components/WorkspaceSetupSection';
 import MessagesListPanel from '@/features/chat/components/MessagesListPanel';
+import { ConversationListPanel } from '@/features/chat/components/ConversationListPanel';
 import ConversationListView from '@/features/chat/views/ConversationListView';
 import ConversationContextPanel from '@/features/chat/components/ConversationContextPanel';
 import { type ComboboxOption } from '@/shared/ui/input/Combobox';
@@ -1213,26 +1214,22 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
     : undefined;
 
   const conversationListView = (
-    <div className="flex h-full min-h-0 flex-1 flex-col gap-2">
-      <Panel className="list-panel-card-gradient min-h-0 flex-1 overflow-hidden">
-        <MessagesListPanel
-          conversations={filteredConversationsWithOptimisticRead}
-          previews={conversationPreviews}
-          practiceName={practiceName}
-          practiceLogo={practiceLogo}
-          isLoading={resolvedConversationsLoading}
-          error={resolvedConversationsError}
-          onSelectConversation={handleSelectConversation}
-          onCompose={handleEnterDraftMode}
-          draftEntry={draftConversation?.kind === 'user'
-            ? { contactName: draftConversation.contactName, contactEmail: draftConversation.contactEmail }
-            : null}
-          onSelectDraftEntry={handleEnterDraftMode}
-          activeConversationId={activeConversationId}
-          tabs={messageFilterTabs}
-        />
-      </Panel>
-    </div>
+    <ConversationListPanel
+      conversations={filteredConversationsWithOptimisticRead}
+      conversationPreviews={conversationPreviews}
+      practiceName={practiceName}
+      practiceLogo={practiceLogo}
+      isLoading={resolvedConversationsLoading}
+      error={resolvedConversationsError}
+      onSelect={handleSelectConversation}
+      onNew={handleEnterDraftMode}
+      draftEntry={draftConversation?.kind === 'user'
+        ? { contactName: draftConversation.contactName, contactEmail: draftConversation.contactEmail }
+        : null}
+      onSelectDraftEntry={handleEnterDraftMode}
+      activeConversationId={activeConversationId}
+      tabs={messageFilterTabs}
+    />
   );
   const assistantListPanel = layoutMode === 'desktop' && view === 'assistant'
     ? (
@@ -1464,6 +1461,9 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
           onInspectorMobileClose={() => setIsInspectorOpen(false)}
           main={unifiedMainShell}
           mainClassName="min-h-0 h-full overflow-hidden"
+          {...(workspaceSection === 'conversations'
+            ? { listPanelLgWidth: '340px', inspectorXlWidth: '400px' }
+            : {})}
         />
         {showBottomNav && showLeftRail && (
           <LeftRail
