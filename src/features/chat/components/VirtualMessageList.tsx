@@ -853,6 +853,7 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
                                 isSystemEvent={isSystemEvent}
                                 hideMessageActions={hideMessageActions}
                                 readReceipts={readers}
+                                isIntro={message.metadata?.systemMessageKey === 'intro'}
                             />
                         );
                     })}

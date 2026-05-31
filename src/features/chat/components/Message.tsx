@@ -126,6 +126,8 @@ interface MessageProps {
 	hideMessageActions?: boolean;
 	/** Other participants who have read this message (for own messages only). */
 	readReceipts?: readonly ReadReceiptReader[];
+	/** Accent-tinted assistant bubble for the intake intro (Intake.html .a-bub.first). */
+	isIntro?: boolean;
 	// Styling
 	className?: string;
 }
@@ -168,6 +170,7 @@ const Message: FunctionComponent<MessageProps> = memo(({
 	isSystemEvent = false,
 	hideMessageActions = false,
 	readReceipts = [],
+	isIntro = false,
 }) => {
 	const handleReply = useCallback(() => {
 		if (!onReply) return;
@@ -323,6 +326,7 @@ const Message: FunctionComponent<MessageProps> = memo(({
 						variant={variant}
 						size={size}
 						className={contentClassName}
+						isIntro={isIntro}
 					/>
 				)}
 				

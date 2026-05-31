@@ -20,6 +20,7 @@ import { useIntakeContext } from '@/shared/contexts/IntakeContext';
 import { apiClient, isHttpError } from '@/shared/lib/apiClient';
 import { practiceAssistantDecision } from '@/config/urls';
 import { StagedAction } from '@/design-system/patterns';
+import { QuickReplyChip } from '@/design-system/primitives';
 
 interface MessageActionsProps {
 	matterCanvas?: {
@@ -115,6 +116,9 @@ export const MessageActions: FunctionComponent<MessageActionsProps> = ({
 	const quickActionRenderSnapshotRef = useRef('');
 	const [resolvedPracticeAssistantActionIds, setResolvedPracticeAssistantActionIds] = useState<Set<string>>(() => new Set());
 	const [pendingPracticeAssistantDecision, setPendingPracticeAssistantDecision] = useState<string | null>(null);
+	// Sticky-selected quick reply value within this message's chip group. Resets
+	// implicitly when next message arrives → isLast flips false → chips unmount.
+	const [selectedQuickReplyValue, setSelectedQuickReplyValue] = useState<string | null>(null);
 	const resolvedIntakeStatus = intakeContext.intakeStatus;
 	const resolvedOnSubmitNow = intakeContext.onSubmitNow;
 	const resolvedOnBuildBrief = intakeContext.onBuildBrief;
@@ -330,19 +334,23 @@ export const MessageActions: FunctionComponent<MessageActionsProps> = ({
 									</Button>
 								) : null
 							) : (
+								// `reply` actions render as rounded-pill QuickReplyChips per
+								// Intake.html `.qchip`. Click marks the chip selected
+								// (accent-filled) and stays sticky until the next message
+								// arrives — isLast flips false, chips unmount.
 								onActionReply ? (
-								<Button
-									key={getChatActionKey(action, idx)}
-									variant={action.variant === 'primary' ? 'primary' : 'secondary'}
-									size="sm"
-									className="shrink-0"
-									onClick={() => onActionReply(action.value)}
-								>
-									{action.label}
-								</Button>
-							) : null
-						)
-					))}
+									<QuickReplyChip
+										key={getChatActionKey(action, idx)}
+										label={action.label}
+										selected={selectedQuickReplyValue === action.value}
+										onClick={() => {
+											setSelectedQuickReplyValue(action.value);
+											onActionReply(action.value);
+										}}
+									/>
+								) : null
+							)
+						))}
 				</div>
 			)}
 			{/* Practice-assistant staged actions — IOLTA-gated approval flow.

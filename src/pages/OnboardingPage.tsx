@@ -3,7 +3,6 @@ import { useLocation } from 'preact-iso';
 import { useSessionContext } from '@/shared/contexts/SessionContext';
 import { useNavigation } from '@/shared/utils/navigation';
 import { OnboardingFlow } from '@/features/onboarding/components/OnboardingFlow';
-import { SetupShell } from '@/shared/ui/layout/SetupShell';
 import { LoadingScreen } from '@/shared/ui/layout/LoadingScreen';
 
 const isSafeRedirectPath = (path: string | null | undefined): path is string => {
@@ -77,16 +76,15 @@ const OnboardingPage = () => {
     return <LoadingScreen />;
   }
 
+  // The new 6-step conversational flow owns its own full-bleed gradient
+  // background + 340px progress sidebar / stage layout, so we render it
+  // directly without SetupShell's extra accent backdrop.
   return (
-    <SetupShell>
-      <div className="min-h-screen bg-transparent flex flex-col">
-        <OnboardingFlow
-          onClose={() => navigate(fallbackPath, true)}
-          onComplete={() => navigate(fallbackPath, true)}
-          active
-        />
-      </div>
-    </SetupShell>
+    <OnboardingFlow
+      onClose={() => navigate(fallbackPath, true)}
+      onComplete={() => navigate(fallbackPath, true)}
+      active
+    />
   );
 };
 
