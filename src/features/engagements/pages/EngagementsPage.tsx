@@ -5,7 +5,7 @@ import { Briefcase, Plus } from 'lucide-preact';
 
 import { Button } from '@/shared/ui/Button';
 import { Seg } from '@/design-system/patterns';
-import { DataTable, type DataTableColumn, type DataTableRow } from '@/shared/ui/table/DataTable';
+import { EntityList } from '@/shared/ui/list/EntityList';
 import { WorkspacePlaceholderState } from '@/shared/ui/layout/WorkspacePlaceholderState';
 import { InfiniteScroll } from '@/shared/ui/layout/InfiniteScroll';
 import { usePaginatedList } from '@/shared/hooks/usePaginatedList';
@@ -259,31 +259,6 @@ export const EngagementsPage: FunctionComponent<EngagementsPageProps> = ({
     );
   }
 
-  // ── Table column + row construction ────────────────────────────────────────
-
-  const headerCellClass = 'text-xs font-semibold uppercase tracking-wide text-dim-2';
-  const columns: DataTableColumn[] = [
-    { id: 'client',   label: 'Client',   isPrimary: true, headerClassName: headerCellClass },
-    { id: 'matter',   label: 'Matter',   headerClassName: headerCellClass },
-    { id: 'billing',  label: 'Billing',  hideAt: 'md', headerClassName: headerCellClass },
-    { id: 'status',   label: 'Status',   headerClassName: headerCellClass },
-    { id: 'sent',     label: 'Sent',     hideAt: 'lg', headerClassName: headerCellClass, align: 'right' },
-    { id: 'retainer', label: 'Retainer', headerClassName: headerCellClass, align: 'right' },
-  ];
-
-  const rows: DataTableRow[] = engagements.map((item) => ({
-    id: item.id,
-    onClick: () => handleSelectEngagement(item),
-    cells: {
-      client:   <span className="truncate font-medium text-ink">{item.client_name || 'Unknown Client'}</span>,
-      matter:   <span className="truncate text-dim-2">{getMatterLabel(item)}</span>,
-      billing:  <span className="text-dim-2">{getBillingLabel(item.proposal_data?.fees)}</span>,
-      status:   <StatusPill status={item.status} />,
-      sent:     <span className="text-dim-2 tabular-nums">{item.sent_at ? formatRelativeTime(item.sent_at) : '—'}</span>,
-      retainer: <span className="font-medium text-ink tabular-nums">{getRetainerLabel(item.proposal_data?.fees)}</span>,
-    },
-  }));
-
   const showEmpty = !isLoading && !error && engagements.length === 0 && !hasMore;
   const emptyMessage = activeTab === 'all'
     ? 'When you accept an intake and begin drafting an engagement letter, it will appear here.'
@@ -325,18 +300,35 @@ export const EngagementsPage: FunctionComponent<EngagementsPageProps> = ({
           <>
             {/* Desktop table */}
             <div className="hidden md:block px-6 py-4">
-              <DataTable
-                columns={columns}
-                rows={rows}
-                loading={isLoading && rows.length === 0}
-                density="compact"
-                stickyHeader
-                className="panel overflow-hidden"
-                bodyClassName="bg-transparent"
-                rowClassName="transition-colors duration-150 hover:!bg-paper-2"
-                hasMore={hasMore}
+              <EntityList
+                items={engagements}
+                onSelect={handleSelectEngagement}
+                isLoading={isLoading && engagements.length === 0}
                 isLoadingMore={isLoadingMore}
-                onLoadMore={loadMore}
+                onLoadMore={hasMore ? loadMore : undefined}
+                className="panel overflow-hidden"
+                renderItem={(item) => (
+                  <div className="flex w-full items-center gap-4 px-4 py-3">
+                    <span className="min-w-[160px] flex-1 truncate text-sm font-medium text-ink">
+                      {item.client_name || 'Unknown Client'}
+                    </span>
+                    <span className="min-w-[160px] flex-1 truncate text-sm text-dim-2">
+                      {getMatterLabel(item)}
+                    </span>
+                    <span className="hidden min-w-[100px] text-sm text-dim-2 md:block">
+                      {getBillingLabel(item.proposal_data?.fees)}
+                    </span>
+                    <span className="min-w-[80px] text-sm">
+                      <StatusPill status={item.status} />
+                    </span>
+                    <span className="hidden min-w-[100px] text-right text-sm tabular-nums text-dim-2 lg:block">
+                      {item.sent_at ? formatRelativeTime(item.sent_at) : '—'}
+                    </span>
+                    <span className="min-w-[100px] text-right text-sm font-medium tabular-nums text-ink">
+                      {getRetainerLabel(item.proposal_data?.fees)}
+                    </span>
+                  </div>
+                )}
               />
             </div>
 
