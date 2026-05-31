@@ -19,6 +19,7 @@ import { useNavigation } from '@/shared/utils/navigation';
 import { useIntakeContext } from '@/shared/contexts/IntakeContext';
 import { apiClient, isHttpError } from '@/shared/lib/apiClient';
 import { practiceAssistantDecision } from '@/config/urls';
+import { StagedAction } from '@/design-system/patterns';
 
 interface MessageActionsProps {
 	matterCanvas?: {
@@ -344,24 +345,34 @@ export const MessageActions: FunctionComponent<MessageActionsProps> = ({
 					))}
 				</div>
 			)}
+			{/* Practice-assistant staged actions — IOLTA-gated approval flow.
+			    The DS StagedAction wrapper provides the gold-tinted approval card per
+			    DESIGN_SYSTEM §3.2. Buttons remain disabled while a decision is in flight
+			    and never auto-execute; the click handler is unchanged. The richer
+			    title/description per assistantAction lives in turn metadata but is not
+			    yet plumbed through ChatMessageAction — using a generic title here. */}
 			{!isStreaming && decisionActions.length > 0 && (
-				<div className="mt-3 flex gap-2 overflow-x-auto pb-1">
-					{decisionActions.map((action, idx) => (
-						action.type === 'practice_assistant_decision' ? (
-							<Button
-								key={getChatActionKey(action, idx)}
-								variant={action.variant === 'primary' ? 'primary' : 'secondary'}
-								size="sm"
-								className="shrink-0"
-								disabled={pendingPracticeAssistantDecision !== null}
-								onClick={() => {
-									void decidePracticeAssistantAction(action.actionId, action.decision);
-								}}
-							>
-								{pendingPracticeAssistantDecision === `${action.actionId}:${action.decision}` ? 'Working...' : action.label}
-							</Button>
-						) : null
-					))}
+				<div className="mt-3">
+					<StagedAction
+						title="Assistant proposed an action"
+						description="Review before approving — the action will only run after your explicit confirmation."
+						actions={decisionActions.map((action, idx) => (
+							action.type === 'practice_assistant_decision' ? (
+								<Button
+									key={getChatActionKey(action, idx)}
+									variant={action.variant === 'primary' ? 'primary' : 'secondary'}
+									size="sm"
+									className="shrink-0"
+									disabled={pendingPracticeAssistantDecision !== null}
+									onClick={() => {
+										void decidePracticeAssistantAction(action.actionId, action.decision);
+									}}
+								>
+									{pendingPracticeAssistantDecision === `${action.actionId}:${action.decision}` ? 'Working...' : action.label}
+								</Button>
+							) : null
+						))}
+					/>
 				</div>
 			)}
 			{isLast && !isStreaming && onboardingProfile && (

@@ -19,6 +19,7 @@ import { formatRelativeTime } from '@/features/matters/utils/formatRelativeTime'
 import { chatTypography } from '@/features/chat/styles/chatTypography';
 import type { ChatMessageAction } from '@/shared/types/conversation';
 import { features } from '@/config/features';
+import { ToolUseLine } from '@/design-system/patterns';
 
 interface MessageProps {
 	content: string;
@@ -325,16 +326,31 @@ const Message: FunctionComponent<MessageProps> = memo(({
 					/>
 				)}
 				
-				{/* Loading / Tooling Progress Indicator */}
-				{((isLoading) || (toolProgress && toolProgress.length > 0)) && (
-					<AIThinkingIndicator 
-						variant="thinking" 
+				{/* Loading / Tooling Progress Indicator
+				    - Live (isLoading): AIThinkingIndicator's per-tool status row is functional
+				      (shows queued/running/completed/failed icons per tool).
+				    - Completed with tools: render the quiet DS ToolUseLine instead — the
+				      "› used <tool_a> · <tool_b> · 142ms" line per design handoff. We
+				      dedupe by toolUseId (keeping latest status) to match the indicator's
+				      prior behavior. */}
+				{isLoading ? (
+					<AIThinkingIndicator
+						variant="thinking"
 						toolMessage={toolMessage}
 						toolProgress={toolProgress}
-						isCompleted={!isLoading}
+						isCompleted={false}
 						className="mb-2"
 					/>
-				)}
+				) : (toolProgress && toolProgress.length > 0) ? (
+					<ToolUseLine
+						tools={Array.from(
+							new Map(
+								toolProgress.map((tool) => [tool.toolUseId || tool.toolName, tool.toolName]),
+							).values(),
+						)}
+						className="mb-2 mt-1"
+					/>
+				) : null}
 				
 				{/* Actions (matter canvas, forms, etc.) */}
 			<MessageActions

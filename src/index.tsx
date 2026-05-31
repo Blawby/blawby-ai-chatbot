@@ -49,6 +49,9 @@ import { lazy } from 'preact/compat';
 const AuthPage = lazy(() => import('@/pages/AuthPage'));
 const AcceptInvitationPage = lazy(() => import('@/pages/AcceptInvitationPage'));
 const PracticeHomePage = lazy(() => import('@/pages/PracticeHomePage'));
+const PracticeTrustPage = lazy(() => import('@/features/trust/pages/PracticeTrustPage'));
+const PracticeTasksPage = lazy(() => import('@/features/tasks/pages/PracticeTasksPage'));
+const PracticeCalendarPage = lazy(() => import('@/features/calendar/pages/PracticeCalendarPage'));
 const OnboardingPage = lazy(() => import('@/pages/OnboardingPage'));
 const PricingPage = lazy(() => import('@/pages/PricingPage'));
 const PaymentResultPage = lazy(() => import('@/pages/PaymentResultPage'));
@@ -488,6 +491,9 @@ function AppShell() {
           <Route path="/practice/:practiceSlug/contacts/*" component={PracticeAppRoute} workspaceView="contacts" />
           <Route path="/practice/:practiceSlug/matters" component={PracticeAppRoute} workspaceView="matters" />
           <Route path="/practice/:practiceSlug/matters/*" component={PracticeAppRoute} workspaceView="matters" />
+          <Route path="/practice/:practiceSlug/tasks" component={PracticeAppRoute} workspaceView="tasks" />
+          <Route path="/practice/:practiceSlug/calendar" component={PracticeAppRoute} workspaceView="calendar" />
+          <Route path="/practice/:practiceSlug/trust" component={PracticeAppRoute} workspaceView="trust" />
           <Route path="/practice/:practiceSlug/intakes/responses" component={PracticeAppRoute} workspaceView="intakes" />
           <Route path="/practice/:practiceSlug/intakes/responses/:intakeId" component={PracticeAppRoute} workspaceView="intakes" />
           <Route path="/practice/:practiceSlug/intakes/forms" component={PracticeAppRoute} workspaceView="intakes" />
@@ -920,6 +926,37 @@ function PracticeAppRoute({
     return (
       <Suspense fallback={<LoadingScreen />}>
         <PracticeHomePage />
+      </Suspense>
+    );
+  }
+
+  if (workspaceView === 'trust') {
+    return (
+      <Suspense fallback={<LoadingScreen />}>
+        <PracticeTrustPage />
+      </Suspense>
+    );
+  }
+
+  if (workspaceView === 'tasks') {
+    return (
+      <Suspense fallback={<LoadingScreen />}>
+        <PracticeTasksPage
+          practiceId={resolvedPracticeId}
+          basePath={`/practice/${normalizedPracticeSlug ?? ''}`}
+          onNavigate={(path: string) => location.route(path)}
+        />
+      </Suspense>
+    );
+  }
+
+  if (workspaceView === 'calendar') {
+    return (
+      <Suspense fallback={<LoadingScreen />}>
+        <PracticeCalendarPage
+          practiceId={resolvedPracticeId}
+          practiceSlug={normalizedPracticeSlug || null}
+        />
       </Suspense>
     );
   }

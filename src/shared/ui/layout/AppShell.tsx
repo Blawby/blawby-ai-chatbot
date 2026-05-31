@@ -26,6 +26,18 @@ export interface AppShellProps {
   inspectorClassName?: string;
   mainClassName?: string;
   bottomBarClassName?: string;
+  /**
+   * Override the list panel column width at `lg+` (default `280px`). Used by
+   * the conversations 4-column shell which sizes its thread list at `340px`
+   * per the chat-first canonical mockup. Any valid CSS length is accepted.
+   */
+  listPanelLgWidth?: string;
+  /**
+   * Override the inspector column width at `xl+` (default `336px`). Used by
+   * the conversations 4-column shell which sizes its focus drawer at `400px`
+   * per the chat-first canonical mockup. Any valid CSS length is accepted.
+   */
+  inspectorXlWidth?: string;
 }
 
 /**
@@ -54,7 +66,9 @@ export const AppShell = ({
   listPanelClassName,
   inspectorClassName,
   mainClassName,
-  bottomBarClassName
+  bottomBarClassName,
+  listPanelLgWidth,
+  inspectorXlWidth
 }: AppShellProps) => {
   const hasListPanel = Boolean(listPanel);
   const hasInspector = Boolean(inspector);
@@ -77,12 +91,12 @@ export const AppShell = ({
 
   const lgGridCols = ((): string => {
     const cols: string[] = [];
-    if (hasListPanel) cols.push('280px');
+    if (hasListPanel) cols.push(listPanelLgWidth ?? '280px');
     cols.push('1fr');
     return cols.join(' ');
   })();
 
-  const xlGridCols = hasInspector ? `${lgGridCols} 336px` : lgGridCols;
+  const xlGridCols = hasInspector ? `${lgGridCols} ${inspectorXlWidth ?? '336px'}` : lgGridCols;
 
   const gridClassName = 'grid-rows-[auto,1fr,auto] md:grid-cols-[var(--app-md-grid-cols)] lg:grid-cols-[var(--app-lg-grid-cols)] xl:grid-cols-[var(--app-xl-grid-cols)]';
   const accentDefaults = getAccentBackdropDefaults(accentBackdropVariant);
