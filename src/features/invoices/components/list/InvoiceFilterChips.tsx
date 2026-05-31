@@ -47,7 +47,7 @@ const Chip = ({
     onClick={onClick}
     className={`inline-flex items-center gap-1 rounded-full border px-3 py-1 text-xs transition-colors ${
       active
-        ? 'border-accent-foreground/50 bg-accent-foreground/10 text-[rgb(var(--accent-foreground))]'
+        ? 'border-accent/50 bg-accent/10 text-accent-ink'
         : 'border-line-subtle bg-paper-2/30 text-dim-2 hover:text-ink'
     }`}
   >

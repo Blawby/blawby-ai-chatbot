@@ -42,7 +42,7 @@ const renderUrlCell = (value: string | null | undefined) => {
       href={value}
       target="_blank"
       rel="noreferrer"
-      className="truncate text-accent-foreground underline decoration-current/40 underline-offset-2"
+      className="truncate text-accent underline decoration-current/40 underline-offset-2"
       onClick={(event) => event.stopPropagation()}
     >
       Open

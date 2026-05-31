@@ -122,7 +122,7 @@ const WorkspaceHomeView: FunctionComponent<WorkspaceHomeViewProps> = ({
         >
           <span className="text-lg font-bold tracking-tight">{t('workspace.home.sendMessage')}</span>
           <span
-            className="inline-flex items-center justify-center w-10 h-10 rounded-full bg-accent text-[rgb(var(--accent-foreground))] pointer-events-none transition-all duration-300"
+            className="inline-flex items-center justify-center w-10 h-10 rounded-full bg-accent text-accent-ink pointer-events-none transition-all duration-300"
             aria-hidden="true"
           >
             <Icon icon={Send} className="h-5 w-5" aria-hidden="true"  />

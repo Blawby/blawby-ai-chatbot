@@ -43,11 +43,11 @@ type ClientIntakeStatusPageProps = {
 const statusPillClass = (kind: ClientIntakeStatusKind): string => {
   switch (kind) {
     case 'scheduled':
-      return 'bg-accent-success/15 text-accent-success ring-accent-success/30';
+      return 'bg-pos/15 text-pos ring-pos/30';
     case 'declined':
-      return 'bg-accent-error/15 text-accent-error ring-accent-error/30';
+      return 'bg-neg/15 text-neg ring-neg/30';
     case 'in_review':
-      return 'bg-accent-warning/15 text-accent-warning ring-accent-warning/30';
+      return 'bg-warn/15 text-warn ring-warn/30';
     case 'submitted':
     default:
       return 'bg-paper-2/40 text-ink ring-line-subtle/30';
@@ -80,9 +80,9 @@ const TimelineRow: FunctionComponent<{ item: ClientIntakeTimelineItem; isLast: b
 }) => {
   const dotClass =
     item.state === 'complete'
-      ? 'bg-accent-success'
+      ? 'bg-pos'
       : item.state === 'current'
-        ? 'bg-accent-warning'
+        ? 'bg-warn'
         : 'bg-input-placeholder/60';
   const textClass = item.state === 'upcoming' ? 'text-dim-2' : 'text-ink';
 

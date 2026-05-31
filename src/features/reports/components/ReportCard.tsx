@@ -40,7 +40,7 @@ export const ReportCard: FunctionComponent<ReportCardProps> = ({ definition, onC
       type="button"
       onClick={onClick}
       className={cn(
-        'flex w-full flex-col gap-2 rounded-2xl border border-line-subtle bg-paper-2/5 p-4 text-left transition hover:bg-paper-2/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-500/50',
+        'flex w-full flex-col gap-2 rounded-2xl border border-line-subtle bg-paper-2/5 p-4 text-left transition hover:bg-paper-2/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50',
         className,
       )}
     >

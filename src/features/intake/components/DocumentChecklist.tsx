@@ -64,12 +64,12 @@ const DocumentChecklist: FunctionComponent<DocumentChecklistProps> = ({
   const getStatusIcon = (status: DocumentItem['status'], required: boolean) => {
     switch (status) {
       case 'uploaded':
-        return <Icon icon={CheckCircle2} className="w-5 h-5 text-accent-success"  />;
+        return <Icon icon={CheckCircle2} className="w-5 h-5 text-pos"  />;
       case 'pending':
         return <Icon icon={AlertTriangle} className="w-5 h-5 text-yellow-500"  />;
       case 'missing':
         return required ?
-          <Icon icon={AlertTriangle} className="w-5 h-5 text-accent-error"  /> :
+          <Icon icon={AlertTriangle} className="w-5 h-5 text-neg"  /> :
           <Icon icon={File} className="w-5 h-5 text-dim-2"  />;
     }
   };
@@ -104,7 +104,7 @@ const DocumentChecklist: FunctionComponent<DocumentChecklistProps> = ({
           <span className="text-dim-2">
             Progress: {completedCount}/{documents.length}
           </span>
-          <span className="text-accent-500">
+          <span className="text-accent">
             Required: {requiredCompleted}/{requiredCount}
           </span>
         </div>
@@ -117,7 +117,7 @@ const DocumentChecklist: FunctionComponent<DocumentChecklistProps> = ({
             key={doc.id}
             className={`border rounded-r-md p-4 transition-all duration-300 ${
               dragOverId === doc.id 
-                ? 'border-accent-500 bg-accent/10 scale-[1.02]' 
+                ? 'border-accent bg-accent/10 scale-[1.02]' 
                 : 'border-line-subtle bg-paper-2/5'
             }`}
             onDrop={(e) => handleDrop(doc.id, e)}
@@ -135,7 +135,7 @@ const DocumentChecklist: FunctionComponent<DocumentChecklistProps> = ({
                     {doc.name}
                   </h4>
                   {doc.required && (
-                    <span className="text-xs bg-accent-error/10 dark:bg-accent-error/30 text-accent-error-foreground dark:text-accent-error-light px-2 py-1 rounded">
+                    <span className="text-xs bg-neg/10 dark:bg-neg/30 text-neg px-2 py-1 rounded">
                       Required
                     </span>
                   )}

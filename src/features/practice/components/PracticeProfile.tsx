@@ -37,14 +37,14 @@ export default function PracticeProfile({
 			<div className="flex items-center justify-center gap-2 w-full">
 				<h3 className="text-base sm:text-lg font-semibold text-center m-0 text-ink leading-tight truncate min-w-0" title={name}>{name}</h3>
 				{showVerified && (
-					<Icon icon={BadgeCheck} decorative={false} className="w-4 h-4 sm:w-5 sm:h-5 text-accent-500 flex-shrink-0" aria-label={t('profile.verified')} title={t('profile.verified')}  />
+					<Icon icon={BadgeCheck} decorative={false} className="w-4 h-4 sm:w-5 sm:h-5 text-accent flex-shrink-0" aria-label={t('profile.verified')} title={t('profile.verified')}  />
 				)}
 			</div>
 
 			{/* Practice ID */}
 			{practiceSlug && (
 				<div className="text-center w-full">
-					<span className="text-sm font-medium text-accent-500 truncate block" title={t('profile.slug', { slug: practiceSlug })}>@{practiceSlug}</span>
+					<span className="text-sm font-medium text-accent truncate block" title={t('profile.slug', { slug: practiceSlug })}>@{practiceSlug}</span>
 				</div>
 			)}
 

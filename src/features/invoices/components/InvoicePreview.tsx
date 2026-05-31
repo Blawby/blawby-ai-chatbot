@@ -204,7 +204,7 @@ export const InvoicePreview = ({
             )}
             {/* Pay online — visual only until invoice is sent */}
             <span
-              className="text-accent-500"
+              className="text-accent"
               style={{ fontSize: 13, fontWeight: 500, cursor: 'default', display: 'inline-block', marginBottom: notes ? '0.75rem' : 0 }}
             >
               Pay online

@@ -441,7 +441,7 @@ const MatterFormInner = ({
               (close) => (
                 <button
                   type="button"
-                  className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-accent-utility hover:bg-paper-2"
+                  className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-accent hover:bg-paper-2"
                   onMouseDown={(e) => e.preventDefault()}
                   onClick={() => {
                     close();
@@ -708,7 +708,7 @@ const MatterFormInner = ({
               Payments are built for securing IOLTA compliance.{' '}
               <a
                 href="https://blawby.com/compliance/iolta-compliance"
-                className="font-medium underline text-accent-500 hover:text-accent-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-500"
+                className="font-medium underline text-accent hover:text-accent-deep focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
                 target="_blank"
                 rel="noopener noreferrer"
               >

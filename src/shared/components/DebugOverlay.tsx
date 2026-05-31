@@ -193,18 +193,18 @@ export const DebugOverlay: FunctionComponent<DebugOverlayProps> = ({ isVisible =
           <strong>Debug Overlay</strong>
           <button
             onClick={() => setIsExpanded(!isExpanded)}
-            className="text-dim-2 hover:text-ink focus:outline-none focus:ring-2 focus:ring-accent-500 focus:ring-opacity-50 rounded px-1"
+            className="text-dim-2 hover:text-ink focus:outline-none focus:ring-2 focus:ring-accent focus:ring-opacity-50 rounded px-1"
             aria-label={isExpanded ? 'Collapse debug overlay' : 'Expand debug overlay'}
             aria-expanded={isExpanded}
           >
-            {isExpanded ? '−' : '+'}
+            {isExpanded ? 'âˆ’' : '+'}
           </button>
         </div>
         
         {error && (
-          <div className="mb-2 p-2 bg-accent-error/30 rounded border border-accent-error" role="alert" aria-live="assertive">
-            <div className="text-accent-error font-semibold">Error:</div>
-            <div className="text-accent-error/80 text-xs">{error}</div>
+          <div className="mb-2 p-2 bg-neg/30 rounded border border-neg" role="alert" aria-live="assertive">
+            <div className="text-neg font-semibold">Error:</div>
+            <div className="text-neg/80 text-xs">{error}</div>
           </div>
         )}
         
@@ -221,7 +221,7 @@ export const DebugOverlay: FunctionComponent<DebugOverlayProps> = ({ isVisible =
               {toolCalls.map((call, index) => (
                 <div 
                   key={index} 
-                  className="text-accent-success" 
+                  className="text-pos" 
                   role="listitem"
                   aria-label={`Tool call ${index + 1}: ${call.tool} at ${new Date(call.timestamp).toLocaleTimeString()}`}
                 >

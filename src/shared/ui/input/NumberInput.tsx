@@ -84,7 +84,7 @@ export const NumberInput = forwardRef<HTMLInputElement, NumberInputProps>(({
   };
 
   const variantClasses = {
-    default: 'focus:ring-2 ring-inset focus:ring-accent-500/30',
+    default: 'focus:ring-2 ring-inset focus:ring-accent/30',
     error: 'ring-2 ring-inset ring-red-500/40 focus:ring-red-500/60',
     success: 'ring-2 ring-inset ring-green-500/40'
   };
@@ -92,7 +92,7 @@ export const NumberInput = forwardRef<HTMLInputElement, NumberInputProps>(({
   const inputClasses = cn(
     'w-full rounded-r-md text-ink placeholder:text-dim-2',
     'focus:outline-none transition-all duration-200',
-    'input-surface border-none',
+    'field border-none',
     sizeClasses[size],
     showControls && 'pr-20',
     variantClasses[variant],
@@ -187,7 +187,7 @@ export const NumberInput = forwardRef<HTMLInputElement, NumberInputProps>(({
               disabled={disabled || !canIncrement}
               className={cn(
                 'flex items-center justify-center border-l border-input-border',
-                'input-surface hover:bg-paper-2/40 focus:outline-none focus:ring-2 ring-inset focus:ring-accent-500',
+                'field hover:bg-paper-2/40 focus:outline-none focus:ring-2 ring-inset focus:ring-accent',
                 'disabled:opacity-50 disabled:cursor-not-allowed',
                 controlSizeClasses[size],
                 'rounded-tr-xl'
@@ -201,7 +201,7 @@ export const NumberInput = forwardRef<HTMLInputElement, NumberInputProps>(({
               disabled={disabled || !canDecrement}
               className={cn(
                 'flex items-center justify-center border-l border-t border-input-border',
-                'input-surface hover:bg-paper-2/40 focus:outline-none focus:ring-2 ring-inset focus:ring-accent-500',
+                'field hover:bg-paper-2/40 focus:outline-none focus:ring-2 ring-inset focus:ring-accent',
                 'disabled:opacity-50 disabled:cursor-not-allowed',
                 controlSizeClasses[size],
                 'rounded-br-xl'

@@ -383,7 +383,7 @@ export const MatterDetailsPanel = ({
     <div className="panel divide-y divide-white/[0.06]">
       <div className="flex items-center justify-between px-5 py-4">
         <h3 className="font-serif text-sm font-semibold tracking-tight text-ink">Matter details</h3>
-        <span aria-hidden="true" className="h-px w-8 bg-gradient-to-r from-accent-500/0 via-accent-500/60 to-accent-500/0" />
+        <span aria-hidden="true" className="h-px w-8 bg-gradient-to-r from-accent/0 via-accent/60 to-accent/0" />
       </div>
 
       {/* ── Case identifiers ────────────────────────────────────────────── */}

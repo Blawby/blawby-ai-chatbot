@@ -425,7 +425,7 @@ export const MarkdownUploadTextarea = ({
           <div
             className={cn(
               'relative border border-transparent transition-colors',
-              isDragActive ? 'border-accent-500/60 bg-accent/5' : ''
+              isDragActive ? 'border-accent/60 bg-accent/5' : ''
             )}
           >
             <textarea
@@ -483,7 +483,7 @@ export const MarkdownUploadTextarea = ({
                     <button
                       type="button"
                       onClick={retryMarkdown}
-                      className="rounded bg-accent-error px-2 py-1 text-xs font-medium text-[rgb(var(--accent-foreground))] hover:bg-accent-error/80 dark:bg-accent-error/80 dark:hover:bg-accent-error/60"
+                      className="rounded bg-neg px-2 py-1 text-xs font-medium text-accent-ink hover:bg-neg/80"
                     >
                       Retry
                     </button>

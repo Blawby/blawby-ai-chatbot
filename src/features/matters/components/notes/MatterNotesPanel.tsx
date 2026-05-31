@@ -206,7 +206,7 @@ export const MatterNotesPanel = ({
                       {note.author.name}
                     </p>
                     {note.author.role && (
-                      <span className="input-surface rounded-full px-2 py-0.5 text-xs font-medium text-dim-2">
+                      <span className="field rounded-full px-2 py-0.5 text-xs font-medium text-dim-2">
                         {note.author.role}
                       </span>
                     )}

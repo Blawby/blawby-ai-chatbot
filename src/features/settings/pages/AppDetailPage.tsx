@@ -97,7 +97,7 @@ export const AppDetailPage = ({ app, onBack, onUpdate }: AppDetailPageProps) => 
           label={app.name}
           labelNode={(
             <div className="flex items-center gap-4">
-              <div className="input-surface w-16 h-16 rounded-full flex items-center justify-center border border-line-subtle overflow-hidden">
+              <div className="field w-16 h-16 rounded-full flex items-center justify-center border border-line-subtle overflow-hidden">
                 {app.logo ? (
                   <img
                     src={app.logo}
@@ -177,7 +177,7 @@ export const AppDetailPage = ({ app, onBack, onUpdate }: AppDetailPageProps) => 
                 href={app.website}
                 target="_blank"
                 rel="noreferrer"
-                className="inline-flex items-center gap-1 text-accent-600 dark:text-accent-400"
+                className="inline-flex items-center gap-1 text-accent dark:text-accent"
               >
                 {app.website}
                 <Icon icon={Globe} className="w-4 h-4" aria-hidden="true"  />
@@ -191,7 +191,7 @@ export const AppDetailPage = ({ app, onBack, onUpdate }: AppDetailPageProps) => 
                 href={app.privacyPolicy}
                 target="_blank"
                 rel="noreferrer"
-                className="inline-flex items-center gap-1 text-accent-600 dark:text-accent-400"
+                className="inline-flex items-center gap-1 text-accent dark:text-accent"
               >
                 {app.privacyPolicy}
                 <Icon icon={Globe} className="w-4 h-4" aria-hidden="true"  />

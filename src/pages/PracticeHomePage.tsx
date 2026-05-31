@@ -389,11 +389,11 @@ const PracticeHomePage = () => {
                   type="button"
                   disabled={!step.href}
                   onClick={() => handleSetupStep(step)}
-                  className="flex min-h-[116px] flex-col gap-2.5 rounded-lg border border-line-subtle bg-paper-2 p-4 text-left transition-colors hover:bg-card focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-500/40 disabled:cursor-default disabled:hover:bg-paper-2"
+                  className="flex min-h-[116px] flex-col gap-2.5 rounded-lg border border-line-subtle bg-paper-2 p-4 text-left transition-colors hover:bg-card focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40 disabled:cursor-default disabled:hover:bg-paper-2"
                 >
                   <div className="flex items-center gap-2.5">
                     {step.complete ? (
-                      <span className="flex h-[22px] w-[22px] items-center justify-center rounded-full bg-accent text-[rgb(var(--accent-foreground))]">
+                      <span className="flex h-[22px] w-[22px] items-center justify-center rounded-full bg-accent text-accent-ink">
                         <Check className="h-3.5 w-3.5" strokeWidth={3} aria-hidden="true" />
                       </span>
                     ) : (
@@ -490,7 +490,7 @@ const PracticeHomePage = () => {
                     type="button"
                     onClick={() => handleIntakeOpen(row.uuid)}
                     className={[
-                      'group grid w-full grid-cols-1 gap-2 px-5 py-4 text-left transition-colors hover:bg-paper-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-500/40 md:grid-cols-[260px_1fr_140px_110px] md:items-center md:gap-4',
+                      'group grid w-full grid-cols-1 gap-2 px-5 py-4 text-left transition-colors hover:bg-paper-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40 md:grid-cols-[260px_1fr_140px_110px] md:items-center md:gap-4',
                       idx > 0 ? 'border-t border-line-subtle' : '',
                     ].filter(Boolean).join(' ')}
                   >

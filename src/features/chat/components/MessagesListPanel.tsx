@@ -95,7 +95,7 @@ const MessagesListPanel: FunctionComponent<MessagesListPanelProps> = ({
             {t('workspace.conversationList.title', { defaultValue: 'Messages' })}
           </h2>
           <span
-            className="inline-flex h-5 min-w-[28px] items-center justify-center rounded-full bg-accent/15 px-1.5 text-[11px] font-semibold text-accent-utility"
+            className="inline-flex h-5 min-w-[28px] items-center justify-center rounded-full bg-accent/15 px-1.5 text-[11px] font-semibold text-accent"
             aria-label={t('workspace.conversationList.countLabel', {
               defaultValue: '{{count}} conversations',
               count: badgeCount,
@@ -161,7 +161,7 @@ const MessagesListPanel: FunctionComponent<MessagesListPanelProps> = ({
                 <span className="block truncate text-sm font-semibold text-ink">
                   {draftEntry.contactName ?? t('workspace.conversationList.draftPlaceholder', { defaultValue: 'New conversation' })}
                 </span>
-                <span className="rounded-full bg-accent/20 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-accent-utility">
+                <span className="rounded-full bg-accent/20 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-accent">
                   {t('workspace.conversationList.draftBadge', { defaultValue: 'Draft' })}
                 </span>
               </div>

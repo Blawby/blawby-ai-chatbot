@@ -71,7 +71,7 @@ export const RadioGroup = ({
   };
 
   const variantClasses = {
-    default: 'border-input-border focus:ring-accent-500 focus:border-accent-500',
+    default: 'border-input-border focus:ring-accent focus:border-accent',
     error: 'border-red-300 focus:ring-red-500 focus:border-red-500',
     success: 'border-green-300 focus:ring-green-500 focus:border-green-500'
   };
@@ -109,7 +109,7 @@ export const RadioGroup = ({
                 disabled={disabled || option.disabled}
                 required={required}
                 className={cn(
-                  'border bg-input-bg text-accent-600',
+                  'border bg-input-bg text-accent',
                   'focus:outline-none focus:ring-2 ring-inset focus:ring-offset-0 transition-colors',
                   sizeClasses[size],
                   variantClasses[variant],
@@ -146,7 +146,7 @@ export const RadioGroup = ({
       )}
       
       {displayError && (
-        <p id={errorId} className="text-xs text-accent-error dark:text-accent-error-light mt-1" role="alert" aria-live="assertive">
+        <p id={errorId} className="text-xs text-neg dark:text-neg mt-1" role="alert" aria-live="assertive">
           {displayError}
         </p>
       )}

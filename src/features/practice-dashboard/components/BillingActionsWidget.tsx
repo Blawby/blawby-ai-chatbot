@@ -67,7 +67,7 @@ export const BillingActionsWidget = ({
                           </p>
                         ) : null}
                         {action.highlight ? (
-                          <p className="mt-1 text-xs text-accent-200">{action.highlight}</p>
+                          <p className="mt-1 text-xs text-accent/70">{action.highlight}</p>
                         ) : null}
                       </div>
                     </div>

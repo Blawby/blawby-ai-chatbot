@@ -47,7 +47,7 @@ export const UploadDropzone = ({
       className={cn(
         'rounded-r-md border-2 border-dashed transition-colors',
         'relative flex min-h-[160px] items-center justify-center px-4 py-5',
-        isDragOver ? 'border-accent-500 bg-accent/10' : 'border-line-subtle',
+        isDragOver ? 'border-accent bg-accent/10' : 'border-line-subtle',
         disabled ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer hover:border-line-subtle',
         className
       )}

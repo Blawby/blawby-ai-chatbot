@@ -222,7 +222,7 @@ export const DraftConversationView: FunctionComponent<DraftConversationViewProps
                 'text-ink hover:bg-paper-2/10 focus-visible:bg-paper-2/10',
               )}
             >
-              <span className="text-accent-utility">+ Invite a new contact</span>
+              <span className="text-accent">+ Invite a new contact</span>
             </button>
           ) : undefined}
         />

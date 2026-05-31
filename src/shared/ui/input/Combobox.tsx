@@ -108,13 +108,13 @@ function Chip({
         'inline-flex max-w-full items-center gap-1 rounded-r-md border text-xs font-medium',
         compact ? 'min-h-8 px-3 py-1 text-sm' : 'px-2 py-0.5',
         isCustom
-          ? 'border-accent-500/25 bg-accent/12 text-accent-utility'
+          ? 'border-accent/25 bg-accent/12 text-accent'
           : 'border-line-subtle bg-paper-2/10 text-ink'
       )}
     >
       <span className="truncate">{label}</span>
       {isCustom && showCustomBadge && (
-        <span className="text-accent-utility/60 text-[10px] leading-none">custom</span>
+        <span className="text-accent/60 text-[10px] leading-none">custom</span>
       )}
       <button
         type="button"
@@ -194,7 +194,7 @@ function DropdownOption({
           <span className="text-xs text-dim-2">{resolvedOptionMeta}</span>
         )}
         {isSelected && (
-          <Icon icon={Check} className="h-4 w-4 text-accent-400" aria-hidden="true"  />
+          <Icon icon={Check} className="h-4 w-4 text-accent" aria-hidden="true"  />
         )}
       </span>
     </button>
@@ -580,8 +580,8 @@ export function Combobox({
           onClick={() => (isOpen ? close() : open())}
           onKeyDown={handleKeyDown}
           className={cn(
-            'input-surface relative flex w-full gap-2 rounded-r-md px-3 py-2.5 transition-all duration-200',
-            isOpen && 'isOpen',
+            'field relative flex w-full gap-2 rounded-r-md px-3 py-2.5 transition-all duration-200',
+            isOpen && 'is-open',
             'items-center',
             !disabled && 'cursor-pointer'
           )}
@@ -622,7 +622,7 @@ export function Combobox({
                 className={cn(
                   'w-full rounded-r-md bg-paper-2/10 px-3 py-1.5 text-sm text-ink',
                   'placeholder:text-dim-2/60',
-                  'focus:outline-none focus:ring-2 ring-inset focus:ring-accent-500/30'
+                  'focus:outline-none focus:ring-2 ring-inset focus:ring-accent/30'
                 )}
                 aria-autocomplete="list"
                 aria-controls={listboxId}
@@ -651,12 +651,12 @@ export function Combobox({
                     : 'text-ink hover:bg-paper-2/10 focus:bg-paper-2/20'
                 )}
               >
-                <span className="flex h-5 w-5 flex-shrink-0 items-center justify-center rounded bg-accent/20 text-accent-utility">
+                <span className="flex h-5 w-5 flex-shrink-0 items-center justify-center rounded bg-accent/20 text-accent">
                   <Icon icon={Plus} className="h-3.5 w-3.5"  />
                 </span>
                 <span>
                   {addNewLabel}{' '}
-                  <span className="font-semibold text-accent-utility">&quot;{trimmedQuery}&quot;</span>
+                  <span className="font-semibold text-accent">&quot;{trimmedQuery}&quot;</span>
                 </span>
               </button>
             )}
@@ -701,7 +701,7 @@ export function Combobox({
             </div>
           ) : allowCustomValues && filteredOptions.length === 0 && !showAddRow ? (
             <div className="flex items-center gap-2 border-t border-line-subtle px-3 py-2 text-xs text-dim-2">
-              <span className="flex h-4 w-4 flex-shrink-0 items-center justify-center rounded bg-accent/20 text-accent-utility">
+              <span className="flex h-4 w-4 flex-shrink-0 items-center justify-center rounded bg-accent/20 text-accent">
                 <Icon icon={Plus} className="h-3 w-3" />
               </span>
               <span>Type a name and press Enter to add a new option.</span>

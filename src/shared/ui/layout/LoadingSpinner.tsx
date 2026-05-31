@@ -26,7 +26,7 @@ export const LoadingSpinner = ({
   return (
     <div
       className={cn(
-        'inline-flex items-center justify-center text-[rgb(var(--accent-foreground))]',
+        'inline-flex items-center justify-center text-accent-ink',
         className
       )}
       {...(announce ? { role: 'status', 'aria-live': 'polite' } : {})}

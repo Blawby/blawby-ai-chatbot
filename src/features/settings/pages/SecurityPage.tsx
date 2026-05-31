@@ -459,7 +459,7 @@ export const SecurityPage = ({
               size="sm"
               onClick={() => void handleResetPassword()}
               disabled={isResettingPassword}
-              className="text-accent-600 dark:text-accent-400 hover:text-accent-700 dark:hover:text-accent-300"
+              className="text-accent dark:text-accent hover:text-accent-deep dark:hover:text-accent-deep"
             >
               {isResettingPassword ? t('common:status.sending', { defaultValue: 'Sending…' }) : t('settings:security.password.resetButton')}
             </Button>

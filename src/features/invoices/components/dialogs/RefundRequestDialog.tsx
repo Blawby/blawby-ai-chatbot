@@ -86,7 +86,7 @@ export const RefundRequestDialog = ({
           disabled={loading}
         />
         {error ? (
-          <p className="text-sm text-accent-error-light" role="alert">
+          <p className="text-sm text-neg" role="alert">
             {error}
           </p>
         ) : null}

@@ -435,7 +435,7 @@ export const ClientMattersPage = ({
                   role="tab"
                   className={[
                     'relative px-3 py-3 text-sm font-medium whitespace-nowrap',
-                    'transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-500 rounded-t-sm',
+                    'transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent rounded-t-sm',
                     'after:absolute after:bottom-0 after:left-0 after:right-0 after:h-0.5 after:rounded-full after:transition-all after:duration-150',
                     isActive
                       ? 'text-ink after:bg-accent'

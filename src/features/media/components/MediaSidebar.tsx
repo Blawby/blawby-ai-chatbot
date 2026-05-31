@@ -107,7 +107,7 @@ const MediaRow: FunctionComponent<MediaRowProps> = ({ media, onPreview, onError 
       role="button"
       tabIndex={0}
       aria-busy={busy}
-      className="cursor-pointer transition-all duration-200 hover:scale-[1.02] focus:outline-none focus:ring-2 focus:ring-accent-500/50 rounded-r-md"
+      className="cursor-pointer transition-all duration-200 hover:scale-[1.02] focus:outline-none focus:ring-2 focus:ring-accent/50 rounded-r-md"
       onClick={() => { void handleActivate(); }}
       onKeyDown={(e) => {
         if (e.key === 'Enter' || e.key === ' ') {
@@ -133,7 +133,7 @@ const MediaRow: FunctionComponent<MediaRowProps> = ({ media, onPreview, onError 
             {media.name.length > 20 ? `${media.name.substring(0, 20)}...` : media.name}
           </div>
           <div className="flex items-center justify-between gap-2">
-            <span className="text-xs text-accent-500">{formatFileSize(media.size)}</span>
+            <span className="text-xs text-accent">{formatFileSize(media.size)}</span>
             <Button
               variant="ghost"
               size="sm"

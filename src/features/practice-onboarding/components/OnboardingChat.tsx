@@ -182,7 +182,7 @@ const OnboardingChat: FunctionComponent<OnboardingChatProps> = ({
             headerContent={
               <div className="flex items-center justify-between mb-2 gap-3 px-4 pt-3">
                 <div className="flex items-center gap-2">
-                  <Icon icon={Sparkles} className="w-4 h-4 text-accent-500"  />
+                  <Icon icon={Sparkles} className="w-4 h-4 text-accent"  />
                   <div>
                     <div className="text-sm font-semibold">Setup assistant</div>
                     {status.needsSetup ? (

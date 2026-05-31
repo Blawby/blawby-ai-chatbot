@@ -124,7 +124,7 @@ export const MatterStatusPopover = ({ currentStatus, onSelect, disabled }: Matte
           'inline-flex items-center gap-2 rounded-full px-3 py-1.5',
           'text-sm font-medium ring-1 ring-inset',
           'transition-all duration-150',
-          'hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-ring',
+          'hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent',
           'disabled:opacity-50 disabled:cursor-not-allowed',
           colorClasses
         )}

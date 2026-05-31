@@ -193,7 +193,7 @@ function TemplateEditor({ initial, serviceOptions, onSave, onDelete, onBack, isS
                   className={cn(
                     'rounded-full border px-3 py-1 text-sm font-medium transition-colors',
                     template.feeType === type
-                      ? 'border-accent-500 bg-accent/10 text-[rgb(var(--accent-foreground))]'
+                      ? 'border-accent bg-accent/10 text-accent-ink'
                       : 'border-line-subtle text-dim-2 hover:border-line-subtle hover:text-ink',
                   )}
                 >
@@ -293,7 +293,7 @@ function TemplateEditor({ initial, serviceOptions, onSave, onDelete, onBack, isS
                 onClick={() => insertPlaceholder(key)}
                 className="flex flex-col items-start rounded-lg px-2.5 py-2 text-left transition-colors hover:bg-card"
               >
-                <span className="font-mono text-xs text-accent-500">{key}</span>
+                <span className="font-mono text-xs text-accent">{key}</span>
                 <span className="text-xs text-dim-2">{description}</span>
               </button>
             ))}
@@ -348,7 +348,7 @@ function TemplateListView({ templates, onNew, onEdit }: ListViewProps) {
                   {template.practiceArea || 'No practice area'} · {FEE_TYPE_LABELS[template.feeType]}
                 </p>
               </div>
-              <span className="shrink-0 text-xs text-accent-500">Edit</span>
+              <span className="shrink-0 text-xs text-accent">Edit</span>
             </button>
           ))}
         </div>

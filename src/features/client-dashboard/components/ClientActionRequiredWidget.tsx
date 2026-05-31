@@ -17,7 +17,7 @@ const ICONS: Record<ClientActionItem['reason'], typeof CreditCard> = {
 const TONES: Record<ClientActionItem['reason'], string> = {
   invoice_overdue: 'text-rose-300',
   invoice_due: 'text-amber-300',
-  engagement_pending: 'text-accent-300',
+  engagement_pending: 'text-accent/70',
 };
 
 type ClientActionRequiredWidgetProps = {

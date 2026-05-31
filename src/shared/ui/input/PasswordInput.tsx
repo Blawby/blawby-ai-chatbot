@@ -88,18 +88,18 @@ export const PasswordInput = forwardRef<HTMLInputElement, PasswordInputProps>(({
 
   const variantClasses = {
     default: '',
-    error: 'isError',
-    success: 'isSuccess'
+    error: 'is-error',
+    success: 'is-success'
   };
 
   const inputClasses = cn(
     'w-full rounded-r-md text-ink placeholder:text-dim-2',
     'focus:outline-none transition-all duration-200',
-    'input-surface border-none',
+    'field border-none',
     sizeClasses[size],
     iconPaddingClasses[size],
     variantClasses[variant],
-    displayError && 'isError',
+    displayError && 'is-error',
     disabled && 'opacity-50 cursor-not-allowed',
     className
   );
@@ -183,7 +183,7 @@ export const PasswordInput = forwardRef<HTMLInputElement, PasswordInputProps>(({
           disabled={disabled}
           aria-label={showPassword ? "Hide password" : "Show password"}
           aria-pressed={showPassword}
-          className="absolute inset-y-0 right-0 flex items-center pr-3 text-dim-2 hover:text-[rgb(var(--accent-foreground))] focus:ring-2 ring-inset focus:ring-accent-500 focus:ring-offset-1 focus-visible:ring-2 ring-inset focus-visible:ring-accent-500 focus-visible:ring-offset-1"
+          className="absolute inset-y-0 right-0 flex items-center pr-3 text-dim-2 hover:text-accent-ink focus:ring-2 ring-inset focus:ring-accent focus:ring-offset-1 focus-visible:ring-2 ring-inset focus-visible:ring-accent focus-visible:ring-offset-1"
         >
           {showPassword ? (
             <Icon icon={EyeOff} className="w-4 h-4"  />
@@ -203,7 +203,7 @@ export const PasswordInput = forwardRef<HTMLInputElement, PasswordInputProps>(({
       )}
       
       {displayError && (
-        <p id={errorId} className="text-xs text-accent-error dark:text-accent-error-light mt-1" role="alert" aria-live="assertive">
+        <p id={errorId} className="text-xs text-neg dark:text-neg mt-1" role="alert" aria-live="assertive">
           {displayError}
         </p>
       )}

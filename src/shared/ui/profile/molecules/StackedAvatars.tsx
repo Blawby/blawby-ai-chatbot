@@ -67,7 +67,7 @@ export const StackedAvatars = ({
       {showOverflow && overflowCount > 0 && (
         <div
           className={cn(
-            'input-surface rounded-full text-ink font-semibold flex items-center justify-center',
+            'field rounded-full text-ink font-semibold flex items-center justify-center',
             ringClasses,
             config.badge
           )}

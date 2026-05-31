@@ -33,7 +33,7 @@ export const McpAccessPage = ({ app, onBack }: McpAccessPageProps) => {
             label={app.name}
             labelNode={(
               <div className="flex items-center gap-4">
-                <div className="input-surface flex h-16 w-16 items-center justify-center overflow-hidden rounded-full border border-line-subtle">
+                <div className="field flex h-16 w-16 items-center justify-center overflow-hidden rounded-full border border-line-subtle">
                   {app.logo ? (
                     <img src={app.logo} alt={`${app.name} logo`} className="h-full w-full object-cover" loading="lazy" />
                   ) : (

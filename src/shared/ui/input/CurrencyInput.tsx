@@ -84,10 +84,10 @@ export const CurrencyInput = forwardRef<HTMLInputElement, CurrencyInputProps>(({
   const inputClasses = cn(
     'w-full rounded-r-md text-ink placeholder:text-dim-2',
     'focus:outline-none transition-all duration-200',
-    'input-surface border-none',
+    'field border-none',
     sizeClasses[size],
-    variant === 'error' || error ? 'isError' : '',
-    variant === 'success' && 'isSuccess',
+    variant === 'error' || error ? 'is-error' : '',
+    variant === 'success' && 'is-success',
     disabled && 'opacity-50 cursor-not-allowed',
     className,
   );

@@ -84,7 +84,7 @@ export default function DebugStylesPage() {
       <section className="space-y-4">
         <h2 className="text-xs font-semibold uppercase tracking-widest text-dim-2">Surfaces</h2>
         <p className="text-sm text-dim-2">
-          Use <code>card</code>, <code>panel</code>, or <code>input-surface</code>. The <code>glass-*</code> names are deprecated aliases and must not be used in new code.
+          Use <code>card</code>, <code>panel</code>, or <code>field</code>. The <code>glass-*</code> names are deprecated aliases and must not be used in new code.
         </p>
         <div className="grid gap-4 md:grid-cols-3">
           <div className="card p-4">
@@ -95,8 +95,8 @@ export default function DebugStylesPage() {
             <p className="font-medium text-ink">panel</p>
             <p className="text-sm text-dim-2">Section containers. <code>bg-paper-2</code>, <code>border-subtle</code>, <code>rounded-2xl</code>.</p>
           </div>
-          <div className="input-surface rounded-r-md p-4">
-            <p className="font-medium text-ink">input-surface</p>
+          <div className="field rounded-r-md p-4">
+            <p className="font-medium text-ink">field</p>
             <p className="text-sm text-dim-2">Input backgrounds. <code>bg-card</code>, <code>border-subtle</code>, <code>rounded-r-md</code>.</p>
           </div>
         </div>
@@ -176,14 +176,14 @@ export default function DebugStylesPage() {
       <section className="space-y-4 pt-4">
         <h2 className="text-xs font-semibold uppercase tracking-widest text-dim-2">Dynamic Foreground</h2>
         <p className="text-sm text-dim-2">
-          Accent-colored surfaces should use `text-[rgb(var(--accent-foreground))]` for contrast-safe text/icons.
+          Accent-colored surfaces should use `text-accent-ink` for contrast-safe text/icons.
         </p>
         <div className="grid gap-4 md:grid-cols-2">
-          <div className="rounded-r-md bg-accent p-4 text-[rgb(var(--accent-foreground))]">
+          <div className="rounded-r-md bg-accent p-4 text-accent-ink">
             <p className="font-medium">Correct: accent foreground token</p>
             <p className="text-sm opacity-90">Remains readable across accent theme changes.</p>
           </div>
-          <div className="rounded-r-md bg-accent p-4 text-[rgb(var(--accent-foreground))]">
+          <div className="rounded-r-md bg-accent p-4 text-accent-ink">
             <p className="font-medium">Avoid: hardcoded `text-white`</p>
             <p className="text-sm opacity-90">Can fail contrast on some accent colors.</p>
           </div>
@@ -193,7 +193,7 @@ export default function DebugStylesPage() {
       <section className="space-y-4 pt-4">
         <h2 className="text-xs font-semibold uppercase tracking-widest text-dim-2">Input States</h2>
         <p className="text-sm text-dim-2">
-          Status is communicated through colored rings on the <code>input-surface</code> base.
+          Status is communicated through colored rings on the <code>field</code> base.
         </p>
         <div className="grid gap-4 md:grid-cols-2">
           <div className="panel rounded-r-md p-4 space-y-4">
@@ -201,7 +201,7 @@ export default function DebugStylesPage() {
               <label htmlFor="defaultInput" className="text-xs font-medium text-dim-2">Default / Focus</label>
               <input
                 id="defaultInput"
-                className="input-surface w-full rounded-r-md px-3 py-2 text-sm focus:ring-2 focus:ring-accent-500/30"
+                className="field w-full rounded-r-md px-3 py-2 text-sm focus:ring-2 focus:ring-accent/30"
                 placeholder="Standard state"
               />
             </div>
@@ -209,7 +209,7 @@ export default function DebugStylesPage() {
               <label htmlFor="errorInput" className="text-xs font-medium text-dim-2">Error</label>
               <input
                 id="errorInput"
-                className="input-surface w-full rounded-r-md px-3 py-2 text-sm ring-2 ring-accent-error/40 focus:ring-accent-error/60"
+                className="field w-full rounded-r-md px-3 py-2 text-sm ring-2 ring-neg/40 focus:ring-neg/60"
                 placeholder="Invalid value"
               />
             </div>
@@ -219,7 +219,7 @@ export default function DebugStylesPage() {
               <label htmlFor="successInput" className="text-xs font-medium text-dim-2">Success</label>
               <input
                 id="successInput"
-                className="input-surface w-full rounded-r-md px-3 py-2 text-sm ring-2 ring-accent-success/40 focus:ring-accent-success/60"
+                className="field w-full rounded-r-md px-3 py-2 text-sm ring-2 ring-pos/40 focus:ring-pos/60"
                 placeholder="Valid value"
               />
             </div>
@@ -228,7 +228,7 @@ export default function DebugStylesPage() {
               <input
                 id="disabledInput"
                 disabled
-                className="input-surface w-full rounded-r-md px-3 py-2 text-sm opacity-50 cursor-not-allowed focus:ring-0"
+                className="field w-full rounded-r-md px-3 py-2 text-sm opacity-50 cursor-not-allowed focus:ring-0"
                 placeholder="Locked"
               />
             </div>
@@ -369,7 +369,7 @@ export default function DebugStylesPage() {
       <section className="space-y-4 pt-4">
         <h2 className="text-xs font-semibold uppercase tracking-widest text-dim-2">StackedAvatars</h2>
         <p className="text-sm text-dim-2">
-          Pass a <code>users</code> array and a <code>max</code> cap. Overflow renders a <code>+N</code> badge using the <code>input-surface</code> surface.
+          Pass a <code>users</code> array and a <code>max</code> cap. Overflow renders a <code>+N</code> badge using the <code>field</code> surface.
         </p>
         <div className="panel rounded-r-md p-4 flex flex-wrap items-center gap-8">
           <div className="flex flex-col gap-1">

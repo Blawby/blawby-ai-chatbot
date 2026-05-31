@@ -115,7 +115,7 @@ export const URLInput = forwardRef<HTMLInputElement, URLInputProps>(({
   };
 
   const variantClasses = {
-    default: 'focus:ring-2 ring-inset focus:ring-accent-500/30',
+    default: 'focus:ring-2 ring-inset focus:ring-accent/30',
     error: 'ring-2 ring-inset ring-red-500/40 focus:ring-red-500/60',
     success: 'ring-2 ring-inset ring-green-500/40'
   };
@@ -123,7 +123,7 @@ export const URLInput = forwardRef<HTMLInputElement, URLInputProps>(({
   const inputClasses = cn(
     'w-full rounded-r-md text-ink placeholder:text-dim-2',
     'focus:outline-none transition-all duration-200',
-    'input-surface border-none',
+    'field border-none',
     sizeClasses[size],
     iconPaddingClasses[size],
     variantClasses[variant],
@@ -252,7 +252,7 @@ export const URLInput = forwardRef<HTMLInputElement, URLInputProps>(({
       {displayLabel && (
         <label htmlFor={inputId} className="block text-sm font-medium text-ink mb-1">
           {displayLabel}
-          {required && <span className="text-accent-error ml-1">*</span>}
+          {required && <span className="text-neg ml-1">*</span>}
         </label>
       )}
       
@@ -278,9 +278,9 @@ export const URLInput = forwardRef<HTMLInputElement, URLInputProps>(({
         {showValidationIcon && (
           <div className="absolute inset-y-0 right-0 flex items-center pr-3">
             {isURLValid ? (
-              <Icon icon={Check} className="w-4 h-4 text-accent-success"  />
+              <Icon icon={Check} className="w-4 h-4 text-pos"  />
             ) : (
-              <Icon icon={X} className="w-4 h-4 text-accent-error dark:text-accent-error-light"  />
+              <Icon icon={X} className="w-4 h-4 text-neg dark:text-neg"  />
             )}
           </div>
         )}
@@ -305,7 +305,7 @@ export const URLInput = forwardRef<HTMLInputElement, URLInputProps>(({
                 href={value}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-sm text-accent-600 dark:text-accent-400 hover:underline"
+                className="text-sm text-accent dark:text-accent hover:underline"
               >
                 {value}
               </a>
@@ -319,13 +319,13 @@ export const URLInput = forwardRef<HTMLInputElement, URLInputProps>(({
       })()}
       
       {displayError && (
-        <p id={errorId} className="text-xs text-accent-error dark:text-accent-error-light mt-1" role="alert" aria-live="assertive">
+        <p id={errorId} className="text-xs text-neg dark:text-neg mt-1" role="alert" aria-live="assertive">
           {displayError}
         </p>
       )}
       
       {showValidation && value && !isURLValid && !displayError && (
-        <p id={validationErrorId} className="text-xs text-accent-error dark:text-accent-error-light mt-1">
+        <p id={validationErrorId} className="text-xs text-neg dark:text-neg mt-1">
           Please enter a valid URL.
         </p>
       )}

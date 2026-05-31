@@ -1219,7 +1219,7 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
     <>
       <Button
         variant="primary"
-        className="btn-primary btn-md w-full !bg-accent text-[rgb(var(--accent-foreground))]"
+        className="btn-primary btn-md w-full !bg-accent text-accent-ink"
         disabled={isSubmitting}
         onClick={() => openTriageDialog('accepted')}
       >
@@ -1408,7 +1408,7 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
                     className={cn(
                       'flex items-center gap-2 rounded-lg border px-3 py-2 text-left text-sm transition-colors',
                       generateTemplateId === t.id
-                        ? 'border-accent bg-accent/10 text-[rgb(var(--accent-foreground))]'
+                        ? 'border-accent bg-accent/10 text-accent-ink'
                         : 'border-card-border bg-card text-ink hover:bg-card/40',
                     )}
                     onClick={() => setGenerateTemplateId(t.id)}

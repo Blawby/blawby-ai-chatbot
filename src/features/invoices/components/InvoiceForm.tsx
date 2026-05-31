@@ -414,7 +414,7 @@ export const InvoiceForm = forwardRef<InvoiceFormHandle, InvoiceFormProps>(({
                     <div className="px-3 py-2 text-sm text-dim-2">
                       <button
                         type="button"
-                        className="inline-flex items-center gap-2 text-sm text-accent-foreground underline"
+                        className="inline-flex items-center gap-2 text-sm text-accent underline"
                         onClick={() => {
                           try {
                             const draftId = createPendingInvoiceDraftContext({

@@ -676,7 +676,7 @@ function PreviewSurface({
         <div className="mb-4 flex justify-between items-center border-b border-line-subtle pb-2">
           <span className={cn(
             "rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider",
-            theme === 'light' ? "bg-accent/10 text-accent-600" : "bg-accent/80/20 text-accent-300"
+            theme === 'light' ? "bg-accent/10 text-accent" : "bg-accent/80/20 text-accent"
           )}>
             {theme === 'light' ? 'Light Mode' : 'Dark Mode'}
           </span>
@@ -856,7 +856,7 @@ function GalleryCard({ item, previewNonce }: { item: DialogInventoryItem; previe
       <div className="space-y-2">
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-bold text-ink">{item.name}</h2>
-          <span className="rounded-full bg-accent/10 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-[rgb(var(--accent-foreground))]">
+          <span className="rounded-full bg-accent/10 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-accent-ink">
             {item.section}
           </span>
         </div>

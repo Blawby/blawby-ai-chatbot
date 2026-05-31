@@ -40,7 +40,7 @@ export const EmailSettingsSection = ({
             id="feedback-emails"
             checked={receiveFeedbackEmails}
             onChange={(e) => onFeedbackChange(e.currentTarget.checked)}
-            className="w-4 h-4 text-accent-500 bg-transparent border-line-subtle rounded focus:ring-accent-500 focus:ring-2"
+            className="w-4 h-4 text-accent bg-transparent border-line-subtle rounded focus:ring-accent focus:ring-2"
           />
           <label htmlFor="feedback-emails" className="text-sm text-ink cursor-pointer">
             {feedbackLabel}

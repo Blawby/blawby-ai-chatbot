@@ -70,7 +70,7 @@ export const MatterListItem = ({ matter, onSelect, isSelected = false }: MatterL
           onClick={() => onSelect?.(matter)}
           className={cn(
             rowClassName,
-            'h-auto rounded-none bg-transparent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-500/50'
+            'h-auto rounded-none bg-transparent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50'
           )}
           aria-current={isSelected ? 'true' : undefined}
           aria-label={`Select matter ${matter.title} for ${matter.clientName} (${statusLabel})`}

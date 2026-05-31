@@ -108,7 +108,7 @@ export function AIThinkingIndicator({
         <button
           type="button"
           onClick={() => setIsExpanded(!isExpanded)}
-          className="flex items-center gap-1.5 text-[11px] font-medium text-dim-2 hover:text-accent-foreground transition-colors outline-none cursor-pointer"
+          className="flex items-center gap-1.5 text-[11px] font-medium text-dim-2 hover:text-accent transition-colors outline-none cursor-pointer"
           aria-expanded={isExpanded}
         >
           <Icon icon={Wrench} className="h-3 w-3 text-dim-2" />
@@ -130,7 +130,7 @@ export function AIThinkingIndicator({
   // If still loading/streaming, render the live list (no toggle, fully expanded)
   return (
     <div className={`flex flex-col gap-1.5 w-full ${className}`}>
-      <div className="flex items-center gap-2 text-xs font-semibold text-accent-foreground mb-1">
+      <div className="flex items-center gap-2 text-xs font-semibold text-accent mb-1">
         <span className="ai-thinking-indicator__dot" aria-hidden="true" />
         <span>Assistant is working…</span>
       </div>
@@ -164,7 +164,7 @@ function ToolProgressRow({
     iconClass = 'text-red-500';
   } else if (tool.status === 'running') {
     statusIcon = Loader2;
-    iconClass = 'text-accent-500 animate-spin';
+    iconClass = 'text-accent animate-spin';
   } else if (tool.status === 'queued') {
     statusIcon = Loader2;
     iconClass = 'text-dim-2 animate-pulse';

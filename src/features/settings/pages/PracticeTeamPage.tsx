@@ -285,7 +285,7 @@ export const PracticeTeamPage = ({ className, onBack }: PracticeTeamPageProps) =
                       : `${toSettingsPath('practice')}?sync=1`
                   })}
                   disabled={submitting}
-                  className="ml-2 underline text-accent-600 hover:text-accent-700"
+                  className="ml-2 underline text-accent hover:text-accent-deep"
                 >
                   {t('settings:account.plan.manage')}
                 </Button>
@@ -321,7 +321,7 @@ export const PracticeTeamPage = ({ className, onBack }: PracticeTeamPageProps) =
                     }
                     setEditMemberData(member);
                   }}
-                  className="text-ink hover:text-accent-600 dark:hover:text-accent-400"
+                  className="text-ink hover:text-accent-deep dark:hover:text-accent-deep"
                 >
                   {isEditingMember && editMemberData?.userId === member.userId ? 'Cancel' : 'Manage'}
                 </Button>

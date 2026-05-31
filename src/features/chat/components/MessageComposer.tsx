@@ -292,7 +292,7 @@ const MessageComposer = ({
       
       parts.push(<span key={`text-${index}`} className="text-transparent">{inputValue.slice(lastIndex, index)}</span>);
       parts.push(
-        <span key={`mention-${index}`} className="nav-item-active rounded-[6px] px-0.5 ring-1 ring-accent-400/25 text-transparent">
+        <span key={`mention-${index}`} className="nav-item-active rounded-[6px] px-0.5 ring-1 ring-accent/25 text-transparent">
           {mention}
         </span>
       );
@@ -350,7 +350,7 @@ const MessageComposer = ({
                     i18nKey="chat.replyingTo"
                     values={{ name: replyTo.authorName }}
                     components={{
-                      name: <span className="truncate font-semibold text-accent-500" />
+                      name: <span className="truncate font-semibold text-accent" />
                     }}
                   />
                 </span>
@@ -399,7 +399,7 @@ const MessageComposer = ({
               dropped here in favor of inline flex so the icons live inside the
               pill rather than beside it. */}
           <div className="w-full">
-            <div className={`min-w-0 relative flex w-full items-end gap-1 input-surface min-h-12 ${isInputExpanded ? 'rounded-2xl py-2 px-2' : 'rounded-full py-1 px-2'} ${isInputFocused ? 'ring-2 ring-accent-500/40 border-accent-500/40' : ''}`}>
+            <div className={`min-w-0 relative flex w-full items-end gap-1 field min-h-12 ${isInputExpanded ? 'rounded-2xl py-2 px-2' : 'rounded-full py-1 px-2'} ${isInputFocused ? 'ring-2 ring-accent/40 border-accent/40' : ''}`}>
               {canShowAttachmentMenu && (
                 <div className="flex-shrink-0 self-end">
                   <FileMenu
@@ -495,7 +495,7 @@ const MessageComposer = ({
                         onClick={() => handleMentionSelect(index)}
                         className={`flex w-full items-center justify-between px-3 py-2 text-left text-sm transition-colors ${
                           index === mentionFocusIndex
-                            ? 'bg-accent/15 text-[rgb(var(--accent-foreground))]'
+                            ? 'bg-accent/15 text-accent-ink'
                             : 'text-ink hover:bg-paper-2/40'
                         }`}
                       >
@@ -524,7 +524,7 @@ const MessageComposer = ({
                         : (!inputValue.trim() && previewFiles.length === 0
                           ? 'Send message (disabled)'
                           : 'Send message')}
-                  className={`w-8 h-8 p-0 rounded-full shrink-0 ${isInputExpanded ? 'self-end' : 'self-center'} transition ${isInputFocused && !sendDisabled ? 'ring-2 ring-accent-500/50 shadow-[0_0_0_2px_rgba(255,196,0,0.15)]' : ''}`}
+                  className={`w-8 h-8 p-0 rounded-full shrink-0 ${isInputExpanded ? 'self-end' : 'self-center'} transition ${isInputFocused && !sendDisabled ? 'ring-2 ring-accent/50 shadow-[0_0_0_2px_rgba(255,196,0,0.15)]' : ''}`}
                   icon={ArrowUp} iconClassName="w-3.5 h-3.5"
                   data-testid="message-send-button"
                 />
