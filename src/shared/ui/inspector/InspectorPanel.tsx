@@ -227,6 +227,12 @@ export const InspectorPanel = ({
 
         {entityType === 'invoice' ? (
           <InvoiceInspector
+            // When the real invoice id + practice are available, the inspector
+            // loads the full InvoiceDetail and renders Stripe / payment-history /
+            // refund / metadata blocks. The summary-only props remain for
+            // callers (e.g. DebugDialogsPage) that don't have a live entity.
+            practiceId={practiceId && entityId ? practiceId : undefined}
+            entityId={practiceId && entityId ? entityId : undefined}
             clientName={invoiceClientName}
             matterTitle={invoiceMatterTitle}
             status={invoiceStatus}

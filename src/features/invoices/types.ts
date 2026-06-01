@@ -1,6 +1,10 @@
 import type { Invoice } from '@/features/matters/types/billing.types';
 
 export type InvoiceStatus =
+  // 'staged' is a derived label surfaced when the AI-staged heuristic
+  // (see PracticeInvoiceDetailView) matches a draft invoice. Backend
+  // returns 'draft' today — TODO(backend): persist invoice.staged_by_assistant.
+  | 'staged'
   | 'draft'
   | 'pending'
   | 'sent'

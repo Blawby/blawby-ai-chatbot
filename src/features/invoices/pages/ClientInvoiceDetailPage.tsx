@@ -3,17 +3,18 @@ import { Button } from '@/shared/ui/Button';
 import { Input, Textarea } from '@/shared/ui/input';
 import { DetailHeader } from '@/shared/ui/layout';
 import { InvoiceDetailSkeleton } from '@/features/invoices/components/InvoiceDetailSkeleton';
-import { formatCurrency } from '@/shared/utils/currencyFormatter';
+import { InvoicePreview } from '@/features/invoices/components/InvoicePreview';
+import { InvoiceActivityPanel } from '@/features/invoices/components/detail/InvoiceActivityPanel';
 import { formatLongDate } from '@/shared/utils/dateFormatter';
 import { useToastContext } from '@/shared/contexts/ToastContext';
 import { useNavigation } from '@/shared/utils/navigation';
-import { getMajorAmountValue } from '@/shared/utils/money';
 import {
   createRefundRequest,
 } from '@/features/invoices/services/invoicesService';
 import { useClientInvoiceDetail } from '@/features/invoices/hooks/useInvoiceDetail';
 import { InvoiceStatusBadge } from '@/features/invoices/components/InvoiceStatusBadge';
-import type { InvoiceDetail } from '@/features/invoices/types';
+import { Panel } from '@/shared/ui/layout/Panel';
+import type { InvoiceDetail, InvoiceStatus } from '@/features/invoices/types';
 
 const renderEventDate = (value: string | null): string => {
   return value ? formatLongDate(value) : '—';
@@ -22,6 +23,13 @@ const renderEventDate = (value: string | null): string => {
 const isUnpaidStatus = (status: string): boolean => {
   return !['paid', 'void', 'cancelled'].includes(status.toLowerCase());
 };
+
+const VALID_STATUSES: ReadonlyArray<InvoiceStatus> = [
+  'staged', 'draft', 'pending', 'sent', 'open', 'overdue', 'paid', 'void', 'cancelled',
+];
+
+const isValidStatus = (value: string): value is InvoiceStatus =>
+  (VALID_STATUSES as readonly string[]).includes(value);
 
 export function ClientInvoiceDetailPage({
   practiceId,
@@ -132,6 +140,11 @@ export function ClientInvoiceDetailPage({
     return <div className="p-6 text-sm text-dim-2">Invoice not found.</div>;
   }
 
+  const statusLabel = typeof detail.status === 'string' ? detail.status : '';
+  const headerStatusBadge = isValidStatus(statusLabel) ? (
+    <InvoiceStatusBadge status={statusLabel} />
+  ) : null;
+
   return (
     <div className="flex h-full min-h-0 flex-col">
       <DetailHeader
@@ -141,6 +154,7 @@ export function ClientInvoiceDetailPage({
         onBack={handleBackToList}
         onInspector={onInspector}
         inspectorOpen={inspectorOpen}
+        titleBadge={headerStatusBadge}
         actions={(
           <div className="flex flex-wrap items-center gap-2">
             {canPay ? <Button onClick={handleOpenPay}>Pay</Button> : null}
@@ -148,135 +162,77 @@ export function ClientInvoiceDetailPage({
         )}
       />
       <div className="flex-1 overflow-y-auto">
-        <div className="mx-auto max-w-xl space-y-6 px-6 py-6">
-          <div className="mt-1">
-            <InvoiceStatusBadge status={detail.status} />
-          </div>
-
-          <div className="grid gap-3 sm:grid-cols-3">
-          <div className="panel p-4">
-            <p className="text-xs uppercase tracking-[0.08em] text-dim-2">Total</p>
-            <p className="mt-1 text-lg font-semibold text-ink">{formatCurrency(detail.total)}</p>
-          </div>
-          <div className="panel p-4">
-            <p className="text-xs uppercase tracking-[0.08em] text-dim-2">Amount paid</p>
-            <p className="mt-1 text-lg font-semibold text-ink">{formatCurrency(detail.amountPaid)}</p>
-          </div>
-          <div className="panel p-4">
-            <p className="text-xs uppercase tracking-[0.08em] text-dim-2">Amount due</p>
-            <p className="mt-1 text-lg font-semibold text-ink">{formatCurrency(detail.amountDue)}</p>
-          </div>
+        {/* Main LetterPaper body — replaces the previous summary/line-items panels. */}
+        <div className="px-4 pb-2 pt-4 sm:px-6">
+          <InvoicePreview
+            title={detail.matterTitle || detail.clientName || 'Invoice'}
+            referenceLabel={detail.matterId ? `Matter ID: ${detail.matterId}` : null}
+            lineItems={detail.lineItems}
+            issueDate={detail.issueDate}
+            dueDate={detail.dueDate ? detail.dueDate.slice(0, 10) : undefined}
+            invoiceNumber={detail.invoiceNumber}
+            clientName={detail.clientName}
+            clientEmail={detail.clientEmail}
+            notes={detail.notes}
+          />
         </div>
 
-        <div className="panel overflow-hidden">
-          <div className="border-b border-line-subtle px-4 py-3">
-            <h2 className="text-base font-semibold text-ink">Line items</h2>
-          </div>
-          <div className="overflow-x-auto">
-            <table className="min-w-full text-sm">
-              <thead className="border-b border-line-subtle text-xs uppercase tracking-[0.08em] text-dim-2">
-                <tr>
-                  <th className="px-4 py-3 text-left">Description</th>
-                  <th className="px-4 py-3 text-left">Type</th>
-                  <th className="px-4 py-3 text-right">Qty</th>
-                  <th className="px-4 py-3 text-right">Unit</th>
-                  <th className="px-4 py-3 text-right">Total</th>
-                </tr>
-              </thead>
-              <tbody>
-                {detail.lineItems.map((item) => (
-                  <tr key={item.id} className="border-b border-line-subtle last:border-b-0">
-                    <td className="px-4 py-3 text-ink">{item.description || '—'}</td>
-                    <td className="px-4 py-3 text-ink">{item.type}</td>
-                    <td className="px-4 py-3 text-right text-ink">{item.quantity}</td>
-                    <td className="px-4 py-3 text-right text-ink">{formatCurrency(getMajorAmountValue(item.unit_price))}</td>
-                    <td className="px-4 py-3 text-right font-semibold text-ink">{formatCurrency(getMajorAmountValue(item.line_total))}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
+        {/* Refund request form — constrained to the letter width.
+            Payment + refund history live in the inspector slot
+            (InvoiceInspector → InvoiceDetailsSidebar). */}
+        {refundRequestSupported || refundRequestError ? (
+          <div className="mx-auto w-full max-w-[720px] px-4 pb-6 pt-2 sm:px-6">
+            <Panel className="rounded-2xl p-5">
+              <h3 className="text-sm font-semibold text-ink">Request refund</h3>
+              <div className="mt-3 space-y-3">
+                <Input
+                  type="number"
+                  label="Amount (optional)"
+                  value={requestAmount}
+                  onChange={setRequestAmount}
+                  min={0}
+                  step={0.01}
+                />
+                <Textarea
+                  label="Reason"
+                  value={requestReason}
+                  onChange={setRequestReason}
+                  rows={3}
+                />
+                <Button onClick={() => void handleRequestRefund()} disabled={requesting || !refundRequestSupported}>
+                  {requesting ? 'Submitting...' : 'Request refund'}
+                </Button>
+              </div>
+              {!refundRequestSupported ? (
+                <p className="mt-2 text-xs text-dim-2">
+                  Refund requests are currently unavailable for this workspace.
+                </p>
+              ) : null}
+              {refundRequestError ? (
+                <p className="mt-2 text-xs text-neg">{refundRequestError}</p>
+              ) : null}
 
-        <div className="grid gap-4 lg:grid-cols-3">
-          <div className="panel p-4">
-            <h3 className="text-sm font-semibold text-ink">Payment history</h3>
-            {detail.payments.length === 0 ? (
-              <p className="mt-2 text-sm text-dim-2">No payment history available.</p>
-            ) : (
-              <ul className="mt-2 space-y-2 text-sm">
-                {detail.payments.map((payment) => (
-                  <li key={payment.id} className="rounded-r-md border border-line-subtle px-3 py-2">
-                    <p className="font-medium text-ink">{formatCurrency(payment.amount)} • {payment.status}</p>
-                    <p className="text-xs text-dim-2">{renderEventDate(payment.paidAt)}</p>
-                  </li>
-                ))}
-              </ul>
-            )}
+              {detail.refundRequests.length > 0 ? (
+                <>
+                  <h4 className="mt-5 text-xs font-semibold uppercase tracking-[0.08em] text-dim-2">Refund request timeline</h4>
+                  <ol className="mt-2 space-y-2 text-sm">
+                    {detail.refundRequests.map((request) => (
+                      <li key={request.id} className="rounded-r-md border border-line-subtle px-3 py-2">
+                        <p className="font-medium text-ink">{request.status}</p>
+                        <p className="text-xs text-dim-2">{renderEventDate(request.createdAt)}</p>
+                        {request.reason ? <p className="mt-1 text-xs text-dim-2">{request.reason}</p> : null}
+                      </li>
+                    ))}
+                  </ol>
+                </>
+              ) : null}
+            </Panel>
           </div>
+        ) : null}
 
-          <div className="panel p-4">
-            <h3 className="text-sm font-semibold text-ink">Refund history</h3>
-            {detail.refunds.length === 0 ? (
-              <p className="mt-2 text-sm text-dim-2">No refunds for this invoice.</p>
-            ) : (
-              <ul className="mt-2 space-y-2 text-sm">
-                {detail.refunds.map((refund) => (
-                  <li key={refund.id} className="rounded-r-md border border-line-subtle px-3 py-2">
-                    <p className="font-medium text-ink">{formatCurrency(refund.amount)} • {refund.status}</p>
-                    <p className="text-xs text-dim-2">{renderEventDate(refund.createdAt)}</p>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
-
-          <div className="panel p-4">
-            <h3 className="text-sm font-semibold text-ink">Request refund</h3>
-            <div className="mt-3 space-y-3">
-              <Input
-                type="number"
-                label="Amount (optional)"
-                value={requestAmount}
-                onChange={setRequestAmount}
-                min={0}
-                step={0.01}
-              />
-              <Textarea
-                label="Reason"
-                value={requestReason}
-                onChange={setRequestReason}
-                rows={3}
-              />
-              <Button onClick={() => void handleRequestRefund()} disabled={requesting || !refundRequestSupported}>
-                {requesting ? 'Submitting...' : 'Request refund'}
-              </Button>
-            </div>
-            {!refundRequestSupported ? (
-              <p className="mt-2 text-xs text-dim-2">
-                Refund requests are currently unavailable for this workspace.
-              </p>
-            ) : null}
-            {refundRequestError ? (
-              <p className="mt-2 text-xs text-neg">{refundRequestError}</p>
-            ) : null}
-
-            <h4 className="mt-5 text-xs font-semibold uppercase tracking-[0.08em] text-dim-2">Refund request timeline</h4>
-            {detail.refundRequests.length === 0 ? (
-              <p className="mt-2 text-sm text-dim-2">No refund requests yet.</p>
-            ) : (
-              <ol className="mt-2 space-y-2 text-sm">
-                {detail.refundRequests.map((request) => (
-                  <li key={request.id} className="rounded-r-md border border-line-subtle px-3 py-2">
-                    <p className="font-medium text-ink">{request.status}</p>
-                    <p className="text-xs text-dim-2">{renderEventDate(request.createdAt)}</p>
-                    {request.reason ? <p className="mt-1 text-xs text-dim-2">{request.reason}</p> : null}
-                  </li>
-                ))}
-              </ol>
-            )}
-          </div>
-        </div>
+        {/* Audit-side activity below the letter. */}
+        <div className="px-4 pb-8 sm:px-6">
+          <InvoiceActivityPanel detail={detail} variant="audit" />
         </div>
       </div>
     </div>

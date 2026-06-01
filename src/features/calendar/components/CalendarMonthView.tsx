@@ -7,6 +7,8 @@ interface CalendarMonthViewProps {
   anchor: Date;
   events: CalendarEvent[];
   onEventClick?: (event: CalendarEvent) => void;
+  /** Id of the currently focused event — rendered with the active ring. */
+  selectedEventId?: string | null;
 }
 
 const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -15,14 +17,18 @@ const KIND_BORDER: Record<CalendarEventKind, string> = {
   task: 'border-l-2 border-l-warn',
   time: 'border-l-2 border-l-accent',
   engagement: 'border-l-2 border-l-pos',
-  invoice: 'border-l-2 border-l-neg'
+  invoice: 'border-l-2 border-l-neg',
+  court: 'border-l-2 border-l-neg',
+  milestone: 'border-l-2 border-l-pos'
 };
 
 const KIND_TIME_COLOR: Record<CalendarEventKind, string> = {
   task: 'text-warn',
   time: 'text-accent-deep',
   engagement: 'text-pos',
-  invoice: 'text-neg'
+  invoice: 'text-neg',
+  court: 'text-neg',
+  milestone: 'text-pos'
 };
 
 const parseDate = (value: string): Date | null => {
@@ -56,7 +62,12 @@ const startOfDay = (date: Date): Date => {
  * Month view — CSS grid (not <table>) of 7 columns × N rows. Each cell holds
  * the day number plus up to three stacked event chips, color-coded by kind.
  */
-export function CalendarMonthView({ anchor, events, onEventClick }: CalendarMonthViewProps) {
+export function CalendarMonthView({
+  anchor,
+  events,
+  onEventClick,
+  selectedEventId = null
+}: CalendarMonthViewProps) {
   const today = useMemo(() => startOfDay(new Date()), []);
 
   const grid = useMemo(() => {
@@ -145,14 +156,17 @@ export function CalendarMonthView({ anchor, events, onEventClick }: CalendarMont
                 {visible.map((event) => {
                   const parsed = parseDate(event.date);
                   const time = parsed && /T/.test(event.date) ? formatTime(parsed) : null;
+                  const isActive = selectedEventId === event.id;
                   return (
                     <button
                       key={event.id}
                       type="button"
                       onClick={onEventClick ? () => onEventClick(event) : undefined}
+                      aria-pressed={isActive}
                       className={cn(
                         'flex flex-col items-start gap-0.5 rounded-sm bg-paper px-2 py-1 text-left transition-colors hover:bg-paper-2',
-                        KIND_BORDER[event.kind]
+                        KIND_BORDER[event.kind],
+                        isActive && 'ring-1 ring-ink shadow-1 bg-card'
                       )}
                     >
                       {time && (

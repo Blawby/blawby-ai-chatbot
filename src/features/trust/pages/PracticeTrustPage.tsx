@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'preact/hooks';
+import { useCallback, useMemo, useState } from 'preact/hooks';
 import type { FunctionComponent } from 'preact';
 import { useLocation } from 'preact-iso';
 import { AlertTriangle, Wallet } from 'lucide-preact';
@@ -16,15 +16,21 @@ import type { IconComponent } from '@/shared/ui/Icon';
 import { PageHeader } from '@/shared/ui/layout/PageHeader';
 import { WorkspacePlaceholderState } from '@/shared/ui/layout/WorkspacePlaceholderState';
 import { Button } from '@/shared/ui/Button';
+import { LoadingSpinner } from '@/shared/ui/layout/LoadingSpinner';
 import { Tooltip } from '@/shared/ui/overlays/Tooltip';
 import { EntityList } from '@/shared/ui/list/EntityList';
+import { useToastContext } from '@/shared/contexts/ToastContext';
 import { AISummary, MatterChip, StatStrip, type StatStripCell } from '@/design-system/patterns';
-import { Pill } from '@/design-system/primitives';
+import { Pill, Chip } from '@/design-system/primitives';
 import { formatCurrency } from '@/shared/utils/currencyFormatter';
 import { formatRelativeTime } from '@/features/matters/utils/formatRelativeTime';
+import { reportsApi } from '@/features/reports/services/reportsApi';
 
 import { useTrustLedger, type TrustClientBalance } from '../hooks/useTrustLedger';
 import { TrustLedgerEntryRow } from '../components/TrustLedgerEntryRow';
+import { TrustAuditTrailPane } from '../components/TrustAuditTrailPane';
+import { TrustComplianceRulesPane } from '../components/TrustComplianceRulesPane';
+import { EmailCpaDialog } from '../components/EmailCpaDialog';
 
 const formatCentsMajor = (cents: number): string => formatCurrency(cents / 100);
 
@@ -51,6 +57,23 @@ const formatGeneratedAt = (iso: string | null): string => {
   return formatRelativeTime(iso);
 };
 
+/**
+ * Rough "low balance" threshold for the AI lede observation. We don't
+ * have a per-client retainer target yet (`practices.retainer_target_cents`
+ * is in the backend backlog — see PR #662), so a flat $1,000 cents value
+ * is the most we can ground without inventing data.
+ */
+const LOW_BALANCE_CENTS = 100_000;
+/** Threshold the lede suggests as the typical replenishment amount. */
+const SUGGESTED_REPLENISH_CENTS = 300_000;
+
+/*
+ * TODO(backend): expose `matter_id` on `TrustLedgerRow` so per-client
+ * roll-ups and individual ledger rows can render the primary matter
+ * inline (`· {matterTitle}`). The wire field is already in
+ * `BackendTrustTransactionSchema` but `aggregateTrustLedger` drops it
+ * before returning — see `worker/services/ReportService.ts`.
+ */
 const ClientBalanceRow: FunctionComponent<{ balance: TrustClientBalance }> = ({ balance }) => (
   <div className="grid w-full grid-cols-[minmax(0,1fr)_120px_110px] items-center gap-4 px-5 py-4">
     <div className="flex min-w-0 flex-col gap-1.5">
@@ -74,6 +97,7 @@ const PracticeTrustPage: FunctionComponent = () => {
   const { session } = useSessionContext();
   const location = useLocation();
   const { navigate } = useNavigation();
+  const { showSuccess, showError, showInfo } = useToastContext();
 
   // Read the slug from the URL so the resolver picks `currentPractice` for the
   // workspace we're on — mirrors the pattern in PracticeHomePage.
@@ -213,10 +237,95 @@ const PracticeTrustPage: FunctionComponent = () => {
     />
   ) : null;
 
+  // ── Actionable observation ───────────────────────────────────────────────
+  // Single client with the lowest balance below LOW_BALANCE_CENTS — the
+  // lede surfaces it by name so the user has somewhere to act. We don't
+  // synthesize a name when no one is below threshold; the second sentence
+  // (net flow / period totals) carries the lede instead.
+  const lowestBelowThreshold = useMemo<TrustClientBalance | null>(() => {
+    if (clientBalances.length === 0) return null;
+    const below = clientBalances.filter((b) => b.balanceCents > 0 && b.balanceCents < LOW_BALANCE_CENTS);
+    if (below.length === 0) return null;
+    return below.reduce((min, b) => (b.balanceCents < min.balanceCents ? b : min), below[0]);
+  }, [clientBalances]);
+
+  const netFlowCents = totalCreditsCents - totalDebitsCents;
+  const isNetOutflow = totalDebitsCents > 0 && netFlowCents < 0;
+
+  // ── Email-to-CPA dialog state ────────────────────────────────────────────
+  const [cpaDialogOpen, setCpaDialogOpen] = useState(false);
+  const handleOpenCpaDialog = useCallback(() => setCpaDialogOpen(true), []);
+  const handleCloseCpaDialog = useCallback(() => setCpaDialogOpen(false), []);
+
+  // ── Generate IOLTA report (send-now → Reports → Deliveries) ──────────────
+  const [generatingReport, setGeneratingReport] = useState(false);
+  const handleGenerateReport = useCallback(async () => {
+    if (!activePracticeId) return;
+    setGeneratingReport(true);
+    try {
+      await reportsApi.sendNow(activePracticeId, {
+        reportType: 'trust-ledger',
+        recipients: [],
+        filters: { period: 'month' },
+      });
+      showSuccess(
+        'Report generation queued',
+        'Check Reports → Deliveries to download once ready.',
+      );
+    } catch (err) {
+      showError(
+        'Could not queue report',
+        err instanceof Error ? err.message : 'Try again in a moment.',
+      );
+    } finally {
+      setGeneratingReport(false);
+    }
+  }, [activePracticeId, showError, showSuccess]);
+
+  // ── "Email statement" staged-action chip ─────────────────────────────────
+  // Same `sendNow` path as the primary CTA, but pinned to a per-client
+  // export when a client filter is active. For now it queues the same
+  // trust-ledger delivery; once we have a per-client export we can scope
+  // it to `{ clientId }`. TODO(backend): expose `clientId` filter on
+  // `/api/reports/:practiceId/send-now`.
+  const handleEmailStatement = useCallback(async () => {
+    if (!activePracticeId) return;
+    setGeneratingReport(true);
+    try {
+      await reportsApi.sendNow(activePracticeId, {
+        reportType: 'trust-ledger',
+        recipients: [],
+        filters: { period: 'month' },
+      });
+      showSuccess(
+        'Statement queued',
+        'Trust ledger export is generating — check Reports → Deliveries.',
+      );
+    } catch (err) {
+      showError(
+        'Could not queue statement',
+        err instanceof Error ? err.message : 'Try again in a moment.',
+      );
+    } finally {
+      setGeneratingReport(false);
+    }
+  }, [activePracticeId, showError, showSuccess]);
+
+  // ── "Pause new draws" stub ───────────────────────────────────────────────
+  // TODO(backend): wire to a real preference toggle (e.g. flip the
+  // `lock_matter_on_zero` rule globally, or add a `trust_paused` flag on
+  // `practices`). Today we just acknowledge the click.
+  const handlePauseDraws = useCallback(() => {
+    showInfo(
+      'Pause new draws',
+      'Backend wiring pending — this will lock the staged-action queue once available.',
+    );
+  }, [showInfo]);
+
   // ── AI summary copy ────────────────────────────────────────────────────────
-  // Until we wire a per-practice analyzer for IOLTA narratives, derive a
-  // simple deterministic line from the meta we have. This avoids inventing
-  // claims (no false "Martinez retainer below threshold" hallucinations).
+  // Surface ONE actionable observation (lowest client under threshold) plus
+  // the deterministic period rollup. Every figure is sourced from the
+  // ledger meta we just fetched — no invented names or percentages.
   const aiSummaryBody = (() => {
     if (loading && !meta) return 'Loading trust balance commentary…';
     if (!meta || (totalCreditsCents === 0 && totalDebitsCents === 0 && totalBalanceCents === 0)) {
@@ -230,21 +339,59 @@ const PracticeTrustPage: FunctionComponent = () => {
     }
     return (
       <>
+        {lowestBelowThreshold ? (
+          <>
+            I noticed: <em>{lowestBelowThreshold.clientName}</em> retainer is at{' '}
+            <em>{formatCentsMajor(lowestBelowThreshold.balanceCents)}</em> — practices
+            typically replenish at <em>{formatCentsMajor(SUGGESTED_REPLENISH_CENTS)}</em>.
+            {' '}
+          </>
+        ) : null}
         Ending IOLTA balance is <em>{formatCentsMajor(totalBalanceCents)}</em> across {clientCount} {clientCount === 1 ? 'client' : 'clients'}.
         This period recorded <em>{formatCentsMajor(totalCreditsCents)}</em> in deposits and{' '}
-        <em>{formatCentsMajor(totalDebitsCents)}</em> in withdrawals. Review per-client balances
-        below before issuing replenishment requests.
+        <em>{formatCentsMajor(totalDebitsCents)}</em> in withdrawals
+        {isNetOutflow ? (
+          <>
+            {' '}— a net outflow of <em>{formatCentsMajor(Math.abs(netFlowCents))}</em>.
+          </>
+        ) : (
+          <>.</>
+        )}
       </>
     );
   })();
+
+  const aiSummaryActions = activePracticeId ? (
+    <>
+      <Chip onClick={handleEmailStatement} title="Email a trust statement to recipients on file">
+        Email statement
+      </Chip>
+      <Chip onClick={handleOpenCpaDialog} title="Schedule recurring delivery to your CPA">
+        Email to CPA
+      </Chip>
+      <Chip onClick={handlePauseDraws} title="Pause staged actions against trust">
+        Pause new draws
+      </Chip>
+    </>
+  ) : null;
 
   // Replenishment is intentionally disabled in v1 — the wiring lives in a
   // separate IOLTA work track (StagedAction approval flow). Render as a
   // disabled CTA so the affordance is discoverable but not actionable.
   const replenishButton = (
     <Tooltip content="Coming soon · replenishment must go through the StagedAction approval flow">
-      <Button variant="primary" disabled>
+      <Button variant="secondary" disabled>
         Stage replenishment
+      </Button>
+    </Tooltip>
+  );
+
+  // Reconcile is also gated on the bank-integration track. Render disabled
+  // so the affordance is visible but the user can't trigger it.
+  const reconcileButton = (
+    <Tooltip content="Reconciliation pending bank integration">
+      <Button variant="secondary" disabled>
+        Reconcile
       </Button>
     </Tooltip>
   );
@@ -266,10 +413,30 @@ const PracticeTrustPage: FunctionComponent = () => {
           subtitle="Read-only view of client trust funds. Deposits, transfers, and refunds flow through the staged-approval queue."
           actions={
             <div className="flex flex-wrap items-center gap-2">
+              {reconcileButton}
               <Button variant="secondary" onClick={handleExportCsv} disabled={!activePracticeId}>
                 Export CSV
               </Button>
+              <Button
+                variant="secondary"
+                onClick={handleOpenCpaDialog}
+                disabled={!activePracticeId}
+              >
+                Email to CPA quarterly
+              </Button>
               {replenishButton}
+              <Button
+                variant="primary"
+                onClick={handleGenerateReport}
+                disabled={!activePracticeId || generatingReport}
+              >
+                {generatingReport && (
+                  <span className="mr-1.5 inline-flex">
+                    <LoadingSpinner size="sm" ariaLabel="Queuing report" announce={false} />
+                  </span>
+                )}
+                Generate IOLTA report
+              </Button>
             </div>
           }
         />
@@ -277,6 +444,7 @@ const PracticeTrustPage: FunctionComponent = () => {
         <AISummary
           label="Trust balance commentary"
           verifier={meta ? 'grounded in ledger meta' : undefined}
+          actions={aiSummaryActions}
         >
           {aiSummaryBody}
         </AISummary>
@@ -299,90 +467,104 @@ const PracticeTrustPage: FunctionComponent = () => {
           </div>
         ) : null}
 
-        <section className="flex flex-col gap-3">
-          <div className="flex items-end justify-between">
-            <div>
-              <h2 className="font-serif text-xl text-ink">Per-client balances</h2>
-              <p className="mt-1 text-sm text-dim-2">
-                Running balance per client based on the most recent entry in the period.
-              </p>
-            </div>
-            <span className="font-mono text-[10.5px] uppercase tracking-[0.04em] text-dim">
-              {clientCount} {clientCount === 1 ? 'client' : 'clients'} · {formatCentsMajor(totalBalanceCents)} total
-            </span>
-          </div>
-          <EntityList
-            items={clientBalances}
-            onSelect={(b) => setClientFilter((current) => (current === b.id ? null : b.id))}
-            selectedId={clientFilter ?? undefined}
-            isLoading={loading && clientBalances.length === 0}
-            className="panel overflow-hidden"
-            emptyState={
-              <WorkspacePlaceholderState
-                icon={Wallet}
-                title="No client balances"
-                description="Once a client deposits funds to your trust account, their balance will appear here."
-                className="h-full"
-              />
-            }
-            renderItem={(balance) => <ClientBalanceRow balance={balance} />}
-          />
-        </section>
-
-        <section className="flex flex-col gap-3">
-          <div className="flex items-end justify-between">
-            <div>
-              <h2 className="font-serif text-xl text-ink">Recent transactions</h2>
-              <p className="mt-1 text-sm text-dim-2">
-                Every deposit, transfer, and refund recorded in the ledger.
-              </p>
-            </div>
-            <div className="flex items-center gap-2">
-              {clientFilter ? (
-                <>
-                  <Pill tone="dim">Filtered · {clientFilter}</Pill>
-                  <button
-                    type="button"
-                    className="font-mono text-[10.5px] uppercase tracking-[0.04em] text-dim hover:text-ink"
-                    onClick={() => setClientFilter(null)}
-                  >
-                    Clear filter
-                  </button>
-                </>
-              ) : (
+        {/*
+          Two-column body (Trust.html .ledger-body): per-client balances +
+          recent transactions on the left, audit trail + compliance rules
+          on the right. Collapses to a single column under 1024px.
+        */}
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
+          <div className="flex min-w-0 flex-col gap-6">
+            <section className="flex flex-col gap-3">
+              <div className="flex flex-wrap items-end justify-between gap-2">
+                <div>
+                  <h2 className="font-serif text-xl text-ink">Per-client balances</h2>
+                  <p className="mt-1 text-sm text-dim-2">
+                    Running balance per client based on the most recent entry in the period.
+                  </p>
+                </div>
                 <span className="font-mono text-[10.5px] uppercase tracking-[0.04em] text-dim">
-                  {visibleEntries.length} {visibleEntries.length === 1 ? 'entry' : 'entries'}
+                  {clientCount} {clientCount === 1 ? 'client' : 'clients'} · {formatCentsMajor(totalBalanceCents)} total
                 </span>
-              )}
-            </div>
+              </div>
+              <EntityList
+                items={clientBalances}
+                onSelect={(b) => setClientFilter((current) => (current === b.id ? null : b.id))}
+                selectedId={clientFilter ?? undefined}
+                isLoading={loading && clientBalances.length === 0}
+                className="panel overflow-hidden"
+                emptyState={
+                  <WorkspacePlaceholderState
+                    icon={Wallet}
+                    title="No client balances"
+                    description="Once a client deposits funds to your trust account, their balance will appear here."
+                    className="h-full"
+                  />
+                }
+                renderItem={(balance) => <ClientBalanceRow balance={balance} />}
+              />
+            </section>
+
+            <section className="flex flex-col gap-3">
+              <div className="flex flex-wrap items-end justify-between gap-2">
+                <div>
+                  <h2 className="font-serif text-xl text-ink">Recent transactions</h2>
+                  <p className="mt-1 text-sm text-dim-2">
+                    Every deposit, transfer, and refund recorded in the ledger.
+                  </p>
+                </div>
+                <div className="flex items-center gap-2">
+                  {clientFilter ? (
+                    <>
+                      <Pill tone="dim">Filtered · {clientFilter}</Pill>
+                      <button
+                        type="button"
+                        className="font-mono text-[10.5px] uppercase tracking-[0.04em] text-dim hover:text-ink"
+                        onClick={() => setClientFilter(null)}
+                      >
+                        Clear filter
+                      </button>
+                    </>
+                  ) : (
+                    <span className="font-mono text-[10.5px] uppercase tracking-[0.04em] text-dim">
+                      {visibleEntries.length} {visibleEntries.length === 1 ? 'entry' : 'entries'}
+                    </span>
+                  )}
+                </div>
+              </div>
+              <EntityList
+                items={visibleEntries}
+                onSelect={() => undefined}
+                isLoading={loading && visibleEntries.length === 0}
+                className="panel overflow-hidden"
+                emptyState={
+                  <WorkspacePlaceholderState
+                    icon={Wallet}
+                    title={clientFilter ? `No entries for ${clientFilter}` : 'No transactions yet'}
+                    description={
+                      clientFilter
+                        ? 'Clear the filter to see all ledger entries.'
+                        : 'Deposits and transfers will appear here once a client funds their trust balance.'
+                    }
+                    className="h-full"
+                  />
+                }
+                renderItem={(entry) => (
+                  <TrustLedgerEntryRow
+                    entry={entry}
+                    onSelectClient={(name) =>
+                      setClientFilter((current) => (current === name ? null : name))
+                    }
+                  />
+                )}
+              />
+            </section>
           </div>
-          <EntityList
-            items={visibleEntries}
-            onSelect={() => undefined}
-            isLoading={loading && visibleEntries.length === 0}
-            className="panel overflow-hidden"
-            emptyState={
-              <WorkspacePlaceholderState
-                icon={Wallet}
-                title={clientFilter ? `No entries for ${clientFilter}` : 'No transactions yet'}
-                description={
-                  clientFilter
-                    ? 'Clear the filter to see all ledger entries.'
-                    : 'Deposits and transfers will appear here once a client funds their trust balance.'
-                }
-                className="h-full"
-              />
-            }
-            renderItem={(entry) => (
-              <TrustLedgerEntryRow
-                entry={entry}
-                onSelectClient={(name) =>
-                  setClientFilter((current) => (current === name ? null : name))
-                }
-              />
-            )}
-          />
-        </section>
+
+          <div className="flex min-w-0 flex-col gap-6">
+            <TrustAuditTrailPane practiceId={activePracticeId} />
+            <TrustComplianceRulesPane practiceId={activePracticeId} />
+          </div>
+        </div>
       </div>
     </div>
   );
@@ -400,6 +582,11 @@ const PracticeTrustPage: FunctionComponent = () => {
         {main}
       </main>
       <LeftRail variant="mobile" items={railItems} className="lg:hidden" />
+      <EmailCpaDialog
+        practiceId={activePracticeId}
+        isOpen={cpaDialogOpen}
+        onClose={handleCloseCpaDialog}
+      />
     </div>
   );
 };

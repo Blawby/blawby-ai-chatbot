@@ -7,6 +7,8 @@ interface CalendarWeekViewProps {
   anchor: Date;
   events: CalendarEvent[];
   onEventClick?: (event: CalendarEvent) => void;
+  /** Id of the currently focused event — rendered with the active ring. */
+  selectedEventId?: string | null;
 }
 
 const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -15,14 +17,18 @@ const KIND_BORDER: Record<CalendarEventKind, string> = {
   task: 'border-l-2 border-l-warn',
   time: 'border-l-2 border-l-accent',
   engagement: 'border-l-2 border-l-pos',
-  invoice: 'border-l-2 border-l-neg'
+  invoice: 'border-l-2 border-l-neg',
+  court: 'border-l-2 border-l-neg',
+  milestone: 'border-l-2 border-l-pos'
 };
 
 const KIND_TIME_COLOR: Record<CalendarEventKind, string> = {
   task: 'text-warn',
   time: 'text-accent-deep',
   engagement: 'text-pos',
-  invoice: 'text-neg'
+  invoice: 'text-neg',
+  court: 'text-neg',
+  milestone: 'text-pos'
 };
 
 const parseDate = (value: string): Date | null => {
@@ -58,7 +64,12 @@ const startOfWeek = (date: Date): Date => {
  * Mirrors the `.week` shape from the design handoff but uses CSS grid + DS
  * tokens.
  */
-export function CalendarWeekView({ anchor, events, onEventClick }: CalendarWeekViewProps) {
+export function CalendarWeekView({
+  anchor,
+  events,
+  onEventClick,
+  selectedEventId = null
+}: CalendarWeekViewProps) {
   const today = useMemo(() => startOfDay(new Date()), []);
   const days = useMemo(() => {
     const start = startOfWeek(anchor);
@@ -131,15 +142,18 @@ export function CalendarWeekView({ anchor, events, onEventClick }: CalendarWeekV
                 dayEvents.map((event) => {
                   const parsed = parseDate(event.date);
                   const time = parsed && /T/.test(event.date) ? formatTime(parsed) : null;
+                  const isActive = selectedEventId === event.id;
                   return (
                     <button
                       key={event.id}
                       type="button"
                       onClick={onEventClick ? () => onEventClick(event) : undefined}
+                      aria-pressed={isActive}
                       className={cn(
                         'flex flex-col gap-0.5 rounded-sm bg-paper px-2 py-1.5 text-left transition-colors hover:bg-paper-2',
                         KIND_BORDER[event.kind],
-                        past && 'opacity-65'
+                        past && 'opacity-65',
+                        isActive && 'ring-1 ring-ink shadow-1 bg-card opacity-100'
                       )}
                     >
                       {time && (

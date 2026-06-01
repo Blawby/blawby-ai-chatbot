@@ -1,41 +1,28 @@
-import { useCallback, useState } from 'preact/hooks';
+import { useCallback, useMemo, useState } from 'preact/hooks';
+import { Inbox } from 'lucide-preact';
 import { useNavigation } from '@/shared/utils/navigation';
 import { useToastContext } from '@/shared/contexts/ToastContext';
 import { listClientInvoices } from '@/features/invoices/services/invoicesService';
 import type { InvoiceSummary } from '@/features/invoices/types';
-import { InvoiceStatusBadge } from '@/features/invoices/components/InvoiceStatusBadge';
-import { InvoicesTable } from '@/features/invoices/components/InvoicesTable';
-import { ColumnEditor, type ColumnEditorOption } from '@/shared/ui/table';
+import { ClientInvoiceRow } from '@/features/invoices/components/ClientInvoiceRow';
+import { SplitDetail } from '@/design-system/layout';
 import { Seg } from '@/design-system/patterns';
-import {
-  CLIENT_SAFE_INVOICE_COLUMNS,
-  DEFAULT_INVOICE_COLUMN_DEFS,
-  type InvoiceColumnKey,
-} from '@/features/invoices/config/invoiceCollection';
-import { Panel } from '@/shared/ui/layout/Panel';
 import { WorkspacePlaceholderState } from '@/shared/ui/layout/WorkspacePlaceholderState';
 import { EntityList } from '@/shared/ui/list/EntityList';
 import { usePaginatedList } from '@/shared/hooks/usePaginatedList';
 import { formatCurrency } from '@/shared/utils/currencyFormatter';
-import { formatLongDate } from '@/shared/utils/dateFormatter';
-import { cn } from '@/shared/utils/cn';
 
 const PAGE_SIZE = 10;
 type ClientInvoiceTabId = 'all' | 'unpaid' | 'paid';
 const CLIENT_INVOICE_TAB_STATUS_MAP: Record<ClientInvoiceTabId, string[]> = {
   all: [],
-  unpaid: ['open', 'overdue'],
+  unpaid: ['open', 'overdue', 'sent', 'pending'],
   paid: ['paid'],
 };
 const CLIENT_INVOICE_TAB_OPTIONS: ReadonlyArray<{ value: ClientInvoiceTabId; label: string }> = [
   { value: 'all', label: 'All' },
   { value: 'unpaid', label: 'Unpaid' },
   { value: 'paid', label: 'Paid' },
-];
-
-const CLIENT_COLUMN_OPTIONS: ColumnEditorOption[] = [
-  ...DEFAULT_INVOICE_COLUMN_DEFS.map((column) => ({ ...column, fixed: true })),
-  ...CLIENT_SAFE_INVOICE_COLUMNS,
 ];
 
 const InvoicesEmptyState = ({ hasFilters }: { hasFilters: boolean }) => (
@@ -45,6 +32,14 @@ const InvoicesEmptyState = ({ hasFilters }: { hasFilters: boolean }) => (
       ? 'Try adjusting your filters to see more invoices.'
       : 'Invoices shared with you will appear here.'}
     className="p-8"
+  />
+);
+
+const DetailEmptyState = () => (
+  <WorkspacePlaceholderState
+    icon={Inbox}
+    title="Select an invoice"
+    description="Pick an invoice from the list to view details and pay."
   />
 );
 
@@ -61,11 +56,14 @@ export function ClientInvoicesPage({
 }) {
   const { navigate } = useNavigation();
   const { showError } = useToastContext();
-  const [visibleOptionalColumns, setVisibleOptionalColumns] = useState<InvoiceColumnKey[]>([]);
   const [activeTab, setActiveTab] = useState<ClientInvoiceTabId>('all');
-  const effectiveStatusFilter = statusFilter.length > 0
-    ? statusFilter
-    : CLIENT_INVOICE_TAB_STATUS_MAP[activeTab];
+
+  // Parent route may pin a status (e.g. opened from "Pay" CTA); otherwise
+  // the in-page Seg drives filtering.
+  const effectiveStatusFilter = useMemo(() => {
+    if (statusFilter.length > 0) return statusFilter;
+    return CLIENT_INVOICE_TAB_STATUS_MAP[activeTab];
+  }, [statusFilter, activeTab]);
 
   const {
     items: invoices,
@@ -116,77 +114,104 @@ export function ClientInvoicesPage({
 
   const hasFilters = effectiveStatusFilter.length > 0;
 
-  if (renderMode === 'full') {
-    return (
-      <div className="flex min-h-0 flex-1 flex-col gap-4 p-4 sm:p-6">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <Seg<ClientInvoiceTabId>
-            value={activeTab}
-            options={CLIENT_INVOICE_TAB_OPTIONS}
-            onChange={setActiveTab}
-            ariaLabel="Filter invoices by status"
-            className="w-full sm:w-auto sm:min-w-[18rem]"
-          />
-          <ColumnEditor
-            options={CLIENT_COLUMN_OPTIONS}
-            visible={visibleOptionalColumns}
-            onChange={(next) => setVisibleOptionalColumns(next as InvoiceColumnKey[])}
-          />
+  // ── Aggregate stats from the loaded page (client view is smaller) ─────
+  // NOTE(backend): the client invoices endpoint doesn't return aggregates,
+  // so we derive from the currently-loaded items. For deeper pages this
+  // under-counts; acceptable until a /client/invoices/summary endpoint
+  // exists.
+  const totalDue = invoices.reduce((sum, inv) => {
+    const s = inv.status.toLowerCase();
+    return s === 'paid' ? sum : sum + inv.amountDue;
+  }, 0);
+
+  // ── List shell head ───────────────────────────────────────────────────
+  const listHead = (
+    <div className="border-b border-rule px-[22px] pb-[14px] pt-[22px]">
+      <div className="font-mono text-[10px] uppercase tracking-[0.14em] text-dim">
+        {`Your account · ${invoices.length} ${invoices.length === 1 ? 'invoice' : 'invoices'}`}
+      </div>
+      <h1 className="mt-1 font-[family-name:var(--serif)] text-[34px] font-normal leading-none tracking-[-0.02em] text-ink">
+        Invoices
+      </h1>
+      {totalDue > 0 ? (
+        <div className="mt-3 flex flex-col gap-0.5">
+          <span className="font-mono text-[10px] uppercase tracking-[0.04em] text-dim">
+            Balance due
+          </span>
+          <span className="font-[family-name:var(--sans)] text-sm font-medium text-ink">
+            {formatCurrency(totalDue)}
+          </span>
         </div>
-        <InvoicesTable
-          invoices={invoices}
-          loading={isLoading}
-          loadingMore={isLoadingMore}
-          hasMore={hasMore}
-          onLoadMore={loadMore}
-          error={error}
-          emptyMessage={hasFilters ? 'No invoices match these filters.' : undefined}
-          onRowClick={handleRowClick}
-          visibleOptionalColumns={visibleOptionalColumns}
-          footer={(
-            <div className="flex w-full items-center justify-between gap-4">
-              <span>{invoices.length} item{invoices.length === 1 ? '' : 's'}</span>
-            </div>
-          )}
+      ) : null}
+    </div>
+  );
+
+  // ── List body (filters + EntityList of ClientInvoiceRow) ──────────────
+  const listBody = (
+    <>
+      <div className="border-b border-rule bg-paper-2 px-[22px] py-2.5">
+        <Seg<ClientInvoiceTabId>
+          value={activeTab}
+          options={CLIENT_INVOICE_TAB_OPTIONS}
+          onChange={setActiveTab}
+          ariaLabel="Filter invoices by status"
         />
+      </div>
+      <EntityList
+        items={invoices}
+        onSelect={handleRowClick}
+        selectedId={undefined}
+        isLoading={isLoading}
+        isLoadingMore={isLoadingMore}
+        error={error}
+        minMountSkeletonMs={250}
+        emptyState={<InvoicesEmptyState hasFilters={hasFilters} />}
+        onLoadMore={hasMore ? loadMore : undefined}
+        renderItem={(invoice, isSelected) => (
+          <ClientInvoiceRow invoice={invoice} isSelected={isSelected} />
+        )}
+      />
+    </>
+  );
+
+  // ── listOnly: render the list inside the workspace shell's listPanel ──
+  if (renderMode === 'listOnly') {
+    return (
+      <div className="flex h-full min-h-0 flex-1 flex-col">
+        {listHead}
+        {listBody}
       </div>
     );
   }
 
-  return (
-    <div className={cn('flex min-h-0 flex-1 flex-col gap-2')}>
-      <Panel className="list-panel-card-gradient min-h-0 flex-1 overflow-hidden">
-        <EntityList
-          items={invoices}
-          onSelect={handleRowClick}
-          selectedId={undefined}
-          isLoading={isLoading}
-          isLoadingMore={isLoadingMore}
-          error={error}
-          minMountSkeletonMs={250}
-          emptyState={<InvoicesEmptyState hasFilters={hasFilters} />}
-          onLoadMore={hasMore ? loadMore : undefined}
-          renderItem={(invoice) => (
-            <div
-              className={cn('w-full px-4 py-3 text-left hover:bg-paper-2/10')}
-            >
-              <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <p className="truncate text-sm font-semibold text-ink">{invoice.invoiceNumber || '—'}</p>
-                  <p className="truncate text-xs text-dim-2">{invoice.clientName ?? '—'}</p>
-                  <p className="mt-1 text-xs text-dim-2">
-                    Due {invoice.dueDate ? formatLongDate(invoice.dueDate) : '—'}
-                  </p>
-                </div>
-                <div className="flex shrink-0 flex-col items-end gap-1">
-                  <InvoiceStatusBadge status={invoice.status} />
-                  <p className="text-sm font-semibold text-ink">{formatCurrency(invoice.total)}</p>
-                </div>
-              </div>
-            </div>
-          )}
-        />
-      </Panel>
+  // ── full: SplitDetail with list left + empty-state right ──────────────
+  const leftPane = (
+    <div className="flex h-full min-h-0 flex-1 flex-col">
+      {listHead}
+      {listBody}
     </div>
+  );
+
+  const rightPane = (
+    <div className="flex h-full min-h-0 flex-1 flex-col">
+      <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-auto p-6">
+        <DetailEmptyState />
+      </div>
+    </div>
+  );
+
+  return (
+    <>
+      <SplitDetail
+        list={leftPane}
+        detail={rightPane}
+        ariaLabel="Invoices"
+        className="hidden xl:flex"
+      />
+      {/* Mobile + below-xl: list-only (drill-down to detail on row click) */}
+      <div className="flex min-h-0 flex-1 flex-col xl:hidden">
+        {leftPane}
+      </div>
+    </>
   );
 }
