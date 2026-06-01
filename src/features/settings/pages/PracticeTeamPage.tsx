@@ -246,6 +246,13 @@ export const PracticeTeamPage = ({ className, onBack }: PracticeTeamPageProps) =
       onBack={onBack}
       className={className}
       contentMaxWidth={null}
+      crumb="Settings · Practice · Team"
+      accentTitle={(
+        <>
+          Who can <em>act</em> on this practice.
+        </>
+      )}
+      lede="Members, roles, and pending invitations. Admins can stage writes; owners can change billing."
     >
       <div className="space-y-6">
         <div className="pt-2 pb-6">

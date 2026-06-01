@@ -1,4 +1,5 @@
 import { useMemo, useState, useEffect } from 'preact/hooks';
+import type { ComponentChildren } from 'preact';
 import { useNavigation } from '@/shared/utils/navigation';
 import { cn } from '@/shared/utils/cn';
 import { type App, mockApps } from './appsData';
@@ -15,6 +16,7 @@ import { MFAEnrollmentPage } from './MFAEnrollmentPage';
 import { PracticePage } from './PracticePage';
 import { PracticeTeamPage } from './PracticeTeamPage';
 import { EngagementTemplatesPage } from './EngagementTemplatesPage';
+import { IntelligencePage } from './IntelligencePage';
 import { AppsPage } from './AppsPage';
 import { AppDetailPage } from './AppDetailPage';
 import { McpAccessPage } from './McpAccessPage';
@@ -30,6 +32,7 @@ export type SettingsView =
   | 'practice-payouts'
   | 'practice-team'
   | 'engagement-templates'
+  | 'intelligence'
   | 'apps'
   | 'app-detail'
   | 'security'
@@ -47,6 +50,78 @@ export interface SettingsContentProps {
   appId?: string;
   apps?: App[];
 }
+
+// ---------------------------------------------------------------------------
+// Chat-first hero map — Settings.html typography sweep.
+// Each top-level (non-self-wrapped) view supplies its own crumb + serif H1
+// with em accent + lede. Self-wrapped pages (Practice, Team, Payouts,
+// Engagement Templates, Intelligence, MFA Enrollment, App Detail) drive their
+// own EditorShell hero — those map entries are still defined here for
+// reference / parity with non-self-wrapped pages but unused at runtime.
+// ---------------------------------------------------------------------------
+
+interface SettingsViewHero {
+  crumb: string;
+  accentTitle: ComponentChildren;
+  lede: string;
+}
+
+const SETTINGS_VIEW_HERO: Partial<Record<SettingsView, SettingsViewHero>> = {
+  general: {
+    crumb: 'Settings · Personal · Appearance',
+    accentTitle: (
+      <>
+        How Blawby <em>looks</em> to you.
+      </>
+    ),
+    lede: 'Theme, language, and the small choices that make this workspace feel like yours.',
+  },
+  notifications: {
+    crumb: 'Settings · Personal · Notifications',
+    accentTitle: (
+      <>
+        What I <em>tell you</em>, and where.
+      </>
+    ),
+    lede: 'Pick the channels that reach you and the categories that matter. Silence the rest.',
+  },
+  account: {
+    crumb: 'Settings · Account · Profile',
+    accentTitle: (
+      <>
+        Your <em>account</em>, on your terms.
+      </>
+    ),
+    lede: 'Name, email, plan, and the controls you need to close out cleanly.',
+  },
+  security: {
+    crumb: 'Settings · Account · Security',
+    accentTitle: (
+      <>
+        Keep your <em>account</em> safe.
+      </>
+    ),
+    lede: 'Passwords, multi-factor, trusted devices, and session controls.',
+  },
+  apps: {
+    crumb: 'Settings · Practice · Apps',
+    accentTitle: (
+      <>
+        Tools the assistant can <em>reach</em>.
+      </>
+    ),
+    lede: 'Connect Clio, Stripe, Google Calendar, and other services the assistant can act on with your approval.',
+  },
+  help: {
+    crumb: 'Settings · Support · Help',
+    accentTitle: (
+      <>
+        Get <em>unstuck</em>.
+      </>
+    ),
+    lede: 'Documentation, contact, and the small print.',
+  },
+};
 
 const SettingsRouter = ({
   view,
@@ -81,6 +156,8 @@ const SettingsRouter = ({
         return <PracticeTeamPage onBack={() => navigate(toSettingsPath('practice'))} />;
       case 'engagement-templates':
         return <EngagementTemplatesPage onBack={() => navigate(toSettingsPath('practice'))} />;
+      case 'intelligence':
+        return <IntelligencePage onBack={() => navigate(toSettingsPath('practice'))} />;
       case 'apps':
         return (
           <AppsPage
@@ -136,16 +213,22 @@ const SettingsRouter = ({
     || view === 'practice-payouts'
     || view === 'practice-team'
     || view === 'engagement-templates'
+    || view === 'intelligence'
     || view === 'mfa-enrollment';
 
   if (isSelfWrappedView) {
     return renderViewContent();
   }
 
+  const hero = SETTINGS_VIEW_HERO[view];
+
   return (
     <EditorShell
       title={viewLabel}
       contentMaxWidth={null}
+      crumb={hero?.crumb}
+      accentTitle={hero?.accentTitle}
+      lede={hero?.lede}
     >
       {renderViewContent()}
     </EditorShell>
@@ -186,6 +269,7 @@ export const SettingsContent = (props: SettingsContentProps) => {
   const isPracticeScopedView = view === 'practice-payouts'
     || view === 'practice-team'
     || view === 'engagement-templates'
+    || view === 'intelligence'
     || view === 'practice'
     || view === 'apps'
     || view === 'app-detail';

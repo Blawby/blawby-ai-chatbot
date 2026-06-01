@@ -434,6 +434,13 @@ export const PracticePage = ({ className, onBack }: PracticePageProps) => {
       onBack={onBack}
       className={className}
       contentMaxWidth={null}
+      crumb="Settings · Practice · Profile"
+      accentTitle={(
+        <>
+          How your <em>firm</em> shows up.
+        </>
+      )}
+      lede="Name, brand, contact details, and address. This is what clients and the public assistant see."
       actions={(
         <div className="flex items-center gap-2">
           <Button

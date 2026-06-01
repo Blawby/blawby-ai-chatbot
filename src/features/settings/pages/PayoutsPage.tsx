@@ -253,6 +253,13 @@ export const PayoutsPage = ({
       onBack={onBack}
       className={className}
       contentMaxWidth={null}
+      crumb="Settings · Practice · Payouts"
+      accentTitle={(
+        <>
+          Where money <em>lands</em>, and how it&rsquo;s billed.
+        </>
+      )}
+      lede="Connect Stripe, set your billing increment, and verify that payouts are flowing."
     >
       <div className="space-y-6">
         <SettingSection

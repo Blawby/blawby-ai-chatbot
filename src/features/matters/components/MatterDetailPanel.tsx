@@ -17,15 +17,25 @@ export type DetailSectionId =
   | 'activity'
   | 'settings';
 
-const MATTER_DETAIL_TABS: TabItem[] = [
-  { id: 'overview', label: 'Overview' },
-  { id: 'work', label: 'Work' },
-  { id: 'notes', label: 'Notes' },
-  { id: 'billing', label: 'Billing' },
-  { id: 'files', label: 'Files' },
-  { id: 'activity', label: 'Activity' },
-  { id: 'settings', label: 'Settings' }
-];
+/**
+ * Tab counts shown next to each tab label, per the canonical chat-first
+ * Matter.html design.
+ *
+ * **IA divergence from design:** the canonical design has 9 sibling tabs
+ * (Overview / Activity / Time & expenses / Files / Notes / Tasks / Milestones /
+ * Invoices / People). Our shipped IA keeps 7 tabs (Overview / Work / Notes /
+ * Billing / Files / Activity / Settings) with Tasks+Milestones nested under
+ * Work and Time+Expenses+Invoices nested under Billing via sub-Seg. Adding
+ * the missing tabs would risk breaking existing routes and editor state, so
+ * we surface the canonical information density via tab counts instead.
+ */
+export interface MatterDetailTabCounts {
+  activity?: number;
+  work?: number; // open tasks count
+  notes?: number;
+  billing?: number; // invoice count
+  files?: number;
+}
 
 export interface MatterDetailPanelProps {
   detailSection: DetailSectionId;
@@ -39,7 +49,22 @@ export interface MatterDetailPanelProps {
   billing: MatterBillingTabProps;
   activity: MatterActivityTabProps;
   settings: MatterSettingsTabProps;
+  /**
+   * Counts shown beside each tab label. Omit a key to render the tab
+   * without a count badge.
+   */
+  tabCounts?: MatterDetailTabCounts;
 }
+
+const buildTabs = (counts?: MatterDetailTabCounts): TabItem[] => [
+  { id: 'overview', label: 'Overview' },
+  { id: 'work', label: 'Work', count: counts?.work },
+  { id: 'notes', label: 'Notes', count: counts?.notes },
+  { id: 'billing', label: 'Billing', count: counts?.billing },
+  { id: 'files', label: 'Files', count: counts?.files },
+  { id: 'activity', label: 'Activity', count: counts?.activity },
+  { id: 'settings', label: 'Settings' }
+];
 
 export const MatterDetailPanel = ({
   detailSection,
@@ -51,13 +76,14 @@ export const MatterDetailPanel = ({
   notes,
   billing,
   activity,
-  settings
+  settings,
+  tabCounts
 }: MatterDetailPanelProps) => (
   <div className="page-detail">
     <MatterDetailHeader {...header} />
     <div className="tab-bar">
       <Tabs
-        items={MATTER_DETAIL_TABS}
+        items={buildTabs(tabCounts)}
         activeId={detailSection}
         onChange={(id) => onSectionChange(id as DetailSectionId)}
       />

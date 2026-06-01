@@ -1570,6 +1570,47 @@
     margin-top: 8px;
   }
 
+  /* EditorShell chat-first hero — Settings.html treatment.
+   * Crumb + serif H1 with accent em + lede + optional slot (e.g. AI preface).
+   * Rendered inside the scroll area above page content; sticky header keeps
+   * its own compact title. */
+  .editor-shell-hero {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-bottom: 24px;
+  }
+  .editor-shell-hero__crumb {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--dim);
+  }
+  .editor-shell-hero__title {
+    font-family: var(--serif);
+    font-weight: 400;
+    font-size: clamp(28px, 4vw, 40px);
+    letter-spacing: -0.02em;
+    line-height: 1.05;
+    color: var(--ink);
+    margin: 4px 0 0;
+  }
+  .editor-shell-hero__title em {
+    color: var(--accent);
+    font-style: normal;
+  }
+  .editor-shell-hero__lede {
+    font-size: 15px;
+    line-height: 1.5;
+    color: var(--ink-2);
+    max-width: 56ch;
+    margin: 12px 0 0;
+  }
+  .editor-shell-hero__slot {
+    margin-top: 20px;
+  }
+
   /* ----------------------------------------------------------------
    * Chat patterns — DESIGN_SYSTEM.md §3
    * Composite AI/chat surfaces. Consumed by src/design-system/patterns/*.
@@ -2221,6 +2262,474 @@
   .seg button.seg-on {
     background: var(--ink);
     color: var(--accent);
+  }
+
+  /* §3.16 AI Ask Bar — sticky pill composer for one-off asks on list views */
+  .ai-ask-bar-wrap {
+    position: sticky;
+    bottom: 0;
+    background: linear-gradient(180deg, transparent, var(--paper) 32%);
+    padding: 16px 0 12px;
+    z-index: 5;
+  }
+  .ai-ask-bar {
+    background: var(--card);
+    border: 1px solid var(--rule);
+    border-radius: var(--r-pill);
+    padding: 10px 14px;
+    box-shadow: var(--shadow-1);
+    transition: box-shadow 150ms ease, border-color 150ms ease;
+  }
+  .ai-ask-bar:focus-within {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--accent-soft);
+  }
+  .ai-ask-bar-suggestions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-bottom: 8px;
+  }
+  .ai-ask-bar-suggestion {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--accent-deep);
+    background: var(--accent-soft);
+    border: 1px solid color-mix(in oklab, var(--accent) 30%, transparent);
+    border-radius: var(--r-pill);
+    padding: 3px 10px;
+    cursor: pointer;
+    transition: background 120ms ease;
+  }
+  .ai-ask-bar-suggestion:hover {
+    background: color-mix(in oklab, var(--accent) 22%, var(--card));
+  }
+  .ai-ask-bar-context {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-bottom: 6px;
+  }
+  .ai-ask-bar-ctx {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--dim);
+    border: 1px dashed var(--rule);
+    border-radius: var(--r-pill);
+    padding: 2px 8px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+  .ai-ask-bar-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .ai-ask-bar-icon {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: transparent;
+    color: var(--dim);
+    border: none;
+    cursor: pointer;
+    transition: background 120ms ease;
+  }
+  .ai-ask-bar-icon:hover {
+    background: var(--paper-2);
+    color: var(--ink-2);
+  }
+  .ai-ask-bar-input {
+    flex: 1;
+    background: transparent;
+    border: none;
+    outline: none;
+    font-family: var(--sans);
+    font-size: 14.5px;
+    color: var(--ink);
+    padding: 4px 0;
+    min-width: 0;
+  }
+  .ai-ask-bar-input::placeholder {
+    color: var(--dim);
+  }
+  .ai-ask-bar-send {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    border: none;
+    background: var(--accent);
+    color: var(--accent-ink);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: background 120ms ease, transform 120ms ease;
+  }
+  .ai-ask-bar-send:hover:not(:disabled) {
+    background: var(--accent-deep);
+  }
+  .ai-ask-bar-send:disabled {
+    background: var(--dim-2);
+    cursor: not-allowed;
+    opacity: 0.5;
+  }
+  .ai-ask-bar-disclaimer {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--dim-2);
+    text-align: center;
+    margin-top: 6px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+
+  /* §3.17 AI Answer Card — gold-tinted grounded reply card */
+  .ai-answer-card {
+    background: linear-gradient(180deg, color-mix(in oklab, var(--accent) 12%, var(--card)), var(--card));
+    border: 1px solid color-mix(in oklab, var(--accent) 30%, var(--rule));
+    border-left: 2px solid var(--accent);
+    border-radius: var(--r-md);
+    padding: 18px 20px;
+    box-shadow: var(--shadow-1);
+    display: grid;
+    grid-template-columns: 32px 1fr;
+    gap: 14px;
+  }
+  .ai-answer-card-avatar-slot {
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+  }
+  .ai-answer-card-avatar {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: var(--accent);
+    color: var(--accent-ink);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-family: var(--serif);
+    font-style: italic;
+    font-size: 14px;
+    font-weight: 600;
+  }
+  .ai-answer-card-body {
+    min-width: 0;
+  }
+  .ai-answer-card-grounding {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--accent-deep);
+  }
+  .ai-answer-card-lede {
+    font-family: var(--serif);
+    font-size: 22px;
+    line-height: 1.4;
+    color: var(--ink);
+    margin: 6px 0 0;
+    max-width: 64ch;
+    text-wrap: balance;
+  }
+  .ai-answer-card-lede em {
+    color: var(--accent-deep);
+    font-style: italic;
+  }
+  .ai-answer-card-text {
+    font-size: 14px;
+    line-height: 1.55;
+    color: var(--ink-2);
+    margin-top: 8px;
+    max-width: 64ch;
+  }
+  .ai-answer-card-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 14px;
+  }
+
+  /* §3.18 AI Ribbon — gradient ribbon, 3 variants */
+  .ai-ribbon {
+    display: flex;
+    gap: 12px;
+    align-items: flex-start;
+    padding: 12px 16px;
+    border-radius: var(--r-md);
+    box-shadow: var(--shadow-1);
+  }
+  .ai-ribbon-avatar-slot {
+    flex-shrink: 0;
+  }
+  .ai-ribbon-avatar {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background: var(--accent);
+    color: var(--accent-ink);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-family: var(--serif);
+    font-style: italic;
+    font-size: 12px;
+    font-weight: 600;
+  }
+  .ai-ribbon-content {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px 12px;
+  }
+  .ai-ribbon-text {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+  .ai-ribbon-title {
+    font-family: var(--serif);
+    font-size: 15px;
+    color: var(--ink);
+    line-height: 1.3;
+  }
+  .ai-ribbon-edit {
+    flex: 1;
+    min-width: 200px;
+    background: var(--card);
+    border: 1px solid var(--rule);
+    border-radius: var(--r-pill);
+    padding: 6px 12px;
+    font-family: var(--sans);
+    font-size: 13px;
+    color: var(--ink);
+    outline: none;
+    transition: border-color 120ms ease, box-shadow 120ms ease;
+  }
+  .ai-ribbon-edit:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 2px var(--accent-soft);
+  }
+  .ai-ribbon-body {
+    flex-basis: 100%;
+    font-size: 13px;
+    color: var(--ink-2);
+    line-height: 1.5;
+  }
+  .ai-ribbon-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  .ai-ribbon-authoring {
+    background: linear-gradient(90deg, var(--accent-soft), color-mix(in oklab, var(--accent) 8%, var(--card)), var(--card));
+    border: 1px solid color-mix(in oklab, var(--accent) 24%, var(--rule));
+  }
+  .ai-ribbon-observation {
+    background: linear-gradient(90deg, var(--accent-soft), transparent);
+    border: 1px solid var(--rule);
+    border-left: 3px solid var(--accent);
+    border-radius: 0 var(--r-md) var(--r-md) 0;
+  }
+  .ai-ribbon-regeneration {
+    background: color-mix(in oklab, var(--accent) 6%, var(--card));
+    border: 1px solid color-mix(in oklab, var(--accent) 20%, var(--rule));
+    animation: ai-ribbon-pulse 2.4s ease-in-out infinite;
+  }
+  @keyframes ai-ribbon-pulse {
+    0%, 100% { background: color-mix(in oklab, var(--accent) 6%, var(--card)); }
+    50% { background: color-mix(in oklab, var(--accent) 14%, var(--card)); }
+  }
+
+  /* §3.19 Placeholder token — golden chip for unresolved {{key}}, green for resolved */
+  .placeholder-token {
+    display: inline-block;
+    padding: 1px 8px;
+    border-radius: var(--r-xs);
+    background: var(--accent-soft);
+    border: 1px solid color-mix(in oklab, var(--accent) 35%, transparent);
+    color: var(--accent-deep);
+    font-family: var(--mono);
+    font-size: 0.9em;
+    line-height: 1.3;
+    vertical-align: baseline;
+  }
+  .placeholder-token-resolved {
+    background: color-mix(in oklab, var(--pos) 12%, var(--card));
+    border-color: color-mix(in oklab, var(--pos) 35%, transparent);
+    color: color-mix(in oklab, var(--pos) 70%, var(--ink));
+    font-family: var(--serif);
+    font-style: italic;
+  }
+
+  /* §3.20 Numbered Section — step indicator with done/now/next states */
+  .numbered-section {
+    display: grid;
+    grid-template-columns: 28px 1fr;
+    gap: 14px;
+    align-items: flex-start;
+  }
+  .numbered-section-indicator {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: var(--mono);
+    font-size: 11px;
+    font-weight: 600;
+    margin-top: 2px;
+    flex-shrink: 0;
+  }
+  .numbered-section-indicator-done {
+    background: var(--accent);
+    color: var(--accent-ink);
+    border: 1px solid var(--accent);
+  }
+  .numbered-section-indicator-now {
+    background: var(--card);
+    color: var(--accent-deep);
+    border: 2px solid var(--accent);
+    box-shadow: 0 0 0 3px var(--accent-soft);
+  }
+  .numbered-section-indicator-next {
+    background: var(--card);
+    color: var(--dim);
+    border: 1px solid var(--rule);
+  }
+  .numbered-section-body {
+    min-width: 0;
+  }
+  .numbered-section-title {
+    font-family: var(--serif);
+    font-size: 18px;
+    color: var(--ink);
+    line-height: 1.3;
+    margin: 0;
+  }
+  .numbered-section-description {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--dim);
+    margin-top: 4px;
+  }
+  .numbered-section-content {
+    margin-top: 12px;
+  }
+
+  /* §3.21 Signal Pill — semantic risk/sentiment pill */
+  .signal-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 2px 10px;
+    border-radius: var(--r-pill);
+    font-family: var(--mono);
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    font-weight: 600;
+  }
+  .signal-pill-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+  }
+  .signal-pill-urgent {
+    background: color-mix(in oklab, var(--neg) 12%, var(--card));
+    color: var(--neg);
+    border: 1px solid color-mix(in oklab, var(--neg) 30%, transparent);
+  }
+  .signal-pill-urgent .signal-pill-dot { background: var(--neg); }
+  .signal-pill-warn {
+    background: color-mix(in oklab, var(--warn) 14%, var(--card));
+    color: color-mix(in oklab, var(--warn) 70%, var(--ink));
+    border: 1px solid color-mix(in oklab, var(--warn) 35%, transparent);
+  }
+  .signal-pill-warn .signal-pill-dot { background: var(--warn); }
+  .signal-pill-healthy,
+  .signal-pill-calm {
+    background: color-mix(in oklab, var(--pos) 12%, var(--card));
+    color: color-mix(in oklab, var(--pos) 70%, var(--ink));
+    border: 1px solid color-mix(in oklab, var(--pos) 30%, transparent);
+  }
+  .signal-pill-healthy .signal-pill-dot,
+  .signal-pill-calm .signal-pill-dot { background: var(--pos); }
+  .signal-pill-quiet,
+  .signal-pill-silent {
+    background: var(--paper-2);
+    color: var(--dim);
+    border: 1px solid var(--rule);
+  }
+  .signal-pill-quiet .signal-pill-dot,
+  .signal-pill-silent .signal-pill-dot { background: var(--dim); }
+  .signal-pill-anxious {
+    background: color-mix(in oklab, var(--warn) 14%, var(--card));
+    color: color-mix(in oklab, var(--warn) 70%, var(--ink));
+    border: 1px solid color-mix(in oklab, var(--warn) 35%, transparent);
+  }
+  .signal-pill-anxious .signal-pill-dot { background: var(--warn); }
+  .signal-pill-frustrated {
+    background: color-mix(in oklab, var(--neg) 12%, var(--card));
+    color: var(--neg);
+    border: 1px solid color-mix(in oklab, var(--neg) 30%, transparent);
+  }
+  .signal-pill-frustrated .signal-pill-dot { background: var(--neg); }
+
+  /* §3.22 Quick Reply Chip — rounded pill for quick-reply chips in chat */
+  .quick-reply-chip {
+    display: inline-flex;
+    align-items: center;
+    padding: 6px 14px;
+    border-radius: var(--r-pill);
+    background: var(--card);
+    border: 1px solid var(--rule);
+    color: var(--ink);
+    font-family: var(--sans);
+    font-size: 13px;
+    cursor: pointer;
+    transition: background 120ms ease, border-color 120ms ease;
+  }
+  .quick-reply-chip:hover:not(:disabled) {
+    background: var(--paper-2);
+    border-color: var(--ink-3);
+  }
+  .quick-reply-chip-selected {
+    background: var(--accent);
+    color: var(--accent-ink);
+    border-color: var(--accent);
+  }
+  .quick-reply-chip-selected:hover:not(:disabled) {
+    background: var(--accent-deep);
+    border-color: var(--accent-deep);
+  }
+  .quick-reply-chip:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .ai-ribbon-regeneration {
+      animation: none !important;
+    }
+    .ai-ask-bar,
+    .ai-ribbon-edit,
+    .ai-ask-bar-icon,
+    .ai-ask-bar-send,
+    .ai-ask-bar-suggestion,
+    .quick-reply-chip {
+      transition: none !important;
+    }
   }
 }
 

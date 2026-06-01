@@ -5,7 +5,7 @@ import { Page } from '@/shared/ui/layout/Page';
 import { WorkspacePlaceholderState } from '@/shared/ui/layout/WorkspacePlaceholderState';
 import { Button } from '@/shared/ui/Button';
 import { CurrencyInput, Input } from '@/shared/ui/input';
-import { Seg, StatStrip, AIAskBar, AIAnswerCard } from '@/design-system/patterns';
+import { Seg, StatStrip, AIAskBar, AIAnswerCard, type StatStripCell } from '@/design-system/patterns';
 import { Bar, Pill, SignalPill, type SignalPillSignal, type PillTone } from '@/design-system/primitives';
 import { type TimelineItem, type TimelinePerson } from '@/shared/ui/activity/ActivityTimeline';
 import { Dialog, DialogBody } from '@/shared/ui/dialog';
@@ -26,7 +26,8 @@ import { TimeEntryForm, type TimeEntryFormValues } from '@/features/matters/comp
 import type { MatterTaskFormValues } from '@/features/matters/components/tasks/MatterTaskForm';
 import {
   MatterDetailPanel,
-  type DetailSectionId
+  type DetailSectionId,
+  type MatterDetailTabCounts
 } from '@/features/matters/components/MatterDetailPanel';
 import { type WorkSubTab } from '@/features/matters/components/MatterWorkTab';
 import { type BillingSubTab } from '@/features/matters/components/MatterBillingTab';
@@ -578,7 +579,10 @@ export const PracticeMattersPage = ({
     matterBillingType: selectedMatterDetailState?.billingType ?? null,
     attorneyHourlyRate: selectedMatterDetailState?.attorneyHourlyRate ?? null,
     adminHourlyRate: selectedMatterDetailState?.adminHourlyRate ?? null,
-    enabled: Boolean(activePracticeId && selectedMatterId && detailSection === 'billing')
+    // Overview now consumes unbilledSummary (AI summary lede + StagedAction
+    // card + 5-cell stat strip "Unbilled time" cell), so we eager-load
+    // billing data for both 'overview' and 'billing' detail sections.
+    enabled: Boolean(activePracticeId && selectedMatterId && (detailSection === 'billing' || detailSection === 'overview'))
   });
 
   useEffect(() => {
@@ -1906,6 +1910,116 @@ export const PracticeMattersPage = ({
     const adminRateLabel = selectedMatterDetail.adminHourlyRate
       ? `${formatCurrency(selectedMatterDetail.adminHourlyRate)}/hr`
       : null;
+
+    // ── Detail-mode stat-strip cells ─────────────────────────────────────
+    // Per the canonical Matter.html the header strip has 5 cells:
+    //   1. Retainer balance — TODO(backend): per-matter trust-ledger balance.
+    //      Falls back to engagement.proposal_data.fees retainer_amount.
+    //   2. Unbilled time — derived from useBillingData unbilledSummary.
+    //   3. Events / 30d — TODO(backend): per-matter event count rollup.
+    //   4. Next deadline — earliest open-task due_date (SoL would require a
+    //      dedicated backend field; we surface the nearest soft deadline).
+    //   5. Est. value — totalFixedPrice if available, else engagement
+    //      proposal fee, else "—".
+    const unbilledHours = unbilledSummary?.unbilledTime.hours ?? 0;
+    const unbilledAmountMajor = unbilledSummary ? getMajorAmountValue(unbilledSummary.unbilledTime.amount) : 0;
+    const unbilledEntries = unbilledSummary?.unbilledTime.entries ?? 0;
+    const nextOpenTask = [...tasks].filter((t) => t.status !== 'completed').sort((a, b) => {
+      if (!a.dueDate && !b.dueDate) return 0;
+      if (!a.dueDate) return 1;
+      if (!b.dueDate) return -1;
+      return new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime();
+    })[0] ?? null;
+    const nextDeadlineLabel = nextOpenTask?.dueDate
+      ? new Date(nextOpenTask.dueDate).toLocaleDateString('en-US', { month: 'short', day: '2-digit' })
+      : null;
+    const nextDeadlineExtra = nextOpenTask?.dueDate
+      ? (() => {
+          const diff = Math.ceil(
+            (new Date(nextOpenTask.dueDate as string).getTime() - Date.now()) / (24 * 60 * 60 * 1000)
+          );
+          if (diff < 0) return `${Math.abs(diff)} ${Math.abs(diff) === 1 ? 'day' : 'days'} overdue`;
+          if (diff === 0) return 'due today';
+          return `${diff} ${diff === 1 ? 'day' : 'days'} away`;
+        })()
+      : undefined;
+
+    const estimatedValueCell: { value: string; extra?: string } = (() => {
+      if (selectedMatterDetail.totalFixedPrice) {
+        const amt = getMajorAmountValue(selectedMatterDetail.totalFixedPrice);
+        return { value: formatCurrency(amt), extra: 'fixed fee' };
+      }
+      if (selectedMatterDetail.billingType === 'contingency' && selectedMatterDetail.contingencyPercent) {
+        return {
+          value: '—',
+          extra: `contingency · ${selectedMatterDetail.contingencyPercent}%`
+        };
+      }
+      const proposalFee = engagement?.proposal_data?.fees;
+      if (proposalFee?.fixed_fee_amount && proposalFee.fixed_fee_amount > 0) {
+        return { value: formatCurrency(proposalFee.fixed_fee_amount), extra: 'fixed fee' };
+      }
+      if (proposalFee?.retainer_amount && proposalFee.retainer_amount > 0) {
+        return { value: formatCurrency(proposalFee.retainer_amount), extra: 'retainer' };
+      }
+      return { value: '—' };
+    })();
+
+    const retainerCell: { value: string; extra?: string } = (() => {
+      const proposalFee = engagement?.proposal_data?.fees;
+      const retainerAmount = proposalFee?.retainer_amount && proposalFee.retainer_amount > 0
+        ? proposalFee.retainer_amount
+        : null;
+      // TODO(backend): expose a real trust-ledger-derived retainer balance so
+      // we can show the live balance + threshold warning bar per Matter.html.
+      if (!retainerAmount) return { value: '—' };
+      return { value: formatCurrency(retainerAmount), extra: 'engagement retainer' };
+    })();
+
+    const detailStatCells: StatStripCell[] = [
+      { label: 'Retainer balance', value: retainerCell.value, extra: retainerCell.extra },
+      {
+        label: 'Unbilled time',
+        value: unbilledHours > 0 ? unbilledHours.toFixed(unbilledHours % 1 === 0 ? 0 : 1) : '—',
+        unit: unbilledHours > 0 ? `h · ${formatCurrency(unbilledAmountMajor)}` : undefined,
+        extra: unbilledEntries > 0 ? `${unbilledEntries} ${unbilledEntries === 1 ? 'entry' : 'entries'}` : undefined
+      },
+      // TODO(backend): per-matter event count for trailing 30d.
+      { label: 'Events / 30d', value: '—' },
+      {
+        label: 'Next deadline',
+        value: nextDeadlineLabel ?? '—',
+        extra: nextDeadlineExtra,
+        extraWarn: Boolean(
+          nextOpenTask?.dueDate
+          && new Date(nextOpenTask.dueDate).getTime() < Date.now()
+        )
+      },
+      { label: 'Est. value', value: estimatedValueCell.value, extra: estimatedValueCell.extra }
+    ];
+
+    // Tab counts beside each tab — chat-first information density without
+    // changing the IA (canonical design has 9 sibling tabs; we keep 7 with
+    // Tasks+Milestones nested under Work and Time+Expenses+Invoices nested
+    // under Billing).
+    const openTasksCount = tasks.filter((t) => t.status !== 'completed').length;
+    const detailTabCounts: MatterDetailTabCounts = {
+      work: openTasksCount || undefined,
+      notes: noteRecords.length || undefined,
+      billing: invoices.length || undefined,
+      activity: timelineItems.length || undefined
+      // `files` count requires a separate fetch — omitted today.
+    };
+
+    // Ask-about-matter handler — wired into the right-rail inspector.
+    // TODO(backend): wire to /api/practice/:id/matters/:matterId/ask once
+    // the scoped-context practice-assistant route exists. Today we route
+    // the user to the activity tab where they can see the matter's
+    // events / files / engagement context.
+    const handleAskAboutMatter = (_query: string) => {
+      goToDetail(selectedMatterDetail.id, 'activity');
+    };
+
     return (
       <>
         <MatterDetailPanel
@@ -1915,6 +2029,7 @@ export const PracticeMattersPage = ({
             if (next === 'overview') goToDetail(selectedMatterDetail.id, null);
             else goToDetail(selectedMatterDetail.id, next);
           }}
+          tabCounts={detailTabCounts}
           header={{
             detail: selectedMatterDetail,
             clientLabel: detailClientOption?.name ?? 'Unassigned client',
@@ -1927,6 +2042,7 @@ export const PracticeMattersPage = ({
             onAddTask: () => navigate(`${basePath}/${encodeURIComponent(selectedMatterDetail.id)}/work?compose=task`),
             onAddNote: () => goToDetail(selectedMatterDetail.id, 'notes'),
             onUploadFile: () => goToDetail(selectedMatterDetail.id, 'files'),
+            statCells: detailStatCells,
             moreMenuItems: [
               {
                 label: 'Edit matter',
@@ -1966,7 +2082,10 @@ export const PracticeMattersPage = ({
             onAddTask: () => navigate(`${basePath}/${encodeURIComponent(selectedMatterDetail.id)}/work?compose=task`),
             onTaskClick: () => goToDetail(selectedMatterDetail.id, 'work', 'tasks'),
             onUploadFile: () => goToDetail(selectedMatterDetail.id, 'files'),
-            onViewFiles: () => goToDetail(selectedMatterDetail.id, 'files')
+            onViewFiles: () => goToDetail(selectedMatterDetail.id, 'files'),
+            unbilledSummary,
+            onApproveInvoiceDraft: handleCreateInvoiceFromSummary,
+            onAskAboutMatter: handleAskAboutMatter
           }}
           work={{
             detail: selectedMatterDetail,
