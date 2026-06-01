@@ -14,10 +14,33 @@ import { ContentWithPreview } from './ContentWithPreview';
  *
  * Header uses the shared `workspace-header` CSS class — same visual language
  * as DetailHeader so all chrome in the app is consistent.
+ *
+ * Chat-first hero (Settings.html treatment): when `crumb`, `accentTitle`, or
+ * `lede` is provided, EditorShell renders a serif H1 hero above its children
+ * (in the scroll area, not the sticky header). The compact `title` stays in
+ * the sticky header bar so the chrome stays consistent app-wide.
  */
 export interface EditorShellProps {
   title: ComponentChildren;
   subtitle?: string;
+  /**
+   * Mono uppercase crumb (e.g. "Settings · Practice · Intelligence") rendered
+   * above the serif H1 hero. Renders inside the scrollable content, not the
+   * sticky header.
+   */
+  crumb?: ComponentChildren;
+  /**
+   * Serif H1 with em accent — pass a fragment like
+   * `<>How the <em>assistant</em> works for you.</>` and `<em>` text is auto
+   * colored with the accent. Rendered inside the scrollable content.
+   */
+  accentTitle?: ComponentChildren;
+  /**
+   * Lede paragraph beneath the accentTitle. Capped at ~56ch for readability.
+   */
+  lede?: ComponentChildren;
+  /** Optional node rendered directly under the lede (e.g. SettingsAIPreface). */
+  heroSlot?: ComponentChildren;
   layout?: 'default' | 'builder';
   /**
    * If true, renders a back button in the leading slot.
@@ -71,6 +94,10 @@ export interface EditorShellProps {
 export function EditorShell({
   title,
   subtitle,
+  crumb,
+  accentTitle,
+  lede,
+  heroSlot,
   layout = 'default',
   showBack,
   backVariant = 'back',
@@ -93,6 +120,25 @@ export function EditorShell({
 }: EditorShellProps) {
   const BackIcon = backVariant === 'close' ? X : ChevronLeft;
   const backLabel = backVariant === 'close' ? 'Close' : 'Back';
+  const hasHero = Boolean(crumb || accentTitle || lede || heroSlot);
+
+  const hero = hasHero ? (
+    <header className="editor-shell-hero">
+      {crumb ? <div className="editor-shell-hero__crumb">{crumb}</div> : null}
+      {accentTitle ? <h1 className="editor-shell-hero__title">{accentTitle}</h1> : null}
+      {lede ? <p className="editor-shell-hero__lede">{lede}</p> : null}
+      {heroSlot ? <div className="editor-shell-hero__slot">{heroSlot}</div> : null}
+    </header>
+  ) : null;
+
+  const composedChildren = hero ? (
+    <>
+      {hero}
+      {children}
+    </>
+  ) : (
+    children
+  );
 
   return (
     <div className={cn('flex h-full flex-col', className)}>
@@ -149,7 +195,7 @@ export function EditorShell({
             sidebarClassName={sidebarClassName}
             inspectorClassName={inspectorClassName}
           >
-            {children}
+            {composedChildren}
           </ContentWithBuilder>
         ) : (
           <ContentWithPreview
@@ -162,7 +208,7 @@ export function EditorShell({
               previewClassName
             )}
           >
-            {children}
+            {composedChildren}
           </ContentWithPreview>
         )}
       </div>

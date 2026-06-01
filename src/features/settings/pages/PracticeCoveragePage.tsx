@@ -220,6 +220,13 @@ export const PracticeCoveragePage = ({ className, onBack }: PracticeCoveragePage
       onBack={onBack}
       className={className}
       contentMaxWidth={null}
+      crumb="Settings · Practice · Coverage"
+      accentTitle={(
+        <>
+          What you <em>take on</em>, and where.
+        </>
+      )}
+      lede="Services you offer and the states you're licensed in. The assistant uses this to route intakes."
     >
       <div className="space-y-6">
 

@@ -17,12 +17,17 @@ import { LoadingBlock } from '@/shared/ui/layout';
 import { InfoCard } from '@/shared/ui/cards/InfoCard';
 import { DetailRow } from '@/shared/ui/detail/DetailRow';
 import { ActivityTimeline, type TimelineItem } from '@/shared/ui/activity/ActivityTimeline';
+import { AIAnswerCard, StagedAction, type AIAnswerCardAction, type AIAnswerCardSource } from '@/design-system/patterns';
+import { MatterAskCard } from '@/features/matters/components/MatterAskCard';
 import type { MatterDetail, MatterTask } from '@/features/matters/data/matterTypes';
 import type { EngagementDetail } from '@/features/engagements/types/engagement';
+import type { UnbilledSummary } from '@/features/matters/types/billing.types';
 import { formatDateOnlyUtc } from '@/shared/utils/dateOnly';
 import { cn } from '@/shared/utils/cn';
 import { MATTER_STATUS_LABELS } from '@/shared/types/matterStatus';
 import { MATTER_STATUS_BADGE_CLASS } from '@/features/matters/utils/matterStatusStyles';
+import { formatCurrency } from '@/shared/utils/currencyFormatter';
+import { getMajorAmountValue } from '@/shared/utils/money';
 
 const ENGAGEMENT_STATUS_LABEL: Record<EngagementDetail['status'], string> = {
   draft: 'Draft',
@@ -71,6 +76,8 @@ export interface MatterOverviewTabProps {
   weeklyHoursLabel: string;
   attorneyRateLabel: string | null;
   adminRateLabel: string | null;
+  /** Unbilled-time summary used by the AI summary lede + StagedAction card. */
+  unbilledSummary?: UnbilledSummary | null;
 
   // Navigation handlers
   onOpenClient?: () => void;
@@ -83,6 +90,16 @@ export interface MatterOverviewTabProps {
   onTaskClick: () => void;
   onUploadFile: () => void;
   onViewFiles: () => void;
+  /** Open the practice assistant scoped to this matter — used by the AI summary action. */
+  onReplyToClient?: () => void;
+  /** Approve the staged invoice draft. Defaults to onCreateInvoice if unset. */
+  onApproveInvoiceDraft?: () => void;
+  /**
+   * Fires when the user submits a question in the right-rail
+   * "Ask about this matter" card. When undefined, the card isn't rendered.
+   * TODO(backend): wire to the scoped practice-assistant route.
+   */
+  onAskAboutMatter?: (query: string) => void;
 }
 
 // ---------------------------------------------------------------------------
@@ -103,8 +120,201 @@ const sortByDue = (a: MatterTask, b: MatterTask): number => {
   return new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime();
 };
 
+// Time helpers used by the AI summary lede.
+const daysOnMatter = (detail: MatterDetail, now = Date.now()): number | null => {
+  const opened = detail.openDate ?? detail.createdAt;
+  if (!opened) return null;
+  const t = new Date(opened).getTime();
+  if (!Number.isFinite(t)) return null;
+  return Math.max(0, Math.floor((now - t) / (24 * 60 * 60 * 1000)));
+};
+
+// Formats a relative time like "just now" / "2h ago" / "yesterday".
+const relativeTimeLabel = (): string => {
+  const now = new Date();
+  const h = now.getHours();
+  const m = now.getMinutes();
+  const period = h >= 12 ? 'pm' : 'am';
+  const h12 = h % 12 === 0 ? 12 : h % 12;
+  return `${h12}:${String(m).padStart(2, '0')} ${period}`;
+};
+
 // ---------------------------------------------------------------------------
-// Card sub-components
+// AI assistant summary card — top of Overview
+// ---------------------------------------------------------------------------
+
+/**
+ * Builds the deterministic AI summary card content from real matter data.
+ * No backend AI call — the lede is grounded narration of facts the page
+ * already has (matter age, retainer threshold, unbilled time, next
+ * deadline). TODO(backend): replace this with the streaming
+ * `practice-assistant.summary` endpoint once it lands and accepts a
+ * scoped `matter_id` parameter.
+ */
+const buildAssistantSummary = (
+  detail: MatterDetail,
+  clientLabel: string,
+  unbilledSummary: UnbilledSummary | null,
+  tasks: MatterTask[],
+  timelineItems: TimelineItem[]
+) => {
+  const days = daysOnMatter(detail);
+  const unbilledHours = unbilledSummary?.unbilledTime.hours ?? 0;
+  const unbilledAmount = unbilledSummary ? getMajorAmountValue(unbilledSummary.unbilledTime.amount) : 0;
+
+  const nextOpenTask = [...tasks].filter(isOpenTask).sort(sortByDue)[0] ?? null;
+  const nextDeadlineLabel = nextOpenTask?.dueDate ? formatDateOnlyUtc(nextOpenTask.dueDate) : null;
+
+  // Lede sentences — pruned to only what we actually know. Each clause is
+  // grounded in concrete data so the model never hallucinates numbers.
+  const sentences: string[] = [];
+  if (clientLabel && clientLabel !== 'Unassigned client') {
+    sentences.push(
+      days !== null
+        ? `${clientLabel} has been on this matter ${days} ${days === 1 ? 'day' : 'days'}.`
+        : `${clientLabel} is the client on this matter.`
+    );
+  }
+  if (unbilledHours > 0) {
+    sentences.push(
+      `You have ${unbilledHours.toFixed(unbilledHours % 1 === 0 ? 0 : 1)} unbilled ${unbilledHours === 1 ? 'hour' : 'hours'} totaling ${formatCurrency(unbilledAmount)}.`
+    );
+  }
+  if (nextDeadlineLabel) {
+    sentences.push(`Next deadline: ${nextDeadlineLabel}.`);
+  }
+  if (sentences.length === 0) {
+    sentences.push('No activity yet — this matter is freshly opened.');
+  }
+  const lede = sentences.join(' ');
+
+  // Action chips — keep the set small (≤4) and only surface actions whose
+  // preconditions are met. The chips fire deterministic handlers; the
+  // Approve invoice chip is gated on having unbilled value.
+  const actions: AIAnswerCardAction[] = [];
+  if (unbilledAmount > 0) {
+    actions.push({ id: 'approve-invoice', label: `Approve invoice draft`, variant: 'primary', onClick: () => {} });
+  }
+  actions.push({ id: 'reply', label: 'Reply to client', onClick: () => {} });
+  actions.push({ id: 'engagement-update', label: 'Draft engagement update', onClick: () => {} });
+  actions.push({ id: 'settlement', label: 'Settlement projection', onClick: () => {} });
+
+  // Source citations — real database tables that ground the summary.
+  // TODO(backend): when the AI route exists, the response itself will
+  // return the actual source row ids; for now we surface table-level
+  // grounding so the citation row never lies.
+  const sources: AIAnswerCardSource[] = [
+    { table: 'matters', count: 1 },
+    { table: 'time_entries', count: unbilledSummary?.unbilledTime.entries ?? 0 },
+    { table: 'tasks', count: tasks.length },
+    { table: 'activity', count: timelineItems.length }
+  ];
+
+  // Grounding label — count distinct sources surfaced.
+  const grounded = sources.reduce((sum, s) => sum + s.count, 0);
+  const groundingLabel = `Practice assistant · grounded in ${grounded} ${grounded === 1 ? 'source' : 'sources'} · ${relativeTimeLabel()}`;
+
+  return { lede, actions, sources, groundingLabel };
+};
+
+const AISummaryCard = ({
+  detail,
+  clientLabel,
+  unbilledSummary,
+  tasks,
+  timelineItems,
+  onApproveInvoice,
+  onReplyToClient,
+  onViewEngagement
+}: {
+  detail: MatterDetail;
+  clientLabel: string;
+  unbilledSummary: UnbilledSummary | null;
+  tasks: MatterTask[];
+  timelineItems: TimelineItem[];
+  onApproveInvoice: () => void;
+  onReplyToClient: () => void;
+  onViewEngagement: () => void;
+}) => {
+  const { lede, actions, sources, groundingLabel } = buildAssistantSummary(
+    detail,
+    clientLabel,
+    unbilledSummary,
+    tasks,
+    timelineItems
+  );
+
+  // Bind real handlers to the action chips by id.
+  const boundActions = actions.map((action) => {
+    switch (action.id) {
+      case 'approve-invoice':
+        return { ...action, onClick: onApproveInvoice };
+      case 'reply':
+        return { ...action, onClick: onReplyToClient };
+      case 'engagement-update':
+        return { ...action, onClick: onViewEngagement };
+      case 'settlement':
+        // TODO(backend): wire to settlement projection AI route — for now
+        // reuse the engagement view as the closest existing surface.
+        return { ...action, onClick: onViewEngagement };
+      default:
+        return action;
+    }
+  });
+
+  return (
+    <AIAnswerCard
+      groundingLabel={groundingLabel}
+      lede={lede}
+      actions={boundActions}
+      sources={sources}
+    />
+  );
+};
+
+// ---------------------------------------------------------------------------
+// Staged invoice action — inline beneath AI summary, only when there's
+// unbilled time waiting. NEVER auto-executes (StagedAction primitive contract).
+// ---------------------------------------------------------------------------
+
+const StagedInvoiceAction = ({
+  unbilledSummary,
+  onCreateInvoice
+}: {
+  unbilledSummary: UnbilledSummary | null;
+  onCreateInvoice: () => void;
+}) => {
+  const hours = unbilledSummary?.unbilledTime.hours ?? 0;
+  const amountMajor = unbilledSummary ? getMajorAmountValue(unbilledSummary.unbilledTime.amount) : 0;
+  if (hours <= 0 || amountMajor <= 0) return null;
+
+  return (
+    <StagedAction
+      label="Staged · awaits your approval"
+      title={`Invoice draft · ${formatCurrency(amountMajor)}`}
+      description={
+        <>
+          {hours.toFixed(hours % 1 === 0 ? 0 : 1)} unbilled {hours === 1 ? 'hour' : 'hours'} aggregated from
+          the current pay period. Approving opens the draft in the invoice editor — the invoice is not sent
+          until you review the line items and click <strong>Send</strong>.
+        </>
+      }
+      actions={
+        <>
+          <Button size="sm" variant="primary" onClick={onCreateInvoice}>
+            Draft invoice
+          </Button>
+          <Button size="sm" variant="ghost" onClick={onCreateInvoice}>
+            Review entries
+          </Button>
+        </>
+      }
+    />
+  );
+};
+
+// ---------------------------------------------------------------------------
+// Card sub-components — preserved from prior implementation
 // ---------------------------------------------------------------------------
 
 const OperationalNextStepCard = ({
@@ -477,6 +687,7 @@ export const MatterOverviewTab = (props: MatterOverviewTabProps) => {
     weeklyHoursLabel,
     attorneyRateLabel,
     adminRateLabel,
+    unbilledSummary,
     onOpenClient,
     onCreateInvoice,
     onLogTime,
@@ -486,13 +697,40 @@ export const MatterOverviewTab = (props: MatterOverviewTabProps) => {
     onAddTask,
     onTaskClick,
     onUploadFile,
-    onViewFiles
+    onViewFiles,
+    onReplyToClient,
+    onApproveInvoiceDraft,
+    onAskAboutMatter
   } = props;
+
+  const approveInvoice = onApproveInvoiceDraft ?? onCreateInvoice;
+  // "Reply to client" defaults to opening the engagement (closest existing
+  // contact surface); a real reply requires the practice-assistant matter
+  // route. TODO(backend): replace with the scoped chat endpoint.
+  const replyToClient = onReplyToClient ?? onViewEngagement;
 
   return (
     <div className="@container">
       <div className="grid grid-cols-1 gap-6 @4xl:grid-cols-[minmax(0,1fr)_340px]">
         <div className="space-y-5">
+          {/* AI summary card — centerpiece chat-first element */}
+          <AISummaryCard
+            detail={detail}
+            clientLabel={clientLabel}
+            unbilledSummary={unbilledSummary ?? null}
+            tasks={tasks}
+            timelineItems={timelineItems}
+            onApproveInvoice={approveInvoice}
+            onReplyToClient={replyToClient}
+            onViewEngagement={onViewEngagement}
+          />
+
+          {/* Staged invoice action — only rendered when there's unbilled time */}
+          <StagedInvoiceAction
+            unbilledSummary={unbilledSummary ?? null}
+            onCreateInvoice={approveInvoice}
+          />
+
           <OperationalNextStepCard
             tasks={tasks}
             engagement={engagement}
@@ -521,6 +759,19 @@ export const MatterOverviewTab = (props: MatterOverviewTabProps) => {
           />
         </div>
         <div className="space-y-5">
+          {/* Pinned "Ask about this matter" card — first thing in the right
+              rail, per the canonical Matter.html design. */}
+          {onAskAboutMatter ? (
+            <MatterAskCard
+              onSubmit={onAskAboutMatter}
+              suggestions={[
+                'Summarize recent activity',
+                "What's outstanding?",
+                'Draft a reply to the client',
+                "What's the next deadline?"
+              ]}
+            />
+          ) : null}
           <MatterSummaryCard
             clientEmail={clientEmail}
             clientLabel={clientLabel}

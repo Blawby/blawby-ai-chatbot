@@ -520,6 +520,7 @@ function AppShell() {
           <Route path="/practice/:practiceSlug/settings/practice/payouts" component={PracticeAppRoute} workspaceView="settings" settingsView="practice-payouts" />
           <Route path="/practice/:practiceSlug/settings/practice/team" component={PracticeAppRoute} workspaceView="settings" settingsView="practice-team" />
           <Route path="/practice/:practiceSlug/settings/practice/engagement-templates" component={PracticeAppRoute} workspaceView="settings" settingsView="engagement-templates" />
+          <Route path="/practice/:practiceSlug/settings/practice/intelligence" component={PracticeAppRoute} workspaceView="settings" settingsView="intelligence" />
           <Route path="/practice/:practiceSlug/settings/apps" component={PracticeAppRoute} workspaceView="settings" settingsView="apps" />
           <Route path="/practice/:practiceSlug/settings/apps/:appId" component={PracticeAppRoute} workspaceView="settings" settingsView="app-detail" />
           <Route path="/practice/:practiceSlug/settings/security" component={PracticeAppRoute} workspaceView="settings" settingsView="security" />

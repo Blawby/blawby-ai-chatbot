@@ -17,6 +17,7 @@ import {
 } from '@/shared/ui/inspector/identityHelpers';
 import { MATTER_STATUS_LABELS, MATTER_WORKFLOW_STATUSES, isMatterStatus, type MatterStatus } from '@/shared/types/matterStatus';
 import { MatterFilesSection } from '@/shared/ui/inspector/MatterFilesSection';
+import { MatterAskCard } from '@/features/matters/components/MatterAskCard';
 
 const isValidMatterStatus = (value: unknown): value is MatterStatus =>
   typeof value === 'string' && isMatterStatus(value);
@@ -51,6 +52,18 @@ export interface MatterInspectorProps {
   // Mutation callbacks (when undefined, fields render read-only).
   onMatterStatusChange?: (status: MatterStatus) => void;
   onMatterPatchChange?: (patch: Record<string, unknown>) => Promise<void> | void;
+  /**
+   * When provided, renders the "Ask about this matter" pinned chat card at
+   * the top of the inspector body (per design_handoff_blawby_chat_first/
+   * screens/Matter.html). Callback receives the question text and is
+   * expected to route to the practice assistant scoped to this matter.
+   *
+   * TODO(backend): wire to /api/practice/:id/matters/:matterId/ask once the
+   * scoped-context practice-assistant route exists.
+   */
+  onAskAboutMatter?: (query: string) => void;
+  /** Suggestion chips listed beneath the input in the ask card. */
+  askSuggestions?: readonly string[];
 }
 
 /**
@@ -82,6 +95,13 @@ export const MatterInspector = ({
   conversationMembers = [],
   onMatterStatusChange,
   onMatterPatchChange,
+  onAskAboutMatter,
+  askSuggestions = [
+    'Summarize recent activity',
+    "What's outstanding?",
+    'Draft a reply to the client',
+    "What's the next deadline?",
+  ],
 }: MatterInspectorProps) => {
   const { data: matterDetail, isLoading, error } = useMatterDetail(practiceId, entityId);
   const [localError, setLocalError] = useState<string | null>(null);
@@ -352,6 +372,18 @@ export const MatterInspector = ({
           subtitle={undefined}
           statusBadge={null}
         />
+        {/* Pinned chat-first ask card — sits above the facts/identity groups
+            so the most-used action on a matter (asking the assistant a
+            scoped question) is the first thing in the right rail per the
+            canonical Matter.html design. */}
+        {onAskAboutMatter ? (
+          <div className="px-4 pt-3">
+            <MatterAskCard
+              onSubmit={onAskAboutMatter}
+              suggestions={askSuggestions}
+            />
+          </div>
+        ) : null}
         <div>
           <InspectorGroup
             label="Status"

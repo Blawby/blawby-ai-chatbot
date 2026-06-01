@@ -4,6 +4,7 @@ import { useLocation } from 'preact-iso';
 import { Inbox } from 'lucide-preact';
 
 import { Seg } from '@/design-system/patterns';
+import { SignalPill, type SignalPillSignal, Pill } from '@/design-system/primitives';
 import { EntityList } from '@/shared/ui/list/EntityList';
 import { WorkspacePlaceholderState } from '@/shared/ui/layout/WorkspacePlaceholderState';
 import { InfiniteScroll } from '@/shared/ui/layout/InfiniteScroll';
@@ -54,6 +55,51 @@ const triageStatusVariant = (status: string | null | undefined): {
     default:
       return { label: 'Pending Review', className: 'text-warning' };
   }
+};
+
+// ── Row signal helpers ─────────────────────────────────────────────────────
+//
+// IntakeListItem.case_strength may be either a 0-100 percentage or a 0-5
+// rating — normalize to a 0-5 scale for display.
+const normalizeCaseStrength = (raw: number | null | undefined): number | null => {
+  if (typeof raw !== 'number' || !Number.isFinite(raw)) return null;
+  if (raw <= 0) return 0;
+  if (raw <= 5) return Math.round(raw * 10) / 10;
+  return Math.round((raw / 20) * 10) / 10;
+};
+
+const urgencySignal = (urgency: string | null | undefined): SignalPillSignal | null => {
+  if (urgency === 'emergency') return 'urgent';
+  if (urgency === 'time_sensitive') return 'warn';
+  if (urgency === 'routine') return 'healthy';
+  return null;
+};
+
+const urgencyShortLabel = (urgency: string | null | undefined): string | null => {
+  if (urgency === 'emergency') return 'Urgent';
+  if (urgency === 'time_sensitive') return 'Soon';
+  if (urgency === 'routine') return 'Routine';
+  return null;
+};
+
+// IntakeListItem.metadata.customFields._enriched_data is a JSON-string blob
+// produced by the AI enrichment pipeline. Pull the practice-area string out
+// without re-parsing the entire shape (the detail page does that fully).
+const readPracticeAreaFromMetadata = (metadata: IntakeListItem['metadata']): string | null => {
+  const cf = (metadata?.customFields ?? metadata?.custom_fields) as Record<string, unknown> | undefined;
+  if (!cf || typeof cf !== 'object') return null;
+  const raw = cf._enriched_data;
+  if (typeof raw !== 'string') return null;
+  try {
+    const parsed = JSON.parse(raw) as Record<string, unknown>;
+    if (typeof parsed?.practice_area === 'string') {
+      return parsed.practice_area
+        .split(/[_\s]+/)
+        .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+        .join(' ');
+    }
+  } catch { /* ignore */ }
+  return null;
 };
 
 type IntakesPageProps = {
@@ -274,11 +320,31 @@ export const IntakesPage: FunctionComponent<IntakesPageProps> = ({
                     item.metadata?.name?.trim() || 'Anonymous Lead'
                   );
                   const contact = item.metadata?.email?.trim() || item.metadata?.name?.trim() || '—';
+                  const strength = normalizeCaseStrength(item.case_strength);
+                  const uSignal = urgencySignal(item.urgency);
+                  const uLabel = urgencyShortLabel(item.urgency);
+                  const practiceArea = readPracticeAreaFromMetadata(item.metadata);
                   return (
                     <div className="flex w-full items-center gap-4 px-4 py-3 hover:bg-paper-2/10">
-                      <span className="min-w-[160px] flex-1 truncate text-sm font-medium text-ink">
-                        {subject}
-                      </span>
+                      <div className="flex min-w-[160px] flex-1 flex-col gap-1 min-w-0">
+                        <span className="truncate text-sm font-medium text-ink">{subject}</span>
+                        {(strength != null || uSignal || practiceArea) ? (
+                          <div className="flex flex-wrap items-center gap-1.5">
+                            {strength != null ? (
+                              <Pill tone={strength >= 4 ? 'live' : strength >= 3 ? 'gold' : 'urgent'} dot>
+                                <span className="font-mono text-[10px]">case · </span>
+                                <span className="font-medium">{strength.toFixed(1)}/5</span>
+                              </Pill>
+                            ) : null}
+                            {uSignal && uLabel ? (
+                              <SignalPill signal={uSignal} label={uLabel} />
+                            ) : null}
+                            {practiceArea ? (
+                              <Pill tone="dim">{practiceArea}</Pill>
+                            ) : null}
+                          </div>
+                        ) : null}
+                      </div>
                       <span className="hidden min-w-[160px] truncate text-sm text-dim-2 sm:block">
                         {contact}
                       </span>
@@ -335,6 +401,11 @@ const IntakeMobileCard: FunctionComponent<IntakeMobileCardProps> = ({ item, onCl
   const triage = triageStatusVariant(item.triage_status);
   const subject = resolveIntakeTitle(item.metadata, item.metadata?.name?.trim() || 'Anonymous Lead');
   const email = item.metadata?.email?.trim() || '—';
+  const strength = normalizeCaseStrength(item.case_strength);
+  const uSignal = urgencySignal(item.urgency);
+  const uLabel = urgencyShortLabel(item.urgency);
+  const practiceArea = readPracticeAreaFromMetadata(item.metadata);
+  const hasSignals = strength != null || uSignal !== null || practiceArea !== null;
 
   const rows: ReadonlyArray<{ label: string; value: ComponentChildren }> = [
     { label: 'Subject', value: <span className="font-medium text-ink break-words">{subject}</span> },
@@ -356,6 +427,22 @@ const IntakeMobileCard: FunctionComponent<IntakeMobileCardProps> = ({ item, onCl
           </div>
         ))}
       </dl>
+      {hasSignals ? (
+        <div className="mt-3 flex flex-wrap items-center gap-1.5">
+          {strength != null ? (
+            <Pill tone={strength >= 4 ? 'live' : strength >= 3 ? 'gold' : 'urgent'} dot>
+              <span className="font-mono text-[10px]">case · </span>
+              <span className="font-medium">{strength.toFixed(1)}/5</span>
+            </Pill>
+          ) : null}
+          {uSignal && uLabel ? (
+            <SignalPill signal={uSignal} label={uLabel} />
+          ) : null}
+          {practiceArea ? (
+            <Pill tone="dim">{practiceArea}</Pill>
+          ) : null}
+        </div>
+      ) : null}
     </button>
   );
 };
