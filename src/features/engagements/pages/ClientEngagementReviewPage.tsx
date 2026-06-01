@@ -3,358 +3,362 @@
  *
  * Route: /client/:practiceSlug/engagements/:engagementId/review
  *
- * Renders the engagement letter as a formatted document with a signature pad
- * panel. On sign, calls `acceptEngagement` and redirects to the conversation.
+ * Renders the engagement letter as a printed-paper document with a 3-check
+ * acknowledgment card and a 200px signature pad. On sign, calls
+ * `acceptEngagement` and redirects to the conversation.
+ *
+ * Layout mirrors `design_handoff_blawby_chat_first/screens/EngagementReview.html`:
+ *
+ *   [brand topbar] BrandMark · For: {client} · encrypted · audit-logged
+ *   [greeting band] Avatar · serif H1 with accent · warm intro
+ *   [status strip] Matter · Sent · Fee · Status
+ *   [letter] LetterPaper-wrapped EngagementLetter
+ *   [AI question card] AIRibbon observation — "Ask a question"
+ *   [acknowledgments card] 3 checks (read · scope · guarantee)
+ *   [signature card] 200px pad + baseline + audit footer
+ *   [decide row] Decline · Accept
+ *   [public flow footer] tls · audit-logged + Privacy · Terms · escape decline
  */
 import { FunctionComponent } from 'preact';
-import { useCallback, useEffect, useRef, useState } from 'preact/hooks';
-import { AlertTriangle, CheckCircle2, ChevronLeft, Download, Pen } from 'lucide-preact';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'preact/hooks';
+import { AlertTriangle, CheckCircle2, ChevronLeft, Download, MessageCircle } from 'lucide-preact';
 
 import { Button } from '@/shared/ui/Button';
-import { Checkbox } from '@/shared/ui/input';
 import { LoadingBlock } from '@/shared/ui/layout/LoadingBlock';
 import { cn } from '@/shared/utils/cn';
 import { useNavigation } from '@/shared/utils/navigation';
 import { useToastContext } from '@/shared/contexts/ToastContext';
 import { formatLongDate } from '@/shared/utils/dateFormatter';
 import { formatCurrency } from '@/shared/utils/currencyFormatter';
+import { usePracticeDetails } from '@/shared/hooks/usePracticeDetails';
 
-import { acceptEngagement } from '../api/engagementsApi';
+import { AIRibbon } from '@/design-system/patterns/AIRibbon';
+import { LetterPaper, type LetterPaperFeeRow } from '@/design-system/patterns/LetterPaper';
+import { StatStrip, type StatStripCell } from '@/design-system/patterns/StatStrip';
+
+import { acceptEngagement, declineEngagement } from '../api/engagementsApi';
 import type { EngagementDetail, ProposalData, ProposalFees } from '../types/engagement';
 import { useEngagementDetail } from '../hooks/useEngagementDetail';
 
+import { ClientEngagementBrandTopbar } from '../components/ClientEngagementBrandTopbar';
+import { ClientEngagementGreetingBand } from '../components/ClientEngagementGreetingBand';
+import {
+  ClientEngagementAcknowledgmentsCard,
+  type AcknowledgmentChecks,
+  type AcknowledgmentKey,
+} from '../components/ClientEngagementAcknowledgmentsCard';
+import { ClientEngagementSignatureCard } from '../components/ClientEngagementSignatureCard';
+import { ClientEngagementDecideRow } from '../components/ClientEngagementDecideRow';
+import { ClientEngagementPublicFlowFooter } from '../components/ClientEngagementPublicFlowFooter';
+
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
-const formatExpiresDate = (sentAt: string | null | undefined): string | null => {
-  if (!sentAt) return null;
-  const sent = new Date(sentAt);
-  if (Number.isNaN(sent.getTime())) return null;
-  const expires = new Date(sent.getTime());
-  expires.setDate(expires.getDate() + 30);
-  return formatLongDate(expires.toISOString());
+const firstNameOf = (full?: string | null): string => {
+  if (!full) return '';
+  const trimmed = full.trim();
+  if (!trimmed) return '';
+  const first = trimmed.split(/\s+/)[0];
+  return first.includes('@') ? first.split('@')[0] : first;
 };
 
-const buildFeesParagraph = (fees: ProposalFees | null | undefined): string => {
-  if (!fees) return 'Fee terms to be confirmed prior to commencement of services.';
+const formatRelative = (iso: string | null | undefined): string => {
+  if (!iso) return '—';
+  const ts = new Date(iso).getTime();
+  if (Number.isNaN(ts)) return '—';
+  const diffMs = Date.now() - ts;
+  const minutes = Math.round(diffMs / 60000);
+  if (minutes < 1) return 'just now';
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.round(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.round(hours / 24);
+  if (days < 7) return `${days}d ago`;
+  return formatLongDate(iso);
+};
 
-  const billingType = (fees.billing_type ?? '').toLowerCase();
-  const parts: string[] = [];
+const STATUS_LABEL: Record<EngagementDetail['status'], string> = {
+  draft: 'Draft',
+  sent: 'Awaiting your signature',
+  accepted: 'Accepted',
+  declined: 'Declined',
+};
 
-  if (billingType === 'contingency') {
-    const pct = fees.contingency_percentage;
-    if (typeof pct === 'number') {
-      parts.push(`Our services will be billed at a contingency rate of ${pct}% of any settlement or award recovered.`);
-    } else {
-      parts.push('Our services will be billed on a contingency basis.');
-    }
-    if (typeof fees.retainer_amount === 'number' && fees.retainer_amount > 0) {
-      parts.push(`A retainer of ${formatCurrency(fees.retainer_amount)} is required upon signing this engagement letter.`);
-    }
-  } else if (billingType === 'hourly') {
+/** Single-line fee summary for the StatStrip cell. */
+const formatFeeSummary = (fees: ProposalFees | null | undefined): { display: string; emphasis?: string } => {
+  if (!fees) return { display: '—' };
+  const t = (fees.billing_type ?? '').toLowerCase();
+  if ((t === 'flat' || t === 'fixed' || t === 'flat_fee') && typeof fees.fixed_fee_amount === 'number') {
+    return { display: `${formatCurrency(fees.fixed_fee_amount)} fixed`, emphasis: formatCurrency(fees.fixed_fee_amount) };
+  }
+  if (t === 'hourly' && typeof fees.hourly_rate_attorney === 'number') {
+    return { display: `${formatCurrency(fees.hourly_rate_attorney)}/hr`, emphasis: `${formatCurrency(fees.hourly_rate_attorney)}/hr` };
+  }
+  if (t === 'retainer' && typeof fees.retainer_amount === 'number') {
+    return { display: `${formatCurrency(fees.retainer_amount)} retainer`, emphasis: formatCurrency(fees.retainer_amount) };
+  }
+  if (t === 'contingency' && typeof fees.contingency_percentage === 'number') {
+    return { display: `${fees.contingency_percentage}% contingency`, emphasis: `${fees.contingency_percentage}%` };
+  }
+  return { display: 'To be confirmed' };
+};
+
+/** Build the fee-box rows for LetterPaper.Fee from ProposalFees. */
+const buildFeeRows = (fees: ProposalFees | null | undefined): LetterPaperFeeRow[] => {
+  if (!fees) return [];
+  const rows: LetterPaperFeeRow[] = [];
+  const t = (fees.billing_type ?? '').toLowerCase();
+  if (t === 'hourly') {
     if (typeof fees.hourly_rate_attorney === 'number') {
-      parts.push(`Our attorney services will be billed at an hourly rate of ${formatCurrency(fees.hourly_rate_attorney)} per hour.`);
+      rows.push({ label: 'Attorney hourly rate', amount: `${formatCurrency(fees.hourly_rate_attorney)} / hr` });
     }
     if (typeof fees.hourly_rate_admin === 'number') {
-      parts.push(`Administrative time will be billed at ${formatCurrency(fees.hourly_rate_admin)} per hour.`);
-    }
-    if (typeof fees.retainer_amount === 'number' && fees.retainer_amount > 0) {
-      parts.push(`A retainer of ${formatCurrency(fees.retainer_amount)} is required upon signing this engagement letter.`);
-    }
-  } else if (billingType === 'flat' || billingType === 'fixed' || billingType === 'flat_fee') {
-    if (typeof fees.fixed_fee_amount === 'number') {
-      parts.push(`Our services will be billed at a flat fee of ${formatCurrency(fees.fixed_fee_amount)}.`);
-    } else {
-      parts.push('Our services will be billed at a flat fee, to be confirmed in writing.');
-    }
-  } else if (billingType === 'retainer') {
-    if (typeof fees.retainer_amount === 'number') {
-      parts.push(`A retainer of ${formatCurrency(fees.retainer_amount)} is required upon signing this engagement letter.`);
+      rows.push({ label: 'Paralegal / admin hourly rate', amount: `${formatCurrency(fees.hourly_rate_admin)} / hr` });
     }
   }
-
+  if (typeof fees.retainer_amount === 'number' && fees.retainer_amount > 0) {
+    rows.push({ label: 'Initial retainer · held in trust', amount: formatCurrency(fees.retainer_amount) });
+  }
+  if (typeof fees.fixed_fee_amount === 'number' && (t === 'flat' || t === 'fixed' || t === 'flat_fee')) {
+    rows.push({ label: 'Fixed fee', amount: formatCurrency(fees.fixed_fee_amount) });
+  }
+  if (typeof fees.contingency_percentage === 'number' && t === 'contingency') {
+    rows.push({ label: 'Contingency percentage', amount: `${fees.contingency_percentage}%` });
+  }
   if (fees.payment_frequency) {
-    parts.push(`Invoices will be issued ${fees.payment_frequency.replace(/_/g, ' ').toLowerCase()}.`);
+    rows.push({ label: 'Invoice cadence', amount: fees.payment_frequency.replace(/_/g, ' ') });
   }
-  if (fees.fee_notes) parts.push(fees.fee_notes);
-
-  return parts.length > 0 ? parts.join(' ') : 'Fee terms to be confirmed prior to commencement of services.';
+  return rows;
 };
 
-// ── Signature pad ────────────────────────────────────────────────────────────
-
-const SignaturePad: FunctionComponent<{
-  onChange: (dataUrl: string | null) => void;
-  disabled: boolean;
-}> = ({ onChange, disabled }) => {
-  const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  const drawingRef = useRef(false);
-  const lastPointRef = useRef<{ x: number; y: number } | null>(null);
-  const hasStrokeRef = useRef(false);
-
-  const getContext = useCallback(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return null;
-    return canvas.getContext('2d');
-  }, []);
-
-  const resizeCanvas = useCallback(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ratio = window.devicePixelRatio || 1;
-    const rect = canvas.getBoundingClientRect();
-    canvas.width = rect.width * ratio;
-    canvas.height = rect.height * ratio;
-    const ctx = getContext();
-    if (ctx) {
-      ctx.scale(ratio, ratio);
-      ctx.strokeStyle = '#1f2937';
-      ctx.lineWidth = 2;
-      ctx.lineCap = 'round';
-      ctx.lineJoin = 'round';
-    }
-  }, [getContext]);
-
-  useEffect(() => {
-    resizeCanvas();
-    window.addEventListener('resize', resizeCanvas);
-    return () => window.removeEventListener('resize', resizeCanvas);
-  }, [resizeCanvas]);
-
-  const pointFromEvent = useCallback((e: MouseEvent | TouchEvent) => {
-    const canvas = canvasRef.current;
-    if (!canvas) return null;
-    const rect = canvas.getBoundingClientRect();
-    if (e instanceof MouseEvent) {
-      return { x: e.clientX - rect.left, y: e.clientY - rect.top };
-    }
-    const touch = e.touches[0] ?? e.changedTouches[0];
-    if (!touch) return null;
-    return { x: touch.clientX - rect.left, y: touch.clientY - rect.top };
-  }, []);
-
-  const startDraw = useCallback((e: MouseEvent | TouchEvent) => {
-    if (disabled) return;
-    e.preventDefault();
-    const pt = pointFromEvent(e);
-    if (!pt) return;
-    drawingRef.current = true;
-    lastPointRef.current = pt;
-  }, [disabled, pointFromEvent]);
-
-  const continueDraw = useCallback((e: MouseEvent | TouchEvent) => {
-    if (disabled || !drawingRef.current) return;
-    e.preventDefault();
-    const pt = pointFromEvent(e);
-    const ctx = getContext();
-    const last = lastPointRef.current;
-    if (!pt || !ctx || !last) return;
-    ctx.beginPath();
-    ctx.moveTo(last.x, last.y);
-    ctx.lineTo(pt.x, pt.y);
-    ctx.stroke();
-    lastPointRef.current = pt;
-    hasStrokeRef.current = true;
-  }, [disabled, getContext, pointFromEvent]);
-
-  const endDraw = useCallback(() => {
-    if (!drawingRef.current) return;
-    drawingRef.current = false;
-    lastPointRef.current = null;
-    if (hasStrokeRef.current) {
-      const canvas = canvasRef.current;
-      if (canvas) onChange(canvas.toDataURL('image/png'));
-    }
-  }, [onChange]);
-
-  const clearPad = useCallback(() => {
-    const canvas = canvasRef.current;
-    const ctx = getContext();
-    if (!canvas || !ctx) return;
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    hasStrokeRef.current = false;
-    onChange(null);
-  }, [getContext, onChange]);
-
-  return (
-    <div className="space-y-2">
-      <div className="relative">
-        <canvas
-          ref={canvasRef}
-          className={cn(
-            'block h-32 w-full cursor-crosshair rounded-lg border border-dashed border-card-border bg-card',
-            disabled && 'cursor-not-allowed opacity-60',
-          )}
-          onMouseDown={(e) => startDraw(e as unknown as MouseEvent)}
-          onMouseMove={(e) => continueDraw(e as unknown as MouseEvent)}
-          onMouseUp={endDraw}
-          onMouseLeave={endDraw}
-          onTouchStart={(e) => startDraw(e as unknown as TouchEvent)}
-          onTouchMove={(e) => continueDraw(e as unknown as TouchEvent)}
-          onTouchEnd={endDraw}
-        />
-        {!hasStrokeRef.current && (
-          <div className="pointer-events-none absolute inset-0 flex items-center justify-center text-xs text-dim-2">
-            <Pen className="mr-2 h-4 w-4" />
-            Click to draw your signature
-          </div>
-        )}
-      </div>
-      <button
-        type="button"
-        onClick={clearPad}
-        disabled={disabled}
-        className="text-xs font-medium text-accent hover:underline focus:outline-none disabled:opacity-50"
-      >
-        Clear signature
-      </button>
-    </div>
-  );
+/** Pull a multi-line firm address from practice details. Returns [] when nothing is known. */
+const buildFirmAddress = (details: Record<string, unknown> | null | undefined): string[] => {
+  if (!details) return [];
+  const parts: string[] = [];
+  const address = typeof details.address === 'string' ? details.address.trim() : '';
+  const city = typeof details.city === 'string' ? details.city.trim() : '';
+  const state = typeof details.state === 'string' ? details.state.trim() : '';
+  const postal = typeof details.postalCode === 'string' ? details.postalCode.trim() : '';
+  const phone = typeof details.businessPhone === 'string' ? details.businessPhone.trim() : '';
+  const email = typeof details.businessEmail === 'string' ? details.businessEmail.trim() : '';
+  if (address) parts.push(address);
+  const csz = [city, state, postal].filter(Boolean).join(', ');
+  if (csz) parts.push(csz);
+  if (phone) parts.push(phone);
+  if (email) parts.push(email);
+  return parts;
 };
 
-// ── Right-column cards ───────────────────────────────────────────────────────
-
-const DocumentStatusCard: FunctionComponent<{
-  engagement: EngagementDetail;
-  practiceName: string;
-  accepted: boolean;
-}> = ({ engagement, practiceName, accepted }) => {
-  const rows: Array<{ label: string; value: string | null }> = [
-    { label: 'Type', value: 'Engagement Letter' },
-    { label: 'From', value: practiceName },
-    { label: 'Sent', value: engagement.sent_at ? formatLongDate(engagement.sent_at) ?? null : null },
-    { label: 'Expires', value: formatExpiresDate(engagement.sent_at) },
-    { label: 'Matter', value: engagement.proposal_data?.client_summary?.matter_summary ?? engagement.title ?? null },
-  ];
-
-  return (
-    <section className="card p-5 space-y-3">
-      <header className="flex items-center justify-between gap-2">
-        <h3 className="text-sm font-semibold text-ink">Document Status</h3>
-        <span className={cn(
-          'inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ring-1 ring-inset',
-          accepted
-            ? 'bg-emerald-500/10 text-emerald-700 ring-emerald-500/20 dark:text-emerald-300'
-            : 'bg-amber-500/10 text-amber-700 ring-amber-500/20 dark:text-amber-300',
-        )}>
-          {accepted ? 'Accepted' : 'Pending Signature'}
-        </span>
-      </header>
-      <dl className="space-y-2 text-sm">
-        {rows.map(({ label, value }) => (
-          <div key={label} className="flex items-start justify-between gap-3">
-            <dt className="text-dim-2">{label}</dt>
-            <dd className="text-right text-ink">{value ?? '—'}</dd>
-          </div>
-        ))}
-      </dl>
-    </section>
-  );
-};
-
-const SignaturePanel: FunctionComponent<{
-  signatureData: string | null;
-  agreementChecked: boolean;
-  onSignatureChange: (data: string | null) => void;
-  onAgreementChange: (checked: boolean) => void;
-  disabled: boolean;
-}> = ({ signatureData, agreementChecked, onSignatureChange, onAgreementChange, disabled }) => (
-  <section className="card p-5 space-y-3">
-    <h3 className="text-sm font-semibold text-ink">Your Signature</h3>
-    <SignaturePad onChange={onSignatureChange} disabled={disabled} />
-    <Checkbox
-      checked={agreementChecked}
-      onChange={onAgreementChange}
-      disabled={disabled}
-      label="I have read and agree to the terms outlined in this engagement letter."
-    />
-    {signatureData && (
-      <p className="text-xs text-emerald-500 inline-flex items-center gap-1">
-        <CheckCircle2 className="h-3.5 w-3.5" />
-        Signature captured
-      </p>
-    )}
-  </section>
-);
-
-// ── Letter document ──────────────────────────────────────────────────────────
+// ── EngagementLetter (LetterPaper-wrapped) ───────────────────────────────────
 
 const EngagementLetter: FunctionComponent<{
   engagement: EngagementDetail;
   proposal: ProposalData | null;
   practiceName: string;
-}> = ({ engagement, proposal, practiceName }) => {
+  firmAddress: readonly string[];
+  attorneyFirstName?: string | null;
+}> = ({ engagement, proposal, practiceName, firmAddress, attorneyFirstName }) => {
   const clientName = proposal?.client_summary?.client_name ?? engagement.client_name ?? 'Client';
   const contractBody = engagement.contract_body?.trim();
   const scope = proposal?.representation?.scope_summary;
   const includedServices = proposal?.representation?.included_services ?? [];
-  const feeParagraph = buildFeesParagraph(proposal?.fees);
+  const excludedServices = proposal?.representation?.excluded_services ?? [];
   const acknowledgments = proposal?.acknowledgment_language;
   const noGuarantee = proposal?.no_guarantee_language;
+  const feeRows = useMemo(() => buildFeeRows(proposal?.fees), [proposal?.fees]);
+  const dateLine = engagement.sent_at
+    ? formatLongDate(engagement.sent_at)
+    : formatLongDate(engagement.created_at);
+
+  // Doc-meta lives in LetterPaper's `address` slot — the canonical doc-meta
+  // (Engagement letter · Ref · Date) sits on the right of the letterhead.
+  const docMeta = (
+    <>
+      <div className="font-medium text-[10.5px] uppercase tracking-[0.06em] text-[#15140f]">
+        Engagement letter
+      </div>
+      <div className="mt-1 font-mono text-[10.5px] uppercase tracking-[0.06em] text-[#6b7790]">
+        Ref · {engagement.id.slice(0, 12).toUpperCase()}
+      </div>
+      <div className="font-mono text-[10.5px] uppercase tracking-[0.06em] text-[#6b7790]">
+        Date · {dateLine}
+      </div>
+      {firmAddress.length > 0 && (
+        <div className="mt-3 font-mono text-[10.5px] uppercase leading-[1.55] tracking-[0.06em] text-[#6b7790]">
+          {firmAddress.map((line, i) => (
+            <div key={i}>{line}</div>
+          ))}
+        </div>
+      )}
+    </>
+  );
+
+  const firmBlock = attorneyFirstName ? (
+    <>
+      Law Offices of <em>{attorneyFirstName}</em>
+      {practiceName && practiceName !== attorneyFirstName ? ` · ${practiceName}` : ''}
+    </>
+  ) : (
+    practiceName
+  );
 
   return (
-    <article className="rounded-2xl border border-card-border bg-card p-6 sm:p-10 space-y-6 leading-relaxed text-ink">
-      <header className="text-center space-y-2 border-b border-line-subtle pb-6">
-        <h1 className="text-xl font-bold uppercase tracking-widest">Engagement Letter</h1>
-        <p className="text-sm font-medium">{practiceName}</p>
-        <p className="text-xs uppercase tracking-wider text-dim-2">
-          Sent {engagement.sent_at ? formatLongDate(engagement.sent_at) : formatLongDate(engagement.created_at)}
-        </p>
-      </header>
-
-      <p className="text-sm">Dear {clientName},</p>
+    <LetterPaper firm={firmBlock} address={docMeta}>
+      <p className="letter-paper-intro">Dear {clientName},</p>
 
       {contractBody ? (
-        <div className="whitespace-pre-wrap text-sm leading-relaxed">{contractBody}</div>
+        <div style={{ whiteSpace: 'pre-wrap' }}>{contractBody}</div>
       ) : (
         <>
-      <p className="text-sm">
-        This letter confirms the terms of engagement between you and {practiceName} for legal representation
-        in the matter described below. Please review the terms carefully and sign below to indicate your
-        agreement.
-      </p>
+          <p>
+            This letter confirms the terms of representation between you and {practiceName}.
+            Once you sign below, this letter becomes our agreement.
+          </p>
 
-      <section className="space-y-3">
-        <h2 className="text-sm font-semibold uppercase tracking-wider">1. Scope of Services</h2>
-        {scope ? (
-          <p className="text-sm">{scope}</p>
-        ) : (
-          <p className="text-sm italic text-dim-2">Scope to be confirmed before commencement of services.</p>
-        )}
-        {includedServices.length > 0 && (
-          <ul className="space-y-1.5 pl-4">
-            {includedServices.map((service, i) => (
-              <li key={i} className="text-sm list-disc">{service}</li>
-            ))}
-          </ul>
-        )}
-      </section>
+          <h2>Scope of representation</h2>
+          {scope ? <p>{scope}</p> : (
+            <p>
+              <LetterPaper.Placeholder>scope summary</LetterPaper.Placeholder>
+            </p>
+          )}
+          {includedServices.length > 0 && (
+            <p>This firm will represent you in connection with the following work:</p>
+          )}
+          {includedServices.length > 0 && (
+            <ul style={{ margin: '6px 0 14px 18px', padding: 0 }}>
+              {includedServices.map((service, i) => (
+                <li key={i} style={{ listStyle: 'disc', margin: '4px 0' }}>{service}</li>
+              ))}
+            </ul>
+          )}
+          {excludedServices.length > 0 && (
+            <p>
+              This engagement does <em>not</em> include {excludedServices.join(', ')}.
+              These would require a separate, written agreement.
+            </p>
+          )}
 
-      <section className="space-y-3">
-        <h2 className="text-sm font-semibold uppercase tracking-wider">2. Fee Structure</h2>
-        <p className="text-sm">{feeParagraph}</p>
-      </section>
+          <h2>Fees &amp; billing</h2>
+          {feeRows.length > 0 ? (
+            <LetterPaper.Fee head="Fee summary" rows={feeRows} />
+          ) : (
+            <p>
+              <LetterPaper.Placeholder>fee terms</LetterPaper.Placeholder> will be confirmed prior to commencement of services.
+            </p>
+          )}
 
-      {acknowledgments && (
-        <section className="space-y-3">
-          <h2 className="text-sm font-semibold uppercase tracking-wider">3. Acknowledgments</h2>
-          <p className="text-sm">{acknowledgments}</p>
-        </section>
-      )}
+          {acknowledgments && (
+            <>
+              <h2>Acknowledgments</h2>
+              <p>{acknowledgments}</p>
+            </>
+          )}
 
-      {noGuarantee && (
-        <section className="space-y-3">
-          <h2 className="text-sm font-semibold uppercase tracking-wider">4. No Guarantee of Outcome</h2>
-          <p className="text-sm">{noGuarantee}</p>
-        </section>
-      )}
+          {noGuarantee && (
+            <>
+              <h2>No guarantee of outcome</h2>
+              <p>{noGuarantee}</p>
+            </>
+          )}
         </>
       )}
 
-      <footer className="border-t border-line-subtle pt-6 text-sm">
-        <p>Sincerely,</p>
-        <p className="mt-3 font-medium">{practiceName}</p>
-      </footer>
-    </article>
+      <p style={{ marginTop: 22 }}>
+        Please review the acknowledgments below and sign when ready.
+      </p>
+      <p style={{ marginTop: 14 }}><em>Sincerely,</em></p>
+
+      <div
+        style={{
+          marginTop: 36,
+          paddingTop: 22,
+          borderTop: '1px solid #d3d6df',
+          display: 'grid',
+          gridTemplateColumns: '1fr 1fr',
+          gap: 48,
+        }}
+        className="max-sm:!grid-cols-1 max-sm:!gap-7"
+      >
+        <div style={{ display: 'flex', flexDirection: 'column' }}>
+          <span
+            style={{
+              fontFamily: 'var(--mono)',
+              fontSize: 10.5,
+              letterSpacing: '0.12em',
+              textTransform: 'uppercase',
+              color: '#6b7790',
+              marginBottom: 24,
+            }}
+          >
+            Attorney
+          </span>
+          <div
+            style={{
+              fontFamily: 'var(--serif)',
+              fontSize: 22,
+              fontStyle: 'italic',
+              color: '#0f1e36',
+              lineHeight: 1,
+              paddingBottom: 6,
+              borderBottom: '1px solid #15140f',
+              minHeight: 32,
+            }}
+          >
+            {attorneyFirstName ?? practiceName}
+          </div>
+          <span
+            style={{
+              fontFamily: 'var(--mono)',
+              fontSize: 10,
+              letterSpacing: '0.06em',
+              textTransform: 'uppercase',
+              color: '#6b7790',
+              marginTop: 8,
+            }}
+          >
+            For {practiceName}
+          </span>
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column' }}>
+          <span
+            style={{
+              fontFamily: 'var(--mono)',
+              fontSize: 10.5,
+              letterSpacing: '0.12em',
+              textTransform: 'uppercase',
+              color: '#6b7790',
+              marginBottom: 24,
+            }}
+          >
+            Client
+          </span>
+          <div
+            style={{
+              fontFamily: 'var(--serif)',
+              fontSize: 14,
+              fontStyle: 'italic',
+              color: '#b4b9c2',
+              paddingBottom: 4,
+              borderBottom: '1px solid #15140f',
+              minHeight: 32,
+            }}
+          >
+            <LetterPaper.Placeholder>sign below to accept</LetterPaper.Placeholder>
+          </div>
+          <span
+            style={{
+              fontFamily: 'var(--mono)',
+              fontSize: 10,
+              letterSpacing: '0.06em',
+              textTransform: 'uppercase',
+              color: '#6b7790',
+              marginTop: 8,
+            }}
+          >
+            {clientName} · electronic signature
+          </span>
+        </div>
+      </div>
+    </LetterPaper>
   );
 };
 
@@ -385,11 +389,30 @@ export const ClientEngagementReviewPage: FunctionComponent<ClientEngagementRevie
   } = useEngagementDetail(practiceId, engagementId);
   const engagement: EngagementDetail | null = engagementData ?? null;
 
+  // Practice details — pre-seeded by usePracticeConfig in the parent route, so
+  // this is normally a free store read. We pull firm address + logo for the
+  // LetterPaper letterhead and greeting band avatar.
+  const { details: practiceDetails } = usePracticeDetails(practiceId, null, true);
+  const practiceLogo = (practiceDetails as Record<string, unknown> | null | undefined)?.profileImage as string | null | undefined;
+  const firmAddress = useMemo(
+    () => buildFirmAddress(practiceDetails as Record<string, unknown> | null | undefined),
+    [practiceDetails],
+  );
+
   const [signatureData, setSignatureData] = useState<string | null>(null);
-  const [agreementChecked, setAgreementChecked] = useState(false);
+  const [acknowledgments, setAcknowledgments] = useState<AcknowledgmentChecks>({
+    read: false,
+    scope: false,
+    guarantee: false,
+  });
   const [isAccepting, setIsAccepting] = useState(false);
+  const [isDeclining, setIsDeclining] = useState(false);
   const [acceptedClick, setAcceptedClick] = useState(false);
+  const [declinedClick, setDeclinedClick] = useState(false);
+
   const accepted = acceptedClick || engagement?.status === 'accepted';
+  const declined = declinedClick || engagement?.status === 'declined';
+  const allAcksChecked = acknowledgments.read && acknowledgments.scope && acknowledgments.guarantee;
 
   const isMountedRef = useRef(true);
   const navigationTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -402,9 +425,13 @@ export const ClientEngagementReviewPage: FunctionComponent<ClientEngagementRevie
     };
   }, []);
 
+  const handleAckToggle = useCallback((key: AcknowledgmentKey, checked: boolean) => {
+    setAcknowledgments((prev) => ({ ...prev, [key]: checked }));
+  }, []);
+
   const handleSign = useCallback(async () => {
     if (isAccepting || !engagement) return;
-    if (!signatureData || !agreementChecked) return;
+    if (!signatureData || !allAcksChecked) return;
     setIsAccepting(true);
     try {
       const updated = await acceptEngagement(practiceId, engagement.id);
@@ -428,16 +455,53 @@ export const ClientEngagementReviewPage: FunctionComponent<ClientEngagementRevie
     } finally {
       if (isMountedRef.current) setIsAccepting(false);
     }
-  }, [agreementChecked, conversationsBasePath, engagement, isAccepting, navigate, practiceId, showError, showSuccess, signatureData]);
+  }, [allAcksChecked, conversationsBasePath, engagement, isAccepting, navigate, practiceId, showError, showSuccess, signatureData]);
+
+  const handleDecline = useCallback(async () => {
+    if (isDeclining || !engagement || accepted || declined) return;
+    setIsDeclining(true);
+    try {
+      await declineEngagement(practiceId, engagement.id);
+      if (!isMountedRef.current) return;
+      setDeclinedClick(true);
+      showSuccess('Engagement declined', 'The firm has been notified. You can close this page.');
+    } catch (err) {
+      if (isMountedRef.current) {
+        showError('Decline failed', err instanceof Error ? err.message : 'Could not decline the engagement letter.');
+      }
+    } finally {
+      if (isMountedRef.current) setIsDeclining(false);
+    }
+  }, [engagement, isDeclining, accepted, declined, practiceId, showError, showSuccess]);
 
   const handleDownloadPdf = useCallback(() => {
     if (!engagement?.signed_pdf_s3_key) {
       showInfo('PDF not yet available', 'The signed PDF will be available after signature.');
       return;
     }
-    // A presigned-URL endpoint for client downloads is a backend follow-up.
+    // TODO(backend): expose a presigned-URL endpoint for client engagement PDF downloads.
     showInfo('Download starting', 'Your engagement letter PDF is being prepared.');
   }, [engagement?.signed_pdf_s3_key, showInfo]);
+
+  /**
+   * Ask-a-question handoff — navigates back to the firm conversation when one
+   * exists. When no conversation exists yet, we show an info toast.
+   *
+   * TODO(backend): expose `POST /api/engagement-contracts/.../questions` so a
+   * client can ask without leaving the review page. The chip should then open
+   * an inline composer here instead of navigating away.
+   */
+  const handleAskQuestion = useCallback(() => {
+    const convoId = engagement?.conversation_id;
+    if (convoId && conversationsBasePath) {
+      navigate(`${conversationsBasePath}/${encodeURIComponent(convoId)}`);
+      return;
+    }
+    showInfo(
+      'Send your question by email',
+      'We will set up an in-page composer for engagement questions in the next release. For now, please reach out by email.',
+    );
+  }, [engagement?.conversation_id, conversationsBasePath, navigate, showInfo]);
 
   if (isLoading) {
     return (
@@ -460,90 +524,231 @@ export const ClientEngagementReviewPage: FunctionComponent<ClientEngagementRevie
   }
 
   const proposal = engagement.proposal_data ?? null;
-  const canSign = Boolean(signatureData && agreementChecked) && !accepted && !isAccepting;
+  const clientFullName = proposal?.client_summary?.client_name ?? engagement.client_name ?? 'Client';
+  const clientFirst = firstNameOf(clientFullName);
+  const attorneyFirst = firstNameOf(engagement.created_by ?? null) || firstNameOf(practiceName);
+  const canSign = Boolean(signatureData && allAcksChecked) && !accepted && !declined && !isAccepting;
+  const todayLong = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+  const matterTitle =
+    proposal?.client_summary?.matter_summary
+    ?? engagement.title
+    ?? engagement.proposal_data?.representation?.scope_summary?.slice(0, 60)
+    ?? 'Engagement';
+  const feeSummary = formatFeeSummary(proposal?.fees);
+  const sentDisplay = engagement.sent_at ? formatRelative(engagement.sent_at) : 'Not sent yet';
+  const statusLabel = accepted ? STATUS_LABEL.accepted : declined ? STATUS_LABEL.declined : STATUS_LABEL[engagement.status];
+
+  const statusCells: StatStripCell[] = [
+    { label: 'Matter', value: matterTitle },
+    { label: 'Sent', value: sentDisplay },
+    {
+      label: 'Fee',
+      value: feeSummary.emphasis
+        ? (
+          <>
+            <em className="text-accent" style={{ fontStyle: 'italic' }}>{feeSummary.emphasis}</em>
+            {feeSummary.display.replace(feeSummary.emphasis, '') ? (
+              <span className="ml-1">{feeSummary.display.replace(feeSummary.emphasis, '')}</span>
+            ) : null}
+          </>
+        )
+        : feeSummary.display,
+    },
+    { label: 'Status', value: statusLabel },
+  ];
 
   return (
-    <div className="min-h-dvh bg-app-background">
-      <header className="sticky top-0 z-10 border-b border-card-border bg-card/80 backdrop-blur-xl">
-        <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-3 sm:px-6">
-          <div className="flex min-w-0 items-center gap-2">
-            {onBack && (
-              <button
+    <div
+      className="min-h-dvh bg-app-background"
+      style={{
+        backgroundImage:
+          'radial-gradient(ellipse 900px 600px at 80% -10%, color-mix(in oklab, var(--accent) 14%, transparent), transparent 60%), radial-gradient(rgba(15,30,54,0.025) 1px, transparent 1.2px)',
+        backgroundSize: 'auto, 3px 3px',
+        backgroundAttachment: 'fixed',
+      }}
+    >
+      {/* Optional back affordance — preserved from previous implementation. */}
+      {onBack && (
+        <div className="mx-auto flex max-w-[900px] items-center px-4 pt-3 sm:px-8">
+          <button
+            type="button"
+            onClick={onBack}
+            className="-ml-1 inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-dim-2 hover:bg-paper-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/40"
+            aria-label="Back"
+          >
+            <ChevronLeft className="h-4 w-4" />
+            Back
+          </button>
+        </div>
+      )}
+
+      <ClientEngagementBrandTopbar recipientName={clientFullName} />
+
+      <ClientEngagementGreetingBand
+        clientFirstName={clientFirst}
+        practiceName={practiceName}
+        practiceLogo={practiceLogo ?? null}
+        attorneyFirstName={attorneyFirst}
+        kicker={engagement.sent_at ? `Sent ${sentDisplay}` : undefined}
+      />
+
+      {/* Status strip — Matter · Sent · Fee · Status (4 cells; StatStrip grid
+          auto-fills). Wrapped to constrain to the canonical 900px column. */}
+      <div className="mx-auto mb-6 max-w-[900px] px-4 sm:px-8">
+        <StatStrip cells={statusCells} />
+      </div>
+
+      <main className="pb-24 sm:pb-0">
+        {/* Letter */}
+        <section className="mx-auto mb-8 max-w-[900px] px-3 sm:px-4">
+          <EngagementLetter
+            engagement={engagement}
+            proposal={proposal}
+            practiceName={practiceName}
+            firmAddress={firmAddress}
+            attorneyFirstName={attorneyFirst}
+          />
+        </section>
+
+        {/* AI question prompt — inline observation ribbon. Only meaningful while
+            the document is actionable; once accepted/declined we don't surface
+            the chip. */}
+        {!accepted && !declined && (
+          <div className="mx-auto mb-6 max-w-[900px] px-4 sm:px-8">
+            <AIRibbon
+              variant="observation"
+              title="Want to ask a question?"
+              body={
+                <span className="italic">
+                  &ldquo;What happens if we settle before the first court date?&rdquo; — I can answer in plain English and loop {attorneyFirst} in if it changes anything.
+                </span>
+              }
+              actions={[
+                {
+                  id: 'ask',
+                  label: 'Ask a question ↗',
+                  variant: 'primary',
+                  onClick: handleAskQuestion,
+                },
+              ]}
+            />
+          </div>
+        )}
+
+        {/* Acknowledgments + signature + decide — only while actionable. */}
+        {!accepted && !declined && (
+          <>
+            <div className="mx-auto mb-6 max-w-[900px] px-4 sm:px-8">
+              <ClientEngagementAcknowledgmentsCard
+                checks={acknowledgments}
+                onToggle={handleAckToggle}
+                disabled={isAccepting || isDeclining}
+              />
+            </div>
+
+            <div className="mx-auto mb-6 max-w-[900px] px-4 sm:px-8">
+              <ClientEngagementSignatureCard
+                signatureData={signatureData}
+                todayLong={todayLong}
+                onChange={setSignatureData}
+                disabled={isAccepting || isDeclining}
+              />
+            </div>
+
+            <div className="mx-auto mb-6 max-w-[900px] px-4 sm:px-8">
+              <ClientEngagementDecideRow
+                attorneyName={attorneyFirst}
+                practiceName={practiceName}
+                description={`On accept, your matter opens with ${attorneyFirst}, the engagement letter is countersigned automatically, and any required initial deposit is requested. You'll receive a portal link by email within a minute.`}
+                disabled={isAccepting || isDeclining}
+                canSign={canSign}
+                isAccepting={isAccepting}
+                onAccept={handleSign}
+                onDecline={handleDecline}
+              />
+            </div>
+          </>
+        )}
+
+        {/* Accepted state — replaces the sign/decline stack. */}
+        {accepted && (
+          <div className="mx-auto mb-6 max-w-[900px] px-4 sm:px-8">
+            <div className="card flex flex-col items-center gap-2 px-6 py-8 text-center">
+              <CheckCircle2 className="h-9 w-9 text-emerald-500" />
+              <p className="font-serif text-[22px] font-normal leading-[1.15] text-ink">Engagement signed.</p>
+              <p className="text-[14px] text-dim-2">
+                Thank you. {attorneyFirst} will be in touch shortly.
+              </p>
+              <Button
                 type="button"
-                onClick={onBack}
-                className="rounded-md p-1.5 text-dim-2 hover:bg-paper-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/40"
-                aria-label="Back"
+                variant="secondary"
+                size="md"
+                icon={Download}
+                onClick={handleDownloadPdf}
+                disabled={!engagement.signed_pdf_s3_key}
+                className="mt-2"
               >
-                <ChevronLeft className="h-5 w-5" />
-              </button>
-            )}
-            <div className="min-w-0">
-              <p className="truncate text-xs font-medium text-dim-2">{practiceName}</p>
-              <h1 className="truncate text-base font-semibold text-ink">Engagement Letter</h1>
+                Download PDF
+              </Button>
             </div>
           </div>
-          <span className={cn(
-            'inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ring-1 ring-inset',
-            accepted
-              ? 'bg-emerald-500/10 text-emerald-700 ring-emerald-500/20 dark:text-emerald-300'
-              : 'bg-amber-500/10 text-amber-700 ring-amber-500/20 dark:text-amber-300',
-          )}>
-            {accepted ? 'Accepted' : 'Pending Signature'}
-          </span>
-        </div>
-      </header>
+        )}
 
-      <main className="mx-auto max-w-6xl px-4 py-6 sm:px-6 sm:py-8">
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
-          {/* Letter content */}
-          <div className="order-2 lg:order-1">
-            <EngagementLetter engagement={engagement} proposal={proposal} practiceName={practiceName} />
+        {/* Declined state. */}
+        {declined && !accepted && (
+          <div className="mx-auto mb-6 max-w-[900px] px-4 sm:px-8">
+            <div className="card flex flex-col items-center gap-2 px-6 py-8 text-center">
+              <MessageCircle className="h-9 w-9 text-dim-2" />
+              <p className="font-serif text-[22px] font-normal leading-[1.15] text-ink">Engagement declined.</p>
+              <p className="text-[14px] text-dim-2">
+                We&apos;ve let {attorneyFirst} know. You can close this page.
+              </p>
+            </div>
           </div>
-
-          {/* Right panel */}
-          <aside className="order-1 flex flex-col gap-4 lg:order-2 lg:sticky lg:top-24 lg:self-start">
-            <DocumentStatusCard engagement={engagement} practiceName={practiceName} accepted={accepted} />
-            {!accepted && (
-              <SignaturePanel
-                signatureData={signatureData}
-                agreementChecked={agreementChecked}
-                onSignatureChange={setSignatureData}
-                onAgreementChange={setAgreementChecked}
-                disabled={isAccepting}
-              />
-            )}
-            {accepted ? (
-              <div className="card p-5 space-y-2 text-center">
-                <CheckCircle2 className="mx-auto h-8 w-8 text-emerald-500" />
-                <p className="text-sm font-semibold text-emerald-600 dark:text-emerald-300">Engagement signed</p>
-                <p className="text-xs text-dim-2">
-                  Thank you. Your attorney will be in touch shortly.
-                </p>
-              </div>
-            ) : (
-              <Button
-                variant="primary"
-                size="lg"
-                className="w-full"
-                disabled={!canSign}
-                onClick={handleSign}
-              >
-                {isAccepting ? 'Signing…' : 'Sign Engagement Letter'}
-              </Button>
-            )}
-            <Button
-              variant="secondary"
-              size="lg"
-              className="w-full"
-              icon={Download}
-              onClick={handleDownloadPdf}
-              disabled={!engagement.signed_pdf_s3_key && !accepted}
-            >
-              Download PDF
-            </Button>
-          </aside>
-        </div>
+        )}
       </main>
+
+      <ClientEngagementPublicFlowFooter
+        privacyHref="https://blawby.com/privacy"
+        termsHref="https://blawby.com/terms"
+        onDecline={!accepted && !declined ? handleDecline : undefined}
+      />
+
+      {/* Mobile-first sticky bottom Accept bar — only shown while actionable +
+          on small screens. When the user can't sign yet (missing acks or sig)
+          the button scrolls to the acknowledgments card so they can fix what's
+          missing without hunting for it. */}
+      {!accepted && !declined && (
+        <div
+          className={cn(
+            'fixed inset-x-0 bottom-0 z-20 border-t border-rule bg-card/95 px-4 py-3 backdrop-blur-xl sm:hidden',
+          )}
+        >
+          <Button
+            type="button"
+            variant="primary"
+            size="lg"
+            className="w-full"
+            disabled={isAccepting}
+            onClick={() => {
+              if (canSign) {
+                void handleSign();
+                return;
+              }
+              document.getElementById('ack-card-heading')?.scrollIntoView({
+                behavior: 'smooth',
+                block: 'center',
+              });
+            }}
+          >
+            {isAccepting
+              ? 'Signing…'
+              : canSign
+                ? `Accept & engage ${attorneyFirst} ↗`
+                : 'Sign & accept'}
+          </Button>
+        </div>
+      )}
     </div>
   );
 };

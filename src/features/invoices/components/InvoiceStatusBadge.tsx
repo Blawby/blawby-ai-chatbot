@@ -3,6 +3,11 @@ import type { InvoiceStatus } from '@/features/invoices/types';
 
 const statusTone: Record<string, PillTone> = {
   draft: 'dim',
+  // `staged` is a derived/synthetic status surfaced when an AI-staged
+  // invoice draft is awaiting human approval (see deriveIsStagedByAssistant
+  // in PracticeInvoiceDetailView). Backend column is TODO — for now this
+  // appears wherever the heuristic returns true.
+  staged: 'warn',
   pending: 'warn',
   sent: 'gold',
   open: 'warn',

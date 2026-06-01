@@ -2,7 +2,7 @@ import type { ComponentChildren } from 'preact';
 import { useCallback, useMemo, useState } from 'preact/hooks';
 import { useToastContext } from '@/shared/contexts/ToastContext';
 import { useNavigation } from '@/shared/utils/navigation';
-import { asMajor, safeAdd } from '@/shared/utils/money';
+import { asMajor, getMajorAmountValue, safeAdd } from '@/shared/utils/money';
 import {
   sendInvoice,
   syncInvoice,
@@ -10,13 +10,12 @@ import {
   createPracticeRefundRequest,
 } from '@/features/invoices/services/invoicesService';
 import type { InvoiceDetail, InvoiceRefundRequestEvent } from '@/features/invoices/types';
+import { formatCurrency } from '@/shared/utils/currencyFormatter';
+import { StagedAction } from '@/design-system/patterns/StagedAction';
+import { Chip } from '@/design-system/primitives/Chip';
+import { InvoicePreview } from '@/features/invoices/components/InvoicePreview';
 import { InvoiceActionBar } from './InvoiceActionBar';
 import { InvoiceActivityPanel } from './InvoiceActivityPanel';
-import { InvoiceSummaryPanel } from './InvoiceSummaryPanel';
-import { InvoiceLineItemsTable } from './InvoiceLineItemsTable';
-import { InvoicePaymentsSection } from './InvoicePaymentsSection';
-import { InvoiceRefundsSection } from './InvoiceRefundsSection';
-import { InvoiceDetailsSidebar } from './InvoiceDetailsSidebar';
 import { VoidInvoiceConfirmDialog } from '@/features/invoices/components/dialogs/VoidInvoiceConfirmDialog';
 import { RefundRequestDialog } from '@/features/invoices/components/dialogs/RefundRequestDialog';
 import { SendInvoiceDialog } from '@/features/invoices/components/SendInvoiceDialog';
@@ -42,6 +41,35 @@ interface PracticeInvoiceDetailController {
   actionBar: ComponentChildren;
   mainContent: ComponentChildren;
 }
+
+const ONE_HOUR_MS = 60 * 60 * 1000;
+
+/**
+ * Heuristic for "this draft was probably staged by the assistant".
+ *
+ * Real signal lives in TODO(backend): persist `invoice.staged_by_assistant`
+ * so we don't have to guess. Until then we surface the StagedAction whenever
+ * the invoice (a) is still a draft AND (b) was created in the last hour AND
+ * (c) has at least one line item.
+ *
+ * False positives (a lawyer drafted manually in the last hour) just see an
+ * extra "Staged by assistant" banner; the underlying actions are the same
+ * existing send/edit/discard flow, so the worst case is mild visual noise.
+ */
+const deriveIsStagedByAssistant = (detail: InvoiceDetail): boolean => {
+  if (detail.status.toLowerCase() !== 'draft') return false;
+  const createdAt = detail.createdAt ? Date.parse(detail.createdAt) : NaN;
+  if (Number.isNaN(createdAt)) return false;
+  if (Date.now() - createdAt > ONE_HOUR_MS) return false;
+  if (detail.lineItems.length === 0) return false;
+  return true;
+};
+
+const sumLineItemTotals = (detail: InvoiceDetail): number =>
+  detail.lineItems.reduce((acc, item) => acc + getMajorAmountValue(item.line_total), 0);
+
+const sumLineItemHours = (detail: InvoiceDetail): number =>
+  detail.lineItems.reduce((acc, item) => acc + Number(item.quantity ?? 0), 0);
 
 export const usePracticeInvoiceDetailController = ({
   practiceId,
@@ -168,22 +196,75 @@ export const usePracticeInvoiceDetailController = ({
     />
   );
 
+  // ---- Staged-by-assistant banner (heuristic; see deriveIsStagedByAssistant) ----
+  const isStaged = deriveIsStagedByAssistant(detail);
+  const stagedHours = isStaged ? sumLineItemHours(detail) : 0;
+  const stagedAmount = isStaged ? sumLineItemTotals(detail) : 0;
+
+  const stagedBanner = isStaged ? (
+    <div className="px-4 pt-4 sm:px-6">
+      <div className="mx-auto w-full max-w-[720px]">
+        <StagedAction
+          label="Staged by assistant · awaits your approval"
+          title={`AI drafted this invoice · ${formatCurrency(stagedAmount)}`}
+          description={
+            <>
+              Aggregated from <strong>{detail.lineItems.length} unbilled line {detail.lineItems.length === 1 ? 'item' : 'items'}</strong>
+              {stagedHours > 0 ? (
+                <>
+                  {' '}({stagedHours.toFixed(stagedHours % 1 === 0 ? 0 : 1)} {stagedHours === 1 ? 'hour' : 'hours'})
+                </>
+              ) : null}
+              . Review the line items below before approving. Nothing is sent until you click <strong>Approve &amp; send</strong>.
+            </>
+          }
+          actions={
+            <>
+              <Chip variant="primary" onClick={() => setSendOpen(true)}>
+                Approve &amp; send
+              </Chip>
+              <Chip onClick={handleEditDraft}>Edit lines</Chip>
+              <Chip variant="warn" onClick={() => setVoidOpen(true)}>
+                Discard draft
+              </Chip>
+            </>
+          }
+        />
+      </div>
+    </div>
+  ) : null;
+
+  const letterPaperBody = (
+    <div className="px-4 pb-2 pt-4 sm:px-6">
+      <InvoicePreview
+        title={detail.matterTitle || detail.clientName || 'Invoice'}
+        referenceLabel={detail.matterId ? `Matter ID: ${detail.matterId}` : null}
+        lineItems={detail.lineItems}
+        issueDate={detail.issueDate}
+        dueDate={detail.dueDate ? detail.dueDate.slice(0, 10) : undefined}
+        invoiceNumber={detail.invoiceNumber}
+        practiceName={currentPractice?.name ?? undefined}
+        practiceLogoUrl={currentPractice?.logo ?? undefined}
+        practiceEmail={currentPractice?.businessEmail ?? undefined}
+        clientName={detail.clientName}
+        clientEmail={detail.clientEmail}
+        billingIncrementMinutes={currentPractice?.billingIncrementMinutes ?? undefined}
+        notes={detail.notes}
+      />
+    </div>
+  );
+
+  const auditActivity = (
+    <div className="px-4 pb-8 sm:px-6">
+      <InvoiceActivityPanel detail={detail} variant="audit" />
+    </div>
+  );
+
   const mainContent = (
     <div className="flex-1 overflow-y-auto">
-      <div className="grid grid-cols-1 gap-6 p-4 sm:p-6 xl:grid-cols-[minmax(0,1fr)_320px]">
-        <div className="flex flex-col gap-4">
-          <InvoiceActivityPanel detail={detail} />
-          <InvoiceSummaryPanel detail={detail} />
-          <InvoiceLineItemsTable detail={detail} />
-          <InvoicePaymentsSection payments={detail.payments} />
-          <InvoiceRefundsSection
-            refunds={detail.refunds}
-            refundRequests={detail.refundRequests}
-            onReviewRequest={(request) => setReviewRequest(request)}
-          />
-        </div>
-        <InvoiceDetailsSidebar detail={detail} />
-      </div>
+      {stagedBanner}
+      {letterPaperBody}
+      {auditActivity}
 
       <VoidInvoiceConfirmDialog
         isOpen={voidOpen}
