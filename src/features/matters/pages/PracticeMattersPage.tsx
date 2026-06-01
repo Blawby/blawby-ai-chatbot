@@ -2380,10 +2380,17 @@ export const PracticeMattersPage = ({
     setAskAnswer({ query: '__export_pending__' });
   };
 
+  // Mobile reflow strategy:
+  // - H1: 32px on mobile, 44px from sm+
+  // - StatStrip: hidden < sm (reclaimed for actions row)
+  // - Header actions: wrap onto own row on mobile so H1 stays full-width
+  // - Filter chip row: dialog ("Filters" button) on mobile, inline pills sm+
+  // - Page padding: tighter (px-4) on mobile, 24px sm+
+  // - Table row: 2 cols (title + status pill) below md, 6 cols at md+
   return (
     <div className="flex h-full min-h-0 flex-col overflow-auto">
       {isClientListTruncated && (
-        <div className="px-6 pt-4">
+        <div className="px-4 pt-4 sm:px-6">
           <WarningBanner>
             <strong>Warning:</strong> The contacts list is incomplete. Some names or options may be missing.
           </WarningBanner>
@@ -2391,31 +2398,32 @@ export const PracticeMattersPage = ({
       )}
 
       {mattersError && (
-        <div className="px-6 pt-4">
+        <div className="px-4 pt-4 sm:px-6">
           <ErrorBanner>{mattersError}</ErrorBanner>
         </div>
       )}
 
-      <div className="mx-auto w-full max-w-[1280px] px-6 pb-12 pt-7">
+      <div className="mx-auto w-full max-w-[1280px] px-4 pb-12 pt-6 sm:px-6 sm:pt-7">
         {/* ── PAGE HEADER ROW ──────────────────────────────────────────── */}
-        <header className="flex flex-wrap items-end justify-between gap-4 border-b border-line-subtle pb-5">
-          <div className="min-w-0">
+        <header className="flex flex-wrap items-end justify-between gap-3 border-b border-line-subtle pb-5 sm:gap-4">
+          <div className="min-w-0 w-full sm:w-auto">
             <div className="font-mono text-[10px] uppercase tracking-[0.14em] text-dim">
               {crumb}
             </div>
-            <h1 className="mt-1 font-[family-name:var(--serif)] text-4xl font-normal leading-none tracking-tight text-ink sm:text-[44px]">
+            <h1 className="mt-1 font-[family-name:var(--serif)] text-[32px] font-normal leading-none tracking-tight text-ink sm:text-4xl lg:text-[44px]">
               Matters
             </h1>
           </div>
-          <div className="flex items-end gap-4">
+          <div className="flex w-full items-end justify-between gap-3 sm:w-auto sm:gap-4">
             <StatStrip cells={statCells} className="hidden sm:flex" />
-            <div className="flex items-center gap-2">
+            <div className="flex flex-1 items-center gap-2 sm:flex-initial">
               <Button
                 size="sm"
                 variant="ghost"
                 icon={Download}
                 onClick={handleExport}
                 disabled={!activePracticeId || totalMatters === 0}
+                className="min-h-[44px] flex-1 sm:flex-initial sm:min-h-0"
               >
                 Export
               </Button>
@@ -2425,6 +2433,7 @@ export const PracticeMattersPage = ({
                 icon={Plus}
                 onClick={handleNewMatter}
                 disabled={!activePracticeId}
+                className="min-h-[44px] flex-1 sm:flex-initial sm:min-h-0"
               >
                 New matter
                 <kbd className="ml-2 hidden rounded border border-line-utility bg-paper-2 px-1.5 py-0.5 text-[10px] font-medium text-dim-2 md:inline">
@@ -2535,16 +2544,18 @@ export const PracticeMattersPage = ({
           <span className="hidden font-mono text-[10px] uppercase tracking-wider text-dim md:inline">view</span>
           {/* Board view requires more horizontal space — hide it on mobile
               by forcing Table mode there via the wrapper logic below. */}
-          <Seg<MatterViewMode>
-            value={viewMode}
-            options={[
-              { value: 'table', label: 'Table' },
-              { value: 'board', label: 'Board' },
-              { value: 'timeline', label: 'Timeline' },
-            ]}
-            onChange={setViewMode}
-            ariaLabel="Switch matter view"
-          />
+          <div className="overflow-x-auto scrollbar-hide">
+            <Seg<MatterViewMode>
+              value={viewMode}
+              options={[
+                { value: 'table', label: 'Table' },
+                { value: 'board', label: 'Board' },
+                { value: 'timeline', label: 'Timeline' },
+              ]}
+              onChange={setViewMode}
+              ariaLabel="Switch matter view"
+            />
+          </div>
         </div>
 
         {/* ── MAIN VIEW ─────────────────────────────────────────────────── */}

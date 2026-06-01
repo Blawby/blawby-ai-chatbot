@@ -598,7 +598,10 @@ export const ClientEngagementReviewPage: FunctionComponent<ClientEngagementRevie
         <StatStrip cells={statusCells} />
       </div>
 
-      <main className="pb-24 sm:pb-0">
+      {/* Bottom padding (mobile): adds env(safe-area-inset-bottom) on top of
+          the ~96px sticky Accept bar so the last actionable card clears the
+          iOS home indicator. Reset to 0 on sm: where the bar is hidden. */}
+      <main className="client-engagement-review-main pb-24 sm:pb-0">
         {/* Letter */}
         <section className="mx-auto mb-8 max-w-[900px] px-3 sm:px-4">
           <EngagementLetter
@@ -715,14 +718,17 @@ export const ClientEngagementReviewPage: FunctionComponent<ClientEngagementRevie
       />
 
       {/* Mobile-first sticky bottom Accept bar — only shown while actionable +
-          on small screens. When the user can't sign yet (missing acks or sig)
-          the button scrolls to the acknowledgments card so they can fix what's
-          missing without hunting for it. */}
+          on small screens. Honors env(safe-area-inset-bottom) so the button
+          clears the iOS home indicator. When the user can't sign yet
+          (missing acks or sig) the button scrolls to the acknowledgments
+          card so they can fix what's missing without hunting for it.
+          (Button size="lg" = 16+15+16 = ~47px tall — meets 44px touch target.) */}
       {!accepted && !declined && (
         <div
           className={cn(
-            'fixed inset-x-0 bottom-0 z-20 border-t border-rule bg-card/95 px-4 py-3 backdrop-blur-xl sm:hidden',
+            'fixed inset-x-0 bottom-0 z-20 border-t border-rule bg-card/95 px-4 pt-3 backdrop-blur-xl sm:hidden',
           )}
+          style={{ paddingBottom: 'calc(12px + env(safe-area-inset-bottom, 0px))' }}
         >
           <Button
             type="button"

@@ -39,8 +39,11 @@ export function IntakeFirmBar({
   trustLabel = 'Confidential · encrypted end-to-end',
   className,
 }: IntakeFirmBarProps) {
+  // `intake-firm-bar` marker class is consumed by mobile-only rules in
+  // src/index.css §3.23 (sticky top + safe-area-inset-top padding so the bar
+  // pins beneath the iOS notch while the convo scrolls beneath).
   const cls = [
-    'flex items-center gap-3 border-b border-rule px-4 py-3.5',
+    'intake-firm-bar flex items-center gap-3 border-b border-rule px-4 py-3.5',
     'bg-[color:color-mix(in_oklab,var(--paper)_96%,var(--card))]',
     className,
   ].filter(Boolean).join(' ');
@@ -55,15 +58,29 @@ export function IntakeFirmBar({
         className="!h-8 !w-8 !text-base"
       />
       <div className="min-w-0 flex-1 leading-tight">
-        <div className="truncate font-serif text-[15px] leading-[1.2] tracking-[-0.005em] text-ink">
+        {/* whitespace-nowrap prevents the practice name from wrapping onto a
+            second line on mobile when the trust pill or actions get close —
+            the `truncate` already in place handles the overflow with an
+            ellipsis (Mobile.html §intake firm-bar `.name` shows a single
+            line at any width). */}
+        <div className="truncate whitespace-nowrap font-serif text-[15px] leading-[1.2] tracking-[-0.005em] text-ink">
           {practiceName || 'Practice'}
         </div>
         {subtitle ? (
-          <div className="mt-0.5 truncate font-mono text-[10px] uppercase tracking-[0.06em] text-dim">
+          <div className="mt-0.5 truncate whitespace-nowrap font-mono text-[10px] uppercase tracking-[0.06em] text-dim">
             {subtitle}
           </div>
         ) : null}
       </div>
+      {/* Trust signal — text pill at >=sm, single green dot below sm so the
+          header row stays compact on narrow widths (Mobile.html §intake
+          firm-bar `.lock` shows just a lock glyph; we use a green-pos dot to
+          match the encrypted/confidential tone the pill uses on desktop). */}
+      <span
+        aria-label={trustLabel}
+        title={trustLabel}
+        className="intake-firm-bar-dot h-2 w-2 shrink-0 rounded-full bg-[color:var(--pos)] sm:hidden"
+      />
       <Pill tone="live" className="hidden shrink-0 sm:inline-flex">
         {trustLabel}
       </Pill>

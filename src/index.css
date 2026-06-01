@@ -2686,11 +2686,15 @@
   }
   .signal-pill-frustrated .signal-pill-dot { background: var(--neg); }
 
-  /* §3.22 Quick Reply Chip — rounded pill for quick-reply chips in chat */
+  /* §3.22 Quick Reply Chip — rounded pill for quick-reply chips in chat.
+     Bumped padding from 6px 14px to 8px 16px + min-height 36px so the chip
+     itself reaches a 36px hit area at any viewport; mobile media query below
+     promotes to 44px for the iOS guideline tap target (Mobile.html §intake). */
   .quick-reply-chip {
     display: inline-flex;
     align-items: center;
-    padding: 6px 14px;
+    padding: 8px 16px;
+    min-height: 36px;
     border-radius: var(--r-pill);
     background: var(--card);
     border: 1px solid var(--rule);
@@ -2716,6 +2720,70 @@
   .quick-reply-chip:disabled {
     opacity: 0.5;
     cursor: not-allowed;
+  }
+
+  /* ============================================================
+     §3.23 PUBLIC INTAKE / WIDGET — MOBILE POLISH
+     Additive mobile rules for the public intake + widget surfaces
+     keyed off Mobile.html (intake variant). Class names mirror the
+     React component class hooks. Do NOT override existing rules —
+     only `@media (max-width: 640px)` extensions live here.
+     ============================================================ */
+
+  /* IntakeFirmBar — sticky top + safe-area inset on mobile so the
+     bar stays pinned beneath the iOS notch while the convo scrolls
+     beneath. Desktop keeps its non-sticky default. */
+  .intake-firm-bar {
+    /* Marker class added by the React component so the mobile rules
+       can attach without re-styling existing Tailwind classes on the
+       header (paper-tinted bg, border, padding all stay in TSX). */
+  }
+
+  @media (max-width: 640px) {
+    /* Mobile.html §intake: chip touch target promoted to 44px to meet
+       Apple HIG / Material guidelines for finger-tap accuracy. */
+    .quick-reply-chip {
+      min-height: 44px;
+    }
+
+    /* Mobile.html §intake `.firm-bar`: sticky bar at top with safe-area
+       padding so the avatar/name row clears the iOS notch. */
+    .intake-firm-bar {
+      position: sticky;
+      top: 0;
+      z-index: 20;
+      padding-top: max(14px, env(safe-area-inset-top, 0px));
+    }
+
+    /* Mobile.html §intake `.pay-card`: 2-col grid `[label/title | amount]`
+       on mobile so the card stays compact horizontally rather than the
+       desktop single-column stack. Header row hosts title + amount inline;
+       description + CTA + trust line stack below across both columns. */
+    .intake-payment-card-header {
+      align-items: center;
+    }
+    .intake-payment-card-amount {
+      font-size: 22px;
+    }
+    .intake-payment-card-cta {
+      min-height: 44px;
+      padding-block: 12px;
+    }
+
+    /* Mobile.html §intake firm-bar `.lock`: at <640px we hide the
+       text pill (already done via Tailwind `hidden sm:inline-flex`)
+       and surface a small green dot in its place for the encrypted
+       signal. Marker on the React component renders the dot. */
+    .intake-firm-bar-dot {
+      display: inline-block;
+    }
+  }
+
+  /* Hide the mobile-only green dot at >=640px (pill takes over). */
+  @media (min-width: 641px) {
+    .intake-firm-bar-dot {
+      display: none;
+    }
   }
 
   @media (prefers-reduced-motion: reduce) {
@@ -3389,4 +3457,58 @@
     }
   }
 
+  /* ──────────────────────────────────────────────────────────────────────
+     Assistant chat-first home — mobile @820 rules (per Assistant.html spec).
+     The center column shrinks to 24/20 padding, the briefing collapses to a
+     single column, the greeting H1 drops to ~42px, and the sticky composer
+     respects the iOS home-indicator safe area.
+
+     Notes:
+       - We use `@media (max-width: 640px)` (sm- breakpoint) because Tailwind's
+         `lg:` (1024+) already handles tablet, and the canonical mockup's
+         @820 rule maps closer to phone-portrait sizing in our 4-col shell.
+       - `.briefing-grid-card-span-2` collapses to single-column on mobile
+         since the parent grid is `grid-cols-1` and `1 / span 2` would clip.
+       - `.ai-ask-bar-wrap` gets safe-area bottom padding so the pill
+         composer clears the iOS home indicator and Android gesture bar.
+       - `.ai-ask-bar-suggestions` becomes horizontally scrollable on mobile
+         (nowrap + scrollbar-hide) so the row never wraps to multi-line.
+     ────────────────────────────────────────────────────────────────────── */
+  @media (max-width: 640px) {
+    .briefing-grid-card-span-2 {
+      grid-column: 1 / -1;
+    }
+
+    .ai-ask-bar-wrap {
+      padding-bottom: max(12px, env(safe-area-inset-bottom));
+    }
+
+    .ai-ask-bar-suggestions {
+      flex-wrap: nowrap;
+      overflow-x: auto;
+      -ms-overflow-style: none;
+      scrollbar-width: none;
+    }
+
+    .ai-ask-bar-suggestions::-webkit-scrollbar {
+      display: none;
+    }
+
+    .ai-ask-bar-suggestion {
+      flex-shrink: 0;
+    }
+  }
+
+  /* ──────────────────────────────────────────────────────────────────────
+     ClientEngagementReviewPage — mobile cleanup.
+     Ensures the page bottom-padding accounts for both the sticky Accept bar
+     (~84px) and the iOS home-indicator safe area. The class only applies
+     while the sticky bar is visible (sm:hidden), matching the page's
+     `sm:pb-0` reset on larger screens.
+     ────────────────────────────────────────────────────────────────────── */
+  @media (max-width: 639px) {
+    .client-engagement-review-main {
+      padding-bottom: calc(6rem + env(safe-area-inset-bottom, 0px));
+    }
+  }
 }

@@ -124,13 +124,19 @@ export function ClientInvoicesPage({
     return s === 'paid' ? sum : sum + inv.amountDue;
   }, 0);
 
+  // Mobile reflow strategy:
+  // - listHead: padding tighter on mobile, H1 28px → 34px sm+
+  // - Only 3 filter Seg options (All / Unpaid / Paid) — fits without scroll
+  //   but wrap in scrollbar-hide row for safety in narrow viewports
+  // - SplitDetail hidden < xl; mobile drills down to the dedicated detail
+  //   route on row click (existing flow)
   // ── List shell head ───────────────────────────────────────────────────
   const listHead = (
-    <div className="border-b border-rule px-[22px] pb-[14px] pt-[22px]">
+    <div className="border-b border-rule px-4 pb-[14px] pt-5 sm:px-[22px] sm:pt-[22px]">
       <div className="font-mono text-[10px] uppercase tracking-[0.14em] text-dim">
         {`Your account · ${invoices.length} ${invoices.length === 1 ? 'invoice' : 'invoices'}`}
       </div>
-      <h1 className="mt-1 font-[family-name:var(--serif)] text-[34px] font-normal leading-none tracking-[-0.02em] text-ink">
+      <h1 className="mt-1 font-[family-name:var(--serif)] text-[28px] font-normal leading-none tracking-[-0.02em] text-ink sm:text-[34px]">
         Invoices
       </h1>
       {totalDue > 0 ? (
@@ -149,13 +155,15 @@ export function ClientInvoicesPage({
   // ── List body (filters + EntityList of ClientInvoiceRow) ──────────────
   const listBody = (
     <>
-      <div className="border-b border-rule bg-paper-2 px-[22px] py-2.5">
-        <Seg<ClientInvoiceTabId>
-          value={activeTab}
-          options={CLIENT_INVOICE_TAB_OPTIONS}
-          onChange={setActiveTab}
-          ariaLabel="Filter invoices by status"
-        />
+      <div className="border-b border-rule bg-paper-2 px-4 py-2.5 sm:px-[22px]">
+        <div className="overflow-x-auto scrollbar-hide">
+          <Seg<ClientInvoiceTabId>
+            value={activeTab}
+            options={CLIENT_INVOICE_TAB_OPTIONS}
+            onChange={setActiveTab}
+            ariaLabel="Filter invoices by status"
+          />
+        </div>
       </div>
       <EntityList
         items={invoices}

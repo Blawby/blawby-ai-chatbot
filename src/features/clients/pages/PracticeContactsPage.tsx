@@ -1580,7 +1580,7 @@ export const PracticeContactsPage = ({
         );
       })}
 
-      <div className="ml-auto flex shrink-0 items-center gap-2">
+      <div className="flex shrink-0 items-center gap-2 sm:ml-auto">
         <span className="hidden font-mono text-[10px] uppercase tracking-wider text-dim sm:inline">sort</span>
         <div className="inline-flex">
           {SORT_OPTIONS.map((option, idx) => {
@@ -1613,18 +1613,26 @@ export const PracticeContactsPage = ({
   );
 
   // ── chat-first full-page render (when nothing is selected) ────────────
+  // Mobile reflow strategy:
+  // - Page padding: px-4 mobile → px-8 sm → px-10 md
+  // - H1: 32px mobile → 44px sm → 56px lg
+  // - StatStrip: hidden < sm (active count still shown via crumb line)
+  // - Filter chips: horizontal scroll on mobile (flex-nowrap overflow-x-auto)
+  // - Sort options: also live in the same scrollable row (ml-auto on sm+)
+  // - Directory list row: 2 cols (avatar+name) below md, 6 cols at md+
+  // - Detail pane: separate route on mobile via hasSelectedDetail flag
   const renderChatFirstListPage = () => {
     const totalForCrumb = totalActiveCount;
     return (
       <div className="flex h-full min-h-0 flex-col overflow-auto">
-        <div className="mx-auto w-full max-w-[1280px] px-5 pb-12 pt-7 sm:px-8 md:px-10">
+        <div className="mx-auto w-full max-w-[1280px] px-4 pb-12 pt-6 sm:px-8 sm:pt-7 md:px-10">
           {/* ── Page header ─────────────────────────────────────────── */}
-          <header className="flex flex-wrap items-end justify-between gap-4 border-b border-line-subtle pb-5">
+          <header className="flex flex-wrap items-end justify-between gap-3 border-b border-line-subtle pb-5 sm:gap-4">
             <div className="min-w-0">
               <div className="font-mono text-[10.5px] uppercase tracking-[0.16em] text-dim">
                 Clients · {totalForCrumb} active
               </div>
-              <h1 className="mt-1.5 font-[family-name:var(--serif)] text-[32px] font-normal leading-none tracking-[-0.022em] text-ink sm:text-[44px] lg:text-[56px]">
+              <h1 className="mt-1.5 font-[family-name:var(--serif)] text-[32px] font-normal leading-[1.05] tracking-[-0.022em] text-ink sm:text-[44px] sm:leading-none lg:text-[56px]">
                 Clients you{' '}
                 <em className="not-italic text-accent">haven&apos;t heard from.</em>
               </h1>

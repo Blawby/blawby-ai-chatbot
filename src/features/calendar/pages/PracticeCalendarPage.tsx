@@ -205,6 +205,14 @@ export function PracticeCalendarPage({
       : view === 'week' ? weekLabel(anchor)
         : anchor.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
 
+  // Mobile reflow strategy:
+  // - H1: 32px mobile → 44px lg+ (already token-driven)
+  // - StatStrip (This week / Court / Calls): hidden < sm — reclaim space
+  // - View Seg defaults to 'agenda' on all viewports (best mobile default)
+  // - Filter chips: already `flex-wrap` (only 6 chips; fits 2 rows max)
+  // - Date nav + view toggle row: `flex-wrap` so they stack when narrow
+  // - Focus drawer: desktop sticky 400px rail (lg+); mobile uses portal
+  //   overlay via CalendarFocusDrawer's internal lg:hidden mobile mode
   return (
     <Page padded={false} className="flex h-full flex-col">
       <div className="flex h-full">
@@ -240,7 +248,7 @@ export function PracticeCalendarPage({
                 }
                 // TODO(backend): meetings/calls aggregation endpoint.
               ]}
-              className="ml-auto max-w-[420px]"
+              className="ml-auto hidden max-w-[420px] sm:flex"
             />
           </header>
 
@@ -309,12 +317,14 @@ export function PracticeCalendarPage({
 
           {/* View toggle + date nav + refresh -------------------------- */}
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <Seg<ViewMode>
-              value={view}
-              options={VIEW_OPTIONS}
-              onChange={setView}
-              ariaLabel="Calendar view mode"
-            />
+            <div className="overflow-x-auto scrollbar-hide">
+              <Seg<ViewMode>
+                value={view}
+                options={VIEW_OPTIONS}
+                onChange={setView}
+                ariaLabel="Calendar view mode"
+              />
+            </div>
 
             <div className="flex items-center gap-2">
               {view !== 'agenda' && (

@@ -94,6 +94,11 @@ export const IntakeScorecard: FunctionComponent<IntakeScorecardProps> = ({
     ? formatRetainerCents(willingRetainer)
     : '—';
 
+  // Mobile reflow strategy:
+  // - 4-cell strip: 2-col grid below sm, 4-col grid from sm+
+  // - Header (label + computed stamp): always single row but the stamp can
+  //   wrap on very narrow viewports (no truncation — full timestamp matters)
+  // - Inline signal pill row stays unchanged (wraps via flex-wrap)
   const cells: StatStripCell[] = [
     {
       label: 'Case strength',

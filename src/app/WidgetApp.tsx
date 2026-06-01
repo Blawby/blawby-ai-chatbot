@@ -80,10 +80,20 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
   intakeTemplate: intakeTemplateProp,
 }) => {
   // Chat-first public intake: the public widget opens straight into the
-  // conversation surface (Intake.html) instead of the card-grid home — the
-  // home view remains reachable via the bottom-rail Home button and via the
-  // chat header back button. routeConversationId still wins when present so
-  // deep-linked conversations behave as before.
+  // conversation surface (Intake.html / Mobile.html intake variant) instead
+  // of the card-grid home — the home view remains reachable via the
+  // bottom-rail Home button and via the chat header back button.
+  // routeConversationId still wins when present so deep-linked
+  // conversations behave as before. On mobile this also means the very
+  // first thing a visitor sees is the AI intro bubble, not a card grid.
+  //
+  // TODO(mobile-keyboard): soft-keyboard handling is wired downstream in
+  // ChatContainer via window.visualViewport (it shifts the sticky composer
+  // above the keyboard via `keyboardInsetPx`). Long-tail iOS Safari quirks
+  // around scroll-into-view of the last message on focus are non-trivial
+  // without a real device test pass — leaving in-situ until QA can verify
+  // on hardware. If issues surface, the fix lives in ChatContainer, not
+  // this file.
   const [view, setView] = useState<'home' | 'list' | 'chat'>('chat');
   const [setupConversationId, setConversationId] = useState<string | null>(null);
   const [bootstrapIgnored, setBootstrapIgnored] = useState(false);

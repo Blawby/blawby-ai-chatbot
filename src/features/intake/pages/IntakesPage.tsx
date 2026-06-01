@@ -279,16 +279,23 @@ export const IntakesPage: FunctionComponent<IntakesPageProps> = ({
         ? 'No declined responses.'
         : 'No leads have come in yet. New consultation inquiries will appear here.';
 
+  // Mobile reflow strategy:
+  // - Triage filter Seg: full-width on mobile so all 4 status pills are
+  //   reachable without overflow; min-w-[24rem] from sm+ for breathing room
+  // - List body: desktop EntityList hidden < md, mobile card stack visible
+  // - Mobile cards: stacked dl rows with truncate-safe values + pill row
   return (
     <div className="flex h-full flex-col min-h-0 bg-paper">
       <div className="border-b border-line-subtle bg-paper px-4 py-3 md:px-6">
-        <Seg<TriageFilter>
-          value={triageFilter}
-          options={TRIAGE_FILTERS.map((filter) => ({ value: filter.id, label: filter.label }))}
-          onChange={handleFilterChange}
-          ariaLabel="Filter intake responses by status"
-          className="w-full sm:w-auto sm:min-w-[24rem]"
-        />
+        <div className="overflow-x-auto scrollbar-hide">
+          <Seg<TriageFilter>
+            value={triageFilter}
+            options={TRIAGE_FILTERS.map((filter) => ({ value: filter.id, label: filter.label }))}
+            onChange={handleFilterChange}
+            ariaLabel="Filter intake responses by status"
+            className="w-full sm:w-auto sm:min-w-[24rem]"
+          />
+        </div>
       </div>
 
       {/* List body */}
