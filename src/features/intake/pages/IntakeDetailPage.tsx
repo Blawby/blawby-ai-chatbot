@@ -1294,6 +1294,14 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
     </Card>
   ) : null;
 
+  // Mobile reflow strategy:
+  // - Sticky header: scope/practice/jurisdiction collapse vertically (handled
+  //   by IntakeStickyHeader); status pill + actions row stays accessible
+  // - Body grid: single-col below xl, 1fr+320px aside from xl+
+  // - Right aside: hidden below xl; key cards (contact, payment, gather,
+  //   notes) are re-rendered inline at the bottom of main col on mobile
+  // - Card padding: p-4 on mobile, p-6 from sm+ (set in Card sub-component)
+  // - Scorecard: 2-col grid below sm, 4-col from sm+
   return (
     <div className="flex h-full flex-col min-h-0 bg-paper">
       <IntakeStickyHeader

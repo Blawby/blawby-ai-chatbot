@@ -436,17 +436,22 @@ const PracticeHomePage = () => {
   const greetingDate = formatGreetingDate();
 
   // ── Greeting hero ────────────────────────────────────────────────────
+  // Mobile (<md): the right-rail "Practice snapshot" stat block is hidden — the
+  // briefing cards below carry the same numbers in a more scannable form, and
+  // the snapshot was the first thing to overflow at phone-portrait widths.
+  // Greeting H1 follows the Assistant.html @820 spec: ~42px on phones, scales
+  // to 56px at lg+. The mono date kicker stays visible at every breakpoint.
   const greetingHero = (
     <header className="flex flex-wrap items-end justify-between gap-4 border-b border-rule pb-5">
       <div className="min-w-0">
         <div className="font-mono text-[10.5px] uppercase tracking-[0.16em] text-dim">
           {greetingDate}
         </div>
-        <h1 className="mt-1.5 font-serif text-[32px] font-normal leading-none tracking-tight text-ink lg:text-[56px]">
+        <h1 className="mt-1.5 font-serif text-[36px] font-normal leading-none tracking-tight text-ink sm:text-[42px] lg:text-[56px]">
           {greeting}, <em className="not-italic text-accent-deep">{firstName}.</em>
         </h1>
       </div>
-      <div className="text-right text-sm leading-relaxed text-ink-2">
+      <div className="hidden text-right text-sm leading-relaxed text-ink-2 md:block">
         <div className="mb-1 font-mono text-[10px] uppercase tracking-[0.14em] text-dim">
           Practice snapshot
         </div>
@@ -704,11 +709,13 @@ const PracticeHomePage = () => {
           <span className="font-sans text-[10.5px] normal-case tracking-normal text-ink-2">
             {completeSetupCount}/{setupSteps.length} done
           </span>
+          {/* Mobile floor: 44x44 touch target meets WCAG 2.5.5; the icon
+              stays compact on desktop via DS size overrides. */}
           <button
             type="button"
             onClick={dismissSetup}
             aria-label="Dismiss setup checklist"
-            className="btn btn-icon btn-icon-xs"
+            className="btn btn-icon btn-icon-xs min-h-[44px] min-w-[44px] md:min-h-0 md:min-w-0"
           >
             <X className="h-3.5 w-3.5" aria-hidden="true" />
           </button>
@@ -767,6 +774,156 @@ const PracticeHomePage = () => {
     />
   ) : null;
 
+  // ── Pinned matter content (shared between desktop drawer + mobile inline) ──
+  // Mobile decision (per Assistant.html @820 spec): the right focus drawer
+  // hides at <xl (1280). Rather than gate the pinned matter behind a bottom
+  // sheet/FocusDrawer toggle (extra modal complexity for a context surface),
+  // we render the same content inline at the end of the center column on
+  // mobile/tablet. That keeps the pinned-matter context discoverable without
+  // adding a floating action button + portal interaction. Desktop xl+ keeps
+  // the dedicated 400px right rail.
+  const pinnedMatterBody = pinnedMatter ? (() => {
+    const matter = pinnedMatter;
+    const urgent = String(matter.urgency ?? '').toLowerCase() === 'emergency';
+    const opened = matter.created_at ? formatRelativeTime(matter.created_at) : '—';
+    const updated = matter.updated_at ? formatRelativeTime(matter.updated_at) : '—';
+    const matterType = matter.matter_type || 'Untitled';
+    const jurisdiction = matter.court || '—';
+
+    return (
+      <div className="flex h-full flex-col gap-4 overflow-y-auto p-6">
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <div className="font-mono text-[10px] uppercase tracking-[0.14em] text-dim">
+              Matter · pinned by assistant
+            </div>
+            <h2 className="mt-2 font-serif text-[28px] font-normal leading-tight tracking-tight text-ink">
+              {matter.title || 'Untitled matter'}
+            </h2>
+            <div className="mt-1 text-[13px] text-dim">
+              {matterType}
+              {matter.case_number ? ` · ${matter.case_number}` : ''}
+            </div>
+            <div className="mt-2 flex items-center gap-2">
+              <SignalPill
+                signal={urgent ? 'urgent' : 'healthy'}
+                label={urgent ? 'Priority · high' : 'Active'}
+              />
+            </div>
+          </div>
+          {/* Touch-target floor: the open-matter icon button uses min-h/w 44px
+              on mobile so it meets WCAG 2.5.5 on phones without altering the
+              compact 28px desktop button via DS utilities. */}
+          <button
+            type="button"
+            onClick={() => goToMatter(matter.id)}
+            className="btn btn-icon btn-icon-xs min-h-[44px] min-w-[44px] md:min-h-0 md:min-w-0"
+            aria-label="Open matter detail"
+            title="Open matter detail"
+          >
+            <span aria-hidden="true">↗</span>
+          </button>
+        </div>
+
+        {/* TODO(backend): once /api/practice/:id/staged-actions ships, render
+            the matter's pending StagedActions here instead of omitting the
+            slot. Per spec we must not fake a staged action — omit when none. */}
+
+        {/* TODO(backend): wire balance / unbilled / next-deadline / events-30d
+            from a dedicated matter-summary endpoint. Today the matter wire
+            type doesn't expose these aggregates, so the strip renders
+            placeholder em-dashes rather than fabricated values. */}
+        <StatStrip
+          cells={[
+            { label: 'Balance', value: <span className="tabular-nums">—</span> },
+            { label: 'Unbilled', value: <span className="tabular-nums">—</span> },
+            { label: 'Next deadline', value: '—' },
+            { label: 'Events · 30d', value: <span className="tabular-nums">—</span> },
+          ]}
+        />
+
+        <section>
+          <div className="mb-2 flex items-center justify-between font-mono text-[10px] uppercase tracking-[0.14em] text-dim">
+            <span>Facts</span>
+            <button
+              type="button"
+              className="font-sans text-[11px] normal-case tracking-normal text-ink-2 hover:underline"
+              onClick={() => goToMatter(matter.id)}
+            >
+              open detail
+            </button>
+          </div>
+          <dl className="rounded-r-md border border-rule bg-card px-3.5 py-1">
+            {[
+              { k: 'Matter #', v: matter.case_number || '—' },
+              { k: 'Type', v: matterType },
+              { k: 'Opened', v: opened },
+              { k: 'Updated', v: updated },
+              { k: 'Jurisdiction', v: jurisdiction },
+              { k: 'Opposing', v: matter.opposing_party || '—' },
+            ].map((row, idx) => (
+              <div
+                key={row.k}
+                className={`grid grid-cols-[92px_1fr] gap-2.5 py-2 text-[13px] ${idx > 0 ? 'border-t border-rule' : ''}`}
+              >
+                <dt className="pt-0.5 font-mono text-[10px] uppercase tracking-[0.08em] text-dim">
+                  {row.k}
+                </dt>
+                <dd className="text-ink">{row.v}</dd>
+              </div>
+            ))}
+          </dl>
+        </section>
+
+        {/* TODO(backend): pull last 5 matter_events from the matter detail
+            endpoint once it exposes activity timestamps + summaries. The
+            existing useMatterDetail hook returns BackendMatter only — the
+            activity feed lives on a separate endpoint not wired here yet. */}
+        <section>
+          <div className="mb-2 flex items-center justify-between font-mono text-[10px] uppercase tracking-[0.14em] text-dim">
+            <span>Recent activity</span>
+            <button
+              type="button"
+              className="font-sans text-[11px] normal-case tracking-normal text-ink-2 hover:underline"
+              onClick={() => goToMatter(matter.id)}
+            >
+              full timeline
+            </button>
+          </div>
+          <div className="rounded-r-md border border-rule bg-card px-3.5 py-3 text-[13px] text-dim">
+            Activity timeline lives on the matter detail page. Open the matter to scan recent
+            events.
+          </div>
+        </section>
+
+        <div className="mt-auto border-t border-rule pt-3 font-mono text-[10px] uppercase tracking-[0.06em] text-dim-2">
+          Read-only · all writes via assistant
+        </div>
+      </div>
+    );
+  })() : null;
+
+  const focusDrawer = pinnedMatterBody ? (
+    <aside
+      className="hidden border-l border-rule bg-paper xl:flex xl:w-[400px] xl:shrink-0 xl:flex-col"
+      aria-label="Pinned matter"
+    >
+      {pinnedMatterBody}
+    </aside>
+  ) : null;
+
+  // Mobile/tablet inline pinned matter — rendered at the end of the center
+  // column so the context the desktop rail provides isn't lost on phones.
+  // The bordered card visually separates it from the briefing grid + ask bar.
+  const inlinePinnedMatter = pinnedMatterBody ? (
+    <section
+      className="rounded-md border border-rule bg-card xl:hidden"
+      aria-label="Pinned matter"
+    >
+      {pinnedMatterBody}
+    </section>
+  ) : null;
+
   // ── Center column ────────────────────────────────────────────────────
   const center = (
     <div className="flex h-full flex-col overflow-hidden">
@@ -798,6 +955,11 @@ const PracticeHomePage = () => {
               ].filter((s) => s.count > 0)}
             />
           )}
+
+          {/* Mobile/tablet only — renders the pinned-matter context inline
+              since the right focus drawer collapses at <xl. See
+              `inlinePinnedMatter` definition for the design decision. */}
+          {inlinePinnedMatter}
         </div>
       </div>
       <div className="px-5 pb-5 md:px-10 md:pb-6">
@@ -811,130 +973,6 @@ const PracticeHomePage = () => {
       </div>
     </div>
   );
-
-  // ── Right focus drawer ──────────────────────────────────────────────
-  const focusDrawer = pinnedMatter ? (() => {
-    const matter = pinnedMatter;
-    const urgent = String(matter.urgency ?? '').toLowerCase() === 'emergency';
-    const opened = matter.created_at ? formatRelativeTime(matter.created_at) : '—';
-    const updated = matter.updated_at ? formatRelativeTime(matter.updated_at) : '—';
-    const matterType = matter.matter_type || 'Untitled';
-    const jurisdiction = matter.court || '—';
-
-    return (
-      <aside
-        className="hidden border-l border-rule bg-paper xl:flex xl:w-[400px] xl:shrink-0 xl:flex-col"
-        aria-label="Pinned matter"
-      >
-        <div className="flex h-full flex-col gap-4 overflow-y-auto p-6">
-          <div className="flex items-start justify-between gap-3">
-            <div className="min-w-0">
-              <div className="font-mono text-[10px] uppercase tracking-[0.14em] text-dim">
-                Matter · pinned by assistant
-              </div>
-              <h2 className="mt-2 font-serif text-[28px] font-normal leading-tight tracking-tight text-ink">
-                {matter.title || 'Untitled matter'}
-              </h2>
-              <div className="mt-1 text-[13px] text-dim">
-                {matterType}
-                {matter.case_number ? ` · ${matter.case_number}` : ''}
-              </div>
-              <div className="mt-2 flex items-center gap-2">
-                <SignalPill
-                  signal={urgent ? 'urgent' : 'healthy'}
-                  label={urgent ? 'Priority · high' : 'Active'}
-                />
-              </div>
-            </div>
-            <button
-              type="button"
-              onClick={() => goToMatter(matter.id)}
-              className="btn btn-icon btn-icon-xs"
-              aria-label="Open matter detail"
-              title="Open matter detail"
-            >
-              <span aria-hidden="true">↗</span>
-            </button>
-          </div>
-
-          {/* TODO(backend): once /api/practice/:id/staged-actions ships, render
-              the matter's pending StagedActions here instead of omitting the
-              slot. Per spec we must not fake a staged action — omit when none. */}
-
-          {/* TODO(backend): wire balance / unbilled / next-deadline / events-30d
-              from a dedicated matter-summary endpoint. Today the matter wire
-              type doesn't expose these aggregates, so the strip renders
-              placeholder em-dashes rather than fabricated values. */}
-          <StatStrip
-            cells={[
-              { label: 'Balance', value: <span className="tabular-nums">—</span> },
-              { label: 'Unbilled', value: <span className="tabular-nums">—</span> },
-              { label: 'Next deadline', value: '—' },
-              { label: 'Events · 30d', value: <span className="tabular-nums">—</span> },
-            ]}
-          />
-
-          <section>
-            <div className="mb-2 flex items-center justify-between font-mono text-[10px] uppercase tracking-[0.14em] text-dim">
-              <span>Facts</span>
-              <button
-                type="button"
-                className="font-sans text-[11px] normal-case tracking-normal text-ink-2 hover:underline"
-                onClick={() => goToMatter(matter.id)}
-              >
-                open detail
-              </button>
-            </div>
-            <dl className="rounded-r-md border border-rule bg-card px-3.5 py-1">
-              {[
-                { k: 'Matter #', v: matter.case_number || '—' },
-                { k: 'Type', v: matterType },
-                { k: 'Opened', v: opened },
-                { k: 'Updated', v: updated },
-                { k: 'Jurisdiction', v: jurisdiction },
-                { k: 'Opposing', v: matter.opposing_party || '—' },
-              ].map((row, idx) => (
-                <div
-                  key={row.k}
-                  className={`grid grid-cols-[92px_1fr] gap-2.5 py-2 text-[13px] ${idx > 0 ? 'border-t border-rule' : ''}`}
-                >
-                  <dt className="pt-0.5 font-mono text-[10px] uppercase tracking-[0.08em] text-dim">
-                    {row.k}
-                  </dt>
-                  <dd className="text-ink">{row.v}</dd>
-                </div>
-              ))}
-            </dl>
-          </section>
-
-          {/* TODO(backend): pull last 5 matter_events from the matter detail
-              endpoint once it exposes activity timestamps + summaries. The
-              existing useMatterDetail hook returns BackendMatter only — the
-              activity feed lives on a separate endpoint not wired here yet. */}
-          <section>
-            <div className="mb-2 flex items-center justify-between font-mono text-[10px] uppercase tracking-[0.14em] text-dim">
-              <span>Recent activity</span>
-              <button
-                type="button"
-                className="font-sans text-[11px] normal-case tracking-normal text-ink-2 hover:underline"
-                onClick={() => goToMatter(matter.id)}
-              >
-                full timeline
-              </button>
-            </div>
-            <div className="rounded-r-md border border-rule bg-card px-3.5 py-3 text-[13px] text-dim">
-              Activity timeline lives on the matter detail page. Open the matter to scan recent
-              events.
-            </div>
-          </section>
-
-          <div className="mt-auto border-t border-rule pt-3 font-mono text-[10px] uppercase tracking-[0.06em] text-dim-2">
-            Read-only · all writes via assistant
-          </div>
-        </div>
-      </aside>
-    );
-  })() : null;
 
   return (
     <div className="flex h-dvh flex-col lg:flex-row">

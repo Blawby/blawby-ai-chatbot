@@ -126,13 +126,19 @@ const PortalStyles = () => (
     }
     .cp-topbar-inner {
       max-width: 1080px; margin: 0 auto;
-      padding: 16px 24px;
-      display: flex; align-items: center; gap: 16px;
+      padding: 12px 16px;
+      display: flex; align-items: center; gap: 12px;
+    }
+    @media (min-width: 640px) {
+      .cp-topbar-inner { padding: 16px 24px; gap: 16px; }
     }
     .cp-firm-name {
-      font-family: var(--serif); font-size: 18px; line-height: 1.1;
+      font-family: var(--serif); font-size: 16px; line-height: 1.1;
       letter-spacing: -0.01em; color: var(--ink);
       flex: 1; min-width: 0;
+    }
+    @media (min-width: 640px) {
+      .cp-firm-name { font-size: 18px; }
     }
     .cp-firm-name em { color: var(--accent); font-style: italic; }
     .cp-firm-sub {
@@ -140,18 +146,35 @@ const PortalStyles = () => (
       color: var(--dim); letter-spacing: 0.14em; text-transform: uppercase;
       margin-top: 4px;
     }
+    /* On mobile, the user chip collapses to just the avatar circle per
+       Mobile.html (.m-portal .portal-nav .av — 28px). Name + role only
+       show from sm: up. */
     .cp-user-chip {
       display: flex; align-items: center; gap: 10px;
-      padding: 6px 12px 6px 14px;
-      border: 1px solid var(--rule); border-radius: var(--r-pill);
-      background: var(--card);
+      padding: 0;
+      border: 0; border-radius: 0;
+      background: transparent;
       flex-shrink: 0;
     }
+    @media (min-width: 640px) {
+      .cp-user-chip {
+        padding: 6px 12px 6px 14px;
+        border: 1px solid var(--rule); border-radius: var(--r-pill);
+        background: var(--card);
+      }
+    }
     .cp-user-chip-avatar {
-      width: 26px; height: 26px; border-radius: 50%;
+      width: 28px; height: 28px; border-radius: 50%;
       background: linear-gradient(135deg, var(--ink-2), var(--ink));
       color: var(--paper); font-family: var(--sans); font-weight: 600;
       font-size: 10.5px; display: grid; place-items: center;
+    }
+    @media (min-width: 640px) {
+      .cp-user-chip-avatar { width: 26px; height: 26px; }
+    }
+    .cp-user-chip-meta { display: none; }
+    @media (min-width: 640px) {
+      .cp-user-chip-meta { display: block; }
     }
     .cp-user-chip-name { font-size: 13px; line-height: 1.1; color: var(--ink); }
     .cp-user-chip-role {
@@ -160,25 +183,33 @@ const PortalStyles = () => (
       margin-top: 2px;
     }
 
-    /* Wrap */
+    /* Wrap — extra bottom padding on mobile to clear the sticky reply bar
+       (~56px) + the mobile LeftRail (~60px + safe-area). */
     .cp-wrap {
       max-width: 1080px; margin: 0 auto;
-      padding: 32px 24px 120px;
+      padding: 24px 16px 180px;
+    }
+    @media (min-width: 640px) {
+      .cp-wrap { padding: 32px 24px 120px; }
     }
     @media (min-width: 768px) {
       .cp-wrap { padding: 40px 32px 80px; }
     }
 
-    /* Greeting */
+    /* Greeting — mobile scales to 32px per Mobile.html (.m-portal .greet h2 = 28px,
+       EngagementReview mobile h1 = 32px). Bumps to 52px on desktop per design. */
     .cp-greet-date {
       font-family: var(--mono); font-size: 10.5px;
       letter-spacing: 0.14em; text-transform: uppercase;
       color: var(--dim); margin-bottom: 8px;
     }
     .cp-greet-h1 {
-      font-family: var(--serif); font-weight: 400; font-size: 40px;
-      line-height: 1.02; letter-spacing: -0.02em; margin: 0;
+      font-family: var(--serif); font-weight: 400; font-size: 32px;
+      line-height: 1.05; letter-spacing: -0.02em; margin: 0;
       max-width: 20ch; text-wrap: balance; color: var(--ink);
+    }
+    @media (min-width: 640px) {
+      .cp-greet-h1 { font-size: 40px; line-height: 1.02; }
     }
     @media (min-width: 768px) {
       .cp-greet-h1 { font-size: 52px; }
@@ -189,19 +220,41 @@ const PortalStyles = () => (
       color: var(--ink-2); font-size: 16px; line-height: 1.55;
     }
 
-    /* Status hero card */
+    /* Status hero card — tighter top margin on mobile (24px vs 32px desktop). */
     .cp-status-card {
-      margin-top: 32px;
+      margin-top: 24px;
       background: var(--card); border: 1px solid var(--rule);
       border-radius: var(--r-md); overflow: hidden;
       box-shadow: var(--shadow-3);
     }
+    @media (min-width: 640px) {
+      .cp-status-card { margin-top: 32px; }
+    }
+    /* Mobile: topband stacks vertically (title above, stage pill below).
+       Desktop ≥640px: row layout with stage pill right-aligned. */
     .cp-status-topband {
-      padding: 20px 24px;
-      display: flex; justify-content: space-between; align-items: flex-start;
-      gap: 16px; flex-wrap: wrap;
+      padding: 18px 20px;
+      display: flex; flex-direction: column;
+      gap: 12px;
       border-bottom: 1px solid var(--rule);
       background: linear-gradient(180deg, color-mix(in oklab, var(--accent) 10%, var(--card)), var(--card));
+    }
+    @media (min-width: 640px) {
+      .cp-status-topband {
+        padding: 20px 24px;
+        flex-direction: row;
+        justify-content: space-between;
+        align-items: flex-start;
+        gap: 16px;
+        flex-wrap: wrap;
+      }
+    }
+    .cp-status-stage {
+      /* When stacked on mobile, the stage block sits flush-left; on desktop
+         it right-aligns. */
+    }
+    @media (min-width: 640px) {
+      .cp-status-stage { text-align: right; }
     }
     .cp-band-label {
       font-family: var(--mono); font-size: 10px;
@@ -221,12 +274,15 @@ const PortalStyles = () => (
       font-family: var(--mono); letter-spacing: 0.04em; text-transform: uppercase;
     }
 
-    /* Next-up banner inside status card */
+    /* Next-up banner inside status card — tighter padding on mobile. */
     .cp-next-up {
-      padding: 22px 24px;
+      padding: 18px 20px;
       border-top: 1px solid var(--rule);
       background: var(--paper-2);
       display: grid; grid-template-columns: 1fr; gap: 14px; align-items: center;
+    }
+    @media (min-width: 640px) {
+      .cp-next-up { padding: 22px 24px; }
     }
     @media (min-width: 768px) {
       .cp-next-up { grid-template-columns: 1fr auto; gap: 18px; }
@@ -242,10 +298,15 @@ const PortalStyles = () => (
     .cp-next-what em { color: var(--accent-deep); font-style: italic; }
     .cp-next-acts { display: flex; gap: 8px; flex-shrink: 0; flex-wrap: wrap; }
 
-    /* Main two-col grid */
+    /* Main two-col grid — collapses to single column at <1024px.
+       Mobile single-column order is: messages → upcoming → attorney →
+       retainer → docs → payments (matches the DOM order). */
     .cp-main {
       display: grid;
-      grid-template-columns: 1fr; gap: 24px; margin-top: 32px;
+      grid-template-columns: 1fr; gap: 18px; margin-top: 24px;
+    }
+    @media (min-width: 640px) {
+      .cp-main { gap: 24px; margin-top: 32px; }
     }
     @media (min-width: 1024px) {
       .cp-main { grid-template-columns: 1.5fr 1fr; }
@@ -286,12 +347,15 @@ const PortalStyles = () => (
       font-size: 13px; color: var(--dim); font-style: italic;
     }
 
-    /* Attorney (dark) card */
+    /* Attorney (dark) card — slightly less padding on mobile. */
     .cp-attorney {
       background: var(--ink); color: var(--paper);
-      border-radius: var(--r-md); padding: 22px;
-      display: flex; flex-direction: column; gap: 14px;
+      border-radius: var(--r-md); padding: 18px;
+      display: flex; flex-direction: column; gap: 12px;
       box-shadow: var(--shadow-2);
+    }
+    @media (min-width: 640px) {
+      .cp-attorney { padding: 22px; gap: 14px; }
     }
     .cp-attorney-head {
       display: flex; gap: 12px; align-items: center;
@@ -341,9 +405,14 @@ const PortalStyles = () => (
       font-family: var(--mono); font-size: 10px;
       letter-spacing: 0.12em; text-transform: uppercase; color: var(--dim);
     }
+    /* Retainer balance numeral — 28px mobile (matches .m-portal .retainer .amt
+       in Mobile.html), 36px from sm: up. */
     .cp-retainer-balance {
-      font-family: var(--serif); font-size: 36px; line-height: 1;
+      font-family: var(--serif); font-size: 28px; line-height: 1;
       margin: 8px 0 4px; letter-spacing: -0.012em; color: var(--ink);
+    }
+    @media (min-width: 640px) {
+      .cp-retainer-balance { font-size: 36px; }
     }
     .cp-retainer-balance small {
       font-family: var(--mono); font-size: 12px; color: var(--dim);
@@ -378,17 +447,24 @@ const PortalStyles = () => (
       .cp-foot { flex-direction: row; align-items: flex-end; }
     }
     .cp-foot-secondary { color: var(--dim-2); display: block; margin-top: 4px; }
+    .cp-foot-brand { text-align: left; }
+    @media (min-width: 768px) {
+      .cp-foot-brand { text-align: right; }
+    }
     .cp-foot a, .cp-foot button {
       color: var(--ink-2); border-bottom: 1px dotted var(--dim-2);
       cursor: pointer; background: none; border-top: 0; border-left: 0;
       border-right: 0; padding: 0; font: inherit;
     }
 
-    /* Sticky mobile reply bar (above mobile LeftRail, which is ~56px tall) */
+    /* Sticky mobile reply bar — sits ABOVE the mobile LeftRail (which has its
+       own safe-area-inset padding). The LeftRail nav row is ~60px tall
+       (icon + 11px label + 16px padding), so we position the reply bar
+       at bottom = calc(60px + env(safe-area-inset-bottom)). */
     .cp-mobile-reply {
       position: fixed;
       left: 0; right: 0;
-      bottom: 56px;
+      bottom: calc(60px + env(safe-area-inset-bottom, 0px));
       padding: 10px 14px;
       display: flex; align-items: center; gap: 8px;
       border-top: 1px solid var(--rule);
@@ -401,9 +477,18 @@ const PortalStyles = () => (
       background: var(--paper); font-size: 14px; color: var(--dim-2);
       cursor: pointer; text-align: left;
       font-family: var(--sans);
+      min-height: 40px;
+    }
+    /* Pill expands toward focus-ring on tap — visual hint that tapping
+       opens the full conversation entry. */
+    .cp-mobile-reply-field:hover,
+    .cp-mobile-reply-field:focus-visible {
+      border-color: var(--ink-3);
+      color: var(--ink-2);
+      outline: none;
     }
     .cp-mobile-reply-send {
-      width: 36px; height: 36px; border-radius: 50%;
+      width: 40px; height: 40px; border-radius: 50%;
       background: var(--ink); color: var(--accent);
       display: grid; place-items: center; flex-shrink: 0;
       border: 0; cursor: pointer;
@@ -543,7 +628,8 @@ const ClientHomePage = () => {
             <div className="cp-user-chip-avatar" aria-hidden="true">
               {userInitials(userName)}
             </div>
-            <div>
+            {/* Name + role hidden on mobile per Mobile.html portal nav (avatar only). */}
+            <div className="cp-user-chip-meta">
               <div className="cp-user-chip-name">{userName}</div>
               <span className="cp-user-chip-role">client</span>
             </div>
@@ -582,7 +668,7 @@ const ClientHomePage = () => {
                   </div>
                 ) : null}
               </div>
-              <div style={{ textAlign: 'right' }}>
+              <div className="cp-status-stage">
                 <div className="cp-band-label cp-band-label-dim">Current stage</div>
                 <div style={{ marginTop: 6 }}>
                   <Pill tone="gold">
@@ -788,7 +874,9 @@ const ClientHomePage = () => {
               No attorney-client communications are shared without your written consent.
             </span>
           </div>
-          <div style={{ textAlign: 'right' }}>
+          {/* When the footer stacks on mobile, this block aligns left;
+              when it sits side-by-side on sm: + it right-aligns. */}
+          <div className="cp-foot-brand">
             powered by <b style={{ color: 'var(--ink-2)' }}>Blawby</b>
             <span className="cp-foot-secondary">blawby.com</span>
           </div>

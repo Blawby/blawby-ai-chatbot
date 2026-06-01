@@ -71,6 +71,13 @@ export function ClientDirectoryRow({
       ? 'text-neg'
       : '';
 
+  // Mobile reflow strategy:
+  // - 2-col grid below md: avatar (28px) + name/sub
+  // - Desktop md+: 6 visible cols (avatar / name+sub / retainer / matter
+  //   chip / last contact / signal pill) + hover-only action cluster overlay
+  // - Touch target: row is >44px tall via px-4 py-3.5 (mobile) / md:py-[14px]
+  // - Hover actions are pointer-events:none + opacity:0 on mobile (no-hover)
+  //   so they don't intercept taps — drill-down via the row click handler
   return (
     <div
       role="button"

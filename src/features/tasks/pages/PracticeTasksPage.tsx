@@ -181,6 +181,14 @@ export const PracticeTasksPage = ({
     );
   }
 
+  // Mobile reflow strategy:
+  // - PageHeader: title 28px (token-driven); crumb/lede stack on mobile
+  // - Add task CTA: stays inline in PageHeader's actions slot (auto-wraps)
+  // - AISummary card: full-width, naturally wraps long lede
+  // - TaskFilterBar: 3 Segs (Status / Priority / Stage). On mobile they wrap
+  //   onto separate rows; each Seg gets horizontal scroll for long options
+  // - EntityList of TaskListItem: each item already stacks pills + title
+  //   responsively, with truncate-safe text and right-aligned due-date column
   return (
     <Page className="h-full">
       <div className="mx-auto flex h-full w-full max-w-6xl flex-col gap-6">
@@ -195,6 +203,7 @@ export const PracticeTasksPage = ({
               iconClassName="h-4 w-4"
               onClick={() => setIsCreateOpen(true)}
               disabled={matters.length === 0}
+              className="min-h-[44px] sm:min-h-0"
             >
               Add task
             </Button>

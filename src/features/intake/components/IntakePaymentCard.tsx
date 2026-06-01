@@ -50,10 +50,16 @@ export const IntakePaymentCard: FunctionComponent<IntakePaymentCardProps> = ({
       className={`mt-3 rounded-r-md border bg-card p-4 ${accentBorder} ${accentShadow}`}
       data-testid="intake-payment-card"
     >
-      <div className="mb-2.5 flex items-center justify-between gap-3">
-        <h4 className="m-0 font-serif text-[17px] font-normal leading-tight text-ink">{title}</h4>
+      {/* Header row — title (+ optional consult label) on the left, amount on
+          the right. The `intake-payment-card-header` marker pulls the row to
+          `align-items: center` on mobile (src/index.css §3.23) so the 2-col
+          `[label/title | amount]` layout in Mobile.html `.pay-card` reads
+          cleanly. The amount text is also bumped slightly smaller on mobile
+          via the same media block. */}
+      <div className="intake-payment-card-header mb-2.5 flex items-center justify-between gap-3">
+        <h4 className="m-0 min-w-0 truncate font-serif text-[17px] font-normal leading-tight text-ink">{title}</h4>
         {formattedAmount ? (
-          <div className="font-serif text-[24px] tracking-[-0.01em] tabular-nums text-ink">
+          <div className="intake-payment-card-amount shrink-0 font-serif text-[24px] tracking-[-0.01em] tabular-nums text-ink">
             {formattedAmount}
           </div>
         ) : null}
@@ -66,7 +72,11 @@ export const IntakePaymentCard: FunctionComponent<IntakePaymentCardProps> = ({
           href={paymentRequest.paymentLinkUrl}
           target="_blank"
           rel="noopener noreferrer"
-          className="btn btn-primary inline-flex w-full items-center justify-center rounded-r-md px-4 py-3.5 text-center font-semibold no-underline transition-all hover:opacity-90 active:scale-[0.98]"
+          // `intake-payment-card-cta` marker bumps to a 44px min-height on
+          // mobile so the Pay link clears the iOS HIG tap-target threshold
+          // (the desktop py-3.5 is already ~14px both sides; mobile uses
+          // padding-block: 12px + min-height: 44px to keep proportions).
+          className="intake-payment-card-cta btn btn-primary inline-flex w-full items-center justify-center rounded-r-md px-4 py-3.5 text-center font-semibold no-underline transition-all hover:opacity-90 active:scale-[0.98]"
         >
           {buttonLabel}
         </a>
@@ -75,15 +85,18 @@ export const IntakePaymentCard: FunctionComponent<IntakePaymentCardProps> = ({
           type="button"
           disabled
           aria-disabled="true"
-          className="inline-flex w-full cursor-not-allowed items-center justify-center rounded-r-md bg-accent px-4 py-3.5 text-center font-semibold text-accent-ink opacity-70"
+          className="intake-payment-card-cta inline-flex w-full cursor-not-allowed items-center justify-center rounded-r-md bg-accent px-4 py-3.5 text-center font-semibold text-accent-ink opacity-70"
           title="Preview only"
         >
           {buttonLabel}
         </button>
       )}
-      <div className="mt-2.5 flex items-center gap-1.5 font-mono text-[10.5px] uppercase tracking-[0.04em] text-dim">
-        <span aria-hidden="true" className="inline-block h-1.5 w-1.5 rounded-full bg-pos" />
-        funds held in trust · no auto-billing · pci-compliant
+      {/* Trust footer — wraps cleanly because the row uses `flex-wrap` so the
+          dot stays inline with the first chunk and any overflow wraps to a
+          second line rather than blowing out the card width on mobile. */}
+      <div className="mt-2.5 flex flex-wrap items-center gap-x-1.5 gap-y-1 font-mono text-[10.5px] uppercase tracking-[0.04em] text-dim">
+        <span aria-hidden="true" className="inline-block h-1.5 w-1.5 shrink-0 rounded-full bg-pos" />
+        <span>funds held in trust · no auto-billing · pci-compliant</span>
       </div>
     </div>
   );
