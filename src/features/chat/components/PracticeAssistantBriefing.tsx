@@ -786,10 +786,32 @@ export function PracticeAssistantBriefing({
           ))}
 
           <div className="grid grid-cols-2 gap-2">
-            <div className="rounded-md border border-rule bg-card p-3">
-              <div className="font-mono text-[9.5px] uppercase tracking-[0.12em] text-dim">Retainer</div>
-              <div className="mt-1 font-serif text-2xl leading-none tracking-tight text-ink">—</div>
-            </div>
+            {(() => {
+              const balanceCents = typeof matter.retainer_balance === 'number' ? matter.retainer_balance : null;
+              const capCents = typeof matter.retainer_cap === 'number' ? matter.retainer_cap : null;
+              const balanceDollars = balanceCents != null ? balanceCents / 100 : null;
+              const capDollars = capCents != null ? capCents / 100 : null;
+              const pct = balanceDollars != null && capDollars != null && capDollars > 0
+                ? Math.round((balanceDollars / capDollars) * 100)
+                : null;
+              const tone = pct != null ? (pct < 15 ? 'warn' : pct < 30 ? 'warn' : 'ok') : 'default';
+              return (
+                <div className="rounded-md border border-rule bg-card p-3">
+                  <div className="font-mono text-[9.5px] uppercase tracking-[0.12em] text-dim">Retainer</div>
+                  <div className="mt-1 font-serif text-2xl leading-none tracking-tight text-ink">
+                    {balanceDollars != null ? (
+                      <>
+                        {formatCurrency(balanceDollars)}
+                        {capDollars != null && <small className="ml-1 font-mono text-[10px] text-dim">/ {formatCurrency(capDollars)}</small>}
+                      </>
+                    ) : '—'}
+                  </div>
+                  {pct != null && (
+                    <Bar value={pct} max={100} tone={tone as 'default' | 'ok' | 'warn'} className="mt-2" label="Retainer balance" />
+                  )}
+                </div>
+              );
+            })()}
             <div className="rounded-md border border-rule bg-card p-3">
               <div className="font-mono text-[9.5px] uppercase tracking-[0.12em] text-dim">Unbilled</div>
               <div className="mt-1 font-serif text-2xl leading-none tracking-tight text-ink">

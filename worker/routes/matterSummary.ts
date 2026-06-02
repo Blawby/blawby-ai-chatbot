@@ -82,21 +82,21 @@ function parseSolDate(data: unknown): string | null {
   return d.toLocaleDateString('en-US', { month: 'short', year: '2-digit' });
 }
 
-function parseActivities(data: unknown): { feed: Array<{ id: string; description: string; createdAt: string }>; count30d: number } {
-  if (!data || typeof data !== 'object') return { feed: [], count30d: 0 };
+function parseActivityFeed(data: unknown): Array<{ id: string; description: string; createdAt: string }> {
+  if (!data || typeof data !== 'object') return [];
   const r = data as Record<string, unknown>;
   const all = Array.isArray(r.activities) ? r.activities as Record<string, unknown>[] : [];
-  const thirtyDaysAgo = Date.now() - 30 * 24 * 60 * 60 * 1000;
-  const count30d = all.filter((a) => {
-    const t = typeof a.created_at === 'string' ? new Date(a.created_at).getTime() : 0;
-    return t >= thirtyDaysAgo;
-  }).length;
-  const feed = all.slice(0, 5).map((a) => ({
+  return all.slice(0, 5).map((a) => ({
     id: String(a.id ?? ''),
     description: String(a.description ?? a.activity_type ?? ''),
     createdAt: String(a.created_at ?? ''),
   }));
-  return { feed, count30d };
+}
+
+function parseActivityCount(data: unknown): number {
+  if (!data || typeof data !== 'object') return 0;
+  const r = data as Record<string, unknown>;
+  return typeof r.count === 'number' ? r.count : 0;
 }
 
 function parseClient(data: unknown): { name: string | null; phone: string | null } {
@@ -155,10 +155,13 @@ export async function handleMatterSummary(request: Request, env: Env): Promise<R
     async () => {
       const matterBase = `/api/matters/${encodeURIComponent(practiceId)}/${encodeURIComponent(matterId)}`;
 
-      const [unbilledRes, deadlinesRes, activityRes, clientRes, stagedRows] = await Promise.allSettled([
+      const since30d = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+
+      const [unbilledRes, deadlinesRes, activityFeedRes, activityCountRes, clientRes, stagedRows] = await Promise.allSettled([
         backendGet(base, `${matterBase}/unbilled`, headers),
         backendGet(base, `${matterBase}/deadlines`, headers),
-        backendGet(base, `${matterBase}/activity?limit=50`, headers),
+        backendGet(base, `${matterBase}/activity?limit=5`, headers),
+        backendGet(base, `${matterBase}/activity/count?since=${encodeURIComponent(since30d)}`, headers),
         clientId && UUID_RE.test(clientId)
           ? backendGet(base, `/api/clients/${encodeURIComponent(practiceId)}/${encodeURIComponent(clientId)}`, headers)
           : Promise.resolve(null),
@@ -174,9 +177,8 @@ export async function handleMatterSummary(request: Request, env: Env): Promise<R
         unbilledRes.status === 'fulfilled' ? unbilledRes.value : null,
       );
       const solDate = parseSolDate(deadlinesRes.status === 'fulfilled' ? deadlinesRes.value : null);
-      const { feed: activities, count30d: eventCount30d } = parseActivities(
-        activityRes.status === 'fulfilled' ? activityRes.value : null,
-      );
+      const activities = parseActivityFeed(activityFeedRes.status === 'fulfilled' ? activityFeedRes.value : null);
+      const eventCount30d = parseActivityCount(activityCountRes.status === 'fulfilled' ? activityCountRes.value : null);
       const { name: clientName, phone: clientPhone } = parseClient(
         clientRes.status === 'fulfilled' ? clientRes.value : null,
       );

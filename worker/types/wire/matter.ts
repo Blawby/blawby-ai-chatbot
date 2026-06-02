@@ -60,6 +60,8 @@ export const BackendMatterSchema = z.object({
   assignee_ids: z.array(z.string()).nullable().optional(),
   assignees: z.union([z.array(z.record(z.string(), z.unknown())), z.array(z.string())]).nullable().optional(),
   milestones: z.array(z.record(z.string(), z.unknown())).nullable().optional(),
+  retainer_balance: z.number().nullable().optional(),
+  retainer_cap: z.number().nullable().optional(),
 }).passthrough();
 export type BackendMatter = z.infer<typeof BackendMatterSchema>;
 
