@@ -84,7 +84,7 @@ export function buildMcpSettingsReturnPath(basePath: string, status: 'success' |
 }
 
 export function getMcpResourceUrl(): string {
-  return `${getBackendApiUrl()}/mcp`;
+  return `${getBackendApiUrl().replace(/\/+$/, '')}/mcp`;
 }
 
 export async function exchangeMcpAuthorizationCode(code: string, verifier: string): Promise<Response> {
