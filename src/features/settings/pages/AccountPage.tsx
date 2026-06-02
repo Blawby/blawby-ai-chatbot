@@ -673,17 +673,11 @@ export const AccountPage = ({
   };
 
   const handleAddLinkedIn = () => {
-    showSuccess(
-      t('settings:account.links.linkedinToast.title'),
-      t('settings:account.links.linkedinToast.body')
-    );
+    showError('LinkedIn is not available yet', 'This connect flow has not been implemented in Blawby yet.');
   };
 
   const handleAddGitHub = () => {
-    showSuccess(
-      t('settings:account.links.githubToast.title'),
-      t('settings:account.links.githubToast.body')
-    );
+    showError('GitHub is not available yet', 'This connect flow has not been implemented in Blawby yet.');
   };
 
   const handleDomainChange = async (domain: string) => {

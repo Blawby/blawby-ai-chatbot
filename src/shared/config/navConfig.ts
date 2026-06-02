@@ -13,6 +13,7 @@ import {
   LifeBuoy,
   Map,
   MessageSquare,
+  Monitor,
   Palette,
   Puzzle,
   Shield,
@@ -176,10 +177,17 @@ const buildClientBase = (slug: string) => `/client/${encodeURIComponent(slug)}`;
 const buildPracticeRail = (basePath: string): NavRailItem[] => [
   {
     id: 'home',
-    label: 'Assistant',
+    label: 'Home',
     icon: Home,
     href: basePath,
-    matchHrefs: [basePath, `${basePath}/setup`, `${basePath}/assistant`],
+    matchHrefs: [basePath, `${basePath}/setup`],
+  },
+  {
+    id: 'assistant',
+    label: 'Assistant',
+    icon: Sparkles,
+    href: `${basePath}/assistant`,
+    matchHrefs: [`${basePath}/assistant`],
   },
   {
     id: 'matters',
@@ -269,6 +277,16 @@ const buildPracticeRail = (basePath: string): NavRailItem[] => [
     matchHrefs: [`${basePath}/reports`],
     prefetch: prefetchReportsChunk,
   },
+  {
+    id: 'settings',
+    label: 'Settings',
+    icon: SettingsNavIcon,
+    href: `${basePath}/settings/general`,
+    matchHrefs: [`${basePath}/settings`, `${basePath}/coverage`],
+    expandable: true,
+    expandOnly: true,
+    prefetch: prefetchSettingsLanding,
+  },
 ];
 
 const buildClientRail = (basePath: string): NavRailItem[] => [
@@ -346,6 +364,27 @@ const buildHomeSecondary = (basePath: string, workspace: 'practice' | 'client'):
   }];
 };
 
+const buildConversationsSecondary = (basePath: string, workspace: 'practice' | 'client'): NavSection[] => {
+  if (workspace === 'practice') {
+    return [{
+      label: 'Messages',
+      items: [
+        { id: 'all', label: 'All', href: `${basePath}/conversations` },
+        { id: 'your-inbox', label: 'Yours', href: `${basePath}/conversations` },
+        { id: 'unassigned', label: 'Unassigned', href: `${basePath}/conversations` },
+      ],
+    }];
+  }
+
+  return [{
+    label: 'Messages',
+    items: [
+      { id: 'all', label: 'All', href: `${basePath}/conversations` },
+      { id: 'your-inbox', label: 'Unread', href: `${basePath}/conversations` },
+    ],
+  }];
+};
+
 const buildReportsSecondary = (basePath: string, workspace: 'practice' | 'client'): NavSection[] | undefined => {
   if (workspace !== 'practice') return undefined;
   const reportItems: SecondaryNavItem[] = REPORT_DEFINITIONS.map((def) => ({
@@ -372,7 +411,7 @@ const buildSettingsSecondary = (basePath: string, canAccessPractice: boolean): N
       label: 'Account',
       items: [
         { id: 'security', label: 'Security', href: `${basePath}/settings/security`, icon: Shield },
-        { id: 'sessions', label: 'Sessions', href: `${basePath}/settings/sessions`, icon: Briefcase },
+        { id: 'sessions', label: 'Sessions', href: `${basePath}/settings/sessions`, icon: Monitor },
         { id: 'general', label: 'Appearance', href: `${basePath}/settings/general`, icon: Palette },
         { id: 'notifications', label: 'Notifications', href: `${basePath}/settings/notifications`, icon: Bell },
         { id: 'audit-log', label: 'Audit log', href: `${basePath}/settings/audit-log`, icon: FileText },
@@ -428,6 +467,8 @@ const buildIntakesSecondary = (basePath: string): NavSection[] => [
 
 const buildSecondary = (basePath: string, section: WorkspaceSection, workspace: 'practice' | 'client', canAccessPractice: boolean): NavSection[] | undefined => {
   switch (section) {
+    case 'conversations':
+      return buildConversationsSecondary(basePath, workspace);
     case 'intakes':
       return workspace === 'practice' ? buildIntakesSecondary(basePath) : undefined;
     case 'reports':

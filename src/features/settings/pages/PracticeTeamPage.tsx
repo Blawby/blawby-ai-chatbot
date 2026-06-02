@@ -259,9 +259,9 @@ export const PracticeTeamPage = ({ className }: PracticeTeamPageProps) => {
                 const isEditing = editMemberData?.userId === member.userId;
                 return (
                   <div key={member.userId} className="border-b border-rule last:border-0">
-                    <div className="grid items-center gap-3 px-5 py-4" style={{ gridTemplateColumns: '36px 1fr auto auto auto' }}>
+                    <div className="grid items-center gap-4 px-4 py-[14px]" style={{ gridTemplateColumns: '40px 1fr 120px 100px auto' }}>
                       {/* Avatar */}
-                      <div className="flex h-9 w-9 items-center justify-center rounded-full bg-ink font-serif italic text-sm text-accent">
+                      <div className="flex h-10 w-10 items-center justify-center rounded-full bg-ink font-serif italic text-sm text-accent">
                         {initial}
                       </div>
                       {/* Name / email */}
@@ -270,7 +270,7 @@ export const PracticeTeamPage = ({ className }: PracticeTeamPageProps) => {
                         <div className="font-mono text-xs text-dim">{member.email || member.userId}</div>
                       </div>
                       {/* Role tag */}
-                      <span className="font-mono text-[10px] uppercase tracking-widest text-dim">
+                      <span className="font-mono text-[10.5px] uppercase tracking-[0.06em] text-dim">
                         {getPracticeRoleLabel(member.role)}
                       </span>
                       {/* Status dot */}
@@ -280,11 +280,11 @@ export const PracticeTeamPage = ({ className }: PracticeTeamPageProps) => {
                       </span>
                       {/* Action */}
                       {isMe ? (
-                        <button type="button" className="btn btn-ghost btn-sm opacity-40 cursor-default" disabled>You</button>
+                        <Button variant="ghost" size="sm" disabled className="opacity-40 cursor-default">You</Button>
                       ) : isAdmin && member.role !== 'owner' ? (
-                        <button type="button" className="btn btn-ghost btn-sm" onClick={() => setEditMemberData(isEditing ? null : member)}>
+                        <Button variant="ghost" size="sm" onClick={() => setEditMemberData(isEditing ? null : member)}>
                           {isEditing ? 'Cancel' : 'Manage'}
-                        </button>
+                        </Button>
                       ) : <span />}
                     </div>
                     {/* Inline manage form */}
@@ -311,15 +311,15 @@ export const PracticeTeamPage = ({ className }: PracticeTeamPageProps) => {
 
               {/* Pending invitations */}
               {invitations.map((inv) => (
-                <div key={inv.id} className="grid items-center gap-3 px-5 py-4 border-b border-rule last:border-0" style={{ gridTemplateColumns: '36px 1fr auto auto auto' }}>
-                  <div className="flex h-9 w-9 items-center justify-center rounded-full border-2 border-dashed border-rule text-sm text-dim">
+                <div key={inv.id} className="grid items-center gap-4 px-4 py-[14px] border-b border-rule last:border-0" style={{ gridTemplateColumns: '40px 1fr 120px 100px auto' }}>
+                  <div className="flex h-10 w-10 items-center justify-center rounded-full border-2 border-dashed border-rule text-sm text-dim">
                     {inv.email.charAt(0).toUpperCase()}
                   </div>
                   <div>
                     <div className="text-sm font-medium text-ink">{inv.email}</div>
                     <div className="font-mono text-xs text-dim">Expires {formatDate(new Date(inv.expiresAt))}</div>
                   </div>
-                  <span className="font-mono text-[10px] uppercase tracking-widest text-dim">{getPracticeRoleLabel(inv.role)}</span>
+                  <span className="font-mono text-[10.5px] uppercase tracking-[0.06em] text-dim">{getPracticeRoleLabel(inv.role)}</span>
                   <span className="flex items-center gap-1.5">
                     <span className="h-1.5 w-1.5 rounded-full bg-amber-400" />
                     <span className="font-mono text-[10px] text-dim">pending</span>
@@ -357,7 +357,7 @@ export const PracticeTeamPage = ({ className }: PracticeTeamPageProps) => {
           >
             <SettingsCard className="max-w-[860px]">
               <div className="font-serif text-lg mb-1">Send invitation</div>
-              <p className="text-xs text-dim mb-4">They'll receive an email with a link to join your workspace.</p>
+              <p className="text-xs text-dim mb-4">They&apos;ll receive an email with a link to join your workspace.</p>
               <div className="flex flex-wrap items-end gap-3">
                 <div className="flex-1" style={{ minWidth: 200 }}>
                   <FormLabel htmlFor="invite-email">Email address</FormLabel>

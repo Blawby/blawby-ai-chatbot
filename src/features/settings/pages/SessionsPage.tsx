@@ -3,6 +3,7 @@ import { authClient } from '@/shared/lib/authClient';
 import { useToastContext } from '@/shared/contexts/ToastContext';
 import { LoadingBlock } from '@/shared/ui/layout/LoadingBlock';
 import { cn } from '@/shared/utils/cn';
+import { Button } from '@/shared/ui/Button';
 import { SettingSection } from '@/features/settings/components/SettingSection';
 import { SettingsCard } from '@/features/settings/components/SettingsCard';
 
@@ -110,7 +111,11 @@ export const SessionsPage = ({ className = '' }: SessionsPageProps) => {
     try {
       await authClient.revokeOtherSessions();
       showSuccess('Other sessions signed out', 'All other devices have been signed out.');
-      setSessions((prev) => prev.filter((s) => s.id === currentSessionId));
+      if (currentSessionId != null) {
+        setSessions((prev) => prev.filter((s) => s.id === currentSessionId));
+      } else {
+        await loadSessions();
+      }
     } catch {
       showError('Failed to sign out other sessions', 'Please try again.');
     } finally {
@@ -127,11 +132,10 @@ export const SessionsPage = ({ className = '' }: SessionsPageProps) => {
       <SettingSection first title="Your sessions" description="These are the devices currently signed into your account.">
         {otherCount > 0 && (
           <div className="flex justify-end mb-4">
-            <button type="button" className="btn btn-ghost btn-sm"
-              style={{ color: 'var(--neg)', borderColor: 'color-mix(in oklab, var(--neg) 30%, var(--rule))' }}
+            <Button variant="danger-ghost" size="sm"
               onClick={() => void handleRevokeOthers()} disabled={revokingAll}>
               {revokingAll ? 'Signing out…' : 'Sign out all other sessions'}
-            </button>
+            </Button>
           </div>
         )}
         {sessions.length === 0 ? (
@@ -147,35 +151,39 @@ export const SessionsPage = ({ className = '' }: SessionsPageProps) => {
                 <div
                   key={session.id}
                   className={cn(
-                    'flex items-center gap-4 px-5 py-4 border-b border-rule last:border-0',
+                    'flex items-center gap-4 p-[18px] border-b border-rule last:border-0',
                   )}
                 >
-                  <span className="text-xl shrink-0">{icon}</span>
+                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[var(--r-sm)] bg-rule-soft text-base">{icon}</span>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 text-sm font-medium text-ink">
                       {label}
                       {isCurrent && (
-                        <span className="font-mono text-[10px] uppercase tracking-wider text-accent border border-ink rounded-full px-1.5 py-px bg-ink">
+                        <span
+                          className="font-mono text-[9.5px] uppercase tracking-[0.04em] text-[var(--pos)] border rounded-full px-[7px] py-0.5"
+                          style={{ background: 'color-mix(in oklab, var(--pos) 12%, var(--card))', borderColor: 'color-mix(in oklab, var(--pos) 25%, var(--rule))' }}
+                        >
                           this device
                         </span>
                       )}
                     </div>
                     <div className="flex gap-3 mt-0.5">
                       {session.ipAddress && (
-                        <span className="font-mono text-xs text-dim">{session.ipAddress}</span>
+                        <span className="font-mono text-[11.5px] text-dim">{session.ipAddress}</span>
                       )}
-                      <span className="font-mono text-xs text-dim">{formatRelative(new Date(session.updatedAt))}</span>
+                      <span className="font-mono text-[11.5px] text-dim">{formatRelative(new Date(session.updatedAt))}</span>
                     </div>
                   </div>
                   {!isCurrent && (
-                    <button
-                      type="button"
-                      className="btn btn-ghost btn-sm shrink-0"
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="shrink-0"
                       onClick={() => void handleRevoke(session)}
                       disabled={isRevoking}
                     >
                       {isRevoking ? 'Revoking…' : 'Revoke'}
-                    </button>
+                    </Button>
                   )}
                 </div>
               );

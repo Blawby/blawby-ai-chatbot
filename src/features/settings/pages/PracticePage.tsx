@@ -1,4 +1,4 @@
-import { useMemo, useState, useCallback } from 'preact/hooks';
+import { useEffect, useMemo, useState, useCallback } from 'preact/hooks';
 import { Button } from '@/shared/ui/Button';
 import { LogoUploadInput } from '@/shared/ui/input';
 import { SettingSection } from '@/features/settings/components/SettingSection';
@@ -153,6 +153,9 @@ export const PracticePage = ({ className }: PracticePageProps) => {
     };
   }, [details?.metadata]);
   const [meta, setMeta] = useState<MetaDraft>(metaFromDetails);
+  useEffect(() => {
+    setMeta(metaFromDetails);
+  }, [metaFromDetails]);
   const toggleJurisdiction = (j: string) => setMeta((p) => ({ ...p, jurisdictions: p.jurisdictions.includes(j) ? p.jurisdictions.filter((x) => x !== j) : [...p.jurisdictions, j] }));
   const togglePracticeArea = (a: string) => setMeta((p) => ({ ...p, practiceAreas: p.practiceAreas.includes(a) ? p.practiceAreas.filter((x) => x !== a) : [...p.practiceAreas, a] }));
 
@@ -365,6 +368,7 @@ export const PracticePage = ({ className }: PracticePageProps) => {
     currentPractice,
     isSaving,
     contactValues,
+    meta,
     currentAccentColor,
     details,
     updatePractice,
@@ -377,7 +381,8 @@ export const PracticePage = ({ className }: PracticePageProps) => {
   // ── reset ─────────────────────────────────────────────────────────────────
   const handleReset = useCallback(() => {
     setDraft({});
-  }, []);
+    setMeta(metaFromDetails);
+  }, [metaFromDetails]);
 
   // ── render ────────────────────────────────────────────────────────────────
   if (!currentPractice) {
@@ -435,52 +440,88 @@ export const PracticePage = ({ className }: PracticePageProps) => {
 
           <div className="grid grid-cols-2 gap-[14px] max-[720px]:grid-cols-1">
             <div className="form-field">
-              <label className="label">Firm name</label>
-              <input className="input" value={contactValues.name || ''} placeholder="Law Offices of…" disabled={isSaving}
+              <label className="label" htmlFor="firm-name">Firm name</label>
+              <input id="firm-name" className="input" value={contactValues.name || ''} placeholder="Law Offices of…" disabled={isSaving}
                 onInput={(e) => setDraft((p) => ({ ...p, name: (e.target as HTMLInputElement).value }))} />
             </div>
             <div className="form-field">
-              <label className="label">DBA / public name</label>
-              <input className="input" value={meta.dba} placeholder="Optional public name" disabled={isSaving}
+              <label className="label" htmlFor="dba">DBA / public name</label>
+              <input id="dba" className="input" value={meta.dba} placeholder="Optional public name" disabled={isSaving}
                 onInput={(e) => setMeta((p) => ({ ...p, dba: (e.target as HTMLInputElement).value }))} />
             </div>
             <div className="form-field">
-              <label className="label">Phone</label>
-              <input className="input" type="tel" value={contactValues.contactPhone || ''} placeholder="(555) 000-0000" disabled={isSaving}
+              <label className="label" htmlFor="contact-phone">Phone</label>
+              <input id="contact-phone" className="input" type="tel" value={contactValues.contactPhone || ''} placeholder="(555) 000-0000" disabled={isSaving}
                 onInput={(e) => setDraft((p) => ({ ...p, contactPhone: (e.target as HTMLInputElement).value }))} />
             </div>
             <div className="form-field">
-              <label className="label">Fax</label>
-              <input className="input" type="tel" value={meta.fax} placeholder="Optional" disabled={isSaving}
+              <label className="label" htmlFor="fax">Fax</label>
+              <input id="fax" className="input" type="tel" value={meta.fax} placeholder="Optional" disabled={isSaving}
                 onInput={(e) => setMeta((p) => ({ ...p, fax: (e.target as HTMLInputElement).value }))} />
+            </div>
+            <div className="form-field">
+              <label className="label" htmlFor="public-slug">Slug</label>
+              <input id="public-slug" className="input" value={contactValues.slug || ''} placeholder="smith-associates" disabled={isSaving}
+                onInput={(e) => setDraft((p) => ({ ...p, slug: (e.target as HTMLInputElement).value }))} />
+            </div>
+            <div className="form-field">
+              <label className="label" htmlFor="business-email">Business email</label>
+              <input id="business-email" className="input" type="email" value={contactValues.businessEmail || ''} placeholder="business@example.com" disabled={isSaving}
+                onInput={(e) => setDraft((p) => ({ ...p, businessEmail: (e.target as HTMLInputElement).value }))} />
+            </div>
+            <div className="form-field">
+              <label className="label" htmlFor="website">Website</label>
+              <input id="website" className="input" value={contactValues.website || ''} placeholder="https://example.com" disabled={isSaving}
+                onInput={(e) => setDraft((p) => ({ ...p, website: (e.target as HTMLInputElement).value }))} />
+            </div>
+            <div className="form-field">
+              <label className="label" htmlFor="accent-color">Accent color</label>
+              <div className="flex items-center gap-3">
+                <input
+                  id="accent-color"
+                  className="h-11 w-14 rounded-[var(--r-xs)] border border-rule bg-card px-1 py-1"
+                  type="color"
+                  value={normalizeAccentColor(contactValues.accentColor) ?? currentAccentColor}
+                  disabled={isSaving}
+                  onInput={(e) => setDraft((p) => ({ ...p, accentColor: (e.target as HTMLInputElement).value }))}
+                />
+                <input
+                  id="accent-color-hex"
+                  className="input flex-1"
+                  value={contactValues.accentColor || currentAccentColor}
+                  placeholder="#D4AF37"
+                  disabled={isSaving}
+                  onInput={(e) => setDraft((p) => ({ ...p, accentColor: (e.target as HTMLInputElement).value }))}
+                />
+              </div>
             </div>
           </div>
 
           <div className="form-field mt-[22px]">
-            <label className="label">Address line 1</label>
-            <input className="input" value={addrField('address')} placeholder="Street address, suite" disabled={isSaving}
+            <label className="label" htmlFor="address-line-1">Address line 1</label>
+            <input id="address-line-1" className="input" value={addrField('address')} placeholder="Street address, suite" disabled={isSaving}
               onInput={(e) => setAddr('address', (e.target as HTMLInputElement).value)} />
           </div>
 
           <div className="mt-[22px] grid grid-cols-2 gap-[14px] max-[720px]:grid-cols-1">
             <div className="form-field">
-              <label className="label">City</label>
-              <input className="input" value={addrField('city')} placeholder="Charlotte" disabled={isSaving}
+              <label className="label" htmlFor="city">City</label>
+              <input id="city" className="input" value={addrField('city')} placeholder="Charlotte" disabled={isSaving}
                 onInput={(e) => setAddr('city', (e.target as HTMLInputElement).value)} />
             </div>
             <div className="form-field">
-              <label className="label">State</label>
-              <input className="input" value={addrField('state')} placeholder="NC" disabled={isSaving}
+              <label className="label" htmlFor="state">State</label>
+              <input id="state" className="input" value={addrField('state')} placeholder="NC" disabled={isSaving}
                 onInput={(e) => setAddr('state', (e.target as HTMLInputElement).value)} />
             </div>
             <div className="form-field">
-              <label className="label">Postal code</label>
-              <input className="input" value={addrField('postalCode')} placeholder="28202" disabled={isSaving}
+              <label className="label" htmlFor="postal-code">Postal code</label>
+              <input id="postal-code" className="input" value={addrField('postalCode')} placeholder="28202" disabled={isSaving}
                 onInput={(e) => setAddr('postalCode', (e.target as HTMLInputElement).value)} />
             </div>
             <div className="form-field">
-              <label className="label">Country</label>
-              <select className="select" value={addrField('country') || 'US'} disabled={isSaving}
+              <label className="label" htmlFor="country">Country</label>
+              <select id="country" className="select" value={addrField('country') || 'US'} disabled={isSaving}
                 onChange={(e) => setAddr('country', (e.target as HTMLSelectElement).value)}>
                 <option value="US">US</option>
                 <option value="CA">CA</option>
@@ -488,13 +529,13 @@ export const PracticePage = ({ className }: PracticePageProps) => {
               </select>
             </div>
             <div className="form-field">
-              <label className="label">Bar number</label>
-              <input className="input" value={meta.barNumber} placeholder="NC 38421" disabled={isSaving}
+              <label className="label" htmlFor="bar-number">Bar number</label>
+              <input id="bar-number" className="input" value={meta.barNumber} placeholder="NC 38421" disabled={isSaving}
                 onInput={(e) => setMeta((p) => ({ ...p, barNumber: (e.target as HTMLInputElement).value }))} />
             </div>
             <div className="form-field">
-              <label className="label">Admitted</label>
-              <input className="input" value={meta.admittedYear} placeholder="2016" disabled={isSaving}
+              <label className="label" htmlFor="admitted-year">Admitted</label>
+              <input id="admitted-year" className="input" value={meta.admittedYear} placeholder="2016" disabled={isSaving}
                 onInput={(e) => setMeta((p) => ({ ...p, admittedYear: (e.target as HTMLInputElement).value }))} />
             </div>
           </div>
@@ -547,14 +588,14 @@ export const PracticePage = ({ className }: PracticePageProps) => {
           description="Used in engagement letters, the client portal, and intake widget."
         >
           <div className="form-field mb-[18px]">
-            <label className="label">Professional bio</label>
-            <textarea className="textarea" rows={4} value={meta.bio} disabled={isSaving}
+            <label className="label" htmlFor="professional-bio">Professional bio</label>
+            <textarea id="professional-bio" className="textarea" rows={4} value={meta.bio} disabled={isSaving}
               placeholder="Brief bio visible to clients…"
               onInput={(e) => setMeta((p) => ({ ...p, bio: (e.target as HTMLTextAreaElement).value }))} />
           </div>
           <div className="form-field">
-            <label className="label">Specializations / certifications</label>
-            <input className="input" value={meta.specializations} disabled={isSaving}
+            <label className="label" htmlFor="specializations">Specializations / certifications</label>
+            <input id="specializations" className="input" value={meta.specializations} disabled={isSaving}
               placeholder="NC Board Certified Specialist — Family Law"
               onInput={(e) => setMeta((p) => ({ ...p, specializations: (e.target as HTMLInputElement).value }))} />
           </div>

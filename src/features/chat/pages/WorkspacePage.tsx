@@ -1,17 +1,16 @@
 import { FunctionComponent } from 'preact';
 import type { ComponentChildren } from 'preact';
 import { useMemo, useRef, useState, useEffect, useCallback } from 'preact/hooks';
+import { lazy, Suspense } from 'preact/compat';
 import { useLocation } from 'preact-iso';
-import { Plus } from 'lucide-preact';
+import { Menu, Plus, Search, SquarePen } from 'lucide-preact';
 
 import { useNavigation } from '@/shared/utils/navigation';
+import { cn } from '@/shared/utils/cn';
 import { SessionNotReadyError } from '@/shared/types/errors';
 import WorkspaceHomeView from '@/features/chat/views/WorkspaceHomeView';
 import { WorkspaceHomeSection } from '@/features/chat/components/WorkspaceHomeSection';
 import { WorkspaceSetupSection } from '@/features/chat/components/WorkspaceSetupSection';
-import MessagesListPanel from '@/features/chat/components/MessagesListPanel';
-import { ConversationListPanel } from '@/features/chat/components/ConversationListPanel';
-import ConversationListView from '@/features/chat/views/ConversationListView';
 import ConversationContextPanel from '@/features/chat/components/ConversationContextPanel';
 import { type ComboboxOption } from '@/shared/ui/input/Combobox';
 import { deleteConversation, markAsRead, postConversationMessage, updateConversationTriage } from '@/shared/lib/conversationApi';
@@ -23,17 +22,18 @@ import { usePracticeInvitations } from '@/shared/hooks/usePracticeInvitations';
 import { DraftConversationView } from '@/features/chat/components/DraftConversationView';
 import { getPracticeRoleLabel } from '@/shared/utils/practiceRoles';
 import { AppShell } from '@/shared/ui/layout/AppShell';
-import { LeftRail, BrandMark, type LeftRailItem } from '@/design-system/layout';
+import { LeftRail, BrandMark, FocusDrawer, type LeftRailItem } from '@/design-system/layout';
 import { OrgSwitcherMenu } from '@/shared/ui/nav/OrgSwitcherMenu';
 import { SidebarProfileMenu } from '@/shared/ui/nav/SidebarProfileMenu';
 import { signOut } from '@/shared/utils/auth';
-import type { IconComponent } from '@/shared/ui/Icon';
+import { Icon, type IconComponent } from '@/shared/ui/Icon';
 import { WorkspaceMainPane } from '@/shared/ui/layout/WorkspaceMainPane';
 import type { WorkspaceMainPaneLayout } from '@/shared/ui/layout/WorkspaceMainPane';
 import { Panel } from '@/shared/ui/layout/Panel';
 import { WorkspaceListHeader } from '@/shared/ui/layout/WorkspaceListHeader';
 import type { WorkspacePlaceholderAction } from '@/shared/ui/layout/WorkspacePlaceholderState';
 import { Button } from '@/shared/ui/Button';
+import { Input } from '@/shared/ui/input/Input';
 import { useWorkspaceConversations } from './hooks/useWorkspaceConversations';
 import { useWorkspaceNavigation } from './hooks/useWorkspaceNavigation';
 import { resolveConsultationState } from '@/shared/utils/consultationState';
@@ -47,6 +47,7 @@ import { useRecentMessage } from './hooks/useRecentMessage';
 import { useToastContext } from '@/shared/contexts/ToastContext';
 import { useSessionContext, useMemberRoleContext } from '@/shared/contexts/SessionContext';
 import { normalizePracticeRole } from '@/shared/utils/practiceRoles';
+import { isAssistantConversation } from '@/shared/utils/conversationSurface';
 import {
   getWorkspaceActiveHref,
   shouldShowWorkspaceBottomNav,
@@ -65,6 +66,9 @@ import type { UserDetailRecord, UserDetailStatus, PracticeDetails } from '@/shar
 import type { BackendMatter } from '@/features/matters/services/mattersApi';
 import type { IntakeConversationState, DerivedIntakeStatus, IntakeFieldChangeOptions } from '@/shared/types/intake';
 import { features } from '@/config/features';
+import { formatRelativeTime } from '@/features/matters/utils/formatRelativeTime';
+
+const PracticeAssistantBriefing = lazy(() => import('@/features/chat/components/PracticeAssistantBriefing').then((m) => ({ default: m.PracticeAssistantBriefing })));
 
 type PreviewTab = 'home' | 'messages' | 'intake';
 const previewTabOptions: Array<{ id: PreviewTab; label: string }> = [
@@ -88,6 +92,29 @@ type WorkspacePrefetchData = {
 };
 
 type WorkspacePrimaryCreateAction = WorkspacePlaceholderAction;
+type ThreadSidebarSection = 'assistant' | 'conversations';
+
+const isRailHrefActive = (currentPath: string, item: LeftRailItem): boolean => {
+  const normalizedCurrent = currentPath.split('?')[0].split('#')[0].replace(/\/+$/, '') || '/';
+  const targets = (item.matchHrefs?.length ? item.matchHrefs : [item.href]).map((href) => href.replace(/\/+$/, '') || '/');
+
+  return targets.some((target) => normalizedCurrent === target || normalizedCurrent.startsWith(`${target}/`));
+};
+
+const getRailItemMatchScore = (currentPath: string, item: LeftRailItem): number => {
+  const normalizedCurrent = currentPath.split('?')[0].split('#')[0].replace(/\/+$/, '') || '/';
+  const targets = (item.matchHrefs?.length ? item.matchHrefs : [item.href]).map((href) => href.replace(/\/+$/, '') || '/');
+
+  let bestScore = -1;
+  for (const target of targets) {
+    if (normalizedCurrent === target || normalizedCurrent.startsWith(`${target}/`)) {
+      bestScore = Math.max(bestScore, target.length);
+    }
+  }
+  return bestScore;
+};
+
+const SECTION_SIDEBAR_WORKSPACE_SECTIONS = new Set(['settings', 'reports', 'conversations', 'assistant'] as const);
 
 interface WorkspacePageProps {
   view: WorkspaceView;
@@ -239,6 +266,11 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
   const [conversationPendingDelete, setConversationPendingDelete] = useState<Conversation | null>(null);
   const [optimisticallyReadConversationIds, setOptimisticallyReadConversationIds] = useState<Set<string>>(new Set());
   const [isDeletingConversation, setIsDeletingConversation] = useState(false);
+  const [isMobileRailMenuOpen, setIsMobileRailMenuOpen] = useState(false);
+  const [threadSidebarSearch, setThreadSidebarSearch] = useState<Record<ThreadSidebarSection, string>>({
+    assistant: '',
+    conversations: '',
+  });
   const [isAddClientDialogOpen, setIsAddClientDialogOpen] = useState(false);
   // Draft conversation state. When non-null, the chat area renders
   // DraftConversationView and the messages list shows a synthetic "Draft"
@@ -283,7 +315,6 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
     isEngagementEditRoute,
     isReportDeliveryDetailRoute: _isReportDeliveryDetailRoute,
     previewUrls,
-    handleDashboardCreateInvoice,
     workspaceSection,
     navConfig,
     activeSecondaryFilter,
@@ -308,7 +339,6 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
     isInitialConversationCheckRef,
     activeConversationMissingNotification,
     setActiveConversationMissingNotification,
-    allIntakes,
     filteredConversations,
     selectedConversation,
   } = useWorkspaceConversations({
@@ -407,7 +437,6 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
     refreshConversations,
     workspaceSection,
     session,
-    mattersData,
     showError,
     showSuccess,
   });
@@ -476,6 +505,15 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
     navigate,
     withWidgetQuery,
     handleSelectConversation,
+    onCreateAssistantConversation: workspaceSection === 'assistant'
+      ? () => {
+        void handleStartConversation('PRACTICE_ASSISTANT', {
+          forceNew: true,
+          additionalParticipantUserIds: [],
+          additionalMetadata: { source: 'practice_assistant', mode: 'PRACTICE_ASSISTANT' },
+        });
+      }
+      : null,
     setActiveConversationMissingNotification,
     activeConversationMissingNotification,
     showError,
@@ -502,12 +540,6 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
     applySetupFields,
     conversationMemberOptions,
     matterAssigneeOptions,
-    dashboardWindow,
-    setDashboardWindow,
-    summaryStats,
-    recentActivity,
-    practiceBillingLoading,
-    practiceBillingError,
     logoUploading,
     logoUploadProgress,
     stripeHasAccount,
@@ -533,10 +565,6 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
     refreshConversations,
     showError,
   });
-
-  const recentIntakes = useMemo(() => {
-    return allIntakes.slice(0, 3);
-  }, [allIntakes]);
 
   const handleIntakePreviewSubmit = useCallback(async () => {
     showSuccess('Intake preview submitted', 'This submission is for preview only.');
@@ -622,9 +650,11 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
   }, [filteredConversations, optimisticallyReadConversationIds]);
 
   const assistantConversations = useMemo(
-    () => resolvedConversations.filter((c) => c.user_info?.mode === 'PRACTICE_ASSISTANT'),
+    () => resolvedConversations.filter(isAssistantConversation),
     [resolvedConversations]
   );
+  const conversationThreadSearch = threadSidebarSearch.conversations.trim().toLowerCase();
+  const assistantThreadSearch = threadSidebarSearch.assistant.trim().toLowerCase();
 
   useEffect(() => {
     if (previewStrongReady || (onboardingProgress?.completionScore ?? 0) >= 80) {
@@ -725,6 +755,15 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
     navigate(withWidgetQuery(conversationsPath));
   };
 
+  const handleHomeAssistantAsk = useCallback((question: string) => {
+    try { sessionStorage.setItem('blawby:pending_ask', question); } catch { /* ignore */ }
+    void handleStartConversation('PRACTICE_ASSISTANT', {
+      forceNew: true,
+      additionalParticipantUserIds: [],
+      additionalMetadata: { source: 'practice_assistant', mode: 'PRACTICE_ASSISTANT' },
+    });
+  }, [handleStartConversation]);
+
   const handleEnterDraftMode = () => {
     setDraftConversation((prev) => prev ?? { kind: 'user', contactUserId: null });
   };
@@ -753,7 +792,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
     // kind === 'user' — jump to existing 1-on-1 thread if one exists
     if (sessionUserId) {
       const existing = resolvedConversations.find((conversation) => {
-        if (conversation.user_info?.mode === 'PRACTICE_ASSISTANT') return false;
+        if (isAssistantConversation(conversation)) return false;
         const participants = Array.isArray(conversation.participants) ? conversation.participants : [];
         return participants.length === 2 && participants.includes(sessionUserId) && participants.includes(next.userId);
       });
@@ -915,29 +954,29 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
     />
   );
   const homeContent = (
-    <WorkspaceHomeSection
-      workspace={workspace}
-      practiceId={practiceId}
-      practiceSlug={practiceSlug}
-      practiceName={practiceName}
-      practiceLogo={practiceLogo}
-      recentMessage={recentMessage}
-      intakeContactStarted={intakeContactStarted}
-      onOpenRecentMessage={handleOpenRecentMessage}
-      onSendMessage={() => handleStartConversation('ASK_QUESTION')}
-      onRequestConsultation={() => handleStartConversation('REQUEST_CONSULTATION')}
-      dashboardWindow={dashboardWindow}
-      summaryStats={summaryStats}
-      practiceBillingLoading={practiceBillingLoading}
-      practiceBillingError={practiceBillingError}
-      recentActivity={recentActivity}
-      recentIntakes={recentIntakes}
-      onDashboardWindowChange={setDashboardWindow}
-      onCreateInvoice={handleDashboardCreateInvoice}
-      onOpenInvoice={(invoiceId) => navigate(`${normalizedBase}/invoices/${encodeURIComponent(invoiceId)}`)}
-      onViewAllIntakes={() => navigate(`${normalizedBase}/intakes/responses`)}
-      onViewIntake={(intakeId) => navigate(`${normalizedBase}/intakes/responses/${encodeURIComponent(intakeId)}`)}
-    />
+    isPracticeWorkspace ? (
+      <Suspense fallback={<div className="flex-1" />}>
+        <PracticeAssistantBriefing
+          practiceId={practiceId}
+          practiceSlug={practiceSlug}
+          practiceName={practiceName}
+          onAsk={handleHomeAssistantAsk}
+        />
+      </Suspense>
+    ) : (
+      <WorkspaceHomeSection
+        workspace={workspace}
+        practiceId={practiceId}
+        practiceSlug={practiceSlug}
+        practiceName={practiceName}
+        practiceLogo={practiceLogo}
+        recentMessage={recentMessage}
+        intakeContactStarted={intakeContactStarted}
+        onOpenRecentMessage={handleOpenRecentMessage}
+        onSendMessage={() => handleStartConversation('ASK_QUESTION')}
+        onRequestConsultation={() => handleStartConversation('REQUEST_CONSULTATION')}
+      />
+    )
   );
   const isFullscreenEditorRoute = (view === 'intakes' && isIntakeTemplateEditorRoute)
     || isEngagementCreateRoute
@@ -956,17 +995,6 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
   const handleNavActivate = () => {
     setIsInspectorOpen(false);
   };
-
-  // Active item resolution for the unified Sidebar:
-  // 1. Settings: match path against secondary items by href.
-  // 2. If the rail item matching the current path has expandable children, use the
-  //    active sub-filter.
-  // 3. Else, use the best-matching rail item id (longest matching prefix, so
-  //    /matters wins over Home's basePath even though both technically match).
-  // sidebarActiveItemId + handleSidebarSubItemSelect were used by the legacy
-  // unified Sidebar's expandable-secondary-nav UX. LeftRail uses href-based
-  // active matching (built into the component) and doesn't render secondary
-  // sub-items in the rail — secondary nav now lives inside the page content.
 
   const sidebarUser = session?.user
     ? {
@@ -1019,7 +1047,6 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
       prefetch: item.prefetch,
     }));
   }, [navConfig.rail, practiceSlug, sidebarCounts]);
-
   const brandMark = sidebarOrg && currentPractice?.id && practiceSlug ? (
     <OrgSwitcherMenu
       org={{
@@ -1047,16 +1074,24 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
   ) : null;
   const showMobileMenuButton = shouldShowWorkspaceMobileMenuButton({
     isMobileLayout,
-    hasSecondaryNav: Boolean(navConfig.secondary?.length),
+    hasSecondaryNav: Boolean(navConfig.secondary?.length) || workspaceSection === 'assistant' || workspaceSection === 'conversations',
     workspaceSection,
     view,
     isPracticeWorkspace,
     selectedContactIdFromPath,
   });
-  // The global WorkspaceShellHeader provides the mobile menu button now, so the
-  // per-section mobile top bar no longer needs its own hamburger.
-  void showMobileMenuButton;
-  const suppressShellCreateButton = view === 'matters';
+  const mobileMenuButton = showMobileMenuButton ? (
+    <Button
+      type="button"
+      variant="icon"
+      size="icon-sm"
+      onClick={() => setIsMobileRailMenuOpen(true)}
+      aria-label="Open navigation"
+      icon={Menu}
+      iconClassName="h-5 w-5"
+    />
+  ) : null;
+  const suppressShellCreateButton = view === 'matters' || workspaceSection === 'conversations' || workspaceSection === 'assistant';
   const mobileCreateButton = primaryCreateAction && showMobileMenuButton && !suppressShellCreateButton ? (
     <Button
       type="button"
@@ -1108,42 +1143,83 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
     && !mattersDataForView.isLoading
     && !mattersDataForView.error
     && mattersDataForView.items.length === 0;
-  const messageFilterTabs = useMemo(() => {
-    if (!isPracticeWorkspace) return null;
-    // Short single-word labels keep all three tabs visible without truncation
-    // on a 390-wide viewport ("Your Messages" + "Unassigned" used to overflow).
-    const options = [
-      { value: 'your-inbox', label: 'Yours' },
-      { value: 'unassigned', label: 'Unassigned' },
-      { value: 'all', label: 'All' },
-    ] as const;
-    const value = activeSecondaryFilter && options.some((o) => o.value === activeSecondaryFilter)
-      ? activeSecondaryFilter
-      : 'your-inbox';
-    return {
-      value,
-      options,
-      onChange: (next: string) => handleSecondaryFilterSelect(next),
-    };
-  }, [isPracticeWorkspace, activeSecondaryFilter, handleSecondaryFilterSelect]);
+  const handleThreadSidebarSearchChange = useCallback((value: string) => {
+    if (workspaceSection !== 'assistant' && workspaceSection !== 'conversations') return;
+    setThreadSidebarSearch((prev) => ({ ...prev, [workspaceSection]: value }));
+  }, [workspaceSection]);
+  const handleAssistantCreate = useCallback(() => {
+    void handleStartConversation('PRACTICE_ASSISTANT', {
+      forceNew: true,
+      additionalParticipantUserIds: [],
+      additionalMetadata: { source: 'practice_assistant', mode: 'PRACTICE_ASSISTANT' },
+    });
+  }, [handleStartConversation]);
+  const handleMessagesCreate = useCallback(() => {
+    handleEnterDraftMode();
+  }, [handleEnterDraftMode]);
+  const handleDrawerAssistantCreate = useCallback(() => {
+    setIsMobileRailMenuOpen(false);
+    handleAssistantCreate();
+  }, [handleAssistantCreate]);
+  const handleDrawerMessagesCreate = useCallback(() => {
+    setIsMobileRailMenuOpen(false);
+    handleMessagesCreate();
+  }, [handleMessagesCreate]);
+  const buildThreadRailItems = useCallback((
+    conversations: Conversation[],
+    section: ThreadSidebarSection,
+  ): LeftRailItem[] => {
+    const searchQuery = (section === 'assistant' ? assistantThreadSearch : conversationThreadSearch).trim();
+    const fallbackTitle = typeof practiceName === 'string' ? practiceName.trim() : '';
+    const searchNeedle = searchQuery.toLowerCase();
 
-  const listContent = (
-    <MessagesListPanel
-      conversations={filteredConversationsWithOptimisticRead}
-      previews={conversationPreviews}
-      practiceName={practiceName}
-      practiceLogo={practiceLogo}
-      isLoading={resolvedConversationsLoading}
-      error={resolvedConversationsError}
-      onSelectConversation={handleSelectConversation}
-      onCompose={handleEnterDraftMode}
-      draftEntry={draftConversation?.kind === 'user'
-        ? { contactName: draftConversation.contactName, contactEmail: draftConversation.contactEmail }
-        : null}
-      onSelectDraftEntry={handleEnterDraftMode}
-      activeConversationId={activeConversationId}
-      tabs={messageFilterTabs}
-    />
+    return conversations
+      .slice()
+      .sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime())
+      .filter((conversation) => {
+        if (!searchNeedle) return true;
+        const title = resolveConversationContactName(conversation)
+          || resolveConversationDisplayTitle(conversation, fallbackTitle)
+          || '';
+        const previewText = (conversationPreviews[conversation.id]?.content ?? conversation.last_message_content ?? '').toString();
+        return title.toLowerCase().includes(searchNeedle) || previewText.toLowerCase().includes(searchNeedle);
+      })
+      .map((conversation) => {
+        const title = resolveConversationContactName(conversation)
+          || resolveConversationDisplayTitle(conversation, fallbackTitle)
+          || 'Conversation';
+        const hrefBase = section === 'assistant' ? `${normalizedBase}/assistant` : conversationsPath;
+        return {
+          id: `${section}-thread-${conversation.id}`,
+          label: title,
+          href: `${hrefBase}/${encodeURIComponent(conversation.id)}`,
+          meta: formatRelativeTime(conversation.updated_at),
+          presentation: 'thread' as const,
+          unread: Number(conversation.unread_count ?? 0) > 0,
+          isActive: activeConversationId === conversation.id,
+        };
+      });
+  }, [
+    activeConversationId,
+    assistantThreadSearch,
+    conversationPreviews,
+    conversationThreadSearch,
+    conversationsPath,
+    normalizedBase,
+    practiceName,
+  ]);
+  const messageThreadRailItems = useMemo(
+    () => buildThreadRailItems(filteredConversationsWithOptimisticRead, 'conversations'),
+    [buildThreadRailItems, filteredConversationsWithOptimisticRead],
+  );
+  const assistantThreadRailItems = useMemo(
+    () => buildThreadRailItems(assistantConversations, 'assistant'),
+    [assistantConversations, buildThreadRailItems],
+  );
+  const desktopMessagesListContent = (
+    <div className="flex flex-1 items-center justify-center px-6 py-10 text-sm text-dim-2">
+      Select a conversation from the sidebar to open the thread.
+    </div>
   );
   const desktopCreate = layoutMode === 'desktop' ? desktopCreateButton ?? undefined : undefined;
   const mattersContent = resolveViewContent(
@@ -1216,51 +1292,10 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
   const invoicesListPanel = layoutMode === 'desktop' && (isPracticeWorkspace || isClientWorkspace) && view === 'invoices' && shouldShowDesktopInvoicesListPanel
     ? resolveViewContent(invoicesListContent, [invoicesStatusFilter] as const)
     : undefined;
-
-  const conversationListView = (
-    <ConversationListPanel
-      conversations={filteredConversationsWithOptimisticRead}
-      conversationPreviews={conversationPreviews}
-      practiceName={practiceName}
-      practiceLogo={practiceLogo}
-      isLoading={resolvedConversationsLoading}
-      error={resolvedConversationsError}
-      onSelect={handleSelectConversation}
-      onNew={handleEnterDraftMode}
-      draftEntry={draftConversation?.kind === 'user'
-        ? { contactName: draftConversation.contactName, contactEmail: draftConversation.contactEmail }
-        : null}
-      onSelectDraftEntry={handleEnterDraftMode}
-      activeConversationId={activeConversationId}
-      tabs={messageFilterTabs}
-    />
-  );
-  const assistantListPanel = layoutMode === 'desktop' && view === 'assistant'
-    ? (
-      <div className="flex h-full min-h-0 flex-1 flex-col gap-2">
-        <Panel className="list-panel-card-gradient min-h-0 flex-1 overflow-hidden">
-          <ConversationListView
-            conversations={assistantConversations}
-            previews={conversationPreviews}
-            practiceName={practiceName}
-            practiceLogo={practiceLogo}
-            isLoading={resolvedConversationsLoading}
-            error={resolvedConversationsError}
-            onSelectConversation={handleSelectConversation}
-            onSendMessage={() => void handleStartConversation('PRACTICE_ASSISTANT', { forceNew: true })}
-            showSendMessageButton={false}
-            activeConversationId={activeConversationId}
-          />
-        </Panel>
-      </div>
-    )
-    : undefined;
-  const conversationListPanel = layoutMode === 'desktop' && (view === 'list' || view === 'conversation')
-    ? conversationListView
-    : undefined;
-  const mobileSectionTopBar = layoutMode !== 'desktop' && view !== 'conversation' && !isFullscreenEditorRoute && mobileCreateButton
+  const mobileSectionTopBar = layoutMode !== 'desktop' && !isFullscreenEditorRoute && (mobileMenuButton || mobileCreateButton)
     ? (
       <WorkspaceListHeader
+        leftControls={mobileMenuButton ?? undefined}
         controls={mobileCreateButton ?? undefined}
         className="px-1 py-1"
       />
@@ -1279,7 +1314,9 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
       case 'home':
         return homeContent;
       case 'list':
-        return listContent;
+        return layoutMode === 'desktop'
+          ? (draftView ?? desktopMessagesListContent)
+          : chatContent;
       case 'intakes':
       case 'intakeDetail':
         return intakesContent;
@@ -1441,18 +1478,173 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
   };
 
   const showLeftRail = !isFullscreenEditorRoute && railItems.length > 0;
-  const isSettingsView = view === 'settings';
+  const currentSectionRailItem = railItems.reduce<{ item: LeftRailItem | null; score: number }>((best, item) => {
+    const score = getRailItemMatchScore(activeHref, item);
+    if (score > best.score) return { item, score };
+    return best;
+  }, { item: null, score: -1 }).item;
+  const shouldUseSectionSidebar = Boolean(
+    ((navConfig.secondary?.length ?? 0) > 0
+      || workspaceSection === 'conversations'
+      || workspaceSection === 'assistant')
+    && currentSectionRailItem
+    && SECTION_SIDEBAR_WORKSPACE_SECTIONS.has(workspaceSection as 'settings' | 'reports' | 'conversations' | 'assistant')
+  );
+  const staticSectionSidebarSections = useMemo(() => (
+    (navConfig.secondary ?? []).map((section, index) => ({
+      id: `${section.label ?? currentSectionRailItem?.id ?? 'section'}-${index}`,
+      label: section.label,
+      items: section.items
+        .filter((item): item is typeof item & { href: string } => typeof item.href === 'string')
+        .map((item) => ({
+          id: item.id,
+          label: item.label,
+          icon: item.icon as IconComponent | undefined,
+          href: item.href,
+          badge: typeof item.badge === 'number' ? item.badge : null,
+          variant: item.variant,
+          isAction: item.isAction,
+          isActive: workspaceSection === 'conversations'
+            ? item.id === activeSecondaryFilter
+            : undefined,
+          onClick: workspaceSection === 'conversations'
+            ? () => handleSecondaryFilterSelect(item.id)
+            : undefined,
+          prefetch: item.prefetch,
+        })),
+    }))
+  ), [
+    activeSecondaryFilter,
+    currentSectionRailItem?.id,
+    handleSecondaryFilterSelect,
+    navConfig.secondary,
+    workspaceSection,
+  ]);
+  const sectionSidebarSections = useMemo(() => (
+    workspaceSection === 'conversations'
+      ? [
+        ...staticSectionSidebarSections,
+        { id: 'conversation-threads', label: 'Threads', items: messageThreadRailItems },
+      ]
+      : workspaceSection === 'assistant'
+        ? [
+          ...staticSectionSidebarSections,
+          { id: 'assistant-threads', label: 'Threads', items: assistantThreadRailItems },
+        ]
+        : staticSectionSidebarSections
+  ), [assistantThreadRailItems, messageThreadRailItems, staticSectionSidebarSections, workspaceSection]);
+  const sectionSidebarBackHref = normalizedBase ?? '/';
+  const sectionSidebarBackLabel = workspaceSection === 'assistant' ? 'Back to home' : 'Back to workspace';
+  const activeThreadSearchValue = workspaceSection === 'assistant'
+    ? threadSidebarSearch.assistant
+    : workspaceSection === 'conversations'
+      ? threadSidebarSearch.conversations
+      : '';
+  const sectionSidebarCreateButton = workspaceSection === 'assistant'
+    ? (
+      <Button
+        type="button"
+        variant="icon"
+        size="icon-sm"
+        onClick={handleAssistantCreate}
+        aria-label="New assistant thread"
+        icon={Plus}
+        iconClassName="h-4 w-4"
+      />
+    )
+    : workspaceSection === 'conversations'
+      ? (
+        <Button
+          type="button"
+          variant="icon"
+          size="icon-sm"
+          onClick={handleMessagesCreate}
+          aria-label="New message"
+          icon={SquarePen}
+          iconClassName="h-4 w-4"
+        />
+      )
+      : null;
+  const drawerSectionSidebarCreateButton = workspaceSection === 'assistant'
+    ? (
+      <Button
+        type="button"
+        variant="icon"
+        size="icon-sm"
+        onClick={handleDrawerAssistantCreate}
+        aria-label="New assistant thread"
+        icon={Plus}
+        iconClassName="h-4 w-4"
+      />
+    )
+    : workspaceSection === 'conversations'
+      ? (
+        <Button
+          type="button"
+          variant="icon"
+          size="icon-sm"
+          onClick={handleDrawerMessagesCreate}
+          aria-label="New message"
+          icon={SquarePen}
+          iconClassName="h-4 w-4"
+        />
+      )
+      : null;
+  const sectionSidebarHeader = shouldUseSectionSidebar ? (
+    <div className="flex flex-col gap-3 px-1 py-1">
+      <div className="flex items-center justify-between gap-2">
+        <button
+          type="button"
+          onClick={() => navigate(sectionSidebarBackHref)}
+          className="ml-[-2px] inline-flex items-center gap-1.5 px-2 py-1 text-left font-mono text-[11px] uppercase tracking-[0.06em] text-[rgb(var(--sidebar-text-secondary))] transition-colors hover:text-[rgb(var(--sidebar-text))] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50"
+        >
+          <span aria-hidden="true">←</span>
+          <span>{sectionSidebarBackLabel}</span>
+        </button>
+        {sectionSidebarCreateButton}
+      </div>
+      {(workspaceSection === 'assistant' || workspaceSection === 'conversations') ? (
+        <Input
+          type="search"
+          value={activeThreadSearchValue}
+          onChange={handleThreadSidebarSearchChange}
+          placeholder={workspaceSection === 'assistant' ? 'Search assistant threads...' : 'Search messages...'}
+          aria-label={workspaceSection === 'assistant' ? 'Search assistant threads' : 'Search messages'}
+          size="sm"
+          icon={Search}
+        />
+      ) : null}
+    </div>
+  ) : brandMark;
+
+  const handleMobileRailItemSelect = useCallback((item: LeftRailItem) => {
+    if (item.isAction) {
+      item.onClick?.();
+      setIsMobileRailMenuOpen(false);
+      handleNavActivate();
+      return;
+    }
+    if (item.onClick) {
+      item.onClick();
+      setIsMobileRailMenuOpen(false);
+      handleNavActivate();
+      return;
+    }
+    setIsMobileRailMenuOpen(false);
+    navigate(item.href);
+    handleNavActivate();
+  }, [handleNavActivate, navigate]);
 
   return (
     <>
       <div className="flex h-dvh flex-col lg:flex-row">
-        {!isSettingsView && showLeftRail && (
+        {showLeftRail && (
           <LeftRail
             variant="desktop"
-            items={railItems}
+            {...(shouldUseSectionSidebar ? { sections: sectionSidebarSections } : { items: railItems })}
             activeHref={activeHref}
             onItemActivate={handleNavActivate}
-            brandMark={brandMark}
+            brandMark={sectionSidebarHeader}
             footer={profileFooter}
             className="hidden lg:flex"
           />
@@ -1460,27 +1652,119 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
         <AppShell
           className="flex-1 min-w-0 bg-transparent"
           accentBackdropVariant="none"
-          listPanel={isFullscreenEditorRoute ? undefined : (conversationListPanel ?? assistantListPanel ?? matterListPanel ?? contactsListPanel ?? invoicesListPanel)}
+          listPanel={isFullscreenEditorRoute ? undefined : (matterListPanel ?? contactsListPanel ?? invoicesListPanel)}
           inspector={activeInspector ?? undefined}
           inspectorMobileOpen={detailInspectorOpen && (isMobileLayout || !isXlViewport)}
           onInspectorMobileClose={() => setIsInspectorOpen(false)}
           main={unifiedMainShell}
           mainClassName="min-h-0 h-full overflow-hidden"
-          {...(workspaceSection === 'conversations'
-            ? { listPanelLgWidth: '340px', inspectorXlWidth: '400px' }
-            : {})}
+          inspectorXlWidth="400px"
         />
-        {!isSettingsView && showBottomNav && showLeftRail && (
+        {showBottomNav && showLeftRail && (
           <LeftRail
             variant="mobile"
             items={railItems}
             activeHref={activeHref}
             onItemActivate={handleNavActivate}
             maxItems={5}
+            onOverflowClick={() => setIsMobileRailMenuOpen(true)}
             className="lg:hidden"
           />
         )}
       </div>
+      <FocusDrawer
+        isOpen={isMobileRailMenuOpen}
+        onClose={() => setIsMobileRailMenuOpen(false)}
+        position="bottom"
+        title={shouldUseSectionSidebar ? (currentSectionRailItem?.label ?? 'Section') : 'Navigate'}
+        ariaLabel="Workspace navigation"
+      >
+        <div className="flex flex-col gap-2">
+          {shouldUseSectionSidebar ? (
+            <div className="mb-2 flex flex-col gap-2">
+              <div className="flex items-center justify-between gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsMobileRailMenuOpen(false);
+                    navigate(sectionSidebarBackHref);
+                    handleNavActivate();
+                  }}
+                  className="inline-flex items-center gap-1.5 px-2 py-2 text-left font-mono text-[11px] uppercase tracking-[0.06em] text-dim transition-colors hover:text-ink"
+                >
+                  <span aria-hidden="true">←</span>
+                  <span>{sectionSidebarBackLabel}</span>
+                </button>
+                {drawerSectionSidebarCreateButton}
+              </div>
+              {(workspaceSection === 'assistant' || workspaceSection === 'conversations') ? (
+                <Input
+                  type="search"
+                  value={activeThreadSearchValue}
+                  onChange={handleThreadSidebarSearchChange}
+                  placeholder={workspaceSection === 'assistant' ? 'Search assistant threads...' : 'Search messages...'}
+                  aria-label={workspaceSection === 'assistant' ? 'Search assistant threads' : 'Search messages'}
+                  size="sm"
+                  icon={Search}
+                />
+              ) : null}
+            </div>
+          ) : null}
+          {(shouldUseSectionSidebar
+            ? sectionSidebarSections.flatMap((section) => section.items)
+            : railItems
+          ).map((item) => {
+            const isActive = item.isActive !== undefined ? item.isActive : isRailHrefActive(activeHref, item);
+            return (
+              <button
+                key={item.id}
+                type="button"
+                onClick={() => handleMobileRailItemSelect(item)}
+                aria-current={isActive ? 'page' : undefined}
+                className={cn(
+                  item.presentation === 'thread'
+                    ? 'flex w-full flex-col gap-1 rounded-[var(--r-xs)] px-3 py-3 text-left transition-colors'
+                    : 'flex w-full items-center gap-3 rounded-[var(--r-xs)] px-3 py-3 text-left text-[14px] transition-colors',
+                  isActive
+                    ? 'bg-ink text-accent'
+                    : 'text-ink-2 hover:bg-rule-soft hover:text-ink'
+                )}
+              >
+                {item.presentation === 'thread' ? (
+                  <>
+                    <div className="flex w-full items-start justify-between gap-2">
+                      <span className="min-w-0 flex-1 truncate text-[13px] font-medium">{item.label}</span>
+                      <span className="flex shrink-0 items-center gap-1.5">
+                        {item.unread ? <span aria-hidden="true" className={cn('h-1.5 w-1.5 rounded-full', 'bg-accent')} /> : null}
+                        {item.meta ? (
+                          <span className={cn('text-[10px] uppercase tracking-[0.08em]', isActive ? 'text-accent' : 'text-dim')}>
+                            {item.meta}
+                          </span>
+                        ) : null}
+                      </span>
+                    </div>
+                    {item.description ? (
+                      <span className={cn('truncate text-[11px]', isActive ? 'text-accent' : 'text-dim')}>
+                        {item.description}
+                      </span>
+                    ) : null}
+                  </>
+                ) : (
+                  <>
+                    {item.icon ? <Icon icon={item.icon} className={cn('h-4 w-4 shrink-0', isActive ? 'opacity-100' : 'opacity-70')} /> : null}
+                    <span className="min-w-0 flex-1 truncate">{item.label}</span>
+                    {item.badge && item.badge > 0 ? (
+                      <span className={cn('font-mono text-[10px]', isActive ? 'text-accent' : 'text-dim')}>
+                        {item.badge}
+                      </span>
+                    ) : null}
+                  </>
+                )}
+              </button>
+            );
+          })}
+        </div>
+      </FocusDrawer>
       <AddContactDialog
         practiceId={practiceId ?? null}
         isOpen={isAddClientDialogOpen}

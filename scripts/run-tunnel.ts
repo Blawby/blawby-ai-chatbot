@@ -18,29 +18,19 @@ import { readFileSync } from 'fs';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 const projectRoot = join(__dirname, '..');
+function loadEnvVar(varName: string): string | null {
+    let value = process.env[varName] ?? null;
 
-/**
- * Load token from environment variable or .env file
- */
-function loadToken(): string | null {
-    // Try to load from environment variable first
-    let token = process.env.CLOUDFLARE_TUNNEL_TOKEN || null;
-
-    // If not in env, try to load from .env file
-    if (!token) {
+    if (!value) {
         try {
             const envFile = join(projectRoot, '.env');
             const envContent = readFileSync(envFile, 'utf-8');
-            const envLines = envContent.split('\n');
-
-            for (const line of envLines) {
+            for (const line of envContent.split('\n')) {
                 const trimmed = line.trim();
-                // Skip comments and empty lines
                 if (!trimmed || trimmed.startsWith('#')) continue;
-                if (trimmed.startsWith('CLOUDFLARE_TUNNEL_TOKEN=')) {
-                    const index = trimmed.indexOf('=');
-                    const value = index === -1 ? '' : trimmed.substring(index + 1);
-                    token = value.trim().replace(/^["']|["']$/g, '') || null;
+                if (trimmed.startsWith(`${varName}=`)) {
+                    const idx = trimmed.indexOf('=');
+                    value = trimmed.substring(idx + 1).trim().replace(/^["']|["']$/g, '') || null;
                     break;
                 }
             }
@@ -49,20 +39,16 @@ function loadToken(): string | null {
         }
     }
 
-    // Fallback to worker/.dev.vars file if .env doesn't have it
-    if (!token) {
+    if (!value) {
         try {
             const devVarsFile = join(projectRoot, 'worker', '.dev.vars');
             const envContent = readFileSync(devVarsFile, 'utf-8');
-            const envLines = envContent.split('\n');
-
-            for (const line of envLines) {
+            for (const line of envContent.split('\n')) {
                 const trimmed = line.trim();
                 if (!trimmed || trimmed.startsWith('#')) continue;
-                if (trimmed.startsWith('CLOUDFLARE_TUNNEL_TOKEN=')) {
-                    const index = trimmed.indexOf('=');
-                    const value = index === -1 ? '' : trimmed.substring(index + 1);
-                    token = value.trim().replace(/^["']|["']$/g, '') || null;
+                if (trimmed.startsWith(`${varName}=`)) {
+                    const idx = trimmed.indexOf('=');
+                    value = trimmed.substring(idx + 1).trim().replace(/^["']|["']$/g, '') || null;
                     break;
                 }
             }
@@ -71,11 +57,11 @@ function loadToken(): string | null {
         }
     }
 
-    return token;
+    return value;
 }
 
-// Load token
-const token = loadToken();
+const token = loadEnvVar('CLOUDFLARE_TUNNEL_TOKEN');
+const originUrl = loadEnvVar('CLOUDFLARE_TUNNEL_URL') ?? 'http://localhost:5137';
 
 if (!token) {
     console.error('❌ Error: CLOUDFLARE_TUNNEL_TOKEN is required');
@@ -101,8 +87,9 @@ try {
     // Non-zero exit is expected when no prior cloudflared process is running.
 }
 
-// Spawn cloudflared process
-const cloudflared: ChildProcess = spawn('cloudflared', ['tunnel', 'run', '--token', token], {
+// Spawn cloudflared process with an explicit origin URL so local dev does not
+// depend on managed ingress propagation for local.blawby.com.
+const cloudflared: ChildProcess = spawn('cloudflared', ['tunnel', '--url', originUrl, 'run', '--token', token], {
     stdio: 'inherit',
     shell: false
 });

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'preact/hooks';
+import { useState, useEffect, useCallback } from 'preact/hooks';
 import { useLocation } from 'preact-iso';
 import { useToastContext } from '@/shared/contexts/ToastContext';
 import { useNavigation } from '@/shared/utils/navigation';
@@ -19,6 +19,7 @@ import { FormActions } from '@/shared/ui/form';
 import { features } from '@/config/features';
 import { buildSettingsPath, resolveSettingsBasePath } from '@/shared/utils/workspace';
 import { cn } from '@/shared/utils/cn';
+import { Button } from '@/shared/ui/Button';
 
 // ---------------------------------------------------------------------------
 // Local types & helpers
@@ -165,7 +166,12 @@ export const SecurityPage = ({
     if (!trimmed || trimmed === session?.user?.email) return;
     setEmailSubmitting(true);
     try {
-      await authClient.changeEmail({ newEmail: trimmed, callbackURL: window.location.href });
+      const result = await authClient.changeEmail({ newEmail: trimmed, callbackURL: window.location.href });
+      const errorMessage = getBetterAuthErrorMessage(result as BetterAuthResult, 'Unable to send verification email. Please try again.');
+      if (errorMessage) {
+        showError('Email change failed', errorMessage);
+        return;
+      }
       showSuccess('Verification sent', `A confirmation link has been sent to ${trimmed}. Click it to complete the change.`);
     } catch {
       showError('Email change failed', 'Unable to send verification email. Please try again.');
@@ -256,6 +262,10 @@ export const SecurityPage = ({
     }
   };
 
+  const handleGenerateRecoveryCodes = useCallback(() => {
+    showError('Not implemented', 'Backup code generation is not available yet.');
+  }, [showError]);
+
   if (isPending || isLoading || authAccountsLoading) return <LoadingBlock className={className} />;
   if (authAccountsError) throw new Error(authAccountsError);
   if (!settings) throw new Error(loadError ?? 'Failed to load security settings.');
@@ -269,16 +279,16 @@ export const SecurityPage = ({
       <SettingSection first title="Email address" description="Your login email. Changing this sends a verification link to the new address.">
         <div className={securityCardClassName}>
           <div className="form-field">
-            <label className="label">Email</label>
-            <input className="input" type="email" value={emailInput}
+            <label className="label" htmlFor="email-input">Email</label>
+            <input id="email-input" className="input" type="email" value={emailInput}
               onInput={(e) => setEmailInput((e.target as HTMLInputElement).value)} />
           </div>
           <div className="flex items-center gap-3 mt-3.5">
-            <button type="button" className="btn btn-ghost btn-sm"
+            <Button variant="ghost" size="sm"
               onClick={() => void handleUpdateEmail()}
               disabled={emailSubmitting || !emailInput.trim() || emailInput.trim() === session?.user?.email}>
               {emailSubmitting ? 'Sending…' : 'Update email'}
-            </button>
+            </Button>
             {session?.user?.emailVerified && (
               <span className="inline-flex items-center gap-1 font-mono text-[11px] text-[var(--pos)]">✓ Verified</span>
             )}
@@ -291,31 +301,31 @@ export const SecurityPage = ({
           <div className="flex flex-col gap-3.5">
             {hasPasswordAccount && (
               <div className="form-field">
-                <label className="label">Current password</label>
-                <input className="input" type="password" placeholder="••••••••" value={passwordForm.currentPassword}
+                <label className="label" htmlFor="current-password-input">Current password</label>
+                <input id="current-password-input" className="input" type="password" placeholder="••••••••" value={passwordForm.currentPassword}
                   onInput={(e) => { setPasswordError(null); setPasswordForm(p => ({ ...p, currentPassword: (e.target as HTMLInputElement).value })); }} />
               </div>
             )}
             <div className="form-field">
-              <label className="label">New password</label>
-              <input className="input" type="password" placeholder="At least 8 characters" value={passwordForm.newPassword}
+              <label className="label" htmlFor="new-password-input">New password</label>
+              <input id="new-password-input" className="input" type="password" placeholder="At least 8 characters" value={passwordForm.newPassword}
                 onInput={(e) => { setPasswordError(null); setPasswordForm(p => ({ ...p, newPassword: (e.target as HTMLInputElement).value })); }} />
             </div>
             <div className="form-field">
-              <label className="label">Confirm new password</label>
-              <input className="input" type="password" placeholder="••••••••" value={passwordForm.confirmPassword}
+              <label className="label" htmlFor="confirm-password-input">Confirm new password</label>
+              <input id="confirm-password-input" className="input" type="password" placeholder="••••••••" value={passwordForm.confirmPassword}
                 onInput={(e) => { setPasswordError(null); setPasswordForm(p => ({ ...p, confirmPassword: (e.target as HTMLInputElement).value })); }} />
             </div>
           </div>
           {passwordError && <p className="mt-3 text-[12px] text-[var(--neg)]">{passwordError}</p>}
           <div className="flex items-center gap-2 mt-4">
-            <button type="button" className="btn btn-primary btn-sm" onClick={() => void handleChangePassword()} disabled={passwordSubmitting}>
+            <Button variant="primary" size="sm" onClick={() => void handleChangePassword()} disabled={passwordSubmitting}>
               {passwordSubmitting ? 'Updating…' : 'Update password'}
-            </button>
+            </Button>
             {hasPasswordAccount && (
-              <button type="button" className="btn btn-ghost btn-sm" onClick={() => void handleResetPassword()} disabled={isResettingPassword}>
+              <Button variant="ghost" size="sm" onClick={() => void handleResetPassword()} disabled={isResettingPassword}>
                 {isResettingPassword ? 'Sending…' : 'Forgot password?'}
-              </button>
+              </Button>
             )}
           </div>
           {lastChanged && <p className="mt-3" style={{ fontSize: 12.5, color: 'var(--dim)' }}>Last changed: {lastChanged}</p>}
@@ -330,19 +340,25 @@ export const SecurityPage = ({
             controlClassName="min-w-[212px] justify-end"
           >
             <SecurityBadge enabled={settings.twoFactorEnabled} />
-            <button type="button" className="btn btn-ghost btn-sm"
+            <Button variant="ghost" size="sm"
               onClick={() => settings.twoFactorEnabled ? setShowDisableMFAConfirm(true) : navigate(toSettingsPath('mfa-enrollment'))}>
               {settings.twoFactorEnabled ? 'Disable' : 'Set up'}
-            </button>
+            </Button>
           </SettingRow>
           <SettingRow
             label="Recovery codes"
             description="One-time backup codes in case you lose access to your authenticator. Generate these after enabling 2FA."
             controlClassName="min-w-[212px] justify-end"
           >
-            <button type="button" className="btn btn-ghost btn-sm" disabled={!settings.twoFactorEnabled} style={{ opacity: settings.twoFactorEnabled ? 1 : 0.4 }}>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleGenerateRecoveryCodes}
+              disabled={!settings.twoFactorEnabled}
+              className={settings.twoFactorEnabled ? '' : 'opacity-40'}
+            >
               Generate codes
-            </button>
+            </Button>
           </SettingRow>
         </SettingSection>
       )}
@@ -359,10 +375,10 @@ export const SecurityPage = ({
             >
               <SecurityBadge enabled={isLinked} onLabel="linked" offLabel="not linked" />
               {!isLinked && (
-                <button type="button" className="btn btn-ghost btn-sm"
+                <Button variant="ghost" size="sm"
                   onClick={() => void handleLinkGoogle()} disabled={googleLinking}>
                   {googleLinking ? 'Redirecting…' : 'Link Google'}
-                </button>
+                </Button>
               )}
             </SettingRow>
           );
@@ -372,9 +388,10 @@ export const SecurityPage = ({
       <section className="mt-8 rounded-[20px] border border-[color:color-mix(in_oklab,var(--neg)_30%,var(--rule))] bg-[color:color-mix(in_oklab,var(--neg)_6%,var(--card))] px-5 py-5 sm:px-6">
         <h3 className="font-serif text-2xl font-normal tracking-tight text-[var(--neg)]">Delete account</h3>
         <p className="mt-1 max-w-[60ch] text-[13.5px] leading-relaxed text-ink-2">Permanently delete your Blawby account and all associated data. This removes you from the organization but does not delete the practice. Transfer ownership first if you're the sole owner.</p>
-        <button type="button" className="btn btn-ghost btn-sm mt-3" style={{ color: 'var(--neg)', borderColor: 'color-mix(in oklab, var(--neg) 30%, var(--rule))' }}>
+        <Button variant="danger-ghost" size="sm" className="mt-3"
+          onClick={() => showError('Contact support', 'To delete your account, please contact support@blawby.com.')}>
           Delete my account
-        </button>
+        </Button>
       </section>
 
       {/* MFA disable confirmation dialog */}

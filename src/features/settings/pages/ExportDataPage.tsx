@@ -2,6 +2,7 @@
 //   - POST /api/practices/:id/export?type=full|matters|billing|trust|audit
 //     → triggers async export job, sends download link via email when ready
 
+import { Button } from '@/shared/ui/Button';
 import { useToastContext } from '@/shared/contexts/ToastContext';
 import { SettingSection } from '@/features/settings/components/SettingSection';
 import { SettingsCard } from '@/features/settings/components/SettingsCard';
@@ -27,13 +28,9 @@ const ExportCard = ({ name, format, description, primary = false, onExport }: Ex
       </div>
       <p className="text-xs text-dim mt-0.5">{description}</p>
     </div>
-    <button
-      type="button"
-      className={primary ? 'btn btn-primary btn-sm shrink-0' : 'btn btn-ghost btn-sm shrink-0'}
-      onClick={onExport}
-    >
+    <Button variant={primary ? 'primary' : 'ghost'} size="sm" className="shrink-0" onClick={onExport}>
       {primary ? 'Export all →' : 'Export'}
-    </button>
+    </Button>
   </div>
 );
 

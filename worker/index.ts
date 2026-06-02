@@ -35,6 +35,7 @@ import {
 } from './routes/mcp/index.js';
 import { withMCPAuth } from './middleware/mcpAuth.js';
 import { handleGenerateEngagement } from './routes/generateEngagement.js';
+import { handleDraftEngagementTemplate } from './routes/draftEngagementTemplate.js';
 import { handlePracticeAssistant } from './routes/practiceAssistant.js';
 import { withAuth, withCache, withRateLimit } from './middleware/compose.js';
 import { withEngineerAllowlist } from './middleware/withEngineerAllowlist.js';
@@ -110,6 +111,7 @@ const matchesBackendProxy: RouteMatcher = (path) =>
   path.startsWith('/api/onboarding') ||
   path.startsWith('/api/matters') ||
   path.startsWith('/api/engagement-contracts') ||
+  /^\/api\/practices\/[^/]+\/engagement-templates(\/|$)/.test(path) ||
   path.startsWith('/api/invoices') ||
   path.startsWith('/api/practice-client-intakes') ||
   path.startsWith('/api/clients') ||
@@ -267,6 +269,11 @@ export const routes: RouteEntry[] = [
     mode: 'owned',
     match: exact('/api/ai/generate-engagement'),
     handler: withAuth((req, env) => handleGenerateEngagement(req, env), { required: true }),
+  },
+  {
+    mode: 'owned',
+    match: exact('/api/ai/draft-engagement-template'),
+    handler: withAuth((req, env) => handleDraftEngagementTemplate(req, env), { required: true }),
   },
   {
     mode: 'owned',

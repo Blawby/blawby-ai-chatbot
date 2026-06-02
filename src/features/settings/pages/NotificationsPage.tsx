@@ -105,42 +105,10 @@ const getCategorySettings = (settings: NotificationSettings, category: Notificat
 // NotifRow
 // ---------------------------------------------------------------------------
 
-interface NotifRowProps {
-  event: NotifEvent;
-  emailOn: boolean;
-  pushOn: boolean;
-  onEmailChange: (v: boolean) => void;
-  onPushChange: (v: boolean) => void;
-  isLast?: boolean;
-}
-
-const NotifRow = ({ event, emailOn, pushOn, onEmailChange, onPushChange, isLast = false }: NotifRowProps) => (
-  <div className={cn('grid items-center gap-[14px] py-3.5', !isLast && 'border-b border-rule')}
-    style={{ gridTemplateColumns: '1fr 70px 70px' }}
-  >
-    <div>
-      <div className="text-sm font-medium text-ink">{event.name}</div>
-      <div className="mt-0.5 text-[12.5px] leading-[1.4] text-dim">{event.description}</div>
-    </div>
-    <div className="flex justify-center">
-      <button
-        type="button"
-        className={cn('toggle', emailOn && 'on', event.emailDisabled && 'opacity-50 cursor-not-allowed')}
-        onClick={() => !event.emailDisabled && onEmailChange(!emailOn)}
-        disabled={event.emailDisabled}
-        aria-pressed={emailOn}
-        aria-label="Email notification"
-      />
-    </div>
-    <div className="flex justify-center">
-      <button
-        type="button"
-        className={cn('toggle', pushOn && 'on')}
-        onClick={() => onPushChange(!pushOn)}
-        aria-pressed={pushOn}
-        aria-label="Push notification"
-      />
-    </div>
+const NotifRow = ({ event, isLast = false }: { event: NotifEvent; isLast?: boolean }) => (
+  <div className={cn('py-3.5', !isLast && 'border-b border-rule')}>
+    <div className="text-sm font-medium text-ink">{event.name}</div>
+    <div className="mt-0.5 text-[12.5px] leading-[1.4] text-dim">{event.description}</div>
   </div>
 );
 
@@ -210,24 +178,40 @@ export const NotificationsPage = ({ className = '' }: NotificationsPageProps) =>
     <div className={className}>
       {SECTIONS.map((section, i) => {
         const catSettings = getCategorySettings(settings, section.category);
+        const emailAlwaysDisabled = section.events.every((e) => e.emailDisabled);
         return (
           <SettingSection key={section.title} first={i === 0} title={section.title} description={section.description}>
             <div
-              className="grid border-b border-rule pb-2 font-mono text-[10px] uppercase tracking-[0.1em] text-dim"
+              className="grid items-center border-b border-rule pb-2"
               style={{ gridTemplateColumns: '1fr 70px 70px', gap: 14 }}
             >
-              <span>Event</span>
-              <span className="text-center">Email</span>
-              <span className="text-center">Push</span>
+              <span className="font-mono text-[10px] uppercase tracking-[0.1em] text-dim">Event</span>
+              <div className="flex flex-col items-center gap-1">
+                <span className="font-mono text-[10px] uppercase tracking-[0.1em] text-dim">Email</span>
+                <button
+                  type="button"
+                  className={cn('toggle', catSettings.email && 'on', emailAlwaysDisabled && 'opacity-50 cursor-not-allowed')}
+                  onClick={() => { if (!emailAlwaysDisabled) void save(section.category, 'email', !catSettings.email); }}
+                  disabled={emailAlwaysDisabled}
+                  aria-pressed={catSettings.email}
+                  aria-label={`Email notifications for ${section.title}`}
+                />
+              </div>
+              <div className="flex flex-col items-center gap-1">
+                <span className="font-mono text-[10px] uppercase tracking-[0.1em] text-dim">Push</span>
+                <button
+                  type="button"
+                  className={cn('toggle', catSettings.push && 'on')}
+                  onClick={() => void save(section.category, 'push', !catSettings.push)}
+                  aria-pressed={catSettings.push}
+                  aria-label={`Push notifications for ${section.title}`}
+                />
+              </div>
             </div>
             {section.events.map((event, j) => (
               <NotifRow
                 key={event.name}
                 event={event}
-                emailOn={catSettings.email}
-                pushOn={catSettings.push}
-                onEmailChange={(v) => void save(section.category, 'email', v)}
-                onPushChange={(v) => void save(section.category, 'push', v)}
                 isLast={j === section.events.length - 1}
               />
             ))}

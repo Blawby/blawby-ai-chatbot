@@ -11,6 +11,10 @@ export interface LeftRailItem {
   label: string;
   icon?: IconComponent;
   href: string;
+  description?: string | null;
+  meta?: string | null;
+  presentation?: 'default' | 'thread';
+  unread?: boolean;
   matchHrefs?: string[];
   badge?: number | null;
   variant?: 'default' | 'danger';
@@ -108,8 +112,13 @@ export function LeftRail(props: LeftRailProps): JSX.Element | null {
     if (score > best.score) return { id: item.id, score };
     return best;
   }, { id: null, score: -1 }).id;
-  const forcedActiveItemId = allItems.find((item) => item.isActive)?.id ?? null;
-  const resolvedActiveItemId = forcedActiveItemId ?? activeItemId;
+  const explicitlyActiveItem = allItems.find((item) => item.isActive === true);
+  const hasExplicitInactiveOverride = allItems.some((item) => item.isActive === false);
+  const resolvedActiveItemId = explicitlyActiveItem
+    ? explicitlyActiveItem.id
+    : hasExplicitInactiveOverride
+      ? null
+      : activeItemId;
 
   const getIsActive = (item: LeftRailItem) =>
     item.isActive !== undefined ? item.isActive : (!item.isAction && activeItemId === item.id);
@@ -131,6 +140,63 @@ export function LeftRail(props: LeftRailProps): JSX.Element | null {
     }
     navigate(item.href);
     onItemActivate?.();
+  };
+
+  const renderThreadItem = (item: LeftRailItem) => {
+    const isActive = getIsActive(item);
+    return (
+      <button
+        key={item.id}
+        type="button"
+        onMouseEnter={item.prefetch}
+        onFocus={item.prefetch}
+        onClick={() => handleItemClick(item)}
+        aria-current={isActive ? 'page' : undefined}
+        className={cn(
+          'flex w-full flex-col gap-1 rounded-lg px-2.5 py-2.5 text-left transition-colors',
+          'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50',
+          isActive
+            ? 'bg-[rgb(var(--sidebar-active-bg))] text-[rgb(var(--sidebar-active-text))]'
+            : 'text-[rgb(var(--sidebar-text-secondary))] hover:bg-[rgb(var(--sidebar-hover-bg))] hover:text-[rgb(var(--sidebar-text))]',
+        )}
+      >
+        <div className="flex items-start justify-between gap-2">
+          <span className={cn(
+            'min-w-0 truncate text-[13px] font-medium',
+            item.unread && !isActive ? 'text-[rgb(var(--sidebar-text))]' : undefined,
+          )}>
+            {item.label}
+          </span>
+          <span className="flex shrink-0 items-center gap-1.5 pt-0.5">
+            {item.unread ? (
+              <span
+                aria-hidden="true"
+                className={cn(
+                  'h-1.5 w-1.5 rounded-full',
+                  isActive ? 'bg-[rgb(var(--sidebar-active-text))]' : 'bg-accent',
+                )}
+              />
+            ) : null}
+            {item.meta ? (
+              <span className={cn(
+                'text-[10px] uppercase tracking-[0.08em]',
+                isActive ? 'text-[rgb(var(--sidebar-active-text))]/80' : 'text-[rgb(var(--sidebar-text-secondary))]',
+              )}>
+                {item.meta}
+              </span>
+            ) : null}
+          </span>
+        </div>
+        {item.description ? (
+          <span className={cn(
+            'truncate text-[11px]',
+            isActive ? 'text-[rgb(var(--sidebar-active-text))]/80' : 'text-[rgb(var(--sidebar-text-secondary))]',
+          )}>
+            {item.description}
+          </span>
+        ) : null}
+      </button>
+    );
   };
 
   if (variant === 'mobile') {
@@ -186,6 +252,9 @@ export function LeftRail(props: LeftRailProps): JSX.Element | null {
   // Desktop delegates to the canonical Sidebar primitive so settings and the
   // rest of the workspace share one source of truth for rail chrome.
   const renderSidebarItem = (item: LeftRailItem) => (
+    item.presentation === 'thread'
+      ? renderThreadItem(item)
+      : (
     <Sidebar.Item
       key={item.id}
       id={item.id}
@@ -198,6 +267,7 @@ export function LeftRail(props: LeftRailProps): JSX.Element | null {
       onClick={item.onClick}
       prefetch={item.prefetch}
     />
+      )
   );
 
   return (

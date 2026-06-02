@@ -29,6 +29,7 @@ import type { UIPracticeConfig } from '@/shared/hooks/usePracticeConfig';
 import DragDropOverlay from '@/shared/ui/DragDropOverlay';
 import { resolveStrengthStyle, resolveStrengthTier } from '@/shared/utils/intakeStrength';
 import { resolveConsultationState } from '@/shared/utils/consultationState';
+import { isMessagesConversation } from '@/shared/utils/conversationSurface';
 import { FocusDrawer } from '@/design-system/layout';
 import { features } from '@/config/features';
 import { IntakeProvider } from '@/shared/contexts/IntakeContext';
@@ -188,7 +189,7 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
   });
 
   const visibleConversations = useMemo(
-    () => conversations.filter((conversation) => conversation.user_info?.mode !== 'PRACTICE_ASSISTANT'),
+    () => conversations.filter(isMessagesConversation),
     [conversations],
   );
 

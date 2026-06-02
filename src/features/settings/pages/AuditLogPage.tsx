@@ -2,8 +2,9 @@
 //   - GET /api/practices/:id/audit-log?search=&type=&actor=&range=  → paginated event log
 //   - GET /api/practices/:id/audit-log/export?format=csv  → trigger CSV export (sent by email)
 
-import { useState } from 'preact/hooks';
+import { useState, useEffect } from 'preact/hooks';
 import { useToastContext } from '@/shared/contexts/ToastContext';
+import { Button } from '@/shared/ui/Button';
 import { cn } from '@/shared/utils/cn';
 import { SettingSection } from '@/features/settings/components/SettingSection';
 import { SettingsCard } from '@/features/settings/components/SettingsCard';
@@ -39,6 +40,8 @@ const TYPE_STYLES: Record<EventType, string> = {
 // Page
 // ---------------------------------------------------------------------------
 
+const PAGE_SIZE = 10;
+
 export interface AuditLogPageProps {
   className?: string;
 }
@@ -49,6 +52,9 @@ export const AuditLogPage = ({ className = '' }: AuditLogPageProps) => {
   const [typeFilter, setTypeFilter] = useState('all');
   const [actorFilter, setActorFilter] = useState('all');
   const [rangeFilter, setRangeFilter] = useState('7d');
+  const [currentPage, setCurrentPage] = useState(1);
+
+  useEffect(() => { setCurrentPage(1); }, [search, typeFilter, actorFilter, rangeFilter]);
 
   const filtered = DEMO_EVENTS.filter((e) => {
     if (search && !e.action.toLowerCase().includes(search.toLowerCase()) && !e.actor.toLowerCase().includes(search.toLowerCase())) return false;
@@ -56,6 +62,12 @@ export const AuditLogPage = ({ className = '' }: AuditLogPageProps) => {
     if (actorFilter !== 'all' && e.actor !== actorFilter) return false;
     return true;
   });
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const pageStart = (currentPage - 1) * PAGE_SIZE;
+  const paginated = filtered.slice(pageStart, pageStart + PAGE_SIZE);
+  const from = filtered.length === 0 ? 0 : pageStart + 1;
+  const to = Math.min(pageStart + PAGE_SIZE, filtered.length);
 
   const handleExport = () => {
     // TODO(backend): GET /api/practices/:id/audit-log/export?format=csv
@@ -66,10 +78,10 @@ export const AuditLogPage = ({ className = '' }: AuditLogPageProps) => {
     <div className={className}>
       <SettingSection first title="Audit log" description="Every action in your workspace is recorded. Use this for compliance reviews, bar audits, and troubleshooting.">
         <SettingsCard className="mb-5 max-w-[860px]">
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex flex-wrap items-center gap-[10px]">
           <input
             className="input flex-1"
-            style={{ minWidth: 200 }}
+            style={{ minWidth: 260 }}
             placeholder="Search events…"
             value={search}
             onInput={(e) => setSearch((e.target as HTMLInputElement).value)}
@@ -94,63 +106,82 @@ export const AuditLogPage = ({ className = '' }: AuditLogPageProps) => {
             <option value="90d">Last 90 days</option>
             <option value="all">All time</option>
           </select>
-          <button type="button" className="btn btn-ghost btn-sm ml-auto" onClick={handleExport}>Export CSV</button>
+          <Button variant="ghost" size="sm" className="ml-auto" onClick={handleExport}>Export CSV</Button>
         </div>
         </SettingsCard>
 
-        <SettingsCard className="max-w-[860px] px-0 py-0">
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-rule">
-                {['Timestamp', 'Actor', 'Type', 'Action', 'Target'].map((col) => (
-                  <th key={col} className="font-mono text-[10px] uppercase tracking-widest text-dim text-left pb-2 pr-4 last:pr-0">{col}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {filtered.map((event) => (
-                <tr key={event.id} className="border-b border-rule last:border-0">
-                  <td className="py-3 pr-4 font-mono text-xs text-dim whitespace-nowrap">{event.ts}</td>
-                  <td className="py-3 pr-4">
-                    <div className="flex items-center gap-1.5">
-                      <div
-                        className="h-5 w-5 rounded-full grid place-items-center font-serif text-[9px] font-bold shrink-0"
-                        style={event.actorStyle}
-                      >
-                        {event.actorInitial}
-                      </div>
-                      <span className="text-xs text-ink whitespace-nowrap">{event.actor}</span>
-                    </div>
-                  </td>
-                  <td className="py-3 pr-4">
-                    <span className={cn('font-mono text-[9px] uppercase tracking-wider px-1.5 py-0.5 rounded border', TYPE_STYLES[event.type])}>
-                      {event.type}
-                    </span>
-                  </td>
-                  <td className="py-3 pr-4 text-xs text-ink">{event.action}</td>
-                  <td className="py-3 font-mono text-xs text-dim">{event.target}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-        </SettingsCard>
-
-        {filtered.length === 0 && (
+        {filtered.length > 0 ? (
+          <SettingsCard className="max-w-[860px] px-0 py-0">
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-rule">
+                    {['Timestamp', 'Actor', 'Type', 'Action', 'Target'].map((col) => (
+                      <th key={col} className="font-mono text-[10px] uppercase tracking-widest text-dim text-left pb-2 pr-3">{col}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {paginated.map((event) => (
+                    <tr key={event.id} className="border-b border-rule last:border-0">
+                      <td className="py-3 pr-3 font-mono text-xs text-dim whitespace-nowrap">{event.ts}</td>
+                      <td className="py-3 pr-3">
+                        <div className="flex items-center gap-2">
+                          <div
+                            className="h-[22px] w-[22px] rounded-full grid place-items-center font-serif text-[9px] font-bold shrink-0"
+                            style={event.actorStyle}
+                          >
+                            {event.actorInitial}
+                          </div>
+                          <span className="text-xs text-ink whitespace-nowrap">{event.actor}</span>
+                        </div>
+                      </td>
+                      <td className="py-3 pr-3">
+                        <span className={cn('font-mono text-[9px] uppercase tracking-wider px-1.5 py-0.5 rounded border', TYPE_STYLES[event.type])}>
+                          {event.type}
+                        </span>
+                      </td>
+                      <td className="py-3 pr-3 text-xs text-ink">{event.action}</td>
+                      <td className="py-3 font-mono text-xs text-dim">{event.target}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </SettingsCard>
+        ) : (
           <p className="py-8 text-center text-sm text-dim">No events match your filters.</p>
         )}
 
         {/* Pagination */}
         <div className="flex items-center justify-between mt-5 pt-4 border-t border-rule">
-          <span className="text-xs text-dim">Showing 1–{filtered.length} of {DEMO_EVENTS.length} events</span>
-          <div className="flex gap-1">
-            {['1', '2', '3', '…', '85', '→'].map((pg) => (
-              <button key={pg} type="button" className={cn('h-7 w-7 rounded font-mono text-xs', pg === '1' ? 'bg-ink text-accent' : 'text-dim hover:bg-rule')}>
-                {pg}
-              </button>
-            ))}
-          </div>
+          <span className="text-xs text-dim">
+            {filtered.length === 0 ? 'No events' : `Showing ${from}–${to} of ${filtered.length} events`}
+          </span>
+          {totalPages > 1 && (
+            <div className="flex gap-1">
+              <button
+                type="button"
+                className="h-7 w-7 rounded font-mono text-xs text-dim hover:bg-rule disabled:opacity-40"
+                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                disabled={currentPage === 1}
+              >←</button>
+              {Array.from({ length: totalPages }, (_, i) => i + 1).map((pg) => (
+                <button
+                  key={pg}
+                  type="button"
+                  className={cn('h-7 w-7 rounded font-mono text-xs', pg === currentPage ? 'bg-ink text-accent' : 'text-dim hover:bg-rule')}
+                  onClick={() => setCurrentPage(pg)}
+                >{pg}</button>
+              ))}
+              <button
+                type="button"
+                className="h-7 w-7 rounded font-mono text-xs text-dim hover:bg-rule disabled:opacity-40"
+                onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                disabled={currentPage === totalPages}
+              >→</button>
+            </div>
+          )}
         </div>
       </SettingSection>
     </div>

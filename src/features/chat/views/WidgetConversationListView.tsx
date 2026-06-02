@@ -14,6 +14,7 @@ import {
   resolveConversationContactName,
   resolveConversationDisplayTitle,
 } from '@/shared/utils/conversationDisplay';
+import { isMessagesConversation } from '@/shared/utils/conversationSurface';
 import { usePresenceContext } from '@/shared/contexts/PresenceContext';
 import { useSessionContext } from '@/shared/contexts/SessionContext';
 
@@ -102,7 +103,7 @@ const WidgetConversationListView: FunctionComponent<WidgetConversationListViewPr
   const { session } = useSessionContext();
   const currentUserId = session?.user?.id ?? null;
   const sorted = conversations
-    .filter((conversation) => conversation.user_info?.mode !== 'PRACTICE_ONBOARDING')
+    .filter(isMessagesConversation)
     .sort((a, b) => {
     const aTime = new Date(a.updated_at).getTime();
     const bTime = new Date(b.updated_at).getTime();

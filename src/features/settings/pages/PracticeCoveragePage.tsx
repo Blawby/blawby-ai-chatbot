@@ -282,7 +282,7 @@ export const PracticeCoveragePage = ({ className, onBack }: PracticeCoveragePage
               aria-label="Licensed states"
             />
             <SettingsHelperText className="mt-3 block">
-              Per-state bar numbers and admission dates stay hidden until backend support exists, so the UI only shows fields that actually persist.
+              Additional bar details can be added after selecting your licensed states.
             </SettingsHelperText>
             <div className="mt-5 flex items-center justify-end gap-2">
               <Button

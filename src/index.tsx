@@ -56,6 +56,7 @@ const OnboardingPage = lazy(() => import('@/pages/OnboardingPage'));
 const PricingPage = lazy(() => import('@/pages/PricingPage'));
 const PaymentResultPage = lazy(() => import('@/pages/PaymentResultPage'));
 const OAuthConsentPage = lazy(() => import('@/pages/OAuthConsentPage'));
+const McpOAuthCallbackPage = lazy(() => import('@/pages/McpOAuthCallbackPage'));
 const ApproveActionPage = lazy(() => import('@/pages/ApproveActionPage'));
 // Debug pages — never used in real flows but were eating into the entry
 // chunk because of the static imports. Lazy is the cheapest way to keep
@@ -484,7 +485,7 @@ function AppShell() {
           <Route path="/client/:practiceSlug/settings/export-data" component={ClientPracticeRoute} workspaceView="settings" settingsView="export-data" />
           <Route path="/client/:practiceSlug/settings/help" component={ClientPracticeRoute} workspaceView="settings" settingsView="help" />
           <Route path="/practice" component={App404} />
-          <Route path="/practice/:practiceSlug" component={PracticeAppRoute} workspaceView="assistant" />
+          <Route path="/practice/:practiceSlug" component={PracticeAppRoute} workspaceView="home" />
           <Route path="/practice/:practiceSlug/setup" component={PracticeAppRoute} workspaceView="setup" />
           <Route path="/practice/:practiceSlug/assistant" component={PracticeAppRoute} workspaceView="assistant" />
           <Route path="/practice/:practiceSlug/assistant/:conversationId" component={PracticeAppRoute} workspaceView="assistant" />
@@ -547,6 +548,11 @@ function AppShell() {
           <Route path="/oauth/consent" component={(props) => (
             <Suspense fallback={<LoadingScreen />}>
               <OAuthConsentPage {...props} />
+            </Suspense>
+          )} />
+          <Route path="/oauth/callback" component={(props) => (
+            <Suspense fallback={<LoadingScreen />}>
+              <McpOAuthCallbackPage {...props} />
             </Suspense>
           )} />
           <Route path="/approve/:jwt" component={({ jwt }: { jwt?: string }) => (

@@ -106,6 +106,25 @@ export const GeneralPage = () => {
   const [sidebarDefault, setSidebarDefaultState] = useState('expanded');
   const [showBadges, setShowBadgesState] = useState(true);
 
+  const applyThemePreference = useCallback((value: 'light' | 'dark' | 'system') => {
+    if (value === 'dark') {
+      document.documentElement.setAttribute('data-theme', 'midnight');
+      localStorage.setItem('theme', 'dark');
+      return;
+    }
+    if (value === 'light') {
+      document.documentElement.removeAttribute('data-theme');
+      localStorage.setItem('theme', 'light');
+      return;
+    }
+    if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
+      document.documentElement.setAttribute('data-theme', 'midnight');
+    } else {
+      document.documentElement.removeAttribute('data-theme');
+    }
+    localStorage.removeItem('theme');
+  }, []);
+
   useEffect(() => {
     let mounted = true;
     const getValidLanguage = (lang: string | undefined): 'auto-detect' | Language => {
@@ -116,7 +135,9 @@ export const GeneralPage = () => {
       try {
         const prefs = await getPreferencesCategory<GeneralPreferences>('general');
         if (!mounted) return;
-        setThemeState((prefs?.theme as 'light' | 'dark' | 'system') || 'system');
+        const nextTheme = (prefs?.theme as 'light' | 'dark' | 'system') || 'system';
+        setThemeState(nextTheme);
+        applyThemePreference(nextTheme);
         setLanguage(getValidLanguage(prefs?.language));
         setSpokenLanguage(getValidLanguage(prefs?.spoken_language));
         setDateFormatState(prefs?.date_format || 'MMM D, YYYY');
@@ -133,7 +154,7 @@ export const GeneralPage = () => {
     } catch { /* ignore */ }
     void load();
     return () => { mounted = false; };
-  }, []);
+  }, [applyThemePreference]);
 
   const languageOptions = useMemo(() => ([
     { value: 'auto-detect', label: t('common:language.auto') },
@@ -162,31 +183,31 @@ export const GeneralPage = () => {
 
   const handleTheme = (value: 'light' | 'dark' | 'system') => {
     setThemeState(value);
-    if (value === 'dark') { document.documentElement.setAttribute('data-theme', 'midnight'); localStorage.setItem('theme', 'dark'); }
-    else if (value === 'light') { document.documentElement.removeAttribute('data-theme'); localStorage.setItem('theme', 'light'); }
-    else {
-      if (window.matchMedia('(prefers-color-scheme: dark)').matches) document.documentElement.setAttribute('data-theme', 'midnight');
-      else document.documentElement.removeAttribute('data-theme');
-      localStorage.removeItem('theme');
-    }
+    applyThemePreference(value);
     void save({ theme: value });
   };
 
-  if (isLoading) return <LoadingBlock />;
+  const timezoneOptions = useMemo(() => {
+    const options = [
+      { value: 'America/New_York', label: 'America/New_York (EST/EDT)' },
+      { value: 'America/Chicago', label: 'America/Chicago (CST/CDT)' },
+      { value: 'America/Denver', label: 'America/Denver (MST/MDT)' },
+      { value: 'America/Los_Angeles', label: 'America/Los_Angeles (PST/PDT)' },
+      { value: 'America/Anchorage', label: 'America/Anchorage (AKST/AKDT)' },
+      { value: 'Pacific/Honolulu', label: 'Pacific/Honolulu (HST)' },
+      { value: 'Europe/London', label: 'Europe/London (GMT/BST)' },
+      { value: 'Europe/Paris', label: 'Europe/Paris (CET/CEST)' },
+      { value: 'Asia/Tokyo', label: 'Asia/Tokyo (JST)' },
+      { value: 'Australia/Sydney', label: 'Australia/Sydney (AEST/AEDT)' },
+      { value: 'UTC', label: 'UTC' },
+    ];
+    if (timezone && !options.some((option) => option.value === timezone)) {
+      options.push({ value: timezone, label: timezone });
+    }
+    return options;
+  }, [timezone]);
 
-  const timezoneOptions = [
-    { value: 'America/New_York', label: 'America/New_York (EST/EDT)' },
-    { value: 'America/Chicago', label: 'America/Chicago (CST/CDT)' },
-    { value: 'America/Denver', label: 'America/Denver (MST/MDT)' },
-    { value: 'America/Los_Angeles', label: 'America/Los_Angeles (PST/PDT)' },
-    { value: 'America/Anchorage', label: 'America/Anchorage (AKST/AKDT)' },
-    { value: 'Pacific/Honolulu', label: 'Pacific/Honolulu (HST)' },
-    { value: 'Europe/London', label: 'Europe/London (GMT/BST)' },
-    { value: 'Europe/Paris', label: 'Europe/Paris (CET/CEST)' },
-    { value: 'Asia/Tokyo', label: 'Asia/Tokyo (JST)' },
-    { value: 'Australia/Sydney', label: 'Australia/Sydney (AEST/AEDT)' },
-    { value: 'UTC', label: 'UTC' },
-  ];
+  if (isLoading) return <LoadingBlock />;
 
   return (
     <div>

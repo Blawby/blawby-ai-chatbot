@@ -1,15 +1,23 @@
-import { useCallback, useEffect, useMemo, useState } from 'preact/hooks';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'preact/hooks';
+import { useLocation } from 'preact-iso';
 import { Copy, RefreshCw } from 'lucide-preact';
 import type { App } from './appsData';
 import { Button } from '@/shared/ui/Button';
-import { Icon } from '@/shared/ui/Icon';
 import { SettingsCard } from '@/features/settings/components/SettingsCard';
 import { SettingSection } from '@/features/settings/components/SettingSection';
 import { useToastContext } from '@/shared/contexts/ToastContext';
 import { formatDate } from '@/shared/utils/dateTime';
 import { authClient } from '@/shared/lib/authClient';
-import { getWorkerApiUrl } from '@/config/urls';
 import { MCP_SCOPES } from '@/shared/config/mcpScopes';
+import { LoadingSpinner } from '@/shared/ui/layout/LoadingSpinner';
+import {
+  beginMcpOAuthConnect,
+  getMcpResourceUrl,
+  MCP_OAUTH_MESSAGE_QUERY_KEY,
+  MCP_OAUTH_STATUS_QUERY_KEY,
+} from '@/shared/lib/mcpOAuth';
+import { getWorkspaceSettingsPath } from '@/shared/utils/workspace';
+import { useNavigation } from '@/shared/utils/navigation';
 
 interface OAuthConsentSummary {
   id: string;
@@ -28,23 +36,47 @@ interface BetterAuthResult<T> {
 }
 
 interface McpAccessPageProps {
-  app: App;
-  onBack: () => void;
   onUpdate?: (updates: Partial<App>) => void;
+  workspace: 'practice' | 'client';
+  practiceSlug?: string;
 }
-
-const getMcpServerUrl = () => `${getWorkerApiUrl()}/api/mcp`;
 
 const getConsentTimestamp = (consent: OAuthConsentSummary): string | Date | null =>
   consent.updated_at ?? consent.updatedAt ?? consent.created_at ?? consent.createdAt ?? null;
 
-export const McpAccessPage = ({ onUpdate }: McpAccessPageProps) => {
+const getConsentConnectedAt = (consent: OAuthConsentSummary | null): string | undefined => {
+  if (!consent) return undefined;
+  const timestamp = getConsentTimestamp(consent);
+  if (!timestamp) return undefined;
+  const date = new Date(timestamp);
+  return Number.isFinite(date.getTime()) ? date.toISOString() : undefined;
+};
+
+export const McpAccessPage = ({ onUpdate, workspace, practiceSlug }: McpAccessPageProps) => {
+  const location = useLocation();
+  const { navigate } = useNavigation();
   const { showError, showSuccess } = useToastContext();
   const [consents, setConsents] = useState<OAuthConsentSummary[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [revokingId, setRevokingId] = useState<string | null>(null);
+  const [isConnecting, setIsConnecting] = useState(false);
+  const [connectionError, setConnectionError] = useState<string | null>(null);
+  const handledOAuthStatusRef = useRef<string | null>(null);
+  const isPracticeWorkspace = workspace === 'practice';
 
-  const mcpUrl = getMcpServerUrl();
+  const mcpUrl = getMcpResourceUrl();
+  const practiceSettingsPath = practiceSlug
+    ? getWorkspaceSettingsPath('practice', practiceSlug, 'apps/claude-mcp')
+    : null;
+  const clientSettingsPath = practiceSlug
+    ? getWorkspaceSettingsPath('client', practiceSlug, 'apps/claude-mcp')
+    : null;
+  const oauthStatus = typeof location.query?.[MCP_OAUTH_STATUS_QUERY_KEY] === 'string'
+    ? location.query[MCP_OAUTH_STATUS_QUERY_KEY]
+    : null;
+  const oauthMessage = typeof location.query?.[MCP_OAUTH_MESSAGE_QUERY_KEY] === 'string'
+    ? location.query[MCP_OAUTH_MESSAGE_QUERY_KEY]
+    : null;
 
   const latestConsent = useMemo(() => {
     if (consents.length === 0) return null;
@@ -55,28 +87,62 @@ export const McpAccessPage = ({ onUpdate }: McpAccessPageProps) => {
     })[0];
   }, [consents]);
 
+  const publishConsentStatus = useCallback((nextConsents: OAuthConsentSummary[]) => {
+    if (!onUpdate) return;
+    const latest = nextConsents.length > 0
+      ? [...nextConsents].sort((a, b) => {
+        const aTime = new Date(getConsentTimestamp(a) ?? 0).getTime();
+        const bTime = new Date(getConsentTimestamp(b) ?? 0).getTime();
+        return bTime - aTime;
+      })[0]
+      : null;
+    onUpdate({
+      connected: nextConsents.length > 0,
+      connectedAt: getConsentConnectedAt(latest),
+      comingSoon: false,
+    });
+  }, [onUpdate]);
+
   const loadConsents = useCallback(async () => {
     setIsLoading(true);
     try {
       const result = await authClient.oauth2.getConsents() as BetterAuthResult<OAuthConsentSummary[]>;
       if (result.error) throw new Error(result.error.message ?? result.error.error_description ?? 'Failed to load authorizations.');
-      setConsents(result.data ?? []);
+      const nextConsents = result.data ?? [];
+      setConsents(nextConsents);
+      publishConsentStatus(nextConsents);
     } catch (err) {
       showError('Unable to load authorizations', err instanceof Error ? err.message : 'Unexpected error.');
     } finally {
       setIsLoading(false);
     }
-  }, [showError]);
+  }, [publishConsentStatus, showError]);
 
   useEffect(() => { void loadConsents(); }, [loadConsents]);
 
   useEffect(() => {
-    onUpdate?.({
-      connected: consents.length > 0,
-      connectedAt: latestConsent ? new Date(getConsentTimestamp(latestConsent) ?? Date.now()).toISOString() : undefined,
-      comingSoon: false,
-    });
-  }, [consents.length, latestConsent, onUpdate]);
+    if (workspace !== 'client' || !practiceSettingsPath || !clientSettingsPath) return;
+    if (location.path !== clientSettingsPath) return;
+    navigate(practiceSettingsPath, true);
+  }, [clientSettingsPath, location.path, navigate, practiceSettingsPath, workspace]);
+
+  useEffect(() => {
+    if (!oauthStatus || handledOAuthStatusRef.current === `${oauthStatus}:${oauthMessage ?? ''}`) return;
+    handledOAuthStatusRef.current = `${oauthStatus}:${oauthMessage ?? ''}`;
+
+    if (oauthStatus === 'success') {
+      setConnectionError(null);
+      showSuccess('Claude connected', 'Claude can now request access to this practice through MCP.');
+      void loadConsents();
+    } else if (oauthStatus === 'error') {
+      setConnectionError(oauthMessage ?? 'Unable to complete authorization.');
+      showError('Claude connection failed', oauthMessage ?? 'Unable to complete authorization.');
+    }
+
+    if (location.path) {
+      navigate(location.path, true);
+    }
+  }, [loadConsents, location.path, navigate, oauthMessage, oauthStatus, showError, showSuccess]);
 
   const handleCopyUrl = async () => {
     try {
@@ -87,11 +153,28 @@ export const McpAccessPage = ({ onUpdate }: McpAccessPageProps) => {
     }
   };
 
+  const handleConnect = useCallback(async () => {
+    if (!isPracticeWorkspace || !practiceSettingsPath) {
+      showError('Practice-only setting', 'Connect Claude from the practice workspace settings page.');
+      return;
+    }
+
+    setIsConnecting(true);
+    setConnectionError(null);
+    try {
+      await beginMcpOAuthConnect(practiceSettingsPath);
+    } catch (err) {
+      setIsConnecting(false);
+      showError('Unable to start authorization', err instanceof Error ? err.message : 'Unexpected error.');
+    }
+  }, [isPracticeWorkspace, practiceSettingsPath, showError]);
+
   const handleRevoke = useCallback(async (consentId: string) => {
     setRevokingId(consentId);
     try {
       const result = await authClient.oauth2.deleteConsent({ id: consentId }) as BetterAuthResult<unknown>;
       if (result.error) throw new Error(result.error.message ?? result.error.error_description ?? 'Failed to revoke.');
+      setConnectionError(null);
       showSuccess('Access revoked', 'Claude will need to request access again the next time it connects.');
       await loadConsents();
     } catch (err) {
@@ -101,14 +184,43 @@ export const McpAccessPage = ({ onUpdate }: McpAccessPageProps) => {
     }
   }, [loadConsents, showError, showSuccess]);
 
+  if (!isPracticeWorkspace) {
+    return (
+      <SettingSection
+        first
+        title="Claude Desktop"
+        description="Claude MCP access is managed from the practice workspace settings."
+      >
+        <SettingsCard className="max-w-[860px]">
+          <p className="text-sm text-dim">
+            Open this integration from the practice workspace to connect Claude Desktop or revoke its access.
+          </p>
+        </SettingsCard>
+      </SettingSection>
+    );
+  }
+
   return (
     <div className="space-y-8">
       <SettingSection
         first
         title="Setup"
-        description="Add this MCP server URL in Claude Desktop. When Claude connects for the first time, it opens your browser so you can sign in and approve access."
+        description="Connect Claude from this page, then use the MCP server URL in Claude Desktop. The first connection opens your browser so you can approve access."
       >
         <SettingsCard className="max-w-[860px]">
+          <div className="mb-4 flex flex-wrap items-center gap-3">
+            <Button
+              variant="primary"
+              size="sm"
+              onClick={() => void handleConnect()}
+              disabled={isConnecting}
+            >
+              {isConnecting ? 'Connecting…' : 'Connect Claude'}
+            </Button>
+            <p className="text-[13px] text-dim">
+              This pre-authorizes Claude Desktop for this practice so future connections can reuse consent.
+            </p>
+          </div>
           <p className="text-xs font-mono uppercase tracking-widest text-dim mb-2">MCP server URL</p>
           <div className="flex items-center gap-3">
             <code className="flex-1 rounded-[12px] border border-rule bg-paper px-3.5 py-2.5 font-mono text-[13px] text-ink break-all">
@@ -125,7 +237,7 @@ export const McpAccessPage = ({ onUpdate }: McpAccessPageProps) => {
             </Button>
           </div>
           <p className="mt-3 text-[13px] leading-relaxed text-dim">
-            Paste this URL into Claude Desktop's MCP server configuration. Claude discovers the auth server automatically — no other setup needed.
+            Paste this URL into Claude Desktop&apos;s MCP server configuration. Claude discovers the auth server automatically — no other setup needed.
           </p>
         </SettingsCard>
       </SettingSection>
@@ -138,7 +250,24 @@ export const McpAccessPage = ({ onUpdate }: McpAccessPageProps) => {
           <div className="flex items-center justify-between gap-4">
             <div>
               {isLoading ? (
-                <p className="text-sm text-dim">Loading…</p>
+                <div className="flex items-center">
+                  <LoadingSpinner size="sm" ariaLabel="Loading Claude MCP authorizations" className="text-dim" />
+                </div>
+              ) : connectionError ? (
+                <>
+                  <div className="flex items-center gap-2">
+                    <span className="inline-block h-2 w-2 rounded-full bg-[var(--warn,#f59e0b)]" />
+                    <span className="text-sm font-medium text-ink">Connection failed</span>
+                  </div>
+                  <p className="mt-0.5 text-xs text-dim">
+                    {connectionError}
+                  </p>
+                  {latestConsent && getConsentTimestamp(latestConsent) ? (
+                    <p className="mt-2 text-xs text-dim">
+                      Existing consent last approved {formatDate(getConsentTimestamp(latestConsent) as string | Date)}.
+                    </p>
+                  ) : null}
+                </>
               ) : consents.length > 0 ? (
                 <>
                   <div className="flex items-center gap-2">
@@ -163,16 +292,26 @@ export const McpAccessPage = ({ onUpdate }: McpAccessPageProps) => {
                 </>
               )}
             </div>
-            <Button
-              variant="secondary"
-              size="sm"
-              icon={RefreshCw}
-              iconClassName="h-4 w-4"
-              onClick={() => void loadConsents()}
-              disabled={isLoading}
-            >
-              Refresh
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => void handleConnect()}
+                disabled={isConnecting}
+              >
+                {isConnecting ? 'Connecting…' : 'Connect Claude'}
+              </Button>
+              <Button
+                variant="secondary"
+                size="sm"
+                icon={RefreshCw}
+                iconClassName="h-4 w-4"
+                onClick={() => void loadConsents()}
+                disabled={isLoading}
+              >
+                Refresh
+              </Button>
+            </div>
           </div>
         </SettingsCard>
       </SettingSection>

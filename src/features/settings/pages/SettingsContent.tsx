@@ -3,9 +3,8 @@ import type { ComponentChildren } from 'preact';
 import { useNavigation } from '@/shared/utils/navigation';
 import { cn } from '@/shared/utils/cn';
 import { type App, mockApps } from './appsData';
-import { useSessionContext, useMemberRoleContext } from '@/shared/contexts/SessionContext';
+import { useSessionContext } from '@/shared/contexts/SessionContext';
 import { useWorkspace } from '@/shared/hooks/useWorkspace';
-import { normalizePracticeRole } from '@/shared/utils/practiceRoles';
 import { GeneralPage } from './GeneralPage';
 import { NotificationsPage } from './NotificationsPage';
 import { AccountPage } from './AccountPage';
@@ -23,8 +22,6 @@ import { McpAccessPage } from './McpAccessPage';
 import { SessionsPage } from './SessionsPage';
 import { AuditLogPage } from './AuditLogPage';
 import { ExportDataPage } from './ExportDataPage';
-import { SettingsShell } from '@/features/settings/components/SettingsShell';
-import { getSettingsNavConfig } from '@/shared/config/navConfig';
 
 export type SettingsView =
   | 'general'
@@ -46,8 +43,6 @@ export type SettingsView =
   ;
 
 export interface SettingsContentProps {
-  isMobile?: boolean;
-  onClose?: () => void;
   className?: string;
   workspace?: 'client' | 'practice';
   practiceSlug?: string;
@@ -116,11 +111,6 @@ const SETTINGS_VIEW_HERO: Partial<Record<SettingsView, SettingsViewHero>> = {
     accentTitle: <>Payouts &amp; <em>billing.</em></>,
     lede: 'Stripe Connect, payout schedule, and trust accounting settings.',
   },
-  'engagement-templates': {
-    crumb: 'Settings · Practice',
-    accentTitle: <>Engagement <em>templates.</em></>,
-    lede: 'Reusable templates for engagement letters and retainer agreements.',
-  },
   intelligence: {
     crumb: 'Settings · Intelligence',
     accentTitle: <>How the <em>assistant</em> works for you.</>,
@@ -154,20 +144,24 @@ const SettingsRouter = ({
   apps,
   handleAppUpdate,
   toSettingsPath,
-  onBackToWorkspace,
-  navSections,
-  orgLabel,
+  workspace,
+  practiceSlug,
 }: {
   view: SettingsView;
   appId?: string;
   apps: App[];
   handleAppUpdate: (targetAppId: string, updates: Partial<App>) => void;
   toSettingsPath: (subPath?: string) => string;
-  onBackToWorkspace: () => void;
-  navSections: Array<{ label?: string; items: Array<{ id: string; label: string; href: string; icon?: unknown; badge?: number | null }> }>;
-  orgLabel?: string;
+  workspace: 'client' | 'practice';
+  practiceSlug: string;
 }) => {
   const { navigate } = useNavigation();
+  const currentApp = appId ? apps.find((app) => app.id === appId) : null;
+  const currentAppId = currentApp?.id ?? null;
+  const handleCurrentAppUpdate = useCallback((updates: Partial<App>) => {
+    if (!currentAppId) return;
+    handleAppUpdate(currentAppId, updates);
+  }, [currentAppId, handleAppUpdate]);
 
   const content = (() => {
     switch (view) {
@@ -193,16 +187,15 @@ const SettingsRouter = ({
           />
         );
       case 'app-detail': {
-        const currentApp = appId ? apps.find((a) => a.id === appId) : null;
         if (!currentApp) {
           return <AppsPage apps={apps} onSelect={(id) => navigate(toSettingsPath(`apps/${id}`))} />;
         }
         if (currentApp.id === 'claude-mcp') {
           return (
             <McpAccessPage
-              app={currentApp}
-              onBack={() => navigate(toSettingsPath('apps'))}
-              onUpdate={(updates) => handleAppUpdate(currentApp.id, updates)}
+              onUpdate={handleCurrentAppUpdate}
+              workspace={workspace}
+              practiceSlug={practiceSlug}
             />
           );
         }
@@ -227,19 +220,34 @@ const SettingsRouter = ({
       ? 'security'
       : view;
 
+  // engagement-templates manages its own full-width layout (header, max-width, padding)
+  if (view === 'engagement-templates') {
+    return (
+      <div className="flex h-full min-h-0 flex-col overflow-y-auto bg-[radial-gradient(rgba(15,30,54,0.025)_1px,transparent_1.2px)] [background-size:3px_3px] [background-attachment:fixed]">
+        {content}
+      </div>
+    );
+  }
+
   return (
-    <SettingsShell
-      orgLabel={orgLabel}
-      onBack={onBackToWorkspace}
-      crumb={hero?.crumb ?? ''}
-      title={hero?.accentTitle ?? ''}
-      lede={hero?.lede ?? ''}
-      sections={navSections}
-      activeItemId={activeNavItemId}
-      onNavigate={navigate}
-    >
-      {content}
-    </SettingsShell>
+    <div className="flex h-full min-h-0 flex-col overflow-y-auto bg-[radial-gradient(rgba(15,30,54,0.025)_1px,transparent_1.2px)] [background-size:3px_3px] [background-attachment:fixed]">
+      <div className="mx-auto flex w-full max-w-[920px] flex-1 flex-col px-14 pb-20 pt-9 max-[980px]:px-[22px] max-[980px]:pb-12 max-[980px]:pt-6">
+        <header className="editor-shell-hero">
+          <div className="editor-shell-hero__crumb">{hero?.crumb ?? ''}</div>
+          <h1 className="editor-shell-hero__title">{hero?.accentTitle ?? ''}</h1>
+          <p className="editor-shell-hero__lede">{hero?.lede ?? ''}</p>
+        </header>
+        <div
+          className={cn(
+            activeNavItemId === 'practice-team' || activeNavItemId === 'apps' || activeNavItemId === 'app-detail'
+              ? 'max-w-none'
+              : 'max-w-[min(100%,820px)]'
+          )}
+        >
+          {content}
+        </div>
+      </div>
+    </div>
   );
 };
 
@@ -256,27 +264,9 @@ export const SettingsContent = (props: SettingsContentProps) => {
   const { navigate } = useNavigation();
   const [appUpdates, setAppUpdates] = useState<Record<string, Partial<App>>>({});
   const { isPending: sessionPending } = useSessionContext();
-  const { activeMemberRole } = useMemberRoleContext();
   const { canAccessPractice } = useWorkspace();
 
   const settingsBasePath = `/${workspace}/${encodeURIComponent(practiceSlug)}/settings`;
-  const workspaceBasePath = `/${workspace}/${encodeURIComponent(practiceSlug)}`;
-  const orgLabel = useMemo(() => {
-    let decodedSlug = practiceSlug;
-    try {
-      decodedSlug = decodeURIComponent(practiceSlug);
-    } catch {
-      decodedSlug = practiceSlug;
-    }
-    const name = decodedSlug
-      .split('-')
-      .filter(Boolean)
-      .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-      .join(' ');
-    return workspace === 'practice'
-      ? `${name || 'Workspace'} · practice`
-      : `${name || 'Workspace'} · client`;
-  }, [practiceSlug, workspace]);
   const toSettingsPath = (subPath?: string) => {
     if (!subPath) return settingsBasePath;
     return `${settingsBasePath}/${subPath.replace(/^\/+/, '')}`;
@@ -313,27 +303,6 @@ export const SettingsContent = (props: SettingsContentProps) => {
     }));
   }, []);
 
-  const navConfig = useMemo(() => getSettingsNavConfig({
-    practiceSlug,
-    role: normalizePracticeRole(activeMemberRole) ?? null,
-    canAccessPractice,
-  }), [activeMemberRole, canAccessPractice, practiceSlug]);
-
-  const settingsNavSections = useMemo(() => (
-    (navConfig.secondary ?? []).map((section) => ({
-      label: section.label,
-      items: section.items
-        .filter((item): item is typeof item & { href: string } => typeof item.href === 'string')
-        .map((item) => ({
-          id: item.id,
-          label: item.label,
-          href: item.href,
-          icon: item.icon,
-          badge: item.badge ?? null,
-        })),
-    }))
-  ), [navConfig.secondary]);
-
   return (
     <div className={cn('h-full min-h-0 overflow-hidden', className)}>
       <SettingsRouter
@@ -342,9 +311,8 @@ export const SettingsContent = (props: SettingsContentProps) => {
         apps={apps}
         handleAppUpdate={handleAppUpdate}
         toSettingsPath={toSettingsPath}
-        onBackToWorkspace={() => navigate(workspaceBasePath)}
-        navSections={settingsNavSections}
-        orgLabel={orgLabel}
+        workspace={workspace}
+        practiceSlug={practiceSlug}
       />
     </div>
   );

@@ -197,6 +197,7 @@ export const getWorkspaceRouteState = ({
 export const getWorkspaceDefaultSecondaryFilter = ({
   workspaceSection,
   isPracticeWorkspace,
+  isClientWorkspace,
   view,
   contactsRouteKind,
   reportSectionFromPath,
@@ -205,13 +206,14 @@ export const getWorkspaceDefaultSecondaryFilter = ({
 }: {
   workspaceSection: WorkspaceSection;
   isPracticeWorkspace: boolean;
+  isClientWorkspace: boolean;
   view: WorkspaceView;
   contactsRouteKind: WorkspaceRouteState['contactsRouteKind'];
   reportSectionFromPath: string;
   intakeSectionFromPath: WorkspaceRouteState['intakeSectionFromPath'];
   navSecondary?: Array<{ items: Array<{ id: string }> }>;
 }) => {
-  if (workspaceSection === 'conversations' && isPracticeWorkspace) {
+  if (workspaceSection === 'conversations' && (isPracticeWorkspace || isClientWorkspace)) {
     return 'all';
   }
   if (workspaceSection === 'home' && isPracticeWorkspace) {
@@ -234,6 +236,7 @@ export const getWorkspaceDefaultSecondaryFilter = ({
 export const getWorkspaceActiveSecondaryFilter = ({
   workspaceSection,
   isPracticeWorkspace,
+  isClientWorkspace,
   view,
   contactsRouteKind,
   reportSectionFromPath,
@@ -243,6 +246,7 @@ export const getWorkspaceActiveSecondaryFilter = ({
 }: {
   workspaceSection: WorkspaceSection;
   isPracticeWorkspace: boolean;
+  isClientWorkspace: boolean;
   view: WorkspaceView;
   contactsRouteKind: WorkspaceRouteState['contactsRouteKind'];
   reportSectionFromPath: string;
@@ -251,6 +255,9 @@ export const getWorkspaceActiveSecondaryFilter = ({
   defaultSecondaryFilterId: string | null;
 }) => {
   if (workspaceSection === 'settings') return null;
+  if (workspaceSection === 'conversations' && (isPracticeWorkspace || isClientWorkspace)) {
+    return secondaryFilterBySection[workspaceSection] ?? defaultSecondaryFilterId;
+  }
   if (workspaceSection === 'home' && isPracticeWorkspace) {
     if (view !== 'contacts') return 'overview';
     if (contactsRouteKind === 'archived') return 'contacts-archived';
@@ -288,7 +295,8 @@ export const shouldShowWorkspaceMobileMenuButton = ({
   selectedContactIdFromPath: string | null;
 }) => {
   if (!isMobileLayout || !hasSecondaryNav) return false;
-  if (workspaceSection === 'conversations') return view === 'list';
+  if (workspaceSection === 'assistant') return isPracticeWorkspace && view === 'assistant';
+  if (workspaceSection === 'conversations') return view === 'list' || view === 'conversation';
   if (workspaceSection === 'intakes') return view === 'intakes';
   if (workspaceSection === 'matters') return false;
   if (workspaceSection === 'home') {
