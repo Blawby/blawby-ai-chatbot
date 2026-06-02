@@ -102,7 +102,10 @@ export default function OAuthConsentPage() {
     }
     setSubmitting(accept ? 'accept' : 'deny');
     try {
-      const { data, error } = await authClient.oauth2.consent({ accept });
+      const { data, error } = await authClient.oauth2.consent({
+        accept,
+        oauth_query: window.location.search.slice(1),
+      });
       if (error) {
         const message =
           error.message

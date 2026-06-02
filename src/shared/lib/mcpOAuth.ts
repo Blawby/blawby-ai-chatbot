@@ -1,4 +1,4 @@
-import { getWorkerApiUrl } from '@/config/urls';
+import { getWorkerApiUrl, getBackendApiUrl } from '@/config/urls';
 import { MCP_SCOPES } from '@/shared/config/mcpScopes';
 
 export const MCP_OAUTH_CLIENT_ID = 'blawby-claude-mcp';
@@ -84,7 +84,7 @@ export function buildMcpSettingsReturnPath(basePath: string, status: 'success' |
 }
 
 export function getMcpResourceUrl(): string {
-  return `${getWorkerApiUrl()}/api/mcp`;
+  return `${getBackendApiUrl()}/mcp`;
 }
 
 export async function exchangeMcpAuthorizationCode(code: string, verifier: string): Promise<Response> {
