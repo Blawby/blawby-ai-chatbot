@@ -5,10 +5,11 @@ import { Button } from '@/shared/ui/Button';
 import { Alert } from '@/shared/ui/feedback/Alert';
 import { Icon } from '@/shared/ui/Icon';
 import { LoadingScreen } from '@/shared/ui/layout/LoadingScreen';
+import { LoadingSpinner } from '@/shared/ui/layout/LoadingSpinner';
 import { useNavigation } from '@/shared/utils/navigation';
 import { useSessionContext } from '@/shared/contexts/SessionContext';
 import { useToastContext } from '@/shared/contexts/ToastContext';
-import { getWorkerApiUrl } from '@/config/urls';
+import { authClient } from '@/shared/lib/authClient';
 import { parseScopeString, groupMcpScopes } from '@/shared/config/mcpScopes';
 
 /**
@@ -20,23 +21,12 @@ import { parseScopeString, groupMcpScopes } from '@/shared/config/mcpScopes';
  * the OAuth flow.
  */
 
-interface OAuthConsentResponse {
-  url?: string;
-  redirect_uri?: string;
-  redirectURI?: string;
-}
-
 interface OAuthPublicClientInfo {
-  clientId: string;
-  name: string;
-  icon?: string | null;
-  uri?: string | null;
+  client_id?: string;
+  client_name?: string;
+  logo_uri?: string | null;
+  client_uri?: string | null;
 }
-
-const getOAuthQuery = (): string => {
-  if (typeof window === 'undefined') return '';
-  return window.location.search.replace(/^\?/, '');
-};
 
 export default function OAuthConsentPage() {
   const location = useLocation();
@@ -48,13 +38,12 @@ export default function OAuthConsentPage() {
   const [clientInfoPending, setClientInfoPending] = useState(false);
 
   const query = location.query as Record<string, string | undefined>;
-  const oauthQuery = getOAuthQuery();
   const clientId = query.client_id ?? null;
   const scopeParam = query.scope ?? null;
 
   const requestedScopes = useMemo(() => parseScopeString(scopeParam), [scopeParam]);
   const scopeGroups = useMemo(() => groupMcpScopes(requestedScopes), [requestedScopes]);
-  const appName = clientInfo?.name?.trim() || clientId?.trim() || 'An application';
+  const appName = clientInfo?.client_name?.trim() || clientId?.trim() || 'An application';
 
   // Consent requires an authenticated, non-anonymous user. Better Auth only
   // redirects here mid-flow once signed in, but guard the direct-navigation case.
@@ -78,19 +67,16 @@ export default function OAuthConsentPage() {
 
     const controller = new AbortController();
     setClientInfoPending(true);
-    void fetch(
-      `${getWorkerApiUrl()}/api/auth/oauth2/public-client-info?client_id=${encodeURIComponent(clientId)}`,
-      {
-        credentials: 'include',
-        signal: controller.signal,
-      },
-    )
-      .then(async (response) => {
-        if (!response.ok) return null;
-        return (await response.json()) as OAuthPublicClientInfo;
-      })
-      .then((payload) => {
-        setClientInfo(payload ?? null);
+    void authClient.oauth2.publicClient({
+      query: { client_id: clientId },
+      fetchOptions: { signal: controller.signal },
+    })
+      .then((result) => {
+        if (result.error) {
+          setClientInfo(null);
+          return;
+        }
+        setClientInfo((result.data as OAuthPublicClientInfo | null) ?? null);
       })
       .catch((error: unknown) => {
         if (error instanceof Error && error.name === 'AbortError') return;
@@ -110,38 +96,26 @@ export default function OAuthConsentPage() {
   }
 
   const submitConsent = async (accept: boolean) => {
-    if (!oauthQuery) {
+    if (!clientId) {
       showError('Invalid request', 'This consent link is missing required information.');
       return;
     }
     setSubmitting(accept ? 'accept' : 'deny');
     try {
-      const response = await fetch(`${getWorkerApiUrl()}/api/auth/oauth2/consent`, {
-        method: 'POST',
-        credentials: 'include',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({
-          accept,
-          oauth_query: oauthQuery,
-        }),
-      });
-      const payload = await response.json().catch(() => null) as OAuthConsentResponse | { message?: string; error?: { message?: string } } | null;
-      if (!response.ok) {
+      const { data, error } = await authClient.oauth2.consent({ accept });
+      if (error) {
         const message =
-          (payload && 'error' in payload ? payload.error?.message : undefined)
-          ?? (payload && 'message' in payload ? payload.message : undefined)
-          ?? ((response.status === 400 || response.status === 403)
+          error.message
+          ?? ((error.status === 400 || error.status === 403)
             ? 'This consent request is invalid or expired. Start the connection flow again from your MCP client.'
             : undefined)
-          ?? `Authorization server returned ${response.status}`;
+          ?? 'Unexpected error. Try again.';
         showError('Consent failed', message);
         setSubmitting(null);
         return;
       }
-      const redirectURI =
-        payload && 'url' in payload
-          ? payload.url ?? payload.redirect_uri ?? payload.redirectURI
-          : undefined;
+      const payload = data as { url?: string; redirect_uri?: string; redirectURI?: string } | null;
+      const redirectURI = payload?.url ?? payload?.redirect_uri ?? payload?.redirectURI;
       if (redirectURI) {
         window.location.href = redirectURI;
         return;
@@ -165,32 +139,34 @@ export default function OAuthConsentPage() {
           <p className="mt-1 text-sm text-dim-2">
             <span className="font-medium text-ink">{appName}</span> wants to connect to your Blawby account.
           </p>
-          {clientInfo?.uri ? (
+          {clientInfo?.client_uri ? (
             <a
-              href={clientInfo.uri}
+              href={clientInfo.client_uri}
               target="_blank"
               rel="noreferrer"
               className="mt-2 text-xs text-dim-2 underline-offset-2 hover:underline"
             >
-              {clientInfo.uri}
+              {clientInfo.client_uri}
             </a>
           ) : null}
         </div>
 
-        {!oauthQuery ? (
+        {!clientId ? (
           <Alert variant="error" title="This request is invalid or expired" className="mt-6">
             Start the connection again from the application that sent you here.
           </Alert>
         ) : (
           <>
             {clientInfoPending ? (
-              <p className="mt-6 text-sm text-dim-2">Loading client details…</p>
+              <div className="mt-6 flex justify-center">
+                <LoadingSpinner size="sm" ariaLabel="Loading client details" className="text-dim-2" />
+              </div>
             ) : null}
 
-            {clientInfo?.icon ? (
+            {clientInfo?.logo_uri ? (
               <div className="mt-6 flex justify-center">
                 <img
-                  src={clientInfo.icon}
+                  src={clientInfo.logo_uri}
                   alt={`${appName} icon`}
                   className="h-12 w-12 rounded-full border border-line-subtle object-cover"
                   loading="lazy"

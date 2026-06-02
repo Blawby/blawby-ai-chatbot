@@ -16,6 +16,7 @@ import {
   resolveConversationDisplayTitle,
   resolveConversationPresence,
 } from '@/shared/utils/conversationDisplay';
+import { isMessagesConversation } from '@/shared/utils/conversationSurface';
 import { usePresenceContext, useTypingInConversation } from '@/shared/contexts/PresenceContext';
 import { useSessionContext } from '@/shared/contexts/SessionContext';
 
@@ -214,7 +215,7 @@ const ConversationListView: FunctionComponent<ConversationListViewProps> = ({
   const { session } = useSessionContext();
   const currentUserId = session?.user?.id ?? null;
   const sorted = conversations
-    .filter((conversation) => conversation.user_info?.mode !== 'PRACTICE_ONBOARDING')
+    .filter(isMessagesConversation)
     .sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime());
 
   // Precompute contactId and presence for each conversation

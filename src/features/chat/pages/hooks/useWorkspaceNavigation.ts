@@ -149,14 +149,6 @@ export function useWorkspaceNavigation({
     };
   }, [previewBaseUrl]);
 
-  const handleDashboardCreateInvoice = useCallback(() => {
-    const rawUrl = typeof location.url === 'string' && location.url.length > 0
-      ? location.url
-      : location.path;
-    const returnTo = rawUrl.startsWith('/') ? rawUrl : `/${rawUrl.replace(/^\/+/, '')}`;
-    navigate(`${normalizedBase}/invoices/new?returnTo=${encodeURIComponent(returnTo)}`);
-  }, [location.path, location.url, navigate, normalizedBase]);
-
   const workspaceSection: WorkspaceSection = getWorkspaceSection(view);
 
   const navConfig = useMemo(() => {
@@ -181,23 +173,25 @@ export function useWorkspaceNavigation({
   const defaultSecondaryFilterId = useMemo(() => getWorkspaceDefaultSecondaryFilter({
     workspaceSection,
     isPracticeWorkspace,
+    isClientWorkspace,
     view,
     contactsRouteKind,
     reportSectionFromPath,
     intakeSectionFromPath,
     navSecondary: navConfig.secondary,
-  }), [workspaceSection, isPracticeWorkspace, view, contactsRouteKind, reportSectionFromPath, intakeSectionFromPath, navConfig.secondary]);
+  }), [workspaceSection, isPracticeWorkspace, isClientWorkspace, view, contactsRouteKind, reportSectionFromPath, intakeSectionFromPath, navConfig.secondary]);
 
   const activeSecondaryFilter = useMemo(() => getWorkspaceActiveSecondaryFilter({
     workspaceSection,
     isPracticeWorkspace,
+    isClientWorkspace,
     view,
     contactsRouteKind,
     reportSectionFromPath,
     intakeSectionFromPath,
     secondaryFilterBySection,
     defaultSecondaryFilterId,
-  }), [workspaceSection, isPracticeWorkspace, view, contactsRouteKind, reportSectionFromPath, intakeSectionFromPath, secondaryFilterBySection, defaultSecondaryFilterId]);
+  }), [workspaceSection, isPracticeWorkspace, isClientWorkspace, view, contactsRouteKind, reportSectionFromPath, intakeSectionFromPath, secondaryFilterBySection, defaultSecondaryFilterId]);
 
   const handleSecondaryFilterSelect = useCallback((id: string) => {
     if (workspaceSection === 'settings') return;
@@ -230,6 +224,11 @@ export function useWorkspaceNavigation({
       setSecondaryFilterBySection((prev) => ({ ...prev, [workspaceSection]: id }));
       return;
     }
+    if (workspaceSection === 'conversations') {
+      navigate(`${basePath}/conversations`);
+      setSecondaryFilterBySection((prev) => ({ ...prev, [workspaceSection]: id }));
+      return;
+    }
     setSecondaryFilterBySection((prev) => ({ ...prev, [workspaceSection]: id }));
   }, [navigate, normalizedBase, workspaceSection]);
 
@@ -251,7 +250,6 @@ export function useWorkspaceNavigation({
     reportSectionFromPath,
     previewBaseUrl,
     previewUrls,
-    handleDashboardCreateInvoice,
     workspaceSection,
     navConfig,
     defaultSecondaryFilterId,

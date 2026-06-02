@@ -225,7 +225,7 @@ const PracticeTrustPage: FunctionComponent = () => {
       collapsed={false}
     />
   ) : (
-    <BrandMark />
+    <BrandMark className="px-2 py-2" />
   );
 
   const profileFooter = session?.user ? (

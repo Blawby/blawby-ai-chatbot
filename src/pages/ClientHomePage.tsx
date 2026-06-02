@@ -912,7 +912,7 @@ const ClientHomePage = () => {
       <LeftRail
         variant="desktop"
         items={railItems}
-        brandMark={<BrandMark />}
+        brandMark={<BrandMark className="px-2 py-2" />}
         footer={profileFooter}
         className="hidden lg:flex"
       />

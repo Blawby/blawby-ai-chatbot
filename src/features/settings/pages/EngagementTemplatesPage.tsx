@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'preact/hooks';
+import { useCallback, useEffect, useMemo, useState } from 'preact/hooks';
 import { Plus, Trash2 } from 'lucide-preact';
 
 import { Button } from '@/shared/ui/Button';
@@ -9,10 +9,11 @@ import { EditorShell } from '@/shared/ui/layout';
 import { LoadingSpinner } from '@/shared/ui/layout/LoadingSpinner';
 import { usePracticeManagement } from '@/shared/hooks/usePracticeManagement';
 import { usePracticeDetails } from '@/shared/hooks/usePracticeDetails';
+import { engagementTemplatesApi } from '@/shared/api/engagementTemplatesApi';
 import { useToastContext } from '@/shared/contexts/ToastContext';
 import { cn } from '@/shared/utils/cn';
 import { formatCurrency } from '@/shared/utils/currencyFormatter';
-import { AIRibbon, Observation } from '@/design-system/patterns';
+import { AIAskBar, Observation } from '@/design-system/patterns';
 import { Pill } from '@/design-system/primitives';
 
 // ---------------------------------------------------------------------------
@@ -57,24 +58,6 @@ const PLACEHOLDER_DOCS: Array<{ key: string; description: string }> = [
   { key: '{{contingencyPct}}', description: 'Contingency percentage' },
   { key: '{{date}}', description: 'Date the letter is generated' },
 ];
-
-// ---------------------------------------------------------------------------
-// Metadata helpers — same pattern as intake templates
-// ---------------------------------------------------------------------------
-
-const METADATA_KEY = 'engagementLetterTemplates';
-
-function parseTemplatesFromMetadata(metadata: Record<string, unknown> | null | undefined): EngagementLetterTemplate[] {
-  if (!metadata) return [];
-  const raw = metadata[METADATA_KEY];
-  if (typeof raw === 'string') {
-    try {
-      const parsed = JSON.parse(raw);
-      return Array.isArray(parsed) ? (parsed as EngagementLetterTemplate[]) : [];
-    } catch { return []; }
-  }
-  return Array.isArray(raw) ? (raw as EngagementLetterTemplate[]) : [];
-}
 
 function generateId(): string {
   return `et_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 7)}`;
@@ -468,7 +451,7 @@ const TemplateCard = ({ template, onEdit }: TemplateCardProps) => {
       className={cn(
         'group flex w-full flex-col gap-4 rounded-r-md border border-rule bg-card p-5 text-left',
         'transition-[border-color,box-shadow,transform] duration-150',
-        'hover:-translate-y-px hover:border-paper-edge hover:shadow-2 sm:p-6',
+        'hover:-translate-y-px hover:border-paper-edge hover:shadow-2 sm:px-[26px] sm:py-[22px]',
       )}
     >
       <div className="grid w-full gap-5 lg:grid-cols-[1fr_180px] lg:items-start lg:gap-7">
@@ -541,7 +524,7 @@ interface EmptyAreaCardProps {
 }
 
 const EmptyAreaCard = ({ area, onAsk }: EmptyAreaCardProps) => (
-  <div className="flex flex-col items-start gap-4 rounded-r-md border border-dashed border-rule bg-paper p-5 sm:flex-row sm:items-center sm:gap-5 sm:p-6">
+  <div className="flex flex-col items-start gap-4 rounded-r-md border border-dashed border-rule bg-paper p-5 sm:flex-row sm:items-center sm:gap-5 sm:px-[26px] sm:py-[22px]">
     <div className="flex-1">
       <p className="font-serif text-base text-ink sm:text-[17px]">
         No {area.toLowerCase()} template yet
@@ -623,12 +606,12 @@ type ListViewProps = {
   onNew: () => void;
   onNewInArea: (area: string) => void;
   onEdit: (template: EngagementLetterTemplate) => void;
+  onDraftFromPrompt: (prompt: string, practiceArea?: string, feeType?: EngagementFeeType) => Promise<void>;
 };
 
-function TemplateListView({ templates, onNew, onNewInArea, onEdit }: ListViewProps) {
-  const { showSuccess } = useToastContext();
+function TemplateListView({ templates, onNew, onNewInArea, onEdit, onDraftFromPrompt }: ListViewProps) {
+  const { showSuccess, showError } = useToastContext();
 
-  const [draftPrompt, setDraftPrompt] = useState('');
   const [areaFilters, setAreaFilters] = useState<Set<string>>(new Set());
   const [statusFilters, setStatusFilters] = useState<Set<StatusFilter>>(new Set());
 
@@ -688,21 +671,13 @@ function TemplateListView({ templates, onNew, onNewInArea, onEdit }: ListViewPro
     setStatusFilters(new Set());
   }, []);
 
-  const handleDraft = useCallback(() => {
-    // TODO(backend): wire to a `/engagement-templates/draft-from-prompt`
-    // endpoint that returns a fully-populated EngagementLetterTemplate.
-    // Until then, surface the intent and seed a blank template so the
-    // user can paste/edit. The prompt itself is preserved in toast copy.
-    showSuccess(
-      'Draft request noted',
-      draftPrompt.trim()
-        ? `Opening a blank template — assistant authoring isn't wired yet.`
-        : 'Describe the template first, then ask the assistant to draft it.',
-    );
-    if (draftPrompt.trim()) {
-      onNew();
+  const handleDraft = useCallback(async (prompt: string) => {
+    try {
+      await onDraftFromPrompt(prompt, undefined, undefined);
+    } catch (err) {
+      showError('Draft failed', err instanceof Error ? err.message : 'Unable to draft template.');
     }
-  }, [draftPrompt, onNew, showSuccess]);
+  }, [onDraftFromPrompt, showError]);
 
   const handleAskAssistant = useCallback((area: string) => {
     // TODO(backend): wire to assistant authoring; for now open a blank
@@ -721,7 +696,7 @@ function TemplateListView({ templates, onNew, onNewInArea, onEdit }: ListViewPro
   const allActive = areaFilters.size === 0 && statusFilters.size === 0;
 
   return (
-    <div className="mx-auto flex w-full max-w-[980px] flex-col gap-7 px-6 pb-24 pt-8 sm:px-10 lg:px-16 lg:pt-10">
+    <div className="mx-auto flex w-full max-w-[980px] flex-col gap-7 px-6 pb-24 pt-8 sm:px-10 lg:px-[72px] lg:pt-10">
       {/* Page hero */}
       <header className="flex flex-col gap-5 border-b border-rule pb-6 lg:flex-row lg:items-end lg:justify-between lg:gap-8">
         <div className="min-w-0 flex-1">
@@ -744,19 +719,11 @@ function TemplateListView({ templates, onNew, onNewInArea, onEdit }: ListViewPro
       </header>
 
       {/* AI authoring strip */}
-      <AIRibbon
-        variant="authoring"
-        title="Describe a template — I'll draft it"
-        editable
-        onEdit={setDraftPrompt}
-        actions={[
-          {
-            id: 'draft',
-            label: 'Draft ↗',
-            variant: 'primary',
-            onClick: handleDraft,
-          },
-        ]}
+      <AIAskBar
+        placeholder="Describe a template — e.g. 'hourly family law engagement for custody matters'"
+        onSubmit={(prompt) => void handleDraft(prompt)}
+        disclaimer={null}
+        sticky={false}
       />
 
       {/* Filter chips — horizontally scrollable on mobile */}
@@ -848,13 +815,9 @@ const BLANK_TEMPLATE = (): EngagementLetterTemplate => ({
   body: '',
 });
 
-interface EngagementTemplatesPageProps {
-  onBack?: () => void;
-}
-
-export const EngagementTemplatesPage = ({ onBack }: EngagementTemplatesPageProps) => {
-  const { currentPractice, isLoading, updatePractice } = usePracticeManagement({ fetchPracticeDetails: true });
-  const { details: practiceDetails, setDetails } = usePracticeDetails(
+export const EngagementTemplatesPage = () => {
+  const { currentPractice, isLoading: practiceLoading } = usePracticeManagement({ fetchPracticeDetails: true });
+  const { details: practiceDetails } = usePracticeDetails(
     currentPractice?.id,
     currentPractice?.slug,
     false,
@@ -862,57 +825,42 @@ export const EngagementTemplatesPage = ({ onBack }: EngagementTemplatesPageProps
   const { showSuccess, showError } = useToastContext();
   const [editTarget, setEditTarget] = useState<EngagementLetterTemplate | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [templates, setTemplates] = useState<EngagementLetterTemplate[]>([]);
+  const [isLoadingTemplates, setIsLoadingTemplates] = useState(false);
 
-  const templates = useMemo(
-    () => parseTemplatesFromMetadata(currentPractice?.metadata ?? practiceDetails?.metadata),
-    [currentPractice?.metadata, practiceDetails?.metadata],
-  );
+  const practiceId = currentPractice?.id ?? null;
+
+  useEffect(() => {
+    if (!practiceId) return;
+    let cancelled = false;
+    setIsLoadingTemplates(true);
+    engagementTemplatesApi.list(practiceId)
+      .then((records) => { if (!cancelled) setTemplates(records); })
+      .catch((err) => { if (!cancelled) showError('Failed to load templates', err instanceof Error ? err.message : 'Unknown error.'); })
+      .finally(() => { if (!cancelled) setIsLoadingTemplates(false); });
+    return () => { cancelled = true; };
+  }, [practiceId, showError]);
 
   const serviceOptions = useMemo<ComboboxOption[]>(
     () => (Array.isArray(practiceDetails?.services) ? practiceDetails.services : [])
       .map((service) => {
         const rawName = (service as Record<string, unknown>).name;
-        const name = typeof rawName === 'string'
-          ? rawName.trim()
-          : '';
+        const name = typeof rawName === 'string' ? rawName.trim() : '';
         return name ? ({ value: name, label: name }) : null;
       })
       .filter((option): option is ComboboxOption => option !== null),
     [practiceDetails?.services],
   );
 
-  const persist = useCallback(async (nextTemplates: EngagementLetterTemplate[]) => {
-    if (!currentPractice) return;
-
-    const currentMetadata = (() => {
-      try {
-        const raw = currentPractice?.metadata ?? practiceDetails?.metadata;
-        if (typeof raw === 'string') return JSON.parse(raw) as Record<string, unknown>;
-        if (raw && typeof raw === 'object') return raw as Record<string, unknown>;
-        return {};
-      } catch { return {}; }
-    })();
-
-    const nextMetadata = { ...currentMetadata, [METADATA_KEY]: JSON.stringify(nextTemplates) };
-    const snapshot = practiceDetails;
-    setDetails({ ...(snapshot ?? {}), metadata: nextMetadata });
-
-    try {
-      await updatePractice(currentPractice.id, { metadata: nextMetadata });
-    } catch (error) {
-      setDetails(snapshot ?? null);
-      throw error;
-    }
-  }, [currentPractice, practiceDetails, setDetails, updatePractice]);
-
   const handleSave = async (template: EngagementLetterTemplate) => {
+    if (!practiceId) return;
     setIsSaving(true);
     try {
-      const next = [
-        ...templates.filter((t) => t.id !== template.id),
-        template,
-      ];
-      await persist(next);
+      const isNew = !templates.some((t) => t.id === template.id);
+      const saved = isNew
+        ? await engagementTemplatesApi.create(practiceId, template)
+        : await engagementTemplatesApi.update(practiceId, template.id, template);
+      setTemplates((prev) => isNew ? [...prev, saved] : prev.map((t) => t.id === saved.id ? saved : t));
       showSuccess('Template saved', `"${template.name}" saved.`);
       setEditTarget(null);
     } catch (error) {
@@ -923,9 +871,11 @@ export const EngagementTemplatesPage = ({ onBack }: EngagementTemplatesPageProps
   };
 
   const handleDelete = async (id: string) => {
+    if (!practiceId) return;
     setIsSaving(true);
     try {
-      await persist(templates.filter((t) => t.id !== id));
+      await engagementTemplatesApi.delete(practiceId, id);
+      setTemplates((prev) => prev.filter((t) => t.id !== id));
       showSuccess('Template deleted');
       setEditTarget(null);
     } catch (error) {
@@ -934,6 +884,18 @@ export const EngagementTemplatesPage = ({ onBack }: EngagementTemplatesPageProps
       setIsSaving(false);
     }
   };
+
+  const handleDraftFromPrompt = useCallback(async (
+    prompt: string,
+    practiceArea?: string,
+    feeType?: EngagementFeeType,
+  ) => {
+    if (!practiceId) return;
+    const { template } = await engagementTemplatesApi.draftFromPrompt(practiceId, { prompt, practiceArea, feeType });
+    setEditTarget({ ...BLANK_TEMPLATE(), ...template });
+  }, [practiceId]);
+
+  const isLoading = practiceLoading || isLoadingTemplates;
 
   if (editTarget) {
     const isNew = !templates.some((t) => t.id === editTarget.id);
@@ -950,12 +912,7 @@ export const EngagementTemplatesPage = ({ onBack }: EngagementTemplatesPageProps
   }
 
   return (
-    <EditorShell
-      title="Engagement templates"
-      showBack
-      onBack={onBack}
-      contentMaxWidth={null}
-    >
+    <div>
       {isLoading ? (
         <div className="p-6">
           <LoadingSpinner ariaLabel="Loading engagement templates" />
@@ -966,8 +923,9 @@ export const EngagementTemplatesPage = ({ onBack }: EngagementTemplatesPageProps
           onNew={() => setEditTarget(BLANK_TEMPLATE())}
           onNewInArea={(area) => setEditTarget({ ...BLANK_TEMPLATE(), practiceArea: area })}
           onEdit={setEditTarget}
+          onDraftFromPrompt={handleDraftFromPrompt}
         />
       )}
-    </EditorShell>
+    </div>
   );
 };

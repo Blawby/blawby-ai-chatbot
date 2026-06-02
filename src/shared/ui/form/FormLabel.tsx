@@ -18,8 +18,8 @@ export const FormLabel = ({
     <label
       htmlFor={htmlFor}
       className={cn(
-        'block text-sm font-medium text-ink',
-        required && 'after:content-["*"] after:ml-1 after:text-red-500',
+        'label block mb-1.5',
+        required && 'after:content-["*"] after:ml-1 after:text-neg',
         className
       )}
     >

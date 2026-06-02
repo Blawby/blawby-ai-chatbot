@@ -1,8 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'preact/hooks';
 import { useLocation } from 'preact-iso';
-import { UserPlus, Copy, X } from 'lucide-preact';
+import { Copy, X } from 'lucide-preact';
 
-import { Icon } from '@/shared/ui/Icon';
 import { usePracticeManagement, type Role } from '@/shared/hooks/usePracticeManagement';
 import { usePracticeTeam } from '@/shared/hooks/usePracticeTeam';
 import { usePracticeInvitations } from '@/shared/hooks/usePracticeInvitations';
@@ -15,22 +14,18 @@ import { Combobox } from '@/shared/ui/input/Combobox';
 import { useToastContext } from '@/shared/contexts/ToastContext';
 import { useTranslation } from '@/shared/i18n/hooks';
 import { formatDate } from '@/shared/utils/dateTime';
+import { cn } from '@/shared/utils/cn';
 import { getPracticeRoleLabel, PRACTICE_ROLE_OPTIONS, normalizePracticeRole } from '@/shared/utils/practiceRoles';
-import { FormGrid, SectionDivider } from '@/shared/ui/layout';
-import { FormActions } from '@/shared/ui/form';
-import { EditorShell } from '@/shared/ui/layout';
 import { ListRowSkeleton } from '@/shared/ui/layout';
-import { SettingsNotice } from '@/features/settings/components/SettingsNotice';
-import { SettingsHelperText } from '@/features/settings/components/SettingsHelperText';
+import { SettingsCard } from '@/features/settings/components/SettingsCard';
+import { SettingSection } from '@/features/settings/components/SettingSection';
 import { buildSettingsPath, resolveSettingsBasePath } from '@/shared/utils/workspace';
-import { Avatar, UserCard } from '@/shared/ui/profile';
 
 interface PracticeTeamPageProps {
   className?: string;
-  onBack?: () => void;
 }
 
-export const PracticeTeamPage = ({ className, onBack }: PracticeTeamPageProps) => {
+export const PracticeTeamPage = ({ className }: PracticeTeamPageProps) => {
   const { session } = useSessionContext();
   const { activeMemberRole, activeMemberRoleLoading } = useMemberRoleContext();
   const {
@@ -81,7 +76,7 @@ export const PracticeTeamPage = ({ className, onBack }: PracticeTeamPageProps) =
   const isMember = Boolean(normalizedActiveRole ?? roleFromMembers);
   const teamRoleOptions = PRACTICE_ROLE_OPTIONS.filter(option => option.value !== 'owner');
 
-  const [isInvitingMember, setIsInvitingMember] = useState(false);
+  const [, setIsInvitingMember] = useState(false);
   // Tracks the invitation currently being acted on (accept / decline / cancel).
   // One flag is sufficient since these actions are mutually exclusive per row.
   const [pendingInvitationId, setPendingInvitationId] = useState<string | null>(null);
@@ -95,8 +90,6 @@ export const PracticeTeamPage = ({ className, onBack }: PracticeTeamPageProps) =
     name?: string;
     role: Role;
   } | null>(null);
-  const isEditingMember = editMemberData !== null;
-
   const origin = (typeof window !== 'undefined' && window.location)
     ? window.location.origin
     : '';
@@ -239,261 +232,215 @@ export const PracticeTeamPage = ({ className, onBack }: PracticeTeamPageProps) =
     );
   }
 
+  const seatsUsed = summary.seatsUsed ?? 0;
+  const seatsTotal = summary.seatsIncluded ?? 3;
+  const seatsPercent = Math.min(100, Math.round((seatsUsed / Math.max(seatsTotal, 1)) * 100));
+  const isOverSeat = seatsUsed > seatsTotal;
+
   return (
-    <EditorShell
-      title="Team"
-      showBack={Boolean(onBack)}
-      onBack={onBack}
-      className={className}
-      contentMaxWidth={null}
-      crumb="Settings · Practice · Team"
-      accentTitle={(
-        <>
-          Who can <em>act</em> on this practice.
-        </>
-      )}
-      lede="Members, roles, and pending invitations. Admins can stage writes; owners can change billing."
-    >
-      <div className="space-y-6">
-        <div className="pt-2 pb-6">
-          <div className="flex items-center justify-between gap-4">
-            <div>
-              <p className="text-sm text-dim-2">
-                Manage access to your practice workspace.
-              </p>
-              <SettingsHelperText className="mt-2">
-                Seats used: {summary.seatsUsed} / {summary.seatsIncluded}
-              </SettingsHelperText>
-            </div>
-            {isAdmin && (
-              <Button
-                size="sm"
-                onClick={() => setIsInvitingMember(!isInvitingMember)}
-              >
-                <Icon icon={UserPlus} className="w-4 h-4 mr-2"  />
-                {isInvitingMember ? 'Cancel' : 'Invite'}
-              </Button>
-            )}
-          </div>
-        </div>
-
-        {summary.seatsUsed > summary.seatsIncluded && (
-          <SettingsNotice variant="warning" className="mb-4" role="status" aria-live="polite">
-            <p className="text-sm">
-              You&apos;re using {summary.seatsUsed} seats but your plan includes {summary.seatsIncluded}. The billing owner can increase seats in Stripe.
-              {isOwner && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => openBillingPortal({
-                    practiceId: currentPractice.id,
-                    returnUrl: origin
-                      ? `${origin}${toSettingsPath('practice')}?sync=1`
-                      : `${toSettingsPath('practice')}?sync=1`
-                  })}
-                  disabled={submitting}
-                  className="ml-2 underline text-accent hover:text-accent-deep"
-                >
-                  {t('settings:account.plan.manage')}
-                </Button>
-              )}
-            </p>
-          </SettingsNotice>
-        )}
-
-      {members.length === 0 && (isLoading || teamLoading) ? (
-        <ListRowSkeleton rows={4} />
-      ) : members.length > 0 ? (
-        <div className="space-y-3">
-          {members.map((member) => (
-            <div key={member.userId} className="flex items-center justify-between py-2">
-              <div className="flex min-w-0 flex-1 items-center gap-3">
-                <UserCard
-                  name={member.name || member.email || member.userId}
-                  image={member.image ?? null}
-                  secondary={`${member.email || member.userId} • ${getPracticeRoleLabel(member.role)}`}
-                  badge={member.role === 'owner' ? 'Owner' : undefined}
-                  size="md"
-                  className="-ml-3"
-                />
-              </div>
-              {isAdmin && member.role !== 'owner' && (
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  onClick={() => {
-                    if (editMemberData?.userId === member.userId) {
-                      setEditMemberData(null);
-                      return;
-                    }
-                    setEditMemberData(member);
-                  }}
-                  className="text-ink hover:text-accent-deep dark:hover:text-accent-deep"
-                >
-                  {isEditingMember && editMemberData?.userId === member.userId ? 'Cancel' : 'Manage'}
-                </Button>
-              )}
-            </div>
-          ))}
-        </div>
-      ) : (
-        <SettingsHelperText>No team members yet</SettingsHelperText>
-      )}
-
-        {isInvitingMember && (
-          <div className="mt-6 space-y-4">
-            <FormGrid>
-              <div>
-                <FormLabel htmlFor="invite-email">Email Address</FormLabel>
-                <EmailInput
-                  id="invite-email"
-                  value={inviteForm.email}
-                  onChange={(value) => setInviteForm(prev => ({ ...prev, email: value }))}
-                  placeholder="colleague@lawfirm.com"
-                  showValidation
-                  required
-                />
-              </div>
-
-              <div>
-                <FormLabel htmlFor="invite-role">Role</FormLabel>
-                <Combobox
-                  id="invite-role"
-                  value={inviteForm.role}
-                  options={teamRoleOptions}
-                  onChange={(value) => setInviteForm(prev => ({ ...prev, role: value as Role }))}
-                  searchable={false}
-                />
-              </div>
-            </FormGrid>
-
-            <FormActions
-              className="gap-2 pt-2"
-              onCancel={() => setIsInvitingMember(false)}
-              onSubmit={handleSendInvitation}
-              submitType="button"
-              submitText="Send Invitation"
-            />
-          </div>
-        )}
-
-        {isEditingMember && editMemberData && (
-          <div className="mt-6 space-y-4">
-            <div>
-              <p className="text-sm font-medium text-ink mb-2">
-                {editMemberData.name || editMemberData.email}
-              </p>
-            <SettingsHelperText>
-              {editMemberData.email}
-            </SettingsHelperText>
-            </div>
-
-            <div>
-              <FormLabel htmlFor="member-role">Role</FormLabel>
-              <Combobox
-                id="member-role"
-                value={editMemberData.role}
-                options={teamRoleOptions}
-                onChange={(value) => setEditMemberData(prev => prev ? { ...prev, role: value as Role } : null)}
-                searchable={false}
-              />
-            </div>
-
-            <div className="flex justify-between pt-2">
-              <Button
-                variant="danger-ghost"
-                onClick={() => handleRemoveMember(editMemberData)}
-              >
-                Remove Member
-              </Button>
-              <FormActions
-                className="gap-2 pt-0"
-                onCancel={() => {
-                  setEditMemberData(null);
-                }}
-                onSubmit={handleUpdateMemberRole}
-                submitType="button"
-                submitText="Save Changes"
-              />
-            </div>
-          </div>
-        )}
-
-        <SectionDivider className="mt-8" />
-        <div className="pt-6">
-          <h3 className="text-sm font-semibold text-ink mb-4">
-            Pending Invitations
-          </h3>
-          {invitations.length > 0 ? (
-            <div className="space-y-3">
-              {invitations.map(inv => (
-                <div key={inv.id} className="flex items-center justify-between py-2">
-                  <div className="flex min-w-0 flex-1 items-center gap-3">
-                    <Avatar
-                      name={inv.email}
-                      size="md"
-                    />
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-medium text-ink">
-                      {inv.email}
-                      </p>
-                      <SettingsHelperText className="truncate">
-                        Role: {getPracticeRoleLabel(inv.role)} • Expires: {formatDate(new Date(inv.expiresAt))}
-                      </SettingsHelperText>
+    <div className={className}>
+      <div className="space-y-0">
+        <SettingSection
+          first
+          title="Members"
+          description="Active members and pending invitations for this practice workspace."
+        >
+          {members.length === 0 && (isLoading || teamLoading) ? (
+            <ListRowSkeleton rows={3} />
+          ) : (
+            <SettingsCard className="max-w-[860px] px-0 py-0">
+            <div className="flex flex-col gap-0">
+              {members.map((member) => {
+                const initial = (member.name || member.email || '?').charAt(0).toUpperCase();
+                const isMe = member.email?.toLowerCase() === currentUserEmail.toLowerCase();
+                const isEditing = editMemberData?.userId === member.userId;
+                return (
+                  <div key={member.userId} className="border-b border-rule last:border-0">
+                    <div className="grid items-center gap-4 px-4 py-[14px]" style={{ gridTemplateColumns: '40px 1fr 120px 100px auto' }}>
+                      {/* Avatar */}
+                      <div className="flex h-10 w-10 items-center justify-center rounded-full bg-ink font-serif italic text-sm text-accent">
+                        {initial}
+                      </div>
+                      {/* Name / email */}
+                      <div>
+                        <div className="text-sm font-medium text-ink">{member.name || member.email || member.userId}</div>
+                        <div className="font-mono text-xs text-dim">{member.email || member.userId}</div>
+                      </div>
+                      {/* Role tag */}
+                      <span className="font-mono text-[10.5px] uppercase tracking-[0.06em] text-dim">
+                        {getPracticeRoleLabel(member.role)}
+                      </span>
+                      {/* Status dot */}
+                      <span className="flex items-center gap-1.5 text-xs">
+                        <span className="h-1.5 w-1.5 rounded-full bg-[var(--pos,#22c55e)]" />
+                        <span className="font-mono text-[10px] text-dim">active</span>
+                      </span>
+                      {/* Action */}
+                      {isMe ? (
+                        <Button variant="ghost" size="sm" disabled className="opacity-40 cursor-default">You</Button>
+                      ) : isAdmin && member.role !== 'owner' ? (
+                        <Button variant="ghost" size="sm" onClick={() => setEditMemberData(isEditing ? null : member)}>
+                          {isEditing ? 'Cancel' : 'Manage'}
+                        </Button>
+                      ) : <span />}
                     </div>
+                    {/* Inline manage form */}
+                    {isEditing && editMemberData && (
+                      <div className="border-t border-rule px-5 py-4 flex flex-wrap items-end gap-3">
+                        <div className="flex-1 min-w-0" style={{ maxWidth: 240 }}>
+                          <FormLabel htmlFor="member-role">Role</FormLabel>
+                          <Combobox
+                            id="member-role"
+                            value={editMemberData.role}
+                            options={teamRoleOptions}
+                            onChange={(value) => setEditMemberData((prev) => prev ? { ...prev, role: value as Role } : null)}
+                            searchable={false}
+                          />
+                        </div>
+                        <Button size="sm" onClick={handleUpdateMemberRole}>Save</Button>
+                        <Button size="sm" variant="ghost" onClick={() => setEditMemberData(null)}>Cancel</Button>
+                        <Button size="sm" variant="danger-ghost" onClick={() => handleRemoveMember(editMemberData)} className="ml-auto">Remove</Button>
+                      </div>
+                    )}
                   </div>
-                  <div className="flex gap-2">
+                );
+              })}
+
+              {/* Pending invitations */}
+              {invitations.map((inv) => (
+                <div key={inv.id} className="grid items-center gap-4 px-4 py-[14px] border-b border-rule last:border-0" style={{ gridTemplateColumns: '40px 1fr 120px 100px auto' }}>
+                  <div className="flex h-10 w-10 items-center justify-center rounded-full border-2 border-dashed border-rule text-sm text-dim">
+                    {inv.email.charAt(0).toUpperCase()}
+                  </div>
+                  <div>
+                    <div className="text-sm font-medium text-ink">{inv.email}</div>
+                    <div className="font-mono text-xs text-dim">Expires {formatDate(new Date(inv.expiresAt))}</div>
+                  </div>
+                  <span className="font-mono text-[10.5px] uppercase tracking-[0.06em] text-dim">{getPracticeRoleLabel(inv.role)}</span>
+                  <span className="flex items-center gap-1.5">
+                    <span className="h-1.5 w-1.5 rounded-full bg-amber-400" />
+                    <span className="font-mono text-[10px] text-dim">pending</span>
+                  </span>
+                  <div className="flex gap-1">
                     {inv.email.toLowerCase() === currentUserEmail.toLowerCase() ? (
                       <>
-                        <Button
-                          size="sm"
-                          onClick={() => handleAcceptInvitation(inv.id)}
-                          disabled={pendingInvitationId !== null}
-                        >
-                          {pendingInvitationId === inv.id ? 'Accepting…' : 'Accept'}
+                        <Button size="sm" onClick={() => handleAcceptInvitation(inv.id)} disabled={pendingInvitationId !== null}>
+                          {pendingInvitationId === inv.id ? '…' : 'Accept'}
                         </Button>
-                        <Button
-                          size="sm"
-                          variant="secondary"
-                          onClick={() => handleDeclineInvitation(inv.id)}
-                          disabled={pendingInvitationId !== null}
-                        >
-                          {pendingInvitationId === inv.id ? 'Declining…' : 'Decline'}
-                        </Button>
+                        <Button size="sm" variant="secondary" onClick={() => handleDeclineInvitation(inv.id)} disabled={pendingInvitationId !== null}>Decline</Button>
                       </>
                     ) : isAdmin ? (
                       <>
-                        <Button
-                          variant="icon"
-                          size="icon-sm"
-                          onClick={() => void copyInvitationLink(inv.id)}
-                          aria-label={`Copy invite link for ${inv.email}`}
-                          title="Copy invite link"
-                          icon={Copy}
-                          iconClassName="h-4 w-4"
-                        />
-                        <Button
-                          variant="icon"
-                          size="icon-sm"
-                          onClick={() => handleCancelInvitation(inv.id)}
-                          disabled={pendingInvitationId !== null}
-                          aria-label={`Cancel invitation for ${inv.email}`}
-                          title="Cancel invitation"
-                          icon={X}
-                          iconClassName="h-4 w-4"
-                        />
+                        <Button variant="icon" size="icon-sm" onClick={() => void copyInvitationLink(inv.id)} aria-label="Copy invite link" icon={Copy} iconClassName="h-4 w-4" />
+                        <Button variant="icon" size="icon-sm" onClick={() => handleCancelInvitation(inv.id)} disabled={pendingInvitationId !== null} aria-label="Cancel invitation" icon={X} iconClassName="h-4 w-4" />
                       </>
-                    ) : null
-                    }
+                    ) : null}
                   </div>
                 </div>
               ))}
+
+              {members.length === 0 && invitations.length === 0 && (
+                <p className="px-5 py-5 text-sm text-dim">No team members yet.</p>
+              )}
             </div>
-          ) : (
-            <SettingsHelperText>No pending invitations</SettingsHelperText>
+            </SettingsCard>
           )}
-        </div>
+        </SettingSection>
+
+        {isAdmin && (
+          <SettingSection
+            title="Invite a team member"
+            description="New members receive their own login and assistant thread. You control what they can see and do."
+          >
+            <SettingsCard className="max-w-[860px]">
+              <div className="font-serif text-lg mb-1">Send invitation</div>
+              <p className="text-xs text-dim mb-4">They&apos;ll receive an email with a link to join your workspace.</p>
+              <div className="flex flex-wrap items-end gap-3">
+                <div className="flex-1" style={{ minWidth: 200 }}>
+                  <FormLabel htmlFor="invite-email">Email address</FormLabel>
+                  <EmailInput
+                    id="invite-email"
+                    value={inviteForm.email}
+                    onChange={(value) => setInviteForm((prev) => ({ ...prev, email: value }))}
+                    placeholder="paralegal@example.com"
+                    showValidation
+                    required
+                  />
+                </div>
+                <div style={{ minWidth: 150 }}>
+                  <FormLabel htmlFor="invite-role">Role</FormLabel>
+                  <Combobox
+                    id="invite-role"
+                    value={inviteForm.role}
+                    options={teamRoleOptions}
+                    onChange={(value) => setInviteForm((prev) => ({ ...prev, role: value as Role }))}
+                    searchable={false}
+                  />
+                </div>
+                <Button size="sm" onClick={handleSendInvitation}>Invite →</Button>
+              </div>
+            </SettingsCard>
+          </SettingSection>
+        )}
+
+        <SettingSection
+          title="Role permissions"
+          description="What each role can access. Custom roles can come later once the permission model is finalized."
+        >
+          <SettingsCard className="max-w-[860px] px-0 py-0">
+          {[
+            { name: 'Attorney', desc: 'Full access to matters, billing, and trust. Can approve staged actions.', badge: 'all permissions' },
+            { name: 'Paralegal', desc: 'Read/write matters and intakes. Cannot access billing or trust ledger.', badge: 'limited' },
+            { name: 'Admin', desc: 'Manage settings, billing, and team. Cannot view matter details or trust.', badge: 'admin only' },
+            { name: 'Read-only', desc: 'View matters and reports. Cannot create, edit, or approve anything.', badge: 'view only' },
+          ].map(({ name, desc, badge }) => (
+            <div key={name} className="flex items-center justify-between gap-6 py-3.5 border-b border-rule last:border-0">
+              <div>
+                <div className="text-sm font-medium text-ink">{name}</div>
+                <div className="text-xs text-dim mt-0.5">{desc}</div>
+              </div>
+              <span className="shrink-0 font-mono text-[10px] uppercase tracking-wider text-dim border border-rule rounded-full px-2.5 py-0.5">{badge}</span>
+            </div>
+          ))}
+          </SettingsCard>
+        </SettingSection>
+
+        <SettingSection
+          title="Seat usage"
+          description={`Your plan includes ${seatsTotal} seats. You're currently using ${seatsUsed}.`}
+        >
+          <SettingsCard className="max-w-[860px]">
+          <div>
+            <div className="flex items-center justify-between mb-1.5">
+              <span className="text-sm text-ink-2">{seatsUsed} of {seatsTotal} seats used</span>
+              <span className="font-mono text-xs text-dim">{Math.max(0, seatsTotal - seatsUsed)} remaining</span>
+            </div>
+            <div className="h-1.5 w-full rounded-full bg-rule overflow-hidden">
+              <div
+                className={cn('h-full rounded-full transition-all', isOverSeat ? 'bg-[var(--neg,#ef4444)]' : 'bg-ink')}
+                style={{ width: `${seatsPercent}%` }}
+              />
+            </div>
+          </div>
+
+          {isOverSeat && isOwner && (
+            <div className="mt-4">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => openBillingPortal({
+                  practiceId: currentPractice.id,
+                  returnUrl: origin ? `${origin}${toSettingsPath('practice')}?sync=1` : `${toSettingsPath('practice')}?sync=1`,
+                })}
+                disabled={submitting}
+              >
+                {t('settings:account.plan.manage')}
+              </Button>
+            </div>
+          )}
+          </SettingsCard>
+        </SettingSection>
       </div>
-    </EditorShell>
+    </div>
   );
 };

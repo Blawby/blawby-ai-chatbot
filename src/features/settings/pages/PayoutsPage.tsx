@@ -1,11 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { Button } from '@/shared/ui/Button';
-import { SectionDivider } from '@/shared/ui/layout/SectionDivider';
-import { EditorShell } from '@/shared/ui/layout/EditorShell';
 import { SettingsHelperText } from '@/features/settings/components/SettingsHelperText';
 import { SettingsNotice } from '@/features/settings/components/SettingsNotice';
 import { SettingSection } from '@/features/settings/components/SettingSection';
 import { SettingRow } from '@/features/settings/components/SettingRow';
+import { SettingsCard } from '@/features/settings/components/SettingsCard';
 import { Input } from '@/shared/ui/input';
 import { useSessionContext } from '@/shared/contexts/SessionContext';
 import { usePracticeManagement } from '@/shared/hooks/usePracticeManagement';
@@ -30,11 +29,9 @@ const maskStripeAccountId = (value?: string | null) => {
 };
 
 export const PayoutsPage = ({
-  className = '',
-  onBack
+  className = ''
 }: {
   className?: string;
-  onBack?: () => void;
 }) => {
   const { session } = useSessionContext();
   const { currentPractice } = usePracticeManagement({ fetchPracticeDetails: true });
@@ -247,25 +244,13 @@ export const PayoutsPage = ({
   };
 
   return (
-    <EditorShell
-      title="Payouts and Billing"
-      showBack={Boolean(onBack)}
-      onBack={onBack}
-      className={className}
-      contentMaxWidth={null}
-      crumb="Settings · Practice · Payouts"
-      accentTitle={(
-        <>
-          Where money <em>lands</em>, and how it&rsquo;s billed.
-        </>
-      )}
-      lede="Connect Stripe, set your billing increment, and verify that payouts are flowing."
-    >
+    <div className={className}>
       <div className="space-y-6">
         <SettingSection
           title="Time entry billing increment"
           description="Round billable time to this many minutes when entries are created."
         >
+          <SettingsCard className="max-w-[620px]">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-end">
             <div className="w-full max-w-[220px]">
               <label className="mb-2 block text-sm font-medium text-ink" htmlFor="billing-increment-minutes">
@@ -297,15 +282,14 @@ export const PayoutsPage = ({
               {isSavingBilling ? 'Saving...' : 'Save'}
             </Button>
           </div>
+          </SettingsCard>
         </SettingSection>
-
-        <SectionDivider />
 
         <SettingSection
           title="External payout accounts"
           description="Connect Stripe to receive payouts for your practice."
         >
-          <SettingsNotice variant={missingBusinessEmail ? 'warning' : 'info'} className="mb-4">
+          <SettingsNotice variant={missingBusinessEmail ? 'warning' : 'info'} className="mb-4 max-w-[860px]">
             <div className="flex items-start gap-3">
               <span className="mt-0.5 flex h-5 w-5 items-center justify-center">
                 <Icon
@@ -336,100 +320,91 @@ export const PayoutsPage = ({
             </div>
           </SettingsNotice>
 
-        <SettingRow
-          label="Stripe account"
-          description={isReady ? undefined : 'Bank accounts and payout schedules are managed in Stripe after onboarding.'}
-        >
-          <div className="flex w-full items-center justify-between gap-3 sm:w-auto sm:justify-end">
-            <span className="text-sm font-medium text-ink">
-              {maskStripeAccountId(stripeStatus?.stripe_account_id)}
-            </span>
-            {hasStripeAccount ? (
-              <Button
-                variant="secondary"
-                size="sm"
-                onClick={handleSubmitDetails}
-                disabled={isSubmitting || isLoading || missingBusinessEmail}
-              >
-                Manage
-              </Button>
-            ) : null}
-          </div>
-        </SettingRow>
-
-        <SectionDivider />
-
-        <SettingRow
-          label="Business email"
-          labelNode={(
-            <div className="flex items-center gap-3">
-              <Icon icon={User} className="h-5 w-5 text-dim-2" />
-              <span className="text-sm font-medium text-ink">Business email</span>
-            </div>
-          )}
-          description={isReady ? undefined : 'Stripe uses this email during onboarding and verification.'}
-        >
-          <span className="text-sm font-medium text-ink">
-            {businessEmail || 'Not set'}
-          </span>
-        </SettingRow>
-
-        <SectionDivider />
-
-        <SettingRow
-          label="Charges"
-          description={isReady ? undefined : 'Card payments can be accepted once Stripe finishes verifying the account.'}
-        >
-          <span className="text-sm font-medium text-ink">
-            {chargesEnabled ? 'Enabled' : 'Pending verification'}
-          </span>
-        </SettingRow>
-
-        <SectionDivider />
-
-        <SettingRow
-          label="Payouts"
-          labelNode={(
-            <div className="flex items-center gap-3">
-              <Icon icon={Lock} className="h-5 w-5 text-dim-2" />
-              <span className="text-sm font-medium text-ink">Payouts</span>
-            </div>
-          )}
-          description={isReady ? undefined : 'Payouts unlock after Stripe verifies your business details.'}
-        >
-          <span className="text-sm font-medium text-ink">
-            {payoutsEnabled ? 'Enabled' : 'Pending verification'}
-          </span>
-        </SettingRow>
-
-        <SectionDivider />
-
-        <SettingRow
-          label="Status"
-          labelNode={(
-            <div className="flex items-center gap-3">
-              <Icon icon={ShieldCheck} className="h-5 w-5 text-dim-2" />
-              <span className="text-sm font-medium text-ink">Status</span>
-            </div>
-          )}
-          description={isReady
-            ? undefined
-            : hasStripeAccount
-              ? 'Review or complete Stripe onboarding to finish setup.'
-              : 'Start Stripe onboarding to create your payout account.'}
-        >
-          <span className="text-sm font-medium text-ink">
-            {statusLabel}
-          </span>
-        </SettingRow>
-
-        {!isReady && (
-          <>
-            <SectionDivider />
+          <SettingsCard className="max-w-[860px]">
             <SettingRow
-              label="Stripe setup"
-              description="You will be redirected to Stripe to complete or review verification."
+              label="Stripe account"
+              description={isReady ? undefined : 'Bank accounts and payout schedules are managed in Stripe after onboarding.'}
             >
+              <div className="flex w-full items-center justify-between gap-3 sm:w-auto sm:justify-end">
+                <span className="text-sm font-medium text-ink">
+                  {maskStripeAccountId(stripeStatus?.stripe_account_id)}
+                </span>
+                {hasStripeAccount ? (
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={handleSubmitDetails}
+                    disabled={isSubmitting || isLoading || missingBusinessEmail}
+                  >
+                    Manage
+                  </Button>
+                ) : null}
+              </div>
+            </SettingRow>
+
+            <SettingRow
+              label="Business email"
+              labelNode={(
+                <div className="flex items-center gap-3">
+                  <Icon icon={User} className="h-5 w-5 text-dim-2" />
+                  <span className="text-sm font-medium text-ink">Business email</span>
+                </div>
+              )}
+              description={isReady ? undefined : 'Stripe uses this email during onboarding and verification.'}
+            >
+              <span className="text-sm font-medium text-ink">
+                {businessEmail || 'Not set'}
+              </span>
+            </SettingRow>
+
+            <SettingRow
+              label="Charges"
+              description={isReady ? undefined : 'Card payments can be accepted once Stripe finishes verifying the account.'}
+            >
+              <span className="text-sm font-medium text-ink">
+                {chargesEnabled ? 'Enabled' : 'Pending verification'}
+              </span>
+            </SettingRow>
+
+            <SettingRow
+              label="Payouts"
+              labelNode={(
+                <div className="flex items-center gap-3">
+                  <Icon icon={Lock} className="h-5 w-5 text-dim-2" />
+                  <span className="text-sm font-medium text-ink">Payouts</span>
+                </div>
+              )}
+              description={isReady ? undefined : 'Payouts unlock after Stripe verifies your business details.'}
+            >
+              <span className="text-sm font-medium text-ink">
+                {payoutsEnabled ? 'Enabled' : 'Pending verification'}
+              </span>
+            </SettingRow>
+
+            <SettingRow
+              label="Status"
+              labelNode={(
+                <div className="flex items-center gap-3">
+                  <Icon icon={ShieldCheck} className="h-5 w-5 text-dim-2" />
+                  <span className="text-sm font-medium text-ink">Status</span>
+                </div>
+              )}
+              description={isReady
+                ? undefined
+                : hasStripeAccount
+                  ? 'Review or complete Stripe onboarding to finish setup.'
+                  : 'Start Stripe onboarding to create your payout account.'}
+            >
+              <span className="text-sm font-medium text-ink">
+                {statusLabel}
+              </span>
+            </SettingRow>
+
+            {!isReady && (
+              <SettingRow
+                label="Stripe setup"
+                description="You will be redirected to Stripe to complete or review verification."
+              >
               <Button
                 variant="primary"
                 size="sm"
@@ -439,8 +414,8 @@ export const PayoutsPage = ({
                 {actionButtonLabel}
               </Button>
             </SettingRow>
-          </>
-        )}
+            )}
+          </SettingsCard>
 
         {!isReady && (
           <SettingsHelperText className="mt-3 block">
@@ -450,7 +425,7 @@ export const PayoutsPage = ({
           </SettingsHelperText>
         )}
       </SettingSection>
+      </div>
     </div>
-    </EditorShell>
   );
 };

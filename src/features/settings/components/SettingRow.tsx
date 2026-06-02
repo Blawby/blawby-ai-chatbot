@@ -1,6 +1,4 @@
-import { ComponentChildren } from 'preact';
-import { FormLabel } from '@/shared/ui/form';
-import { SettingDescription } from './SettingDescription';
+import type { ComponentChildren } from 'preact';
 import { cn } from '@/shared/utils/cn';
 
 export interface SettingRowProps {
@@ -11,6 +9,7 @@ export interface SettingRowProps {
   children?: ComponentChildren;
   className?: string;
   controlClassName?: string;
+  /** @deprecated use default grid layout */
   layout?: 'responsive' | 'stacked';
 }
 
@@ -22,35 +21,30 @@ export const SettingRow = ({
   children,
   className = '',
   controlClassName,
-  layout = 'responsive',
-}: SettingRowProps) => {
-  const isStacked = layout === 'stacked';
-
-  return (
-    <div
-      className={cn(
-        'flex flex-col gap-3 py-3',
-        !isStacked && 'sm:flex-row sm:items-start sm:justify-between',
-        className
+}: SettingRowProps) => (
+  <div
+    className={cn(
+      'grid items-center gap-7 py-[18px] border-b border-rule last:border-0',
+      className,
+    )}
+    style={{ gridTemplateColumns: '1fr auto' }}
+  >
+    <div className="flex min-w-0 flex-col gap-1">
+      {labelNode ?? (
+        <span className={cn('text-sm font-medium text-ink', labelClassName)}>{label}</span>
       )}
-    >
-      <div className="flex-1 min-w-0">
-        {labelNode ?? <FormLabel className={labelClassName}>{label}</FormLabel>}
-        {description && (
-          typeof description === 'string' ? (
-            <SettingDescription text={description} />
-          ) : (
-            <div className="mt-1 text-xs text-dim-2">
-              {description}
-            </div>
-          )
-        )}
-      </div>
-      {children !== undefined && children !== null && (
-        <div className={cn('w-full self-start', !isStacked && 'sm:ml-4 sm:w-auto', controlClassName)}>
-          {children}
-        </div>
+      {description && (
+        typeof description === 'string' ? (
+          <span className="text-[13px] text-dim leading-relaxed max-w-[64ch]">{description}</span>
+        ) : (
+          <div className="text-[13px] text-dim leading-relaxed">{description}</div>
+        )
       )}
     </div>
-  );
-};
+    {children != null && (
+      <div className={cn('flex items-center gap-2 shrink-0', controlClassName)}>
+        {children}
+      </div>
+    )}
+  </div>
+);

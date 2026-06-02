@@ -26,9 +26,8 @@ import { clearPendingPracticeInviteLink, readPendingPracticeInviteLink } from '@
 import { usePracticeManagement } from '@/shared/hooks/usePracticeManagement';
 import { usePracticeDetails } from '@/shared/hooks/usePracticeDetails';
 import type { ConversationMode } from '@/shared/types/conversation';
-import { lazy, Suspense } from 'preact/compat';
+import { lazy } from 'preact/compat';
 import { Plus, Mail, Phone, Briefcase } from 'lucide-preact';
-const PracticeAssistantBriefing = lazy(() => import('@/features/chat/components/PracticeAssistantBriefing').then(m => ({ default: m.PracticeAssistantBriefing })));
 const PracticeMattersPage = lazy(() => import('@/features/matters/pages/PracticeMattersPage').then(m => ({ default: m.PracticeMattersPage })));
 const PracticeContactsPage = lazy(() => import('@/features/clients/pages/PracticeContactsPage').then(m => ({ default: m.PracticeContactsPage })));
 const ClientMattersPage = lazy(() => import('@/features/matters/pages/ClientMattersPage').then(m => ({ default: m.ClientMattersPage })));
@@ -777,32 +776,17 @@ export function MainApp({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isChatReady, activeConversationId, conversationMetadata?.mode]);
   const shouldShowChatPlaceholder = workspace !== 'public' && !activeConversationId;
-  // When viewing the assistant home URL (no conversation ID in the route),
-  // always show the briefing even if the cache restored a prior conversation.
-  const isAssistantHome = isPracticeWorkspace && workspaceView === 'assistant' && !normalizedRouteConversationId;
+  const isAssistantWorkspace = isPracticeWorkspace && workspaceView === 'assistant';
+  const isAssistantRootRoute = isAssistantWorkspace && !normalizedRouteConversationId;
 
   // ── chat panel ─────────────────────────────────────────────────────────────
   const chatPanel = chatContent ?? (
     <div className="relative flex min-h-0 flex-1 flex-col">
-      {shouldShowChatPlaceholder || isAssistantHome ? (
-        isPracticeWorkspace && workspaceView === 'assistant' ? (
-          <Suspense fallback={<div className="flex-1" />}>
-            <PracticeAssistantBriefing
-              practiceId={practiceId}
-              practiceSlug={resolvedPracticeSlug ?? null}
-              practiceName={resolvedPracticeName}
-              onAsk={(question) => {
-                try { sessionStorage.setItem('blawby:pending_ask', question); } catch { /* ignore */ }
-                void handleStartNewConversation('PRACTICE_ASSISTANT', undefined, { forceCreate: true })
-                  .then((convId) => {
-                    if (convId && resolvedPracticeSlug) {
-                      navigate(`/practice/${encodeURIComponent(resolvedPracticeSlug)}/assistant/${encodeURIComponent(convId)}`);
-                    }
-                  })
-                  .catch(() => {});
-              }}
-            />
-          </Suspense>
+      {shouldShowChatPlaceholder || isAssistantRootRoute ? (
+        isAssistantWorkspace ? (
+          <div className="flex flex-1 items-center justify-center text-sm text-dim-2">
+            Opening assistant thread...
+          </div>
         ) : (
           <div className="flex-1 flex items-center justify-center text-sm text-dim-2">
             {isPracticeWorkspace

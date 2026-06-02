@@ -1073,6 +1073,31 @@
     border-color: color-mix(in oklab, var(--neg) 30%, var(--rule));
   }
 
+  /* Danger zone — red-tinted card for destructive actions */
+  .danger {
+    margin-top: 32px;
+    padding: 22px;
+    border: 1px solid color-mix(in oklab, var(--neg) 30%, var(--rule));
+    border-radius: var(--r-md);
+    background: color-mix(in oklab, var(--neg) 6%, var(--card));
+  }
+  .danger h3 { color: var(--neg); font-family: var(--serif); font-weight: 400; font-size: 20px; margin: 0 0 4px; }
+  .danger .gdesc { color: var(--ink-2); font-size: 13.5px; margin: 0 0 14px; }
+
+  /* Form field group — label + input/select/textarea stacked vertically */
+  .form-field {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  /* Two-column form grid — matches design's .two-col */
+  .two-col {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+  }
+
   .bar {
     height: 4px;
     background: var(--rule-soft);
@@ -1257,103 +1282,7 @@
   .brand-mark-sm .brand-mark-glyph { font-size: 18px; }
   .brand-mark-sm .brand-mark-word { font-size: 16px; }
 
-  /* LeftRail — desktop 240px sticky text-label rail */
-  .left-rail {
-    display: flex;
-    flex-direction: column;
-    width: 240px;
-    flex-shrink: 0;
-    background: var(--paper);
-    border-right: 1px solid var(--rule);
-    position: sticky;
-    top: 0;
-    height: 100dvh;
-    overflow: hidden;
-  }
-
-  .left-rail-brand {
-    display: flex;
-    align-items: flex-start;
-    padding: 16px 16px 14px;
-    border-bottom: 1px solid var(--rule);
-  }
-
-  .left-rail-scroll {
-    flex: 1;
-    overflow-y: auto;
-    padding: 12px 12px 24px;
-  }
-
-  .left-rail-section + .left-rail-section {
-    margin-top: 18px;
-  }
-
-  .left-rail-section-label {
-    font-family: var(--mono);
-    font-size: 9.5px;
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
-    color: var(--dim-2);
-    padding: 8px 12px 4px;
-  }
-
-  .left-rail-item {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    width: 100%;
-    padding: 8px 12px;
-    font-size: 13.5px;
-    color: var(--ink);
-    background: transparent;
-    border: 0;
-    border-radius: var(--r-sm);
-    cursor: pointer;
-    text-align: left;
-    transition: background 0.14s ease, color 0.14s ease;
-  }
-
-  .left-rail-item:hover:not(.active) {
-    background: var(--rule-soft);
-  }
-
-  .left-rail-item.active {
-    background: var(--ink);
-    color: var(--accent);
-  }
-
-  .left-rail-item.danger {
-    color: var(--neg);
-  }
-
-  .left-rail-item.danger:hover:not(.active) {
-    background: color-mix(in oklab, var(--neg) 10%, transparent);
-  }
-
-  .left-rail-item:focus-visible {
-    outline: none;
-    box-shadow: 0 0 0 3px var(--accent-soft);
-  }
-
-  .left-rail-item-dot {
-    width: 6px;
-    height: 6px;
-    border-radius: 50%;
-    background: var(--dim-2);
-    flex-shrink: 0;
-  }
-  .left-rail-item.active .left-rail-item-dot {
-    background: var(--accent);
-  }
-
-  .left-rail-item-label {
-    flex: 1;
-    min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
+  /* LeftRail badges are still used by the mobile bottom bar. */
   .left-rail-badge {
     display: inline-flex;
     align-items: center;
@@ -1403,11 +1332,6 @@
   .left-rail-new-btn:hover kbd {
     background: rgba(0,0,0,0.12);
     color: var(--accent-ink);
-  }
-
-  .left-rail-footer {
-    border-top: 1px solid var(--rule);
-    padding: 12px;
   }
 
   /* LeftRail — mobile bottom bar */

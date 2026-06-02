@@ -1,23 +1,20 @@
-import { useMemo, useState, useCallback } from 'preact/hooks';
+import { useEffect, useMemo, useState, useCallback } from 'preact/hooks';
 import { Button } from '@/shared/ui/Button';
-import { Input, LogoUploadInput, EmailInput } from '@/shared/ui/input';
-import { AddressExperienceForm } from '@/shared/ui/address/AddressExperienceForm';
-import { FormGrid, SectionDivider, EditorShell } from '@/shared/ui/layout';
+import { LogoUploadInput } from '@/shared/ui/input';
 import { SettingSection } from '@/features/settings/components/SettingSection';
-import { SettingsHelperText } from '@/features/settings/components/SettingsHelperText';
 import { usePracticeManagement } from '@/shared/hooks/usePracticeManagement';
 import { usePracticeDetails } from '@/shared/hooks/usePracticeDetails';
 import { useToastContext } from '@/shared/contexts/ToastContext';
 import { useTranslation } from '@/shared/i18n/hooks';
 import type { PracticeDetails } from '@/shared/lib/apiClient';
 import type { Address } from '@/shared/types/address';
+import { cn } from '@/shared/utils/cn';
 import { buildPracticeProfilePayloads } from '@/shared/utils/practiceProfile';
 import { normalizeAccentColor } from '@/shared/utils/brandColor';
 import { uploadPracticeLogo } from '@/shared/utils/practiceLogoUpload';
 
 interface PracticePageProps {
   className?: string;
-  onBack?: () => void;
 }
 
 type ContactDraft = {
@@ -29,88 +26,6 @@ type ContactDraft = {
   address?: Partial<Address>;
   logo?: string;
   accentColor?: string;
-};
-
-// ─── helpers ────────────────────────────────────────────────────────────────
-
-/**
- * Normalize a free-text input into a URL-safe slug:
- *   "Smith & Associates" → "smith-associates"
- *   "  Foo__BAR " → "foo-bar"
- *   "café" → "cafe"
- * Strips diacritics, lowercases, replaces non-alphanumerics with dashes,
- * collapses dash runs, and trims leading/trailing dashes.
- */
-const formatSlug = (raw: string): string =>
-  raw
-    .normalize('NFKD')
-    .replace(/[̀-ͯ]/g, '')
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/-+/g, '-')
-    .replace(/^-|-$/g, '');
-
-interface SlugFieldProps {
-  label: string;
-  placeholder: string;
-  description: string;
-  urlLabel: string;
-  suggestPrefix: string;
-  suggestSuffix: string;
-  value: string;
-  practiceName: string;
-  disabled?: boolean;
-  onChange: (value: string) => void;
-  onAcceptSuggestion: (suggested: string) => void;
-}
-
-const SlugField = ({
-  label,
-  placeholder,
-  description,
-  urlLabel,
-  suggestPrefix,
-  suggestSuffix,
-  value,
-  practiceName,
-  disabled = false,
-  onChange,
-  onAcceptSuggestion,
-}: SlugFieldProps) => {
-  const trimmedSlug = value.trim();
-  const previewSlug = trimmedSlug || placeholder;
-  const origin = typeof window !== 'undefined' ? window.location.origin : '';
-  const suggested = formatSlug(practiceName);
-  const showSuggestion = suggested.length > 0 && suggested !== trimmedSlug;
-
-  return (
-    <div>
-      <Input
-        label={label}
-        value={value}
-        onChange={onChange}
-        disabled={disabled}
-        placeholder={placeholder}
-        description={description}
-      />
-      <p className="mt-2 text-xs text-dim-2">
-        <span>{urlLabel}: </span>
-        <span className="font-mono text-ink">
-          {origin}/practice/<span className="text-accent">{previewSlug}</span>
-        </span>
-      </p>
-      {showSuggestion ? (
-        <button
-          type="button"
-          onClick={() => onAcceptSuggestion(suggested)}
-          disabled={disabled}
-          className="mt-1 text-xs text-accent hover:underline disabled:opacity-50"
-        >
-          {suggestPrefix} <span className="font-mono">{suggested}</span> {suggestSuffix}
-        </button>
-      ) : null}
-    </div>
-  );
 };
 
 const mapAddressSource = (src: string | Record<string, unknown> | null | undefined) => {
@@ -193,9 +108,15 @@ const resolveContactDraft = (
   return { ...basePractice, ...baseDetails };
 };
 
+const PRACTICE_AREAS = [
+  'Family law', 'Divorce & separation', 'Child custody', 'Domestic violence',
+  'Estate planning', 'Immigration', 'Personal injury', 'Criminal defense',
+  'Real estate', 'Business law', 'Bankruptcy', 'Employment law',
+];
+
 // ─── component ──────────────────────────────────────────────────────────────
 
-export const PracticePage = ({ className, onBack }: PracticePageProps) => {
+export const PracticePage = ({ className }: PracticePageProps) => {
   const { currentPractice, updatePractice } = usePracticeManagement({ fetchPracticeDetails: true });
   const { details, updateDetails } = usePracticeDetails(currentPractice?.id, currentPractice?.slug, false);
   const { showSuccess, showError } = useToastContext();
@@ -206,6 +127,37 @@ export const PracticePage = ({ className, onBack }: PracticePageProps) => {
   const [isSaving, setIsSaving] = useState(false);
   const [logoUploading, setLogoUploading] = useState(false);
   const [logoUploadProgress, setLogoUploadProgress] = useState<number | null>(null);
+
+  // ── metadata fields (jurisdictions, practice areas, bio) ──────────────────
+  type MetaDraft = {
+    jurisdictions: string[];
+    practiceAreas: string[];
+    bio: string;
+    specializations: string;
+    barNumber: string;
+    admittedYear: string;
+    dba: string;
+    fax: string;
+  };
+  const metaFromDetails = useMemo((): MetaDraft => {
+    const m = details?.metadata ?? {};
+    return {
+      jurisdictions: Array.isArray(m.jurisdictions) ? (m.jurisdictions as string[]) : [],
+      practiceAreas: Array.isArray(m.practiceAreas) ? (m.practiceAreas as string[]) : [],
+      bio: typeof m.bio === 'string' ? m.bio : '',
+      specializations: typeof m.specializations === 'string' ? m.specializations : '',
+      barNumber: typeof m.barNumber === 'string' ? m.barNumber : '',
+      admittedYear: typeof m.admittedYear === 'string' ? m.admittedYear : '',
+      dba: typeof m.dba === 'string' ? m.dba : '',
+      fax: typeof m.fax === 'string' ? m.fax : '',
+    };
+  }, [details?.metadata]);
+  const [meta, setMeta] = useState<MetaDraft>(metaFromDetails);
+  useEffect(() => {
+    setMeta(metaFromDetails);
+  }, [metaFromDetails]);
+  const toggleJurisdiction = (j: string) => setMeta((p) => ({ ...p, jurisdictions: p.jurisdictions.includes(j) ? p.jurisdictions.filter((x) => x !== j) : [...p.jurisdictions, j] }));
+  const togglePracticeArea = (a: string) => setMeta((p) => ({ ...p, practiceAreas: p.practiceAreas.includes(a) ? p.practiceAreas.filter((x) => x !== a) : [...p.practiceAreas, a] }));
 
   const currentAccentColor =
     normalizeAccentColor(details?.accentColor ?? currentPractice?.accentColor) ?? '#D4AF37';
@@ -283,8 +235,9 @@ export const PracticePage = ({ className, onBack }: PracticePageProps) => {
       || (contactValues.logo ?? '').trim() !== (currentPractice?.logo ?? '').trim()
       || normalizeAccentColor(contactValues.accentColor) !== currentAccentColor;
 
-    return contactChanged;
-  }, [contactValues, currentAccentColor, currentPractice, details]);
+    const metaChanged = JSON.stringify(meta) !== JSON.stringify(metaFromDetails);
+    return contactChanged || metaChanged;
+  }, [contactValues, currentAccentColor, currentPractice, details, meta, metaFromDetails]);
 
   // ── logo upload ───────────────────────────────────────────────────────────
   const handleLogoChange = async (files: FileList | File[]) => {
@@ -356,6 +309,19 @@ export const PracticePage = ({ className, onBack }: PracticePageProps) => {
         }
       );
 
+      // Merge metadata fields into the details payload
+      detailsPayload.metadata = {
+        ...(details?.metadata ?? {}),
+        jurisdictions: meta.jurisdictions,
+        practiceAreas: meta.practiceAreas,
+        bio: meta.bio,
+        specializations: meta.specializations,
+        barNumber: meta.barNumber,
+        admittedYear: meta.admittedYear,
+        dba: meta.dba,
+        fax: meta.fax,
+      };
+
       if (Object.keys(practicePayload).length > 0) {
         // Only pass allowed fields and filter out nulls for updatePractice
         const safePracticePayload: {
@@ -402,6 +368,7 @@ export const PracticePage = ({ className, onBack }: PracticePageProps) => {
     currentPractice,
     isSaving,
     contactValues,
+    meta,
     currentAccentColor,
     details,
     updatePractice,
@@ -414,208 +381,247 @@ export const PracticePage = ({ className, onBack }: PracticePageProps) => {
   // ── reset ─────────────────────────────────────────────────────────────────
   const handleReset = useCallback(() => {
     setDraft({});
-  }, []);
+    setMeta(metaFromDetails);
+  }, [metaFromDetails]);
 
   // ── render ────────────────────────────────────────────────────────────────
   if (!currentPractice) {
-    return (
-      <EditorShell title={practiceText.pageTitle} showBack={Boolean(onBack)} onBack={onBack}>
-        <p className="text-sm text-dim-2">{practiceText.noPracticeSelected}</p>
-      </EditorShell>
-    );
+    return <p className="text-sm text-dim-2">{practiceText.noPracticeSelected}</p>;
   }
 
+  // Helpers for address sub-fields
+  const addrField = (key: keyof NonNullable<ContactDraft['address']>) =>
+    (contactValues.address as Record<string, string | null | undefined> | undefined)?.[key] as string ?? '';
+  const setAddr = (key: string, value: string) =>
+    setDraft((p) => ({ ...p, address: { ...(p.address ?? contactValues.address ?? {}), [key]: value } }));
+
+  const practiceInitial = (contactValues.name || currentPractice.name || 'P').charAt(0).toUpperCase();
+  const logoUrl = contactValues.logo?.trim() || null;
+  const chipClass = (selected: boolean, disabled = false, dashed = false) => cn(
+    'inline-flex items-center gap-1.5 rounded-[var(--r-xs)] border px-3 py-[7px] text-[13px] transition-all',
+    selected
+      ? 'border-ink bg-ink text-accent'
+      : 'bg-card text-ink-2 hover:border-ink',
+    dashed ? 'border-dashed text-dim hover:text-ink' : 'border-rule',
+    disabled && 'cursor-not-allowed opacity-50',
+  );
+
   return (
-    <EditorShell
-      title={practiceText.pageTitle}
-      subtitle={practiceText.pageSubtitle}
-      showBack={Boolean(onBack)}
-      backVariant="close"
-      onBack={onBack}
-      className={className}
-      contentMaxWidth={null}
-      crumb="Settings · Practice · Profile"
-      accentTitle={(
-        <>
-          How your <em>firm</em> shows up.
-        </>
-      )}
-      lede="Name, brand, contact details, and address. This is what clients and the public assistant see."
-      actions={(
-        <div className="flex items-center gap-2">
-          <Button
-            type="button"
-            variant="secondary"
-            size="sm"
-            onClick={handleReset}
-            disabled={!hasChanges || isSaving || logoUploading}
-          >
-            {practiceText.reset}
-          </Button>
-          <Button
-            type="button"
-            size="sm"
-            onClick={handleSave}
-            disabled={!hasChanges || isSaving || logoUploading}
-          >
-            {isSaving ? practiceText.saving : practiceText.save}
-          </Button>
-        </div>
-      )}
-    >
-      <div className="space-y-6">
+    <div className={className}>
+      <div className="space-y-0">
         <SettingSection
-          title={practiceText.identityTitle}
-          description={practiceText.identityDescription}
+          first
+          title="Firm details"
+          description="How your practice appears to clients and in generated documents."
         >
-          <FormGrid>
-            <Input
-              label={practiceText.practiceNameLabel}
-              value={contactValues.name || ''}
-              onChange={(value) => setDraft((prev) => ({ ...prev, name: value }))}
-              disabled={isSaving}
-              placeholder={practiceText.practiceNamePlaceholder}
-            />
-            <SlugField
-              label={practiceText.publicSlugLabel}
-              placeholder={practiceText.publicSlugPlaceholder}
-              description={practiceText.publicSlugDescription}
-              urlLabel={practiceText.publicSlugUrlLabel}
-              suggestPrefix={practiceText.publicSlugSuggestPrefix}
-              suggestSuffix={practiceText.publicSlugSuggestSuffix}
-              value={contactValues.slug || ''}
-              practiceName={contactValues.name || ''}
-              disabled={isSaving}
-              onChange={(value) => setDraft((prev) => ({ ...prev, slug: formatSlug(value) }))}
-              onAcceptSuggestion={(suggested) => setDraft((prev) => ({ ...prev, slug: suggested }))}
-            />
-          </FormGrid>
-        </SettingSection>
-
-        <SectionDivider />
-
-        <SettingSection
-          title={practiceText.brandTitle}
-          description={practiceText.brandDescription}
-        >
-          <div className="space-y-6">
+          <div className="mb-8 flex items-center gap-[22px]">
             <LogoUploadInput
-              imageUrl={contactValues.logo?.trim() ? contactValues.logo : null}
-              name={currentPractice.name || practiceText.pageTitle}
-              label={practiceText.avatarLabel}
-              description={practiceText.avatarDescription}
+              imageUrl={logoUrl}
+              name={currentPractice.name || ''}
+              buttonLabel="Change logo"
               accept="image/*"
               multiple={false}
               onChange={handleLogoChange}
               disabled={isSaving || logoUploading}
               progress={logoUploading ? logoUploadProgress : null}
+              triggerMode="avatar"
+              size={72}
+              className="w-auto"
             />
-
-            <div className="space-y-3">
-              <div>
-                <h3 className="text-sm font-semibold text-ink">{practiceText.brandColorLabel}</h3>
-                <div className="mt-2 flex items-center gap-3">
-                  <div
-                    role="img"
-                    className="h-5 w-5 rounded-full"
-                    style={{ backgroundColor: normalizeAccentColor(contactValues.accentColor) ?? currentAccentColor }}
-                    aria-label={practiceText.currentBrandColorAria}
-                  />
-                  <SettingsHelperText>{contactValues.accentColor}</SettingsHelperText>
-                </div>
+            <div>
+              <div className="font-serif text-[22px] font-normal tracking-[-0.01em] text-ink">
+                {contactValues.name || currentPractice.name || practiceInitial}
               </div>
+              <div className="mt-0.5 font-mono text-xs text-dim">
+                {contactValues.businessEmail || currentPractice.businessEmail || ''}
+              </div>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-[14px] max-[720px]:grid-cols-1">
+            <div className="form-field">
+              <label className="label" htmlFor="firm-name">Firm name</label>
+              <input id="firm-name" className="input" value={contactValues.name || ''} placeholder="Law Offices of…" disabled={isSaving}
+                onInput={(e) => setDraft((p) => ({ ...p, name: (e.target as HTMLInputElement).value }))} />
+            </div>
+            <div className="form-field">
+              <label className="label" htmlFor="dba">DBA / public name</label>
+              <input id="dba" className="input" value={meta.dba} placeholder="Optional public name" disabled={isSaving}
+                onInput={(e) => setMeta((p) => ({ ...p, dba: (e.target as HTMLInputElement).value }))} />
+            </div>
+            <div className="form-field">
+              <label className="label" htmlFor="contact-phone">Phone</label>
+              <input id="contact-phone" className="input" type="tel" value={contactValues.contactPhone || ''} placeholder="(555) 000-0000" disabled={isSaving}
+                onInput={(e) => setDraft((p) => ({ ...p, contactPhone: (e.target as HTMLInputElement).value }))} />
+            </div>
+            <div className="form-field">
+              <label className="label" htmlFor="fax">Fax</label>
+              <input id="fax" className="input" type="tel" value={meta.fax} placeholder="Optional" disabled={isSaving}
+                onInput={(e) => setMeta((p) => ({ ...p, fax: (e.target as HTMLInputElement).value }))} />
+            </div>
+            <div className="form-field">
+              <label className="label" htmlFor="public-slug">Slug</label>
+              <input id="public-slug" className="input" value={contactValues.slug || ''} placeholder="smith-associates" disabled={isSaving}
+                onInput={(e) => setDraft((p) => ({ ...p, slug: (e.target as HTMLInputElement).value }))} />
+            </div>
+            <div className="form-field">
+              <label className="label" htmlFor="business-email">Business email</label>
+              <input id="business-email" className="input" type="email" value={contactValues.businessEmail || ''} placeholder="business@example.com" disabled={isSaving}
+                onInput={(e) => setDraft((p) => ({ ...p, businessEmail: (e.target as HTMLInputElement).value }))} />
+            </div>
+            <div className="form-field">
+              <label className="label" htmlFor="website">Website</label>
+              <input id="website" className="input" value={contactValues.website || ''} placeholder="https://example.com" disabled={isSaving}
+                onInput={(e) => setDraft((p) => ({ ...p, website: (e.target as HTMLInputElement).value }))} />
+            </div>
+            <div className="form-field">
+              <label className="label" htmlFor="accent-color">Accent color</label>
               <div className="flex items-center gap-3">
                 <input
+                  id="accent-color"
+                  className="h-11 w-14 rounded-[var(--r-xs)] border border-rule bg-card px-1 py-1"
                   type="color"
                   value={normalizeAccentColor(contactValues.accentColor) ?? currentAccentColor}
-                  onChange={(event) => setDraft((prev) => ({
-                    ...prev,
-                    accentColor:
-                      normalizeAccentColor((event.target as HTMLInputElement).value)
-                      ?? (event.target as HTMLInputElement).value.toUpperCase(),
-                  }))}
                   disabled={isSaving}
-                  aria-label={practiceText.brandColorAriaLabel}
-                  className="h-10 w-16 rounded-r-md border border-line-subtle bg-card p-1"
+                  onInput={(e) => setDraft((p) => ({ ...p, accentColor: (e.target as HTMLInputElement).value }))}
                 />
-                <Input
-                  aria-label={practiceText.brandColorHexAria}
-                  value={contactValues.accentColor ?? ''}
-                  onChange={(value) => setDraft((prev) => ({
-                    ...prev,
-                    accentColor: normalizeAccentColor(value) ?? value.toUpperCase(),
-                  }))}
-                  placeholder={practiceText.brandColorPlaceholder}
-                  maxLength={7}
+                <input
+                  id="accent-color-hex"
+                  className="input flex-1"
+                  value={contactValues.accentColor || currentAccentColor}
+                  placeholder="#D4AF37"
                   disabled={isSaving}
-                  className="w-32"
+                  onInput={(e) => setDraft((p) => ({ ...p, accentColor: (e.target as HTMLInputElement).value }))}
                 />
               </div>
             </div>
           </div>
+
+          <div className="form-field mt-[22px]">
+            <label className="label" htmlFor="address-line-1">Address line 1</label>
+            <input id="address-line-1" className="input" value={addrField('address')} placeholder="Street address, suite" disabled={isSaving}
+              onInput={(e) => setAddr('address', (e.target as HTMLInputElement).value)} />
+          </div>
+
+          <div className="mt-[22px] grid grid-cols-2 gap-[14px] max-[720px]:grid-cols-1">
+            <div className="form-field">
+              <label className="label" htmlFor="city">City</label>
+              <input id="city" className="input" value={addrField('city')} placeholder="Charlotte" disabled={isSaving}
+                onInput={(e) => setAddr('city', (e.target as HTMLInputElement).value)} />
+            </div>
+            <div className="form-field">
+              <label className="label" htmlFor="state">State</label>
+              <input id="state" className="input" value={addrField('state')} placeholder="NC" disabled={isSaving}
+                onInput={(e) => setAddr('state', (e.target as HTMLInputElement).value)} />
+            </div>
+            <div className="form-field">
+              <label className="label" htmlFor="postal-code">Postal code</label>
+              <input id="postal-code" className="input" value={addrField('postalCode')} placeholder="28202" disabled={isSaving}
+                onInput={(e) => setAddr('postalCode', (e.target as HTMLInputElement).value)} />
+            </div>
+            <div className="form-field">
+              <label className="label" htmlFor="country">Country</label>
+              <select id="country" className="select" value={addrField('country') || 'US'} disabled={isSaving}
+                onChange={(e) => setAddr('country', (e.target as HTMLSelectElement).value)}>
+                <option value="US">US</option>
+                <option value="CA">CA</option>
+                <option value="GB">GB</option>
+              </select>
+            </div>
+            <div className="form-field">
+              <label className="label" htmlFor="bar-number">Bar number</label>
+              <input id="bar-number" className="input" value={meta.barNumber} placeholder="NC 38421" disabled={isSaving}
+                onInput={(e) => setMeta((p) => ({ ...p, barNumber: (e.target as HTMLInputElement).value }))} />
+            </div>
+            <div className="form-field">
+              <label className="label" htmlFor="admitted-year">Admitted</label>
+              <input id="admitted-year" className="input" value={meta.admittedYear} placeholder="2016" disabled={isSaving}
+                onInput={(e) => setMeta((p) => ({ ...p, admittedYear: (e.target as HTMLInputElement).value }))} />
+            </div>
+          </div>
         </SettingSection>
 
-        <SectionDivider />
-
+        {/* Jurisdictions */}
         <SettingSection
-          title={practiceText.contactTitle}
-          description={practiceText.contactDescription}
+          title="Jurisdictions"
+          description="Where you're licensed. The assistant will decline matters outside these jurisdictions."
         >
-          <FormGrid>
-            <Input
-              label={practiceText.websiteLabel}
-              value={contactValues.website || ''}
-              onChange={(value) => setDraft((prev) => ({ ...prev, website: value }))}
-              disabled={isSaving}
-              placeholder={practiceText.websitePlaceholder}
-            />
-            <EmailInput
-              label={practiceText.businessEmailLabel}
-              value={contactValues.businessEmail || ''}
-              onChange={(value) => setDraft((prev) => ({ ...prev, businessEmail: value }))}
-              disabled={isSaving}
-              placeholder={practiceText.businessEmailPlaceholder}
-            />
-            <Input
-              label={practiceText.contactPhoneLabel}
-              value={contactValues.contactPhone || ''}
-              onChange={(value) => setDraft((prev) => ({ ...prev, contactPhone: value }))}
-              disabled={isSaving}
-              type="tel"
-              placeholder={practiceText.contactPhonePlaceholder}
-            />
-          </FormGrid>
+          <div className="mt-[14px] flex flex-wrap gap-2">
+            {meta.jurisdictions.map((j) => (
+              <button key={j} type="button" disabled={isSaving} onClick={() => toggleJurisdiction(j)} className={chipClass(true, isSaving)}>
+                {j}
+              </button>
+            ))}
+            {['Alabama', 'Alaska', 'Arizona', 'Arkansas', 'California', 'Colorado', 'Connecticut', 'Delaware', 'Florida', 'Georgia', 'Hawaii', 'Idaho', 'Illinois', 'Indiana', 'Iowa', 'Kansas', 'Kentucky', 'Louisiana', 'Maine', 'Maryland', 'Massachusetts', 'Michigan', 'Minnesota', 'Mississippi', 'Missouri', 'Montana', 'Nebraska', 'Nevada', 'New Hampshire', 'New Jersey', 'New Mexico', 'New York', 'North Carolina', 'North Dakota', 'Ohio', 'Oklahoma', 'Oregon', 'Pennsylvania', 'Rhode Island', 'South Carolina', 'South Dakota', 'Tennessee', 'Texas', 'Utah', 'Vermont', 'Virginia', 'Washington', 'West Virginia', 'Wisconsin', 'Wyoming']
+              .filter((s) => !meta.jurisdictions.includes(s))
+              .map((s) => (
+                <button key={s} type="button" disabled={isSaving} onClick={() => toggleJurisdiction(s)} className={chipClass(false, isSaving)}>
+                  {s}
+                </button>
+              ))}
+            <button type="button" disabled className={chipClass(false, true, true)}>+ Add jurisdiction</button>
+          </div>
         </SettingSection>
 
-        <SectionDivider />
-
+        {/* Practice areas */}
         <SettingSection
-          title={practiceText.addressTitle}
-          description={practiceText.addressDescription}
+          title="Practice areas"
+          description="The assistant uses these to qualify intakes and route consultations. Toggle areas on or off as your practice evolves."
         >
-          <AddressExperienceForm
-            initialValues={{ address: contactValues.address }}
-            fields={['address']}
-            required={[]}
-            onValuesChange={(values) => {
-              if (values.address !== undefined) {
-                setDraft((prev) => ({
-                  ...prev,
-                  address: values.address as Partial<Address> | undefined,
-                }));
-              }
-            }}
-            showSubmitButton={false}
-            variant="plain"
-            disabled={isSaving}
-          />
-          <SettingsHelperText className="mt-3">
-            {practiceText.addressHelper}
-          </SettingsHelperText>
+          <div className="mt-[14px] flex flex-wrap gap-2">
+            {PRACTICE_AREAS.map((area) => {
+              const on = meta.practiceAreas.includes(area);
+              return (
+                <button key={area} type="button" disabled={isSaving} onClick={() => togglePracticeArea(area)}
+                  className={chipClass(on, isSaving)}>
+                  {area}
+                </button>
+              );
+            })}
+            <button type="button" className={chipClass(false, true, true)} disabled>+ Custom area</button>
+          </div>
+        </SettingSection>
+
+        {/* Bio & credentials */}
+        <SettingSection
+          title="Bio & credentials"
+          description="Used in engagement letters, the client portal, and intake widget."
+        >
+          <div className="form-field mb-[18px]">
+            <label className="label" htmlFor="professional-bio">Professional bio</label>
+            <textarea id="professional-bio" className="textarea" rows={4} value={meta.bio} disabled={isSaving}
+              placeholder="Brief bio visible to clients…"
+              onInput={(e) => setMeta((p) => ({ ...p, bio: (e.target as HTMLTextAreaElement).value }))} />
+          </div>
+          <div className="form-field">
+            <label className="label" htmlFor="specializations">Specializations / certifications</label>
+            <input id="specializations" className="input" value={meta.specializations} disabled={isSaving}
+              placeholder="NC Board Certified Specialist — Family Law"
+              onInput={(e) => setMeta((p) => ({ ...p, specializations: (e.target as HTMLInputElement).value }))} />
+          </div>
         </SettingSection>
 
       </div>
-    </EditorShell>
+
+      {/* Save / discard — bottom of content, matching design's Profile.html */}
+      <div className="mt-2 flex items-center gap-2.5">
+        <Button
+          type="button"
+          onClick={handleSave}
+          disabled={!hasChanges || isSaving || logoUploading}
+        >
+          {isSaving ? practiceText.saving : practiceText.save}
+        </Button>
+        <Button
+          type="button"
+          variant="ghost"
+          onClick={handleReset}
+          disabled={!hasChanges || isSaving || logoUploading}
+        >
+          {practiceText.reset}
+        </Button>
+      </div>
+    </div>
   );
 };
 

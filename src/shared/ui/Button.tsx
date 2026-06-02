@@ -111,6 +111,21 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
     return `btn-${resolvedSize}`;
   };
 
+  // Icon sizes are deliberately kept <= the button's font-size so text height
+  // always determines button height. btn-xs=12px, btn-sm=12.5px, btn-md=14px, btn-lg=15px.
+  const defaultIconClass: Record<ButtonSize, string> = {
+    xs: 'h-2.5 w-2.5',    // 10px  — text(12px) wins
+    sm: 'h-3 w-3',         // 12px  — text(12.5px) wins
+    md: 'h-3.5 w-3.5',    // 14px  — ties with text(14px), same height
+    lg: 'h-3.5 w-3.5',    // 14px  — text(15px) wins
+    icon: 'h-4 w-4',
+    'icon-xs': 'h-3 w-3',
+    'icon-sm': 'h-3.5 w-3.5',
+    'icon-md': 'h-4 w-4',
+    'icon-lg': 'h-5 w-5',
+  };
+  const resolvedIconClassName = iconClassName || defaultIconClass[size];
+
   const hasVariantOverride = /\bbtn-(primary|secondary|ghost|icon|accent|danger|warning|danger-ghost|accent-ghost|outline|link|menu-item|tab)\b/.test(className);
   const hasSizeOverride = /\bbtn-(xs|sm|md|lg|icon-xs|icon-sm|icon-md|icon-lg)\b/.test(className);
 
@@ -137,36 +152,17 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
     }
 
     if (isIconComponent(icon)) {
-      return <Icon icon={icon} className={iconClassName} />;
+      return <Icon icon={icon} className={resolvedIconClassName} />;
     }
 
     return makeIconDecorative(icon);
   };
 
   const renderContent = () => {
-    if (isIconOnly) {
-      return renderIcon();
-    }
-
-    if (!icon) {
-      return children;
-    }
-
-    if (iconPosition === 'right') {
-      return (
-        <>
-          {children}
-          <span className={variant === 'menu-item' ? '' : 'ml-2'}>{renderIcon()}</span>
-        </>
-      );
-    }
-
-    return (
-      <>
-        <span className={variant === 'menu-item' ? '' : 'mr-2'}>{renderIcon()}</span>
-        {children}
-      </>
-    );
+    if (isIconOnly) return renderIcon();
+    if (!icon) return children;
+    if (iconPosition === 'right') return <>{children}{renderIcon()}</>;
+    return <>{renderIcon()}{children}</>;
   };
   
   return (

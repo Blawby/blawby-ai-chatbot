@@ -24,6 +24,7 @@ export interface UseWorkspaceAutoNavigationOptions {
   navigate: (path: string) => void;
   withWidgetQuery: (path: string) => string;
   handleSelectConversation: (conversationId: string) => void;
+  onCreateAssistantConversation: (() => void) | null;
   setActiveConversationMissingNotification: (msg: string | null) => void;
   activeConversationMissingNotification: string | null;
   showError: (title: string, message?: string) => void;
@@ -50,6 +51,7 @@ export function useWorkspaceAutoNavigation(
     navigate,
     withWidgetQuery,
     handleSelectConversation,
+    onCreateAssistantConversation,
     setActiveConversationMissingNotification,
     activeConversationMissingNotification,
     showError,
@@ -145,6 +147,49 @@ export function useWorkspaceAutoNavigation(
     handleSelectConversation,
     hasAutoNavigatedRef,
     navigationInitiatedRef,
+  ]);
+
+  // Assistant workspace root should always resolve to a concrete thread.
+  useEffect(() => {
+    if (!isPracticeWorkspace || workspaceSection !== 'assistant' || view !== 'assistant') return;
+    if (resolvedConversationsLoading) return;
+    if (navigationInitiatedRef.current) return;
+
+    const assistantConversations = filteredConversations
+      .slice()
+      .sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime());
+
+    if (activeConversationId) {
+      const hasActiveAssistantConversation = assistantConversations.some((conversation) => conversation.id === activeConversationId);
+      if (hasActiveAssistantConversation) {
+        isInitialConversationCheckRef.current = false;
+        return;
+      }
+    }
+
+    const mostRecentAssistantConversationId = assistantConversations[0]?.id;
+    navigationInitiatedRef.current = true;
+    hasAutoNavigatedRef.current = true;
+    isInitialConversationCheckRef.current = false;
+
+    if (mostRecentAssistantConversationId) {
+      handleSelectConversation(mostRecentAssistantConversationId);
+      return;
+    }
+
+    onCreateAssistantConversation?.();
+  }, [
+    activeConversationId,
+    filteredConversations,
+    handleSelectConversation,
+    hasAutoNavigatedRef,
+    isInitialConversationCheckRef,
+    isPracticeWorkspace,
+    navigationInitiatedRef,
+    onCreateAssistantConversation,
+    resolvedConversationsLoading,
+    view,
+    workspaceSection,
   ]);
 
   // Surface filter/loading state notifications via toast.
