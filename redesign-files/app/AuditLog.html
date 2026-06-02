@@ -1,0 +1,152 @@
+<!doctype html>
+<html lang="en" data-theme="">
+<head>
+<meta charset="utf-8" />
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,opsz,wght@0,8..60,300..900;1,8..60,300..900&family=Geist:wght@300;400;500;600;700&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="tokens.css">
+<title>Blawby — Audit Log</title>
+
+<style>
+  body{ background-image: radial-gradient(rgba(15,30,54,0.025) 1px, transparent 1.2px); background-size: 3px 3px; background-attachment: fixed; }
+  .shell{ display:grid; grid-template-columns: 280px 1fr; min-height: 100vh; max-width: 1440px; margin: 0 auto; }
+  .side{ border-right: 1px solid var(--rule); padding: 22px 16px; display:flex; flex-direction:column; gap: 14px; position: sticky; top: 0; height: 100vh; overflow-y: auto; background: color-mix(in oklab, var(--paper) 96%, var(--card)); }
+  .back{ display:inline-flex; align-items:center; gap: 6px; font-family: var(--mono); font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--dim); cursor: pointer; padding: 4px 8px; margin-left: -8px; text-decoration:none; }
+  .back:hover{ color: var(--ink); }
+  .side h2{ font-family: var(--serif); font-weight:400; font-size: 28px; margin: 4px 0 0; letter-spacing:-.012em; }
+  .side .org{ font-family:var(--mono); font-size:11px; color: var(--dim); letter-spacing: .04em; }
+  .nav-section{ display:flex; flex-direction:column; gap: 1px; margin-top: 6px; }
+  .nav-section .lbl{ font-family: var(--mono); font-size: 9.5px; letter-spacing: .12em; text-transform: uppercase; color: var(--dim-2); padding: 14px 10px 6px; }
+  .nav-item{ display:flex; align-items:center; gap: 10px; padding: 8px 10px; border-radius: var(--r-xs); font-size: 13.5px; color: var(--ink-2); cursor: pointer; transition: background .14s, color .14s; text-decoration: none; }
+  .nav-item:hover{ background: var(--rule-soft); color: var(--ink); }
+  .nav-item.on{ background: var(--ink); color: var(--accent); }
+  .nav-item .ic{ width:14px; height:14px; opacity:.7; flex-shrink:0; }
+  .nav-item.on .ic{ opacity: 1; }
+  .nav-item .badge{ margin-left: auto; font-family: var(--mono); font-size: 10px; color: var(--dim); }
+  .nav-item.on .badge{ color: var(--accent); }
+  .main{ padding: 36px 56px 80px; max-width: 920px; }
+  .crumb{ font-family: var(--mono); font-size: 10px; letter-spacing: .14em; text-transform: uppercase; color: var(--dim); margin-bottom: 6px; }
+  .main h1{ font-family: var(--serif); font-weight: 400; font-size: 48px; letter-spacing:-.02em; line-height: 1.05; margin: 0; }
+  .main h1 em{ color: var(--accent); }
+  .main > .lede{ margin: 12px 0 36px; }
+  section.group{ padding: 32px 0; border-top: 1px solid var(--rule); }
+  section.group:first-of-type{ border-top: none; padding-top: 0; }
+  section.group h3{ font-family: var(--serif); font-weight: 400; font-size: 24px; margin: 0 0 4px; letter-spacing:-.01em; }
+  section.group .gdesc{ font-size: 13.5px; color: var(--dim); margin: 0 0 24px; max-width: 60ch; }
+  .setting{ display:grid; grid-template-columns: 1fr auto; gap: 28px; align-items: center; padding: 18px 0; border-bottom: 1px solid var(--rule); }
+  .setting:last-child{ border-bottom: none; }
+  .setting .meta{ display:flex; flex-direction:column; gap:4px; }
+  .setting .meta .h{ font-size: 14px; font-weight: 500; color: var(--ink); }
+  .setting .meta .d{ font-size: 13px; color: var(--dim); max-width: 64ch; line-height: 1.5; }
+  .setting .meta .d code{ font-family: var(--mono); font-size: 11.5px; background: var(--rule-soft); padding: 1px 6px; border-radius: 3px; color: var(--ink-2); }
+  .setting .ctrl{ display:flex; align-items:center; gap: 8px; min-width: 200px; justify-content: flex-end; }
+  .setting .ctrl .input, .setting .ctrl .select{ width: 220px; }
+  .danger{ margin-top: 32px; padding: 22px; border: 1px solid color-mix(in oklab, var(--neg) 30%, var(--rule)); border-radius: var(--r-md); background: color-mix(in oklab, var(--neg) 6%, var(--card)); }
+  .danger h3{ color: var(--neg); }
+  .danger .gdesc{ color: var(--ink-2); }
+  @media (max-width: 980px){ .shell{ grid-template-columns: 1fr; } .side{ display:none; } .main{ padding: 24px 22px; } }
+</style>
+<style>
+  .audit-controls{ display: flex; align-items: center; gap: 10px; margin-bottom: 22px; flex-wrap: wrap; }
+  .audit-controls .input{ width: 260px; }
+  .audit-controls .select{ width: 160px; }
+  .log-table{ width: 100%; border-collapse: collapse; }
+  .log-table thead th{
+    font-family: var(--mono); font-size: 10px; letter-spacing: .1em; text-transform: uppercase;
+    color: var(--dim); padding: 0 12px 12px 0; text-align: left; font-weight: 400;
+  }
+  .log-table tbody td{ padding: 12px 12px 12px 0; border-bottom: 1px solid var(--rule); font-size: 13.5px; vertical-align: top; }
+  .log-table tbody tr:last-child td{ border-bottom: none; }
+  .log-table .ts{ font-family: var(--mono); font-size: 11.5px; color: var(--dim); white-space: nowrap; }
+  .log-table .actor{ display: flex; align-items: center; gap: 8px; white-space: nowrap; }
+  .log-table .actor .av-sm{ width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; font-size: 9px; font-weight: 600; flex-shrink: 0; }
+  .log-table .action{ color: var(--ink); }
+  .log-table .action code{ font-family: var(--mono); font-size: 11px; background: var(--rule-soft); padding: 1px 5px; border-radius: 3px; color: var(--ink-2); }
+  .log-table .target{ font-family: var(--mono); font-size: 11.5px; color: var(--dim); }
+  .act-badge{ font-family: var(--mono); font-size: 9.5px; letter-spacing: .04em; text-transform: uppercase; padding: 2px 6px; border-radius: var(--r-pill); display: inline-block; }
+  .act-badge.create{ background: color-mix(in oklab, var(--pos) 12%, var(--card)); color: var(--pos); border: 1px solid color-mix(in oklab, var(--pos) 25%, var(--rule)); }
+  .act-badge.update{ background: color-mix(in oklab, var(--accent) 12%, var(--card)); color: var(--accent-deep); border: 1px solid color-mix(in oklab, var(--accent) 25%, var(--rule)); }
+  .act-badge.delete{ background: color-mix(in oklab, var(--neg) 12%, var(--card)); color: var(--neg); border: 1px solid color-mix(in oklab, var(--neg) 25%, var(--rule)); }
+  .act-badge.auth{ background: var(--rule-soft); color: var(--dim); border: 1px solid var(--rule); }
+  .act-badge.ai{ background: color-mix(in oklab, #635BFF 10%, var(--card)); color: #635BFF; border: 1px solid color-mix(in oklab, #635BFF 20%, var(--rule)); }
+  .pagination{ display: flex; align-items: center; gap: 8px; margin-top: 22px; justify-content: space-between; }
+  .pagination .pg-info{ font-family: var(--mono); font-size: 11px; color: var(--dim); }
+  .pagination .pg-btns{ display: flex; gap: 4px; }
+  .pagination .pg-btn{ padding: 6px 12px; font-size: 12px; border: 1px solid var(--rule); border-radius: var(--r-xs); background: var(--card); cursor: pointer; color: var(--ink-2); }
+  .pagination .pg-btn:hover{ border-color: var(--ink); }
+  .pagination .pg-btn.on{ background: var(--ink); color: var(--accent); border-color: var(--ink); }
+</style>
+</head>
+<body>
+<div class="shell">
+    <aside class="side">
+    <a href="Assistant.html" class="back">← back to assistant</a>
+    <div><h2>Settings</h2><div class="org">Law Offices of Sarah Chen · solo</div></div>
+    <div class="nav-section"><div class="lbl">Practice</div>
+      <a href="Profile.html" class="nav-item"><span class="ic">⌂</span>Profile &amp; areas</a>
+      <a href="Team.html" class="nav-item"><span class="ic">＋</span>Team <span class="badge">1</span></a>
+      <a href="Services.html" class="nav-item"><span class="ic">⏳</span>Services &amp; pricing <span class="badge">5</span></a></div>
+    <div class="nav-section"><div class="lbl">Money</div>
+      <a href="Subscription.html" class="nav-item"><span class="ic">$</span>Subscription</a>
+      <a href="StripeConnect.html" class="nav-item"><span class="ic">⇄</span>Stripe Connect</a>
+      <a href="Trust.html" class="nav-item"><span class="ic">▤</span>Trust accounting <span class="badge">IOLTA</span></a></div>
+    <div class="nav-section"><div class="lbl">Intelligence</div>
+      <a href="Settings.html" class="nav-item"><span class="ic">✦</span>AI behavior</a>
+      <a href="IntakeForms.html" class="nav-item"><span class="ic">📥</span>Intake forms <span class="badge">3</span></a>
+      <a href="EngagementTemplates.html" class="nav-item"><span class="ic">⌥</span>Engagement templates</a>
+      <a href="Apps.html" class="nav-item"><span class="ic">⬡</span>Apps &amp; integrations <span class="badge">1</span></a>
+      <a href="MCP.html" class="nav-item"><span class="ic">▦</span>MCP &amp; API <span class="badge">beta</span></a></div>
+    <div class="nav-section"><div class="lbl">Account</div>
+      <a href="Security.html" class="nav-item"><span class="ic">⚿</span>Security</a>
+      <a href="Sessions.html" class="nav-item"><span class="ic">◉</span>Sessions</a>
+      <a href="Appearance.html" class="nav-item"><span class="ic">◐</span>Appearance</a>
+      <a href="Notifications.html" class="nav-item"><span class="ic">⌘</span>Notifications</a>
+      <a href="AuditLog.html" class="nav-item on"><span class="ic">⎯</span>Audit log</a>
+      <a href="ExportData.html" class="nav-item"><span class="ic">↧</span>Export data</a></div>
+  </aside>
+  <main class="main">
+    <div class="crumb">Settings · Account</div>
+    <h1>Audit <em>log.</em></h1>
+    <p class="lede">Every action in your workspace is recorded. Use this for compliance reviews, bar audits, and troubleshooting.</p>
+
+    <section class="group" style="border:none;padding-top:0">
+      <div class="audit-controls">
+        <input class="input" placeholder="Search events…" />
+        <select class="select"><option>All types</option><option>Creates</option><option>Updates</option><option>Deletes</option><option>Auth events</option><option>AI actions</option></select>
+        <select class="select"><option>All actors</option><option>Sarah Chen</option><option>Assistant</option><option>System</option></select>
+        <select class="select" style="width:140px"><option>Last 7 days</option><option>Last 30 days</option><option>Last 90 days</option><option>All time</option></select>
+        <button class="btn btn-ghost btn-sm" style="margin-left:auto">Export CSV</button>
+      </div>
+
+      <table class="log-table">
+        <thead><tr><th>Timestamp</th><th>Actor</th><th>Type</th><th>Action</th><th>Target</th></tr></thead>
+        <tbody>
+          <tr><td class="ts">Jun 1, 10:42 AM</td><td><div class="actor"><div class="av-sm" style="background:var(--ink);color:var(--accent);font-family:var(--serif);font-style:italic">B</div>Assistant</div></td><td><span class="act-badge ai">ai</span></td><td class="action">Drafted invoice for <code>Chen v. Williams</code> — awaiting approval</td><td class="target">invoice_0047</td></tr>
+          <tr><td class="ts">Jun 1, 10:38 AM</td><td><div class="actor"><div class="av-sm" style="background:linear-gradient(135deg,var(--ink-2),var(--ink));color:var(--paper)">SC</div>Sarah Chen</div></td><td><span class="act-badge update">update</span></td><td class="action">Approved staged invoice for <code>matter_0012</code></td><td class="target">invoice_0047</td></tr>
+          <tr><td class="ts">Jun 1, 10:22 AM</td><td><div class="actor"><div class="av-sm" style="background:var(--ink);color:var(--accent);font-family:var(--serif);font-style:italic">B</div>Assistant</div></td><td><span class="act-badge ai">ai</span></td><td class="action">Sent morning briefing email</td><td class="target">sarah@sarahchenlaw.com</td></tr>
+          <tr><td class="ts">Jun 1, 09:14 AM</td><td><div class="actor"><div class="av-sm" style="background:#635BFF;color:#fff;font-style:normal;font-family:var(--sans)">S</div>Stripe</div></td><td><span class="act-badge create">create</span></td><td class="action">Payment received $2,500.00 from <code>Janet Williams</code></td><td class="target">pay_3Q8xN2</td></tr>
+          <tr><td class="ts">Jun 1, 08:50 AM</td><td><div class="actor"><div class="av-sm" style="background:linear-gradient(135deg,var(--ink-2),var(--ink));color:var(--paper)">SC</div>Sarah Chen</div></td><td><span class="act-badge auth">auth</span></td><td class="action">Signed in from 74.125.xx.xx (Charlotte, NC)</td><td class="target">session_a8f2</td></tr>
+          <tr><td class="ts">May 31, 4:55 PM</td><td><div class="actor"><div class="av-sm" style="background:var(--ink);color:var(--accent);font-family:var(--serif);font-style:italic">B</div>Assistant</div></td><td><span class="act-badge ai">ai</span></td><td class="action">Created calendar event "Thompson custody hearing" for Jul 14</td><td class="target">event_0089</td></tr>
+          <tr><td class="ts">May 31, 3:20 PM</td><td><div class="actor"><div class="av-sm" style="background:linear-gradient(135deg,var(--ink-2),var(--ink));color:var(--paper)">SC</div>Sarah Chen</div></td><td><span class="act-badge create">create</span></td><td class="action">Created new matter <code>Thompson v. Thompson</code></td><td class="target">matter_0015</td></tr>
+          <tr><td class="ts">May 31, 2:44 PM</td><td><div class="actor"><div class="av-sm" style="background:var(--rule-soft);color:var(--dim);font-style:normal;font-family:var(--sans)">SY</div>System</div></td><td><span class="act-badge update">update</span></td><td class="action">Intake form submitted by new lead (family law, DV flagged)</td><td class="target">intake_0041</td></tr>
+          <tr><td class="ts">May 31, 11:30 AM</td><td><div class="actor"><div class="av-sm" style="background:linear-gradient(135deg,var(--ink-2),var(--ink));color:var(--paper)">SC</div>Sarah Chen</div></td><td><span class="act-badge update">update</span></td><td class="action">Updated retainer threshold to 30% for <code>Services &amp; pricing</code></td><td class="target">settings</td></tr>
+          <tr><td class="ts">May 31, 10:15 AM</td><td><div class="actor"><div class="av-sm" style="background:linear-gradient(135deg,var(--ink-2),var(--ink));color:var(--paper)">SC</div>Sarah Chen</div></td><td><span class="act-badge delete">delete</span></td><td class="action">Removed draft engagement letter for <code>intake_0038</code></td><td class="target">doc_0072</td></tr>
+        </tbody>
+      </table>
+
+      <div class="pagination">
+        <div class="pg-info">Showing 1–10 of 847 events</div>
+        <div class="pg-btns">
+          <button class="pg-btn on">1</button>
+          <button class="pg-btn">2</button>
+          <button class="pg-btn">3</button>
+          <button class="pg-btn">…</button>
+          <button class="pg-btn">85</button>
+          <button class="pg-btn">→</button>
+        </div>
+      </div>
+    </section>
+  </main>
+</div>
+</body></html>

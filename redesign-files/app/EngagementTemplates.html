@@ -1,0 +1,546 @@
+<!doctype html>
+<html lang="en" data-theme="">
+<head>
+<meta charset="utf-8" />
+<title>Blawby — Engagement templates</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,opsz,wght@0,8..60,300..900;1,8..60,300..900&family=Geist:wght@300;400;500;600;700&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="tokens.css">
+<style>
+  body{ background-image: radial-gradient(rgba(15,30,54,0.025) 1px, transparent 1.2px); background-size: 3px 3px; background-attachment: fixed; }
+
+  /* shell mirrors Settings.html */
+  .shell{ display:grid; grid-template-columns: 260px 1fr; min-height: 100vh; max-width: 1640px; margin: 0 auto; }
+  .side{ border-right:1px solid var(--rule); padding:22px 18px 16px; display:flex;flex-direction:column;gap:22px; position:sticky;top:0;height:100vh; background: color-mix(in oklab, var(--paper) 96%, var(--card)); overflow-y:auto; }
+  .side::-webkit-scrollbar{ width:0; }
+  .side .back{ font-family: var(--mono); font-size:10.5px; letter-spacing:.1em; text-transform:uppercase; color:var(--dim); text-decoration:none; }
+  .side .back:hover{ color: var(--ink); }
+  .side h2{ font-family: var(--serif); font-weight:400; font-size:30px; line-height:1; letter-spacing:-.012em; margin:0 0 4px; }
+  .side .org{ font-family: var(--mono); font-size:10.5px; letter-spacing:.06em; text-transform:uppercase; color:var(--dim); }
+  .nav-section{ display:flex; flex-direction:column; gap:1px; }
+  .nav-section .lbl{ font-family: var(--mono); font-size:9.5px; letter-spacing:.12em; text-transform:uppercase; color:var(--dim-2); padding:4px 8px; }
+  .nav-item{ display:flex; align-items:center; gap:10px; padding:7px 10px; border-radius:var(--r-xs); font-size:13px; color:var(--ink-2); cursor:pointer; transition: all .12s; text-decoration:none; }
+  .nav-item:hover{ background: var(--rule-soft); color: var(--ink); }
+  .nav-item .ic{ font-size:13px; color:var(--dim); width:14px; text-align:center; }
+  .nav-item.on{ background: var(--accent-soft); color: var(--ink); }
+  .nav-item.on .ic{ color: var(--accent-deep); }
+  .nav-item .badge{ margin-left:auto; font-family: var(--mono); font-size:10px; color:var(--dim); }
+
+  /* main — narrower for breathing room */
+  .main{
+    padding: 40px 72px 100px;
+    min-width: 0;
+    max-width: 980px;
+    margin: 0 auto;
+    width: 100%;
+  }
+  .crumb{ font-family: var(--mono); font-size:10.5px; letter-spacing:.14em; text-transform:uppercase; color:var(--dim); }
+  .crumb a{ color:var(--ink-2); border-bottom:1px dotted var(--dim-2); }
+
+  .page-head{ display:flex; flex-wrap: wrap; justify-content:space-between; align-items:flex-end; padding-bottom:18px; border-bottom:1px solid var(--rule); margin:12px 0 28px; gap: 18px 24px; }
+  .page-head .left{ flex: 1 1 320px; min-width: 0; }
+  .page-head .left h1{ font-family: var(--serif); font-weight:400; font-size:46px; line-height:1; letter-spacing:-.02em; margin:0 0 8px; }
+  .page-head .left h1 em{ color: var(--accent); }
+  .page-head .left .desc{ font-size:14px; line-height: 1.55; color:var(--ink-2); max-width:58ch; }
+  .page-head .left .desc b{ color: var(--ink); font-weight: 500; }
+  .page-head .right{ display:flex; gap:8px; align-items:center; flex-shrink: 0; }
+
+  /* AI strip — lighter */
+  .ai-author{
+    background: linear-gradient(180deg, color-mix(in oklab, var(--accent) 12%, var(--card)), color-mix(in oklab, var(--accent) 3%, var(--card)));
+    border:1px solid color-mix(in oklab, var(--accent) 30%, var(--rule));
+    border-radius:var(--r-md);
+    padding: 16px 20px;
+    margin-bottom: 28px;
+    display:grid; grid-template-columns: 32px 1fr auto;
+    gap: 14px; align-items: center;
+  }
+  .ai-author .av{ width:30px; height:30px; border-radius:50%; background:var(--ink); color:var(--accent); font-family:var(--serif); font-style:italic; font-size:15px; display:grid; place-items:center; flex-shrink:0; }
+  .ai-author .body{ display:flex; flex-direction:column; gap:3px; min-width: 0; }
+  .ai-author .lab{ font-family: var(--mono); font-size:9.5px; letter-spacing:.12em; text-transform:uppercase; color:var(--accent-deep); }
+  .ai-author .input{ font-size:14px; color:var(--ink); outline:none; line-height:1.45; }
+  .ai-author .input:empty::before{ content: attr(data-ph); color:var(--dim-2); }
+  .ai-author .acts{ display:flex; gap:6px; flex-shrink:0; }
+
+  /* filter row */
+  .filters{ display:flex; gap:6px; padding:0 0 20px; align-items:center; flex-wrap: wrap; }
+  .filter{ font-family: var(--mono); font-size: 10.5px; letter-spacing:.06em; text-transform:uppercase; padding: 5px 10px; border-radius: var(--r-pill); border: 1px solid var(--rule); background: var(--card); color: var(--dim); cursor:pointer; display:inline-flex; align-items:center; gap:6px; }
+  .filter:hover{ border-color: var(--ink-3); color: var(--ink-2); }
+  .filter.on{ background: var(--ink); color: var(--paper); border-color: var(--ink); }
+  .filter .n{ color: var(--accent); }
+
+  /* area heading */
+  .area-head{
+    display:flex; align-items: baseline; justify-content: space-between;
+    margin: 28px 0 14px;
+  }
+  .area-head:first-of-type{ margin-top: 0; }
+  .area-head .name{
+    font-family: var(--serif); font-weight: 400;
+    font-size: 22px; letter-spacing:-.012em; line-height: 1;
+    color: var(--ink);
+    display:inline-flex; align-items: baseline; gap: 12px;
+  }
+  .area-head .name em{ color: var(--accent); }
+  .area-head .name .count{
+    font-family: var(--mono); font-size: 10.5px;
+    letter-spacing:.1em; text-transform: uppercase;
+    color: var(--dim); font-weight: 400;
+  }
+  .area-head .add{
+    font-family: var(--mono); font-size: 11px;
+    letter-spacing:.06em; text-transform: uppercase;
+    color: var(--ink-2);
+    border-bottom: 1px dotted var(--dim-2);
+    cursor: pointer;
+  }
+  .area-head .add:hover{ color: var(--accent-deep); border-bottom-color: var(--accent-deep); }
+
+  /* template list — clean rows, plenty of room */
+  .tpl-list{ display: flex; flex-direction: column; gap: 10px; }
+  .tpl{
+    background: var(--card); border: 1px solid var(--rule);
+    border-radius: var(--r-md);
+    padding: 22px 26px;
+    cursor: pointer;
+    transition: border-color .14s, box-shadow .14s, transform .14s;
+    text-decoration: none; color: inherit;
+    display: grid;
+    grid-template-columns: 1fr 200px;
+    gap: 28px;
+    align-items: start;
+  }
+  .tpl:hover{
+    border-color: var(--paper-edge);
+    box-shadow: var(--shadow-2);
+    transform: translateY(-1px);
+  }
+  .tpl:hover .arrow{ color: var(--accent-deep); transform: translate(2px, -2px); }
+
+  .tpl .left .top{
+    display:flex; align-items: baseline; gap: 10px; flex-wrap: wrap;
+    margin-bottom: 8px;
+  }
+  .tpl .nm{
+    font-family: var(--serif); font-weight: 400;
+    font-size: 24px; letter-spacing:-.012em; line-height: 1.15;
+    color: var(--ink);
+  }
+  .tpl .nm em{ color: var(--accent-deep); }
+  .tpl .tag{
+    font-family: var(--mono); font-size: 9.5px;
+    letter-spacing:.08em; text-transform: uppercase;
+    padding: 3px 9px; border-radius: var(--r-pill);
+    background: var(--paper); border: 1px solid var(--rule);
+    color: var(--dim);
+    display:inline-flex; align-items: center; gap: 5px;
+  }
+  .tpl .tag::before{ content:""; width: 5px; height: 5px; border-radius: 50%; background: var(--dim-2); }
+  .tpl .tag.live::before{ background: var(--pos); }
+  .tpl .tag.live{ color: var(--pos); border-color: color-mix(in oklab, var(--pos) 25%, var(--rule)); }
+  .tpl .tag.draft::before{ background: var(--warn); }
+  .tpl .tag.draft{ color: var(--warn); border-color: color-mix(in oklab, var(--warn) 30%, var(--rule)); }
+  .tpl .tag.staged::before{ background: var(--accent); }
+  .tpl .tag.staged{ color: var(--accent-deep); border-color: color-mix(in oklab, var(--accent) 30%, var(--rule)); background: color-mix(in oklab, var(--accent) 10%, var(--card)); }
+
+  .tpl .gist{
+    font-size: 14px; line-height: 1.55; color: var(--ink-2);
+    margin: 0; max-width: 64ch;
+  }
+  .tpl .gist em{ color: var(--accent-deep); font-style: italic; }
+
+  .tpl .meta{
+    margin-top: 14px;
+    display:flex; align-items: center; gap: 14px;
+    font-family: var(--mono); font-size: 10.5px;
+    letter-spacing:.06em; text-transform: uppercase;
+    color: var(--dim); flex-wrap: wrap;
+  }
+  .tpl .meta b{ color: var(--ink-2); font-weight: 500; }
+  .tpl .meta .sep{ color: var(--dim-2); }
+  .tpl .meta .lastuse{
+    font-family: var(--sans); font-size: 12px;
+    text-transform: none; letter-spacing: 0;
+    color: var(--ink-2);
+    border-left: 1px solid var(--rule);
+    padding-left: 14px;
+  }
+  .tpl .meta .lastuse em{ color: var(--accent-deep); font-style: italic; }
+
+  /* right column — fee + arrow */
+  .tpl .right{
+    display:flex; flex-direction: column; align-items: flex-end;
+    text-align: right;
+    height: 100%;
+    justify-content: space-between;
+    gap: 14px;
+  }
+  .tpl .fee{
+    display:flex; flex-direction: column; gap: 4px;
+    align-items: flex-end;
+  }
+  .tpl .fee .mode{
+    font-family: var(--mono); font-size: 9.5px;
+    letter-spacing:.1em; text-transform: uppercase;
+    color: var(--dim);
+  }
+  .tpl .fee .amt{
+    font-family: var(--serif); font-size: 28px;
+    letter-spacing:-.018em; line-height: 1;
+    color: var(--ink); font-feature-settings: "tnum";
+  }
+  .tpl .fee .amt em{ color: var(--accent-deep); }
+  .tpl .fee .amt .unit{
+    font-family: var(--mono); font-size: 11px;
+    letter-spacing:.06em; color: var(--dim);
+    margin-left: 2px;
+  }
+  .tpl .arrow{
+    font-family: var(--mono); font-size: 11px;
+    letter-spacing:.1em; text-transform: uppercase;
+    color: var(--dim);
+    display:inline-flex; align-items: center; gap: 6px;
+    transition: color .14s, transform .14s;
+  }
+
+  /* one card carries an AI observation inline; quiet rather than loud */
+  .tpl .observe{
+    margin-top: 14px;
+    border-left: 2px solid var(--accent);
+    background: linear-gradient(90deg, var(--accent-soft), transparent 90%);
+    padding: 10px 14px;
+    border-radius: 0 var(--r-sm) var(--r-sm) 0;
+    font-family: var(--serif); font-style: italic;
+    font-size: 13px; line-height: 1.45;
+    color: var(--ink);
+    max-width: 60ch;
+  }
+  .tpl .observe .lab{
+    display:block; font-family: var(--mono); font-style: normal;
+    font-size: 9.5px; letter-spacing:.12em; text-transform: uppercase;
+    color: var(--accent-deep); margin-bottom: 2px;
+  }
+  .tpl .observe em{ color: var(--accent-deep); }
+
+  /* empty area cta */
+  .empty-area{
+    background: var(--paper); border: 1px dashed var(--rule);
+    border-radius: var(--r-md);
+    padding: 22px 26px;
+    display:flex; align-items: center; gap: 16px;
+    color: var(--dim);
+  }
+  .empty-area .body{ flex: 1; }
+  .empty-area .body b{ display:block; font-family: var(--serif); font-size: 17px; color: var(--ink); font-weight: 400; margin-bottom: 4px; }
+  .empty-area .body p{ margin: 0; font-size: 13px; line-height: 1.5; color: var(--ink-2); }
+
+  @media (max-width: 920px){
+    .shell{ grid-template-columns: 1fr; }
+    .side{ display: none; }
+    .main{ padding: 24px 22px 80px; }
+    .page-head h1{ font-size: 32px; }
+    .ai-author{ grid-template-columns: 1fr; }
+    .tpl{ grid-template-columns: 1fr; gap: 16px; }
+    .tpl .right{ align-items: flex-start; text-align: left; flex-direction: row; justify-content: space-between; width: 100%; }
+  }
+</style>
+</head>
+<body>
+
+<div class="shell">
+
+  <!-- ============ SETTINGS NAV ============ -->
+    <aside class="side">
+    <a href="Assistant.html" class="back">← back to assistant</a>
+    <div><h2>Settings</h2><div class="org">Law Offices of Sarah Chen · solo</div></div>
+    <div class="nav-section"><div class="lbl">Practice</div>
+      <a href="Profile.html" class="nav-item"><span class="ic">⌂</span>Profile &amp; areas</a>
+      <a href="Team.html" class="nav-item"><span class="ic">＋</span>Team <span class="badge">1</span></a>
+      <a href="Services.html" class="nav-item"><span class="ic">⏳</span>Services &amp; pricing <span class="badge">5</span></a></div>
+    <div class="nav-section"><div class="lbl">Money</div>
+      <a href="Subscription.html" class="nav-item"><span class="ic">$</span>Subscription</a>
+      <a href="StripeConnect.html" class="nav-item"><span class="ic">⇄</span>Stripe Connect</a>
+      <a href="Trust.html" class="nav-item"><span class="ic">▤</span>Trust accounting <span class="badge">IOLTA</span></a></div>
+    <div class="nav-section"><div class="lbl">Intelligence</div>
+      <a href="Settings.html" class="nav-item"><span class="ic">✦</span>AI behavior</a>
+      <a href="IntakeForms.html" class="nav-item"><span class="ic">📥</span>Intake forms <span class="badge">3</span></a>
+      <a href="EngagementTemplates.html" class="nav-item on"><span class="ic">⌥</span>Engagement templates</a>
+      <a href="Apps.html" class="nav-item"><span class="ic">⬡</span>Apps &amp; integrations <span class="badge">1</span></a>
+      <a href="MCP.html" class="nav-item"><span class="ic">▦</span>MCP &amp; API <span class="badge">beta</span></a></div>
+    <div class="nav-section"><div class="lbl">Account</div>
+      <a href="Security.html" class="nav-item"><span class="ic">⚿</span>Security</a>
+      <a href="Sessions.html" class="nav-item"><span class="ic">◉</span>Sessions</a>
+      <a href="Appearance.html" class="nav-item"><span class="ic">◐</span>Appearance</a>
+      <a href="Notifications.html" class="nav-item"><span class="ic">⌘</span>Notifications</a>
+      <a href="AuditLog.html" class="nav-item"><span class="ic">⎯</span>Audit log</a>
+      <a href="ExportData.html" class="nav-item"><span class="ic">↧</span>Export data</a></div>
+  </aside>
+
+  <!-- ============ MAIN ============ -->
+  <main class="main" data-screen-label="engagement-templates">
+
+    <div class="crumb"><a href="Settings.html">Settings</a> · Intelligence · Engagement templates</div>
+
+    <header class="page-head">
+      <div class="left">
+        <h1>Letters the assistant <em>drafts from.</em></h1>
+        <div class="desc">When an intake is accepted, the assistant picks the right template by practice area and fee structure, fills the <b>17 placeholders</b> from the intake, and shows you a finished letter to review. Open any template to edit it in the builder.</div>
+      </div>
+      <div class="right">
+        <button class="btn btn-ghost">Browse community</button>
+        <button class="btn btn-primary">＋ New template</button>
+      </div>
+    </header>
+
+    <!-- AI strip -->
+    <div class="ai-author">
+      <div class="av">B</div>
+      <div class="body">
+        <div class="lab">Describe a template — I'll draft it</div>
+        <div class="input" contenteditable="true" data-ph="e.g. 'pro-bono custody for DV survivors, sliding scale' · 'PI contingency 33% rising to 40% on filing'">A pro-bono custody template for DV survivors — sliding scale, no court costs collected.</div>
+      </div>
+      <div class="acts">
+        <button class="chip primary">Draft ↗</button>
+      </div>
+    </div>
+
+    <!-- filter row -->
+    <div class="filters">
+      <span class="filter on">All <span class="n">7</span></span>
+      <span class="filter">Family <span class="n">3</span></span>
+      <span class="filter">Estate <span class="n">2</span></span>
+      <span class="filter">Litigation <span class="n">1</span></span>
+      <span class="filter">Corporate <span class="n">1</span></span>
+      <span class="filter">Drafts <span class="n">1</span></span>
+      <span class="filter">Needs review <span class="n">1</span></span>
+    </div>
+
+    <!-- ============ FAMILY ============ -->
+    <div class="area-head">
+      <div class="name">Family <em>law</em> <span class="count">3 templates</span></div>
+      <a class="add">＋ add</a>
+    </div>
+
+    <div class="tpl-list">
+
+      <a href="Engagement.html" class="tpl">
+        <div class="left">
+          <div class="top">
+            <div class="nm">Custody <em>modification</em></div>
+            <span class="tag live">live · v.3</span>
+            <span class="tag staged">1 staged change</span>
+          </div>
+          <p class="gist">For modifying an existing custody order. Scope: review, motion to modify, up to <em>two interim appearances</em>, one final hearing. Paid in two installments — on engagement and at first court exchange.</p>
+          <div class="meta">
+            <span><b>14</b> placeholders</span>
+            <span class="sep">·</span>
+            <span>used <b>11×</b></span>
+            <span class="sep">·</span>
+            <span>92% comprehension</span>
+            <span class="lastuse">Last sent <em>Nov 24</em> · Bianca Martinez</span>
+          </div>
+        </div>
+        <div class="right">
+          <div class="fee">
+            <span class="mode">Fixed fee</span>
+            <span class="amt">$3,000</span>
+          </div>
+          <span class="arrow">Open in builder →</span>
+        </div>
+      </a>
+
+      <a href="Engagement.html" class="tpl">
+        <div class="left">
+          <div class="top">
+            <div class="nm">Original custody action</div>
+            <span class="tag live">live · v.2</span>
+          </div>
+          <p class="gist">For first-time custody filings. Broader scope — pleadings through final order. Hourly with a $5,000 retainer that auto-replenishes at <em>30% remaining</em>.</p>
+          <div class="meta">
+            <span><b>17</b> placeholders</span>
+            <span class="sep">·</span>
+            <span>used <b>6×</b></span>
+            <span class="lastuse">Last sent Oct 8 · Wallace</span>
+          </div>
+        </div>
+        <div class="right">
+          <div class="fee">
+            <span class="mode">Hourly + retainer</span>
+            <span class="amt">$280<span class="unit">/hr</span></span>
+          </div>
+          <span class="arrow">Open in builder →</span>
+        </div>
+      </a>
+
+      <a href="Engagement.html" class="tpl">
+        <div class="left">
+          <div class="top">
+            <div class="nm">Separation agreement</div>
+            <span class="tag live">live · v.4</span>
+          </div>
+          <p class="gist">Drafting + negotiation of a separation agreement; no litigation. Includes one revision round and notarization. Optional QDRO add-on (<em>+$650</em>).</p>
+          <div class="meta">
+            <span><b>12</b> placeholders</span>
+            <span class="sep">·</span>
+            <span>used <b>4×</b></span>
+            <span class="lastuse">Last sent Sep 22 · Alvarez</span>
+          </div>
+        </div>
+        <div class="right">
+          <div class="fee">
+            <span class="mode">Fixed fee</span>
+            <span class="amt">$2,200</span>
+          </div>
+          <span class="arrow">Open in builder →</span>
+        </div>
+      </a>
+
+    </div>
+
+    <!-- ============ ESTATE ============ -->
+    <div class="area-head">
+      <div class="name">Estate <span class="count">2 templates</span></div>
+      <a class="add">＋ add</a>
+    </div>
+
+    <div class="tpl-list">
+
+      <a href="Engagement.html" class="tpl">
+        <div class="left">
+          <div class="top">
+            <div class="nm">Will <em>revision</em></div>
+            <span class="tag live">live · v.1</span>
+          </div>
+          <p class="gist">For amending an existing will. Scope: review, drafting amendments or codicil, execution-ready package. Optional add-ons for healthcare directive (+$200) and POA (+$200).</p>
+          <div class="meta">
+            <span><b>10</b> placeholders</span>
+            <span class="sep">·</span>
+            <span>used <b>3×</b></span>
+            <span class="lastuse">Last sent Nov 17 · Park</span>
+          </div>
+          <div class="observe">
+            <span class="lab">I noticed</span>
+            Your <em>"trust account &amp; refunds"</em> paragraph is missing — required by NC RPC 1.15A and present in 6 of 7 of your other templates.
+          </div>
+        </div>
+        <div class="right">
+          <div class="fee">
+            <span class="mode">Fixed fee</span>
+            <span class="amt">$800</span>
+          </div>
+          <span class="arrow">Open in builder →</span>
+        </div>
+      </a>
+
+      <a href="Engagement.html" class="tpl">
+        <div class="left">
+          <div class="top">
+            <div class="nm">Probate filing</div>
+            <span class="tag live">live · v.2</span>
+          </div>
+          <p class="gist">For unrepresented probate matters. Scope: court filings, creditor notice, asset inventory, final accounting. Hourly with a <em>$3,000</em> retainer.</p>
+          <div class="meta">
+            <span><b>15</b> placeholders</span>
+            <span class="sep">·</span>
+            <span>used <b>2×</b></span>
+            <span class="lastuse">Last sent Sep 4 · Johnson</span>
+          </div>
+        </div>
+        <div class="right">
+          <div class="fee">
+            <span class="mode">Hourly + retainer</span>
+            <span class="amt">$280<span class="unit">/hr</span></span>
+          </div>
+          <span class="arrow">Open in builder →</span>
+        </div>
+      </a>
+
+    </div>
+
+    <!-- ============ LITIGATION ============ -->
+    <div class="area-head">
+      <div class="name">Litigation <span class="count">1 template</span></div>
+      <a class="add">＋ add</a>
+    </div>
+
+    <div class="tpl-list">
+
+      <a href="Engagement.html" class="tpl">
+        <div class="left">
+          <div class="top">
+            <div class="nm">Auto injury · <em>contingency</em></div>
+            <span class="tag live">live · v.5</span>
+          </div>
+          <p class="gist">PI representation in motor-vehicle cases. Contingency at <em>33%</em>, rising to <em>40%</em> if suit is filed. Client pays no fees out of pocket; costs deducted from recovery before split.</p>
+          <div class="meta">
+            <span><b>13</b> placeholders</span>
+            <span class="sep">·</span>
+            <span>used <b>2×</b></span>
+            <span class="lastuse">Last sent Aug 4 · Martinez</span>
+          </div>
+        </div>
+        <div class="right">
+          <div class="fee">
+            <span class="mode">Contingency</span>
+            <span class="amt">33%</span>
+          </div>
+          <span class="arrow">Open in builder →</span>
+        </div>
+      </a>
+
+    </div>
+
+    <!-- ============ CORPORATE ============ -->
+    <div class="area-head">
+      <div class="name">Corporate <span class="count">1 template</span></div>
+      <a class="add">＋ add</a>
+    </div>
+
+    <div class="tpl-list">
+
+      <a href="Engagement.html" class="tpl">
+        <div class="left">
+          <div class="top">
+            <div class="nm">LLC formation + first-year filings</div>
+            <span class="tag draft">draft · v.1</span>
+          </div>
+          <p class="gist">NC LLC formation. Scope: drafting articles, operating agreement, EIN, BOI report, first-year annual report. Two revision rounds.</p>
+          <div class="meta">
+            <span><b>9</b> placeholders</span>
+            <span class="sep">·</span>
+            <span>used <b>1×</b></span>
+            <span class="lastuse">Last sent Jul 12 · BlueRidge Co.</span>
+          </div>
+        </div>
+        <div class="right">
+          <div class="fee">
+            <span class="mode">Fixed fee</span>
+            <span class="amt">$1,400</span>
+          </div>
+          <span class="arrow">Open in builder →</span>
+        </div>
+      </a>
+
+    </div>
+
+    <!-- ============ EMPTY AREA ============ -->
+    <div class="area-head">
+      <div class="name">Pro bono <span class="count">none yet</span></div>
+      <a class="add">＋ add</a>
+    </div>
+
+    <div class="empty-area">
+      <div class="body">
+        <b>No pro-bono template yet</b>
+        <p>You handle a few DV-survivor matters a year on sliding scale. Want me to draft one based on how you've structured those agreements before?</p>
+      </div>
+      <button class="btn btn-primary btn-sm">Draft from prior matters ↗</button>
+    </div>
+
+  </main>
+
+</div>
+
+</body>
+</html>

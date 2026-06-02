@@ -1,0 +1,578 @@
+<!doctype html>
+<html lang="en" data-theme="">
+<head>
+<meta charset="utf-8" />
+<title>Engagement letter · Law Offices of Sarah Chen</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,opsz,wght@0,8..60,300..900;1,8..60,300..900&family=Geist:wght@300;400;500;600;700&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="tokens.css">
+<style>
+  body{
+    background-image:
+      radial-gradient(ellipse 900px 600px at 80% -10%, color-mix(in oklab, var(--accent) 14%, transparent), transparent 60%),
+      radial-gradient(rgba(15,30,54,0.025) 1px, transparent 1.2px);
+    background-size: auto, 3px 3px;
+    background-attachment: fixed;
+    min-height: 100vh;
+  }
+
+  /* ===== framing chrome ===== */
+  .top{
+    max-width: 900px; margin: 0 auto;
+    padding: 22px 32px 14px;
+    display:flex; align-items:center; justify-content:space-between; gap: 16px;
+    font-family: var(--mono); font-size: 10.5px;
+    letter-spacing:.1em; text-transform:uppercase;
+    color: var(--dim);
+  }
+  .top .brand{
+    display:inline-flex; align-items:baseline; gap: 8px;
+    text-decoration: none; color: var(--ink);
+  }
+  .top .brand .g{
+    font-family: var(--serif); font-style: italic;
+    font-size: 22px; color: var(--accent); line-height: 1;
+    transform: translateY(2px);
+  }
+  .top .brand .w{ font-family: var(--sans); font-size: 16px; font-weight: 500; letter-spacing: -.005em; text-transform: none; }
+  .top .crumb{ display:flex; align-items:center; gap: 12px; }
+  .top .crumb b{ color: var(--ink); font-weight: 500; }
+  .top .crumb .pill{ font-family: var(--mono); }
+
+  /* ===== greeting band ===== */
+  .greet{
+    max-width: 900px; margin: 6px auto 20px;
+    padding: 22px 32px;
+    display:flex; gap: 18px; align-items: flex-start;
+    border-bottom: 1px solid var(--rule);
+  }
+  .greet .av{
+    width: 44px; height: 44px; border-radius: 50%;
+    background: var(--ink); color: var(--accent);
+    font-family: var(--serif); font-style: italic;
+    font-size: 22px; display: grid; place-items: center;
+    flex-shrink: 0;
+  }
+  .greet .body{ flex: 1; }
+  .greet .body .lab{
+    font-family: var(--mono); font-size: 10.5px;
+    letter-spacing:.12em; text-transform:uppercase;
+    color: var(--dim); margin-bottom: 6px;
+  }
+  .greet .body h1{
+    font-family: var(--serif); font-weight: 400;
+    font-size: 42px; line-height: 1.05; letter-spacing:-.018em;
+    margin: 0 0 10px; text-wrap: balance;
+  }
+  .greet .body h1 em{ color: var(--accent); }
+  .greet .body p{
+    font-size: 15px; line-height: 1.55; color: var(--ink-2);
+    margin: 0; max-width: 62ch;
+  }
+  .greet .body p em{ color: var(--accent-deep); }
+
+  /* ===== status strip ===== */
+  .status-strip{
+    max-width: 900px; margin: 0 auto 24px;
+    padding: 14px 22px;
+    background: var(--card); border: 1px solid var(--rule);
+    border-radius: var(--r-md); box-shadow: var(--shadow-1);
+    display:grid; grid-template-columns: 1fr 1fr 1fr 1fr;
+    gap: 22px; align-items:center;
+  }
+  .status-strip .c{ display:flex; flex-direction:column; gap: 4px; }
+  .status-strip .c .l{ font-family: var(--mono); font-size: 9.5px; letter-spacing:.12em; text-transform: uppercase; color: var(--dim); }
+  .status-strip .c .v{ font-family: var(--serif); font-size: 19px; letter-spacing:-.008em; line-height: 1; }
+  .status-strip .c .v em{ color: var(--accent); }
+  .status-strip .c .v.pos{ color: var(--pos); }
+
+  /* ===== letter ===== */
+  .letter-wrap{ max-width: 900px; margin: 0 auto 32px; padding: 0 12px; }
+  .letter{
+    background: #ffffff; color: #15140f;
+    border: 1px solid #d3d6df;
+    border-radius: var(--r-md);
+    padding: 64px 72px 80px;
+    box-shadow: 0 1px 0 rgba(255,255,255,.6) inset, 0 18px 48px -28px rgba(15,30,54,0.32);
+    font-family: var(--serif);
+    font-size: 14.5px;
+    line-height: 1.65;
+    color: #15140f;
+  }
+
+  .letter .letterhead{
+    display:flex; justify-content:space-between; align-items:flex-start;
+    gap: 24px;
+    padding-bottom: 22px;
+    border-bottom: 1px solid #d3d6df;
+    margin-bottom: 32px;
+  }
+  .letter .firm{ font-family: var(--serif); }
+  .letter .firm .name{ font-size: 22px; letter-spacing:-.012em; line-height: 1.1; margin-bottom: 4px; }
+  .letter .firm .name em{ color: oklch(0.55 0.12 78); font-style: italic; }
+  .letter .firm .addr{ font-family: var(--mono); font-size: 10.5px; letter-spacing:.06em; color: #6b7790; text-transform: uppercase; line-height: 1.55; }
+  .letter .doc-meta{ text-align: right; font-family: var(--mono); font-size: 10.5px; letter-spacing:.06em; color: #6b7790; text-transform: uppercase; line-height: 1.55; }
+  .letter .doc-meta b{ color: #15140f; font-weight: 500; }
+  .letter .doc-meta .ref{ display:block; margin-top: 4px; }
+
+  .letter .salutation{
+    font-family: var(--serif); font-size: 17px; line-height: 1.4;
+    margin: 0 0 14px;
+  }
+  .letter h2{
+    font-family: var(--serif); font-weight: 400;
+    font-size: 22px; letter-spacing:-.01em; line-height: 1.2;
+    margin: 32px 0 10px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid #e3e7ee;
+  }
+  .letter h2 em{ color: oklch(0.55 0.12 78); }
+  .letter p{ margin: 0 0 12px; }
+  .letter p em{ color: oklch(0.55 0.12 78); font-style: italic; }
+  .letter ul{ margin: 6px 0 14px 18px; padding: 0; }
+  .letter ul li{ list-style: disc; margin: 4px 0; }
+  .letter ul li::marker{ color: oklch(0.55 0.12 78); }
+
+  .letter .fee-box{
+    background: #f6f3ea; border: 1px solid #d3d6df;
+    border-radius: 4px;
+    padding: 22px 26px; margin: 18px 0 22px;
+  }
+  .letter .fee-box .lab{
+    font-family: var(--mono); font-size: 10.5px; letter-spacing:.12em;
+    text-transform: uppercase; color: #6b7790; margin-bottom: 12px;
+  }
+  .letter .fee-row{
+    display:grid; grid-template-columns: 1fr auto;
+    gap: 18px; padding: 9px 0; border-bottom: 1px dotted #d3d6df;
+    align-items: baseline;
+  }
+  .letter .fee-row:last-child{ border-bottom: none; padding-top: 14px; }
+  .letter .fee-row .k{ font-family: var(--mono); font-size: 12px; letter-spacing:.04em; text-transform: uppercase; color: #6b7790; }
+  .letter .fee-row .v{ font-family: var(--serif); font-size: 17px; letter-spacing:-.008em; font-feature-settings: "tnum"; }
+  .letter .fee-row.total .k{ color: #15140f; font-size: 13px; }
+  .letter .fee-row.total .v{ font-size: 22px; }
+
+  .letter .signature-grid{
+    margin-top: 36px; padding-top: 22px;
+    border-top: 1px solid #d3d6df;
+    display:grid; grid-template-columns: 1fr 1fr; gap: 48px;
+  }
+  .letter .sig{
+    display:flex; flex-direction:column;
+  }
+  .letter .sig .who{ font-family: var(--mono); font-size: 10.5px; letter-spacing:.12em; text-transform: uppercase; color: #6b7790; margin-bottom: 24px; }
+  .letter .sig .name{ font-family: var(--serif); font-size: 16px; padding-bottom: 4px; border-bottom: 1px solid #15140f; min-height: 32px; }
+  .letter .sig.attorney .name{
+    font-family: 'Source Serif 4'; font-style: italic;
+    color: #0f1e36; font-size: 22px; line-height: 1;
+    padding-bottom: 6px;
+  }
+  .letter .sig .role{ font-family: var(--mono); font-size: 10px; letter-spacing:.06em; text-transform: uppercase; color: #6b7790; margin-top: 8px; }
+  .letter .sig.client .name.empty{
+    color: #b4b9c2; font-style: italic; font-size: 14px;
+  }
+
+  /* ===== acknowledgments ===== */
+  .ack-card{
+    max-width: 900px; margin: 0 auto 24px;
+    background: var(--card); border: 1px solid var(--rule);
+    border-radius: var(--r-md); box-shadow: var(--shadow-1);
+    padding: 28px 32px;
+  }
+  .ack-card .lab{
+    font-family: var(--mono); font-size: 10.5px;
+    letter-spacing:.12em; text-transform: uppercase;
+    color: var(--dim); margin-bottom: 4px;
+  }
+  .ack-card h3{
+    font-family: var(--serif); font-weight: 400;
+    font-size: 26px; letter-spacing:-.012em; line-height: 1.15;
+    margin: 0 0 6px;
+  }
+  .ack-card h3 em{ color: var(--accent); }
+  .ack-card .sub{
+    font-size: 14px; color: var(--ink-2);
+    margin-bottom: 22px; max-width: 60ch;
+  }
+  .ack{
+    display:grid; grid-template-columns: 22px 1fr; gap: 14px;
+    padding: 16px 0; border-top: 1px solid var(--rule);
+    align-items: start; cursor: pointer;
+  }
+  .ack:first-of-type{ border-top: none; }
+  .ack .ck{
+    width: 18px; height: 18px; border-radius: 4px;
+    border: 1.5px solid var(--ink-3); background: var(--card);
+    margin-top: 2px; transition: all .14s;
+    flex-shrink: 0;
+  }
+  .ack:hover .ck{ border-color: var(--ink); }
+  .ack.checked .ck{
+    background: var(--ink); border-color: var(--ink);
+    position: relative;
+  }
+  .ack.checked .ck::after{
+    content:"✓"; position: absolute; inset: 0; display: grid; place-items: center;
+    color: var(--accent); font-size: 12px; line-height: 1;
+  }
+  .ack .what b{ font-weight: 500; display:block; font-size: 15px; line-height: 1.45; margin-bottom: 4px; }
+  .ack .what p{ margin: 0; font-size: 13px; line-height: 1.55; color: var(--ink-2); }
+  .ack .what p em{ color: var(--accent-deep); }
+
+  /* ===== signature pad ===== */
+  .sig-card{
+    max-width: 900px; margin: 0 auto 24px;
+    background: var(--card); border: 1px solid var(--rule);
+    border-radius: var(--r-md); box-shadow: var(--shadow-1);
+    padding: 28px 32px;
+  }
+  .sig-card h3{ font-family: var(--serif); font-weight: 400; font-size: 26px; letter-spacing:-.012em; margin: 0 0 6px; }
+  .sig-card h3 em{ color: var(--accent); }
+  .sig-card .sub{ font-size: 14px; color: var(--ink-2); margin-bottom: 18px; }
+
+  .sig-pad{
+    height: 200px;
+    background: var(--paper); border: 1px dashed var(--rule);
+    border-radius: var(--r-sm);
+    position: relative;
+    display: grid; place-items: center;
+  }
+  .sig-pad .baseline{
+    position: absolute; left: 32px; right: 32px; bottom: 32px;
+    height: 1px; background: var(--rule);
+  }
+  .sig-pad .x{
+    position: absolute; left: 24px; bottom: 38px;
+    font-family: var(--serif); font-size: 22px; color: var(--dim-2);
+    line-height: 1;
+  }
+  .sig-pad .signed-mark{
+    font-family: 'Source Serif 4'; font-style: italic;
+    font-size: 42px; color: var(--ink); line-height: 1;
+    transform: rotate(-3deg); padding-bottom: 28px;
+    text-align: center;
+  }
+  .sig-pad .hint{
+    position: absolute; top: 14px; right: 16px;
+    font-family: var(--mono); font-size: 10px;
+    letter-spacing:.08em; text-transform: uppercase;
+    color: var(--dim-2);
+  }
+  .sig-foot{
+    display:flex; justify-content:space-between; align-items:center;
+    margin-top: 12px;
+    font-family: var(--mono); font-size: 10.5px;
+    letter-spacing:.06em; text-transform: uppercase; color: var(--dim);
+  }
+  .sig-foot button{
+    font-family: inherit; font-size: inherit;
+    background: transparent; border: 1px solid var(--rule);
+    color: var(--ink-2);
+    padding: 4px 10px; border-radius: var(--r-xs);
+    cursor: pointer; letter-spacing: .04em;
+  }
+  .sig-foot button:hover{ border-color: var(--ink-3); }
+
+  /* ===== questions card ===== */
+  .questions{
+    max-width: 900px; margin: 0 auto 24px;
+    background: linear-gradient(90deg, var(--accent-soft), color-mix(in oklab, var(--accent) 4%, var(--card)) 80%);
+    border-left: 2px solid var(--accent);
+    border-top: 1px solid color-mix(in oklab, var(--accent) 30%, var(--rule));
+    border-right: 1px solid color-mix(in oklab, var(--accent) 30%, var(--rule));
+    border-bottom: 1px solid color-mix(in oklab, var(--accent) 30%, var(--rule));
+    border-radius: 0 var(--r-md) var(--r-md) 0;
+    padding: 22px 28px;
+    display:grid; grid-template-columns: 36px 1fr auto; gap: 18px;
+    align-items: center;
+  }
+  .questions .av{
+    width: 32px; height: 32px; border-radius: 50%;
+    background: var(--ink); color: var(--accent);
+    font-family: var(--serif); font-style: italic;
+    font-size: 16px; display: grid; place-items: center;
+  }
+  .questions .body .lab{ font-family: var(--mono); font-size: 10px; letter-spacing:.14em; text-transform: uppercase; color: var(--accent-deep); margin-bottom: 4px; }
+  .questions .body .t{ font-family: var(--serif); font-size: 17px; line-height: 1.4; color: var(--ink); font-style: italic; }
+  .questions .body .t em{ color: var(--accent-deep); }
+  .questions .acts{ display:flex; gap: 6px; flex-shrink: 0; }
+
+  /* ===== decision row ===== */
+  .decide{
+    max-width: 900px; margin: 0 auto 24px;
+    background: var(--card); border: 1px solid var(--rule);
+    border-radius: var(--r-md); box-shadow: var(--shadow-2);
+    padding: 24px 32px;
+    display:grid; grid-template-columns: 1fr auto; gap: 24px; align-items: center;
+  }
+  .decide .left h3{
+    font-family: var(--serif); font-weight: 400;
+    font-size: 24px; letter-spacing:-.012em; line-height: 1.15;
+    margin: 0 0 4px;
+  }
+  .decide .left p{ font-size: 13.5px; color: var(--ink-2); margin: 0; }
+  .decide .left p em{ color: var(--accent-deep); }
+  .decide .right{ display:flex; gap: 8px; align-items: center; }
+  .decide .right .btn-lg{ padding: 14px 22px; font-size: 14.5px; }
+
+  /* ===== footer ===== */
+  .foot{
+    max-width: 900px; margin: 0 auto;
+    padding: 32px 32px 56px;
+    display:flex; justify-content: space-between; align-items: center;
+    border-top: 1px solid var(--rule);
+    font-family: var(--mono); font-size: 10.5px;
+    letter-spacing:.08em; text-transform: uppercase;
+    color: var(--dim-2);
+  }
+  .foot .left{ display:inline-flex; align-items:center; gap: 10px; }
+  .foot .left .pill.live{ background: var(--paper); }
+  .foot a{ color: var(--dim); border-bottom: 1px dotted var(--dim-2); cursor: pointer; }
+  .foot .right{ display:flex; gap: 18px; align-items: center; }
+
+  @media (max-width: 760px){
+    .top, .greet, .letter-wrap, .ack-card, .sig-card, .questions, .decide, .foot{
+      padding-left: 18px; padding-right: 18px;
+    }
+    .greet{ flex-direction: column; }
+    .greet .body h1{ font-size: 32px; }
+    .letter{ padding: 36px 28px 48px; font-size: 14px; }
+    .letter .letterhead{ flex-direction: column; gap: 14px; }
+    .letter .doc-meta{ text-align: left; }
+    .letter .signature-grid{ grid-template-columns: 1fr; gap: 28px; }
+    .status-strip{ grid-template-columns: 1fr 1fr; gap: 16px; }
+    .decide{ grid-template-columns: 1fr; }
+    .questions{ grid-template-columns: 1fr; }
+    .questions .av{ display: none; }
+  }
+</style>
+</head>
+<body>
+
+<div class="top" data-screen-label="brand-top">
+  <a href="#" class="brand">
+    <span class="g">B</span>
+    <span class="w">Blawby</span>
+  </a>
+  <div class="crumb">
+    <span>For: <b>Bianca Martinez</b></span>
+    <span class="pill live">encrypted · audit-logged</span>
+  </div>
+</div>
+
+<!-- ============ GREETING ============ -->
+<section class="greet" data-screen-label="greeting">
+  <div class="av">B</div>
+  <div class="body">
+    <div class="lab">Sarah's assistant · 11:14 am</div>
+    <h1>Hi Bianca — <em>here's the agreement</em> Sarah wants to sign with you.</h1>
+    <p>
+      It's <em>two pages.</em> I've highlighted what's in scope, what it costs, and what we both agree to.
+      Read it, check the three acknowledgments, and sign at the bottom. If anything looks off,
+      use <em>"ask me a question"</em> — I'll loop Sarah in directly.
+    </p>
+  </div>
+</section>
+
+<!-- ============ STATUS STRIP ============ -->
+<section class="status-strip" data-screen-label="status">
+  <div class="c">
+    <span class="l">Matter</span>
+    <span class="v">Custody modification</span>
+  </div>
+  <div class="c">
+    <span class="l">Sent</span>
+    <span class="v">Nov 24 · 4:18 pm</span>
+  </div>
+  <div class="c">
+    <span class="l">Fee</span>
+    <span class="v"><em>$3,000</em> fixed</span>
+  </div>
+  <div class="c">
+    <span class="l">Status</span>
+    <span class="v pos">Awaiting your signature</span>
+  </div>
+</section>
+
+<!-- ============ LETTER ============ -->
+<section class="letter-wrap" data-screen-label="letter">
+  <article class="letter">
+
+    <div class="letterhead">
+      <div class="firm">
+        <div class="name">Law Offices of <em>Sarah Chen</em>, PLLC</div>
+        <div class="addr">
+          227 W Trade St · Suite 600<br>
+          Charlotte, NC 28202 · NCSB #41892
+        </div>
+      </div>
+      <div class="doc-meta">
+        Engagement letter<br>
+        <span class="ref">Ref · ENG-2026-0237</span>
+        <span class="ref">Date · November 24, 2026</span>
+      </div>
+    </div>
+
+    <p class="salutation">Dear Ms. Martinez,</p>
+
+    <p>
+      Thank you for reaching out to our firm. This letter sets the terms of our representation
+      in your matter to modify the existing custody and visitation order
+      <em>currently in effect in Mecklenburg County, North Carolina.</em>
+      Once you sign below, this letter becomes our agreement.
+    </p>
+
+    <h2>Scope of <em>representation</em></h2>
+    <p>This firm will represent you in connection with the following work:</p>
+    <ul>
+      <li>Review of the existing custody order entered <em>March 14, 2024</em> and any related filings.</li>
+      <li>Preparation and filing of a Motion to Modify Custody and Visitation in Mecklenburg County District Court.</li>
+      <li>Up to <em>two appearances</em> on temporary or interim hearings related to the modification motion.</li>
+      <li>Negotiation of a proposed consent order with opposing counsel where appropriate.</li>
+      <li>Representation at one final hearing on the merits, if the matter is not resolved by consent.</li>
+    </ul>
+    <p>
+      This engagement <em>does not include</em> appeals, contempt proceedings, criminal matters,
+      or any work outside North Carolina. Those would require a separate, written agreement.
+    </p>
+
+    <h2>Fees &amp; <em>billing</em></h2>
+    <p>
+      We have agreed on a <em>fixed fee</em> for this matter, paid in two installments.
+      No additional hourly billing applies to the work in scope. Court filing fees and out-of-pocket
+      costs are billed at cost and disclosed in advance.
+    </p>
+
+    <div class="fee-box">
+      <div class="lab">Fee summary</div>
+      <div class="fee-row"><span class="k">Initial installment · on engagement</span><span class="v">$1,500.00</span></div>
+      <div class="fee-row"><span class="k">Second installment · at first court exchange</span><span class="v">$1,500.00</span></div>
+      <div class="fee-row"><span class="k">Court filing fees · est.</span><span class="v">$215.00</span></div>
+      <div class="fee-row total"><span class="k">Total · fixed-fee scope</span><span class="v">$3,215.00</span></div>
+    </div>
+
+    <h2>How we'll <em>communicate</em></h2>
+    <p>
+      Your primary contact is the firm's intake assistant (the one you've been chatting with) for routine
+      questions, scheduling, and document requests. Sarah herself will handle court strategy, opposing
+      counsel, and anything material to the outcome — and will join the chat whenever you need her.
+      We aim to reply within <em>one business day.</em>
+    </p>
+
+    <h2>Trust account &amp; <em>refunds</em></h2>
+    <p>
+      Your first installment is deposited into our IOLTA trust account upon receipt and is drawn against
+      only as work is completed. Any unearned portion of the fixed fee is refundable.
+      You will receive a monthly statement showing the trust balance.
+    </p>
+
+    <p style="margin-top: 22px">
+      We're grateful you chose us. Please review the acknowledgments below and sign when ready.
+    </p>
+
+    <p style="margin-top: 14px"><em>Sincerely,</em></p>
+
+    <div class="signature-grid">
+      <div class="sig attorney">
+        <span class="who">Attorney</span>
+        <div class="name">Sarah Chen</div>
+        <span class="role">Sarah Chen, Esq. · NCSB #41892</span>
+      </div>
+      <div class="sig client">
+        <span class="who">Client</span>
+        <div class="name empty">Sign below to accept</div>
+        <span class="role">Bianca Martinez · electronic signature</span>
+      </div>
+    </div>
+
+  </article>
+</section>
+
+<!-- ============ AI QUESTION CARD ============ -->
+<section class="questions" data-screen-label="questions">
+  <div class="av">B</div>
+  <div class="body">
+    <div class="lab">If something is unclear</div>
+    <div class="t">"What happens if we settle before the first court date?" — <em>I can answer in plain English, and loop Sarah in if it changes anything.</em></div>
+  </div>
+  <div class="acts">
+    <button class="chip primary">Ask a question ↗</button>
+  </div>
+</section>
+
+<!-- ============ ACKNOWLEDGMENTS ============ -->
+<section class="ack-card" data-screen-label="acknowledgments">
+  <div class="lab">Three quick acknowledgments</div>
+  <h3>Before you <em>sign,</em> please confirm.</h3>
+  <p class="sub">These are required to make this agreement enforceable in North Carolina. Check each one as you read it.</p>
+
+  <div class="ack checked">
+    <div class="ck"></div>
+    <div class="what">
+      <b>I have had time to read this letter.</b>
+      <p>I understand I can take this to another lawyer for a second opinion before signing. I have not been pressured to sign quickly.</p>
+    </div>
+  </div>
+
+  <div class="ack checked">
+    <div class="ck"></div>
+    <div class="what">
+      <b>I understand the scope and the fee.</b>
+      <p>The work above is what the firm will do. The fixed fee is <em>$3,000</em>, paid in two installments. Court filing fees of approximately <em>$215</em> are billed at cost.</p>
+    </div>
+  </div>
+
+  <div class="ack">
+    <div class="ck"></div>
+    <div class="what">
+      <b>I understand no outcome is guaranteed.</b>
+      <p>The firm will represent me competently, but cannot guarantee that the court will modify the existing order or grant a particular outcome.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ============ SIGNATURE PAD ============ -->
+<section class="sig-card" data-screen-label="signature">
+  <h3>Sign <em>here.</em></h3>
+  <p class="sub">Draw your signature using your finger, trackpad, or mouse. By signing you agree to the terms above on <em>November 25, 2026</em>.</p>
+  <div class="sig-pad">
+    <div class="signed-mark">Bianca Martinez</div>
+    <div class="x">×</div>
+    <div class="baseline"></div>
+    <div class="hint">draw to sign</div>
+  </div>
+  <div class="sig-foot">
+    <span>recorded with timestamp · IP · device fingerprint · audit-logged</span>
+    <button>Clear &amp; redraw</button>
+  </div>
+</section>
+
+<!-- ============ DECIDE ============ -->
+<section class="decide" data-screen-label="decide">
+  <div class="left">
+    <h3>Ready to <em>accept?</em></h3>
+    <p>On accept, your matter opens with Sarah, your <em>$1,500</em> installment is requested, and you'll get a portal link by email within a minute.</p>
+  </div>
+  <div class="right">
+    <button class="btn btn-ghost btn-lg">Decline politely</button>
+    <button class="btn btn-primary btn-lg">Accept &amp; engage Sarah ↗</button>
+  </div>
+</section>
+
+<!-- ============ FOOTER ============ -->
+<footer class="foot" data-screen-label="foot">
+  <div class="left">
+    <span class="pill live">tls · audit-logged</span>
+    <span>Powered by Blawby</span>
+  </div>
+  <div class="right">
+    <a>Privacy</a>
+    <a>Terms</a>
+    <a>Decline this engagement</a>
+  </div>
+</footer>
+
+</body>
+</html>

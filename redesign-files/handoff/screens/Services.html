@@ -1,0 +1,210 @@
+<!doctype html>
+<html lang="en" data-theme="">
+<head>
+<meta charset="utf-8" />
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,opsz,wght@0,8..60,300..900;1,8..60,300..900&family=Geist:wght@300;400;500;600;700&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="tokens.css">
+<title>Blawby — Services &amp; Pricing</title>
+
+<style>
+  body{ background-image: radial-gradient(rgba(15,30,54,0.025) 1px, transparent 1.2px); background-size: 3px 3px; background-attachment: fixed; }
+  .shell{ display:grid; grid-template-columns: 280px 1fr; min-height: 100vh; max-width: 1440px; margin: 0 auto; }
+  .side{
+    border-right: 1px solid var(--rule); padding: 22px 16px;
+    display:flex; flex-direction:column; gap: 14px;
+    position: sticky; top: 0; height: 100vh; overflow-y: auto;
+    background: color-mix(in oklab, var(--paper) 96%, var(--card));
+  }
+  .back{ display:inline-flex; align-items:center; gap: 6px; font-family: var(--mono); font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--dim); cursor: pointer; padding: 4px 8px; margin-left: -8px; text-decoration:none; }
+  .back:hover{ color: var(--ink); }
+  .side h2{ font-family: var(--serif); font-weight:400; font-size: 28px; margin: 4px 0 0; letter-spacing:-.012em; }
+  .side .org{ font-family:var(--mono); font-size:11px; color: var(--dim); letter-spacing: .04em; }
+  .nav-section{ display:flex; flex-direction:column; gap: 1px; margin-top: 6px; }
+  .nav-section .lbl{ font-family: var(--mono); font-size: 9.5px; letter-spacing: .12em; text-transform: uppercase; color: var(--dim-2); padding: 14px 10px 6px; }
+  .nav-item{ display:flex; align-items:center; gap: 10px; padding: 8px 10px; border-radius: var(--r-xs); font-size: 13.5px; color: var(--ink-2); cursor: pointer; transition: background .14s, color .14s; text-decoration: none; }
+  .nav-item:hover{ background: var(--rule-soft); color: var(--ink); }
+  .nav-item.on{ background: var(--ink); color: var(--accent); }
+  .nav-item .ic{ width:14px; height:14px; opacity:.7; flex-shrink:0; }
+  .nav-item.on .ic{ opacity: 1; }
+  .nav-item .badge{ margin-left: auto; font-family: var(--mono); font-size: 10px; color: var(--dim); }
+  .nav-item.on .badge{ color: var(--accent); }
+  .main{ padding: 36px 56px 80px; max-width: 920px; }
+  .crumb{ font-family: var(--mono); font-size: 10px; letter-spacing: .14em; text-transform: uppercase; color: var(--dim); margin-bottom: 6px; }
+  .main h1{ font-family: var(--serif); font-weight: 400; font-size: 48px; letter-spacing:-.02em; line-height: 1.05; margin: 0; }
+  .main h1 em{ color: var(--accent); }
+  .main > .lede{ margin: 12px 0 36px; }
+  section.group{ padding: 32px 0; border-top: 1px solid var(--rule); }
+  section.group:first-of-type{ border-top: none; padding-top: 0; }
+  section.group h3{ font-family: var(--serif); font-weight: 400; font-size: 24px; margin: 0 0 4px; letter-spacing:-.01em; }
+  section.group .gdesc{ font-size: 13.5px; color: var(--dim); margin: 0 0 24px; max-width: 60ch; }
+  .setting{ display:grid; grid-template-columns: 1fr auto; gap: 28px; align-items: center; padding: 18px 0; border-bottom: 1px solid var(--rule); }
+  .setting:last-child{ border-bottom: none; }
+  .setting .meta{ display:flex; flex-direction:column; gap:4px; }
+  .setting .meta .h{ font-size: 14px; font-weight: 500; color: var(--ink); }
+  .setting .meta .d{ font-size: 13px; color: var(--dim); max-width: 64ch; line-height: 1.5; }
+  .setting .meta .d code{ font-family: var(--mono); font-size: 11.5px; background: var(--rule-soft); padding: 1px 6px; border-radius: 3px; color: var(--ink-2); }
+  .setting .ctrl{ display:flex; align-items:center; gap: 8px; min-width: 200px; justify-content: flex-end; }
+  .setting .ctrl .input, .setting .ctrl .select{ width: 220px; }
+  .danger{ margin-top: 32px; padding: 22px; border: 1px solid color-mix(in oklab, var(--neg) 30%, var(--rule)); border-radius: var(--r-md); background: color-mix(in oklab, var(--neg) 6%, var(--card)); }
+  .danger h3{ color: var(--neg); }
+  .danger .gdesc{ color: var(--ink-2); }
+  @media (max-width: 980px){ .shell{ grid-template-columns: 1fr; } .side{ display:none; } .main{ padding: 24px 22px; } }
+</style>
+<style>
+  .svc-grid{ display: flex; flex-direction: column; gap: 12px; }
+  .svc-card{ background: var(--card); border: 1px solid var(--rule); border-radius: var(--r-md); padding: 20px; box-shadow: var(--shadow-1); display: grid; grid-template-columns: 1fr auto; gap: 18px; align-items: center; }
+  .svc-card .svc-info .svc-name{ font-size: 15px; font-weight: 500; color: var(--ink); display: flex; align-items: center; gap: 10px; }
+  .svc-card .svc-info .svc-name .svc-type{ font-family: var(--mono); font-size: 10px; letter-spacing: .06em; text-transform: uppercase; color: var(--dim); padding: 2px 7px; background: var(--rule-soft); border-radius: 3px; }
+  .svc-card .svc-info .svc-desc{ font-size: 13px; color: var(--dim); margin-top: 4px; line-height: 1.45; max-width: 52ch; }
+  .svc-card .svc-info .svc-meta{ display: flex; gap: 16px; margin-top: 8px; }
+  .svc-card .svc-info .svc-meta span{ font-family: var(--mono); font-size: 11px; color: var(--dim-2); letter-spacing: .02em; }
+  .svc-card .svc-pricing{ text-align: right; }
+  .svc-card .svc-pricing .price{ font-family: var(--serif); font-size: 26px; font-weight: 400; letter-spacing: -.01em; }
+  .svc-card .svc-pricing .unit{ font-family: var(--mono); font-size: 10px; color: var(--dim); letter-spacing: .04em; text-transform: uppercase; margin-top: 2px; }
+  .svc-card .svc-actions{ display: flex; gap: 6px; margin-top: 8px; justify-content: flex-end; }
+  .add-svc{ border: 1px dashed var(--rule); border-radius: var(--r-md); padding: 22px; text-align: center; cursor: pointer; color: var(--dim); transition: all .14s; }
+  .add-svc:hover{ border-color: var(--ink); color: var(--ink); }
+</style>
+</head>
+<body>
+<div class="shell">
+    <aside class="side">
+    <a href="Assistant.html" class="back">← back to assistant</a>
+    <div><h2>Settings</h2><div class="org">Law Offices of Sarah Chen · solo</div></div>
+    <div class="nav-section"><div class="lbl">Practice</div>
+      <a href="Profile.html" class="nav-item"><span class="ic">⌂</span>Profile &amp; areas</a>
+      <a href="Team.html" class="nav-item"><span class="ic">＋</span>Team <span class="badge">1</span></a>
+      <a href="Services.html" class="nav-item on"><span class="ic">⏳</span>Services &amp; pricing <span class="badge">5</span></a></div>
+    <div class="nav-section"><div class="lbl">Money</div>
+      <a href="Subscription.html" class="nav-item"><span class="ic">$</span>Subscription</a>
+      <a href="StripeConnect.html" class="nav-item"><span class="ic">⇄</span>Stripe Connect</a>
+      <a href="Trust.html" class="nav-item"><span class="ic">▤</span>Trust accounting <span class="badge">IOLTA</span></a></div>
+    <div class="nav-section"><div class="lbl">Intelligence</div>
+      <a href="Settings.html" class="nav-item"><span class="ic">✦</span>AI behavior</a>
+      <a href="IntakeForms.html" class="nav-item"><span class="ic">📥</span>Intake forms <span class="badge">3</span></a>
+      <a href="EngagementTemplates.html" class="nav-item"><span class="ic">⌥</span>Engagement templates</a>
+      <a href="Apps.html" class="nav-item"><span class="ic">⬡</span>Apps &amp; integrations <span class="badge">1</span></a>
+      <a href="MCP.html" class="nav-item"><span class="ic">▦</span>MCP &amp; API <span class="badge">beta</span></a></div>
+    <div class="nav-section"><div class="lbl">Account</div>
+      <a href="Security.html" class="nav-item"><span class="ic">⚿</span>Security</a>
+      <a href="Sessions.html" class="nav-item"><span class="ic">◉</span>Sessions</a>
+      <a href="Appearance.html" class="nav-item"><span class="ic">◐</span>Appearance</a>
+      <a href="Notifications.html" class="nav-item"><span class="ic">⌘</span>Notifications</a>
+      <a href="AuditLog.html" class="nav-item"><span class="ic">⎯</span>Audit log</a>
+      <a href="ExportData.html" class="nav-item"><span class="ic">↧</span>Export data</a></div>
+  </aside>
+  <main class="main">
+    <div class="crumb">Settings · Practice</div>
+    <h1>Services &amp; <em>pricing.</em></h1>
+    <p class="lede">Define your service catalog. The assistant uses these to quote retainers, generate engagement letters, and set expectations with clients.</p>
+
+    <section class="group" style="border:none;padding-top:0">
+      <h3>Active services</h3>
+      <p class="gdesc">These are offered to new clients during intake. Drag to reorder priority.</p>
+
+      <div class="svc-grid">
+        <div class="svc-card">
+          <div class="svc-info">
+            <div class="svc-name">Initial consultation <span class="svc-type">flat fee</span></div>
+            <div class="svc-desc">30-minute introductory meeting to assess the case and discuss options.</div>
+            <div class="svc-meta"><span>30 min</span><span>In-person or video</span><span>12 booked this month</span></div>
+          </div>
+          <div class="svc-pricing">
+            <div class="price">$150</div>
+            <div class="unit">per session</div>
+            <div class="svc-actions"><button class="btn btn-ghost btn-sm">Edit</button></div>
+          </div>
+        </div>
+
+        <div class="svc-card">
+          <div class="svc-info">
+            <div class="svc-name">Uncontested divorce <span class="svc-type">flat fee</span></div>
+            <div class="svc-desc">Full representation for uncontested divorce filing, including document preparation and court appearance.</div>
+            <div class="svc-meta"><span>Avg. 6 weeks</span><span>No children</span><span>3 active</span></div>
+          </div>
+          <div class="svc-pricing">
+            <div class="price">$2,500</div>
+            <div class="unit">flat fee + filing</div>
+            <div class="svc-actions"><button class="btn btn-ghost btn-sm">Edit</button></div>
+          </div>
+        </div>
+
+        <div class="svc-card">
+          <div class="svc-info">
+            <div class="svc-name">Contested custody <span class="svc-type">retainer</span></div>
+            <div class="svc-desc">Representation in contested child custody matters. Retainer replenished at 30% remaining.</div>
+            <div class="svc-meta"><span>$275/hr</span><span>$5,000 initial retainer</span><span>4 active</span></div>
+          </div>
+          <div class="svc-pricing">
+            <div class="price">$5,000</div>
+            <div class="unit">retainer · $275/hr</div>
+            <div class="svc-actions"><button class="btn btn-ghost btn-sm">Edit</button></div>
+          </div>
+        </div>
+
+        <div class="svc-card">
+          <div class="svc-info">
+            <div class="svc-name">Estate planning package <span class="svc-type">flat fee</span></div>
+            <div class="svc-desc">Will, power of attorney, healthcare directive, and living trust. Includes one revision round.</div>
+            <div class="svc-meta"><span>Avg. 2 weeks</span><span>Individual or couple</span><span>1 active</span></div>
+          </div>
+          <div class="svc-pricing">
+            <div class="price">$1,800</div>
+            <div class="unit">package</div>
+            <div class="svc-actions"><button class="btn btn-ghost btn-sm">Edit</button></div>
+          </div>
+        </div>
+
+        <div class="svc-card">
+          <div class="svc-info">
+            <div class="svc-name">DV protective order <span class="svc-type">sliding scale</span></div>
+            <div class="svc-desc">Emergency and permanent protective order representation. Income-based sliding scale per practice policy.</div>
+            <div class="svc-meta"><span>Urgent</span><span>No consult fee</span><span>2 active</span></div>
+          </div>
+          <div class="svc-pricing">
+            <div class="price">$0–$500</div>
+            <div class="unit">sliding scale</div>
+            <div class="svc-actions"><button class="btn btn-ghost btn-sm">Edit</button></div>
+          </div>
+        </div>
+
+        <div class="add-svc">＋ Add a new service</div>
+      </div>
+    </section>
+
+    <section class="group">
+      <h3>Default billing</h3>
+      <p class="gdesc">Fallback settings when a service doesn't specify its own billing terms.</p>
+
+      <div class="setting">
+        <div class="meta">
+          <div class="h">Default hourly rate</div>
+          <div class="d">Applied to retainer matters where no service-specific rate is set.</div>
+        </div>
+        <div class="ctrl"><input class="input" value="$275" style="width:100px;text-align:right" /></div>
+      </div>
+      <div class="setting">
+        <div class="meta">
+          <div class="h">Retainer replenishment threshold</div>
+          <div class="d">The assistant notifies you and the client when the retainer balance drops below this percentage.</div>
+        </div>
+        <div class="ctrl"><select class="select" style="width:120px"><option>20%</option><option selected>30%</option><option>40%</option><option>50%</option></select></div>
+      </div>
+      <div class="setting">
+        <div class="meta">
+          <div class="h">Payment terms</div>
+          <div class="d">Default due date on invoices. Clients see this in their payment link.</div>
+        </div>
+        <div class="ctrl"><select class="select" style="width:140px"><option>Due on receipt</option><option selected>Net 15</option><option>Net 30</option></select></div>
+      </div>
+    </section>
+  </main>
+</div>
+<script>
+  document.querySelectorAll('[data-toggle]').forEach(t=>{
+    t.addEventListener('click', ()=> t.classList.toggle('on'));
+  });
+</script>
+</body></html>

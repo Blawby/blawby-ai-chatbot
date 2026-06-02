@@ -1273,8 +1273,8 @@
 
   .left-rail-brand {
     display: flex;
-    align-items: center;
-    padding: 18px 20px;
+    align-items: flex-start;
+    padding: 16px 16px 14px;
     border-bottom: 1px solid var(--rule);
   }
 
@@ -1290,11 +1290,11 @@
 
   .left-rail-section-label {
     font-family: var(--mono);
-    font-size: 10.5px;
-    letter-spacing: 0.08em;
+    font-size: 9.5px;
+    letter-spacing: 0.12em;
     text-transform: uppercase;
-    color: var(--dim);
-    padding: 8px 12px;
+    color: var(--dim-2);
+    padding: 8px 12px 4px;
   }
 
   .left-rail-item {
@@ -1314,7 +1314,7 @@
   }
 
   .left-rail-item:hover:not(.active) {
-    background: var(--paper-2);
+    background: var(--rule-soft);
   }
 
   .left-rail-item.active {
@@ -1335,6 +1335,17 @@
     box-shadow: 0 0 0 3px var(--accent-soft);
   }
 
+  .left-rail-item-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--dim-2);
+    flex-shrink: 0;
+  }
+  .left-rail-item.active .left-rail-item-dot {
+    background: var(--accent);
+  }
+
   .left-rail-item-label {
     flex: 1;
     min-width: 0;
@@ -1353,6 +1364,44 @@
     font-size: 10.5px;
     border-radius: var(--r-pill);
     background: var(--accent);
+    color: var(--accent-ink);
+  }
+
+  .left-rail-new-btn {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    padding: 9px 12px;
+    background: var(--ink);
+    color: var(--paper);
+    border: 1px solid var(--ink);
+    border-radius: var(--r-xs);
+    font-family: var(--sans);
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background 0.18s ease, border-color 0.18s ease, color 0.18s ease;
+  }
+  .left-rail-new-btn:hover {
+    background: var(--accent);
+    color: var(--accent-ink);
+    border-color: var(--accent);
+  }
+  .left-rail-new-btn:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 3px var(--accent-soft);
+  }
+  .left-rail-new-btn kbd {
+    font-family: var(--mono);
+    font-size: 10px;
+    background: rgba(255,255,255,0.12);
+    color: color-mix(in oklab, var(--paper) 70%, transparent);
+    padding: 2px 6px;
+    border-radius: 3px;
+  }
+  .left-rail-new-btn:hover kbd {
+    background: rgba(0,0,0,0.12);
     color: var(--accent-ink);
   }
 
@@ -1413,6 +1462,40 @@
   }
 
   /* FocusDrawer — overlay/inline drawer attached to an edge */
+  .focus-priority-pulse {
+    display: inline-block;
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--neg);
+    flex-shrink: 0;
+    animation: pulse 2s infinite;
+  }
+
+  .focus-drawer-close-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    flex-shrink: 0;
+    border-radius: var(--r-xs);
+    border: 1px solid var(--rule);
+    background: transparent;
+    color: var(--dim);
+    font-size: 16px;
+    cursor: pointer;
+    transition: background 0.12s ease, color 0.12s ease;
+  }
+  .focus-drawer-close-btn:hover {
+    background: var(--rule-soft);
+    color: var(--ink);
+  }
+  .focus-drawer-close-btn:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 3px var(--accent-soft);
+  }
+
   .focus-drawer {
     display: flex;
     flex-direction: column;
@@ -2275,14 +2358,14 @@
   .ai-ask-bar {
     background: var(--card);
     border: 1px solid var(--rule);
-    border-radius: var(--r-pill);
-    padding: 10px 14px;
-    box-shadow: var(--shadow-1);
+    border-radius: var(--r-md);
+    padding: 14px 16px 12px;
+    box-shadow: var(--shadow-2);
     transition: box-shadow 150ms ease, border-color 150ms ease;
   }
   .ai-ask-bar:focus-within {
-    border-color: var(--accent);
-    box-shadow: 0 0 0 3px var(--accent-soft);
+    border-color: var(--ink-3);
+    box-shadow: var(--shadow-2), 0 0 0 3px var(--accent-soft);
   }
   .ai-ask-bar-suggestions {
     display: flex;
@@ -2304,6 +2387,7 @@
   .ai-ask-bar-suggestion:hover {
     background: color-mix(in oklab, var(--accent) 22%, var(--card));
   }
+  /* Context chip row (old above-input position — kept for back-compat on non-home pages) */
   .ai-ask-bar-context {
     display: flex;
     flex-wrap: wrap;
@@ -2311,69 +2395,107 @@
     margin-bottom: 6px;
   }
   .ai-ask-bar-ctx {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
     font-family: var(--mono);
     font-size: 10px;
     color: var(--dim);
     border: 1px dashed var(--rule);
-    border-radius: var(--r-pill);
-    padding: 2px 8px;
+    border-radius: var(--r-xs);
+    padding: 3px 8px;
     text-transform: uppercase;
     letter-spacing: 0.08em;
+    cursor: default;
   }
-  .ai-ask-bar-row {
-    display: flex;
+  /* Solid variant: "＋ add context" */
+  .ai-ask-bar-ctx-add {
+    display: inline-flex;
     align-items: center;
-    gap: 8px;
-  }
-  .ai-ask-bar-icon {
-    width: 28px;
-    height: 28px;
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background: transparent;
-    color: var(--dim);
-    border: none;
-    cursor: pointer;
-    transition: background 120ms ease;
-  }
-  .ai-ask-bar-icon:hover {
-    background: var(--paper-2);
+    gap: 4px;
+    font-family: var(--mono);
+    font-size: 10px;
     color: var(--ink-2);
+    border: 1px solid var(--rule);
+    border-radius: var(--r-xs);
+    padding: 3px 8px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    background: transparent;
+    cursor: pointer;
+    transition: border-color 0.12s ease, color 0.12s ease;
   }
+  .ai-ask-bar-ctx-add:hover {
+    border-color: var(--ink-3);
+    color: var(--ink);
+  }
+  /* Full-width input — standalone (two-row layout) */
   .ai-ask-bar-input {
-    flex: 1;
+    width: 100%;
     background: transparent;
     border: none;
     outline: none;
     font-family: var(--sans);
-    font-size: 14.5px;
+    font-size: 15px;
     color: var(--ink);
-    padding: 4px 0;
-    min-width: 0;
+    padding: 0;
+    line-height: 1.5;
+    resize: none;
+    min-height: 22px;
   }
   .ai-ask-bar-input::placeholder {
-    color: var(--dim);
+    color: var(--dim-2);
+  }
+  /* Bottom action row: chips · spacer · mic · send */
+  .ai-ask-bar-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 10px;
+    flex-wrap: wrap;
+  }
+  .ai-ask-bar-spacer { flex: 1; }
+  .ai-ask-bar-icon {
+    width: 28px;
+    height: 28px;
+    border-radius: var(--r-xs);
+    border: 1px solid var(--rule);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--paper);
+    color: var(--ink-2);
+    cursor: pointer;
+    transition: background 0.12s ease, border-color 0.12s ease;
+    flex-shrink: 0;
+  }
+  .ai-ask-bar-icon:hover {
+    background: var(--card);
+    border-color: var(--ink-3);
+    color: var(--ink);
   }
   .ai-ask-bar-send {
     width: 32px;
     height: 32px;
-    border-radius: 50%;
-    border: none;
-    background: var(--accent);
-    color: var(--accent-ink);
+    border-radius: var(--r-xs);
+    border: 1px solid var(--ink);
+    background: var(--ink);
+    color: var(--paper);
     display: flex;
     align-items: center;
     justify-content: center;
     cursor: pointer;
-    transition: background 120ms ease, transform 120ms ease;
+    flex-shrink: 0;
+    transition: background 0.18s ease, border-color 0.18s ease, color 0.18s ease;
   }
   .ai-ask-bar-send:hover:not(:disabled) {
-    background: var(--accent-deep);
+    background: var(--accent);
+    border-color: var(--accent);
+    color: var(--accent-ink);
   }
   .ai-ask-bar-send:disabled {
     background: var(--dim-2);
+    border-color: var(--dim-2);
     cursor: not-allowed;
     opacity: 0.5;
   }
@@ -2381,10 +2503,18 @@
     font-family: var(--mono);
     font-size: 10px;
     color: var(--dim-2);
-    text-align: center;
-    margin-top: 6px;
+    margin-top: 8px;
     text-transform: uppercase;
-    letter-spacing: 0.08em;
+    letter-spacing: 0.05em;
+  }
+  .ai-ask-bar-disclaimer kbd {
+    font-family: var(--mono);
+    font-size: 10px;
+    background: var(--rule-soft);
+    border: 1px solid var(--rule);
+    padding: 1px 5px;
+    border-radius: 3px;
+    color: var(--ink-2);
   }
 
   /* §3.17 AI Answer Card — gold-tinted grounded reply card */

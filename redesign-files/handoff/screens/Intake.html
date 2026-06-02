@@ -1,0 +1,576 @@
+<!doctype html>
+<html lang="en" data-theme="">
+<head>
+<meta charset="utf-8" />
+<title>Sarah Chen Law — Intake</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,opsz,wght@0,8..60,300..900;1,8..60,300..900&family=Geist:wght@300;400;500;600;700&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="tokens.css">
+<style>
+  body{
+    background:
+      radial-gradient(ellipse 1000px 700px at 85% 0%, color-mix(in oklab, var(--accent) 22%, transparent), transparent 60%),
+      radial-gradient(rgba(15,30,54,0.025) 1px, transparent 1.2px) 0 0 / 3px 3px,
+      var(--paper);
+    background-attachment: fixed;
+  }
+
+  /* page = two columns: direct URL (full-page) on the left, embed example on the right */
+  .page{
+    display:grid;
+    grid-template-columns: minmax(620px, 1fr) 480px;
+    gap: 56px;
+    max-width: 1440px; margin: 0 auto; padding: 40px 56px 80px;
+  }
+
+  /* tiny chrome row at top */
+  .header-row{
+    grid-column: 1 / -1;
+    display:flex; align-items:center; justify-content: space-between;
+    padding-bottom: 16px;
+    border-bottom: 1px solid var(--rule);
+    margin-bottom: 4px;
+  }
+  .header-row .brand-mark .brand-mark-word{ font-weight: 500; font-family: var(--sans); }
+  .header-row .crumb{ font-family: var(--mono); font-size: 10.5px; letter-spacing: .14em; text-transform: uppercase; color: var(--dim); }
+  .header-row .actions{ display:flex; gap: 10px; }
+
+  /* ============== full-page intake ============== */
+  .intake-card{
+    background: var(--card);
+    border: 1px solid var(--rule); border-radius: var(--r-md);
+    box-shadow: var(--shadow-3);
+    overflow: hidden;
+    display:flex; flex-direction: column;
+    min-height: 760px;
+  }
+  .intake-head{
+    display:flex; align-items:center; gap: 16px;
+    padding: 18px 24px;
+    border-bottom: 1px solid var(--rule);
+    background: var(--paper-2);
+  }
+  .intake-head .firm{ flex: 1; display:flex; flex-direction:column; gap: 2px; }
+  .intake-head .firm .n{ font-family: var(--serif); font-size: 19px; line-height: 1.1; }
+  .intake-head .firm .sub{ font-size: 12px; color: var(--dim); }
+  .intake-head .trust{
+    display:flex; align-items:center; gap: 8px;
+    font-family: var(--mono); font-size: 10.5px; letter-spacing: .04em; text-transform: uppercase;
+    color: var(--dim);
+  }
+  .intake-head .trust::before{ content:""; width: 6px; height: 6px; border-radius: 50%; background: var(--pos); }
+
+  .convo{
+    flex: 1; padding: 28px 32px;
+    display:flex; flex-direction:column; gap: 18px;
+    overflow-y: auto;
+  }
+
+  /* assistant bubble */
+  .a-row{ display:grid; grid-template-columns: 32px 1fr; gap: 12px; align-items: start; animation: rise .4s ease both; }
+  .a-row .av{
+    width: 32px; height: 32px; border-radius: 50%;
+    background: var(--ink); color: var(--accent);
+    display:grid; place-items:center;
+    font-family: var(--serif); font-style: italic; font-size: 16px;
+  }
+  .a-bub{
+    background: var(--paper);
+    border: 1px solid var(--rule);
+    border-radius: var(--r-md) var(--r-md) var(--r-md) var(--r-xs);
+    padding: 12px 16px;
+    font-size: 15px; line-height: 1.5;
+    color: var(--ink);
+    max-width: 78%;
+  }
+  .a-bub.first{
+    border-radius: var(--r-md);
+    background: linear-gradient(180deg, color-mix(in oklab, var(--accent) 14%, var(--card)) 0%, var(--card) 100%);
+    border-color: color-mix(in oklab, var(--accent) 35%, var(--rule));
+    max-width: 90%;
+  }
+  .a-bub p{ margin: 0 0 8px; }
+  .a-bub p:last-child{ margin: 0; }
+  .a-bub p em{ color: var(--accent-deep); font-style: italic; }
+  .a-bub strong{ font-weight: 500; }
+
+  /* you bubble */
+  .u-row{ display:flex; justify-content: flex-end; animation: rise .35s ease both; }
+  .u-bub{
+    background: var(--ink); color: var(--paper);
+    padding: 10px 14px;
+    border-radius: var(--r-md) var(--r-md) var(--r-xs) var(--r-md);
+    font-size: 15px; max-width: 70%;
+    line-height: 1.5;
+  }
+
+  @keyframes rise{ from{ opacity: 0; transform: translateY(6px) } to { opacity: 1; transform: none } }
+
+  /* inline quick-reply chips */
+  .quick{
+    display:flex; flex-wrap: wrap; gap: 8px;
+    margin-top: 10px;
+  }
+  .quick .qchip{
+    appearance: none; border: 1px solid var(--rule);
+    background: var(--card); color: var(--ink-2);
+    padding: 9px 14px; border-radius: var(--r-pill);
+    font-family: var(--sans); font-size: 14px; cursor: pointer;
+    transition: all .14s;
+  }
+  .quick .qchip:hover{ border-color: var(--ink); background: var(--paper); }
+  .quick .qchip.on{
+    background: var(--accent); color: var(--accent-ink); border-color: var(--accent);
+  }
+  .quick .qchip .ic{ margin-right: 6px; font-family: var(--serif); font-style: italic; color: var(--dim); }
+  .quick .qchip.on .ic{ color: var(--accent-ink); }
+
+  /* in-chat payment card */
+  .pay-card{
+    margin-top: 12px;
+    background: var(--card);
+    border: 1px solid color-mix(in oklab, var(--accent) 40%, var(--rule));
+    border-radius: var(--r-md);
+    padding: 16px 18px;
+    box-shadow: 0 1px 0 rgba(255,255,255,.6) inset, 0 12px 28px -16px color-mix(in oklab, var(--accent-deep) 50%, transparent);
+  }
+  .pay-card .head{
+    display:flex; justify-content:space-between; align-items:center; gap: 12px;
+    margin-bottom: 10px;
+  }
+  .pay-card .head h4{ font-family: var(--serif); font-weight: 400; font-size: 17px; margin: 0; }
+  .pay-card .head .amount{ font-family: var(--serif); font-size: 24px; letter-spacing: -.01em; }
+  .pay-card .desc{ font-size: 13px; color: var(--dim); margin-bottom: 12px; line-height: 1.5; }
+  .pay-card .why{
+    display: flex; align-items: center; gap: 6px;
+    font-family: var(--mono); font-size: 10.5px; letter-spacing: .04em; text-transform: uppercase;
+    color: var(--dim); margin-top: 10px;
+  }
+  .pay-card .why::before{ content: ""; width: 5px; height: 5px; border-radius: 50%; background: var(--pos); }
+
+  /* file drop */
+  .file-drop{
+    margin-top: 10px;
+    border: 1px dashed var(--rule);
+    border-radius: var(--r-md);
+    padding: 14px 16px;
+    display:flex; align-items:center; gap: 12px;
+    font-size: 13px; color: var(--ink-2);
+    background: var(--paper);
+  }
+  .file-drop .ic{ font-size: 18px; opacity: .5; }
+  .file-drop .browse{ margin-left: auto; font-family: var(--mono); font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-2); border-bottom: 1px dotted var(--dim-2); cursor: pointer; }
+
+  /* typing indicator */
+  .typing{ display:inline-flex; gap: 4px; padding: 4px 0; }
+  .typing i{ width: 5px; height: 5px; border-radius: 50%; background: var(--dim-2); animation: blink 1.2s infinite; }
+  .typing i:nth-child(2){ animation-delay: .15s; }
+  .typing i:nth-child(3){ animation-delay: .3s; }
+  @keyframes blink{ 0%,80%,100%{opacity:.3} 40%{opacity:1} }
+
+  /* footer composer */
+  .footer{
+    border-top: 1px solid var(--rule);
+    padding: 14px 20px 14px;
+    background: var(--card);
+  }
+  .composer{
+    display:flex; align-items: center; gap: 10px;
+    border: 1px solid var(--rule);
+    border-radius: var(--r-pill);
+    padding: 8px 8px 8px 18px;
+    background: var(--paper);
+  }
+  .composer .input{
+    flex: 1; outline: none; min-height: 24px;
+    font-family: var(--sans); font-size: 15px; color: var(--ink);
+  }
+  .composer .input:empty::before{
+    content: attr(data-ph); color: var(--dim-2);
+  }
+  .composer .ib{
+    width: 36px; height: 36px; border-radius: 50%;
+    border: 1px solid var(--rule); background: var(--card);
+    display:grid; place-items:center; cursor: pointer; color: var(--ink-2);
+  }
+  .composer .ib.primary{ background: var(--ink); border-color: var(--ink); color: var(--accent); }
+  .composer .ib.primary:hover{ background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+
+  .legal-foot{
+    margin-top: 10px;
+    display:flex; align-items:center; justify-content: space-between;
+    font-family: var(--mono); font-size: 10px; letter-spacing: .04em; text-transform: uppercase;
+    color: var(--dim);
+  }
+  .legal-foot .left{ display:flex; align-items: center; gap: 6px; }
+  .legal-foot .left::before{ content:""; width: 5px; height: 5px; border-radius: 50%; background: var(--pos); }
+  .legal-foot a{ border-bottom: 1px dotted var(--dim-2); cursor: pointer; }
+
+  /* ============ embed example (right column) ============ */
+  .embed-explain{ display:flex; flex-direction: column; gap: 24px; }
+  .embed-explain h2{
+    font-family: var(--serif); font-weight: 400; font-size: 36px; letter-spacing: -.02em; line-height: 1.05;
+    margin: 0; text-wrap: balance;
+  }
+  .embed-explain h2 em{ color: var(--accent); }
+  .embed-explain .lede{ margin: 0; }
+
+  .embed-host{
+    background: white;
+    border: 1px solid var(--rule); border-radius: var(--r-md);
+    overflow: hidden;
+    box-shadow: var(--shadow-2);
+    color: #1d2c4f;
+  }
+  .embed-host-bar{
+    display: flex; align-items: center; gap: 6px;
+    padding: 8px 12px;
+    background: #f1f3f6; border-bottom: 1px solid #e3e7ee;
+    font-family: var(--mono); font-size: 10.5px; color: #6b7790;
+  }
+  .embed-host-bar .dots{ display:flex; gap: 4px; }
+  .embed-host-bar .dots i{ width: 8px; height: 8px; border-radius: 50%; background: #cfd3dc; display: block; }
+  .embed-host-bar .url{
+    margin-left: 8px; padding: 3px 10px; border-radius: var(--r-pill);
+    background: white; border: 1px solid #e3e7ee; font-size: 11px;
+  }
+  .host-content{
+    padding: 22px 22px 24px;
+    position: relative;
+    min-height: 320px;
+  }
+  .host-content .firm-name{
+    font-family: var(--serif); font-size: 22px; letter-spacing: -.01em;
+    color: #0f1e36; margin: 0;
+  }
+  .host-content .firm-nav{
+    display:flex; gap: 16px; font-size: 12px; color: #6b7790; margin-top: 4px;
+  }
+  .host-content .hero{
+    margin-top: 28px;
+    font-family: var(--serif); font-size: 30px; line-height: 1.1; letter-spacing: -.015em;
+    color: #0f1e36; max-width: 16ch;
+  }
+  .host-content .hero em{ font-style: italic; color: oklch(0.55 0.12 78); }
+  .host-content .body-blur{
+    margin-top: 14px;
+    height: 6px; border-radius: 3px; background: #e9ebef;
+    box-shadow: 0 14px 0 -8px #f2f3f6, 0 28px 0 -8px #f2f3f6, 0 42px 0 -8px #f2f3f6;
+    max-width: 70%;
+  }
+
+  /* the floating widget */
+  .widget{
+    position: absolute;
+    bottom: 18px; right: 18px;
+    width: 280px;
+    background: var(--card);
+    border: 1px solid var(--rule);
+    border-radius: var(--r-md);
+    box-shadow: 0 24px 48px -18px rgba(15,30,54,.4);
+    overflow: hidden;
+  }
+  .widget-head{
+    display:flex; align-items:center; gap: 10px;
+    padding: 12px 14px;
+    background: var(--ink); color: var(--paper);
+  }
+  .widget-head .av{
+    width: 28px; height: 28px; border-radius: 50%;
+    background: var(--accent); color: var(--accent-ink);
+    font-family: var(--serif); font-style: italic; font-size: 14px;
+    display:grid; place-items: center;
+  }
+  .widget-head .who{ flex:1; font-size: 13px; line-height:1.2; }
+  .widget-head .who small{ display: block; font-size: 10px; color: color-mix(in oklab, var(--paper) 70%, transparent); font-family: var(--mono); letter-spacing: .04em; text-transform: uppercase; }
+  .widget-head .x{ font-family: var(--mono); font-size: 14px; opacity: .6; cursor: pointer; }
+  .widget-body{ padding: 12px 14px; font-size: 13px; color: var(--ink); line-height: 1.5; max-height: 200px; overflow-y: auto; }
+  .widget-body .a-bub{ font-size: 13px; padding: 9px 12px; max-width: 100%; }
+  .widget-body .quick{ margin-top: 8px; }
+  .widget-body .quick .qchip{ font-size: 12px; padding: 6px 10px; }
+  .widget-foot{
+    padding: 8px 12px; border-top: 1px solid var(--rule);
+    display:flex; align-items: center; gap: 8px;
+  }
+  .widget-foot .mini{
+    flex: 1; height: 28px; border-radius: var(--r-pill);
+    background: var(--paper); border: 1px solid var(--rule);
+    display:flex; align-items: center; padding: 0 12px;
+    font-size: 12px; color: var(--dim-2);
+  }
+  .widget-foot .send{
+    width: 28px; height: 28px; border-radius: 50%;
+    background: var(--ink); color: var(--accent);
+    display:grid; place-items:center; font-size: 12px;
+  }
+  .widget-trigger{
+    position: absolute; bottom: 18px; right: 18px;
+    background: var(--ink); color: var(--accent);
+    padding: 10px 16px; border-radius: var(--r-pill);
+    font-family: var(--sans); font-size: 13px; font-weight: 500;
+    display: none;
+    box-shadow: 0 8px 24px -8px rgba(15,30,54,.4);
+  }
+  .widget-trigger.show{ display: inline-flex; }
+  .widget-trigger .ic{ font-family: var(--serif); font-style: italic; margin-right: 6px; }
+
+  .modes{ display:flex; gap:8px; margin-top: -4px; }
+
+  /* embed snippet */
+  .snippet{
+    background: var(--ink); color: var(--paper);
+    border-radius: var(--r-md);
+    padding: 14px 16px;
+    font-family: var(--mono); font-size: 12px; line-height: 1.6;
+    overflow-x: auto;
+  }
+  .snippet .tag{ color: oklch(0.7 0.08 200); }
+  .snippet .attr{ color: oklch(0.78 0.13 82); }
+  .snippet .str{ color: oklch(0.75 0.09 145); }
+  .snippet .com{ color: color-mix(in oklab, var(--paper) 50%, transparent); }
+
+  @media (max-width: 1180px){
+    .page{ grid-template-columns: 1fr; }
+    .embed-explain .embed-host{ max-width: 480px; margin: 0 auto; }
+  }
+</style>
+</head>
+<body>
+
+<div class="page">
+
+  <div class="header-row">
+    <div class="brand-mark">
+      <span class="brand-mark-glyph">B</span>
+      <span class="brand-mark-word">Blawby</span>
+      <span style="font-family:var(--mono);font-size:10px;color:var(--dim-2);letter-spacing:.06em;margin-left:10px;text-transform:uppercase">Public intake widget</span>
+    </div>
+    <div class="crumb">blawby.com/p/sarah-chen-law</div>
+    <div class="actions">
+      <button class="btn btn-ghost btn-sm">Copy embed code</button>
+      <button class="btn btn-primary btn-sm">Open as a client →</button>
+    </div>
+  </div>
+
+  <!-- ============== LEFT: direct URL ============== -->
+  <div class="intake-card">
+
+    <div class="intake-head">
+      <div class="avatar" style="width:36px;height:36px;font-size:16px">B</div>
+      <div class="firm">
+        <span class="n">Law Offices of <em>Sarah Chen</em></span>
+        <span class="sub">Family law &amp; civil litigation · Charlotte, NC · NC Bar #45382</span>
+      </div>
+      <div class="trust">Confidential · encrypted end-to-end</div>
+    </div>
+
+    <div class="convo">
+
+      <div class="a-row">
+        <div class="av">B</div>
+        <div class="a-bub first">
+          <p>Hi, I'm <strong>Sarah's intake assistant</strong>. I'll ask a few questions so Sarah can give you a quick read before she meets you — usually <em>within a business day</em>.</p>
+          <p>This isn't legal advice, and we're not your lawyers yet. Everything you share is kept private.</p>
+        </div>
+      </div>
+
+      <div class="a-row">
+        <div class="av">B</div>
+        <div class="a-bub">
+          What's on your mind? Tell me in your own words — a sentence or a paragraph, whichever's easier.
+        </div>
+      </div>
+
+      <div class="u-row">
+        <div class="u-bub">my ex is refusing to bring my daughter for our scheduled exchange this saturday and i don't know what to do</div>
+      </div>
+
+      <div class="a-row">
+        <div class="av">B</div>
+        <div class="a-bub">
+          <p>I'm sorry — that sounds stressful, especially with the weekend coming up. A few quick questions and I'll get Sarah in touch.</p>
+          <p>Is there a <strong>court order</strong> in place that includes a visitation or custody schedule?</p>
+          <div class="quick">
+            <button class="qchip on"><span class="ic">a</span>Yes — there's a current order</button>
+            <button class="qchip"><span class="ic">b</span>No, it's informal</button>
+            <button class="qchip"><span class="ic">c</span>I'm not sure</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="a-row">
+        <div class="av">B</div>
+        <div class="a-bub">
+          Good. Can you share the order if you have a copy on your phone? It's optional, but it helps Sarah move faster.
+          <div class="file-drop">
+            <span class="ic">📎</span>
+            <span>Drop a file here, or</span>
+            <span class="browse">browse</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="u-row">
+        <div class="u-bub">custody-order-2024.pdf — uploaded 🔒</div>
+      </div>
+
+      <div class="a-row">
+        <div class="av">B</div>
+        <div class="a-bub">
+          <p>Got it — thank you. Last thing: how soon do you need to talk to Sarah?</p>
+          <div class="quick">
+            <button class="qchip on"><span class="ic">!</span>This week — exchange is Saturday</button>
+            <button class="qchip"><span class="ic">~</span>Within 2 weeks</button>
+            <button class="qchip"><span class="ic">.</span>Whenever — just exploring</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="a-row">
+        <div class="av">B</div>
+        <div class="a-bub" style="max-width:90%">
+          <p>Because it's time-sensitive, Sarah offers a <strong>30-minute paid consult</strong> ($150) that she can usually fit in within 24 hours. It's credited against your retainer if you decide to work together.</p>
+          <div class="pay-card">
+            <div class="head">
+              <h4>30-minute consult with Sarah Chen</h4>
+              <div class="amount">$150</div>
+            </div>
+            <div class="desc">Charged securely via Stripe. Refundable if Sarah determines she can't help. The amount is held in her IOLTA trust account until your consult.</div>
+            <button class="btn btn-primary" style="width:100%; justify-content:center; padding: 14px;">Pay $150 &amp; book a time →</button>
+            <div class="why">funds held in trust · no auto-billing · pci-compliant</div>
+          </div>
+          <p style="margin-top:14px; color: var(--dim); font-size: 13px;">Prefer to skip the consult? <a style="color: var(--ink-2); border-bottom: 1px dotted var(--dim-2); cursor: pointer">Submit as a free intake</a> and Sarah will reach out within 2 business days.</p>
+        </div>
+      </div>
+
+      <div class="a-row">
+        <div class="av">B</div>
+        <div class="a-bub" style="background:transparent;border:none;padding:6px 0">
+          <span class="typing"><i></i><i></i><i></i></span>
+        </div>
+      </div>
+
+    </div>
+
+    <div class="footer">
+      <div class="composer">
+        <div class="input" contenteditable="true" data-ph="Reply to Sarah's assistant…"></div>
+        <button class="ib" title="Attach">📎</button>
+        <button class="ib" title="Voice">🎙</button>
+        <button class="ib primary" title="Send">↑</button>
+      </div>
+      <div class="legal-foot">
+        <span class="left">No attorney-client relationship is formed by this conversation.</span>
+        <span><a>Privacy</a> · <a>Terms</a> · powered by <b style="color:var(--ink-2)">Blawby</b></span>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ============== RIGHT: embed example + snippet ============== -->
+  <div class="embed-explain">
+    <div>
+      <h2>Or drop it on your <em>existing</em> site.</h2>
+      <p class="lede">One line of code. The widget inherits your fonts &amp; colors. Routes everything to your Blawby practice.</p>
+    </div>
+
+    <div class="embed-host">
+      <div class="embed-host-bar">
+        <div class="dots"><i></i><i></i><i></i></div>
+        <div class="url">sarahchenlaw.com</div>
+      </div>
+      <div class="host-content">
+        <h3 class="firm-name">Law Offices of Sarah Chen</h3>
+        <div class="firm-nav"><span>About</span><span>Practice areas</span><span>Reviews</span><span>Contact</span></div>
+        <div class="hero">Family law for the moments that <em>actually matter.</em></div>
+        <div class="body-blur"></div>
+
+        <!-- the floating widget (open state) -->
+        <div class="widget" id="widget">
+          <div class="widget-head">
+            <div class="av">B</div>
+            <div class="who">Sarah's assistant<small>typically replies in seconds</small></div>
+            <div class="x" id="closeWidget">×</div>
+          </div>
+          <div class="widget-body">
+            <div class="a-row">
+              <div class="av" style="width:24px;height:24px;font-size:12px">B</div>
+              <div class="a-bub">Hi — I'm Sarah's intake assistant. What kind of legal help are you looking for?</div>
+            </div>
+            <div class="quick">
+              <button class="qchip">Family</button>
+              <button class="qchip">Civil</button>
+              <button class="qchip">Estate</button>
+            </div>
+          </div>
+          <div class="widget-foot">
+            <div class="mini">Type to reply…</div>
+            <div class="send">↑</div>
+          </div>
+        </div>
+
+        <!-- collapsed trigger (alternate state) -->
+        <div class="widget-trigger" id="trigger">
+          <span class="ic">B</span> Chat with Sarah's assistant
+        </div>
+      </div>
+    </div>
+
+    <div class="modes">
+      <button class="chip primary" id="modeOpen">Open</button>
+      <button class="chip" id="modeClosed">Collapsed</button>
+      <span style="font-family:var(--mono);font-size:10px;color:var(--dim);letter-spacing:.06em;text-transform:uppercase;align-self:center;margin-left:auto">two widget states</span>
+    </div>
+
+    <div>
+      <div class="label" style="margin-bottom:8px">Embed code</div>
+      <div class="snippet">
+<span class="com">&lt;!-- on your website, before &lt;/body&gt; --&gt;</span>
+<span class="tag">&lt;script</span> <span class="attr">src</span>=<span class="str">"https://cdn.blawby.com/widget.js"</span> <span class="attr">async</span><span class="tag">&gt;&lt;/script&gt;</span>
+<span class="tag">&lt;blawby-intake</span> <span class="attr">practice</span>=<span class="str">"sarah-chen-law"</span><span class="tag">&gt;&lt;/blawby-intake&gt;</span>
+      </div>
+      <div style="display:flex;gap:10px;margin-top:12px;flex-wrap:wrap">
+        <button class="btn btn-ghost btn-sm">Copy script</button>
+        <button class="btn btn-ghost btn-sm">Customize</button>
+        <span class="pill live" style="margin-left:auto">live · sarah-chen-law</span>
+      </div>
+    </div>
+
+    <div style="font-family:var(--mono); font-size:10.5px; color: var(--dim); letter-spacing:.04em; text-transform:uppercase; line-height: 1.7; border-top: 1px solid var(--rule); padding-top: 14px">
+      Inherits host fonts · <span style="color:var(--ink-2)">PII auto-redacted before model call</span> · GDPR-ready
+    </div>
+  </div>
+</div>
+
+<script>
+  const widget = document.getElementById('widget');
+  const trigger = document.getElementById('trigger');
+  const open = document.getElementById('modeOpen');
+  const closed = document.getElementById('modeClosed');
+  const close = document.getElementById('closeWidget');
+
+  function show(mode){
+    if(mode === 'open'){
+      widget.style.display = ''; trigger.classList.remove('show');
+      open.classList.add('primary'); closed.classList.remove('primary');
+    } else {
+      widget.style.display = 'none'; trigger.classList.add('show');
+      closed.classList.add('primary'); open.classList.remove('primary');
+    }
+  }
+  open.addEventListener('click', ()=> show('open'));
+  closed.addEventListener('click', ()=> show('closed'));
+  close.addEventListener('click', ()=> show('closed'));
+  trigger.addEventListener('click', ()=> show('open'));
+
+  document.querySelectorAll('.qchip').forEach(c=>{
+    c.addEventListener('click', ()=>{
+      const sib = c.parentElement.querySelectorAll('.qchip');
+      sib.forEach(s=>s.classList.remove('on'));
+      c.classList.add('on');
+    });
+  });
+</script>
+</body>
+</html>

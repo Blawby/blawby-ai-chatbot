@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'preact/hooks';
+import { useState, useCallback, useRef } from 'preact/hooks';
 import type { JSX } from 'preact';
 import { Mic, ArrowUp } from 'lucide-preact';
 import { Icon } from '@/shared/ui/Icon';
@@ -7,54 +7,41 @@ import { cn } from '@/shared/utils/cn';
 export interface AIAskBarContextChip {
   id: string;
   label: string;
+  onRemove?: () => void;
 }
 
 export interface AIAskBarProps {
-  /** Placeholder text — e.g. "Find clients who haven't been heard from in 30 days...". */
   placeholder?: string;
-  /** Context chips above the input — e.g. "All matters", "Last 30 days". */
   contextChips?: readonly AIAskBarContextChip[];
-  /**
-   * 1–3 pill-shaped suggestions shown above the context chips.
-   * Clicking a suggestion submits it directly.
-   */
   suggestions?: readonly string[];
-  /** Fired when the user submits the query (Enter, send button, or suggestion). */
   onSubmit: (query: string, contextIds: string[]) => void;
-  /** Fired when the voice mic button is clicked. */
   onVoice?: () => void;
-  /** When true, sticks to the bottom of the container. Default: true. */
+  onAddContext?: () => void;
   sticky?: boolean;
-  /** Trust line beneath the input. */
-  disclaimer?: string;
+  /** Pass a string to override, null to hide entirely, undefined for default kbd hint. */
+  disclaimer?: string | null;
   className?: string;
 }
 
-/**
- * AIAskBar (DESIGN_SYSTEM §3.7 chat-first variant).
- *
- * Sticky bottom composer for "ask the assistant a one-off question on a list
- * view". Used on Home / Matters / Clients / Calendar / Tasks. Distinct from
- * the chat `Composer` — this is a pill-shaped one-off ask, not a multi-turn
- * threaded surface.
- *
- * Layout from top to bottom:
- *   suggestions  (small pills)
- *   context chips (mono dashed pills)
- *   pill input row (mic · input · send)
- *   disclaimer    (mono dim)
- */
+const DEFAULT_DISCLAIMER = (
+  <span>
+    <kbd>⌘</kbd> <kbd>↵</kbd> send · <kbd>⌘</kbd> <kbd>K</kbd> search · <kbd>⌘</kbd> <kbd>/</kbd> commands · Blawby never writes to your records without your approval.
+  </span>
+);
+
 export function AIAskBar({
   placeholder,
   contextChips,
   suggestions,
   onSubmit,
   onVoice,
+  onAddContext,
   sticky = true,
-  disclaimer = 'Blawby never writes without your approval',
-  className
+  disclaimer = undefined,
+  className,
 }: AIAskBarProps) {
   const [value, setValue] = useState('');
+  const inputRef = useRef<HTMLInputElement>(null);
 
   const submit = useCallback(
     (query: string) => {
@@ -101,17 +88,41 @@ export function AIAskBar({
         </div>
       )}
 
-      {contextChips && contextChips.length > 0 && (
-        <div className="ai-ask-bar-context">
-          {contextChips.map((chip) => (
-            <span key={chip.id} className="ai-ask-bar-ctx">
-              {chip.label}
-            </span>
-          ))}
-        </div>
-      )}
+      {/* Full-width input */}
+      <input
+        ref={inputRef}
+        type="text"
+        className="ai-ask-bar-input"
+        placeholder={placeholder}
+        value={value}
+        onInput={(event) => setValue((event.target as HTMLInputElement).value)}
+        onKeyDown={handleKeyDown}
+        aria-label="Ask the assistant"
+      />
 
+      {/* Bottom action row */}
       <div className="ai-ask-bar-row">
+        {contextChips && contextChips.map((chip) => (
+          <span key={chip.id} className="ai-ask-bar-ctx">
+            {chip.label}
+            {chip.onRemove && (
+              <button
+                type="button"
+                onClick={chip.onRemove}
+                aria-label={`Remove ${chip.label}`}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, color: 'inherit', lineHeight: 1 }}
+              >
+                ×
+              </button>
+            )}
+          </span>
+        ))}
+        {onAddContext && (
+          <button type="button" className="ai-ask-bar-ctx-add" onClick={onAddContext}>
+            ＋ add context
+          </button>
+        )}
+        <div className="ai-ask-bar-spacer" />
         {onVoice && (
           <button
             type="button"
@@ -119,18 +130,9 @@ export function AIAskBar({
             onClick={onVoice}
             aria-label="Voice input"
           >
-            <Icon icon={Mic} className="h-4 w-4" />
+            <Icon icon={Mic} className="h-3.5 w-3.5" />
           </button>
         )}
-        <input
-          type="text"
-          className="ai-ask-bar-input"
-          placeholder={placeholder}
-          value={value}
-          onInput={(event) => setValue((event.target as HTMLInputElement).value)}
-          onKeyDown={handleKeyDown}
-          aria-label="Ask the assistant"
-        />
         <button
           type="submit"
           className="ai-ask-bar-send"
@@ -141,7 +143,11 @@ export function AIAskBar({
         </button>
       </div>
 
-      {disclaimer && <div className="ai-ask-bar-disclaimer">{disclaimer}</div>}
+      {disclaimer !== null && (
+        <div className="ai-ask-bar-disclaimer">
+          {disclaimer ?? DEFAULT_DISCLAIMER}
+        </div>
+      )}
     </form>
   );
 

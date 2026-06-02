@@ -1,0 +1,621 @@
+<!doctype html>
+<html lang="en" data-theme="">
+<head>
+<meta charset="utf-8" />
+<title>Blawby — Reports</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,opsz,wght@0,8..60,300..900;1,8..60,300..900&family=Geist:wght@300;400;500;600;700&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="tokens.css">
+<style>
+  body{ background-image: radial-gradient(rgba(15,30,54,0.025) 1px, transparent 1.2px); background-size: 3px 3px; background-attachment: fixed; }
+
+  .shell{ display:grid; grid-template-columns: 240px 1fr; min-height: 100vh; max-width: 1520px; margin: 0 auto; }
+
+  /* rail (reused) */
+  .rail{ border-right: 1px solid var(--rule); padding: 22px 16px; display:flex; flex-direction:column; gap: 18px; position: sticky; top:0; height: 100vh; background: color-mix(in oklab, var(--paper) 96%, var(--card)); }
+  .rail .meta{ font-family:var(--mono); font-size:10px; letter-spacing:.06em; text-transform:uppercase; color: var(--dim); margin-top:-8px; padding-left:30px; }
+  .new-btn{ width:100%; background:var(--ink); color:var(--paper); border:1px solid var(--ink); border-radius:var(--r-xs); padding:11px 14px; font-size:13px; font-weight:500; display:flex; align-items:center; justify-content:space-between; cursor:pointer; transition:all .18s; }
+  .new-btn:hover{ background:var(--accent); color:var(--accent-ink); border-color:var(--accent); }
+  .new-btn kbd{ font-family:var(--mono); font-size:10px; background:rgba(255,255,255,.12); color:var(--paper-2); padding:2px 6px; border-radius:3px; }
+  .rail-section{ display:flex; flex-direction:column; gap:2px; }
+  .rail-label{ font-family:var(--mono); font-size:9.5px; letter-spacing:.12em; text-transform:uppercase; color:var(--dim-2); padding:0 8px 4px; }
+  .rail-item{ display:flex; align-items:center; gap:10px; padding:7px 10px; border-radius:var(--r-xs); font-size:13px; color:var(--ink-2); cursor:pointer; transition: background .12s; }
+  .rail-item:hover{ background:var(--rule-soft); color:var(--ink); }
+  .rail-item.on{ background:var(--ink); color:var(--accent); }
+  .rail-item .dot{ width:6px; height:6px; border-radius:50%; background:var(--dim-2); flex-shrink:0; }
+  .rail-item.on .dot{ background: var(--accent); }
+  .rail-item .badge{ margin-left:auto; font-family: var(--mono); font-size: 10px; color: var(--dim); }
+  .rail-item.on .badge{ color: var(--accent); }
+  .user-chip{ margin-top:auto; display:flex; align-items:center; gap:10px; padding:9px 10px; border-radius:var(--r-xs); border:1px solid var(--rule); background:var(--card); cursor:pointer; }
+  .user-chip .who{ font-size:12.5px; line-height:1.2; }
+  .user-chip .who small{ display:block; color:var(--dim); font-size:10.5px; }
+
+  /* main */
+  .main{ padding: 32px 56px 80px; min-width: 0; max-width: 1240px; }
+
+  /* head */
+  .page-head{
+    display:flex; justify-content: space-between; align-items: flex-end;
+    padding-bottom: 22px; border-bottom: 1px solid var(--rule);
+  }
+  .page-head .crumb{ font-family: var(--mono); font-size: 10px; letter-spacing: .14em; text-transform: uppercase; color: var(--dim); }
+  .page-head h1{ font-family: var(--serif); font-weight: 400; font-size: 56px; line-height: 1; letter-spacing: -.02em; margin: 6px 0 0; }
+  .page-head h1 em{ color: var(--accent); }
+  .page-head .lede{ margin: 12px 0 0; max-width: 56ch; color: var(--ink-2); font-size: 16px; line-height: 1.5; }
+  .page-head .right{ display:flex; flex-direction: column; align-items: flex-end; gap: 10px; }
+  .seg{ display:inline-flex; border: 1px solid var(--rule); border-radius: var(--r-xs); background: var(--card); }
+  .seg button{ appearance:none; border:none; background: transparent; padding: 7px 14px; font-family: var(--sans); font-size: 12px; color: var(--ink-2); cursor: pointer; border-right: 1px solid var(--rule); }
+  .seg button:last-child{ border-right: none; }
+  .seg button.on{ background: var(--ink); color: var(--accent); }
+
+  /* AI exec summary (the headline) */
+  .exec{
+    margin-top: 32px;
+    display:grid; grid-template-columns: 40px 1fr; gap: 18px;
+    background: linear-gradient(180deg, color-mix(in oklab, var(--accent) 10%, var(--card)), var(--card));
+    border: 1px solid color-mix(in oklab, var(--accent) 30%, var(--rule));
+    border-radius: var(--r-md);
+    padding: 24px 26px;
+    box-shadow: var(--shadow-2);
+  }
+  .exec .av{ width: 40px; height: 40px; border-radius: 50%; background: var(--ink); color: var(--accent); display:grid; place-items:center; font-family: var(--serif); font-style: italic; font-size: 20px; flex-shrink: 0; }
+  .exec .meta{ font-family: var(--mono); font-size: 10px; letter-spacing: .14em; text-transform: uppercase; color: var(--accent-deep); display:flex; align-items: center; gap: 8px; }
+  .exec .meta .v{ color: var(--pos); display:inline-flex; align-items: center; gap: 4px; }
+  .exec .meta .v::before{ content: ""; width: 5px; height: 5px; border-radius: 50%; background: var(--pos); }
+  .exec h2{
+    font-family: var(--serif); font-weight: 400; font-size: 28px; letter-spacing: -.012em;
+    margin: 8px 0 0; line-height: 1.25; max-width: 50ch; text-wrap: balance;
+  }
+  .exec h2 em{ color: var(--accent-deep); }
+  .exec p{ font-size: 15px; color: var(--ink-2); margin: 10px 0 0; max-width: 64ch; line-height: 1.55; }
+  .exec .acts{ display:flex; gap: 8px; margin-top: 16px; flex-wrap: wrap; }
+
+  /* kpi grid */
+  .kpis{
+    display:grid; grid-template-columns: repeat(4, 1fr); gap: 14px;
+    margin-top: 24px;
+  }
+  .kpi{
+    background: var(--card); border: 1px solid var(--rule); border-radius: var(--r-md);
+    padding: 22px 24px;
+    box-shadow: var(--shadow-1);
+    display:flex; flex-direction: column; gap: 10px;
+  }
+  .kpi .lab{ font-family: var(--mono); font-size: 10px; letter-spacing: .12em; text-transform: uppercase; color: var(--dim); }
+  .kpi .val{ font-family: var(--serif); font-size: 36px; line-height: 1; letter-spacing: -.015em; font-feature-settings: "tnum"; }
+  .kpi .val small{ font-family: var(--mono); font-size: 12px; color: var(--dim); margin-left: 4px; }
+  .kpi .delta{
+    font-family: var(--mono); font-size: 11px; letter-spacing: .04em; color: var(--ink-2);
+    display:flex; align-items: center; gap: 4px;
+  }
+  .kpi .delta.pos{ color: var(--pos); }
+  .kpi .delta.neg{ color: var(--neg); }
+  .kpi svg{ margin-top: 4px; display: block; }
+
+  /* report sections */
+  section.report{
+    margin-top: 36px;
+  }
+  section.report .s-head{
+    display:flex; justify-content: space-between; align-items: flex-end;
+    padding-bottom: 14px; border-bottom: 1px solid var(--rule);
+    margin-bottom: 22px;
+  }
+  section.report .s-head h3{ font-family: var(--serif); font-weight: 400; font-size: 28px; margin: 0; letter-spacing: -.015em; }
+  section.report .s-head h3 em{ color: var(--accent); }
+  section.report .s-head .label{ font-family: var(--mono); font-size: 10px; letter-spacing: .1em; text-transform: uppercase; color: var(--dim); }
+
+  /* AI take (per section) */
+  .ai-take{
+    background: var(--card);
+    border: 1px solid var(--rule); border-left: 2px solid var(--accent);
+    border-radius: 0 var(--r-md) var(--r-md) 0;
+    padding: 18px 22px;
+    margin-bottom: 18px;
+  }
+  .ai-take .lab{ font-family: var(--mono); font-size: 10px; letter-spacing: .14em; text-transform: uppercase; color: var(--accent-deep); }
+  .ai-take .txt{
+    font-family: var(--serif); font-size: 17px; line-height: 1.5; color: var(--ink);
+    margin-top: 6px; max-width: 64ch;
+  }
+  .ai-take .txt em{ color: var(--accent-deep); font-style: italic; }
+  .ai-take .acts{ display:flex; gap: 6px; margin-top: 12px; flex-wrap: wrap; }
+
+  /* revenue chart card */
+  .chart-card{
+    background: var(--card); border: 1px solid var(--rule); border-radius: var(--r-md);
+    padding: 22px 26px;
+    box-shadow: var(--shadow-1);
+  }
+  .chart-card .head{ display:flex; justify-content: space-between; align-items: flex-end; margin-bottom: 14px; }
+  .chart-card .head .l{ font-family: var(--mono); font-size: 10px; letter-spacing: .12em; text-transform: uppercase; color: var(--dim); }
+  .chart-card .head .v{ font-family: var(--serif); font-size: 32px; line-height: 1; letter-spacing: -.012em; font-feature-settings: "tnum"; }
+  .chart-card .head .delta{ font-family: var(--mono); font-size: 11px; color: var(--pos); }
+
+  /* two-column with chart + breakdown */
+  .grid-2{ display:grid; grid-template-columns: 1.4fr 1fr; gap: 22px; }
+
+  .breakdown{ display:flex; flex-direction: column; gap: 14px; }
+  .breakdown .row{ display:flex; flex-direction: column; gap: 6px; }
+  .breakdown .row .top{ display:flex; justify-content: space-between; align-items: baseline; font-size: 13px; }
+  .breakdown .row .top .n{ font-family: var(--serif); }
+  .breakdown .row .top .v{ font-family: var(--mono); color: var(--ink-2); font-feature-settings: "tnum"; }
+  .breakdown .row .bar{ height: 6px; }
+  .breakdown .row .bar i{ background: var(--accent); }
+  .breakdown .row.alt .bar i{ background: var(--ink); }
+  .breakdown .row.alt2 .bar i{ background: var(--accent-deep); }
+  .breakdown .row.alt3 .bar i{ background: var(--pos); }
+  .breakdown .row.alt4 .bar i{ background: var(--dim-2); }
+
+  /* table for intake conversion */
+  .tbl{ border: 1px solid var(--rule); border-radius: var(--r-md); overflow: hidden; background: var(--card); box-shadow: var(--shadow-1); }
+  .tbl .r{
+    display:grid; grid-template-columns: 1.4fr 100px 100px 90px 1fr;
+    gap: 16px; padding: 14px 22px; align-items: center;
+    border-bottom: 1px solid var(--rule);
+    font-size: 13.5px;
+  }
+  .tbl .r:last-child{ border-bottom: none; }
+  .tbl .r.head{ background: var(--paper-2); font-family: var(--mono); font-size: 10px; letter-spacing: .1em; text-transform: uppercase; color: var(--dim); padding: 10px 22px; }
+  .tbl .r .who{ font-family: var(--serif); font-size: 15px; letter-spacing: -.005em; }
+  .tbl .r .num{ font-family: var(--mono); font-feature-settings: "tnum"; text-align: right; letter-spacing: -.01em; }
+  .tbl .r .bar-cell{ display:flex; align-items: center; gap: 10px; }
+  .tbl .r .bar{ flex: 1; }
+
+  /* AI matter projections */
+  .proj-grid{ display:grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+  .proj{
+    background: var(--card); border: 1px solid var(--rule); border-radius: var(--r-md);
+    padding: 18px 20px;
+    box-shadow: var(--shadow-1);
+  }
+  .proj .head{ display:flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px; }
+  .proj .matter{ font-family: var(--serif); font-size: 17px; letter-spacing: -.005em; max-width: 18ch; }
+  .proj .delta{ font-family: var(--mono); font-size: 10.5px; padding: 2px 6px; border-radius: var(--r-xs); }
+  .proj .delta.pos{ background: color-mix(in oklab, var(--pos) 14%, var(--card)); color: var(--pos); }
+  .proj .delta.warn{ background: color-mix(in oklab, var(--warn) 14%, var(--card)); color: var(--warn); }
+  .proj .label{ font-family: var(--mono); font-size: 10px; letter-spacing: .1em; text-transform: uppercase; color: var(--dim); margin-top: 12px; }
+  .proj .val{ font-family: var(--serif); font-size: 24px; line-height: 1; letter-spacing: -.012em; margin-top: 4px; }
+  .proj p{ font-size: 12.5px; color: var(--ink-2); margin: 12px 0 0; line-height: 1.5; }
+
+  /* AI utilization log */
+  .ai-log{ padding: 0; }
+  .ai-log .r{ display:grid; grid-template-columns: 90px 1fr 80px 80px; gap: 16px; padding: 12px 22px; border-bottom: 1px solid var(--rule); align-items: center; font-size: 13px; }
+  .ai-log .r:last-child{ border-bottom: none; }
+  .ai-log .r.head{ background: var(--paper-2); font-family: var(--mono); font-size: 10px; letter-spacing: .1em; text-transform: uppercase; color: var(--dim); padding: 10px 22px; }
+  .ai-log .r .when{ font-family: var(--mono); font-size: 11px; color: var(--dim); letter-spacing: .04em; text-transform: uppercase; }
+  .ai-log .r .what{ font-family: var(--serif); font-size: 14px; }
+  .ai-log .r .what em{ color: var(--accent-deep); font-style: italic; }
+  .ai-log .r .num{ font-family: var(--mono); font-size: 13px; text-align: right; font-feature-settings: "tnum"; }
+  .ai-log .r .badge{
+    font-family: var(--mono); font-size: 10px; letter-spacing: .04em; text-transform: uppercase;
+    padding: 3px 8px; border-radius: var(--r-pill); text-align: center;
+  }
+  .ai-log .r .badge.approved{ background: color-mix(in oklab, var(--pos) 14%, var(--card)); color: var(--pos); }
+  .ai-log .r .badge.declined{ background: color-mix(in oklab, var(--neg) 14%, var(--card)); color: var(--neg); }
+  .ai-log .r .badge.pending{ background: color-mix(in oklab, var(--warn) 14%, var(--card)); color: var(--warn); }
+
+  /* benchmark callout */
+  .benchmark{
+    margin-top: 24px;
+    padding: 22px 26px;
+    background: var(--ink); color: var(--paper);
+    border-radius: var(--r-md);
+    display:grid; grid-template-columns: 1fr auto; gap: 24px; align-items: center;
+    box-shadow: var(--shadow-2);
+  }
+  .benchmark .label{ font-family: var(--mono); font-size: 10px; letter-spacing: .14em; text-transform: uppercase; color: var(--accent); }
+  .benchmark h3{ font-family: var(--serif); font-weight: 400; font-size: 24px; margin: 6px 0 0; line-height: 1.2; max-width: 50ch; color: var(--paper); }
+  .benchmark h3 em{ color: var(--accent); }
+  .benchmark p{ font-size: 13.5px; color: color-mix(in oklab, var(--paper) 75%, var(--ink-3)); margin: 8px 0 0; max-width: 60ch; line-height: 1.55; }
+  .benchmark .acts{ display:flex; flex-direction: column; gap: 6px; }
+  .benchmark .acts .chip{ background: rgba(255,255,255,.08); color: var(--paper); border-color: rgba(255,255,255,.15); }
+  .benchmark .acts .chip:hover{ background: rgba(255,255,255,.15); }
+  .benchmark .acts .chip.primary{ background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+
+  @media (max-width: 1100px){
+    .grid-2{ grid-template-columns: 1fr; }
+    .kpis{ grid-template-columns: repeat(2, 1fr); }
+    .proj-grid{ grid-template-columns: 1fr; }
+    .benchmark{ grid-template-columns: 1fr; }
+    .page-head{ flex-direction: column; align-items: flex-start; gap: 12px; }
+    .page-head h1{ font-size: 40px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="shell">
+
+    <aside class="rail">
+    <a href="Assistant.html" class="brand-mark">
+      <span class="brand-mark-glyph">B</span>
+      <span class="brand-mark-word" style="font-family:var(--sans);font-weight:500">Blawby</span>
+    </a>
+    <div class="meta">Law Offices of Sarah Chen · solo</div>
+
+    <button class="new-btn">
+      <span>＋  New conversation</span>
+      <kbd>⌘N</kbd>
+    </button>
+
+    <div class="rail-section">
+      <div class="rail-label">Workspace</div>
+      <a class="rail-item" href="Assistant.html"><span class="dot"></span>Assistant</a>
+      <a class="rail-item" href="Conversations v2.html"><span class="dot"></span>Conversations</a>
+      <a class="rail-item" href="Matters.html"><span class="dot"></span>Matters</a>
+      <a class="rail-item" href="Intakes.html"><span class="dot"></span>Intakes</a>
+      <a class="rail-item" href="Invoices.html"><span class="dot"></span>Invoices</a>
+      <a class="rail-item" href="Files.html"><span class="dot"></span>Files</a>
+    </div>
+
+    <div class="rail-section">
+      <div class="rail-label">Practice</div>
+      <a class="rail-item" href="Clients.html"><span class="dot"></span>Clients</a>
+      <a class="rail-item" href="Calendar.html"><span class="dot"></span>Calendar</a>
+      <a class="rail-item" href="Tasks.html"><span class="dot"></span>Tasks</a>
+      <a class="rail-item" href="Trust.html"><span class="dot"></span>Trust ledger</a>
+      <a class="rail-item on" href="Reports.html"><span class="dot"></span>Reports</a>
+    </div>
+
+    <a class="rail-item" href="Settings.html" style="margin-top:auto"><span class="dot" style="background:transparent;border:1px solid var(--dim-2)"></span>Settings</a>
+
+    <div class="user-chip">
+      <div class="avatar user">SC</div>
+      <div class="who">Sarah Chen<small>sarah@chenlawoffice.com</small></div>
+      <div class="caret">⌃</div>
+    </div>
+  </aside>
+
+  <main class="main">
+
+    <header class="page-head">
+      <div>
+        <div class="crumb">November · monthly review</div>
+        <h1>Your practice, in <em>three minutes.</em></h1>
+        <p class="lede">A narrative report Blawby writes every Monday — what's working, what's drifting, and what to act on this week.</p>
+      </div>
+      <div class="right">
+        <div class="seg">
+          <button>Week</button>
+          <button class="on">Month</button>
+          <button>Quarter</button>
+          <button>YTD</button>
+        </div>
+        <div style="display:flex;gap:8px">
+          <button class="btn btn-ghost btn-sm">Email this to my CPA</button>
+          <button class="btn btn-ghost btn-sm">Download PDF</button>
+        </div>
+      </div>
+    </header>
+
+    <!-- EXEC SUMMARY -->
+    <div class="exec">
+      <div class="av">B</div>
+      <div>
+        <div class="meta">Executive summary <span class="v">grounded in 31 days · 4 matters · 14 invoices · 18 intakes</span></div>
+        <h2>You billed <em>$9,190</em>, accepted <em>5 of 18 intakes</em>, and closed <em>2 matters</em>. The biggest leak is your <em>retainer replenishment timing</em> — you're losing about $1,400/mo by waiting too long.</h2>
+        <p>Revenue is up 14% vs October. Your AI-handled tasks would have cost ~6 hours of paralegal time, worth roughly $480 at NC market rates. Three things deserve a 5-minute look this week, listed below.</p>
+        <div class="acts">
+          <button class="chip primary">Fix retainer replenishment</button>
+          <button class="chip">Show me the math</button>
+          <button class="chip">Email this summary to me weekly</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- KPI strip -->
+    <div class="kpis">
+      <div class="kpi">
+        <div class="lab">Revenue · month</div>
+        <div class="val">$9,190</div>
+        <div class="delta pos">↑ 14% vs Oct · $8,062</div>
+        <svg width="100%" height="32" viewBox="0 0 200 32" preserveAspectRatio="none">
+          <defs><linearGradient id="g1" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="oklch(0.72 0.13 82)" stop-opacity=".4"/><stop offset="100%" stop-color="oklch(0.72 0.13 82)" stop-opacity="0"/></linearGradient></defs>
+          <path d="M0 24 L20 22 L40 20 L60 24 L80 18 L100 14 L120 16 L140 10 L160 12 L180 8 L200 6 L200 32 L0 32 Z" fill="url(#g1)"/>
+          <path d="M0 24 L20 22 L40 20 L60 24 L80 18 L100 14 L120 16 L140 10 L160 12 L180 8 L200 6" fill="none" stroke="var(--ink)" stroke-width="1.4"/>
+        </svg>
+      </div>
+      <div class="kpi">
+        <div class="lab">Intake → matter</div>
+        <div class="val">28%<small>5 of 18</small></div>
+        <div class="delta">— vs Oct · 27%</div>
+        <svg width="100%" height="32" viewBox="0 0 200 32" preserveAspectRatio="none">
+          <path d="M0 18 L25 20 L50 14 L75 22 L100 18 L125 16 L150 14 L175 18 L200 14" fill="none" stroke="var(--ink)" stroke-width="1.4"/>
+        </svg>
+      </div>
+      <div class="kpi">
+        <div class="lab">Time-to-close · avg</div>
+        <div class="val">68d<small>vs peers 87d</small></div>
+        <div class="delta pos">22% faster than NC peers</div>
+        <svg width="100%" height="32" viewBox="0 0 200 32" preserveAspectRatio="none">
+          <path d="M0 12 L25 14 L50 18 L75 16 L100 20 L125 22 L150 24 L175 22 L200 26" fill="none" stroke="var(--ink)" stroke-width="1.4"/>
+        </svg>
+      </div>
+      <div class="kpi">
+        <div class="lab">Utilization · billable</div>
+        <div class="val">61%<small>56h / 92h</small></div>
+        <div class="delta pos">↑ 4 pts vs Oct</div>
+        <svg width="100%" height="32" viewBox="0 0 200 32" preserveAspectRatio="none">
+          <rect x="0" y="20" width="14" height="12" fill="var(--dim-2)"/>
+          <rect x="22" y="18" width="14" height="14" fill="var(--dim-2)"/>
+          <rect x="44" y="16" width="14" height="16" fill="var(--dim-2)"/>
+          <rect x="66" y="14" width="14" height="18" fill="var(--dim-2)"/>
+          <rect x="88" y="12" width="14" height="20" fill="var(--dim-2)"/>
+          <rect x="110" y="11" width="14" height="21" fill="var(--dim-2)"/>
+          <rect x="132" y="8" width="14" height="24" fill="var(--ink)"/>
+          <rect x="154" y="6" width="14" height="26" fill="var(--ink)"/>
+          <rect x="176" y="4" width="14" height="28" fill="var(--accent)"/>
+        </svg>
+      </div>
+    </div>
+
+    <!-- REVENUE -->
+    <section class="report">
+      <div class="s-head">
+        <h3>Revenue &amp; <em>composition</em></h3>
+        <span class="label">$9,190 collected · $11,945 invoiced · $2,755 outstanding</span>
+      </div>
+
+      <div class="ai-take">
+        <div class="lab">I noticed</div>
+        <div class="txt">Your <em>family law</em> book quietly took over this month — 44% of revenue, up from 28% in October. PI used to be your biggest line; it's still your <em>highest-margin</em>, but you only opened one new contingency matter all month.</div>
+        <div class="acts">
+          <button class="chip primary">Refresh PI marketing copy</button>
+          <button class="chip">Compare margins by area</button>
+        </div>
+      </div>
+
+      <div class="grid-2">
+        <div class="chart-card">
+          <div class="head">
+            <div>
+              <div class="l">Monthly revenue · 6mo trailing</div>
+              <div class="v">$9,190</div>
+            </div>
+            <div class="delta">↑ 14% MoM</div>
+          </div>
+          <!-- bar chart -->
+          <svg width="100%" height="180" viewBox="0 0 600 180" preserveAspectRatio="none">
+            <line x1="0" y1="160" x2="600" y2="160" stroke="var(--rule)" stroke-width="1"/>
+            <!-- bars: Jun,Jul,Aug,Sep,Oct,Nov -->
+            <g>
+              <rect x="40" y="100" width="60" height="60" fill="var(--paper-2)" stroke="var(--rule)" stroke-width="1"/>
+              <rect x="140" y="80" width="60" height="80" fill="var(--paper-2)" stroke="var(--rule)" stroke-width="1"/>
+              <rect x="240" y="70" width="60" height="90" fill="var(--paper-2)" stroke="var(--rule)" stroke-width="1"/>
+              <rect x="340" y="60" width="60" height="100" fill="var(--paper-2)" stroke="var(--rule)" stroke-width="1"/>
+              <rect x="440" y="55" width="60" height="105" fill="var(--paper-2)" stroke="var(--rule)" stroke-width="1"/>
+              <rect x="540" y="38" width="60" height="122" fill="var(--accent)" stroke="var(--accent-deep)" stroke-width="1"/>
+            </g>
+            <!-- gridline -->
+            <line x1="0" y1="60" x2="600" y2="60" stroke="var(--rule)" stroke-width="1" stroke-dasharray="2 4"/>
+            <text x="0" y="55" font-family="Geist Mono" font-size="10" fill="var(--dim)" letter-spacing=".04em">$10K</text>
+            <!-- month labels -->
+            <g font-family="Geist Mono" font-size="10" fill="var(--dim)" letter-spacing=".06em" text-anchor="middle">
+              <text x="70" y="175">JUN</text>
+              <text x="170" y="175">JUL</text>
+              <text x="270" y="175">AUG</text>
+              <text x="370" y="175">SEP</text>
+              <text x="470" y="175">OCT</text>
+              <text x="570" y="175" fill="var(--ink)">NOV</text>
+            </g>
+          </svg>
+        </div>
+
+        <div class="chart-card">
+          <div class="head">
+            <div>
+              <div class="l">Revenue by practice area</div>
+              <div class="v" style="font-size: 22px">5 areas · Nov</div>
+            </div>
+          </div>
+          <div class="breakdown">
+            <div class="row">
+              <div class="top"><span class="n">Family law</span><span class="v">$4,040 · 44%</span></div>
+              <div class="bar"><i style="width: 44%"></i></div>
+            </div>
+            <div class="row alt">
+              <div class="top"><span class="n">Personal injury</span><span class="v">$2,475 · 27%</span></div>
+              <div class="bar"><i style="width: 27%"></i></div>
+            </div>
+            <div class="row alt2">
+              <div class="top"><span class="n">Estate planning</span><span class="v">$1,800 · 20%</span></div>
+              <div class="bar"><i style="width: 20%"></i></div>
+            </div>
+            <div class="row alt3">
+              <div class="top"><span class="n">Small business</span><span class="v">$600 · 7%</span></div>
+              <div class="bar"><i style="width: 7%"></i></div>
+            </div>
+            <div class="row alt4">
+              <div class="top"><span class="n">Other</span><span class="v">$275 · 3%</span></div>
+              <div class="bar"><i style="width: 3%"></i></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- INTAKE QUALITY -->
+    <section class="report">
+      <div class="s-head">
+        <h3>Intake <em>quality</em> &amp; conversion</h3>
+        <span class="label">18 intakes received · 5 accepted · 13 declined or pending</span>
+      </div>
+
+      <div class="ai-take">
+        <div class="lab">I noticed</div>
+        <div class="txt">Your <em>4+ rated intakes convert at 92%</em>. The 2.5–3.5 range converts at 38% and eats 2.4× the consult time. <em>You could decline anything below 3.0 by default</em> without losing real revenue — I can flip that switch.</div>
+        <div class="acts">
+          <button class="chip primary">Auto-decline below 3.0</button>
+          <button class="chip">Show me the 2.5–3.5 ones</button>
+        </div>
+      </div>
+
+      <div class="tbl">
+        <div class="r head">
+          <div>Practice area</div>
+          <div style="text-align:right">Intakes</div>
+          <div style="text-align:right">Accepted</div>
+          <div style="text-align:right">Conversion</div>
+          <div>Avg case score</div>
+        </div>
+        <div class="r">
+          <div class="who">Family law</div>
+          <div class="num">7</div>
+          <div class="num">3</div>
+          <div class="num">43%</div>
+          <div class="bar-cell"><div class="bar"><i style="width: 84%; background: var(--pos)"></i></div><span class="num" style="font-family: var(--sans); font-size: 12px">4.2</span></div>
+        </div>
+        <div class="r">
+          <div class="who">Personal injury</div>
+          <div class="num">3</div>
+          <div class="num">1</div>
+          <div class="num">33%</div>
+          <div class="bar-cell"><div class="bar"><i style="width: 76%; background: var(--pos)"></i></div><span class="num" style="font-family: var(--sans); font-size: 12px">3.8</span></div>
+        </div>
+        <div class="r">
+          <div class="who">Estate planning</div>
+          <div class="num">4</div>
+          <div class="num">1</div>
+          <div class="num">25%</div>
+          <div class="bar-cell"><div class="bar"><i style="width: 64%; background: var(--accent)"></i></div><span class="num" style="font-family: var(--sans); font-size: 12px">3.2</span></div>
+        </div>
+        <div class="r">
+          <div class="who">Small business</div>
+          <div class="num">2</div>
+          <div class="num">0</div>
+          <div class="num">0%</div>
+          <div class="bar-cell"><div class="bar"><i style="width: 56%; background: var(--accent)"></i></div><span class="num" style="font-family: var(--sans); font-size: 12px">2.8</span></div>
+        </div>
+        <div class="r">
+          <div class="who">Criminal · auto-declined</div>
+          <div class="num">2</div>
+          <div class="num">0</div>
+          <div class="num">—</div>
+          <div class="bar-cell" style="opacity:.6"><div class="bar"><i style="width: 40%; background: var(--dim-2)"></i></div><span class="num" style="font-family: var(--sans); font-size: 12px">n/a</span></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- MATTER FORECAST -->
+    <section class="report">
+      <div class="s-head">
+        <h3>Open matters · <em>30-day projection</em></h3>
+        <span class="label">AI-projected revenue · ±confidence band</span>
+      </div>
+
+      <div class="proj-grid">
+        <div class="proj">
+          <div class="head">
+            <div class="matter">Auto Injury — B. Martinez</div>
+            <span class="delta warn">at risk</span>
+          </div>
+          <div class="label">Projected close value</div>
+          <div class="val">$9,300<small style="font-family:var(--mono);font-size:12px;color:var(--dim);margin-left:4px">±$2,100</small></div>
+          <p>Demand response expected by Dec 4. Confidence is medium — adjuster pushed on causation. Realistic floor: <b>$6,000</b>.</p>
+        </div>
+        <div class="proj">
+          <div class="head">
+            <div class="matter">Estate Plan — A. Johnson</div>
+            <span class="delta pos">on track</span>
+          </div>
+          <div class="label">Projected fees collected</div>
+          <div class="val">$3,600<small style="font-family:var(--mono);font-size:12px;color:var(--dim);margin-left:4px">±$200</small></div>
+          <p>Two milestones remaining. High confidence — flat-fee structure, $1,800 already paid.</p>
+        </div>
+        <div class="proj">
+          <div class="head">
+            <div class="matter">Separation — Demo Client</div>
+            <span class="delta pos">on track</span>
+          </div>
+          <div class="label">Projected fees · 30d</div>
+          <div class="val">$2,400<small style="font-family:var(--mono);font-size:12px;color:var(--dim);margin-left:4px">±$600</small></div>
+          <p>Draft stage. Negotiation pace looks steady. Expect 1–2 invoice cycles before closing.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- AI UTILIZATION -->
+    <section class="report">
+      <div class="s-head">
+        <h3>Assistant <em>activity</em></h3>
+        <span class="label">142 staged actions · 121 approved · 18 declined · 3 pending</span>
+      </div>
+
+      <div class="ai-take">
+        <div class="lab">By the numbers</div>
+        <div class="txt">The assistant saved you an estimated <em>6 hours and 12 minutes</em> of routine work this month — drafting invoices, summarizing intakes, replenishment requests, and follow-up nudges. At NC paralegal market rates that's about <em>$480 of work</em> you didn't pay for.</div>
+      </div>
+
+      <div class="tbl">
+        <div class="r head" style="grid-template-columns: 90px 1fr 80px 80px">
+          <div>When</div>
+          <div>What I did</div>
+          <div style="text-align:right">Time saved</div>
+          <div style="text-align:center">Status</div>
+        </div>
+        <div class="r" style="grid-template-columns: 90px 1fr 80px 80px">
+          <div class="when" style="font-family:var(--mono);font-size:11px;color:var(--dim);letter-spacing:.04em;text-transform:uppercase">Nov 25</div>
+          <div class="what" style="font-family:var(--serif);font-size:14px">Drafted invoice INV-0192 for <em>Martinez</em> from 5 unbilled time entries</div>
+          <div class="num" style="font-family:var(--mono);font-size:13px;text-align:right">20 min</div>
+          <div class="badge pending">pending</div>
+        </div>
+        <div class="r" style="grid-template-columns: 90px 1fr 80px 80px">
+          <div class="when" style="font-family:var(--mono);font-size:11px;color:var(--dim);letter-spacing:.04em;text-transform:uppercase">Nov 25</div>
+          <div class="what" style="font-family:var(--serif);font-size:14px">Replenishment request drafted for <em>Martinez</em> — retainer hit 45%</div>
+          <div class="num" style="font-family:var(--mono);font-size:13px;text-align:right">15 min</div>
+          <div class="badge pending">pending</div>
+        </div>
+        <div class="r" style="grid-template-columns: 90px 1fr 80px 80px">
+          <div class="when" style="font-family:var(--mono);font-size:11px;color:var(--dim);letter-spacing:.04em;text-transform:uppercase">Nov 24</div>
+          <div class="what" style="font-family:var(--serif);font-size:14px">Triaged <em>Sarah Chen</em> intake — case strength 4.2, recommended accept</div>
+          <div class="num" style="font-family:var(--mono);font-size:13px;text-align:right">25 min</div>
+          <div class="badge approved">approved</div>
+        </div>
+        <div class="r" style="grid-template-columns: 90px 1fr 80px 80px">
+          <div class="when" style="font-family:var(--mono);font-size:11px;color:var(--dim);letter-spacing:.04em;text-transform:uppercase">Nov 22</div>
+          <div class="what" style="font-family:var(--serif);font-size:14px">Generated engagement letter for <em>Chen</em> from family/retainer template</div>
+          <div class="num" style="font-family:var(--mono);font-size:13px;text-align:right">45 min</div>
+          <div class="badge approved">approved</div>
+        </div>
+        <div class="r" style="grid-template-columns: 90px 1fr 80px 80px">
+          <div class="when" style="font-family:var(--mono);font-size:11px;color:var(--dim);letter-spacing:.04em;text-transform:uppercase">Nov 21</div>
+          <div class="what" style="font-family:var(--serif);font-size:14px">Drafted follow-up email for <em>Patel</em> — proposed payment plan</div>
+          <div class="num" style="font-family:var(--mono);font-size:13px;text-align:right">12 min</div>
+          <div class="badge declined">declined</div>
+        </div>
+        <div class="r" style="grid-template-columns: 90px 1fr 80px 80px">
+          <div class="when" style="font-family:var(--mono);font-size:11px;color:var(--dim);letter-spacing:.04em;text-transform:uppercase">Nov 19</div>
+          <div class="what" style="font-family:var(--serif);font-size:14px">Summarized 213 pages of medical records for <em>Martinez</em></div>
+          <div class="num" style="font-family:var(--mono);font-size:13px;text-align:right">90 min</div>
+          <div class="badge approved">approved</div>
+        </div>
+        <div class="r" style="grid-template-columns: 90px 1fr 80px 80px">
+          <div class="when" style="font-family:var(--mono);font-size:11px;color:var(--dim);letter-spacing:.04em;text-transform:uppercase">…</div>
+          <div class="what" style="color:var(--dim);font-family:var(--serif);font-size:14px"><em>135 more · all logged</em></div>
+          <div class="num" style="font-family:var(--mono);font-size:13px;text-align:right;color:var(--dim)">— </div>
+          <div class="badge" style="background:var(--rule-soft); color: var(--dim)">view all</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- BENCHMARK -->
+    <div class="benchmark">
+      <div>
+        <div class="label">Peer benchmark</div>
+        <h3>You're earning <em>18% less per case</em> on family law than NC peers your size — but closing them <em>22% faster</em>.</h3>
+        <p>Solo NC family-law attorneys in Mecklenburg County are charging an average of $235/hr (you're at $200) and taking 87 days to close (you take 68). You're under-pricing relative to your speed; bringing your rate to $225 would have added <b>~$1,460</b> to this month.</p>
+      </div>
+      <div class="acts">
+        <button class="chip primary">Update my rate</button>
+        <button class="chip">Show methodology</button>
+        <button class="chip">Not yet</button>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+</body>
+</html>

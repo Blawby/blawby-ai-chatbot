@@ -252,6 +252,10 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
   const [pendingInviteOption, setPendingInviteOption] = useState<{ name: string; email: string } | null>(null);
   const navigationInitiatedRef = useRef(false);
   const hasAutoNavigatedRef = useRef(false);
+  // When the home page composer submits a question it navigates here with
+  // ?ask=<encoded question>. We fire it as a new PRACTICE_ASSISTANT
+  // conversation once and clear the param so a refresh doesn't re-send.
+  const autoAskFiredRef = useRef(false);
   const filteredMessages = useMemo(() => filterWorkspaceMessages(messages), [messages]);
   const intakeContactStarted = useMemo(
     () => hasIntakeContactStarted(messages),

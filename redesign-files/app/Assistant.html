@@ -1,0 +1,733 @@
+<!doctype html>
+<html lang="en" data-theme="">
+<head>
+<meta charset="utf-8" />
+<title>Blawby — Assistant</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,opsz,wght@0,8..60,300..900;1,8..60,300..900&family=Geist:wght@300;400;500;600;700&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="tokens.css">
+<style>
+  body{ background: var(--paper); }
+  body.grainy{
+    background-image: radial-gradient(rgba(15,30,54,0.025) 1px, transparent 1.2px);
+    background-size: 3px 3px;
+    background-attachment: fixed;
+  }
+
+  .app{
+    display:grid;
+    grid-template-columns: 240px 1fr 400px;
+    min-height:100vh;
+    max-width:1520px;
+    margin:0 auto;
+  }
+
+  /* ===== left rail ===== */
+  .rail{
+    border-right:1px solid var(--rule);
+    padding:22px 16px 16px;
+    display:flex;flex-direction:column;gap:18px;
+    position:sticky;top:0;height:100vh;
+    background: color-mix(in oklab, var(--paper) 96%, var(--card));
+  }
+  .rail .brand-mark-word{ font-family: var(--sans); font-weight: 500; }
+  .rail .meta{ font-family:var(--mono);font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--dim); margin-top:-8px; padding-left:30px; }
+  .new-btn{
+    width:100%;
+    background:var(--ink);color:var(--paper);
+    border:1px solid var(--ink); border-radius: var(--r-xs);
+    padding:11px 14px;
+    font-size:13px;font-weight:500;
+    display:flex;align-items:center;justify-content:space-between;
+    cursor:pointer; transition: all .18s ease;
+  }
+  .new-btn:hover{ background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+  .new-btn kbd{
+    font-family:var(--mono); font-size:10px;
+    background:rgba(255,255,255,.12); color:var(--paper-2);
+    padding:2px 6px; border-radius:3px;
+  }
+  .new-btn:hover kbd{ background: rgba(0,0,0,.12); color: var(--accent-ink); }
+
+  .rail-section{ display:flex; flex-direction:column; gap:2px; }
+  .rail-label{
+    font-family:var(--mono); font-size:9.5px; letter-spacing:.12em; text-transform:uppercase;
+    color:var(--dim-2); padding:0 8px 4px;
+  }
+  .rail-item{
+    display:flex; align-items:center; gap:10px;
+    padding:7px 10px; border-radius: var(--r-xs);
+    font-size:13px; color:var(--ink-2); cursor:pointer;
+    transition: background .12s, color .12s;
+  }
+  .rail-item:hover{ background: var(--rule-soft); color: var(--ink); }
+  .rail-item .dot{ width:6px; height:6px; border-radius:50%; background:var(--dim-2); flex-shrink:0; }
+  .rail-item.now{ background: var(--accent-soft); color: var(--ink); }
+  .rail-item.now .dot{ background: var(--accent); }
+  .rail-item.unread .dot{ background: var(--neg); }
+
+  .rail-thread{
+    padding:7px 10px; border-radius: var(--r-xs); cursor:pointer;
+    font-size:12.5px; line-height:1.35; color:var(--dim);
+    margin-bottom:1px;
+  }
+  .rail-thread:hover{ background: var(--rule-soft); }
+  .rail-thread .when{ font-family:var(--mono); font-size:9.5px; letter-spacing:.05em; text-transform:uppercase; color:var(--dim-2); }
+  .rail-thread .preview{ color:var(--ink-2); margin-top:1px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+
+  .user-chip{
+    margin-top:auto;
+    display:flex; align-items:center; gap:10px;
+    padding:9px 10px; border-radius: var(--r-xs);
+    border:1px solid var(--rule); background: var(--card);
+    cursor:pointer;
+  }
+  .user-chip .who{ font-size:12.5px; line-height:1.2; }
+  .user-chip .who small{ display:block; color:var(--dim); font-size:10.5px; }
+  .user-chip .caret{ margin-left:auto; color:var(--dim-2); }
+
+  /* ===== center ===== */
+  .center{ padding:36px 56px 0; display:flex; flex-direction:column; min-width:0; }
+
+  .greeting{
+    display:flex; justify-content:space-between; align-items:flex-end;
+    padding-bottom:18px; border-bottom:1px solid var(--rule);
+    margin-bottom:28px;
+  }
+  .greeting .date{
+    font-family:var(--mono); font-size:10.5px; letter-spacing:.16em; text-transform:uppercase;
+    color:var(--dim); margin-bottom:6px;
+  }
+  .greeting h1{
+    font-family:var(--serif); font-weight:400;
+    font-size:60px; line-height:1; letter-spacing:-.025em;
+    margin:0;
+  }
+  .greeting h1 em{ font-style:italic; color: var(--accent); }
+  .greeting .right{
+    text-align:right; line-height:1.5;
+    font-size:13px; color: var(--ink-2);
+  }
+  .greeting .right .label{ display:block; margin-bottom:4px; }
+  .greeting .right b{ font-weight:500; color: var(--ink); }
+
+  /* conversation */
+  .thread{ display:flex; flex-direction:column; gap:28px; padding-bottom:140px; flex:1; min-width:0; }
+
+  .msg{ display:flex; gap:14px; animation: rise .5s cubic-bezier(.2,.7,.2,1) both; }
+  .msg .body{ flex:1; min-width:0; }
+  .msg .said{
+    font-family:var(--mono); font-size:10px; letter-spacing:.1em; text-transform:uppercase;
+    color:var(--dim); margin-bottom:8px;
+    display:flex; align-items:center; gap:8px; flex-wrap: wrap;
+  }
+  .msg .said .verify{ color: var(--pos); display:inline-flex; align-items:center; gap:4px; }
+  .msg .said .verify::before{ content:""; width:5px; height:5px; border-radius:50%; background: var(--pos); }
+  .msg .lede{
+    font-family: var(--serif); font-size:28px; line-height:1.18; letter-spacing:-.01em;
+    color:var(--ink); margin:0 0 14px; max-width:60ch; text-wrap: balance;
+  }
+  .msg .lede em{ color: var(--accent-deep); }
+  .msg p{ margin:0 0 10px; color:var(--ink-2); max-width:62ch; }
+
+  .me{ display:flex; justify-content:flex-end; animation: rise .4s ease both; }
+  .me .bub{
+    background: var(--accent); color: var(--accent-ink);
+    padding:10px 14px;
+    border-radius: var(--r-md) var(--r-md) var(--r-xs) var(--r-md);
+    font-size:14px; max-width:60%;
+    box-shadow: var(--shadow-1);
+  }
+
+  @keyframes rise{ from{opacity:0; transform:translateY(8px)} to{opacity:1; transform:none} }
+
+  /* briefing grid */
+  .brief{ display:grid; grid-template-columns: 1fr 1fr; gap:14px; margin-top:10px; }
+  .brief .item{
+    background: var(--card); border:1px solid var(--rule);
+    border-radius: var(--r-md); padding:18px;
+    transition: transform .15s, box-shadow .15s, border-color .15s;
+    box-shadow: var(--shadow-1);
+  }
+  .brief .item:hover{ transform: translateY(-1px); box-shadow: var(--shadow-2); border-color: var(--paper-edge); }
+  .brief .item.span2{ grid-column: 1 / span 2; }
+  .brief .item.feature{
+    background: linear-gradient(180deg, color-mix(in oklab, var(--accent) 18%, var(--card)) 0%, var(--card) 100%);
+    border-color: color-mix(in oklab, var(--accent) 50%, var(--rule));
+    box-shadow: 0 1px 0 rgba(255,255,255,.5) inset, 0 12px 32px -18px color-mix(in oklab, var(--accent-deep) 60%, transparent);
+  }
+  .brief .item .kind{
+    display:flex; justify-content:space-between; align-items:center;
+    font-family:var(--mono); font-size:9.5px; letter-spacing:.14em; text-transform:uppercase;
+    color: var(--dim); margin-bottom:10px;
+  }
+  .brief .item.feature .kind{ color: var(--accent-deep); }
+  .brief .item .kind .tag{
+    padding:2px 8px; border-radius: var(--r-pill);
+    border:1px solid var(--rule); background: var(--paper);
+    color: var(--ink-2);
+    font-family:var(--sans); font-size:10.5px; letter-spacing:0; text-transform:none; font-weight:500;
+  }
+  .brief .item.feature .kind .tag{
+    border-color: color-mix(in oklab, var(--accent) 50%, var(--rule));
+    background: color-mix(in oklab, var(--accent) 10%, var(--card));
+    color: var(--accent-deep);
+  }
+  .brief .item h3{
+    font-family:var(--serif); font-weight:400; font-size:24px; line-height:1.15;
+    margin: 0 0 6px; letter-spacing:-.01em; text-wrap: balance;
+  }
+  .brief .item p{ font-size:13.5px; color: var(--ink-2); margin: 0 0 12px; max-width:46ch; line-height:1.5; }
+  .brief .item .stat{ display:flex; align-items:baseline; gap:8px; }
+  .brief .item .stat .num{ font-family:var(--serif); font-size:36px; line-height:1; letter-spacing:-.01em; }
+  .brief .item .stat .unit{ font-family:var(--mono); font-size:10px; text-transform:uppercase; letter-spacing:.1em; color:var(--dim); }
+  .brief .item ul{ display:flex; flex-direction:column; gap:0; }
+  .brief .item ul li{
+    display:flex; align-items:baseline; gap:8px;
+    font-size:13px; color:var(--ink-2);
+    padding: 7px 0; border-top: 1px solid var(--rule);
+  }
+  .brief .item ul li:first-child{ border-top:none; padding-top: 0; }
+  .brief .item ul li .ln{ flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .brief .item ul li .qty{ font-family:var(--mono); font-size:11px; color:var(--dim); min-width:32px; }
+  .pri-r{ color: var(--neg); font-weight:500; }
+  .pri-y{ color: var(--accent-deep); font-weight:500; }
+  .pri-g{ color: var(--dim); font-weight:500; }
+
+  .acts{ display:flex; gap:6px; flex-wrap:wrap; margin-top:14px; }
+
+  /* citation */
+  .cites{ display:flex; gap:6px; flex-wrap:wrap; margin-top:14px; }
+
+  /* AI quiet observation */
+  .observe{
+    display:flex; gap:14px; padding:16px 18px;
+    border-left: 2px solid var(--accent);
+    background: linear-gradient(90deg, var(--accent-soft), transparent 80%);
+    border-radius: 0 var(--r-md) var(--r-md) 0;
+    margin-left: 44px;
+  }
+  .observe .label{ color: var(--accent-deep); }
+  .observe .txt{
+    font-family:var(--serif); font-size:18px; line-height:1.45;
+    color:var(--ink); max-width:54ch; font-style:italic; margin-top:4px;
+  }
+
+  /* tool-use line */
+  .tooluse{
+    display:flex; align-items:center; gap:8px;
+    margin-left:44px; margin-top:-12px;
+    font-family:var(--mono); font-size:10px; letter-spacing:.06em; color:var(--dim); text-transform:uppercase;
+  }
+  .tooluse code{
+    font-family:var(--mono); color:var(--ink-2);
+    background: var(--rule-soft); padding:1px 6px; border-radius:3px;
+    text-transform:none; letter-spacing:0; font-size:10.5px;
+  }
+
+  /* matter chips in AI replies */
+  .matter-chip{
+    display:inline-flex; align-items:center; gap:6px;
+    padding:2px 9px 3px; border-radius: var(--r-xs);
+    background: var(--rule-soft); border:1px solid var(--rule);
+    font-size:13px; color:var(--ink); cursor:pointer;
+    transition: background .12s, border-color .12s;
+    line-height:1.4;
+  }
+  .matter-chip:hover{ background: color-mix(in oklab, var(--accent) 12%, var(--card)); border-color: color-mix(in oklab, var(--accent) 40%, var(--rule)); }
+  .matter-chip .pin{ width:5px; height:5px; border-radius:50%; background:var(--dim-2); }
+  .matter-chip.urgent .pin{ background: var(--neg); }
+  .matter-chip.active{ background: var(--card); border-color: var(--ink); box-shadow: 0 0 0 1px var(--ink); }
+
+  /* composer */
+  .composer-wrap{
+    position:sticky; bottom:0;
+    margin: 0 -56px;
+    padding: 18px 56px 26px;
+    background: linear-gradient(180deg, transparent, var(--paper) 28%);
+  }
+  .composer{
+    background: var(--card);
+    border:1px solid var(--rule);
+    border-radius: var(--r-md);
+    padding: 14px 16px 12px;
+    box-shadow: var(--shadow-2);
+  }
+  .composer .input{
+    font-family: var(--sans); font-size:16px; color: var(--ink);
+    line-height:1.5; min-height:24px; outline:none;
+  }
+  .composer .input:empty::before{
+    content: attr(data-ph);
+    color: var(--dim-2);
+  }
+  .composer .input em{ color: var(--dim); font-style: italic; }
+  .composer .row2{ display:flex; align-items:center; gap:8px; margin-top:10px; }
+  .ctx{
+    display:inline-flex; align-items:center; gap:6px;
+    font-family: var(--mono); font-size:10.5px; letter-spacing:.04em; text-transform:uppercase;
+    padding: 4px 8px; border-radius: var(--r-xs);
+    border: 1px dashed var(--rule); color: var(--dim);
+  }
+  .ctx .x{ cursor:pointer; color: var(--dim-2); }
+  .iconbtn{
+    width:32px; height:32px; border-radius: var(--r-xs);
+    border:1px solid var(--rule); background: var(--paper);
+    display:grid; place-items:center; cursor:pointer; color: var(--ink-2);
+  }
+  .iconbtn:hover{ background: var(--card); border-color: var(--ink-3); }
+  .iconbtn.primary{ background: var(--ink); color: var(--paper); border-color: var(--ink); }
+  .iconbtn.primary:hover{ background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+  .composer .hint{
+    font-family:var(--mono); font-size:10px; letter-spacing:.05em; color:var(--dim-2);
+    margin-top:8px; text-transform:uppercase;
+  }
+  .composer .hint kbd{
+    background: var(--rule-soft); border:1px solid var(--rule);
+    padding:1px 5px; border-radius:3px; font-family:var(--mono); font-size:10px; color: var(--ink-2);
+  }
+
+  /* ===== right focus ===== */
+  .focus{
+    border-left:1px solid var(--rule);
+    padding:28px 22px 24px;
+    position:sticky; top:0; height:100vh; overflow-y:auto;
+    display:flex; flex-direction:column; gap:14px;
+    background: color-mix(in oklab, var(--paper) 96%, var(--card));
+  }
+  .focus::-webkit-scrollbar{ width:0; }
+  .focus-head{ display:flex; justify-content:space-between; align-items:flex-start; gap:10px; }
+  .focus-head .kind{
+    font-family:var(--mono); font-size:10px; letter-spacing:.14em; text-transform:uppercase; color:var(--dim);
+  }
+  .focus-head h2{
+    font-family:var(--serif); font-weight:400; font-size:32px; line-height:1.05; letter-spacing:-.01em;
+    margin: 8px 0 4px;
+  }
+  .focus-head .sub{ font-size:13px; color:var(--dim); }
+  .focus-head .close{
+    width:28px; height:28px; border-radius: var(--r-xs);
+    border:1px solid var(--rule); background:transparent;
+    display:grid; place-items:center; cursor:pointer; color: var(--dim); font-size:14px;
+  }
+  .focus-head .close:hover{ background: var(--rule-soft); color: var(--ink); }
+
+  .priority{
+    display:inline-flex; align-items:center; gap:6px; margin-top:6px;
+    font-family:var(--mono); font-size:10px; letter-spacing:.1em; text-transform:uppercase;
+    color: var(--neg);
+  }
+  .priority .pulse{
+    width:7px; height:7px; border-radius:50%; background:var(--neg);
+    animation: pulse 2s infinite;
+  }
+  @keyframes pulse{
+    0%{ box-shadow:0 0 0 0 color-mix(in oklab, var(--neg) 50%, transparent); }
+    70%{ box-shadow:0 0 0 8px transparent; }
+    100%{ box-shadow:0 0 0 0 transparent; }
+  }
+
+  .focus-grid{ display:grid; grid-template-columns: 1fr 1fr; gap:8px; }
+  .stat-tile{
+    background: var(--card); border:1px solid var(--rule);
+    border-radius: var(--r-md); padding:12px 14px;
+  }
+  .stat-tile .lab{ font-family:var(--mono); font-size:9.5px; letter-spacing:.12em; text-transform:uppercase; color:var(--dim); }
+  .stat-tile .val{
+    font-family:var(--serif); font-size:24px; letter-spacing:-.01em; margin-top:4px; line-height:1;
+  }
+  .stat-tile .val small{ font-size:11px; font-family:var(--mono); color:var(--dim); margin-left:4px; }
+
+  .field-list{
+    background: var(--card); border:1px solid var(--rule);
+    border-radius: var(--r-md); padding: 4px 14px;
+  }
+  .field-list .f{
+    display:grid; grid-template-columns: 90px 1fr; gap:10px;
+    padding: 9px 0; border-bottom: 1px solid var(--rule);
+    font-size:13px;
+  }
+  .field-list .f:last-child{ border-bottom:none; }
+  .field-list .f .k{ font-family:var(--mono); font-size:10px; letter-spacing:.08em; text-transform:uppercase; color:var(--dim); padding-top:2px; }
+  .field-list .f .v{ color:var(--ink); }
+
+  .ev{
+    display:grid; grid-template-columns: 60px 1fr; gap:12px;
+    padding: 9px 0; border-bottom: 1px solid var(--rule); font-size:13px;
+  }
+  .ev:last-child{ border-bottom:none; }
+  .ev .when{ font-family:var(--mono); font-size:10px; letter-spacing:.06em; text-transform:uppercase; color:var(--dim); padding-top:3px; }
+  .ev .what b{ font-weight:500; }
+  .ev .what em{ font-style:italic; color:var(--dim); }
+
+  .section-label{
+    display:flex; align-items:center; justify-content:space-between;
+    font-family:var(--mono); font-size:10px; letter-spacing:.14em; text-transform:uppercase;
+    color:var(--dim); margin: 6px 0 4px;
+  }
+  .section-label a{
+    font-family:var(--sans); font-size:11px; color:var(--ink-2); text-transform:none; letter-spacing:0;
+    border-bottom:1px dotted var(--dim-2); cursor:pointer;
+  }
+
+  /* staged write banner */
+  .staged{
+    background: linear-gradient(180deg, color-mix(in oklab, var(--accent) 22%, var(--card)), color-mix(in oklab, var(--accent) 10%, var(--card)));
+    border: 1px solid color-mix(in oklab, var(--accent) 50%, var(--rule));
+    border-radius: var(--r-md);
+    padding: 14px 16px;
+    box-shadow: 0 1px 0 rgba(255,255,255,.5) inset, 0 8px 24px -18px color-mix(in oklab, var(--accent-deep) 50%, transparent);
+  }
+  .staged .label{ color: var(--accent-deep); font-size:10px; }
+  .staged .title{
+    font-family: var(--serif); font-size: 20px; margin-top:4px; line-height:1.2;
+  }
+  .staged .desc{ font-size: 12.5px; color: var(--ink-2); margin-top: 4px; line-height: 1.5; }
+  .staged .acts{ margin-top: 12px; }
+  .staged .acts .chip.primary{ background: var(--ink); color: var(--accent); border-color: var(--ink); }
+  .staged .acts .chip.primary:hover{ background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+
+  @media (max-width: 1280px){
+    .app{ grid-template-columns: 240px 1fr; }
+    .focus{ display:none; }
+  }
+  @media (max-width: 820px){
+    .app{ grid-template-columns: 1fr; }
+    .rail{ display:none; }
+    .center{ padding:24px 20px 0; }
+    .greeting h1{ font-size:42px; }
+    .brief{ grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body class="grainy">
+
+<div class="app">
+
+  <!-- ============ LEFT RAIL ============ -->
+    <aside class="rail">
+    <a href="Assistant.html" class="brand-mark">
+      <span class="brand-mark-glyph">B</span>
+      <span class="brand-mark-word" style="font-family:var(--sans);font-weight:500">Blawby</span>
+    </a>
+    <div class="meta">Law Offices of Sarah Chen · solo</div>
+
+    <button class="new-btn">
+      <span>＋  New conversation</span>
+      <kbd>⌘N</kbd>
+    </button>
+
+    <div class="rail-section">
+      <div class="rail-label">Workspace</div>
+      <a class="rail-item on" href="Assistant.html"><span class="dot"></span>Assistant</a>
+      <a class="rail-item" href="Conversations v2.html"><span class="dot"></span>Conversations</a>
+      <a class="rail-item" href="Matters.html"><span class="dot"></span>Matters</a>
+      <a class="rail-item" href="Intakes.html"><span class="dot"></span>Intakes</a>
+      <a class="rail-item" href="Invoices.html"><span class="dot"></span>Invoices</a>
+      <a class="rail-item" href="Files.html"><span class="dot"></span>Files</a>
+    </div>
+
+    <div class="rail-section">
+      <div class="rail-label">Practice</div>
+      <a class="rail-item" href="Clients.html"><span class="dot"></span>Clients</a>
+      <a class="rail-item" href="Calendar.html"><span class="dot"></span>Calendar</a>
+      <a class="rail-item" href="Tasks.html"><span class="dot"></span>Tasks</a>
+      <a class="rail-item" href="Trust.html"><span class="dot"></span>Trust ledger</a>
+      <a class="rail-item" href="Reports.html"><span class="dot"></span>Reports</a>
+    </div>
+
+    <a class="rail-item" href="Settings.html" style="margin-top:auto"><span class="dot" style="background:transparent;border:1px solid var(--dim-2)"></span>Settings</a>
+
+    <div class="user-chip">
+      <div class="avatar user">SC</div>
+      <div class="who">Sarah Chen<small>sarah@chenlawoffice.com</small></div>
+      <div class="caret">⌃</div>
+    </div>
+  </aside>
+
+  <!-- ============ CENTER ============ -->
+  <main class="center">
+
+    <header class="greeting">
+      <div>
+        <div class="date">Tuesday · November 25, 2026</div>
+        <h1>Good morning, <em>Sarah.</em></h1>
+      </div>
+      <div class="right">
+        <span class="label">Practice snapshot</span>
+        <b>4</b> active matters · <b>3</b> new intakes<br>
+        <b>$1,245</b> unbilled · 1 retainer low<br>
+        <b>Friday 9am</b> · Johnson — court
+      </div>
+    </header>
+
+    <div class="thread">
+
+      <article class="msg">
+        <div class="avatar">B</div>
+        <div class="body">
+          <div class="said">Practice assistant <span class="verify">grounded in 12 sources</span> · 7:02 am</div>
+          <p class="lede">Here's your day. Three things actually need <em>you</em> — the rest can wait, or I can handle.</p>
+
+          <div class="brief">
+
+            <div class="item feature span2">
+              <div class="kind">
+                If you do one thing today
+                <span class="tag">urgent · 3h window</span>
+              </div>
+              <h3>Triage Sarah Chen's intake before noon.</h3>
+              <p>Custody modification. Exchange scheduled Saturday — she needs to know by tonight whether you're taking it. Mecklenburg ✓ · no conflicts ✓ · case strength <b>4.2 / 5</b> · willing on a $3k retainer.</p>
+              <div class="acts">
+                <button class="chip primary">Accept &amp; send invite ↗</button>
+                <button class="chip">Open intake</button>
+                <button class="chip">Draft engagement first</button>
+                <button class="chip warn">Decline with reason</button>
+              </div>
+            </div>
+
+            <div class="item">
+              <div class="kind">Money <span class="tag">5 unbilled · 1 low</span></div>
+              <div class="stat"><span class="num">$1,245</span><span class="unit">unbilled · last 14 days</span></div>
+              <svg style="margin-top:10px; display:block" width="100%" height="40" viewBox="0 0 280 40" preserveAspectRatio="none">
+                <defs>
+                  <linearGradient id="sp1" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stop-color="oklch(0.72 0.13 82)" stop-opacity=".55"/>
+                    <stop offset="100%" stop-color="oklch(0.72 0.13 82)" stop-opacity="0"/>
+                  </linearGradient>
+                </defs>
+                <path d="M0 30 L20 26 L40 28 L60 22 L80 25 L100 18 L120 21 L140 16 L160 23 L180 14 L200 18 L220 9 L240 13 L260 7 L280 5"
+                  fill="none" stroke="var(--ink)" stroke-width="1.2"/>
+                <path d="M0 30 L20 26 L40 28 L60 22 L80 25 L100 18 L120 21 L140 16 L160 23 L180 14 L200 18 L220 9 L240 13 L260 7 L280 5 L280 40 L0 40 Z"
+                  fill="url(#sp1)"/>
+              </svg>
+              <p style="margin-top:10px">Martinez retainer at 45%. At current burn, you'll hit zero around <b>Dec 8</b>.</p>
+              <div class="acts">
+                <button class="chip primary">Draft invoice (Martinez)</button>
+                <button class="chip">Send replenish request</button>
+              </div>
+            </div>
+
+            <div class="item">
+              <div class="kind">This week <span class="tag">3 events</span></div>
+              <h3 style="font-size:20px">Johnson — court Friday, 9am.</h3>
+              <p style="margin-bottom:10px">Mecklenburg County · 2 documents not yet filed.</p>
+              <ul>
+                <li><span class="qty">MON</span><span class="ln">Lee — strategy call · 2pm</span></li>
+                <li><span class="qty">WED</span><span class="ln">Park — estate review · 11am</span></li>
+                <li><span class="qty">THU</span><span class="ln">Payroll run — automatic</span></li>
+              </ul>
+              <div class="acts">
+                <button class="chip primary">Open Johnson →</button>
+                <button class="chip">Mark docs filed</button>
+              </div>
+            </div>
+
+            <div class="item">
+              <div class="kind">Intakes <span class="tag">last 24 hours</span></div>
+              <ul>
+                <li><span class="qty">12m</span><span class="ln"><b>Sarah Chen</b> — family</span><span class="pri-r">urgent</span></li>
+                <li><span class="qty">1h</span><span class="ln">Marcus Lee — small business</span><span class="pri-g">routine</span></li>
+                <li><span class="qty">3h</span><span class="ln">Jenna Park — estate</span><span class="pri-y">soon</span></li>
+              </ul>
+              <div class="acts">
+                <button class="chip">Open queue</button>
+                <button class="chip">Auto-decline criminal</button>
+              </div>
+            </div>
+
+            <div class="item">
+              <div class="kind">Matters going quiet <span class="tag">3 stalled</span></div>
+              <ul>
+                <li><span class="qty">11d</span><span class="ln"><b>Patel</b> — no activity, status: open</span></li>
+                <li><span class="qty">6d</span><span class="ln"><b>Doe</b> — waiting on client docs</span></li>
+                <li><span class="qty">4d</span><span class="ln"><b>Garza</b> — engagement sent, unsigned</span></li>
+              </ul>
+              <div class="acts">
+                <button class="chip primary">Send 3 reminders</button>
+                <button class="chip">Show all</button>
+              </div>
+            </div>
+
+          </div>
+
+          <div class="cites">
+            <span class="pill live">matters · 4 rows</span>
+            <span class="pill">contact_forms · 3</span>
+            <span class="pill">matter_events · 14</span>
+            <span class="pill">payment_history · 9</span>
+          </div>
+        </div>
+      </article>
+
+      <div class="observe">
+        <div>
+          <div class="label">I noticed</div>
+          <div class="txt">You charge 18% less than NC peers for custody modifications, and your time-to-close is 22% faster. Want me to draft a rate-update memo before Chen's engagement?</div>
+          <div class="acts" style="margin-top:10px">
+            <button class="chip primary">Draft the memo</button>
+            <button class="chip">Show me the math</button>
+            <button class="chip">Not now</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="me">
+        <div class="bub">how many matters do I have, and which one is most at risk?</div>
+      </div>
+
+      <article class="msg">
+        <div class="avatar">B</div>
+        <div class="body">
+          <div class="said">Practice assistant <span class="verify">grounded</span> · just now</div>
+          <p style="font-size:15px;color:var(--ink)">
+            Four active.
+            <span class="matter-chip"><span class="pin"></span>sdtest</span>
+            <span class="matter-chip urgent active"><span class="pin"></span>Auto Injury · B. Martinez</span>
+            <span class="matter-chip"><span class="pin"></span>Estate Plan · A. Johnson</span>
+            <span class="matter-chip"><span class="pin"></span>Separation Agreement · Demo Client</span>
+          </p>
+          <p style="margin-top:6px">
+            <b>Martinez is the most at risk</b> — retainer at 45%, 8.3h unbilled, and an opposing-counsel response due in 6 days. I've pinned the file on the right so you can scan it.
+          </p>
+          <div class="acts">
+            <button class="chip primary">Draft Martinez invoice ($1,245)</button>
+            <button class="chip">Send replenish request</button>
+            <button class="chip">Open all four</button>
+          </div>
+        </div>
+      </article>
+
+      <div class="tooluse">
+        <span>›</span>
+        used <code>list_matters</code> · <code>retainer_health</code> · <code>upcoming_deadlines</code> · 142ms
+      </div>
+
+    </div>
+
+    <!-- composer -->
+    <div class="composer-wrap">
+      <div class="composer">
+        <div class="input" contenteditable="true" data-ph="What's on your mind? — try 'draft an engagement for Sarah Chen at a $4k retainer'"></div>
+        <div class="row2">
+          <span class="ctx">📎 Martinez matter <span class="x">×</span></span>
+          <span class="ctx" style="border-style:solid;color:var(--ink-2)">＋ add context</span>
+          <div style="flex:1"></div>
+          <div class="iconbtn" title="Voice">🎙</div>
+          <div class="iconbtn primary" title="Send">↑</div>
+        </div>
+        <div class="hint">
+          <kbd>⌘</kbd> <kbd>↵</kbd> send · <kbd>⌘</kbd> <kbd>K</kbd> search · <kbd>⌘</kbd> <kbd>/</kbd> commands · Blawby never writes to your records without your approval.
+        </div>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- ============ FOCUS / DRAWER ============ -->
+  <aside class="focus">
+
+    <div class="focus-head">
+      <div>
+        <div class="kind">Matter · pinned by assistant</div>
+        <h2>Auto Injury</h2>
+        <div class="sub">Bob Martinez · BLB-0241 · opened 53d ago</div>
+        <div class="priority"><span class="pulse"></span>Priority · high</div>
+      </div>
+      <button class="close" title="Unpin">×</button>
+    </div>
+
+    <div class="staged">
+      <div class="label">Staged · awaits your approval</div>
+      <div class="title">Invoice draft · $1,245.00</div>
+      <div class="desc">5 unbilled entries from Nov 14–22 (8.3h @ $150). Paid from retainer ($2,250 → $1,005).</div>
+      <div class="acts">
+        <button class="chip primary">Approve &amp; send</button>
+        <button class="chip">Edit lines</button>
+        <button class="chip">Preview PDF</button>
+      </div>
+    </div>
+
+    <div class="focus-grid">
+      <div class="stat-tile">
+        <div class="lab">Retainer</div>
+        <div class="val">$2,250 <small>/ $5,000</small></div>
+        <div class="bar warn" style="margin-top:8px"><i style="width:45%"></i></div>
+      </div>
+      <div class="stat-tile">
+        <div class="lab">Unbilled</div>
+        <div class="val">8.3<small>h · $1,245</small></div>
+        <div class="bar" style="margin-top:8px"><i style="width:60%"></i></div>
+      </div>
+      <div class="stat-tile">
+        <div class="lab">Events · 30d</div>
+        <div class="val">14</div>
+        <div class="bar" style="margin-top:8px"><i style="width:78%"></i></div>
+      </div>
+      <div class="stat-tile">
+        <div class="lab">SoL</div>
+        <div class="val">Mar '27</div>
+        <div class="bar ok" style="margin-top:8px"><i style="width:22%"></i></div>
+      </div>
+    </div>
+
+    <div>
+      <div class="section-label">Facts <a>edit in chat</a></div>
+      <div class="field-list">
+        <div class="f"><div class="k">Client</div><div class="v">Bob Martinez · (704) 555-0143</div></div>
+        <div class="f"><div class="k">Type</div><div class="v">Auto injury · personal injury</div></div>
+        <div class="f"><div class="k">Assigned</div><div class="v">You · Demo Owner Local</div></div>
+        <div class="f"><div class="k">Jurisdiction</div><div class="v">NC · Mecklenburg County</div></div>
+        <div class="f"><div class="k">Opposing</div><div class="v">State Farm Insurance</div></div>
+        <div class="f"><div class="k">Tags</div><div class="v">contingency · pre-litigation · medical-records</div></div>
+      </div>
+    </div>
+
+    <div>
+      <div class="section-label">Recent activity <a>full timeline</a></div>
+      <div class="field-list">
+        <div class="ev"><div class="when">Nov 22</div><div class="what"><b>Call</b> with adjuster — 0.5h <em>· billable</em></div></div>
+        <div class="ev"><div class="when">Nov 19</div><div class="what"><b>Filed</b> demand letter to State Farm</div></div>
+        <div class="ev"><div class="when">Nov 18</div><div class="what"><b>Reviewed</b> medical records — 1.5h</div></div>
+        <div class="ev"><div class="when">Nov 16</div><div class="what"><b>Strategy</b> call with client — 1.0h</div></div>
+        <div class="ev"><div class="when">Nov 14</div><div class="what"><b>Intake</b> summary generated by AI</div></div>
+      </div>
+    </div>
+
+    <div>
+      <div class="section-label">Quick actions <a>everything else, just ask</a></div>
+      <div class="acts">
+        <button class="chip">Log time</button>
+        <button class="chip">Add note</button>
+        <button class="chip">Upload file</button>
+        <button class="chip warn">Close matter</button>
+      </div>
+    </div>
+
+    <div style="font-family:var(--mono);font-size:10px;color:var(--dim-2);letter-spacing:.06em;margin-top:auto;padding-top:16px;border-top:1px solid var(--rule);text-transform:uppercase">
+      Read-only view · all writes via assistant
+    </div>
+  </aside>
+
+</div>
+
+<script>
+  // focus composer on /
+  const input = document.querySelector('.composer .input');
+  document.addEventListener('keydown', e=>{
+    if(e.key === '/' && document.activeElement !== input){
+      e.preventDefault();
+      input.focus();
+    }
+  });
+  // chip toggle
+  document.querySelectorAll('.matter-chip').forEach(c=>{
+    c.addEventListener('click', ()=>{
+      document.querySelectorAll('.matter-chip').forEach(x=>x.classList.remove('active'));
+      c.classList.add('active');
+    });
+  });
+</script>
+</body>
+</html>

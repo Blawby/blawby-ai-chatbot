@@ -42,6 +42,8 @@ import { handleAdminIntakeInspector } from './routes/adminIntakeInspector.js';
 import { handleWebsiteExtract } from './routes/handleWebsiteExtract.js';
 import { handleSearch } from './routes/handleSearch.js';
 import { handleStatus } from './routes/status.js';
+import { handleStagedActions } from './routes/stagedActions.js';
+import { handleMatterSummary } from './routes/matterSummary.js';
 import { handleAutocompleteWithCORS } from './routes/api/geo/autocomplete.js';
 import { Env } from './types';
 import type { NotificationQueueMessage } from './types';
@@ -155,6 +157,16 @@ export const routes: RouteEntry[] = [
     mode: 'owned',
     match: regex(/^\/api\/practice\/[^/]+\/sidebar\/counts$/),
     handler: withAuth((req, env) => handleSidebarCounts(req, env), { required: true }),
+  },
+  {
+    mode: 'owned',
+    match: regex(/^\/api\/practice\/[^/]+\/staged-actions$/),
+    handler: withAuth((req, env) => handleStagedActions(req, env), { required: true }),
+  },
+  {
+    mode: 'owned',
+    match: regex(/^\/api\/practice\/[^/]+\/matter-summary\/[^/]+$/),
+    handler: withAuth((req, env) => handleMatterSummary(req, env), { required: true }),
   },
   {
     mode: 'owned',

@@ -48,7 +48,6 @@ import { lazy } from 'preact/compat';
 // loads its own bundle on demand the first time the matching route renders.
 const AuthPage = lazy(() => import('@/pages/AuthPage'));
 const AcceptInvitationPage = lazy(() => import('@/pages/AcceptInvitationPage'));
-const PracticeHomePage = lazy(() => import('@/pages/PracticeHomePage'));
 const ClientHomePage = lazy(() => import('@/pages/ClientHomePage'));
 const PracticeTrustPage = lazy(() => import('@/features/trust/pages/PracticeTrustPage'));
 const PracticeTasksPage = lazy(() => import('@/features/tasks/pages/PracticeTasksPage'));
@@ -482,7 +481,7 @@ function AppShell() {
           <Route path="/client/:practiceSlug/settings/security" component={ClientPracticeRoute} workspaceView="settings" settingsView="security" />
           <Route path="/client/:practiceSlug/settings/help" component={ClientPracticeRoute} workspaceView="settings" settingsView="help" />
           <Route path="/practice" component={App404} />
-          <Route path="/practice/:practiceSlug" component={PracticeAppRoute} workspaceView="home" />
+          <Route path="/practice/:practiceSlug" component={PracticeAppRoute} workspaceView="assistant" />
           <Route path="/practice/:practiceSlug/setup" component={PracticeAppRoute} workspaceView="setup" />
           <Route path="/practice/:practiceSlug/assistant" component={PracticeAppRoute} workspaceView="assistant" />
           <Route path="/practice/:practiceSlug/assistant/:conversationId" component={PracticeAppRoute} workspaceView="assistant" />
@@ -919,18 +918,6 @@ function PracticeAppRoute({
     return <App404 />;
   }
   if (!resolvedPracticeId) return <LoadingScreen />;
-
-  if (workspaceView === 'home') {
-    // PracticeHomePage is lazy(); wrap in Suspense so its first-load suspension
-    // is caught locally (matches the pattern used by the other workspace routes
-    // below). Without this, the suspension bubbles all the way to App's outer
-    // Suspense and that boundary fails to render its fallback cleanly.
-    return (
-      <Suspense fallback={<LoadingScreen />}>
-        <PracticeHomePage />
-      </Suspense>
-    );
-  }
 
   if (workspaceView === 'trust') {
     return (

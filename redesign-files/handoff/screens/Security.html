@@ -1,0 +1,172 @@
+<!doctype html>
+<html lang="en" data-theme="">
+<head>
+<meta charset="utf-8" />
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,opsz,wght@0,8..60,300..900;1,8..60,300..900&family=Geist:wght@300;400;500;600;700&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="tokens.css">
+<title>Blawby — Security</title>
+
+<style>
+  body{ background-image: radial-gradient(rgba(15,30,54,0.025) 1px, transparent 1.2px); background-size: 3px 3px; background-attachment: fixed; }
+  .shell{ display:grid; grid-template-columns: 280px 1fr; min-height: 100vh; max-width: 1440px; margin: 0 auto; }
+  .side{ border-right: 1px solid var(--rule); padding: 22px 16px; display:flex; flex-direction:column; gap: 14px; position: sticky; top: 0; height: 100vh; overflow-y: auto; background: color-mix(in oklab, var(--paper) 96%, var(--card)); }
+  .back{ display:inline-flex; align-items:center; gap: 6px; font-family: var(--mono); font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--dim); cursor: pointer; padding: 4px 8px; margin-left: -8px; text-decoration:none; }
+  .back:hover{ color: var(--ink); }
+  .side h2{ font-family: var(--serif); font-weight:400; font-size: 28px; margin: 4px 0 0; letter-spacing:-.012em; }
+  .side .org{ font-family:var(--mono); font-size:11px; color: var(--dim); letter-spacing: .04em; }
+  .nav-section{ display:flex; flex-direction:column; gap: 1px; margin-top: 6px; }
+  .nav-section .lbl{ font-family: var(--mono); font-size: 9.5px; letter-spacing: .12em; text-transform: uppercase; color: var(--dim-2); padding: 14px 10px 6px; }
+  .nav-item{ display:flex; align-items:center; gap: 10px; padding: 8px 10px; border-radius: var(--r-xs); font-size: 13.5px; color: var(--ink-2); cursor: pointer; transition: background .14s, color .14s; text-decoration: none; }
+  .nav-item:hover{ background: var(--rule-soft); color: var(--ink); }
+  .nav-item.on{ background: var(--ink); color: var(--accent); }
+  .nav-item .ic{ width:14px; height:14px; opacity:.7; flex-shrink:0; }
+  .nav-item.on .ic{ opacity: 1; }
+  .nav-item .badge{ margin-left: auto; font-family: var(--mono); font-size: 10px; color: var(--dim); }
+  .nav-item.on .badge{ color: var(--accent); }
+  .main{ padding: 36px 56px 80px; max-width: 920px; }
+  .crumb{ font-family: var(--mono); font-size: 10px; letter-spacing: .14em; text-transform: uppercase; color: var(--dim); margin-bottom: 6px; }
+  .main h1{ font-family: var(--serif); font-weight: 400; font-size: 48px; letter-spacing:-.02em; line-height: 1.05; margin: 0; }
+  .main h1 em{ color: var(--accent); }
+  .main > .lede{ margin: 12px 0 36px; }
+  section.group{ padding: 32px 0; border-top: 1px solid var(--rule); }
+  section.group:first-of-type{ border-top: none; padding-top: 0; }
+  section.group h3{ font-family: var(--serif); font-weight: 400; font-size: 24px; margin: 0 0 4px; letter-spacing:-.01em; }
+  section.group .gdesc{ font-size: 13.5px; color: var(--dim); margin: 0 0 24px; max-width: 60ch; }
+  .setting{ display:grid; grid-template-columns: 1fr auto; gap: 28px; align-items: center; padding: 18px 0; border-bottom: 1px solid var(--rule); }
+  .setting:last-child{ border-bottom: none; }
+  .setting .meta{ display:flex; flex-direction:column; gap:4px; }
+  .setting .meta .h{ font-size: 14px; font-weight: 500; color: var(--ink); }
+  .setting .meta .d{ font-size: 13px; color: var(--dim); max-width: 64ch; line-height: 1.5; }
+  .setting .meta .d code{ font-family: var(--mono); font-size: 11.5px; background: var(--rule-soft); padding: 1px 6px; border-radius: 3px; color: var(--ink-2); }
+  .setting .ctrl{ display:flex; align-items:center; gap: 8px; min-width: 200px; justify-content: flex-end; }
+  .danger{ margin-top: 32px; padding: 22px; border: 1px solid color-mix(in oklab, var(--neg) 30%, var(--rule)); border-radius: var(--r-md); background: color-mix(in oklab, var(--neg) 6%, var(--card)); }
+  .danger h3{ color: var(--neg); }
+  .danger .gdesc{ color: var(--ink-2); }
+  @media (max-width: 980px){ .shell{ grid-template-columns: 1fr; } .side{ display:none; } .main{ padding: 24px 22px; } }
+</style>
+<style>
+  .security-card{ background: var(--card); border: 1px solid var(--rule); border-radius: var(--r-md); padding: 22px; box-shadow: var(--shadow-1); margin-bottom: 14px; }
+  .security-card h4{ font-family: var(--serif); font-weight: 400; font-size: 18px; margin: 0 0 4px; letter-spacing: -.005em; }
+  .security-card .sc-desc{ font-size: 13px; color: var(--dim); margin: 0 0 18px; line-height: 1.45; }
+  .two-col{ display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .security-badge{ display: inline-flex; align-items: center; gap: 6px; font-family: var(--mono); font-size: 10px; letter-spacing: .04em; text-transform: uppercase; padding: 3px 8px; border-radius: var(--r-pill); }
+  .security-badge.on{ background: color-mix(in oklab, var(--pos) 10%, var(--card)); color: var(--pos); border: 1px solid color-mix(in oklab, var(--pos) 25%, var(--rule)); }
+  .security-badge.on::before{ content:""; width:5px; height:5px; border-radius:50%; background: var(--pos); }
+  .security-badge.off{ color: var(--dim); border: 1px solid var(--rule); }
+  @media (max-width: 720px){ .two-col{ grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<div class="shell">
+  <aside class="side">
+    <a href="Assistant.html" class="back">← back to assistant</a>
+    <div><h2>Settings</h2><div class="org">Law Offices of Sarah Chen · solo</div></div>
+    <div class="nav-section"><div class="lbl">Practice</div>
+      <a href="Profile.html" class="nav-item"><span class="ic">⌂</span>Profile &amp; areas</a>
+      <a href="Team.html" class="nav-item"><span class="ic">＋</span>Team <span class="badge">1</span></a>
+      <a href="Services.html" class="nav-item"><span class="ic">⏳</span>Services &amp; pricing <span class="badge">5</span></a></div>
+    <div class="nav-section"><div class="lbl">Money</div>
+      <a href="Subscription.html" class="nav-item"><span class="ic">$</span>Subscription</a>
+      <a href="StripeConnect.html" class="nav-item"><span class="ic">⇄</span>Stripe Connect</a>
+      <a href="Trust.html" class="nav-item"><span class="ic">▤</span>Trust accounting <span class="badge">IOLTA</span></a></div>
+    <div class="nav-section"><div class="lbl">Intelligence</div>
+      <a href="Settings.html" class="nav-item"><span class="ic">✦</span>AI behavior</a>
+      <a href="IntakeForms.html" class="nav-item"><span class="ic">📥</span>Intake forms <span class="badge">3</span></a>
+      <a href="EngagementTemplates.html" class="nav-item"><span class="ic">⌥</span>Engagement templates</a>
+      <a href="Apps.html" class="nav-item"><span class="ic">⬡</span>Apps &amp; integrations <span class="badge">1</span></a>
+      <a href="MCP.html" class="nav-item"><span class="ic">▦</span>MCP &amp; API <span class="badge">beta</span></a></div>
+    <div class="nav-section"><div class="lbl">Account</div>
+      <a href="Security.html" class="nav-item on"><span class="ic">⚿</span>Security</a>
+      <a href="Sessions.html" class="nav-item"><span class="ic">◉</span>Sessions</a>
+      <a href="Appearance.html" class="nav-item"><span class="ic">◐</span>Appearance</a>
+      <a href="Notifications.html" class="nav-item"><span class="ic">⌘</span>Notifications</a>
+      <a href="AuditLog.html" class="nav-item"><span class="ic">⎯</span>Audit log</a>
+      <a href="ExportData.html" class="nav-item"><span class="ic">↧</span>Export data</a></div>
+  </aside>
+  <main class="main">
+    <div class="crumb">Settings · Account</div>
+    <h1>Password &amp; <em>security.</em></h1>
+    <p class="lede">Manage your login credentials, two-factor authentication, and account security. Powered by Better Auth.</p>
+
+    <section class="group" style="border:none;padding-top:0">
+      <h3>Email address</h3>
+      <p class="gdesc">Your login email. Changing this sends a verification link to the new address.</p>
+      <div class="security-card">
+        <div class="field" style="max-width:400px">
+          <label>Email</label>
+          <input class="input" value="sarah@sarahchenlaw.com" />
+        </div>
+        <div style="display:flex;gap:8px;margin-top:14px">
+          <button class="btn btn-ghost btn-sm">Update email</button>
+          <span style="font-family:var(--mono);font-size:11px;color:var(--pos);display:flex;align-items:center;gap:4px">✓ Verified</span>
+        </div>
+      </div>
+    </section>
+
+    <section class="group">
+      <h3>Password</h3>
+      <p class="gdesc">Change your password. You'll be signed out of all other sessions.</p>
+      <div class="security-card">
+        <div style="display:flex;flex-direction:column;gap:14px;max-width:400px">
+          <div class="field"><label>Current password</label><input class="input" type="password" placeholder="••••••••" /></div>
+          <div class="field"><label>New password</label><input class="input" type="password" placeholder="At least 8 characters" /></div>
+          <div class="field"><label>Confirm new password</label><input class="input" type="password" placeholder="••••••••" /></div>
+        </div>
+        <div style="display:flex;gap:8px;margin-top:18px">
+          <button class="btn btn-primary">Update password</button>
+        </div>
+        <div style="font-size:12.5px;color:var(--dim);margin-top:12px">Last changed: Mar 14, 2026</div>
+      </div>
+    </section>
+
+    <section class="group">
+      <h3>Two-factor authentication</h3>
+      <p class="gdesc">Add an extra layer of security. When enabled, you'll need your authenticator app to sign in.</p>
+
+      <div class="setting">
+        <div class="meta">
+          <div class="h">Authenticator app</div>
+          <div class="d">Use an app like Google Authenticator, Authy, or 1Password to generate time-based codes.</div>
+        </div>
+        <div class="ctrl">
+          <span class="security-badge off">not enabled</span>
+          <button class="btn btn-ghost btn-sm">Set up</button>
+        </div>
+      </div>
+      <div class="setting">
+        <div class="meta">
+          <div class="h">Recovery codes</div>
+          <div class="d">One-time backup codes in case you lose access to your authenticator. Generate these after enabling 2FA.</div>
+        </div>
+        <div class="ctrl">
+          <button class="btn btn-ghost btn-sm" disabled style="opacity:.4">Generate codes</button>
+        </div>
+      </div>
+    </section>
+
+    <section class="group">
+      <h3>Connected accounts</h3>
+      <p class="gdesc">Social sign-in providers linked to your account.</p>
+      <div class="setting">
+        <div class="meta">
+          <div class="h">Google</div>
+          <div class="d">Sign in with your Google account instead of a password.</div>
+        </div>
+        <div class="ctrl">
+          <span class="security-badge off">not linked</span>
+          <button class="btn btn-ghost btn-sm">Link Google</button>
+        </div>
+      </div>
+    </section>
+
+    <div class="danger">
+      <h3>Delete account</h3>
+      <p class="gdesc">Permanently delete your Blawby account and all associated data. This removes you from the organization but does not delete the practice — transfer ownership first if you're the sole owner.</p>
+      <button class="btn btn-ghost btn-sm" style="color:var(--neg);border-color:color-mix(in oklab, var(--neg) 30%, var(--rule));margin-top:8px">Delete my account</button>
+    </div>
+  </main>
+</div>
+<script>document.querySelectorAll('[data-toggle]').forEach(t=>{t.addEventListener('click',()=>t.classList.toggle('on'))});</script>
+</body></html>

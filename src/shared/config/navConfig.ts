@@ -1,7 +1,6 @@
 import type { ComponentType } from 'preact';
 import {
   Bell,
-  Bot,
   Briefcase,
   Building2,
   Calendar as CalendarIcon,
@@ -177,10 +176,10 @@ const buildClientBase = (slug: string) => `/client/${encodeURIComponent(slug)}`;
 const buildPracticeRail = (basePath: string): NavRailItem[] => [
   {
     id: 'home',
-    label: 'Home',
+    label: 'Assistant',
     icon: Home,
     href: basePath,
-    matchHrefs: [basePath, `${basePath}/setup`],
+    matchHrefs: [basePath, `${basePath}/setup`, `${basePath}/assistant`],
   },
   {
     id: 'matters',
@@ -237,14 +236,6 @@ const buildPracticeRail = (basePath: string): NavRailItem[] => [
     icon: MessageSquare,
     href: `${basePath}/conversations`,
     matchHrefs: [`${basePath}/conversations`],
-  },
-  {
-    id: 'assistant',
-    label: 'Assistant',
-    icon: Bot,
-    href: `${basePath}/assistant`,
-    matchHrefs: [`${basePath}/assistant`],
-    expandable: true,
   },
   {
     id: 'files',

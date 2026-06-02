@@ -9,6 +9,8 @@ export interface LeftRailItem {
   id: string;
   label: string;
   icon?: IconComponent;
+  /** When true, renders a 6px dot indicator instead of an icon. */
+  dot?: boolean;
   href: string;
   matchHrefs?: string[];
   badge?: number | null;
@@ -197,7 +199,11 @@ export function LeftRail(props: LeftRailProps): JSX.Element | null {
         onFocus={item.prefetch}
         onClick={() => handleItemClick(item)}
       >
-        {item.icon && <Icon icon={item.icon} className="h-4 w-4 shrink-0" />}
+        {item.dot
+        ? <span className="left-rail-item-dot" aria-hidden="true" />
+        : item.icon
+          ? <Icon icon={item.icon} className="h-4 w-4 shrink-0" />
+          : null}
         <span className="left-rail-item-label">{item.label}</span>
         {item.badge && item.badge > 0 && (
           <span className="left-rail-badge" aria-label={`${item.badge} unread`}>{item.badge}</span>

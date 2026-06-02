@@ -1,0 +1,399 @@
+<!doctype html>
+<html lang="en" data-theme="">
+<head>
+<meta charset="utf-8" />
+<title>Blawby — Settings</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,opsz,wght@0,8..60,300..900;1,8..60,300..900&family=Geist:wght@300;400;500;600;700&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="tokens.css">
+<style>
+  body{ background-image: radial-gradient(rgba(15,30,54,0.025) 1px, transparent 1.2px); background-size: 3px 3px; background-attachment: fixed; }
+
+  .shell{ display:grid; grid-template-columns: 280px 1fr; min-height: 100vh; max-width: 1440px; margin: 0 auto; }
+
+  /* ===== nav ===== */
+  .side{
+    border-right: 1px solid var(--rule);
+    padding: 22px 16px;
+    display:flex; flex-direction:column; gap: 14px;
+    position: sticky; top: 0; height: 100vh; overflow-y: auto;
+    background: color-mix(in oklab, var(--paper) 96%, var(--card));
+  }
+  .back{
+    display:inline-flex; align-items:center; gap: 6px;
+    font-family: var(--mono); font-size: 11px; letter-spacing: .06em; text-transform: uppercase;
+    color: var(--dim); cursor: pointer; padding: 4px 8px; margin-left: -8px;
+  }
+  .back:hover{ color: var(--ink); }
+  .side h2{ font-family: var(--serif); font-weight:400; font-size: 28px; margin: 4px 0 0; letter-spacing:-.012em; }
+  .side .org{ font-family:var(--mono); font-size:11px; color: var(--dim); letter-spacing: .04em; }
+
+  .nav-section{ display:flex; flex-direction:column; gap: 1px; margin-top: 6px; }
+  .nav-section .lbl{
+    font-family: var(--mono); font-size: 9.5px; letter-spacing: .12em; text-transform: uppercase;
+    color: var(--dim-2); padding: 14px 10px 6px;
+  }
+  .nav-item{
+    display:flex; align-items:center; gap: 10px;
+    padding: 8px 10px; border-radius: var(--r-xs);
+    font-size: 13.5px; color: var(--ink-2); cursor: pointer;
+    transition: background .14s, color .14s;
+  }
+  .nav-item:hover{ background: var(--rule-soft); color: var(--ink); }
+  .nav-item.on{ background: var(--ink); color: var(--accent); }
+  .nav-item .ic{ width:14px; height:14px; opacity:.7; flex-shrink:0; }
+  .nav-item.on .ic{ opacity: 1; }
+  .nav-item .badge{ margin-left: auto; font-family: var(--mono); font-size: 10px; color: var(--dim); }
+  .nav-item.on .badge{ color: var(--accent); }
+
+  /* ===== main ===== */
+  .main{ padding: 36px 56px 80px; max-width: 920px; }
+  .crumb{
+    font-family: var(--mono); font-size: 10px; letter-spacing: .14em; text-transform: uppercase;
+    color: var(--dim); margin-bottom: 6px;
+  }
+  .main h1{
+    font-family: var(--serif); font-weight: 400; font-size: 48px; letter-spacing:-.02em;
+    line-height: 1.05; margin: 0;
+  }
+  .main h1 em{ color: var(--accent); }
+  .main > .lede{ margin: 12px 0 36px; }
+
+  /* AI-led settings preface */
+  .ai-preface{
+    display:grid; grid-template-columns: 32px 1fr;
+    gap: 14px;
+    background: linear-gradient(90deg, var(--accent-soft), transparent 70%);
+    border-left: 2px solid var(--accent);
+    padding: 16px 18px;
+    border-radius: 0 var(--r-md) var(--r-md) 0;
+    margin-bottom: 32px;
+  }
+  .ai-preface .avatar{ width:32px; height:32px; font-size: 15px; }
+  .ai-preface .txt{ font-family: var(--serif); font-size: 17px; line-height: 1.45; color: var(--ink); font-style: italic; max-width: 56ch; }
+  .ai-preface .txt b{ font-weight: 500; font-style: normal; color: var(--accent-deep); }
+
+  section.group{
+    padding: 32px 0;
+    border-top: 1px solid var(--rule);
+  }
+  section.group:first-of-type{ border-top: none; padding-top: 0; }
+  section.group h3{
+    font-family: var(--serif); font-weight: 400; font-size: 24px;
+    margin: 0 0 4px; letter-spacing:-.01em;
+  }
+  section.group .gdesc{ font-size: 13.5px; color: var(--dim); margin: 0 0 24px; max-width: 60ch; }
+
+  .setting{
+    display:grid; grid-template-columns: 1fr auto;
+    gap: 28px; align-items: center;
+    padding: 18px 0;
+    border-bottom: 1px solid var(--rule);
+  }
+  .setting:last-child{ border-bottom: none; }
+  .setting .meta{ display:flex; flex-direction:column; gap:4px; }
+  .setting .meta .h{ font-size: 14px; font-weight: 500; color: var(--ink); }
+  .setting .meta .d{ font-size: 13px; color: var(--dim); max-width: 64ch; line-height: 1.5; }
+  .setting .meta .d code{
+    font-family: var(--mono); font-size: 11.5px; background: var(--rule-soft);
+    padding: 1px 6px; border-radius: 3px; color: var(--ink-2);
+  }
+  .setting .ctrl{ display:flex; align-items:center; gap: 8px; min-width: 200px; justify-content: flex-end; }
+  .setting .ctrl .input,
+  .setting .ctrl .select{ width: 220px; }
+  .setting .ctrl .input.short{ width: 100px; }
+
+  /* AI behavior card */
+  .ai-system{
+    background: var(--card); border: 1px solid var(--rule); border-radius: var(--r-md);
+    padding: 18px; margin-top: 14px;
+  }
+  .ai-system label{
+    font-family: var(--mono); font-size: 10px; letter-spacing: .1em; text-transform: uppercase;
+    color: var(--dim); display:flex; justify-content:space-between; align-items:center;
+    margin-bottom: 8px;
+  }
+  .ai-system label a{ font-family: var(--sans); font-size: 11px; color: var(--ink-2); text-transform: none; letter-spacing: 0; border-bottom: 1px dotted var(--dim-2); cursor: pointer; }
+  .ai-system .prompt{
+    font-family: var(--mono); font-size: 12.5px; color: var(--ink); line-height: 1.6;
+    background: var(--rule-soft); padding: 14px 16px; border-radius: var(--r-xs);
+    white-space: pre-wrap;
+  }
+  .ai-system .prompt .var{ color: var(--accent-deep); }
+
+  /* status row (Stripe) */
+  .status-row{
+    display:flex; align-items:center; gap: 14px;
+    padding: 14px 16px;
+    background: var(--card); border: 1px solid var(--rule); border-radius: var(--r-md);
+  }
+  .status-row .badge{
+    display:inline-flex; align-items:center; gap:6px;
+    font-family: var(--mono); font-size: 10.5px; letter-spacing: .04em; text-transform: uppercase;
+    padding: 4px 10px; border-radius: var(--r-pill);
+    background: color-mix(in oklab, var(--pos) 12%, var(--card));
+    color: var(--pos);
+    border: 1px solid color-mix(in oklab, var(--pos) 30%, var(--rule));
+  }
+  .status-row .badge::before{ content:""; width:6px; height:6px; border-radius:50%; background: var(--pos); }
+  .status-row .what{ flex: 1; }
+  .status-row .what h4{ margin: 0; font-family: var(--serif); font-weight: 400; font-size: 16px; }
+  .status-row .what p{ margin: 4px 0 0; font-size: 12.5px; color: var(--dim); }
+
+  /* team grid */
+  .team{ display:flex; flex-direction:column; gap:10px; margin-top:14px; }
+  .team-row{
+    display:grid; grid-template-columns: 36px 1fr auto auto;
+    gap: 14px; align-items:center;
+    padding: 12px 14px;
+    background: var(--card); border: 1px solid var(--rule); border-radius: var(--r-md);
+  }
+  .team-row .avatar.user{ width: 36px; height: 36px; font-size: 12px; }
+  .team-row .who{ display:flex; flex-direction:column; gap: 1px; }
+  .team-row .who .n{ font-size: 14px; font-weight: 500; }
+  .team-row .who .e{ font-size: 12px; color: var(--dim); font-family: var(--mono); }
+  .team-row .role{ font-family: var(--mono); font-size: 10.5px; letter-spacing: .08em; text-transform: uppercase; color: var(--dim); }
+
+  /* danger zone */
+  .danger{
+    margin-top: 32px; padding: 22px;
+    border: 1px solid color-mix(in oklab, var(--neg) 30%, var(--rule));
+    border-radius: var(--r-md);
+    background: color-mix(in oklab, var(--neg) 6%, var(--card));
+  }
+  .danger h3{ color: var(--neg); }
+  .danger .gdesc{ color: var(--ink-2); }
+
+  @media (max-width: 980px){
+    .shell{ grid-template-columns: 1fr; }
+    .side{ display:none; }
+    .main{ padding: 24px 22px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="shell">
+
+    <aside class="side">
+    <a href="Assistant.html" class="back">← back to assistant</a>
+    <div><h2>Settings</h2><div class="org">Law Offices of Sarah Chen · solo</div></div>
+    <div class="nav-section"><div class="lbl">Practice</div>
+      <a href="Profile.html" class="nav-item"><span class="ic">⌂</span>Profile &amp; areas</a>
+      <a href="Team.html" class="nav-item"><span class="ic">＋</span>Team <span class="badge">1</span></a>
+      <a href="Services.html" class="nav-item"><span class="ic">⏳</span>Services &amp; pricing <span class="badge">5</span></a></div>
+    <div class="nav-section"><div class="lbl">Money</div>
+      <a href="Subscription.html" class="nav-item"><span class="ic">$</span>Subscription</a>
+      <a href="StripeConnect.html" class="nav-item"><span class="ic">⇄</span>Stripe Connect</a>
+      <a href="Trust.html" class="nav-item"><span class="ic">▤</span>Trust accounting <span class="badge">IOLTA</span></a></div>
+    <div class="nav-section"><div class="lbl">Intelligence</div>
+      <a href="Settings.html" class="nav-item on"><span class="ic">✦</span>AI behavior</a>
+      <a href="IntakeForms.html" class="nav-item"><span class="ic">📥</span>Intake forms <span class="badge">3</span></a>
+      <a href="EngagementTemplates.html" class="nav-item"><span class="ic">⌥</span>Engagement templates</a>
+      <a href="Apps.html" class="nav-item"><span class="ic">⬡</span>Apps &amp; integrations <span class="badge">1</span></a>
+      <a href="MCP.html" class="nav-item"><span class="ic">▦</span>MCP &amp; API <span class="badge">beta</span></a></div>
+    <div class="nav-section"><div class="lbl">Account</div>
+      <a href="Security.html" class="nav-item"><span class="ic">⚿</span>Security</a>
+      <a href="Sessions.html" class="nav-item"><span class="ic">◉</span>Sessions</a>
+      <a href="Appearance.html" class="nav-item"><span class="ic">◐</span>Appearance</a>
+      <a href="Notifications.html" class="nav-item"><span class="ic">⌘</span>Notifications</a>
+      <a href="AuditLog.html" class="nav-item"><span class="ic">⎯</span>Audit log</a>
+      <a href="ExportData.html" class="nav-item"><span class="ic">↧</span>Export data</a></div>
+  </aside>
+
+  <main class="main">
+
+    <div class="crumb">Settings · Intelligence</div>
+    <h1>How the <em>assistant</em> works for you.</h1>
+    <p class="lede">
+      Blawby's assistant is grounded in your matters, intakes, and ledger — never in someone else's data. Tune how it behaves below, or just tell it in chat: <em>"stop suggesting criminal cases"</em>.
+    </p>
+
+    <!-- AI-led preamble -->
+    <div class="ai-preface">
+      <div class="avatar">B</div>
+      <div class="txt">
+        Everything on this page can be changed from chat. I'm here so you can <b>see and audit</b> the rules I'm using — not because you have to click your way through them.
+      </div>
+    </div>
+
+    <!-- Group: voice + behavior -->
+    <section class="group" style="border:none;padding-top:0">
+      <h3>Voice &amp; behavior</h3>
+      <p class="gdesc">How the assistant talks to you and your clients. These settings ground every reply.</p>
+
+      <div class="setting">
+        <div class="meta">
+          <div class="h">Assistant name</div>
+          <div class="d">What clients hear in your public intake widget. Internal staff always see "Blawby".</div>
+        </div>
+        <div class="ctrl"><input class="input" value="Sarah's intake assistant" /></div>
+      </div>
+
+      <div class="setting">
+        <div class="meta">
+          <div class="h">Tone</div>
+          <div class="d">Applies to client-facing replies and staff drafts. Internal "I noticed" prompts always stay direct.</div>
+        </div>
+        <div class="ctrl">
+          <select class="select">
+            <option>Warm &amp; plainspoken</option>
+            <option>Formal &amp; precise</option>
+            <option>Brief &amp; direct</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="setting">
+        <div class="meta">
+          <div class="h">Proactive briefings</div>
+          <div class="d">A morning summary in your inbox at <code>07:00</code> every weekday. Includes urgent intakes, retainer health, court calendar.</div>
+        </div>
+        <div class="ctrl"><span class="toggle on" data-toggle></span></div>
+      </div>
+
+      <div class="setting">
+        <div class="meta">
+          <div class="h">"I noticed" suggestions</div>
+          <div class="d">The assistant volunteers opportunities it spots — pricing inconsistencies, stalled matters, replenishment chances.</div>
+        </div>
+        <div class="ctrl"><span class="toggle on" data-toggle></span></div>
+      </div>
+
+      <div class="setting">
+        <div class="meta">
+          <div class="h">Staged actions require approval</div>
+          <div class="d">When ON, the assistant <i>drafts</i> writes (invoices, status changes, emails) and waits for you to approve. Recommended for compliance.</div>
+        </div>
+        <div class="ctrl"><span class="toggle on" data-toggle></span></div>
+      </div>
+    </section>
+
+    <!-- Group: grounding -->
+    <section class="group">
+      <h3>Grounding &amp; sources</h3>
+      <p class="gdesc">Which of your tables the assistant can read or write — and the "system prompt" that gets prepended to every reply.</p>
+
+      <div class="setting">
+        <div class="meta">
+          <div class="h">Readable sources</div>
+          <div class="d">The assistant retrieves from these tables when answering. Removing a source narrows what it can know.</div>
+        </div>
+        <div class="ctrl" style="flex-wrap:wrap;gap:6px;justify-content:flex-end;min-width:0">
+          <span class="chip accent">matters</span>
+          <span class="chip accent">matter_events</span>
+          <span class="chip accent">contact_forms</span>
+          <span class="chip accent">payment_history</span>
+          <span class="chip accent">files</span>
+          <span class="chip" style="border-style:dashed">＋ add source</span>
+        </div>
+      </div>
+
+      <div class="setting" style="grid-template-columns:1fr;gap:0">
+        <div class="meta">
+          <div class="h">Practice-specific instructions <span style="color:var(--dim);font-weight:400">(system prompt)</span></div>
+          <div class="d">This is prepended to every assistant call within your org. Plain English. Editable from chat with "remember that…".</div>
+        </div>
+        <div class="ai-system">
+          <label>your_org.system_prompt <a>open in editor</a></label>
+          <div class="prompt">You are <span class="var">Sarah's intake assistant</span>, working for the <span class="var">Law Offices of Sarah Chen</span> in <span class="var">Mecklenburg County, NC</span>.
+
+Always:
+- Refuse <span class="var">criminal defense</span> intakes — refer them to NC Bar Lawyer Referral.
+- Quote retainers in the <span class="var">$2,000–$5,000</span> range unless the matter is contingency.
+- Treat <span class="var">domestic violence</span> intakes on sliding scale; do not collect a consult fee.
+
+Never:
+- Promise outcomes or settlement amounts.
+- Give jurisdiction-specific advice outside <span class="var">NC, SC</span>.
+- Schedule meetings on Fridays — Sarah is out of office.</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Group: data + safety -->
+    <section class="group">
+      <h3>Data &amp; safety</h3>
+      <p class="gdesc">What's stored, what leaves your account, and what gets audited.</p>
+
+      <div class="setting">
+        <div class="meta">
+          <div class="h">Model</div>
+          <div class="d">Anthropic Claude (managed). Your data is never used to train models.</div>
+        </div>
+        <div class="ctrl"><span class="pill live">live · sonnet-4.5</span></div>
+      </div>
+
+      <div class="setting">
+        <div class="meta">
+          <div class="h">Audit log</div>
+          <div class="d">Every staged write, approval, and tool call is logged with a timestamp and actor. Exportable for compliance.</div>
+        </div>
+        <div class="ctrl"><button class="btn btn-ghost btn-sm">Open audit log →</button></div>
+      </div>
+
+      <div class="setting">
+        <div class="meta">
+          <div class="h">PII redaction in client-facing chat</div>
+          <div class="d">SSNs, account numbers, and DOB patterns are auto-masked in the public intake widget before they reach the model.</div>
+        </div>
+        <div class="ctrl"><span class="toggle on" data-toggle></span></div>
+      </div>
+    </section>
+
+    <!-- Stripe row example for related settings -->
+    <section class="group">
+      <h3>Connected services</h3>
+      <p class="gdesc">External accounts the assistant can talk to on your behalf.</p>
+
+      <div class="status-row" style="margin-bottom:10px">
+        <div class="avatar" style="width:36px;height:36px;background:#635BFF;color:white;font-family:var(--sans);font-style:normal;font-weight:700;font-size:14px">S</div>
+        <div class="what">
+          <h4>Stripe Connect</h4>
+          <p>Connected as acct_1Q3pXz · charges and payouts enabled</p>
+        </div>
+        <span class="badge">live</span>
+        <button class="btn btn-ghost btn-sm">Manage</button>
+      </div>
+
+      <div class="status-row">
+        <div class="avatar" style="width:36px;height:36px;background:#E63946;color:white;font-family:var(--sans);font-style:normal;font-weight:700;font-size:14px">G</div>
+        <div class="what">
+          <h4>Google Calendar <span style="font-family:var(--mono);font-size:10px;color:var(--dim);margin-left:6px">optional</span></h4>
+          <p>Let the assistant see your calendar to suggest meeting times and warn about deadlines.</p>
+        </div>
+        <button class="btn btn-ghost btn-sm">Connect</button>
+      </div>
+    </section>
+
+    <!-- Danger -->
+    <div class="danger">
+      <h3>Danger zone</h3>
+      <p class="gdesc">Irreversible. Tell the assistant to do these instead — it'll require an explicit confirmation in chat first.</p>
+      <div class="setting" style="border:none;padding:14px 0 0">
+        <div class="meta">
+          <div class="h">Pause the AI</div>
+          <div class="d">Stops all assistant replies, briefings, and staged writes org-wide. Your data stays put.</div>
+        </div>
+        <div class="ctrl"><button class="btn btn-ghost btn-sm">Pause AI</button></div>
+      </div>
+      <div class="setting" style="border:none;padding:14px 0 0">
+        <div class="meta">
+          <div class="h">Close practice &amp; export data</div>
+          <div class="d">Generates a final IOLTA-compliant export, cancels your subscription, and freezes your workspace 30 days later.</div>
+        </div>
+        <div class="ctrl"><button class="btn btn-ghost btn-sm" style="color:var(--neg);border-color:color-mix(in oklab, var(--neg) 30%, var(--rule))">Begin closeout</button></div>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<script>
+  document.querySelectorAll('[data-toggle]').forEach(t=>{
+    t.addEventListener('click', ()=> t.classList.toggle('on'));
+  });
+</script>
+</body>
+</html>

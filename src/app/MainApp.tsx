@@ -26,8 +26,9 @@ import { clearPendingPracticeInviteLink, readPendingPracticeInviteLink } from '@
 import { usePracticeManagement } from '@/shared/hooks/usePracticeManagement';
 import { usePracticeDetails } from '@/shared/hooks/usePracticeDetails';
 import type { ConversationMode } from '@/shared/types/conversation';
-import { lazy } from 'preact/compat';
+import { lazy, Suspense } from 'preact/compat';
 import { Plus, Mail, Phone, Briefcase } from 'lucide-preact';
+const PracticeAssistantBriefing = lazy(() => import('@/features/chat/components/PracticeAssistantBriefing').then(m => ({ default: m.PracticeAssistantBriefing })));
 const PracticeMattersPage = lazy(() => import('@/features/matters/pages/PracticeMattersPage').then(m => ({ default: m.PracticeMattersPage })));
 const PracticeContactsPage = lazy(() => import('@/features/clients/pages/PracticeContactsPage').then(m => ({ default: m.PracticeContactsPage })));
 const ClientMattersPage = lazy(() => import('@/features/matters/pages/ClientMattersPage').then(m => ({ default: m.ClientMattersPage })));
@@ -761,17 +762,54 @@ export function MainApp({
   const isComposerDisabled = isPublicWorkspace && !conversationMode;
   const isChatReady = isSessionReady && effectiveIsSocketReady && !isComposerDisabled;
   const canChat = Boolean(practiceId) && (!isPracticeWorkspace ? Boolean(isPracticeView) : Boolean(activeConversationId));
+
+  // Auto-send a question stashed by the home page AIAskBar via sessionStorage.
+  // Fires once per new PRACTICE_ASSISTANT conversation when the socket is ready.
+  useEffect(() => {
+    if (!isChatReady) return;
+    if (conversationMetadata?.mode !== 'PRACTICE_ASSISTANT') return;
+    let pending: string | null = null;
+    try { pending = sessionStorage.getItem('blawby:pending_ask'); } catch { /* ignore */ }
+    if (!pending) return;
+    try { sessionStorage.removeItem('blawby:pending_ask'); } catch { /* ignore */ }
+    void handleSendMessage(pending);
+  // Only fire when the conversation ID or ready state changes — not on every render.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isChatReady, activeConversationId, conversationMetadata?.mode]);
   const shouldShowChatPlaceholder = workspace !== 'public' && !activeConversationId;
+  // When viewing the assistant home URL (no conversation ID in the route),
+  // always show the briefing even if the cache restored a prior conversation.
+  const isAssistantHome = isPracticeWorkspace && workspaceView === 'assistant' && !normalizedRouteConversationId;
 
   // ── chat panel ─────────────────────────────────────────────────────────────
   const chatPanel = chatContent ?? (
     <div className="relative flex min-h-0 flex-1 flex-col">
-      {shouldShowChatPlaceholder ? (
-        <div className="flex-1 flex items-center justify-center text-sm text-dim-2">
-          {isPracticeWorkspace
-            ? 'Select a conversation to view the thread.'
-            : 'Open a practice link to start chatting.'}
-        </div>
+      {shouldShowChatPlaceholder || isAssistantHome ? (
+        isPracticeWorkspace && workspaceView === 'assistant' ? (
+          <Suspense fallback={<div className="flex-1" />}>
+            <PracticeAssistantBriefing
+              practiceId={practiceId}
+              practiceSlug={resolvedPracticeSlug ?? null}
+              practiceName={resolvedPracticeName}
+              onAsk={(question) => {
+                try { sessionStorage.setItem('blawby:pending_ask', question); } catch { /* ignore */ }
+                void handleStartNewConversation('PRACTICE_ASSISTANT', undefined, { forceCreate: true })
+                  .then((convId) => {
+                    if (convId && resolvedPracticeSlug) {
+                      navigate(`/practice/${encodeURIComponent(resolvedPracticeSlug)}/assistant/${encodeURIComponent(convId)}`);
+                    }
+                  })
+                  .catch(() => {});
+              }}
+            />
+          </Suspense>
+        ) : (
+          <div className="flex-1 flex items-center justify-center text-sm text-dim-2">
+            {isPracticeWorkspace
+              ? 'Select a conversation to view the thread.'
+              : 'Open a practice link to start chatting.'}
+          </div>
+        )
       ) : (
         <div className="flex-1 min-h-0">
           <ChatContainer

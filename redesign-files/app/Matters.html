@@ -1,0 +1,557 @@
+<!doctype html>
+<html lang="en" data-theme="">
+<head>
+<meta charset="utf-8" />
+<title>Blawby — Matters</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,opsz,wght@0,8..60,300..900;1,8..60,300..900&family=Geist:wght@300;400;500;600;700&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="tokens.css">
+<style>
+  body{ background-image: radial-gradient(rgba(15,30,54,0.025) 1px, transparent 1.2px); background-size: 3px 3px; background-attachment: fixed; }
+
+  .shell{ display:grid; grid-template-columns: 240px 1fr; min-height: 100vh; max-width: 1520px; margin: 0 auto; }
+
+  /* reused: left rail */
+  .rail{
+    border-right: 1px solid var(--rule);
+    padding: 22px 16px;
+    display:flex; flex-direction:column; gap: 18px;
+    position: sticky; top:0; height: 100vh;
+    background: color-mix(in oklab, var(--paper) 96%, var(--card));
+  }
+  .rail .meta{ font-family:var(--mono); font-size:10px; letter-spacing:.06em; text-transform:uppercase; color: var(--dim); margin-top:-8px; padding-left:30px; }
+  .new-btn{ width:100%; background:var(--ink); color:var(--paper); border:1px solid var(--ink); border-radius:var(--r-xs); padding:11px 14px; font-size:13px; font-weight:500; display:flex; align-items:center; justify-content:space-between; cursor:pointer; transition:all .18s; }
+  .new-btn:hover{ background:var(--accent); color:var(--accent-ink); border-color:var(--accent); }
+  .new-btn kbd{ font-family:var(--mono); font-size:10px; background:rgba(255,255,255,.12); color:var(--paper-2); padding:2px 6px; border-radius:3px; }
+  .new-btn:hover kbd{ background:rgba(0,0,0,.12); color:var(--accent-ink); }
+  .rail-section{ display:flex; flex-direction:column; gap:2px; }
+  .rail-label{ font-family:var(--mono); font-size:9.5px; letter-spacing:.12em; text-transform:uppercase; color:var(--dim-2); padding:0 8px 4px; }
+  .rail-item{ display:flex; align-items:center; gap:10px; padding:7px 10px; border-radius:var(--r-xs); font-size:13px; color:var(--ink-2); cursor:pointer; transition: background .12s, color .12s; }
+  .rail-item:hover{ background:var(--rule-soft); color:var(--ink); }
+  .rail-item.on{ background:var(--ink); color:var(--accent); }
+  .rail-item .dot{ width:6px; height:6px; border-radius:50%; background:var(--dim-2); flex-shrink:0; }
+  .rail-item.on .dot{ background: var(--accent); }
+  .rail-item .badge{ margin-left:auto; font-family: var(--mono); font-size: 10px; color: var(--dim); }
+  .rail-item.on .badge{ color: var(--accent); }
+  .user-chip{ margin-top:auto; display:flex; align-items:center; gap:10px; padding:9px 10px; border-radius:var(--r-xs); border:1px solid var(--rule); background:var(--card); cursor:pointer; }
+  .user-chip .who{ font-size:12.5px; line-height:1.2; }
+  .user-chip .who small{ display:block; color:var(--dim); font-size:10.5px; }
+  .user-chip .caret{ margin-left:auto; color:var(--dim-2); }
+
+  /* ============ main ============ */
+  .main{ padding: 28px 48px 60px; min-width: 0; }
+
+  /* hero query bar */
+  .pageHd{
+    display:flex; align-items: flex-end; justify-content: space-between;
+    padding-bottom: 18px; border-bottom: 1px solid var(--rule);
+  }
+  .pageHd .crumb{ font-family: var(--mono); font-size: 10px; letter-spacing: .14em; text-transform: uppercase; color: var(--dim); }
+  .pageHd h1{ font-family: var(--serif); font-weight: 400; font-size: 44px; line-height: 1; letter-spacing: -.02em; margin: 4px 0 0; }
+  .pageHd h1 em{ color: var(--accent); }
+  .pageHd .stats{
+    font-family: var(--mono); font-size: 11px; letter-spacing: .04em; color: var(--dim); text-transform: uppercase;
+    text-align: right; line-height: 1.7;
+  }
+  .pageHd .stats b{ color: var(--ink); font-family: var(--sans); font-size: 13px; letter-spacing: 0; text-transform: none; font-weight: 500; }
+
+  /* ai-led query bar */
+  .askbar{
+    margin-top: 22px;
+    background: var(--card);
+    border: 1px solid var(--rule);
+    border-radius: var(--r-md);
+    padding: 14px 16px;
+    display:flex; align-items:center; gap: 12px;
+    box-shadow: var(--shadow-2);
+  }
+  .askbar .av{ width: 30px; height: 30px; border-radius: 50%; background: var(--ink); color: var(--accent); display:grid; place-items:center; font-family: var(--serif); font-style: italic; font-size: 15px; }
+  .askbar .field{
+    flex:1; font-family: var(--sans); font-size: 15px; color: var(--ink);
+    outline: none; padding: 6px 0; min-height: 24px;
+  }
+  .askbar .field:empty::before{ content: attr(data-ph); color: var(--dim-2); }
+  .askbar .actions{ display:flex; align-items:center; gap:6px; }
+
+  .suggestions{
+    margin-top: 12px; display:flex; gap: 6px; flex-wrap: wrap;
+  }
+  .suggestions .qchip{
+    appearance: none; border: 1px solid var(--rule);
+    background: var(--card); color: var(--ink-2);
+    padding: 6px 12px; border-radius: var(--r-pill);
+    font-family: var(--sans); font-size: 12.5px; cursor: pointer;
+    transition: all .14s;
+  }
+  .suggestions .qchip:hover{ border-color: var(--ink); }
+  .suggestions .qchip .ic{ color: var(--accent-deep); font-family: var(--serif); font-style: italic; margin-right: 6px; }
+
+  /* AI answer card */
+  .answer{
+    margin-top: 22px;
+    background: linear-gradient(180deg, color-mix(in oklab, var(--accent) 10%, var(--card)), var(--card));
+    border: 1px solid color-mix(in oklab, var(--accent) 30%, var(--rule));
+    border-radius: var(--r-md);
+    padding: 20px 22px;
+    box-shadow: var(--shadow-1);
+  }
+  .answer .meta{
+    font-family: var(--mono); font-size: 10px; letter-spacing: .1em; text-transform: uppercase; color: var(--dim);
+    display:flex; align-items: center; gap: 8px;
+  }
+  .answer .meta .v{ color: var(--pos); display:inline-flex; align-items:center; gap:4px; }
+  .answer .meta .v::before{ content:""; width:5px; height:5px; border-radius:50%; background: var(--pos); }
+  .answer .reply{
+    font-family: var(--serif); font-size: 22px; line-height: 1.3; letter-spacing:-.005em;
+    color: var(--ink); margin: 8px 0 0; max-width: 70ch;
+  }
+  .answer .reply em{ color: var(--accent-deep); }
+  .answer .meta-r{ display:flex; gap: 12px; align-items: center; margin-top: 14px; flex-wrap: wrap; }
+
+  /* matters table */
+  .toolbar{
+    margin-top: 28px;
+    display:flex; align-items: center; gap: 10px;
+    padding: 12px 0;
+  }
+  .toolbar .grow{ flex:1; }
+  .seg{
+    display:inline-flex; align-items: stretch;
+    border: 1px solid var(--rule); border-radius: var(--r-xs);
+    overflow: hidden; background: var(--card);
+  }
+  .seg button{
+    appearance: none; border: none; background: transparent;
+    padding: 6px 12px; font-family: var(--sans); font-size: 12.5px; color: var(--ink-2);
+    cursor: pointer; border-right: 1px solid var(--rule);
+  }
+  .seg button:last-child{ border-right: none; }
+  .seg button.on{ background: var(--ink); color: var(--accent); }
+  .filter-chip{
+    display:inline-flex; align-items:center; gap:6px;
+    border: 1px dashed var(--rule); padding: 5px 10px; border-radius: var(--r-xs);
+    font-family: var(--mono); font-size: 10.5px; color: var(--dim); letter-spacing: .04em; text-transform: uppercase;
+    cursor: pointer;
+  }
+  .filter-chip.on{ background: var(--accent-soft); border-style: solid; border-color: color-mix(in oklab, var(--accent) 40%, var(--rule)); color: var(--accent-deep); }
+  .filter-chip .x{ color: var(--dim-2); cursor: pointer; }
+
+  /* matters table */
+  .table{
+    border: 1px solid var(--rule);
+    border-radius: var(--r-md);
+    overflow: hidden;
+    background: var(--card);
+    box-shadow: var(--shadow-1);
+  }
+  .table .row{
+    display:grid;
+    grid-template-columns:
+      minmax(280px, 2.1fr)
+      minmax(110px, .9fr)
+      minmax(120px, 1fr)
+      minmax(160px, 1.2fr)
+      minmax(120px, 1fr)
+      minmax(110px, .9fr)
+      40px;
+    gap: 18px;
+    padding: 14px 22px;
+    align-items: center;
+    border-bottom: 1px solid var(--rule);
+    transition: background .12s;
+  }
+  .table .row:last-child{ border-bottom: none; }
+  .table .row:hover:not(.head){ background: var(--rule-soft); cursor: pointer; }
+  .table .row.head{
+    background: var(--paper-2);
+    border-bottom: 1px solid var(--rule);
+    font-family: var(--mono); font-size: 10px; letter-spacing: .1em; text-transform: uppercase; color: var(--dim);
+    padding: 10px 22px;
+  }
+  .table .row .matter{
+    display: flex; flex-direction: column; gap: 4px; min-width: 0;
+  }
+  .table .row .matter .title{ font-family: var(--serif); font-size: 17px; letter-spacing: -.005em; color: var(--ink); line-height: 1.15; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .table .row .matter .sub{ font-size: 12px; color: var(--dim); font-family: var(--mono); letter-spacing: .02em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .table .row .matter .sub b{ font-family: var(--sans); color: var(--ink-2); font-weight: 500; letter-spacing: 0; }
+  .col-num{ font-family: var(--mono); font-size: 13.5px; color: var(--ink); letter-spacing: -.01em; }
+  .col-num small{ font-family: var(--mono); font-size: 10.5px; color: var(--dim); margin-left: 4px; display: block; margin-top: 2px; }
+  .col-status .pill{ font-size: 10.5px; }
+  .col-tags{ display: flex; flex-wrap: wrap; gap: 4px; }
+  .col-tags .tag{
+    font-family: var(--mono); font-size: 10px; letter-spacing: .04em;
+    background: var(--rule-soft); color: var(--ink-2);
+    padding: 2px 6px; border-radius: var(--r-xs);
+  }
+  .col-flag{
+    display:inline-flex; align-items:center; gap: 6px;
+    font-family: var(--mono); font-size: 10.5px; letter-spacing: .04em; text-transform: uppercase;
+    color: var(--ink-2);
+  }
+  .col-flag .dot{ width: 7px; height: 7px; border-radius: 50%; background: var(--pos); }
+  .col-flag.warn .dot{ background: var(--warn); }
+  .col-flag.warn{ color: var(--warn); }
+  .col-flag.urgent .dot{ background: var(--neg); animation: pulse 2s infinite; }
+  .col-flag.urgent{ color: var(--neg); }
+  @keyframes pulse{ 0%{ box-shadow: 0 0 0 0 color-mix(in oklab, var(--neg) 50%, transparent); } 70%{ box-shadow: 0 0 0 6px transparent; } 100%{ box-shadow: 0 0 0 0 transparent; } }
+  .col-bar{ display:flex; align-items: center; gap: 8px; }
+  .col-bar .bar{ flex: 1; min-width: 0; }
+  .col-bar small{ font-family: var(--mono); font-size: 10.5px; color: var(--dim); flex-shrink: 0; min-width: 30px; text-align: right; }
+  .row-act{
+    color: var(--dim-2); cursor: pointer;
+    width: 24px; height: 24px; border-radius: var(--r-xs);
+    display:grid; place-items: center;
+  }
+  .row .row-act:hover{ background: var(--rule-soft); color: var(--ink); }
+
+  /* row state */
+  .row.urgent{ background: color-mix(in oklab, var(--neg) 4%, var(--card)); }
+  .row.urgent:hover{ background: color-mix(in oklab, var(--neg) 7%, var(--card)) !important; }
+
+  /* table footer */
+  .table-foot{
+    padding: 12px 22px;
+    background: var(--paper-2);
+    border-top: 1px solid var(--rule);
+    display:flex; align-items: center; justify-content: space-between;
+    font-family: var(--mono); font-size: 10.5px; letter-spacing: .04em; color: var(--dim); text-transform: uppercase;
+  }
+
+  /* secondary card grid: kanban */
+  .kanban{
+    display:grid; grid-template-columns: repeat(4, 1fr); gap: 14px;
+    margin-top: 16px;
+    display: none;
+  }
+  .kanban.show{ display: grid; }
+  .kanban-col{
+    background: var(--paper-2);
+    border: 1px solid var(--rule);
+    border-radius: var(--r-md);
+    padding: 14px;
+    min-height: 360px;
+    display:flex; flex-direction: column; gap: 10px;
+  }
+  .kanban-col h4{
+    font-family: var(--mono); font-size: 10px; letter-spacing: .12em; text-transform: uppercase;
+    color: var(--dim); margin: 0; display:flex; justify-content: space-between;
+  }
+  .kanban-card{
+    background: var(--card); border: 1px solid var(--rule); border-radius: var(--r-md);
+    padding: 12px 14px;
+    display:flex; flex-direction: column; gap: 6px;
+    cursor: grab;
+    transition: transform .14s, box-shadow .14s;
+  }
+  .kanban-card:hover{ transform: translateY(-2px); box-shadow: var(--shadow-2); }
+  .kanban-card .t{ font-family: var(--serif); font-size: 15px; letter-spacing: -.005em; line-height: 1.2; }
+  .kanban-card .s{ font-family: var(--mono); font-size: 10.5px; color: var(--dim); }
+  .kanban-card .foot{ display:flex; justify-content: space-between; align-items: center; margin-top: 6px; }
+  .kanban-card .foot .meta{ font-family: var(--mono); font-size: 10px; color: var(--dim-2); letter-spacing: .04em; text-transform: uppercase; }
+
+  /* table-or-kanban */
+  .table.show{ display: block; }
+  .table.hide{ display: none; }
+
+  @media (max-width: 1100px){
+    .table .row{ grid-template-columns: 2fr 1fr 1fr 1fr; }
+    .table .row > :nth-child(n+5){ display: none; }
+    .kanban{ grid-template-columns: repeat(2, 1fr); }
+  }
+</style>
+</head>
+<body>
+
+<div class="shell">
+
+  <!-- ============ left rail ============ -->
+    <aside class="rail">
+    <a href="Assistant.html" class="brand-mark">
+      <span class="brand-mark-glyph">B</span>
+      <span class="brand-mark-word" style="font-family:var(--sans);font-weight:500">Blawby</span>
+    </a>
+    <div class="meta">Law Offices of Sarah Chen · solo</div>
+
+    <button class="new-btn">
+      <span>＋  New conversation</span>
+      <kbd>⌘N</kbd>
+    </button>
+
+    <div class="rail-section">
+      <div class="rail-label">Workspace</div>
+      <a class="rail-item" href="Assistant.html"><span class="dot"></span>Assistant</a>
+      <a class="rail-item" href="Conversations v2.html"><span class="dot"></span>Conversations</a>
+      <a class="rail-item on" href="Matters.html"><span class="dot"></span>Matters</a>
+      <a class="rail-item" href="Intakes.html"><span class="dot"></span>Intakes</a>
+      <a class="rail-item" href="Invoices.html"><span class="dot"></span>Invoices</a>
+      <a class="rail-item" href="Files.html"><span class="dot"></span>Files</a>
+    </div>
+
+    <div class="rail-section">
+      <div class="rail-label">Practice</div>
+      <a class="rail-item" href="Clients.html"><span class="dot"></span>Clients</a>
+      <a class="rail-item" href="Calendar.html"><span class="dot"></span>Calendar</a>
+      <a class="rail-item" href="Tasks.html"><span class="dot"></span>Tasks</a>
+      <a class="rail-item" href="Trust.html"><span class="dot"></span>Trust ledger</a>
+      <a class="rail-item" href="Reports.html"><span class="dot"></span>Reports</a>
+    </div>
+
+    <a class="rail-item" href="Settings.html" style="margin-top:auto"><span class="dot" style="background:transparent;border:1px solid var(--dim-2)"></span>Settings</a>
+
+    <div class="user-chip">
+      <div class="avatar user">SC</div>
+      <div class="who">Sarah Chen<small>sarah@chenlawoffice.com</small></div>
+      <div class="caret">⌃</div>
+    </div>
+  </aside>
+
+  <!-- ============ main ============ -->
+  <main class="main">
+
+    <header class="pageHd">
+      <div>
+        <div class="crumb">Workspace · 4 active</div>
+        <h1>Matters</h1>
+      </div>
+      <div class="stats">
+        <span style="display:block">Open</span>
+        <b>$18,720</b> in retainer · <b>$1,245</b> unbilled<br>
+        <b>14</b> events this week · <b>1</b> court date Friday
+      </div>
+    </header>
+
+    <!-- ask bar -->
+    <div class="askbar">
+      <div class="av">B</div>
+      <div class="field" contenteditable="true" data-ph="Ask anything — &quot;which matters are at risk?&quot; · &quot;open Martinez&quot; · &quot;new matter from Chen intake&quot;"></div>
+      <div class="actions">
+        <button class="iconbtn" style="width:32px;height:32px;border-radius:var(--r-xs);border:1px solid var(--rule);background:var(--paper);display:grid;place-items:center;color:var(--ink-2);cursor:pointer" title="Voice">🎙</button>
+        <button class="btn btn-primary btn-sm">Ask</button>
+      </div>
+    </div>
+
+    <div class="suggestions">
+      <button class="qchip"><span class="ic">a</span>at risk this week</button>
+      <button class="qchip"><span class="ic">b</span>retainer below 30%</button>
+      <button class="qchip"><span class="ic">c</span>no activity 7+ days</button>
+      <button class="qchip"><span class="ic">d</span>contingency, settled</button>
+      <button class="qchip"><span class="ic">e</span>by jurisdiction</button>
+      <button class="qchip"><span class="ic">f</span>just ones assigned to me</button>
+    </div>
+
+    <!-- AI answer -->
+    <div class="answer">
+      <div class="meta">Practice assistant <span class="v">grounded in matters · 4 rows</span> · just now</div>
+      <p class="reply">Two of your four matters are <em>at risk this week.</em> Martinez (retainer at 45% with 8.3h unbilled) and Johnson (court Friday, two docs unfiled). The other two are stable.</p>
+      <div class="meta-r">
+        <button class="chip primary">Open Martinez</button>
+        <button class="chip">Open Johnson</button>
+        <button class="chip">Draft Martinez invoice</button>
+        <span class="pill" style="margin-left: auto">view filtered ↓</span>
+      </div>
+    </div>
+
+    <!-- toolbar -->
+    <div class="toolbar">
+      <span class="filter-chip on">at risk <span class="x">×</span></span>
+      <span class="filter-chip">status: open</span>
+      <span class="filter-chip">assigned: me</span>
+      <span class="filter-chip" style="border-style:solid;color:var(--ink-2)">＋ filter</span>
+      <div class="grow"></div>
+      <span class="label" style="margin-right:6px">view</span>
+      <div class="seg">
+        <button class="on" data-view="table">Table</button>
+        <button data-view="kanban">Board</button>
+        <button>Timeline</button>
+      </div>
+      <button class="btn btn-ghost btn-sm">Export</button>
+      <button class="btn btn-primary btn-sm">＋ New matter</button>
+    </div>
+
+    <!-- TABLE -->
+    <div class="table show" id="tbl">
+      <div class="row head">
+        <div>Matter</div>
+        <div>Status</div>
+        <div>Retainer</div>
+        <div>Tags</div>
+        <div>Risk</div>
+        <div>Activity</div>
+        <div></div>
+      </div>
+
+      <div class="row urgent">
+        <div class="matter">
+          <div class="title">Auto Injury — Bob Martinez</div>
+          <div class="sub">BLB-0241 · <b>Personal injury</b> · NC Mecklenburg · opened 53d</div>
+        </div>
+        <div class="col-status"><span class="pill urgent">open</span></div>
+        <div class="col-bar">
+          <div class="bar warn"><i style="width:45%"></i></div>
+          <small>45%</small>
+        </div>
+        <div class="col-tags">
+          <span class="tag">contingency</span>
+          <span class="tag">pre-litigation</span>
+        </div>
+        <div><span class="col-flag urgent"><span class="dot"></span>retainer low</span></div>
+        <div class="col-num">2d ago<small>14 events / 30d</small></div>
+        <div class="row-act">⋯</div>
+      </div>
+
+      <div class="row urgent">
+        <div class="matter">
+          <div class="title">Estate Plan — Alice Johnson</div>
+          <div class="sub">BLB-0238 · <b>Estate planning</b> · NC Mecklenburg · opened 41d</div>
+        </div>
+        <div class="col-status"><span class="pill warn">open</span></div>
+        <div class="col-bar">
+          <div class="bar"><i style="width:78%;background:var(--accent)"></i></div>
+          <small>78%</small>
+        </div>
+        <div class="col-tags">
+          <span class="tag">flat-fee</span>
+          <span class="tag">filing-required</span>
+        </div>
+        <div><span class="col-flag urgent"><span class="dot"></span>court Fri</span></div>
+        <div class="col-num">5h ago<small>7 events / 30d</small></div>
+        <div class="row-act">⋯</div>
+      </div>
+
+      <div class="row">
+        <div class="matter">
+          <div class="title">Separation Agreement — Demo Client Local</div>
+          <div class="sub">BLB-0232 · <b>Family law</b> · NC Mecklenburg · opened 28d</div>
+        </div>
+        <div class="col-status"><span class="pill live">in progress</span></div>
+        <div class="col-bar">
+          <div class="bar ok"><i style="width:88%;background:var(--pos)"></i></div>
+          <small>88%</small>
+        </div>
+        <div class="col-tags">
+          <span class="tag">retainer</span>
+          <span class="tag">draft-stage</span>
+        </div>
+        <div><span class="col-flag"><span class="dot"></span>healthy</span></div>
+        <div class="col-num">Yesterday<small>11 events / 30d</small></div>
+        <div class="row-act">⋯</div>
+      </div>
+
+      <div class="row">
+        <div class="matter">
+          <div class="title">sdtest</div>
+          <div class="sub">BLB-0245 · <b>Test matter</b> · NC · opened 4d</div>
+        </div>
+        <div class="col-status"><span class="pill">lead</span></div>
+        <div class="col-bar">
+          <div class="bar"><i style="width:0%"></i></div>
+          <small>—</small>
+        </div>
+        <div class="col-tags">
+          <span class="tag">test</span>
+        </div>
+        <div><span class="col-flag warn"><span class="dot"></span>quiet</span></div>
+        <div class="col-num">4d ago<small>2 events / 30d</small></div>
+        <div class="row-act">⋯</div>
+      </div>
+
+      <div class="row" style="opacity:.55">
+        <div class="matter">
+          <div class="title">Patel — small business advisory</div>
+          <div class="sub">BLB-0218 · <b>Small business</b> · NC Mecklenburg · opened 92d</div>
+        </div>
+        <div class="col-status"><span class="pill" style="border-color:var(--rule);color:var(--dim)">archived</span></div>
+        <div class="col-bar">
+          <div class="bar"><i style="width:100%;background:var(--rule)"></i></div>
+          <small>—</small>
+        </div>
+        <div class="col-tags">
+          <span class="tag">hourly</span>
+        </div>
+        <div><span class="col-flag" style="color:var(--dim)"><span class="dot" style="background:var(--dim-2)"></span>closed</span></div>
+        <div class="col-num" style="color:var(--dim)">14d ago<small>0 events / 30d</small></div>
+        <div class="row-act">⋯</div>
+      </div>
+
+      <div class="table-foot">
+        <span>4 active · 1 archived shown</span>
+        <span>filtered by: <b style="color:var(--ink-2);font-family:var(--sans);font-weight:500;text-transform:none">at risk</b></span>
+      </div>
+    </div>
+
+    <!-- KANBAN -->
+    <div class="kanban" id="kbn">
+      <div class="kanban-col">
+        <h4>Lead <span>1</span></h4>
+        <div class="kanban-card">
+          <div class="s">BLB-0245</div>
+          <div class="t">sdtest</div>
+          <div class="foot"><span class="meta">test matter</span><span class="pill">4d</span></div>
+        </div>
+      </div>
+      <div class="kanban-col">
+        <h4>Open <span>2</span></h4>
+        <div class="kanban-card" style="border-color: color-mix(in oklab, var(--neg) 30%, var(--rule))">
+          <div class="s">BLB-0241 · Personal injury</div>
+          <div class="t">Auto Injury — B. Martinez</div>
+          <div class="bar warn"><i style="width:45%"></i></div>
+          <div class="foot"><span class="meta">retainer 45%</span><span class="pill urgent">at risk</span></div>
+        </div>
+        <div class="kanban-card" style="border-color: color-mix(in oklab, var(--warn) 30%, var(--rule))">
+          <div class="s">BLB-0238 · Estate</div>
+          <div class="t">Estate Plan — A. Johnson</div>
+          <div class="bar"><i style="width:78%"></i></div>
+          <div class="foot"><span class="meta">court Friday</span><span class="pill warn">deadline</span></div>
+        </div>
+      </div>
+      <div class="kanban-col">
+        <h4>In progress <span>1</span></h4>
+        <div class="kanban-card">
+          <div class="s">BLB-0232 · Family</div>
+          <div class="t">Separation — Demo Client</div>
+          <div class="bar ok"><i style="width:88%;background:var(--pos)"></i></div>
+          <div class="foot"><span class="meta">draft stage</span><span class="pill live">healthy</span></div>
+        </div>
+      </div>
+      <div class="kanban-col" style="opacity:.7">
+        <h4>Archived <span>1</span></h4>
+        <div class="kanban-card" style="opacity:.7">
+          <div class="s">BLB-0218</div>
+          <div class="t">Patel — small business</div>
+          <div class="foot"><span class="meta">closed 14d ago</span></div>
+        </div>
+      </div>
+    </div>
+
+  </main>
+
+</div>
+
+<script>
+  // view toggle
+  const tbl = document.getElementById('tbl');
+  const kbn = document.getElementById('kbn');
+  document.querySelectorAll('[data-view]').forEach(b=>{
+    b.addEventListener('click', ()=>{
+      document.querySelectorAll('[data-view]').forEach(x=>x.classList.remove('on'));
+      b.classList.add('on');
+      const v = b.dataset.view;
+      if(v === 'table'){ tbl.classList.remove('hide'); kbn.classList.remove('show'); }
+      else if(v === 'kanban'){ tbl.classList.add('hide'); kbn.classList.add('show'); }
+    });
+  });
+
+  // filter chips
+  document.querySelectorAll('.filter-chip').forEach(c=>{
+    c.addEventListener('click', ()=> c.classList.toggle('on'));
+  });
+  document.querySelectorAll('.qchip').forEach(c=>{
+    c.addEventListener('click', ()=>{
+      document.querySelectorAll('.qchip').forEach(x=>x.classList.remove('on'));
+      c.classList.add('on');
+    });
+  });
+</script>
+</body>
+</html>

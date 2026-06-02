@@ -1,0 +1,639 @@
+<!doctype html>
+<html lang="en" data-theme="">
+<head>
+<meta charset="utf-8" />
+<title>Blawby — Engagement editor</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,opsz,wght@0,8..60,300..900;1,8..60,300..900&family=Geist:wght@300;400;500;600;700&family=Geist+Mono:wght@400;500&family=Caveat:wght@500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="tokens.css">
+<style>
+  body{ background-image: radial-gradient(rgba(15,30,54,0.025) 1px, transparent 1.2px); background-size: 3px 3px; background-attachment: fixed; }
+
+  .shell{ display:grid; grid-template-rows: auto 1fr; min-height: 100vh; }
+
+  /* ============ top bar ============ */
+  .topbar{
+    display:flex; align-items:center; gap: 16px;
+    padding: 14px 32px;
+    border-bottom: 1px solid var(--rule);
+    background: color-mix(in oklab, var(--paper) 96%, var(--card));
+    position: sticky; top: 0; z-index: 10;
+  }
+  .topbar .back{
+    font-family: var(--mono); font-size: 11px; letter-spacing: .06em; text-transform: uppercase;
+    color: var(--dim); cursor: pointer; padding: 4px 8px; border-radius: var(--r-xs);
+  }
+  .topbar .back:hover{ color: var(--ink); background: var(--rule-soft); }
+  .topbar .title{ display:flex; flex-direction: column; gap: 2px; }
+  .topbar .title .crumb{ font-family: var(--mono); font-size: 10px; letter-spacing: .14em; text-transform: uppercase; color: var(--dim); }
+  .topbar .title h1{ font-family: var(--serif); font-weight: 400; font-size: 22px; letter-spacing: -.012em; margin: 0; }
+  .topbar .title h1 em{ color: var(--accent); }
+
+  .topbar .status{ display:flex; align-items: center; gap: 8px; margin-left: 22px; padding-left: 22px; border-left: 1px solid var(--rule); }
+  .topbar .grow{ flex: 1; }
+  .topbar .actions{ display:flex; gap: 8px; align-items: center; }
+  .saved-indicator{ font-family: var(--mono); font-size: 10.5px; color: var(--dim); letter-spacing: .04em; text-transform: uppercase; display:flex; align-items:center; gap: 6px; }
+  .saved-indicator::before{ content:""; width: 6px; height: 6px; border-radius: 50%; background: var(--pos); }
+
+  /* ============ AI generate ribbon ============ */
+  .ribbon{
+    background: linear-gradient(90deg, var(--accent-soft), color-mix(in oklab, var(--accent) 8%, var(--card)) 60%, var(--card));
+    border-bottom: 1px solid color-mix(in oklab, var(--accent) 30%, var(--rule));
+    padding: 12px 32px;
+    display:flex; align-items: center; gap: 16px;
+  }
+  .ribbon .av{ width: 28px; height: 28px; border-radius: 50%; background: var(--ink); color: var(--accent); display:grid; place-items:center; font-family: var(--serif); font-style: italic; font-size: 14px; }
+  .ribbon .txt{ flex: 1; font-family: var(--serif); font-size: 15.5px; line-height: 1.4; color: var(--ink); }
+  .ribbon .txt b{ font-weight: 500; }
+  .ribbon .txt em{ color: var(--accent-deep); }
+  .ribbon .actions{ display:flex; gap: 8px; }
+
+  /* ============ workbench ============ */
+  .work{ display:grid; grid-template-columns: 440px 1fr; min-height: calc(100vh - 60px); }
+
+  /* ===== form panel ===== */
+  .form-panel{
+    border-right: 1px solid var(--rule);
+    padding: 22px 26px 80px;
+    overflow-y: auto;
+    max-height: calc(100vh - 60px - 53px);
+    display:flex; flex-direction: column; gap: 22px;
+  }
+  .section h3{
+    font-family: var(--serif); font-weight: 400; font-size: 19px;
+    margin: 0 0 4px; letter-spacing: -.005em;
+    display:flex; align-items: center; gap: 8px;
+  }
+  .section h3 .ix{
+    width: 22px; height: 22px; border-radius: 50%;
+    background: var(--rule-soft); color: var(--dim);
+    display:grid; place-items:center;
+    font-family: var(--mono); font-size: 11px;
+  }
+  .section.done h3 .ix{ background: var(--pos); color: white; }
+  .section.now h3 .ix{ background: var(--accent); color: var(--accent-ink); }
+  .section .desc{ font-size: 12.5px; color: var(--dim); margin: 0 0 12px; max-width: 50ch; line-height: 1.5; padding-left: 30px; }
+  .section .fields{ display:flex; flex-direction: column; gap: 12px; padding-left: 30px; }
+  .row2{ display:grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .row3{ display:grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
+
+  /* templates */
+  .templates{ display:flex; gap: 6px; overflow-x: auto; margin: 0 -26px; padding: 0 26px 4px; }
+  .tpl{
+    flex-shrink: 0;
+    background: var(--card); border: 1px solid var(--rule);
+    border-radius: var(--r-xs); padding: 8px 12px;
+    font-family: var(--sans); font-size: 12.5px; color: var(--ink-2); cursor: pointer;
+    display:flex; flex-direction: column; gap: 2px; min-width: 100px;
+    transition: all .14s;
+  }
+  .tpl:hover{ border-color: var(--ink-3); }
+  .tpl.on{ background: var(--ink); color: var(--accent); border-color: var(--ink); }
+  .tpl .l{ font-family: var(--mono); font-size: 9.5px; letter-spacing: .08em; text-transform: uppercase; opacity: .65; }
+  .tpl.on .l{ opacity: .8; }
+
+  /* fee structure cards */
+  .fee-modes{ display:grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
+  .fee-mode{
+    border: 1px solid var(--rule); border-radius: var(--r-xs);
+    padding: 10px 12px; cursor: pointer;
+    transition: border-color .14s, background .14s;
+    display:flex; flex-direction: column; gap: 2px;
+    position: relative;
+  }
+  .fee-mode .h{ font-family: var(--serif); font-size: 15px; letter-spacing: -.005em; }
+  .fee-mode .d{ font-size: 11.5px; color: var(--dim); line-height: 1.4; }
+  .fee-mode:hover{ border-color: var(--ink-3); }
+  .fee-mode.on{
+    border-color: var(--accent);
+    background: color-mix(in oklab, var(--accent) 10%, var(--card));
+    box-shadow: 0 0 0 1px var(--accent);
+  }
+  .fee-mode .ai-tag{
+    position: absolute; top: 6px; right: 6px;
+    font-family: var(--mono); font-size: 9px; letter-spacing: .08em; text-transform: uppercase;
+    color: var(--accent-deep);
+    display:flex; align-items: center; gap: 3px;
+  }
+  .fee-mode .ai-tag::before{ content:""; width:4px; height:4px; border-radius:50%; background: var(--accent); }
+
+  /* risk review */
+  .risk-row{
+    display:flex; align-items: center; justify-content: space-between;
+    padding: 10px 0; border-bottom: 1px solid var(--rule);
+    font-size: 13px;
+  }
+  .risk-row:last-child{ border-bottom: none; }
+  .risk-row .l{ display:flex; flex-direction: column; gap: 2px; }
+  .risk-row .h{ font-weight: 500; }
+  .risk-row .d{ font-size: 12px; color: var(--dim); }
+  .risk-status{
+    display:inline-flex; align-items: center; gap: 6px;
+    font-family: var(--mono); font-size: 10.5px; letter-spacing: .06em; text-transform: uppercase;
+    padding: 4px 9px; border-radius: var(--r-pill);
+    background: color-mix(in oklab, var(--pos) 14%, var(--card));
+    color: var(--pos);
+    border: 1px solid color-mix(in oklab, var(--pos) 30%, var(--rule));
+  }
+  .risk-status::before{ content:""; width:5px; height:5px; border-radius: 50%; background: var(--pos); }
+  .risk-status.open{ background: color-mix(in oklab, var(--warn) 14%, var(--card)); color: var(--warn); border-color: color-mix(in oklab, var(--warn) 30%, var(--rule)); }
+  .risk-status.open::before{ background: var(--warn); }
+
+  /* ===== preview ===== */
+  .preview-panel{
+    padding: 32px 40px 80px;
+    overflow-y: auto;
+    max-height: calc(100vh - 60px - 53px);
+    background:
+      repeating-linear-gradient(
+        45deg,
+        transparent 0 12px,
+        rgba(15,30,54,.012) 12px 13px
+      ),
+      var(--paper);
+  }
+  .preview-panel .controls{
+    display:flex; align-items: center; gap: 8px;
+    margin-bottom: 18px; max-width: 720px; margin-left: auto; margin-right: auto;
+  }
+  .controls .label{ margin-right: 4px; }
+  .toggle-row{ display:flex; gap: 4px; align-items: center; }
+  .toggle-row .seg{
+    display:inline-flex;
+    border: 1px solid var(--rule); border-radius: var(--r-xs); background: var(--card);
+  }
+  .toggle-row .seg button{
+    appearance: none; border: none; background: transparent;
+    padding: 5px 10px; font-family: var(--sans); font-size: 12px; color: var(--ink-2); cursor: pointer;
+    border-right: 1px solid var(--rule);
+  }
+  .toggle-row .seg button:last-child{ border-right: none; }
+  .toggle-row .seg button.on{ background: var(--ink); color: var(--accent); }
+
+  /* paper */
+  .letter{
+    background: white;
+    max-width: 720px; margin: 0 auto;
+    padding: 56px 60px 72px;
+    color: #15140F;
+    font-family: var(--serif);
+    line-height: 1.6;
+    font-size: 14.5px;
+    box-shadow: 0 1px 0 rgba(255,255,255,.6) inset, 0 32px 64px -40px rgba(15,30,54,.4);
+    border: 1px solid var(--rule);
+    border-radius: var(--r-xs);
+  }
+  .letter .letterhead{
+    display:flex; align-items: flex-start; justify-content: space-between;
+    padding-bottom: 18px;
+    border-bottom: 1px solid #d3d6df;
+    margin-bottom: 28px;
+  }
+  .letter .letterhead .firm{
+    font-family: var(--serif); font-size: 22px; line-height: 1; letter-spacing: -.012em; color: #0f1e36;
+  }
+  .letter .letterhead .firm em{ font-style: italic; color: oklch(0.55 0.12 78); }
+  .letter .letterhead .addr{
+    font-family: var(--sans); font-size: 11.5px; line-height: 1.5; color: #6b7790; text-align: right;
+  }
+  .letter h1{
+    font-family: var(--serif); font-weight: 400; font-size: 28px; letter-spacing: -.012em;
+    margin: 0 0 12px; line-height: 1.15;
+  }
+  .letter .date{ font-family: var(--sans); font-size: 12px; color: #6b7790; margin-bottom: 18px; letter-spacing: .04em; text-transform: uppercase; }
+  .letter p{ margin: 0 0 14px; font-family: var(--serif); }
+  .letter p.intro{ font-size: 16px; line-height: 1.55; }
+  .letter ul.body-list{ margin: 0 0 18px; padding-left: 24px; }
+  .letter ul.body-list li{ margin-bottom: 10px; list-style: disc; font-family: var(--serif); }
+  .letter .placeholder{
+    background: color-mix(in oklab, oklch(0.72 0.13 82) 20%, transparent);
+    color: oklch(0.40 0.10 80);
+    padding: 0 4px;
+    border-radius: 2px;
+    font-family: var(--mono);
+    font-size: 12px;
+    letter-spacing: .02em;
+  }
+  .letter .placeholder.resolved{
+    background: color-mix(in oklab, oklch(0.55 0.10 155) 14%, transparent);
+    color: oklch(0.35 0.10 155);
+    font-family: var(--serif); font-size: 14.5px; letter-spacing: 0;
+  }
+  .letter h2.section-title{
+    font-family: var(--serif); font-weight: 400; font-size: 18px;
+    margin: 32px 0 10px; letter-spacing: -.005em;
+    border-top: 1px solid #d3d6df; padding-top: 22px;
+  }
+
+  /* fee summary box */
+  .fee-box{
+    border: 1px solid #d3d6df; border-radius: 4px;
+    padding: 18px 22px; margin: 18px 0 26px;
+    background: #f6f3ea;
+  }
+  .fee-box .head{
+    font-family: var(--mono); font-size: 10.5px; letter-spacing: .12em; text-transform: uppercase;
+    color: #6b7790; margin-bottom: 10px;
+  }
+  .fee-box dl{ margin: 0; display:grid; grid-template-columns: 1fr auto; gap: 6px 24px; font-family: var(--serif); }
+  .fee-box dl dt{ color: #2a3b5a; }
+  .fee-box dl dd{ margin: 0; text-align: right; font-feature-settings: "tnum"; }
+  .fee-box .total{
+    margin-top: 14px; padding-top: 12px;
+    border-top: 1px solid #d3d6df;
+    display:flex; justify-content: space-between; align-items: baseline;
+    font-family: var(--serif);
+  }
+  .fee-box .total b{ font-size: 22px; letter-spacing: -.012em; font-feature-settings: "tnum"; font-weight: 400; }
+
+  /* signature block */
+  .sig-block{
+    margin-top: 36px;
+    display:grid; grid-template-columns: 1fr 1fr; gap: 36px;
+  }
+  .sig-block .sig{
+    display:flex; flex-direction: column; gap: 24px;
+  }
+  .sig-block .sig-line{
+    border-bottom: 1px solid #15140F; height: 32px;
+    position: relative;
+  }
+  .sig-block .sig-line.client.signed::after{
+    content: "Sarah Chen"; position: absolute;
+    bottom: 4px; left: 0;
+    font-family: 'Caveat', 'Brush Script MT', cursive; font-size: 22px; color: #0f1e36;
+  }
+  .sig-block .sig .l{ font-family: var(--mono); font-size: 10px; letter-spacing: .12em; text-transform: uppercase; color: #6b7790; }
+  .sig-block .sig .n{ font-family: var(--serif); font-size: 15px; }
+
+  /* placeholder index — list of unresolved variables */
+  .placeholders-card{
+    background: var(--card); border: 1px solid var(--rule); border-radius: var(--r-md);
+    padding: 14px 16px; margin-top: 18px;
+  }
+  .placeholders-card h4{ font-family: var(--serif); font-size: 15px; margin: 0 0 8px; font-weight: 400; }
+  .placeholder-row{
+    display:flex; align-items: center; justify-content: space-between;
+    padding: 6px 0;
+    font-size: 12.5px;
+    border-bottom: 1px dotted var(--rule);
+  }
+  .placeholder-row:last-child{ border-bottom: none; }
+  .placeholder-row .k{ font-family: var(--mono); font-size: 11px; color: var(--ink-2); }
+  .placeholder-row .v{ color: var(--dim); }
+  .placeholder-row.unresolved .v{ color: var(--neg); font-family: var(--mono); font-size: 11px; }
+  .placeholder-row.unresolved .k{ color: var(--neg); }
+
+  @media (max-width: 1080px){
+    .work{ grid-template-columns: 1fr; }
+    .form-panel{ max-height: none; border-right: none; border-bottom: 1px solid var(--rule); }
+    .preview-panel{ max-height: none; }
+  }
+</style>
+</head>
+<body>
+
+<div class="shell">
+
+  <!-- ============ topbar ============ -->
+  <div class="topbar">
+    <a href="Matters.html" class="back">← matters</a>
+    <div class="title">
+      <div class="crumb">Engagement · BLB-ENG-0042 · draft</div>
+      <h1>Engagement for <em>Sarah Chen</em></h1>
+    </div>
+    <div class="status">
+      <span class="pill"><span style="background:var(--warn);width:6px;height:6px;border-radius:50%"></span>draft</span>
+      <span class="saved-indicator">saved 4s ago</span>
+    </div>
+    <div class="grow"></div>
+    <div class="actions">
+      <button class="btn btn-ghost btn-sm">Preview as client →</button>
+      <button class="btn btn-ghost btn-sm">Download PDF</button>
+      <button class="btn btn-primary">Send to client ↗</button>
+    </div>
+  </div>
+
+  <!-- ============ AI ribbon ============ -->
+  <div class="ribbon">
+    <div class="av">B</div>
+    <div class="txt">
+      I generated this draft from the <b>family law / retainer</b> template, prefilled with Chen's intake. <em>3 of 17 placeholders are still unresolved</em> — flagged in the form and highlighted in the letter on the right.
+    </div>
+    <div class="actions">
+      <button class="chip primary">Re-generate</button>
+      <button class="chip">Polish language</button>
+      <button class="chip">Translate to plain English</button>
+    </div>
+  </div>
+
+  <!-- ============ workbench ============ -->
+  <div class="work">
+
+    <!-- ===== form panel ===== -->
+    <aside class="form-panel">
+
+      <div>
+        <div class="label" style="margin-bottom: 10px">Template</div>
+        <div class="templates">
+          <div class="tpl"><span class="l">Hourly</span>General hourly</div>
+          <div class="tpl on"><span class="l">Retainer</span>Family · retainer</div>
+          <div class="tpl"><span class="l">Flat fee</span>Estate flat-fee</div>
+          <div class="tpl"><span class="l">Contingency</span>PI · contingency</div>
+          <div class="tpl"><span class="l">Pro bono</span>DV pro bono</div>
+          <div class="tpl" style="border-style: dashed; color: var(--dim)">＋ new</div>
+        </div>
+      </div>
+
+      <!-- section 1 -->
+      <div class="section done">
+        <h3><span class="ix">✓</span>Client &amp; matter</h3>
+        <p class="desc">Pulled from <code style="font-family:var(--mono);font-size:11.5px;background:var(--rule-soft);padding:1px 5px;border-radius:3px">contact_forms</code> on intake acceptance. Edit anything if the AI got it wrong.</p>
+        <div class="fields">
+          <div class="row2">
+            <div class="field">
+              <label>Client name</label>
+              <input class="input" value="Sarah Chen" />
+            </div>
+            <div class="field">
+              <label>Email</label>
+              <input class="input" value="schen.client@example.com" />
+            </div>
+          </div>
+          <div class="field">
+            <label>Matter type</label>
+            <select class="select"><option>Family law · custody modification</option></select>
+          </div>
+          <div class="field">
+            <label>Brief summary <span style="text-transform:none;color:var(--dim-2);font-family:var(--sans);font-size:11px;letter-spacing:0">— what the assistant will use to explain the engagement</span></label>
+            <textarea class="textarea">Ms. Chen retains the Law Offices of Sarah Chen to seek modification of a 2024 custody order in Mecklenburg County, NC. Opposing party is refusing court-ordered visitation. Time-sensitive — exchange scheduled for this Saturday.</textarea>
+          </div>
+        </div>
+      </div>
+
+      <!-- section 2 -->
+      <div class="section now">
+        <h3><span class="ix">2</span>Scope of representation</h3>
+        <p class="desc">What you will and won't do. The AI suggests these lists by practice area — edit freely.</p>
+        <div class="fields">
+          <div class="field">
+            <label>Included <span style="text-transform:none;color:var(--dim-2);font-family:var(--sans);font-size:11px;letter-spacing:0">— one per line</span></label>
+            <textarea class="textarea" style="min-height:96px">Review existing custody order and recent communications between parties.
+File emergency motion to compel compliance, if warranted.
+Negotiate temporary modified schedule with opposing counsel.
+One court appearance in Mecklenburg County Family Court.</textarea>
+          </div>
+          <div class="field">
+            <label>Excluded <span style="text-transform:none;color:var(--dim-2);font-family:var(--sans);font-size:11px;letter-spacing:0">— what's <i>not</i> covered, so it's never a surprise</span></label>
+            <textarea class="textarea" style="min-height:64px">Appeals, contempt proceedings beyond initial motion, child support modification, and any matters outside North Carolina.</textarea>
+          </div>
+        </div>
+      </div>
+
+      <!-- section 3 -->
+      <div class="section">
+        <h3><span class="ix">3</span>Fee structure</h3>
+        <p class="desc">Pick a model. The right column updates the letter in real time.</p>
+        <div class="fields">
+          <div class="fee-modes">
+            <div class="fee-mode"><span class="ai-tag">ai suggested</span><span class="h">Hourly</span><span class="d">$150–250 / hour, billed monthly</span></div>
+            <div class="fee-mode on"><span class="h">Retainer</span><span class="d">Held in IOLTA, drawn down hourly</span></div>
+            <div class="fee-mode"><span class="h">Flat fee</span><span class="d">One sum, milestone-paid</span></div>
+            <div class="fee-mode"><span class="h">Contingency</span><span class="d">% of recovery</span></div>
+          </div>
+          <div class="row3">
+            <div class="field">
+              <label>Hourly rate</label>
+              <input class="input" value="$200" />
+            </div>
+            <div class="field">
+              <label>Retainer</label>
+              <input class="input" value="$4,000" />
+            </div>
+            <div class="field">
+              <label>Replenish at</label>
+              <input class="input" value="30%" />
+            </div>
+          </div>
+          <div class="field">
+            <label>Additional terms</label>
+            <textarea class="textarea" style="min-height:56px">Travel time billed at half-rate. Court filing fees passed through at cost. Invoiced monthly with retainer auto-replenishment.</textarea>
+          </div>
+        </div>
+      </div>
+
+      <!-- section 4 -->
+      <div class="section">
+        <h3><span class="ix">4</span>Risk review</h3>
+        <p class="desc">Quick gut-check before sending. The AI runs these checks automatically.</p>
+        <div class="fields">
+          <div style="background: var(--card); border: 1px solid var(--rule); border-radius: var(--r-md); padding: 4px 16px">
+            <div class="risk-row">
+              <div class="l">
+                <div class="h">Conflict of interest</div>
+                <div class="d">Cross-checked against your 217 closed matters and 4 active.</div>
+              </div>
+              <span class="risk-status">clear</span>
+            </div>
+            <div class="risk-row">
+              <div class="l">
+                <div class="h">Jurisdiction</div>
+                <div class="d">NC · Mecklenburg County. You're licensed.</div>
+              </div>
+              <span class="risk-status">clear</span>
+            </div>
+            <div class="risk-row">
+              <div class="l">
+                <div class="h">Statute of limitations</div>
+                <div class="d">Custody modification — no SoL. Underlying complaints filed within 1 year.</div>
+              </div>
+              <span class="risk-status">clear</span>
+            </div>
+            <div class="risk-row">
+              <div class="l">
+                <div class="h">Open questions <span style="color:var(--neg);font-family:var(--mono);font-size:11px;letter-spacing:.04em">· 2</span></div>
+                <div class="d">Has child or witnesses been served with court order? Confirm exchange location.</div>
+              </div>
+              <span class="risk-status open">2 open</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </aside>
+
+    <!-- ===== preview panel ===== -->
+    <main class="preview-panel">
+
+      <div class="controls">
+        <span class="label">View</span>
+        <div class="toggle-row">
+          <div class="seg">
+            <button class="on">Letter</button>
+            <button>Client review page</button>
+            <button>Markdown source</button>
+          </div>
+        </div>
+        <span class="grow" style="flex:1"></span>
+        <span class="pill">17 placeholders · <b style="color:var(--neg);font-family:var(--mono);font-weight:500">3 unresolved</b></span>
+        <button class="btn btn-ghost btn-sm">Letterhead</button>
+      </div>
+
+      <!-- letter -->
+      <div class="letter">
+        <div class="letterhead">
+          <div class="firm">Law Offices of <em>Sarah Chen</em>, PLLC</div>
+          <div class="addr">
+            201 S Tryon St, Suite 1200<br>
+            Charlotte, NC 28202<br>
+            (704) 555-0184 · sarah@chenlaw.com<br>
+            NC Bar #45382
+          </div>
+        </div>
+
+        <h1>Engagement letter</h1>
+        <div class="date">November 25, 2026</div>
+
+        <p>Dear <span class="placeholder resolved">Ms. Chen</span>,</p>
+
+        <p class="intro">
+          Thank you for reaching out. This letter sets out the terms of our engagement for the legal matter we discussed on <span class="placeholder resolved">November 24, 2026</span>: seeking modification of the existing custody order in <span class="placeholder resolved">Mecklenburg County, NC</span>, in connection with the upcoming exchange scheduled for <span class="placeholder resolved">Saturday, November 29, 2026</span>.
+        </p>
+
+        <h2 class="section-title">1 — Scope of representation</h2>
+        <p>The firm will:</p>
+        <ul class="body-list">
+          <li>Review your existing custody order and recent communications between the parties.</li>
+          <li>File an emergency motion to compel compliance, if warranted by the facts.</li>
+          <li>Negotiate a temporary modified schedule with opposing counsel.</li>
+          <li>Represent you at <span class="placeholder resolved">one</span> court appearance in Mecklenburg County Family Court.</li>
+        </ul>
+        <p style="color:#6b7790; font-size: 13.5px"><b style="color:#15140F">Not included:</b> appeals, contempt proceedings beyond the initial motion, child support modification, and any matters outside North Carolina. New scope can be added by written agreement.</p>
+
+        <h2 class="section-title">2 — Fees &amp; payment</h2>
+        <p>Our fee for this matter is structured as an <span class="placeholder resolved">hourly retainer</span>:</p>
+
+        <div class="fee-box">
+          <div class="head">Fee summary</div>
+          <dl>
+            <dt>Hourly rate (attorney)</dt><dd><span class="placeholder resolved">$200.00</span></dd>
+            <dt>Initial retainer (held in trust)</dt><dd><span class="placeholder resolved">$4,000.00</span></dd>
+            <dt>Auto-replenishment threshold</dt><dd><span class="placeholder resolved">30%</span></dd>
+            <dt>Estimated total <span style="color:#6b7790;font-family:var(--sans);font-size:12px">based on similar matters</span></dt><dd><span class="placeholder">[AI_EST_TOTAL]</span></dd>
+          </dl>
+          <div class="total">
+            <span>Due to start</span>
+            <b>$4,000.00</b>
+          </div>
+        </div>
+
+        <p>Travel time is billed at half-rate. Court filing fees are passed through at cost. You will receive an itemized invoice each month, drawn from your trust retainer balance. When the balance falls below 30%, we will request a replenishment.</p>
+
+        <h2 class="section-title">3 — How we'll communicate</h2>
+        <p>You'll have a private workspace at <span class="placeholder">[CLIENT_PORTAL_URL]</span> where you can message me, see all filed documents, view your retainer balance in real time, and receive status updates. <span class="placeholder">[RESPONSE_SLA]</span></p>
+
+        <h2 class="section-title">4 — Termination</h2>
+        <p>You may terminate this engagement at any time, for any reason. Any unused retainer will be returned to you within 30 days. I may terminate the engagement if a conflict arises, you ask me to do something inconsistent with my professional obligations, or our communication breaks down.</p>
+
+        <p style="margin-top: 36px">Please review the terms above. If they reflect our understanding, sign below.</p>
+
+        <div class="sig-block">
+          <div class="sig">
+            <div>
+              <div class="sig-line client"></div>
+              <div class="l" style="margin-top: 6px">Client signature</div>
+              <div class="n">Sarah Chen</div>
+              <div style="font-family:var(--mono); font-size: 11px; color: #6b7790; letter-spacing: .04em">DATE: ___________________</div>
+            </div>
+          </div>
+          <div class="sig">
+            <div>
+              <div class="sig-line"></div>
+              <div class="l" style="margin-top: 6px">For the firm</div>
+              <div class="n">Sarah Chen, Esq.</div>
+              <div style="font-family:var(--mono); font-size: 11px; color: #6b7790; letter-spacing: .04em">NC Bar #45382</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- placeholders index -->
+      <div style="max-width: 720px; margin: 22px auto 0">
+        <div class="placeholders-card">
+          <h4>17 placeholders — 14 resolved, 3 open</h4>
+          <div class="placeholder-row">
+            <span class="k">{client_name}</span>
+            <span class="v">Sarah Chen <span style="color:var(--dim-2);font-family:var(--mono)">· from intake</span></span>
+          </div>
+          <div class="placeholder-row">
+            <span class="k">{matter_type}</span>
+            <span class="v">Family law / custody modification</span>
+          </div>
+          <div class="placeholder-row">
+            <span class="k">{jurisdiction}</span>
+            <span class="v">Mecklenburg County, NC</span>
+          </div>
+          <div class="placeholder-row">
+            <span class="k">{hourly_rate}</span>
+            <span class="v">$200.00 <span style="color:var(--dim-2);font-family:var(--mono)">· from firm default</span></span>
+          </div>
+          <div class="placeholder-row">
+            <span class="k">{retainer_amount}</span>
+            <span class="v">$4,000.00</span>
+          </div>
+          <div class="placeholder-row">
+            <span class="k">{replenish_threshold}</span>
+            <span class="v">30%</span>
+          </div>
+          <div class="placeholder-row">
+            <span class="k">…</span>
+            <span class="v" style="color:var(--dim-2)">8 more resolved</span>
+          </div>
+          <div class="placeholder-row unresolved">
+            <span class="k">{ai_est_total}</span>
+            <span class="v">unresolved · expected from similar matters</span>
+          </div>
+          <div class="placeholder-row unresolved">
+            <span class="k">{client_portal_url}</span>
+            <span class="v">unresolved · generated on send</span>
+          </div>
+          <div class="placeholder-row unresolved">
+            <span class="k">{response_sla}</span>
+            <span class="v">unresolved · firm doesn't have a default</span>
+          </div>
+          <div style="display:flex;gap:6px;margin-top: 12px">
+            <button class="chip primary">Resolve all (3) with AI</button>
+            <button class="chip">Resolve manually</button>
+            <button class="chip">Send without resolving</button>
+          </div>
+        </div>
+      </div>
+
+    </main>
+  </div>
+
+</div>
+
+<script>
+  document.querySelectorAll('.tpl').forEach(t => {
+    t.addEventListener('click', () => {
+      document.querySelectorAll('.tpl').forEach(x => x.classList.remove('on'));
+      t.classList.add('on');
+    });
+  });
+  document.querySelectorAll('.fee-mode').forEach(t => {
+    t.addEventListener('click', () => {
+      document.querySelectorAll('.fee-mode').forEach(x => x.classList.remove('on'));
+      t.classList.add('on');
+    });
+  });
+  document.querySelectorAll('.toggle-row .seg button').forEach(b => {
+    b.addEventListener('click', () => {
+      document.querySelectorAll('.toggle-row .seg button').forEach(x => x.classList.remove('on'));
+      b.classList.add('on');
+    });
+  });
+</script>
+</body>
+</html>

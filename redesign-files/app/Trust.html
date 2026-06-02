@@ -1,0 +1,555 @@
+<!doctype html>
+<html lang="en" data-theme="">
+<head>
+<meta charset="utf-8" />
+<title>Blawby — Trust ledger</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,opsz,wght@0,8..60,300..900;1,8..60,300..900&family=Geist:wght@300;400;500;600;700&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="tokens.css">
+<style>
+  body{ background-image: radial-gradient(rgba(15,30,54,0.025) 1px, transparent 1.2px); background-size: 3px 3px; background-attachment: fixed; }
+
+  .shell{ display:grid; grid-template-columns: 240px 1fr; min-height: 100vh; max-width: 1520px; margin: 0 auto; }
+
+  /* rail (same as Matters) */
+  .rail{
+    border-right: 1px solid var(--rule);
+    padding: 22px 16px; display:flex; flex-direction:column; gap: 18px;
+    position: sticky; top:0; height: 100vh;
+    background: color-mix(in oklab, var(--paper) 96%, var(--card));
+  }
+  .rail .meta{ font-family:var(--mono); font-size:10px; letter-spacing:.06em; text-transform:uppercase; color: var(--dim); margin-top:-8px; padding-left:30px; }
+  .new-btn{ width:100%; background:var(--ink); color:var(--paper); border:1px solid var(--ink); border-radius:var(--r-xs); padding:11px 14px; font-size:13px; font-weight:500; display:flex; align-items:center; justify-content:space-between; cursor:pointer; transition:all .18s; }
+  .new-btn:hover{ background:var(--accent); color:var(--accent-ink); border-color:var(--accent); }
+  .new-btn kbd{ font-family:var(--mono); font-size:10px; background:rgba(255,255,255,.12); color:var(--paper-2); padding:2px 6px; border-radius:3px; }
+  .new-btn:hover kbd{ background:rgba(0,0,0,.12); color:var(--accent-ink); }
+  .rail-section{ display:flex; flex-direction:column; gap:2px; }
+  .rail-label{ font-family:var(--mono); font-size:9.5px; letter-spacing:.12em; text-transform:uppercase; color:var(--dim-2); padding:0 8px 4px; }
+  .rail-item{ display:flex; align-items:center; gap:10px; padding:7px 10px; border-radius:var(--r-xs); font-size:13px; color:var(--ink-2); cursor:pointer; transition: background .12s; }
+  .rail-item:hover{ background:var(--rule-soft); color:var(--ink); }
+  .rail-item.on{ background:var(--ink); color:var(--accent); }
+  .rail-item .dot{ width:6px; height:6px; border-radius:50%; background:var(--dim-2); flex-shrink:0; }
+  .rail-item.on .dot{ background: var(--accent); }
+  .rail-item .badge{ margin-left:auto; font-family: var(--mono); font-size: 10px; color: var(--dim); }
+  .rail-item.on .badge{ color: var(--accent); }
+  .user-chip{ margin-top:auto; display:flex; align-items:center; gap:10px; padding:9px 10px; border-radius:var(--r-xs); border:1px solid var(--rule); background:var(--card); cursor:pointer; }
+  .user-chip .who{ font-size:12.5px; line-height:1.2; }
+  .user-chip .who small{ display:block; color:var(--dim); font-size:10.5px; }
+  .user-chip .caret{ margin-left:auto; color:var(--dim-2); }
+
+  /* main */
+  .main{ padding: 28px 48px 80px; min-width: 0; }
+  .head{
+    display:flex; justify-content: space-between; align-items: flex-end;
+    padding-bottom: 18px; border-bottom: 1px solid var(--rule);
+  }
+  .head .crumb{ font-family: var(--mono); font-size: 10px; letter-spacing: .14em; text-transform: uppercase; color: var(--dim); }
+  .head h1{ font-family: var(--serif); font-weight: 400; font-size: 48px; line-height: 1; letter-spacing: -.02em; margin: 4px 0 0; }
+  .head h1 em{ color: var(--accent); }
+  .head .right{ display:flex; align-items:center; gap: 10px; }
+
+  /* compliance banner */
+  .compliance{
+    margin-top: 22px;
+    display:grid; grid-template-columns: auto 1fr auto; gap: 18px; align-items:center;
+    padding: 18px 22px;
+    background:
+      linear-gradient(180deg, color-mix(in oklab, var(--pos) 10%, var(--card)), var(--card));
+    border: 1px solid color-mix(in oklab, var(--pos) 30%, var(--rule));
+    border-radius: var(--r-md);
+    box-shadow: var(--shadow-1);
+  }
+  .compliance .seal{
+    width: 44px; height: 44px; border-radius: 50%;
+    background: var(--pos); color: white;
+    display:grid; place-items: center;
+    font-family: var(--serif); font-style: italic; font-size: 22px;
+  }
+  .compliance h3{ font-family: var(--serif); font-size: 20px; margin: 0; line-height: 1.2; }
+  .compliance p{ font-size: 13px; color: var(--ink-2); margin: 4px 0 0; max-width: 60ch; line-height: 1.55; }
+  .compliance .actions{ display:flex; gap: 8px; }
+
+  /* AI quick-take above ledger */
+  .ai-take{
+    margin-top: 18px;
+    display:flex; gap: 14px; align-items: flex-start;
+    padding: 16px 20px;
+    border-left: 2px solid var(--accent);
+    background: linear-gradient(90deg, var(--accent-soft), transparent 80%);
+    border-radius: 0 var(--r-md) var(--r-md) 0;
+  }
+  .ai-take .avatar{ width: 32px; height: 32px; font-size: 15px; flex-shrink: 0; }
+  .ai-take .body{ flex: 1; }
+  .ai-take .label{ color: var(--accent-deep); font-size: 10px; }
+  .ai-take .txt{ font-family: var(--serif); font-size: 17px; line-height: 1.45; color: var(--ink); margin-top: 4px; max-width: 64ch; }
+  .ai-take .txt b{ color: var(--accent-deep); font-weight: 500; }
+
+  /* summary tiles */
+  .summary{
+    display:grid; grid-template-columns: repeat(4, 1fr); gap: 14px;
+    margin-top: 22px;
+  }
+  .stile{
+    background: var(--card); border: 1px solid var(--rule); border-radius: var(--r-md);
+    padding: 20px 22px;
+    display:flex; flex-direction: column; gap: 6px;
+    box-shadow: var(--shadow-1);
+  }
+  .stile .lab{ font-family: var(--mono); font-size: 10px; letter-spacing: .12em; text-transform: uppercase; color: var(--dim); }
+  .stile .val{ font-family: var(--serif); font-size: 32px; line-height: 1; letter-spacing: -.012em; font-feature-settings: "tnum"; }
+  .stile .val .sub{ font-family: var(--mono); font-size: 11px; color: var(--dim); margin-left: 4px; }
+  .stile .delta{
+    font-family: var(--mono); font-size: 11px;
+    display:inline-flex; align-items: center; gap: 4px;
+    color: var(--ink-2);
+  }
+  .stile .delta.pos{ color: var(--pos); }
+  .stile .delta.neg{ color: var(--neg); }
+
+  /* two-column body */
+  .ledger-body{
+    display:grid; grid-template-columns: 1.4fr 1fr; gap: 18px;
+    margin-top: 28px;
+  }
+
+  /* card shell */
+  .pane{
+    background: var(--card); border: 1px solid var(--rule); border-radius: var(--r-md);
+    overflow: hidden; box-shadow: var(--shadow-1);
+  }
+  .pane-head{
+    display:flex; justify-content: space-between; align-items: center;
+    padding: 14px 22px;
+    border-bottom: 1px solid var(--rule);
+    background: var(--paper-2);
+  }
+  .pane-head h3{ font-family: var(--serif); font-weight: 400; font-size: 19px; margin: 0; letter-spacing: -.01em; }
+  .pane-head .label{ font-family: var(--mono); font-size: 10px; letter-spacing: .1em; color: var(--dim); }
+
+  /* per-client list */
+  .client-row{
+    display:grid; grid-template-columns: 1fr 100px 110px 80px;
+    gap: 14px; align-items: center;
+    padding: 14px 22px;
+    border-bottom: 1px solid var(--rule);
+    transition: background .12s;
+    cursor: pointer;
+  }
+  .client-row:last-child{ border-bottom: none; }
+  .client-row:hover{ background: var(--rule-soft); }
+  .client-row .who{ display:flex; flex-direction: column; gap: 3px; min-width: 0; }
+  .client-row .who .n{ font-family: var(--serif); font-size: 16px; letter-spacing: -.005em; }
+  .client-row .who .m{ font-family: var(--mono); font-size: 11px; color: var(--dim); }
+  .client-row .bal{ font-family: var(--mono); font-size: 14px; color: var(--ink); text-align: right; letter-spacing: -.01em; font-feature-settings: "tnum"; }
+  .client-row .bar-cell{ display:flex; align-items: center; gap: 8px; }
+  .client-row .bar-cell .bar{ flex: 1; }
+  .client-row .bar-cell small{ font-family: var(--mono); font-size: 10.5px; color: var(--dim); }
+  .client-row .last{ font-family: var(--mono); font-size: 11px; color: var(--dim); text-align: right; }
+
+  .client-row.warn .bal{ color: var(--neg); }
+
+  /* transaction log */
+  .tx-row{
+    display:grid;
+    grid-template-columns: 90px 24px 1fr 100px;
+    gap: 12px; align-items: center;
+    padding: 12px 22px;
+    border-bottom: 1px solid var(--rule);
+    font-size: 13px;
+  }
+  .tx-row:last-child{ border-bottom: none; }
+  .tx-row:hover{ background: var(--rule-soft); }
+  .tx-row .when{ font-family: var(--mono); font-size: 10.5px; letter-spacing: .04em; color: var(--dim); text-transform: uppercase; }
+  .tx-row .ic{
+    width: 24px; height: 24px; border-radius: 50%;
+    display:grid; place-items:center;
+    font-family: var(--mono); font-size: 11px; font-weight: 500;
+    background: var(--rule-soft); color: var(--ink-2);
+  }
+  .tx-row .ic.deposit{ background: color-mix(in oklab, var(--pos) 14%, var(--card)); color: var(--pos); }
+  .tx-row .ic.withdraw{ background: color-mix(in oklab, var(--neg) 14%, var(--card)); color: var(--neg); }
+  .tx-row .ic.transfer{ background: color-mix(in oklab, var(--accent) 14%, var(--card)); color: var(--accent-deep); }
+  .tx-row .what{ display:flex; flex-direction: column; gap: 2px; min-width: 0; }
+  .tx-row .what .l1{ font-size: 13.5px; color: var(--ink); line-height: 1.3; }
+  .tx-row .what .l1 b{ font-weight: 500; }
+  .tx-row .what .l2{ font-family: var(--mono); font-size: 10.5px; color: var(--dim); letter-spacing: .02em; }
+  .tx-row .amt{ font-family: var(--mono); font-size: 14px; text-align: right; letter-spacing: -.01em; font-feature-settings: "tnum"; }
+  .tx-row .amt.pos{ color: var(--pos); }
+  .tx-row .amt.neg{ color: var(--neg); }
+
+  .tx-foot{
+    padding: 12px 22px; background: var(--paper-2);
+    border-top: 1px solid var(--rule);
+    display:flex; justify-content: space-between; align-items: center;
+    font-family: var(--mono); font-size: 10.5px; color: var(--dim); letter-spacing: .04em; text-transform: uppercase;
+  }
+
+  /* right column */
+  .right-col{ display:flex; flex-direction: column; gap: 18px; }
+  .audit-row{
+    display:grid; grid-template-columns: 80px 1fr; gap: 12px;
+    padding: 10px 22px;
+    border-bottom: 1px solid var(--rule);
+    font-size: 12.5px;
+    align-items: flex-start;
+  }
+  .audit-row:last-child{ border-bottom: none; }
+  .audit-row .when{ font-family: var(--mono); font-size: 10.5px; letter-spacing: .04em; color: var(--dim); text-transform: uppercase; }
+  .audit-row .what{ color: var(--ink-2); line-height: 1.45; }
+  .audit-row .what b{ color: var(--ink); font-weight: 500; }
+  .audit-row .what code{ font-family: var(--mono); font-size: 11px; background: var(--rule-soft); padding: 1px 5px; border-radius: 3px; color: var(--ink); }
+
+  /* AI-suggested compliance fixes */
+  .insight{
+    padding: 16px 22px;
+    border-top: 1px solid var(--rule);
+    display:flex; flex-direction: column; gap: 10px;
+  }
+  .insight .one{
+    background: color-mix(in oklab, var(--accent) 7%, var(--card));
+    border: 1px solid color-mix(in oklab, var(--accent) 30%, var(--rule));
+    border-radius: var(--r-md);
+    padding: 12px 14px;
+  }
+  .insight .one .l{ font-family: var(--mono); font-size: 10px; letter-spacing: .1em; text-transform: uppercase; color: var(--accent-deep); }
+  .insight .one .t{ font-family: var(--serif); font-size: 15px; line-height: 1.35; margin-top: 2px; }
+  .insight .one .a{ display:flex; gap: 6px; margin-top: 8px; }
+
+  @media (max-width: 1100px){
+    .ledger-body{ grid-template-columns: 1fr; }
+    .summary{ grid-template-columns: repeat(2, 1fr); }
+  }
+</style>
+</head>
+<body>
+
+<div class="shell">
+
+  <!-- rail -->
+    <aside class="rail">
+    <a href="Assistant.html" class="brand-mark">
+      <span class="brand-mark-glyph">B</span>
+      <span class="brand-mark-word" style="font-family:var(--sans);font-weight:500">Blawby</span>
+    </a>
+    <div class="meta">Law Offices of Sarah Chen · solo</div>
+
+    <button class="new-btn">
+      <span>＋  New conversation</span>
+      <kbd>⌘N</kbd>
+    </button>
+
+    <div class="rail-section">
+      <div class="rail-label">Workspace</div>
+      <a class="rail-item" href="Assistant.html"><span class="dot"></span>Assistant</a>
+      <a class="rail-item" href="Conversations v2.html"><span class="dot"></span>Conversations</a>
+      <a class="rail-item" href="Matters.html"><span class="dot"></span>Matters</a>
+      <a class="rail-item" href="Intakes.html"><span class="dot"></span>Intakes</a>
+      <a class="rail-item" href="Invoices.html"><span class="dot"></span>Invoices</a>
+      <a class="rail-item" href="Files.html"><span class="dot"></span>Files</a>
+    </div>
+
+    <div class="rail-section">
+      <div class="rail-label">Practice</div>
+      <a class="rail-item" href="Clients.html"><span class="dot"></span>Clients</a>
+      <a class="rail-item" href="Calendar.html"><span class="dot"></span>Calendar</a>
+      <a class="rail-item" href="Tasks.html"><span class="dot"></span>Tasks</a>
+      <a class="rail-item on" href="Trust.html"><span class="dot"></span>Trust ledger</a>
+      <a class="rail-item" href="Reports.html"><span class="dot"></span>Reports</a>
+    </div>
+
+    <a class="rail-item" href="Settings.html" style="margin-top:auto"><span class="dot" style="background:transparent;border:1px solid var(--dim-2)"></span>Settings</a>
+
+    <div class="user-chip">
+      <div class="avatar user">SC</div>
+      <div class="who">Sarah Chen<small>sarah@chenlawoffice.com</small></div>
+      <div class="caret">⌃</div>
+    </div>
+  </aside>
+
+  <!-- main -->
+  <main class="main">
+
+    <header class="head">
+      <div>
+        <div class="crumb">Workspace · IOLTA</div>
+        <h1>Trust ledger</h1>
+      </div>
+      <div class="right">
+        <button class="btn btn-ghost">Reconcile</button>
+        <button class="btn btn-ghost">Export CSV</button>
+        <button class="btn btn-primary">Generate IOLTA report ↗</button>
+      </div>
+    </header>
+
+    <!-- compliance status -->
+    <div class="compliance">
+      <div class="seal">✓</div>
+      <div>
+        <h3>IOLTA-compliant · last verified <b style="font-weight:500">2 hours ago</b></h3>
+        <p>All client funds are segregated. Operating expenses are billed separately. Three-way reconciliation matches your bank statement to the penny.</p>
+      </div>
+      <div class="actions">
+        <span class="pill live">live</span>
+        <button class="btn btn-ghost btn-sm">Audit trail</button>
+      </div>
+    </div>
+
+    <!-- AI quick read -->
+    <div class="ai-take">
+      <div class="avatar">B</div>
+      <div class="body">
+        <div class="label">I noticed</div>
+        <div class="txt"><b>Martinez retainer</b> hit your <b>30% replenishment threshold</b> yesterday — I drafted a $2,500 replenishment request and a heads-up email. Approve them in chat or below.</div>
+        <div style="display:flex;gap:6px;margin-top:10px">
+          <button class="chip primary">Approve replenishment ($2,500)</button>
+          <button class="chip">Preview email</button>
+          <button class="chip">Adjust threshold</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- summary -->
+    <div class="summary">
+      <div class="stile">
+        <span class="lab">Total trust balance</span>
+        <span class="val">$18,720<span class="sub">.00</span></span>
+        <span class="delta">across 4 clients · USD</span>
+      </div>
+      <div class="stile">
+        <span class="lab">Operating account</span>
+        <span class="val">$4,318<span class="sub">.42</span></span>
+        <span class="delta pos">↑ $1,800 · 7d</span>
+      </div>
+      <div class="stile">
+        <span class="lab">Bank statement (Mercury)</span>
+        <span class="val">$23,038<span class="sub">.42</span></span>
+        <span class="delta pos">✓ matches ledger · 0 variance</span>
+      </div>
+      <div class="stile">
+        <span class="lab">Last reconciled</span>
+        <span class="val" style="font-size:24px;font-family:var(--sans);font-weight:500;letter-spacing:0">2h ago</span>
+        <span class="delta">auto · daily at 02:00 ET</span>
+      </div>
+    </div>
+
+    <!-- body -->
+    <div class="ledger-body">
+
+      <div>
+        <!-- per-client balances -->
+        <div class="pane" style="margin-bottom: 18px">
+          <div class="pane-head">
+            <h3>Per-client balances</h3>
+            <span class="label">4 clients · $18,720 total</span>
+          </div>
+
+          <div class="client-row warn">
+            <div class="who">
+              <span class="n">Bob Martinez <span style="font-family:var(--mono);font-size:11px;color:var(--dim);letter-spacing:.04em">· BLB-0241</span></span>
+              <span class="m">Auto Injury · personal injury · retainer arrangement</span>
+            </div>
+            <div class="bal">$2,250.00</div>
+            <div class="bar-cell"><div class="bar warn"><i style="width:45%"></i></div><small>45%</small></div>
+            <div class="last">2d ago</div>
+          </div>
+
+          <div class="client-row">
+            <div class="who">
+              <span class="n">Alice Johnson <span style="font-family:var(--mono);font-size:11px;color:var(--dim);letter-spacing:.04em">· BLB-0238</span></span>
+              <span class="m">Estate Plan · flat-fee · filing pending</span>
+            </div>
+            <div class="bal">$3,900.00</div>
+            <div class="bar-cell"><div class="bar"><i style="width:78%"></i></div><small>78%</small></div>
+            <div class="last">5h ago</div>
+          </div>
+
+          <div class="client-row">
+            <div class="who">
+              <span class="n">Demo Client Local <span style="font-family:var(--mono);font-size:11px;color:var(--dim);letter-spacing:.04em">· BLB-0232</span></span>
+              <span class="m">Separation Agreement · family · draft stage</span>
+            </div>
+            <div class="bal">$8,800.00</div>
+            <div class="bar-cell"><div class="bar ok"><i style="width:88%;background:var(--pos)"></i></div><small>88%</small></div>
+            <div class="last">Yesterday</div>
+          </div>
+
+          <div class="client-row">
+            <div class="who">
+              <span class="n">Garza Family <span style="font-family:var(--mono);font-size:11px;color:var(--dim);letter-spacing:.04em">· BLB-0226</span></span>
+              <span class="m">Estate · engagement signed, retainer received</span>
+            </div>
+            <div class="bal">$3,770.00</div>
+            <div class="bar-cell"><div class="bar"><i style="width:94%"></i></div><small>94%</small></div>
+            <div class="last">11d ago</div>
+          </div>
+        </div>
+
+        <!-- transactions -->
+        <div class="pane">
+          <div class="pane-head">
+            <h3>Recent transactions</h3>
+            <span class="label">last 30 days · 14 entries</span>
+          </div>
+
+          <div class="tx-row">
+            <div class="when">Nov 25</div>
+            <div class="ic transfer">→</div>
+            <div class="what">
+              <span class="l1"><b>Transfer to operating</b> · Invoice INV-0188 paid</span>
+              <span class="l2">Johnson · approved by Sarah · auto-recorded via Stripe</span>
+            </div>
+            <div class="amt neg">−$1,800.00</div>
+          </div>
+
+          <div class="tx-row">
+            <div class="when">Nov 22</div>
+            <div class="ic deposit">+</div>
+            <div class="what">
+              <span class="l1"><b>Retainer deposit</b> · Demo Client Local</span>
+              <span class="l2">Stripe · ch_3Q9wYz · payment intent succeeded</span>
+            </div>
+            <div class="amt pos">+$5,000.00</div>
+          </div>
+
+          <div class="tx-row">
+            <div class="when">Nov 19</div>
+            <div class="ic transfer">→</div>
+            <div class="what">
+              <span class="l1"><b>Transfer to operating</b> · 5 unbilled hours invoiced</span>
+              <span class="l2">Martinez · approved by Sarah · auto-recorded</span>
+            </div>
+            <div class="amt neg">−$1,245.00</div>
+          </div>
+
+          <div class="tx-row">
+            <div class="when">Nov 14</div>
+            <div class="ic deposit">+</div>
+            <div class="what">
+              <span class="l1"><b>Initial retainer</b> · Bob Martinez · 5,000.00</span>
+              <span class="l2">Stripe · ACH · payment intent succeeded</span>
+            </div>
+            <div class="amt pos">+$5,000.00</div>
+          </div>
+
+          <div class="tx-row">
+            <div class="when">Nov 12</div>
+            <div class="ic withdraw">−</div>
+            <div class="what">
+              <span class="l1"><b>Refund</b> · Patel · matter closed</span>
+              <span class="l2">unused retainer returned to client · ACH · approved by Sarah</span>
+            </div>
+            <div class="amt neg">−$420.00</div>
+          </div>
+
+          <div class="tx-row">
+            <div class="when">Nov 08</div>
+            <div class="ic deposit">+</div>
+            <div class="what">
+              <span class="l1"><b>Retainer top-up</b> · Garza Family</span>
+              <span class="l2">Stripe · card ending 4242 · payment intent succeeded</span>
+            </div>
+            <div class="amt pos">+$1,500.00</div>
+          </div>
+
+          <div class="tx-foot">
+            <span>14 transactions · 8 deposits · 5 transfers · 1 refund</span>
+            <a style="color:var(--ink-2); border-bottom: 1px dotted var(--dim-2); cursor: pointer; text-transform: none; letter-spacing: 0; font-family: var(--sans); font-size: 12px">Show all →</a>
+          </div>
+        </div>
+      </div>
+
+      <!-- right column -->
+      <div class="right-col">
+
+        <div class="pane">
+          <div class="pane-head">
+            <h3>Audit trail</h3>
+            <span class="label">org-wide · last 7 days</span>
+          </div>
+          <div class="audit-row">
+            <div class="when">2h ago</div>
+            <div class="what"><b>System</b> · ran daily 3-way reconciliation · matched <code>$23,038.42</code> across bank, trust ledger, operating ledger.</div>
+          </div>
+          <div class="audit-row">
+            <div class="when">Nov 25</div>
+            <div class="what"><b>Sarah Chen</b> · approved AI-staged transfer of <code>$1,800.00</code> from trust → operating (Johnson invoice INV-0188).</div>
+          </div>
+          <div class="audit-row">
+            <div class="when">Nov 22</div>
+            <div class="what"><b>Stripe webhook</b> · recorded deposit <code>+$5,000.00</code> · Demo Client Local · payment_intent.succeeded.</div>
+          </div>
+          <div class="audit-row">
+            <div class="when">Nov 19</div>
+            <div class="what"><b>Sarah Chen</b> · approved AI-staged invoice for Martinez <code>$1,245.00</code> · 5 unbilled time entries.</div>
+          </div>
+          <div class="audit-row">
+            <div class="when">Nov 14</div>
+            <div class="what"><b>Stripe webhook</b> · recorded deposit <code>+$5,000.00</code> · Martinez initial retainer.</div>
+          </div>
+          <div class="audit-row">
+            <div class="when">Nov 12</div>
+            <div class="what"><b>Sarah Chen</b> · refunded <code>$420.00</code> to Patel · matter closed · ACH return initiated.</div>
+          </div>
+          <div class="audit-row" style="border-bottom:none">
+            <div class="when">Nov 08</div>
+            <div class="what"><b>Practice assistant</b> · proposed transfer of <code>$1,500.00</code> to operating · <em style="color:var(--dim)">declined by Sarah · "wait until invoice signed"</em></div>
+          </div>
+          <div class="insight" style="border-top: 1px solid var(--rule)">
+            <div class="one">
+              <div class="l">Assistant</div>
+              <div class="t">I can email this audit trail to your CPA every quarter (Mar / Jun / Sep / Dec). Want me to set that up?</div>
+              <div class="a">
+                <button class="chip primary">Yes, schedule it</button>
+                <button class="chip">Not now</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="pane">
+          <div class="pane-head">
+            <h3>Compliance rules</h3>
+            <span class="label">NC Bar · IOLTA · 4 active</span>
+          </div>
+          <div style="padding: 6px 22px">
+            <div style="display:flex; justify-content:space-between; align-items:center; padding: 12px 0; border-bottom: 1px solid var(--rule)">
+              <div>
+                <div style="font-size: 13.5px">Trust deposits never mix with operating funds</div>
+                <div style="font-family: var(--mono); font-size: 10.5px; color: var(--dim); letter-spacing: .04em; margin-top: 2px">enforced · cannot disable</div>
+              </div>
+              <span class="pill live">on</span>
+            </div>
+            <div style="display:flex; justify-content:space-between; align-items:center; padding: 12px 0; border-bottom: 1px solid var(--rule)">
+              <div>
+                <div style="font-size: 13.5px">Replenishment threshold</div>
+                <div style="font-family: var(--mono); font-size: 10.5px; color: var(--dim); letter-spacing: .04em; margin-top: 2px">notify when below 30%</div>
+              </div>
+              <span class="pill live">on</span>
+            </div>
+            <div style="display:flex; justify-content:space-between; align-items:center; padding: 12px 0; border-bottom: 1px solid var(--rule)">
+              <div>
+                <div style="font-size: 13.5px">Auto-transfer on invoice approval</div>
+                <div style="font-family: var(--mono); font-size: 10.5px; color: var(--dim); letter-spacing: .04em; margin-top: 2px">trust → operating, requires your click</div>
+              </div>
+              <span class="pill live">on</span>
+            </div>
+            <div style="display:flex; justify-content:space-between; align-items:center; padding: 12px 0">
+              <div>
+                <div style="font-size: 13.5px">Daily 3-way reconciliation</div>
+                <div style="font-family: var(--mono); font-size: 10.5px; color: var(--dim); letter-spacing: .04em; margin-top: 2px">runs 02:00 ET · alerts on any variance</div>
+              </div>
+              <span class="pill live">on</span>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+  </main>
+
+</div>
+
+</body>
+</html>

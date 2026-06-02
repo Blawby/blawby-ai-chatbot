@@ -1,0 +1,626 @@
+<!doctype html>
+<html lang="en" data-theme="">
+<head>
+<meta charset="utf-8" />
+<title>Blawby — Intakes</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,opsz,wght@0,8..60,300..900;1,8..60,300..900&family=Geist:wght@300;400;500;600;700&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="tokens.css">
+<style>
+  body{ background-image: radial-gradient(rgba(15,30,54,0.025) 1px, transparent 1.2px); background-size: 3px 3px; background-attachment: fixed; }
+
+  .shell{ display:grid; grid-template-columns: 240px 1fr; min-height: 100vh; max-width: 1520px; margin: 0 auto; }
+
+  /* rail (reused) */
+  .rail{ border-right: 1px solid var(--rule); padding: 22px 16px; display:flex; flex-direction:column; gap: 18px; position: sticky; top:0; height: 100vh; background: color-mix(in oklab, var(--paper) 96%, var(--card)); }
+  .rail .meta{ font-family:var(--mono); font-size:10px; letter-spacing:.06em; text-transform:uppercase; color: var(--dim); margin-top:-8px; padding-left:30px; }
+  .new-btn{ width:100%; background:var(--ink); color:var(--paper); border:1px solid var(--ink); border-radius:var(--r-xs); padding:11px 14px; font-size:13px; font-weight:500; display:flex; align-items:center; justify-content:space-between; cursor:pointer; transition:all .18s; }
+  .new-btn:hover{ background:var(--accent); color:var(--accent-ink); border-color:var(--accent); }
+  .new-btn kbd{ font-family:var(--mono); font-size:10px; background:rgba(255,255,255,.12); color:var(--paper-2); padding:2px 6px; border-radius:3px; }
+  .rail-section{ display:flex; flex-direction:column; gap:2px; }
+  .rail-label{ font-family:var(--mono); font-size:9.5px; letter-spacing:.12em; text-transform:uppercase; color:var(--dim-2); padding:0 8px 4px; }
+  .rail-item{ display:flex; align-items:center; gap:10px; padding:7px 10px; border-radius:var(--r-xs); font-size:13px; color:var(--ink-2); cursor:pointer; transition: background .12s; }
+  .rail-item:hover{ background:var(--rule-soft); color:var(--ink); }
+  .rail-item.on{ background:var(--ink); color:var(--accent); }
+  .rail-item .dot{ width:6px; height:6px; border-radius:50%; background:var(--dim-2); flex-shrink:0; }
+  .rail-item.on .dot{ background: var(--accent); }
+  .rail-item .badge{ margin-left:auto; font-family: var(--mono); font-size: 10px; color: var(--dim); }
+  .rail-item.on .badge{ color: var(--accent); }
+  .user-chip{ margin-top:auto; display:flex; align-items:center; gap:10px; padding:9px 10px; border-radius:var(--r-xs); border:1px solid var(--rule); background:var(--card); cursor:pointer; }
+  .user-chip .who{ font-size:12.5px; line-height:1.2; }
+  .user-chip .who small{ display:block; color:var(--dim); font-size:10.5px; }
+
+  /* split view */
+  .page{ display:grid; grid-template-columns: 400px 1fr; min-height: 100vh; }
+
+  /* list */
+  .list-col{ border-right: 1px solid var(--rule); display:flex; flex-direction: column; background: color-mix(in oklab, var(--paper) 98%, var(--card)); }
+  .list-head{ padding: 22px 22px 14px; border-bottom: 1px solid var(--rule); }
+  .list-head .crumb{ font-family: var(--mono); font-size: 10px; letter-spacing: .14em; text-transform: uppercase; color: var(--dim); }
+  .list-head h1{ font-family: var(--serif); font-weight: 400; font-size: 34px; letter-spacing: -.02em; margin: 4px 0 0; line-height: 1; }
+  .list-head h1 em{ color: var(--accent); }
+  .list-head .sub{ font-size: 13px; color: var(--ink-2); margin-top: 8px; line-height: 1.5; max-width: 38ch; }
+
+  .filter-tabs{ display:flex; gap: 4px; padding: 10px 22px; border-bottom: 1px solid var(--rule); background: var(--paper-2); overflow-x: auto; }
+  .filter-tab{ display:inline-flex; align-items: center; gap: 6px; padding: 6px 10px; border-radius: var(--r-xs); font-family: var(--sans); font-size: 12px; cursor: pointer; border: 1px solid transparent; color: var(--ink-2); flex-shrink: 0; }
+  .filter-tab:hover{ background: var(--card); }
+  .filter-tab.on{ background: var(--card); border-color: var(--rule); color: var(--ink); }
+  .filter-tab .ct{ font-family: var(--mono); font-size: 10px; color: var(--dim); }
+  .filter-tab.on .ct{ color: var(--ink-2); }
+
+  .int-list{ flex: 1; overflow-y: auto; }
+
+  /* intake row */
+  .ir{
+    padding: 16px 22px; border-bottom: 1px solid var(--rule);
+    cursor: pointer; transition: background .12s;
+    display:flex; flex-direction: column; gap: 6px;
+    position: relative;
+  }
+  .ir:hover{ background: var(--rule-soft); }
+  .ir.on{ background: var(--card); }
+  .ir.on::before{ content:""; position: absolute; left: 0; top: 8px; bottom: 8px; width: 3px; background: var(--accent); border-radius: 0 2px 2px 0; }
+  .ir.urgent{ background: color-mix(in oklab, var(--neg) 5%, var(--card)); }
+  .ir.urgent.on{ background: color-mix(in oklab, var(--neg) 8%, var(--card)); }
+
+  .ir .top{ display:flex; justify-content: space-between; align-items: baseline; gap: 10px; }
+  .ir .top .name{ font-family: var(--serif); font-size: 17px; letter-spacing: -.005em; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .ir .top .when{ font-family: var(--mono); font-size: 11px; color: var(--dim); letter-spacing: .04em; text-transform: uppercase; flex-shrink: 0; }
+  .ir .mid{ font-size: 13px; color: var(--ink-2); line-height: 1.4; overflow: hidden; text-overflow: ellipsis; display:-webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+  .ir .bot{ display:flex; gap: 8px; align-items: center; }
+  .ir .score{
+    display:inline-flex; align-items: baseline; gap: 4px;
+    padding: 2px 8px; border-radius: var(--r-pill);
+    border: 1px solid var(--rule);
+    background: var(--card);
+    font-family: var(--mono); font-size: 10px; letter-spacing: .04em; text-transform: uppercase; color: var(--dim);
+  }
+  .ir .score b{ font-family: var(--sans); font-size: 11px; font-weight: 500; color: var(--ink); letter-spacing: 0; text-transform: none; }
+  .ir .score.high{ background: color-mix(in oklab, var(--pos) 12%, var(--card)); border-color: color-mix(in oklab, var(--pos) 30%, var(--rule)); color: var(--pos); }
+  .ir .score.high b{ color: var(--pos); }
+  .ir .score.med{ background: color-mix(in oklab, var(--accent) 12%, var(--card)); border-color: color-mix(in oklab, var(--accent) 30%, var(--rule)); color: var(--accent-deep); }
+  .ir .score.med b{ color: var(--accent-deep); }
+  .ir .score.low{ color: var(--neg); border-color: color-mix(in oklab, var(--neg) 30%, var(--rule)); }
+  .ir .score.low b{ color: var(--neg); }
+
+  /* detail */
+  .detail-col{ overflow-y: auto; min-width: 0; }
+  .detail-head{
+    padding: 26px 36px 20px;
+    border-bottom: 1px solid var(--rule);
+    display:grid; grid-template-columns: 1fr auto; gap: 16px;
+    background: color-mix(in oklab, var(--paper) 96%, var(--card));
+    position: sticky; top: 0; z-index: 5;
+  }
+  .detail-head .crumb{ font-family: var(--mono); font-size: 10px; letter-spacing: .14em; text-transform: uppercase; color: var(--dim); }
+  .detail-head h2{ font-family: var(--serif); font-weight: 400; font-size: 36px; margin: 4px 0 0; line-height: 1; letter-spacing: -.02em; }
+  .detail-head h2 em{ color: var(--accent); }
+  .detail-head .sub{ display:flex; gap: 10px; align-items: center; margin-top: 8px; font-family: var(--mono); font-size: 11px; color: var(--dim); letter-spacing: .04em; text-transform: uppercase; flex-wrap: wrap; }
+  .detail-head .sub b{ font-family: var(--sans); color: var(--ink); font-weight: 500; font-size: 13px; text-transform: none; letter-spacing: 0; }
+  .detail-head .actions{ display:flex; flex-direction: column; align-items: flex-end; gap: 8px; }
+  .detail-head .actions .top{ display:flex; gap: 8px; }
+
+  /* AI verdict (the recommendation) */
+  .verdict{
+    margin: 22px 36px 0;
+    background: linear-gradient(180deg, color-mix(in oklab, var(--accent) 14%, var(--card)), var(--card));
+    border: 1px solid color-mix(in oklab, var(--accent) 35%, var(--rule));
+    border-radius: var(--r-md);
+    padding: 18px 22px;
+    display:grid; grid-template-columns: 36px 1fr auto; gap: 16px; align-items: center;
+    box-shadow: 0 1px 0 rgba(255,255,255,.6) inset, 0 12px 32px -18px color-mix(in oklab, var(--accent-deep) 50%, transparent);
+  }
+  .verdict .av{ width: 36px; height: 36px; border-radius: 50%; background: var(--ink); color: var(--accent); display:grid; place-items:center; font-family: var(--serif); font-style: italic; font-size: 18px; }
+  .verdict .label{ font-family: var(--mono); font-size: 10px; letter-spacing: .14em; text-transform: uppercase; color: var(--accent-deep); display:flex; align-items: center; gap: 8px; }
+  .verdict .label .v{ color: var(--pos); display:inline-flex; align-items: center; gap: 4px; }
+  .verdict .label .v::before{ content: ""; width: 5px; height: 5px; border-radius: 50%; background: var(--pos); }
+  .verdict .txt{ font-family: var(--serif); font-size: 19px; line-height: 1.4; color: var(--ink); margin-top: 6px; max-width: 64ch; }
+  .verdict .txt em{ color: var(--accent-deep); }
+  .verdict .acts{ display:flex; gap: 6px; flex-direction: column; align-items: stretch; min-width: 200px; }
+
+  /* body grid */
+  .body{ display:grid; grid-template-columns: 1.4fr 1fr; gap: 28px; padding: 28px 36px 60px; }
+
+  /* AI enrichment card */
+  .ai-card{
+    background: var(--card); border: 1px solid var(--rule); border-radius: var(--r-md);
+    overflow: hidden; box-shadow: var(--shadow-1);
+    margin-bottom: 22px;
+  }
+  .ai-card .head{
+    padding: 14px 22px; border-bottom: 1px solid var(--rule);
+    display:flex; justify-content: space-between; align-items: center;
+    background: var(--paper-2);
+  }
+  .ai-card .head h3{ font-family: var(--serif); font-weight: 400; font-size: 19px; margin: 0; letter-spacing: -.005em; }
+  .ai-card .head .label{ font-family: var(--mono); font-size: 10px; color: var(--dim); letter-spacing: .1em; text-transform: uppercase; }
+
+  /* scorecards */
+  .scores{ display:grid; grid-template-columns: repeat(4, 1fr); }
+  .score-cell{
+    padding: 16px 22px; border-right: 1px solid var(--rule);
+    display:flex; flex-direction: column; gap: 4px;
+  }
+  .score-cell:last-child{ border-right: none; }
+  .score-cell .lab{ font-family: var(--mono); font-size: 10px; letter-spacing: .12em; text-transform: uppercase; color: var(--dim); }
+  .score-cell .val{ font-family: var(--serif); font-size: 22px; line-height: 1; letter-spacing: -.012em; }
+  .score-cell .val.urgent{ color: var(--neg); }
+  .score-cell .val.pos{ color: var(--pos); }
+  .score-cell .extra{ font-family: var(--mono); font-size: 10px; letter-spacing: .04em; text-transform: uppercase; color: var(--dim); margin-top: 4px; }
+
+  /* facts collected */
+  .facts{ padding: 8px 22px; }
+  .fact-row{ display:grid; grid-template-columns: 130px 1fr; gap: 18px; padding: 10px 0; border-bottom: 1px dotted var(--rule); font-size: 13.5px; align-items: flex-start; }
+  .fact-row:last-child{ border-bottom: none; }
+  .fact-row .k{ font-family: var(--mono); font-size: 10.5px; letter-spacing: .08em; text-transform: uppercase; color: var(--dim); padding-top: 2px; }
+  .fact-row .v{ color: var(--ink); line-height: 1.5; }
+  .fact-row .v em{ color: var(--accent-deep); font-style: italic; }
+
+  /* conversation */
+  .convo{ padding: 4px 22px 18px; }
+  .convo-msg{ display:flex; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--rule); }
+  .convo-msg:last-child{ border-bottom: none; }
+  .convo-msg .av{ width: 28px; height: 28px; border-radius: 50%; flex-shrink: 0; display:grid; place-items:center; font-size: 11px; }
+  .convo-msg .av.ai{ background: var(--ink); color: var(--accent); font-family: var(--serif); font-style: italic; font-size: 14px; }
+  .convo-msg .av.client{ background: linear-gradient(135deg, var(--ink-2), var(--ink)); color: var(--paper); font-family: var(--sans); font-weight: 600; }
+  .convo-msg .body{ min-width: 0; flex: 1; }
+  .convo-msg .body .who{ font-family: var(--mono); font-size: 10px; letter-spacing: .08em; text-transform: uppercase; color: var(--dim); }
+  .convo-msg .body .who b{ font-family: var(--sans); font-weight: 500; color: var(--ink-2); text-transform: none; letter-spacing: 0; font-size: 13px; margin-right: 8px; }
+  .convo-msg .body .txt{ font-size: 14px; color: var(--ink); line-height: 1.5; margin-top: 4px; }
+
+  /* right column cards */
+  .side-card{ background: var(--card); border: 1px solid var(--rule); border-radius: var(--r-md); overflow: hidden; box-shadow: var(--shadow-1); margin-bottom: 18px; }
+  .side-card .head{ padding: 12px 18px; border-bottom: 1px solid var(--rule); background: var(--paper-2); display:flex; justify-content: space-between; align-items: center; }
+  .side-card .head h4{ font-family: var(--serif); font-size: 16px; margin: 0; font-weight: 400; }
+  .side-card .head .label{ font-family: var(--mono); font-size: 9.5px; color: var(--dim); letter-spacing: .1em; text-transform: uppercase; }
+  .side-card .body{ padding: 12px 18px; }
+
+  /* conflict checks */
+  .check-row{ display:flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px dotted var(--rule); font-size: 13px; }
+  .check-row:last-child{ border-bottom: none; }
+  .check-row .l{ display:flex; flex-direction: column; gap: 2px; }
+  .check-row .l .h{ font-weight: 500; }
+  .check-row .l .d{ font-size: 11.5px; color: var(--dim); }
+  .check-row .status{
+    display:inline-flex; align-items: center; gap: 6px;
+    font-family: var(--mono); font-size: 10.5px; letter-spacing: .06em; text-transform: uppercase;
+    padding: 4px 9px; border-radius: var(--r-pill);
+  }
+  .check-row .status.pass{ background: color-mix(in oklab, var(--pos) 12%, var(--card)); color: var(--pos); border: 1px solid color-mix(in oklab, var(--pos) 30%, var(--rule)); }
+  .check-row .status.pass::before{ content:""; width:5px; height:5px; border-radius:50%; background: var(--pos); }
+  .check-row .status.warn{ background: color-mix(in oklab, var(--warn) 12%, var(--card)); color: var(--warn); border: 1px solid color-mix(in oklab, var(--warn) 30%, var(--rule)); }
+  .check-row .status.warn::before{ content:""; width:5px; height:5px; border-radius:50%; background: var(--warn); }
+
+  /* file attachments */
+  .att{ display:grid; grid-template-columns: 28px 1fr auto; gap: 10px; align-items: center; padding: 10px 0; border-bottom: 1px dotted var(--rule); }
+  .att:last-child{ border-bottom: none; }
+  .att .ic{ width: 28px; height: 28px; border-radius: var(--r-xs); background: var(--rule-soft); display:grid; place-items:center; color: var(--ink-2); font-family: var(--mono); font-size: 10px; font-weight: 500; }
+  .att .info{ font-size: 13px; min-width: 0; }
+  .att .info small{ display:block; font-family: var(--mono); font-size: 10.5px; color: var(--dim); letter-spacing: .04em; margin-top: 2px; }
+  .att .meta{ font-family: var(--mono); font-size: 10.5px; color: var(--dim); letter-spacing: .04em; text-transform: uppercase; }
+
+  @media (max-width: 1180px){
+    .body{ grid-template-columns: 1fr; }
+    .scores{ grid-template-columns: repeat(2, 1fr); }
+    .scores .score-cell:nth-child(n+3){ border-top: 1px solid var(--rule); }
+    .scores .score-cell:nth-child(2){ border-right: none; }
+  }
+  @media (max-width: 1000px){
+    .page{ grid-template-columns: 1fr; }
+    .list-col{ display: none; }
+  }
+</style>
+</head>
+<body>
+
+<div class="shell">
+
+  <aside class="rail">
+    <div class="brand-mark">
+      <span class="brand-mark-glyph">B</span>
+      <span class="brand-mark-word" style="font-family:var(--sans);font-weight:500">Blawby</span>
+    </div>
+    <div class="meta">Demo Owner Local · solo</div>
+    <button class="new-btn" onclick="location.href='Assistant.html'">
+      <span>＋  New conversation</span>
+      <kbd>⌘N</kbd>
+    </button>
+    <div class="rail-section">
+      <div class="rail-label">Workspace</div>
+      <div class="rail-item"><span class="dot"></span><a href="Matters.html" style="color:inherit">Matters</a> <span class="badge">4</span></div>
+      <div class="rail-item on"><span class="dot"></span>Intakes <span class="badge">3</span></div>
+      <div class="rail-item"><span class="dot"></span><a href="Trust.html" style="color:inherit">Trust ledger</a></div>
+      <div class="rail-item"><span class="dot"></span><a href="Invoices.html" style="color:inherit">Invoices</a></div>
+      <div class="rail-item"><span class="dot"></span>Files</div>
+    </div>
+    <div class="rail-section">
+      <div class="rail-label">Account</div>
+      <div class="rail-item"><span class="dot" style="background:transparent;border:1px solid var(--dim-2)"></span><a href="Settings.html" style="color:inherit">Settings</a></div>
+    </div>
+    <div class="user-chip">
+      <div class="avatar user">DO</div>
+      <div class="who">Demo Owner<small>solo · NC bar #45382</small></div>
+    </div>
+  </aside>
+
+  <div class="page">
+
+    <aside class="list-col">
+      <div class="list-head">
+        <div class="crumb">Workspace · 3 new · 18 this month</div>
+        <h1>Intakes</h1>
+        <p class="sub">The assistant triages every new intake and ranks it. You only need to accept, ask, or decline.</p>
+      </div>
+      <div class="filter-tabs">
+        <span class="filter-tab on">New <span class="ct">3</span></span>
+        <span class="filter-tab">Awaiting client <span class="ct">2</span></span>
+        <span class="filter-tab">Accepted <span class="ct">12</span></span>
+        <span class="filter-tab">Declined <span class="ct">1</span></span>
+      </div>
+
+      <div class="int-list">
+
+        <div class="ir urgent on">
+          <div class="top">
+            <div class="name">Sarah Chen</div>
+            <div class="when">12m</div>
+          </div>
+          <div class="mid">Custody modification, ex-spouse refusing visitation. Exchange Saturday. Court order from 2024.</div>
+          <div class="bot">
+            <span class="score high">case · <b>4.2/5</b></span>
+            <span class="pill urgent" style="font-size:9.5px">urgent</span>
+            <span class="pill" style="font-size:9.5px">family · NC</span>
+          </div>
+        </div>
+
+        <div class="ir">
+          <div class="top">
+            <div class="name">Marcus Lee</div>
+            <div class="when">1h</div>
+          </div>
+          <div class="mid">Considering forming an LLC for consulting business. Wants advice on operating agreement and tax structure.</div>
+          <div class="bot">
+            <span class="score med">case · <b>3.4/5</b></span>
+            <span class="pill" style="font-size:9.5px">routine</span>
+            <span class="pill" style="font-size:9.5px">small biz</span>
+          </div>
+        </div>
+
+        <div class="ir">
+          <div class="top">
+            <div class="name">Jenna Park</div>
+            <div class="when">3h</div>
+          </div>
+          <div class="mid">Father recently passed, need help updating estate plan and handling inheritance for two minor children.</div>
+          <div class="bot">
+            <span class="score med">case · <b>3.8/5</b></span>
+            <span class="pill" style="font-size:9.5px;color:var(--accent-deep)">soon</span>
+            <span class="pill" style="font-size:9.5px">estate · NC</span>
+          </div>
+        </div>
+
+        <!-- decided already -->
+        <div style="padding: 14px 22px;border-bottom: 1px solid var(--rule); font-family: var(--mono); font-size: 10.5px; letter-spacing: .12em; text-transform: uppercase; color: var(--dim);">awaiting client</div>
+
+        <div class="ir" style="opacity:.75">
+          <div class="top">
+            <div class="name">Kim Wallace</div>
+            <div class="when">2d</div>
+          </div>
+          <div class="mid">DUI — first offense, requesting representation. Court date in three weeks.</div>
+          <div class="bot">
+            <span class="score low">declined · out of scope</span>
+            <span class="pill" style="font-size:9.5px;color:var(--dim);background:transparent">referred to NC LRS</span>
+          </div>
+        </div>
+
+        <div class="ir" style="opacity:.75">
+          <div class="top">
+            <div class="name">Tom Hughes</div>
+            <div class="when">3d</div>
+          </div>
+          <div class="mid">Eviction notice received, looking for representation. Has lease and 30-day notice.</div>
+          <div class="bot">
+            <span class="score med">case · <b>3.1/5</b></span>
+            <span class="pill" style="font-size:9.5px;background:color-mix(in oklab, var(--accent) 12%, var(--card));color:var(--accent-deep)">consult booked</span>
+          </div>
+        </div>
+
+      </div>
+    </aside>
+
+    <!-- detail -->
+    <main class="detail-col">
+
+      <div class="detail-head">
+        <div>
+          <div class="crumb">Intake · received 12 minutes ago</div>
+          <h2><em>Sarah Chen</em> — custody modification</h2>
+          <div class="sub">
+            <b>Family law</b>
+            <span style="color:var(--dim-2)">·</span>
+            <b>NC · Mecklenburg County</b>
+            <span style="color:var(--dim-2)">·</span>
+            <span>via blawby.com/p/sarah-chen-law</span>
+            <span style="color:var(--dim-2)">·</span>
+            <span style="color:var(--neg)">3h response window</span>
+          </div>
+        </div>
+        <div class="actions">
+          <div class="top">
+            <button class="btn btn-ghost btn-sm">⋯</button>
+            <button class="btn btn-ghost">Ask in chat</button>
+            <button class="btn btn-primary">Accept &amp; invite ↗</button>
+          </div>
+          <span class="label" style="font-family:var(--mono);font-size:10.5px;color:var(--dim);letter-spacing:.06em;text-transform:uppercase">conversation took 8 minutes · client paid $150 consult fee</span>
+        </div>
+      </div>
+
+      <!-- AI verdict -->
+      <div class="verdict">
+        <div class="av">B</div>
+        <div>
+          <div class="label">My recommendation <span class="v">grounded in intake + your 217 closed matters</span></div>
+          <div class="txt">Accept this one. It's <em>high case strength (4.2)</em>, time-sensitive in a way you can actually act on, and well within your jurisdiction. No conflicts, the client has a court order in hand, and her willing retainer ($3k) is at the low end of your typical range — I'd <em>counter at $4k</em> in the engagement.</div>
+        </div>
+        <div class="acts">
+          <button class="chip primary" style="justify-content:center">Accept &amp; counter at $4k</button>
+          <button class="chip" style="justify-content:center">Accept at $3k</button>
+          <button class="chip" style="justify-content:center">Ask follow-up</button>
+        </div>
+      </div>
+
+      <div class="body">
+
+        <!-- left -->
+        <div>
+
+          <div class="ai-card">
+            <div class="head">
+              <h3>AI enrichment</h3>
+              <span class="label">computed at submission · 2.4s</span>
+            </div>
+            <div class="scores">
+              <div class="score-cell">
+                <span class="lab">Case strength</span>
+                <span class="val pos">4.2<span style="font-family:var(--mono);font-size:13px;color:var(--dim)">/5</span></span>
+                <span class="extra">high · clear order</span>
+              </div>
+              <div class="score-cell">
+                <span class="lab">Urgency</span>
+                <span class="val urgent">Urgent</span>
+                <span class="extra">3 days to exchange</span>
+              </div>
+              <div class="score-cell">
+                <span class="lab">Practice area</span>
+                <span class="val" style="font-family:var(--sans);font-size:18px;font-weight:500;letter-spacing:0">Family</span>
+                <span class="extra">custody modification</span>
+              </div>
+              <div class="score-cell">
+                <span class="lab">Willing retainer</span>
+                <span class="val">$3,000</span>
+                <span class="extra">your range: $2k–$5k</span>
+              </div>
+            </div>
+            <div class="facts">
+              <div class="fact-row">
+                <div class="k">Contact</div>
+                <div class="v">Sarah Chen · (704) 555-0167 · schen.client@example.com</div>
+              </div>
+              <div class="fact-row">
+                <div class="k">Issue</div>
+                <div class="v">Ex-spouse is refusing to bring daughter (age 7) for court-ordered visitation. Exchange scheduled <em>Saturday, Nov 29</em>. Previous refusals on Oct 12, Nov 8 — both documented via text.</div>
+              </div>
+              <div class="fact-row">
+                <div class="k">Court order</div>
+                <div class="v">Filed Mar 2024 · Mecklenburg County Family Court · Judge Tran. Standard custody schedule, every other weekend + alternating holidays. <em>Client uploaded full PDF.</em></div>
+              </div>
+              <div class="fact-row">
+                <div class="k">Opposing</div>
+                <div class="v">Ex-spouse: Daniel Chen. Last known counsel: <em>none currently retained.</em></div>
+              </div>
+              <div class="fact-row">
+                <div class="k">Desired outcome</div>
+                <div class="v">Wants daughter at scheduled exchange Saturday and a path forward to prevent future violations. Open to mediation but ready to file emergency motion.</div>
+              </div>
+              <div class="fact-row">
+                <div class="k">Budget</div>
+                <div class="v">$3,000 retainer · open to monthly invoicing thereafter. Already paid <em>$150 consult fee</em> via Stripe.</div>
+              </div>
+              <div class="fact-row">
+                <div class="k">Heard about you</div>
+                <div class="v">Google search · "Charlotte family lawyer near me"</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- conversation transcript -->
+          <div class="ai-card">
+            <div class="head">
+              <h3>Intake conversation</h3>
+              <span class="label">8 messages · 8 min · auto-transcribed</span>
+            </div>
+            <div class="convo">
+
+              <div class="convo-msg">
+                <div class="av ai">B</div>
+                <div class="body">
+                  <div class="who"><b>Sarah's assistant</b> 11:47am</div>
+                  <div class="txt">Hi — I'm Sarah's intake assistant. What's on your mind?</div>
+                </div>
+              </div>
+
+              <div class="convo-msg">
+                <div class="av client">SC</div>
+                <div class="body">
+                  <div class="who"><b>Sarah Chen</b> 11:48am</div>
+                  <div class="txt">my ex is refusing to bring my daughter for our scheduled exchange this saturday and i don't know what to do</div>
+                </div>
+              </div>
+
+              <div class="convo-msg">
+                <div class="av ai">B</div>
+                <div class="body">
+                  <div class="who"><b>Sarah's assistant</b> 11:48am</div>
+                  <div class="txt">I'm sorry — that sounds stressful, especially with the weekend coming up. Is there a court order in place that includes a visitation or custody schedule?</div>
+                </div>
+              </div>
+
+              <div class="convo-msg">
+                <div class="av client">SC</div>
+                <div class="body">
+                  <div class="who"><b>Sarah Chen</b> 11:49am</div>
+                  <div class="txt">Yes, there's a current order — let me upload it.</div>
+                </div>
+              </div>
+
+              <div class="convo-msg">
+                <div class="av client">SC</div>
+                <div class="body">
+                  <div class="who"><b>Sarah Chen</b> 11:50am</div>
+                  <div class="txt" style="font-family:var(--mono); font-size: 12px; color: var(--ink-2)">📎 custody-order-2024.pdf — 4 pages</div>
+                </div>
+              </div>
+
+              <div class="convo-msg">
+                <div class="av ai">B</div>
+                <div class="body">
+                  <div class="who"><b>Sarah's assistant</b> 11:51am</div>
+                  <div class="txt">Got it — thank you. How soon do you need to talk to Sarah?</div>
+                </div>
+              </div>
+
+              <div class="convo-msg">
+                <div class="av client">SC</div>
+                <div class="body">
+                  <div class="who"><b>Sarah Chen</b> 11:51am</div>
+                  <div class="txt">This week — exchange is Saturday.</div>
+                </div>
+              </div>
+
+              <div class="convo-msg">
+                <div class="av ai">B</div>
+                <div class="body">
+                  <div class="who"><b>Sarah's assistant</b> 11:52am</div>
+                  <div class="txt">Because it's time-sensitive, Sarah offers a 30-minute paid consult ($150) — usually within 24 hours, credited against retainer. Want me to set that up?<br><br>(Client paid $150 via Stripe at 11:55am · ch_3Q9wRr)</div>
+                </div>
+              </div>
+
+            </div>
+          </div>
+
+        </div>
+
+        <!-- right -->
+        <div>
+
+          <div class="side-card">
+            <div class="head">
+              <h4>Pre-flight checks</h4>
+              <span class="label">all automatic</span>
+            </div>
+            <div class="body" style="padding: 4px 18px">
+              <div class="check-row">
+                <div class="l">
+                  <div class="h">Conflict of interest</div>
+                  <div class="d">Cross-checked against 217 closed + 4 active matters.</div>
+                </div>
+                <span class="status pass">clear</span>
+              </div>
+              <div class="check-row">
+                <div class="l">
+                  <div class="h">Jurisdiction</div>
+                  <div class="d">NC · Mecklenburg County. You're licensed.</div>
+                </div>
+                <span class="status pass">clear</span>
+              </div>
+              <div class="check-row">
+                <div class="l">
+                  <div class="h">Practice area fit</div>
+                  <div class="d">Family · custody modification. Matches your top area.</div>
+                </div>
+                <span class="status pass">clear</span>
+              </div>
+              <div class="check-row">
+                <div class="l">
+                  <div class="h">Capacity</div>
+                  <div class="d">4 active matters · estimated 12h needed in next 2 weeks.</div>
+                </div>
+                <span class="status warn">tight</span>
+              </div>
+              <div class="check-row">
+                <div class="l">
+                  <div class="h">Identity (KYC)</div>
+                  <div class="d">Stripe captured name, email, phone, last-4 of card.</div>
+                </div>
+                <span class="status pass">on file</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="side-card">
+            <div class="head">
+              <h4>Attachments</h4>
+              <span class="label">1 file · 4 pages</span>
+            </div>
+            <div class="body">
+              <div class="att">
+                <div class="ic">PDF</div>
+                <div class="info">custody-order-2024.pdf<small>312 KB · scanned by AI · key facts extracted</small></div>
+                <div class="meta">view</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="side-card">
+            <div class="head">
+              <h4>Payment</h4>
+              <span class="label">consult fee</span>
+            </div>
+            <div class="body" style="padding: 6px 18px">
+              <div class="fact-row" style="grid-template-columns: 1fr auto">
+                <div class="v">Consult fee paid</div>
+                <div class="v" style="font-family:var(--mono); font-size: 14px">$150.00</div>
+              </div>
+              <div class="fact-row" style="grid-template-columns: 1fr auto">
+                <div class="v">Stripe ID</div>
+                <div class="v" style="font-family:var(--mono); font-size: 11px; color: var(--dim)">ch_3Q9wRrAB</div>
+              </div>
+              <div class="fact-row" style="grid-template-columns: 1fr auto; border-bottom: none">
+                <div class="v">Held in</div>
+                <div class="v" style="font-family:var(--mono); font-size: 11.5px">IOLTA trust</div>
+              </div>
+              <div style="font-family:var(--mono); font-size: 10.5px; color: var(--dim); letter-spacing: .04em; text-transform: uppercase; padding: 10px 0 4px; border-top: 1px solid var(--rule); margin-top: 8px">
+                refundable until consult ends · credited toward retainer
+              </div>
+            </div>
+          </div>
+
+          <div class="side-card">
+            <div class="head">
+              <h4>What happens if you accept</h4>
+              <span class="label">5 steps</span>
+            </div>
+            <div class="body" style="font-size: 13px; color: var(--ink-2); line-height: 1.7">
+              <div style="display:flex; gap: 8px; padding: 6px 0; border-bottom: 1px dotted var(--rule)"><span style="font-family:var(--mono); font-size:10.5px; color: var(--accent-deep); min-width: 14px">1.</span><span>Better Auth invite emailed to schen.client@example.com</span></div>
+              <div style="display:flex; gap: 8px; padding: 6px 0; border-bottom: 1px dotted var(--rule)"><span style="font-family:var(--mono); font-size:10.5px; color: var(--accent-deep); min-width: 14px">2.</span><span>Client workspace unlocked · shared thread opened</span></div>
+              <div style="display:flex; gap: 8px; padding: 6px 0; border-bottom: 1px dotted var(--rule)"><span style="font-family:var(--mono); font-size:10.5px; color: var(--accent-deep); min-width: 14px">3.</span><span>Engagement letter auto-drafted with Chen's intake data</span></div>
+              <div style="display:flex; gap: 8px; padding: 6px 0; border-bottom: 1px dotted var(--rule)"><span style="font-family:var(--mono); font-size:10.5px; color: var(--accent-deep); min-width: 14px">4.</span><span>You review the letter · 5 minutes</span></div>
+              <div style="display:flex; gap: 8px; padding: 6px 0"><span style="font-family:var(--mono); font-size:10.5px; color: var(--accent-deep); min-width: 14px">5.</span><span>Client signs · matter auto-created · BLB-0246</span></div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+    </main>
+  </div>
+</div>
+
+<script>
+  document.querySelectorAll('.filter-tab').forEach(t=>{ t.addEventListener('click', ()=>{ document.querySelectorAll('.filter-tab').forEach(x=>x.classList.remove('on')); t.classList.add('on'); }); });
+  document.querySelectorAll('.ir').forEach(r=>{ r.addEventListener('click', ()=>{ document.querySelectorAll('.ir').forEach(x=>x.classList.remove('on')); r.classList.add('on'); }); });
+</script>
+</body>
+</html>

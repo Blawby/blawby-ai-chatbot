@@ -1,0 +1,1071 @@
+<!doctype html>
+<html lang="en" data-theme="">
+<head>
+<meta charset="utf-8" />
+<title>Blawby — Conversations</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,opsz,wght@0,8..60,300..900;1,8..60,300..900&family=Geist:wght@300;400;500;600;700&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="tokens.css">
+<style>
+  body{
+    background-image: radial-gradient(rgba(15,30,54,0.025) 1px, transparent 1.2px);
+    background-size: 3px 3px;
+    background-attachment: fixed;
+  }
+
+  .app{
+    display:grid;
+    grid-template-columns: 240px 340px 1fr 400px;
+    min-height:100vh;
+    max-width:1640px;
+    margin:0 auto;
+  }
+
+  /* ===== left rail (shared pattern) ===== */
+  .rail{
+    border-right:1px solid var(--rule);
+    padding:22px 16px 16px;
+    display:flex;flex-direction:column;gap:18px;
+    position:sticky;top:0;height:100vh;
+    background: color-mix(in oklab, var(--paper) 96%, var(--card));
+  }
+  .rail .brand-mark-word{ font-family: var(--sans); font-weight: 500; }
+  .rail .meta{ font-family:var(--mono);font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--dim); margin-top:-8px; padding-left:30px; }
+  .new-btn{
+    width:100%;
+    background:var(--ink);color:var(--paper);
+    border:1px solid var(--ink); border-radius: var(--r-xs);
+    padding:11px 14px;
+    font-size:13px;font-weight:500;
+    display:flex;align-items:center;justify-content:space-between;
+    cursor:pointer; transition: all .18s ease;
+  }
+  .new-btn:hover{ background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+  .new-btn kbd{
+    font-family:var(--mono); font-size:10px;
+    background:rgba(255,255,255,.12); color:var(--paper-2);
+    padding:2px 6px; border-radius:3px;
+  }
+  .rail-section{ display:flex; flex-direction:column; gap:2px; }
+  .rail-label{
+    font-family:var(--mono); font-size:9.5px; letter-spacing:.12em; text-transform:uppercase;
+    color:var(--dim-2); padding:0 8px 4px;
+  }
+  .rail-item{
+    display:flex; align-items:center; gap:10px;
+    padding:7px 10px; border-radius: var(--r-xs);
+    font-size:13px; color:var(--ink-2); cursor:pointer;
+    transition: background .12s, color .12s;
+    text-decoration:none;
+  }
+  .rail-item:hover{ background: var(--rule-soft); color: var(--ink); }
+  .rail-item .dot{ width:6px; height:6px; border-radius:50%; background:var(--dim-2); flex-shrink:0; }
+  .rail-item.now{ background: var(--accent-soft); color: var(--ink); }
+  .rail-item.now .dot{ background: var(--accent); }
+  .rail-item .count{
+    margin-left:auto; font-family:var(--mono); font-size:10px;
+    color:var(--dim); letter-spacing:.04em;
+  }
+  .rail-item.unread .count{ color:var(--neg); }
+
+  .user-chip{
+    margin-top:auto;
+    display:flex; align-items:center; gap:10px;
+    padding:9px 10px; border-radius: var(--r-xs);
+    border:1px solid var(--rule); background: var(--card);
+    cursor:pointer;
+  }
+  .user-chip .who{ font-size:12.5px; line-height:1.2; }
+  .user-chip .who small{ display:block; color:var(--dim); font-size:10.5px; }
+  .user-chip .caret{ margin-left:auto; color:var(--dim-2); }
+
+  /* ===== thread list ===== */
+  .inbox{
+    border-right:1px solid var(--rule);
+    background: color-mix(in oklab, var(--paper) 98%, var(--card));
+    display:flex; flex-direction:column;
+    position:sticky; top:0; height:100vh;
+  }
+  .inbox-head{
+    padding: 26px 22px 16px;
+    border-bottom: 1px solid var(--rule);
+    display:flex; flex-direction:column; gap:10px;
+  }
+  .inbox-head h1{
+    font-family: var(--serif); font-weight:400;
+    font-size: 30px; letter-spacing:-.012em; line-height:1;
+    margin:0;
+  }
+  .inbox-head h1 em{ color: var(--accent); }
+  .inbox-meta{
+    font-family: var(--mono); font-size: 10.5px; letter-spacing:.1em;
+    color: var(--dim); text-transform:uppercase;
+    display:flex; gap:14px; align-items:center;
+  }
+  .inbox-meta b{ color: var(--ink); font-weight: 500; }
+
+  .inbox-search{
+    display:flex; align-items:center; gap:8px;
+    background: var(--card); border: 1px solid var(--rule);
+    border-radius: var(--r-xs); padding: 8px 10px;
+    font-size: 13px; color: var(--dim-2);
+  }
+  .inbox-search svg{ flex-shrink:0; color: var(--dim); }
+  .inbox-search kbd{
+    margin-left:auto; font-family:var(--mono); font-size:10px;
+    background: var(--rule-soft); border:1px solid var(--rule);
+    padding:1px 5px; border-radius:3px; color: var(--ink-2);
+  }
+
+  .filters{
+    display:flex; gap:6px; padding: 14px 22px;
+    border-bottom: 1px solid var(--rule);
+    overflow-x:auto;
+  }
+  .filters::-webkit-scrollbar{ display:none; }
+  .filter{
+    font-family: var(--mono); font-size: 10.5px;
+    letter-spacing:.06em; text-transform:uppercase;
+    padding: 5px 10px; border-radius: var(--r-pill);
+    border: 1px solid var(--rule); background: var(--card);
+    color: var(--dim); cursor:pointer; white-space:nowrap;
+    display:inline-flex; align-items:center; gap:6px;
+  }
+  .filter:hover{ border-color: var(--ink-3); color: var(--ink-2); }
+  .filter.on{ background: var(--ink); color: var(--paper); border-color: var(--ink); }
+  .filter .n{ color: var(--accent); font-family: var(--mono); }
+  .filter.on .n{ color: var(--accent); }
+  .filter.warn .n{ color: var(--neg); }
+
+  .threads{
+    flex:1; overflow-y:auto;
+    padding: 6px 0;
+  }
+  .threads::-webkit-scrollbar{ width: 0; }
+  .thread-item{
+    padding: 14px 22px;
+    border-bottom: 1px solid var(--rule);
+    cursor: pointer;
+    display:flex; flex-direction:column; gap:6px;
+    position:relative;
+  }
+  .thread-item:hover{ background: var(--rule-soft); }
+  .thread-item.active{
+    background: var(--card);
+    border-left: 3px solid var(--accent);
+    padding-left: 19px;
+  }
+  .thread-item .row1{
+    display:flex; align-items:baseline; gap:8px; min-width:0;
+  }
+  .thread-item .who{
+    font-family: var(--serif); font-size: 17px;
+    line-height: 1.1; letter-spacing:-.005em;
+    color: var(--ink); flex:1; min-width:0;
+    overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+  }
+  .thread-item.unread .who{ font-weight: 500; }
+  .thread-item .when{
+    font-family: var(--mono); font-size: 10px;
+    letter-spacing:.06em; text-transform:uppercase;
+    color: var(--dim); flex-shrink:0;
+  }
+  .thread-item.unread .when{ color: var(--accent-deep); }
+  .thread-item .row2{
+    display:flex; align-items:center; gap: 6px;
+    font-family: var(--mono); font-size: 10.5px;
+    letter-spacing:.04em; color: var(--dim);
+    text-transform: uppercase;
+  }
+  .thread-item .row2 .matter{ color: var(--ink-2); text-transform:none; letter-spacing:0; font-family: var(--sans); font-size: 12px; }
+  .thread-item .row2 .matter::before{
+    content:""; display:inline-block; width:5px; height:5px;
+    border-radius:50%; background: var(--accent); margin-right: 5px; vertical-align: middle;
+  }
+  .thread-item .preview{
+    font-size: 13px; color: var(--ink-2);
+    line-height: 1.5; max-width:100%;
+    display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical;
+    overflow:hidden;
+  }
+  .thread-item .preview .speaker{
+    font-family: var(--mono); font-size: 10px; letter-spacing:.08em;
+    text-transform: uppercase; color: var(--dim); margin-right: 4px;
+  }
+  .thread-item .preview .speaker.ai{ color: var(--accent-deep); }
+  .thread-item .preview .speaker.me{ color: var(--ink); }
+
+  .thread-item .tags{ display:flex; gap:5px; flex-wrap:wrap; }
+  .thread-item .tag{
+    font-family: var(--mono); font-size: 9.5px;
+    letter-spacing:.06em; text-transform: uppercase;
+    padding: 2px 7px; border-radius: var(--r-pill);
+    border: 1px solid var(--rule); background: var(--paper);
+    color: var(--dim);
+    display:inline-flex; align-items:center; gap:4px;
+  }
+  .thread-item .tag::before{
+    content:""; width:5px; height:5px; border-radius:50%; background: var(--dim-2);
+  }
+  .thread-item .tag.autopilot::before{ background: var(--accent); }
+  .thread-item .tag.autopilot{ color: var(--accent-deep); border-color: color-mix(in oklab, var(--accent) 30%, var(--rule)); }
+  .thread-item .tag.staged::before{ background: var(--accent); }
+  .thread-item .tag.staged{ color: var(--accent-deep); border-color: color-mix(in oklab, var(--accent) 30%, var(--rule)); background: color-mix(in oklab, var(--accent) 10%, var(--card)); }
+  .thread-item .tag.urgent::before{ background: var(--neg); }
+  .thread-item .tag.urgent{ color: var(--neg); border-color: color-mix(in oklab, var(--neg) 30%, var(--rule)); }
+  .thread-item .tag.signed::before{ background: var(--pos); }
+  .thread-item .tag.signed{ color: var(--pos); border-color: color-mix(in oklab, var(--pos) 30%, var(--rule)); }
+  .thread-item .tag.pay::before{ background: var(--warn); }
+
+  /* ===== conversation pane ===== */
+  .conv{
+    display:flex; flex-direction:column;
+    min-width: 0;
+    background: var(--paper);
+  }
+  .conv-head{
+    padding: 22px 36px;
+    border-bottom: 1px solid var(--rule);
+    background: color-mix(in oklab, var(--paper) 96%, var(--card));
+    display:flex; align-items:flex-start; justify-content:space-between; gap:24px;
+  }
+  .conv-head .left{ display:flex; flex-direction:column; gap:4px; min-width:0; }
+  .conv-head .crumb{
+    font-family: var(--mono); font-size: 10.5px;
+    letter-spacing:.12em; text-transform:uppercase;
+    color: var(--dim);
+  }
+  .conv-head .crumb a{ color: var(--ink-2); border-bottom: 1px dotted var(--dim-2); }
+  .conv-head h2{
+    font-family: var(--serif); font-weight:400;
+    font-size: 32px; line-height: 1.05; letter-spacing:-.015em;
+    margin: 6px 0 0;
+  }
+  .conv-head h2 em{ color: var(--accent); }
+  .conv-head .sub{
+    font-size: 13px; color: var(--ink-2);
+    margin-top: 4px;
+  }
+  .conv-head .right{ display:flex; gap:8px; align-items:center; flex-shrink:0; }
+
+  .autopilot-toggle{
+    display:inline-flex; align-items:center; gap:10px;
+    padding: 8px 12px; border-radius: var(--r-xs);
+    border: 1px solid color-mix(in oklab, var(--accent) 35%, var(--rule));
+    background: color-mix(in oklab, var(--accent) 8%, var(--card));
+    font-family: var(--mono); font-size: 10.5px;
+    letter-spacing:.08em; text-transform:uppercase;
+    color: var(--accent-deep); cursor:pointer;
+    transition: all .14s;
+  }
+  .autopilot-toggle .pulse{
+    width: 7px; height: 7px; border-radius: 50%;
+    background: var(--accent); position: relative;
+  }
+  .autopilot-toggle .pulse::after{
+    content:""; position:absolute; inset:-3px; border-radius:50%;
+    border: 1px solid var(--accent); animation: ring 2.2s infinite;
+  }
+  @keyframes ring{
+    0%{ transform: scale(1); opacity: 1; }
+    100%{ transform: scale(2); opacity: 0; }
+  }
+  .autopilot-toggle b{ font-weight: 500; }
+
+  .conv-body{
+    flex: 1;
+    overflow-y: auto;
+    padding: 32px 36px 200px;
+    display:flex; flex-direction:column; gap: 24px;
+  }
+  .conv-body::-webkit-scrollbar{ width: 0; }
+
+  .day-divider{
+    display:flex; align-items:center; gap:14px;
+    font-family: var(--mono); font-size: 10px;
+    letter-spacing:.16em; text-transform:uppercase;
+    color: var(--dim);
+    margin: 8px 0;
+  }
+  .day-divider::before, .day-divider::after{
+    content:""; flex:1; height:1px; background: var(--rule);
+  }
+
+  .turn{
+    display:flex; gap: 12px;
+    animation: rise .35s cubic-bezier(.2,.7,.2,1) both;
+    max-width: 720px;
+  }
+  @keyframes rise{ from{opacity:0; transform:translateY(8px)} to{opacity:1; transform:none} }
+  .turn .body{ flex:1; min-width:0; }
+  .turn .meta{
+    font-family: var(--mono); font-size: 10px;
+    letter-spacing:.1em; text-transform:uppercase;
+    color: var(--dim); margin-bottom: 6px;
+    display:flex; align-items:center; gap:8px; flex-wrap:wrap;
+  }
+  .turn .meta .name{ color: var(--ink); }
+  .turn .meta .name.ai{ color: var(--accent-deep); }
+  .turn .bub{
+    font-size: 14.5px; line-height: 1.55;
+    color: var(--ink);
+    background: var(--card); border: 1px solid var(--rule);
+    border-radius: var(--r-md);
+    padding: 12px 16px;
+    box-shadow: var(--shadow-1);
+  }
+  .turn .bub p{ margin: 0 0 8px; }
+  .turn .bub p:last-child{ margin: 0; }
+  .turn .bub em{ color: var(--accent-deep); font-style: italic; }
+
+  .turn.client .bub{ background: var(--card); }
+  .turn.client .meta .name{ color: var(--ink); }
+
+  .turn.ai .bub{
+    background: linear-gradient(180deg, color-mix(in oklab, var(--accent) 8%, var(--card)), var(--card));
+    border-color: color-mix(in oklab, var(--accent) 25%, var(--rule));
+  }
+  .turn.ai .bub.opener{
+    background: linear-gradient(180deg, color-mix(in oklab, var(--accent) 14%, var(--card)), var(--card));
+    border-color: color-mix(in oklab, var(--accent) 35%, var(--rule));
+  }
+  .turn.ai .bub .lede{
+    font-family: var(--serif); font-size: 18px; line-height: 1.35;
+    letter-spacing:-.005em; color: var(--ink);
+    margin: 0 0 8px;
+  }
+
+  .turn.staff{ flex-direction: row-reverse; max-width: 100%; align-self: flex-end; }
+  .turn.staff .body{ display:flex; flex-direction:column; align-items: flex-end; max-width: 560px; }
+  .turn.staff .meta{ justify-content: flex-end; }
+  .turn.staff .bub{
+    background: var(--ink); color: var(--paper);
+    border-color: var(--ink);
+  }
+  .turn.staff .bub em{ color: var(--accent); }
+
+  .quick-replies{
+    display:flex; flex-wrap:wrap; gap:6px;
+    margin-top: 8px;
+  }
+  .quick-replies .qr{
+    font-family: var(--sans); font-size: 12.5px;
+    padding: 6px 12px; border-radius: var(--r-pill);
+    background: var(--card); border: 1px solid var(--rule);
+    color: var(--ink-2); cursor: pointer;
+    transition: all .14s;
+  }
+  .quick-replies .qr:hover{ background: var(--accent-soft); border-color: var(--accent); color: var(--accent-deep); }
+  .quick-replies .qr.chosen{ background: var(--ink); color: var(--accent); border-color: var(--ink); }
+
+  .tooluse{
+    margin-left: 40px; margin-top: -10px;
+    font-family: var(--mono); font-size: 10px;
+    letter-spacing:.06em; text-transform:uppercase;
+    color: var(--dim);
+  }
+  .tooluse code{
+    background: var(--rule-soft); padding: 1px 6px; border-radius: 3px;
+    color: var(--ink-2); font-size: 10.5px;
+    text-transform:none; letter-spacing:0;
+  }
+
+  /* inline staged action card inside conversation */
+  .staged-inline{
+    margin-left: 40px;
+    max-width: 720px - 40px;
+    background: linear-gradient(180deg, color-mix(in oklab, var(--accent) 22%, var(--card)), color-mix(in oklab, var(--accent) 10%, var(--card)));
+    border: 1px solid color-mix(in oklab, var(--accent) 45%, var(--rule));
+    border-radius: var(--r-md);
+    padding: 18px 20px;
+    box-shadow: 0 1px 0 rgba(255,255,255,.5) inset, 0 12px 32px -22px color-mix(in oklab, var(--accent-deep) 60%, transparent);
+    animation: rise .45s cubic-bezier(.2,.7,.2,1) both;
+  }
+  .staged-inline .lab{
+    font-family: var(--mono); font-size: 10px;
+    letter-spacing:.12em; text-transform:uppercase;
+    color: var(--accent-deep);
+    display:flex; align-items:center; gap:8px;
+  }
+  .staged-inline .lab .pulse{
+    width: 6px; height: 6px; border-radius: 50%; background: var(--accent);
+  }
+  .staged-inline h3{
+    font-family: var(--serif); font-weight: 400;
+    font-size: 22px; line-height: 1.2; letter-spacing:-.01em;
+    margin: 6px 0 4px;
+  }
+  .staged-inline .why{
+    font-size: 13px; color: var(--ink-2);
+    margin: 0 0 12px;
+  }
+  .staged-inline .draft{
+    background: var(--card); border: 1px solid var(--rule);
+    border-radius: var(--r-sm); padding: 14px 16px;
+    font-size: 14px; line-height: 1.6; color: var(--ink);
+    box-shadow: var(--shadow-1);
+  }
+  .staged-inline .draft p{ margin: 0 0 8px; }
+  .staged-inline .draft p:last-child{ margin: 0; }
+  .staged-inline .draft em{ color: var(--accent-deep); }
+  .staged-inline .acts{
+    display:flex; gap:6px; flex-wrap:wrap; margin-top: 14px;
+  }
+  .staged-inline .acts .chip.primary{ background: var(--ink); color: var(--accent); border-color: var(--ink); }
+  .staged-inline .acts .chip.primary:hover{ background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+
+  .cites{
+    display:flex; gap:5px; flex-wrap:wrap;
+    margin-top: 12px; margin-left: 40px;
+  }
+
+  /* composer */
+  .composer-wrap{
+    position: sticky; bottom: 0;
+    margin: 0 -36px -200px;
+    padding: 28px 36px 22px;
+    background: linear-gradient(180deg, transparent, var(--paper) 38%);
+  }
+  .composer{
+    background: var(--card);
+    border: 1px solid var(--rule);
+    border-radius: var(--r-md);
+    box-shadow: var(--shadow-2);
+    max-width: 720px;
+  }
+  .composer .tabs{
+    display:flex; gap: 4px;
+    padding: 4px 4px 0;
+    border-bottom: 1px solid var(--rule);
+  }
+  .composer .tabs .t{
+    font-family: var(--mono); font-size: 10.5px;
+    letter-spacing:.08em; text-transform:uppercase;
+    padding: 8px 12px; border-radius: var(--r-xs) var(--r-xs) 0 0;
+    color: var(--dim); cursor: pointer;
+    border: 1px solid transparent; border-bottom: none;
+    margin-bottom: -1px;
+  }
+  .composer .tabs .t:hover{ color: var(--ink-2); }
+  .composer .tabs .t.on{
+    color: var(--ink); background: var(--card);
+    border-color: var(--rule);
+  }
+  .composer .tabs .scope{
+    margin-left:auto; font-family: var(--mono); font-size: 10px;
+    color: var(--dim); padding: 8px 4px; letter-spacing:.06em;
+    text-transform: uppercase;
+  }
+  .composer .input-area{
+    padding: 14px 16px 10px;
+    font-size: 14.5px; line-height: 1.55;
+    color: var(--ink);
+    outline: none; min-height: 24px;
+  }
+  .composer .input-area:empty::before{
+    content: attr(data-ph); color: var(--dim-2);
+  }
+  .composer .input-area em{ color: var(--accent-deep); font-style: italic; }
+  .composer .actions{
+    display:flex; align-items:center; gap:8px;
+    padding: 8px 12px 10px;
+    border-top: 1px solid var(--rule);
+  }
+  .iconbtn{
+    width: 30px; height: 30px; border-radius: var(--r-xs);
+    border: 1px solid var(--rule); background: var(--paper);
+    display: grid; place-items: center; cursor: pointer;
+    color: var(--ink-2);
+  }
+  .iconbtn:hover{ background: var(--card); border-color: var(--ink-3); color: var(--ink); }
+  .iconbtn.primary{ background: var(--ink); color: var(--paper); border-color: var(--ink); }
+  .iconbtn.primary:hover{ background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+  .composer .actions .spacer{ flex: 1; }
+  .composer .hint{
+    padding: 0 12px 10px;
+    font-family: var(--mono); font-size: 9.5px;
+    letter-spacing:.08em; text-transform: uppercase;
+    color: var(--dim-2);
+  }
+  .composer .hint kbd{
+    background: var(--rule-soft); border: 1px solid var(--rule);
+    padding: 1px 5px; border-radius: 3px;
+    font-family: var(--mono); font-size: 9.5px; color: var(--ink-2);
+  }
+
+  /* ===== right focus drawer ===== */
+  .focus{
+    border-left:1px solid var(--rule);
+    padding: 28px 22px 28px;
+    position: sticky; top: 0; height: 100vh;
+    overflow-y: auto;
+    display: flex; flex-direction: column; gap: 14px;
+    background: color-mix(in oklab, var(--paper) 96%, var(--card));
+  }
+  .focus::-webkit-scrollbar{ width: 0; }
+  .focus-head .kind{
+    font-family: var(--mono); font-size: 10px;
+    letter-spacing:.14em; text-transform: uppercase;
+    color: var(--dim);
+  }
+  .focus-head h2{
+    font-family: var(--serif); font-weight: 400;
+    font-size: 28px; line-height: 1.05; letter-spacing:-.012em;
+    margin: 8px 0 4px;
+  }
+  .focus-head .sub{ font-size: 13px; color: var(--dim); }
+  .focus-head .ro{
+    font-family: var(--mono); font-size: 9.5px;
+    letter-spacing:.1em; text-transform: uppercase;
+    color: var(--dim-2); margin-top: 6px;
+    display:inline-flex; align-items:center; gap:6px;
+  }
+  .focus-head .ro::before{
+    content:""; width: 5px; height: 5px; border-radius: 50%; background: var(--dim-2);
+  }
+
+  .section-label{
+    display:flex; align-items:center; justify-content:space-between;
+    font-family: var(--mono); font-size: 10px;
+    letter-spacing:.14em; text-transform: uppercase;
+    color: var(--dim); margin: 10px 0 4px;
+  }
+  .section-label a{
+    font-family: var(--sans); font-size: 11px; color: var(--ink-2);
+    text-transform: none; letter-spacing: 0;
+    border-bottom: 1px dotted var(--dim-2); cursor: pointer;
+  }
+
+  .focus-grid{ display:grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .stat-tile{
+    background: var(--card); border: 1px solid var(--rule);
+    border-radius: var(--r-md); padding: 12px 14px;
+  }
+  .stat-tile .lab{ font-family: var(--mono); font-size: 9.5px; letter-spacing:.12em; text-transform: uppercase; color: var(--dim); }
+  .stat-tile .val{
+    font-family: var(--serif); font-size: 22px; letter-spacing:-.01em;
+    margin-top: 4px; line-height: 1; font-feature-settings: "tnum";
+  }
+  .stat-tile .val small{ font-size: 11px; font-family: var(--mono); color: var(--dim); margin-left: 4px; }
+  .stat-tile .val.pos{ color: var(--pos); }
+  .stat-tile .val.neg{ color: var(--neg); }
+  .stat-tile .bar{ margin-top: 8px; }
+
+  .field-list{
+    background: var(--card); border: 1px solid var(--rule);
+    border-radius: var(--r-md); padding: 4px 14px;
+  }
+  .field-list .f{
+    display: grid; grid-template-columns: 80px 1fr; gap: 10px;
+    padding: 9px 0; border-bottom: 1px solid var(--rule);
+    font-size: 13px;
+  }
+  .field-list .f:last-child{ border-bottom: none; }
+  .field-list .f .k{ font-family: var(--mono); font-size: 10px; letter-spacing:.08em; text-transform: uppercase; color: var(--dim); padding-top: 2px; }
+  .field-list .f .v{ color: var(--ink); }
+  .field-list .f .v em{ color: var(--accent-deep); }
+
+  .timeline{
+    background: var(--card); border: 1px solid var(--rule);
+    border-radius: var(--r-md); padding: 4px 14px;
+  }
+  .timeline .ev{
+    display: grid; grid-template-columns: 60px 1fr; gap: 10px;
+    padding: 9px 0; border-bottom: 1px solid var(--rule);
+    font-size: 13px;
+  }
+  .timeline .ev:last-child{ border-bottom: none; }
+  .timeline .ev .when{ font-family: var(--mono); font-size: 10px; letter-spacing:.06em; text-transform: uppercase; color: var(--dim); padding-top: 3px; }
+  .timeline .ev .what b{ font-weight: 500; }
+  .timeline .ev .what em{ font-style: italic; color: var(--dim); }
+
+  .focus-actions{
+    display: flex; flex-wrap: wrap; gap: 6px;
+    margin-top: 4px;
+  }
+
+  .focus-footer{
+    margin-top: auto;
+    padding-top: 14px; border-top: 1px solid var(--rule);
+    font-family: var(--mono); font-size: 10px;
+    letter-spacing:.06em; text-transform: uppercase;
+    color: var(--dim-2); line-height: 1.5;
+  }
+
+  @media (max-width: 1500px){
+    .app{ grid-template-columns: 240px 320px 1fr 360px; }
+  }
+  @media (max-width: 1280px){
+    .app{ grid-template-columns: 240px 320px 1fr; }
+    .focus{ display:none; }
+  }
+  @media (max-width: 980px){
+    .app{ grid-template-columns: 220px 1fr; }
+    .inbox{ display:none; }
+  }
+  @media (max-width: 720px){
+    .app{ grid-template-columns: 1fr; }
+    .rail{ display:none; }
+    .conv-head, .conv-body, .composer-wrap{ padding-left: 22px; padding-right: 22px; }
+    .composer-wrap{ margin-left: -22px; margin-right: -22px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="app">
+
+  <!-- ============ LEFT RAIL ============ -->
+  <aside class="rail" data-screen-label="rail">
+    <a href="Assistant.html" class="brand-mark">
+      <span class="brand-mark-glyph">B</span>
+      <span class="brand-mark-word">Blawby</span>
+    </a>
+    <div class="meta">Demo Owner Local · solo</div>
+
+    <button class="new-btn">
+      <span>＋  New conversation</span>
+      <kbd>⌘N</kbd>
+    </button>
+
+    <div class="rail-section">
+      <div class="rail-label">Workspace</div>
+      <a class="rail-item" href="Assistant.html"><span class="dot"></span>Assistant</a>
+      <a class="rail-item now"><span class="dot"></span>Conversations<span class="count">14</span></a>
+      <a class="rail-item unread" href="Intakes.html"><span class="dot"></span>Intakes<span class="count">3 new</span></a>
+      <a class="rail-item" href="Matters.html"><span class="dot"></span>Matters<span class="count">4</span></a>
+      <a class="rail-item" href="Invoices.html"><span class="dot"></span>Invoices<span class="count">2</span></a>
+      <a class="rail-item" href="Trust.html"><span class="dot"></span>Trust ledger</a>
+    </div>
+
+    <div class="rail-section">
+      <div class="rail-label">Pinned threads</div>
+      <a class="rail-item"><span class="dot" style="background:var(--neg)"></span>Martinez · auto injury</a>
+      <a class="rail-item"><span class="dot" style="background:var(--accent)"></span>S. Chen · custody intake</a>
+      <a class="rail-item"><span class="dot"></span>Johnson · estate</a>
+    </div>
+
+    <div class="rail-section">
+      <div class="rail-label">Other</div>
+      <a class="rail-item" href="Reports.html"><span class="dot"></span>Reports</a>
+      <a class="rail-item" href="Settings.html"><span class="dot"></span>Settings</a>
+    </div>
+
+    <div class="user-chip">
+      <div class="avatar user">DO</div>
+      <div class="who">Demo Owner<small>demo.owner.local@blawby.test</small></div>
+      <div class="caret">⌃</div>
+    </div>
+  </aside>
+
+  <!-- ============ INBOX ============ -->
+  <section class="inbox" data-screen-label="inbox">
+    <div class="inbox-head">
+      <h1>Conversations</h1>
+      <div class="inbox-meta">
+        <span><b>3</b> need you</span>
+        <span style="color:var(--accent-deep)"><b style="color:var(--accent-deep)">5</b> on autopilot</span>
+        <span><b>6</b> waiting on client</span>
+      </div>
+      <div class="inbox-search">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+        <span>Search or ask — "show me unpaid retainer threads"</span>
+        <kbd>⌘K</kbd>
+      </div>
+    </div>
+
+    <div class="filters">
+      <span class="filter on">All <span class="n">14</span></span>
+      <span class="filter warn">Needs you <span class="n">3</span></span>
+      <span class="filter">Autopilot <span class="n">5</span></span>
+      <span class="filter">Awaiting client <span class="n">6</span></span>
+      <span class="filter">Intake</span>
+      <span class="filter">Matter</span>
+      <span class="filter">Closed</span>
+    </div>
+
+    <div class="threads">
+
+      <article class="thread-item unread active">
+        <div class="row1">
+          <div class="who">Bianca Martinez</div>
+          <div class="when">9:42 am</div>
+        </div>
+        <div class="row2">
+          <span class="matter">Martinez · Auto Injury</span>
+        </div>
+        <div class="preview">
+          <span class="speaker">B.M.</span>The settlement check came — when do I see my part? My rent is due Friday and I'm starting to panic a little.
+        </div>
+        <div class="tags">
+          <span class="tag urgent">urgent · 3h</span>
+          <span class="tag staged">staged reply</span>
+        </div>
+      </article>
+
+      <article class="thread-item unread">
+        <div class="row1">
+          <div class="who">Sarah Chen</div>
+          <div class="when">8:14 am</div>
+        </div>
+        <div class="row2">
+          <span class="matter">Intake · custody modification</span>
+        </div>
+        <div class="preview">
+          <span class="speaker ai">B.</span>Got it — and Mecklenburg County, three children, exchange is Saturday. Can you upload the existing order so I can flag what's changing?
+        </div>
+        <div class="tags">
+          <span class="tag autopilot">autopilot</span>
+          <span class="tag">intake</span>
+        </div>
+      </article>
+
+      <article class="thread-item">
+        <div class="row1">
+          <div class="who">D. Johnson</div>
+          <div class="when">Yesterday</div>
+        </div>
+        <div class="row2">
+          <span class="matter">Johnson · Estate planning</span>
+        </div>
+        <div class="preview">
+          <span class="speaker me">You</span>Filed and uploaded. Probate clerk confirmed receipt. I'll set the hearing reminder for Friday and send your son the copy he asked for.
+        </div>
+        <div class="tags">
+          <span class="tag signed">signed</span>
+          <span class="tag">awaiting client</span>
+        </div>
+      </article>
+
+      <article class="thread-item unread">
+        <div class="row1">
+          <div class="who">Marcus Park</div>
+          <div class="when">Yesterday</div>
+        </div>
+        <div class="row2">
+          <span class="matter">Park · Will revision</span>
+        </div>
+        <div class="preview">
+          <span class="speaker">M.P.</span>I went over the engagement letter and I'm good with the fixed fee but I want to add a healthcare directive — can we do that?
+        </div>
+        <div class="tags">
+          <span class="tag pay">awaiting deposit</span>
+        </div>
+      </article>
+
+      <article class="thread-item">
+        <div class="row1">
+          <div class="who">R. Alvarez</div>
+          <div class="when">Mon</div>
+        </div>
+        <div class="row2">
+          <span class="matter">Alvarez · Separation</span>
+        </div>
+        <div class="preview">
+          <span class="speaker ai">B.</span>I drafted the response to opposing counsel's email — it asks for the asset disclosure deadline extension. Sending it for your review.
+        </div>
+        <div class="tags">
+          <span class="tag autopilot">autopilot</span>
+          <span class="tag staged">staged reply</span>
+        </div>
+      </article>
+
+      <article class="thread-item">
+        <div class="row1">
+          <div class="who">T. Nguyen</div>
+          <div class="when">Mon</div>
+        </div>
+        <div class="row2">
+          <span class="matter">Nguyen · Lease dispute</span>
+        </div>
+        <div class="preview">
+          <span class="speaker me">You</span>The demand letter goes out today. Once the landlord responds you'll see it here within the hour.
+        </div>
+        <div class="tags">
+          <span class="tag">awaiting client</span>
+        </div>
+      </article>
+
+      <article class="thread-item">
+        <div class="row1">
+          <div class="who">L. Okafor</div>
+          <div class="when">Fri</div>
+        </div>
+        <div class="row2">
+          <span class="matter">Intake · landlord dispute</span>
+        </div>
+        <div class="preview">
+          <span class="speaker ai">B.</span>Thanks Lola — based on what you've shared this looks like a habitability claim. Sarah will review tomorrow and reach out by 5 pm.
+        </div>
+        <div class="tags">
+          <span class="tag autopilot">autopilot</span>
+          <span class="tag">intake</span>
+        </div>
+      </article>
+
+      <article class="thread-item">
+        <div class="row1">
+          <div class="who">J. Patel</div>
+          <div class="when">Fri</div>
+        </div>
+        <div class="row2">
+          <span class="matter">Patel · Small claims · closed</span>
+        </div>
+        <div class="preview">
+          <span class="speaker">J.P.</span>Thank you so much for everything. Will be sure to refer your firm to my colleagues.
+        </div>
+        <div class="tags">
+          <span class="tag signed">closed</span>
+        </div>
+      </article>
+
+      <article class="thread-item">
+        <div class="row1">
+          <div class="who">A. Kim</div>
+          <div class="when">Thu</div>
+        </div>
+        <div class="row2">
+          <span class="matter">Intake · contract review</span>
+        </div>
+        <div class="preview">
+          <span class="speaker">A.K.</span>I uploaded the LLC agreement. Let me know if you need the cap table separately.
+        </div>
+        <div class="tags">
+          <span class="tag">intake</span>
+        </div>
+      </article>
+
+    </div>
+  </section>
+
+  <!-- ============ CONVERSATION PANE ============ -->
+  <main class="conv" data-screen-label="conversation">
+
+    <header class="conv-head">
+      <div class="left">
+        <div class="crumb"><a href="Matters.html">Matters</a> · <a href="Matter.html">Martinez · Auto Injury</a></div>
+        <h2><em>Bianca</em> wants to know when she sees her settlement.</h2>
+        <div class="sub">Shared thread · client + practice · started Aug 4, 2026</div>
+      </div>
+      <div class="right">
+        <button class="autopilot-toggle" title="AI is responding on your behalf for low-risk questions">
+          <span class="pulse"></span>
+          <span>Autopilot · <b>off</b></span>
+        </button>
+        <button class="iconbtn" title="More">⋯</button>
+      </div>
+    </header>
+
+    <div class="conv-body">
+
+      <div class="day-divider">Tuesday · November 25</div>
+
+      <article class="turn client">
+        <div class="avatar user">BM</div>
+        <div class="body">
+          <div class="meta"><span class="name">Bianca Martinez</span><span>9:42 am · via portal</span></div>
+          <div class="bub">
+            <p>The settlement check came — when do I see my part? My rent is due Friday and I'm starting to panic a little.</p>
+          </div>
+        </div>
+      </article>
+
+      <div class="tooluse">› used <code>list_matter_events</code> · <code>trust_balance(Martinez)</code> · <code>retainer_terms</code> · 188ms</div>
+
+      <article class="turn ai">
+        <div class="avatar">B</div>
+        <div class="body">
+          <div class="meta"><span class="name ai">Assistant</span><span>9:43 am · draft, not sent</span><span style="color:var(--accent-deep)">grounded in 4 sources</span></div>
+          <div class="bub opener">
+            <p class="lede">I drafted a reply for you. It explains the timing without making promises about the disbursement.</p>
+            <p>The State Farm check cleared into trust this morning ($14,200). The hold runs through <em>Monday Dec 1</em>. After fees and outstanding costs, Bianca's net is <em>$8,840</em>. I want her to feel heard about Friday — but I can't promise a Friday transfer until you sign the disbursement.</p>
+          </div>
+          <div class="cites">
+            <span class="pill live">payment_history · 1</span>
+            <span class="pill">matters · 1</span>
+            <span class="pill">trust_ledger · 3</span>
+            <span class="pill">matter_events · 9</span>
+          </div>
+        </div>
+      </article>
+
+      <div class="staged-inline">
+        <div class="lab"><span class="pulse"></span>Staged reply · awaits your approval</div>
+        <h3>Reply to Bianca about the settlement timing</h3>
+        <p class="why">Drafted from the trust ledger entry, your standard disbursement timing, and her tone in the prior 3 messages. I avoided a Friday commitment.</p>
+        <div class="draft">
+          <p>Hi Bianca — good news, the check cleared into your trust account this morning. State Farm's hold runs through Monday Dec 1, which is standard for settlements this size.</p>
+          <p>Your net after fees and costs is <em>$8,840</em>. As soon as the hold lifts, Sarah will sign the disbursement and we'll send it the same day — Tuesday Dec 2 is the realistic earliest, and I'll text you the moment it's on its way.</p>
+          <p>I hear you on Friday. If you want, I can connect you with one of the client-resource folks we work with to talk through bridge options for this week. Just say the word.</p>
+        </div>
+        <div class="acts">
+          <button class="chip primary">Approve &amp; send ↗</button>
+          <button class="chip">Edit before send</button>
+          <button class="chip">Send as Sarah's voice</button>
+          <button class="chip">Rewrite — colder</button>
+          <button class="chip warn">Discard</button>
+        </div>
+      </div>
+
+      <div class="day-divider">Monday · November 24</div>
+
+      <article class="turn ai">
+        <div class="avatar">B</div>
+        <div class="body">
+          <div class="meta"><span class="name ai">Assistant</span><span>4:08 pm</span><span style="color:var(--accent-deep)">autopilot · low-risk reply</span></div>
+          <div class="bub">
+            <p>Hi Bianca — just confirming we received the State Farm correspondence today. Sarah will review tomorrow morning and reach out personally before noon. Nothing further needed from you right now.</p>
+          </div>
+        </div>
+      </article>
+
+      <article class="turn client">
+        <div class="avatar user">BM</div>
+        <div class="body">
+          <div class="meta"><span class="name">Bianca Martinez</span><span>3:51 pm</span></div>
+          <div class="bub">
+            <p>State Farm just emailed me a letter — I'm forwarding it. Looks like maybe the check is going out?</p>
+          </div>
+        </div>
+      </article>
+
+      <div class="day-divider">Friday · November 21</div>
+
+      <article class="turn staff">
+        <div class="body">
+          <div class="meta"><span>Friday · 10:12 am</span><span class="name">Sarah Tucker</span></div>
+          <div class="bub">
+            <p>Hey Bianca — good news. State Farm came back with their final figure on the demand. I'm reviewing now and will walk through it with you Monday at 11 if that still works.</p>
+          </div>
+          <div class="quick-replies">
+            <span class="qr">Add to calendar</span>
+            <span class="qr">Attach: demand response</span>
+            <span class="qr chosen">Sent · seen</span>
+          </div>
+        </div>
+        <div class="avatar" style="background:var(--ink); color:var(--accent); font-family:var(--sans); font-style:normal; font-weight:500; font-size:11px">ST</div>
+      </article>
+
+      <article class="turn client">
+        <div class="avatar user">BM</div>
+        <div class="body">
+          <div class="meta"><span class="name">Bianca Martinez</span><span>Fri · 9:48 am</span></div>
+          <div class="bub">
+            <p>Monday at 11 works. Thanks Sarah 🙏</p>
+          </div>
+        </div>
+      </article>
+
+      <div class="composer-wrap">
+        <div class="composer">
+          <div class="tabs">
+            <span class="t on">Reply</span>
+            <span class="t">Internal note</span>
+            <span class="t">Ask the assistant</span>
+            <span class="scope">Sending as <b style="color:var(--ink); font-weight:500">Sarah Tucker</b></span>
+          </div>
+          <div class="input-area" contenteditable="true" data-ph="Write a reply, or press / to summon a draft from the assistant…"></div>
+          <div class="actions">
+            <button class="iconbtn" title="Attach file">📎</button>
+            <button class="iconbtn" title="Insert from matter">⌘</button>
+            <button class="iconbtn" title="Voice">🎙</button>
+            <div class="spacer"></div>
+            <button class="iconbtn" title="Draft with AI">B.</button>
+            <button class="iconbtn primary" title="Send">↑</button>
+          </div>
+          <div class="hint">
+            <kbd>⌘↵</kbd> send · <kbd>⌘B</kbd> draft with assistant · <kbd>⌘'</kbd> attach matter · the assistant never sends without you.
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+  </main>
+
+  <!-- ============ RIGHT FOCUS DRAWER ============ -->
+  <aside class="focus" data-screen-label="focus-drawer">
+    <header class="focus-head">
+      <div class="kind">Pinned to thread</div>
+      <h2>Bianca Martinez</h2>
+      <div class="sub">Auto injury · settled · awaiting disbursement</div>
+      <div class="ro">read-only · all writes via the assistant</div>
+    </header>
+
+    <div class="focus-actions">
+      <button class="chip primary"><a href="Matter.html" style="color:inherit">Open matter ↗</a></button>
+      <button class="chip">Client profile</button>
+      <button class="chip">Call Bianca</button>
+    </div>
+
+    <div class="section-label">At a glance</div>
+    <div class="focus-grid">
+      <div class="stat-tile">
+        <div class="lab">Net to client</div>
+        <div class="val">$8,840</div>
+      </div>
+      <div class="stat-tile">
+        <div class="lab">Hold lifts</div>
+        <div class="val">Dec 1</div>
+      </div>
+      <div class="stat-tile">
+        <div class="lab">Trust</div>
+        <div class="val pos">$14,200</div>
+        <div class="bar"><i style="width:100%;background:var(--pos)"></i></div>
+      </div>
+      <div class="stat-tile">
+        <div class="lab">Unbilled</div>
+        <div class="val">$0</div>
+        <div class="bar"><i style="width:0%"></i></div>
+      </div>
+    </div>
+
+    <div class="section-label">Client facts <a>edit</a></div>
+    <div class="field-list">
+      <div class="f"><div class="k">Matter</div><div class="v">Auto Injury · settled 11/19</div></div>
+      <div class="f"><div class="k">Counsel</div><div class="v">Sarah Tucker</div></div>
+      <div class="f"><div class="k">Phone</div><div class="v">(704) 555-0182</div></div>
+      <div class="f"><div class="k">Pref. channel</div><div class="v">Text + portal</div></div>
+      <div class="f"><div class="k">Tone</div><div class="v"><em>Anxious about timing — keep concrete</em></div></div>
+      <div class="f"><div class="k">Languages</div><div class="v">English, Spanish</div></div>
+      <div class="f"><div class="k">Conflicts</div><div class="v" style="color:var(--pos)">Cleared</div></div>
+    </div>
+
+    <div class="section-label">Recent activity</div>
+    <div class="timeline">
+      <div class="ev">
+        <div class="when">9:43 am</div>
+        <div class="what"><b>Assistant</b> drafted reply <em>· awaits approval</em></div>
+      </div>
+      <div class="ev">
+        <div class="when">9:42 am</div>
+        <div class="what"><b>Bianca</b> asked about disbursement timing</div>
+      </div>
+      <div class="ev">
+        <div class="when">9:11 am</div>
+        <div class="what">State Farm check <b>cleared into trust</b> · $14,200</div>
+      </div>
+      <div class="ev">
+        <div class="when">Mon 4:08 pm</div>
+        <div class="what">Autopilot acknowledged correspondence</div>
+      </div>
+      <div class="ev">
+        <div class="when">Fri</div>
+        <div class="what"><b>Sarah</b> scheduled walk-through call</div>
+      </div>
+      <div class="ev">
+        <div class="when">Nov 19</div>
+        <div class="what">Settlement <em>signed by both parties</em></div>
+      </div>
+    </div>
+
+    <div class="focus-footer">
+      Autopilot on this thread is currently <b style="color:var(--ink-2)">off</b> — money-adjacent topics escalate to you by default.
+    </div>
+  </aside>
+
+</div>
+
+</body>
+</html>

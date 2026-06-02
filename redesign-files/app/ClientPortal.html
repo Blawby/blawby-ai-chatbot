@@ -1,0 +1,569 @@
+<!doctype html>
+<html lang="en" data-theme="">
+<head>
+<meta charset="utf-8" />
+<title>Your case · Law Offices of Sarah Chen</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,opsz,wght@0,8..60,300..900;1,8..60,300..900&family=Geist:wght@300;400;500;600;700&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="tokens.css">
+<style>
+  body{
+    background:
+      radial-gradient(ellipse 1000px 600px at 80% -10%, color-mix(in oklab, var(--accent) 16%, transparent), transparent 60%),
+      radial-gradient(rgba(15,30,54,0.025) 1px, transparent 1.2px) 0 0 / 3px 3px,
+      var(--paper);
+    background-attachment: fixed;
+  }
+
+  /* top bar (firm-branded) */
+  .topbar{
+    border-bottom: 1px solid var(--rule);
+    background: color-mix(in oklab, var(--paper) 94%, transparent);
+    backdrop-filter: blur(10px);
+    position: sticky; top: 0; z-index: 30;
+  }
+  .topbar .inner{
+    max-width: 1080px; margin: 0 auto;
+    padding: 16px 32px;
+    display:flex; align-items: center; gap: 28px;
+  }
+  .firm-name{ font-family: var(--serif); font-size: 22px; line-height: 1; letter-spacing: -.01em; color: var(--ink); }
+  .firm-name em{ color: var(--accent); }
+  .firm-name small{ display:block; font-family: var(--mono); font-size: 9.5px; color: var(--dim); letter-spacing: .14em; text-transform: uppercase; margin-top: 4px; }
+  .nav-pills{ display:flex; gap: 4px; margin-left: 16px; }
+  .nav-pills a{
+    font-size: 13px; color: var(--ink-2); padding: 7px 12px;
+    border-radius: var(--r-xs); cursor: pointer;
+  }
+  .nav-pills a:hover{ background: var(--rule-soft); color: var(--ink); }
+  .nav-pills a.on{ background: var(--ink); color: var(--accent); }
+  .topbar .grow{ flex: 1; }
+  .topbar .user{
+    display:flex; align-items: center; gap: 10px;
+    padding: 6px 8px 6px 14px; border: 1px solid var(--rule); border-radius: var(--r-pill);
+    background: var(--card); cursor: pointer;
+  }
+  .topbar .user .avatar.user{ width: 26px; height: 26px; font-size: 10px; }
+  .topbar .user .who{ font-size: 13px; line-height: 1; }
+  .topbar .user .who small{ font-size: 10.5px; color: var(--dim); display:block; margin-top: 2px; font-family: var(--mono); letter-spacing: .04em; }
+
+  /* page */
+  .wrap{ max-width: 1080px; margin: 0 auto; padding: 40px 32px 80px; }
+
+  /* greeting */
+  .greeting{ margin-bottom: 32px; }
+  .greeting .date{ font-family: var(--mono); font-size: 10.5px; letter-spacing: .14em; text-transform: uppercase; color: var(--dim); margin-bottom: 6px; }
+  .greeting h1{
+    font-family: var(--serif); font-weight: 400; font-size: 52px; line-height: 1.02; letter-spacing: -.02em;
+    margin: 0; max-width: 20ch; text-wrap: balance;
+  }
+  .greeting h1 em{ color: var(--accent); }
+  .greeting p{ margin: 12px 0 0; max-width: 56ch; color: var(--ink-2); font-size: 16px; line-height: 1.55; }
+
+  /* hero status card */
+  .status-card{
+    background: var(--card);
+    border: 1px solid var(--rule); border-radius: var(--r-md);
+    overflow: hidden;
+    box-shadow: var(--shadow-3);
+  }
+  .status-card .topband{
+    padding: 20px 28px;
+    display:flex; justify-content: space-between; align-items: flex-start; gap: 24px;
+    border-bottom: 1px solid var(--rule);
+    background: linear-gradient(180deg, color-mix(in oklab, var(--accent) 10%, var(--card)), var(--card));
+  }
+  .status-card .topband .left .label{ font-family: var(--mono); font-size: 10px; color: var(--accent-deep); letter-spacing: .14em; text-transform: uppercase; }
+  .status-card .topband .left h2{
+    font-family: var(--serif); font-weight: 400; font-size: 28px; margin: 6px 0 0; letter-spacing: -.012em; line-height: 1.15;
+  }
+  .status-card .topband .left .sub{ font-size: 13px; color: var(--dim); margin-top: 4px; font-family: var(--mono); letter-spacing: .04em; text-transform: uppercase; }
+  .status-card .topband .stage{
+    text-align: right;
+  }
+  .status-card .topband .stage .label{ font-family: var(--mono); font-size: 10px; color: var(--dim); letter-spacing: .14em; text-transform: uppercase; }
+  .status-card .topband .stage .pill{ margin-top: 6px; font-size: 12px; }
+
+  /* progress journey */
+  .journey{
+    padding: 32px 28px;
+    position: relative;
+  }
+  .journey-line{
+    position: absolute;
+    left: 56px; right: 56px; top: 50px;
+    height: 2px;
+    background: var(--rule);
+  }
+  .journey-progress{
+    position: absolute;
+    left: 56px; top: 50px;
+    width: 50%;
+    height: 2px;
+    background: var(--accent);
+  }
+  .journey-steps{
+    display:grid; grid-template-columns: repeat(5, 1fr); gap: 12px;
+    position: relative;
+  }
+  .js{
+    display:flex; flex-direction: column; align-items: center; gap: 10px; text-align: center;
+    position: relative; z-index: 2;
+  }
+  .js .ix{
+    width: 32px; height: 32px; border-radius: 50%;
+    background: var(--card); border: 2px solid var(--rule);
+    display:grid; place-items: center;
+    font-family: var(--mono); font-size: 12px; color: var(--dim);
+  }
+  .js.done .ix{ background: var(--ink); border-color: var(--ink); color: var(--accent); }
+  .js.now .ix{ background: var(--accent); border-color: var(--accent); color: var(--accent-ink); box-shadow: 0 0 0 5px var(--accent-soft); }
+  .js .name{ font-family: var(--serif); font-size: 14px; line-height: 1.25; max-width: 14ch; }
+  .js.done .name{ color: var(--ink-2); }
+  .js.now .name{ color: var(--ink); font-weight: 500; }
+  .js .when{ font-family: var(--mono); font-size: 10px; color: var(--dim); letter-spacing: .04em; text-transform: uppercase; }
+
+  .status-card .next-up{
+    padding: 22px 28px;
+    border-top: 1px solid var(--rule);
+    background: var(--paper-2);
+    display:grid; grid-template-columns: 1fr auto; gap: 18px; align-items: center;
+  }
+  .next-up .label{ font-family: var(--mono); font-size: 10px; letter-spacing: .14em; text-transform: uppercase; color: var(--dim); }
+  .next-up .what{ font-family: var(--serif); font-size: 18px; line-height: 1.3; margin-top: 4px; max-width: 56ch; }
+  .next-up .what em{ color: var(--accent-deep); font-style: italic; }
+  .next-up .acts{ display:flex; gap: 8px; flex-shrink: 0; }
+
+  /* main grid */
+  .main{ display:grid; grid-template-columns: 1.5fr 1fr; gap: 24px; margin-top: 32px; }
+
+  /* card */
+  .card-section{
+    background: var(--card); border: 1px solid var(--rule); border-radius: var(--r-md);
+    overflow: hidden;
+    box-shadow: var(--shadow-1);
+  }
+  .card-section .head{
+    padding: 14px 22px; border-bottom: 1px solid var(--rule); background: var(--paper-2);
+    display:flex; justify-content: space-between; align-items: center;
+  }
+  .card-section .head h3{ font-family: var(--serif); font-size: 18px; margin: 0; font-weight: 400; letter-spacing: -.005em; }
+  .card-section .head .label{ font-family: var(--mono); font-size: 10px; color: var(--dim); letter-spacing: .1em; text-transform: uppercase; }
+  .card-section .head a{ font-size: 12px; color: var(--ink-2); cursor: pointer; border-bottom: 1px dotted var(--dim-2); }
+
+  /* messages */
+  .messages{ padding: 6px 22px 18px; display:flex; flex-direction: column; gap: 0; }
+  .msg{ display:flex; gap: 12px; padding: 14px 0; border-bottom: 1px solid var(--rule); }
+  .msg:last-child{ border-bottom: none; }
+  .msg .av{ width: 32px; height: 32px; border-radius: 50%; flex-shrink: 0; display:grid; place-items:center; font-size: 11px; }
+  .msg .av.attorney{ background: var(--ink); color: var(--accent); font-family: var(--serif); font-style: italic; font-size: 15px; }
+  .msg .av.me{ background: linear-gradient(135deg, var(--ink-2), var(--ink)); color: var(--paper); font-family: var(--sans); font-weight: 600; }
+  .msg .body{ flex: 1; min-width: 0; }
+  .msg .body .meta{ font-family: var(--mono); font-size: 10px; letter-spacing: .08em; text-transform: uppercase; color: var(--dim); }
+  .msg .body .meta b{ font-family: var(--sans); font-weight: 500; color: var(--ink); text-transform: none; letter-spacing: 0; font-size: 13px; margin-right: 8px; }
+  .msg .body .meta .role{ color: var(--accent-deep); font-family: var(--mono); }
+  .msg .body .txt{ font-size: 14.5px; line-height: 1.55; color: var(--ink); margin-top: 6px; max-width: 60ch; }
+  .msg .body .txt em{ color: var(--accent-deep); font-style: italic; }
+
+  .reply-composer{
+    border-top: 1px solid var(--rule);
+    padding: 14px 22px;
+    background: var(--paper-2);
+  }
+  .reply-composer .row{
+    background: var(--card); border: 1px solid var(--rule); border-radius: var(--r-pill);
+    padding: 6px 6px 6px 16px;
+    display:flex; align-items: center; gap: 10px;
+  }
+  .reply-composer .input{ flex: 1; outline: none; font-size: 14px; min-height: 22px; color: var(--ink); }
+  .reply-composer .input:empty::before{ content: attr(data-ph); color: var(--dim-2); }
+  .reply-composer .ib{ width: 32px; height: 32px; border-radius: 50%; border: 1px solid var(--rule); background: var(--card); display:grid; place-items:center; cursor:pointer; color: var(--ink-2); }
+  .reply-composer .ib.primary{ background: var(--ink); border-color: var(--ink); color: var(--accent); }
+  .reply-composer .hint{ font-family: var(--mono); font-size: 10px; color: var(--dim-2); letter-spacing: .04em; text-transform: uppercase; margin-top: 8px; text-align: center; }
+
+  /* side cards */
+  .side{ display:flex; flex-direction: column; gap: 18px; }
+
+  /* retainer */
+  .retainer{ padding: 20px 22px; }
+  .retainer .label{ font-family: var(--mono); font-size: 10px; letter-spacing: .12em; text-transform: uppercase; color: var(--dim); }
+  .retainer .balance{ font-family: var(--serif); font-size: 36px; line-height: 1; margin: 8px 0 4px; letter-spacing: -.012em; }
+  .retainer .balance small{ font-family: var(--mono); font-size: 12px; color: var(--dim); font-feature-settings: "tnum"; margin-left: 4px; }
+  .retainer .sub{ font-family: var(--mono); font-size: 11px; color: var(--dim); letter-spacing: .04em; text-transform: uppercase; margin-bottom: 14px; }
+  .retainer .bar{ height: 8px; }
+  .retainer .summary{
+    display:grid; grid-template-columns: 1fr 1fr; gap: 14px;
+    margin-top: 18px; padding-top: 18px;
+    border-top: 1px solid var(--rule);
+  }
+  .retainer .summary .cell{ display:flex; flex-direction: column; gap: 4px; }
+  .retainer .summary .cell .l{ font-family: var(--mono); font-size: 10px; letter-spacing: .1em; text-transform: uppercase; color: var(--dim); }
+  .retainer .summary .cell .v{ font-family: var(--serif); font-size: 18px; line-height: 1; }
+  .retainer .why{
+    margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--rule);
+    font-size: 12.5px; color: var(--dim); line-height: 1.5;
+  }
+  .retainer .why b{ color: var(--ink-2); font-weight: 500; }
+
+  /* docs */
+  .doc-row{
+    display:grid; grid-template-columns: 32px 1fr auto;
+    gap: 12px; align-items: center;
+    padding: 12px 22px; border-bottom: 1px solid var(--rule);
+    cursor: pointer; transition: background .12s;
+  }
+  .doc-row:last-child{ border-bottom: none; }
+  .doc-row:hover{ background: var(--rule-soft); }
+  .doc-row .ic{ width: 32px; height: 32px; border-radius: var(--r-xs); background: var(--rule-soft); display:grid; place-items: center; font-family: var(--mono); font-size: 10px; font-weight: 600; color: var(--ink-2); }
+  .doc-row .ic.signed{ background: color-mix(in oklab, var(--pos) 14%, var(--card)); color: var(--pos); }
+  .doc-row .ic.shared{ background: color-mix(in oklab, var(--accent) 14%, var(--card)); color: var(--accent-deep); }
+  .doc-row .name{ font-size: 14px; }
+  .doc-row .name small{ display:block; font-family: var(--mono); font-size: 10.5px; color: var(--dim); letter-spacing: .04em; margin-top: 2px; }
+  .doc-row .meta{ font-family: var(--mono); font-size: 10.5px; color: var(--dim); letter-spacing: .04em; text-transform: uppercase; }
+
+  /* attorney card */
+  .attorney-card{
+    background: var(--ink); color: var(--paper);
+    border-radius: var(--r-md);
+    padding: 22px;
+    display:flex; flex-direction: column; gap: 14px;
+    box-shadow: var(--shadow-2);
+  }
+  .attorney-card .head{ display:flex; gap: 12px; align-items: center; }
+  .attorney-card .head .avatar.lg{
+    width: 48px; height: 48px; background: var(--accent); color: var(--accent-ink);
+    box-shadow: 0 0 0 4px rgba(245,197,24,.18);
+  }
+  .attorney-card .head .who{ font-family: var(--serif); font-size: 18px; line-height: 1.2; color: var(--paper); }
+  .attorney-card .head .who small{ display:block; font-family: var(--mono); font-size: 10.5px; color: color-mix(in oklab, var(--paper) 60%, transparent); letter-spacing: .04em; text-transform: uppercase; margin-top: 4px; }
+  .attorney-card p{ font-size: 13.5px; color: color-mix(in oklab, var(--paper) 75%, var(--ink-3)); line-height: 1.55; margin: 0; }
+  .attorney-card .contact{ display:flex; flex-direction: column; gap: 4px; font-family: var(--mono); font-size: 12px; color: color-mix(in oklab, var(--paper) 80%, transparent); letter-spacing: .02em; padding: 12px 0 0; border-top: 1px solid rgba(255,255,255,.12); }
+  .attorney-card .contact .l{ display:flex; justify-content: space-between; align-items: center; padding: 4px 0; }
+  .attorney-card .contact .l .k{ color: color-mix(in oklab, var(--paper) 50%, transparent); text-transform: uppercase; font-size: 10px; letter-spacing: .1em; }
+  .attorney-card .contact .l .v{ color: var(--paper); }
+
+  /* upcoming */
+  .upcoming{ padding: 6px 22px 18px; }
+  .up-row{ display:grid; grid-template-columns: 56px 1fr; gap: 14px; padding: 10px 0; border-bottom: 1px dotted var(--rule); align-items: flex-start; }
+  .up-row:last-child{ border-bottom: none; }
+  .up-row .date{
+    background: var(--paper-2); border: 1px solid var(--rule); border-radius: var(--r-xs);
+    padding: 6px 8px; text-align: center;
+    font-family: var(--serif);
+  }
+  .up-row .date .d{ font-size: 18px; line-height: 1; }
+  .up-row .date .m{ font-family: var(--mono); font-size: 9.5px; letter-spacing: .1em; text-transform: uppercase; color: var(--dim); margin-top: 2px; }
+  .up-row .what{ display:flex; flex-direction: column; gap: 2px; }
+  .up-row .what .t{ font-size: 14px; }
+  .up-row .what .d{ font-family: var(--mono); font-size: 11px; color: var(--dim); letter-spacing: .02em; }
+
+  /* footer */
+  .foot{
+    margin-top: 56px; padding-top: 24px; border-top: 1px solid var(--rule);
+    display:flex; justify-content: space-between; align-items: flex-end;
+    font-family: var(--mono); font-size: 10.5px; color: var(--dim); letter-spacing: .04em; text-transform: uppercase;
+  }
+  .foot a{ color: var(--ink-2); border-bottom: 1px dotted var(--dim-2); cursor: pointer; }
+
+  @media (max-width: 920px){
+    .main{ grid-template-columns: 1fr; }
+    .greeting h1{ font-size: 40px; }
+    .journey-steps{ grid-template-columns: repeat(3, 1fr); }
+    .journey-line, .journey-progress{ display: none; }
+  }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="inner">
+    <div class="firm-name">Law Offices of <em>Sarah Chen</em>, PLLC<small>Family law &amp; civil litigation · NC Bar #45382</small></div>
+    <div class="nav-pills">
+      <a class="on">Your case</a>
+      <a>Documents</a>
+      <a>Billing</a>
+      <a>Messages</a>
+    </div>
+    <div class="grow"></div>
+    <div class="user">
+      <div class="avatar user">BM</div>
+      <div class="who">Bob Martinez<small>client</small></div>
+      <span style="color:var(--dim-2)">⌃</span>
+    </div>
+  </div>
+</div>
+
+<div class="wrap">
+
+  <div class="greeting">
+    <div class="date">Tuesday · November 25, 2026</div>
+    <h1>Hi <em>Bob.</em> Here's where your case stands.</h1>
+    <p>Your demand letter went out last week and we're waiting on State Farm's response. Nothing for you to do right now — I'll let you know the moment they reply.</p>
+  </div>
+
+  <!-- hero status -->
+  <div class="status-card">
+    <div class="topband">
+      <div class="left">
+        <div class="label">Your case</div>
+        <h2>Auto Injury · vs State Farm Insurance</h2>
+        <div class="sub">opened Nov 14 · matter #BLB-0241</div>
+      </div>
+      <div class="stage">
+        <div class="label">Current stage</div>
+        <span class="pill" style="background:color-mix(in oklab, var(--accent) 12%, var(--card)); color: var(--accent-deep); border-color: color-mix(in oklab, var(--accent) 30%, var(--rule));"><span style="background:var(--accent);width:5px;height:5px;border-radius:50%"></span>Awaiting adjuster response</span>
+      </div>
+    </div>
+
+    <div class="journey">
+      <div class="journey-line"></div>
+      <div class="journey-progress"></div>
+      <div class="journey-steps">
+        <div class="js done">
+          <div class="ix">✓</div>
+          <div class="name">Case opened</div>
+          <div class="when">Nov 14</div>
+        </div>
+        <div class="js done">
+          <div class="ix">✓</div>
+          <div class="name">Medical records collected</div>
+          <div class="when">Nov 18</div>
+        </div>
+        <div class="js done">
+          <div class="ix">✓</div>
+          <div class="name">Demand letter sent</div>
+          <div class="when">Nov 19</div>
+        </div>
+        <div class="js now">
+          <div class="ix">●</div>
+          <div class="name">Awaiting response</div>
+          <div class="when">by Dec 4</div>
+        </div>
+        <div class="js">
+          <div class="ix">5</div>
+          <div class="name">Settlement or file</div>
+          <div class="when">Q1 '27</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="next-up">
+      <div>
+        <div class="label">What's next</div>
+        <div class="what">We expect a response or counteroffer from State Farm by <em>December 4</em>. If it's reasonable, Sarah will call you to discuss. If they low-ball, she'll prep the next move.</div>
+      </div>
+      <div class="acts">
+        <button class="btn btn-ghost btn-sm">View full timeline</button>
+        <button class="btn btn-primary btn-sm">Message Sarah</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- two-col main -->
+  <div class="main">
+
+    <!-- left: messages + upcoming -->
+    <div style="display:flex;flex-direction:column;gap:24px">
+
+      <div class="card-section">
+        <div class="head">
+          <h3>Messages with Sarah</h3>
+          <a>view all (12)</a>
+        </div>
+        <div class="messages">
+
+          <div class="msg">
+            <div class="av attorney">S</div>
+            <div class="body">
+              <div class="meta"><b>Sarah Chen</b> <span class="role">your attorney</span> · Nov 22, 3:14pm</div>
+              <div class="txt">Bob — quick update from my call with the adjuster (J. Reeves). He's pushing back on causation, claiming the shoulder injury was pre-existing. Not surprising; this is normal opening posture. <em>Your medical records are clean</em> — Dr. Mendez documented no prior treatment, which is exactly what we need.<br><br>I'll hold the line through their formal response. Nothing for you to do.</div>
+            </div>
+          </div>
+
+          <div class="msg">
+            <div class="av me">BM</div>
+            <div class="body">
+              <div class="meta"><b>You</b> · Nov 22, 4:02pm</div>
+              <div class="txt">Got it, thanks Sarah. Should I be worried about the IME they mentioned?</div>
+            </div>
+          </div>
+
+          <div class="msg">
+            <div class="av attorney">S</div>
+            <div class="body">
+              <div class="meta"><b>Sarah Chen</b> <span class="role">your attorney</span> · Nov 22, 4:18pm</div>
+              <div class="txt">Not yet. I declined for now because we haven't completed your treatment plan. If they push it after their response, we'll talk — IMEs aren't automatic and we have options.</div>
+            </div>
+          </div>
+
+          <div class="msg">
+            <div class="av attorney">S</div>
+            <div class="body">
+              <div class="meta"><b>Sarah Chen</b> <span class="role">your attorney</span> · Nov 19, 5:31pm</div>
+              <div class="txt">Demand letter went out today via certified mail. They have 30 days to respond. I'll forward you a copy in the documents section — no need to read every page, the summary is on page 1.</div>
+            </div>
+          </div>
+
+        </div>
+
+        <div class="reply-composer">
+          <div class="row">
+            <div class="input" contenteditable="true" data-ph="Message Sarah — usually replies within a business day"></div>
+            <div class="ib">📎</div>
+            <div class="ib primary">↑</div>
+          </div>
+          <div class="hint">Encrypted end-to-end · private to you and your attorney</div>
+        </div>
+      </div>
+
+      <div class="card-section">
+        <div class="head">
+          <h3>Upcoming</h3>
+          <span class="label">next 30 days</span>
+        </div>
+        <div class="upcoming">
+          <div class="up-row">
+            <div class="date"><div class="d">04</div><div class="m">Dec</div></div>
+            <div class="what">
+              <div class="t">Adjuster response deadline</div>
+              <div class="d">9 days from now · we'll review together once it arrives</div>
+            </div>
+          </div>
+          <div class="up-row">
+            <div class="date"><div class="d">11</div><div class="m">Dec</div></div>
+            <div class="what">
+              <div class="t">Strategy call · 30 min</div>
+              <div class="d">scheduled · Sarah will send the meeting link · 2:00pm</div>
+            </div>
+          </div>
+          <div class="up-row">
+            <div class="date"><div class="d">22</div><div class="m">Dec</div></div>
+            <div class="what">
+              <div class="t">Follow-up with Dr. Mendez</div>
+              <div class="d">surgical consult · please confirm and let Sarah know the outcome</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- right column -->
+    <aside class="side">
+
+      <!-- attorney -->
+      <div class="attorney-card">
+        <div class="head">
+          <div class="avatar lg">S</div>
+          <div class="who">Sarah Chen<small>your attorney · NC Bar #45382</small></div>
+        </div>
+        <p>Reach out any time — I respond within a business day. If you have a court date or are physically in danger, call my office directly.</p>
+        <div class="contact">
+          <div class="l"><span class="k">Email</span><span class="v">sarah@chenlaw.com</span></div>
+          <div class="l"><span class="k">Office</span><span class="v">(704) 555-0184</span></div>
+          <div class="l"><span class="k">Out of office</span><span class="v">Fridays</span></div>
+        </div>
+      </div>
+
+      <!-- retainer -->
+      <div class="card-section">
+        <div class="head">
+          <h3>Your retainer</h3>
+          <a>view billing →</a>
+        </div>
+        <div class="retainer">
+          <div class="label">Balance held in trust</div>
+          <div class="balance">$2,250<small>.00 of $5,000.00</small></div>
+          <div class="sub">last withdrawn 2 days ago</div>
+          <div class="bar"><i style="width:45%; background: var(--accent)"></i></div>
+
+          <div class="summary">
+            <div class="cell">
+              <span class="l">Used</span>
+              <span class="v">$2,750.00</span>
+            </div>
+            <div class="cell">
+              <span class="l">Hours billed</span>
+              <span class="v">18.3 h</span>
+            </div>
+          </div>
+
+          <div class="why">
+            Your retainer is held in an <b>IOLTA trust account</b> and only used as work is performed. Sarah's office will request a replenishment when the balance hits 30% — you'll get a notice first, not a surprise charge.
+          </div>
+        </div>
+      </div>
+
+      <!-- documents -->
+      <div class="card-section">
+        <div class="head">
+          <h3>Documents</h3>
+          <a>upload</a>
+        </div>
+        <div>
+          <div class="doc-row">
+            <div class="ic signed">✓</div>
+            <div class="name">Engagement letter · signed<small>Nov 14 · 4 pages · countersigned by Sarah Chen</small></div>
+            <div class="meta">download</div>
+          </div>
+          <div class="doc-row">
+            <div class="ic shared">PDF</div>
+            <div class="name">Demand letter to State Farm<small>Nov 19 · 7 pages · shared with you</small></div>
+            <div class="meta">download</div>
+          </div>
+          <div class="doc-row">
+            <div class="ic shared">PDF</div>
+            <div class="name">Medical records summary<small>Nov 18 · 2 pages · prepared by Sarah</small></div>
+            <div class="meta">download</div>
+          </div>
+          <div class="doc-row">
+            <div class="ic">JPG</div>
+            <div class="name">Accident scene photos<small>Nov 14 · 6 photos · uploaded by you</small></div>
+            <div class="meta">view</div>
+          </div>
+          <div class="doc-row">
+            <div class="ic">PDF</div>
+            <div class="name">Police report<small>Nov 14 · 3 pages · uploaded by you</small></div>
+            <div class="meta">view</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- payment history -->
+      <div class="card-section">
+        <div class="head">
+          <h3>Payment history</h3>
+          <span class="label">2 payments</span>
+        </div>
+        <div>
+          <div class="doc-row">
+            <div class="ic" style="background:color-mix(in oklab, var(--pos) 14%, var(--card));color:var(--pos)">$</div>
+            <div class="name">Initial retainer<small>Nov 14 · ACH · ending 4242</small></div>
+            <div class="meta" style="font-family:var(--mono);font-size:13px;color:var(--ink-2);text-transform:none;letter-spacing:-.01em;font-feature-settings:'tnum'">$5,000.00</div>
+          </div>
+          <div class="doc-row">
+            <div class="ic" style="background:color-mix(in oklab, var(--pos) 14%, var(--card));color:var(--pos)">$</div>
+            <div class="name">Consult fee · credited<small>Nov 14 · card ending 4242 · applied to retainer</small></div>
+            <div class="meta" style="font-family:var(--mono);font-size:13px;color:var(--ink-2);text-transform:none;letter-spacing:-.01em;font-feature-settings:'tnum'">$150.00</div>
+          </div>
+        </div>
+      </div>
+
+    </aside>
+  </div>
+
+  <div class="foot">
+    <div>
+      Encrypted end-to-end · <a>privacy policy</a> · <a>terms</a><br>
+      <span style="color:var(--dim-2)">No attorney-client communications are shared without your written consent.</span>
+    </div>
+    <div style="text-align:right">
+      powered by <b style="color:var(--ink-2)">Blawby</b><br>
+      <span style="color:var(--dim-2)">blawby.com</span>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>

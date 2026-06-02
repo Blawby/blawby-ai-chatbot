@@ -1,0 +1,192 @@
+<!doctype html>
+<html lang="en" data-theme="">
+<head>
+<meta charset="utf-8" />
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,opsz,wght@0,8..60,300..900;1,8..60,300..900&family=Geist:wght@300;400;500;600;700&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="tokens.css">
+<title>Blawby — Stripe Connect</title>
+
+<style>
+  body{ background-image: radial-gradient(rgba(15,30,54,0.025) 1px, transparent 1.2px); background-size: 3px 3px; background-attachment: fixed; }
+  .shell{ display:grid; grid-template-columns: 280px 1fr; min-height: 100vh; max-width: 1440px; margin: 0 auto; }
+  .side{
+    border-right: 1px solid var(--rule); padding: 22px 16px;
+    display:flex; flex-direction:column; gap: 14px;
+    position: sticky; top: 0; height: 100vh; overflow-y: auto;
+    background: color-mix(in oklab, var(--paper) 96%, var(--card));
+  }
+  .back{ display:inline-flex; align-items:center; gap: 6px; font-family: var(--mono); font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--dim); cursor: pointer; padding: 4px 8px; margin-left: -8px; text-decoration:none; }
+  .back:hover{ color: var(--ink); }
+  .side h2{ font-family: var(--serif); font-weight:400; font-size: 28px; margin: 4px 0 0; letter-spacing:-.012em; }
+  .side .org{ font-family:var(--mono); font-size:11px; color: var(--dim); letter-spacing: .04em; }
+  .nav-section{ display:flex; flex-direction:column; gap: 1px; margin-top: 6px; }
+  .nav-section .lbl{ font-family: var(--mono); font-size: 9.5px; letter-spacing: .12em; text-transform: uppercase; color: var(--dim-2); padding: 14px 10px 6px; }
+  .nav-item{ display:flex; align-items:center; gap: 10px; padding: 8px 10px; border-radius: var(--r-xs); font-size: 13.5px; color: var(--ink-2); cursor: pointer; transition: background .14s, color .14s; text-decoration: none; }
+  .nav-item:hover{ background: var(--rule-soft); color: var(--ink); }
+  .nav-item.on{ background: var(--ink); color: var(--accent); }
+  .nav-item .ic{ width:14px; height:14px; opacity:.7; flex-shrink:0; }
+  .nav-item.on .ic{ opacity: 1; }
+  .nav-item .badge{ margin-left: auto; font-family: var(--mono); font-size: 10px; color: var(--dim); }
+  .nav-item.on .badge{ color: var(--accent); }
+  .main{ padding: 36px 56px 80px; max-width: 920px; }
+  .crumb{ font-family: var(--mono); font-size: 10px; letter-spacing: .14em; text-transform: uppercase; color: var(--dim); margin-bottom: 6px; }
+  .main h1{ font-family: var(--serif); font-weight: 400; font-size: 48px; letter-spacing:-.02em; line-height: 1.05; margin: 0; }
+  .main h1 em{ color: var(--accent); }
+  .main > .lede{ margin: 12px 0 36px; }
+  section.group{ padding: 32px 0; border-top: 1px solid var(--rule); }
+  section.group:first-of-type{ border-top: none; padding-top: 0; }
+  section.group h3{ font-family: var(--serif); font-weight: 400; font-size: 24px; margin: 0 0 4px; letter-spacing:-.01em; }
+  section.group .gdesc{ font-size: 13.5px; color: var(--dim); margin: 0 0 24px; max-width: 60ch; }
+  .setting{ display:grid; grid-template-columns: 1fr auto; gap: 28px; align-items: center; padding: 18px 0; border-bottom: 1px solid var(--rule); }
+  .setting:last-child{ border-bottom: none; }
+  .setting .meta{ display:flex; flex-direction:column; gap:4px; }
+  .setting .meta .h{ font-size: 14px; font-weight: 500; color: var(--ink); }
+  .setting .meta .d{ font-size: 13px; color: var(--dim); max-width: 64ch; line-height: 1.5; }
+  .setting .meta .d code{ font-family: var(--mono); font-size: 11.5px; background: var(--rule-soft); padding: 1px 6px; border-radius: 3px; color: var(--ink-2); }
+  .setting .ctrl{ display:flex; align-items:center; gap: 8px; min-width: 200px; justify-content: flex-end; }
+  .setting .ctrl .input, .setting .ctrl .select{ width: 220px; }
+  .danger{ margin-top: 32px; padding: 22px; border: 1px solid color-mix(in oklab, var(--neg) 30%, var(--rule)); border-radius: var(--r-md); background: color-mix(in oklab, var(--neg) 6%, var(--card)); }
+  .danger h3{ color: var(--neg); }
+  .danger .gdesc{ color: var(--ink-2); }
+  @media (max-width: 980px){ .shell{ grid-template-columns: 1fr; } .side{ display:none; } .main{ padding: 24px 22px; } }
+</style>
+<style>
+  .stripe-hero{ display: flex; align-items: flex-start; gap: 22px; margin-bottom: 28px; }
+  .stripe-hero .s-icon{ width: 52px; height: 52px; border-radius: var(--r-md); background: #635BFF; color: #fff; display: grid; place-items: center; font-weight: 700; font-size: 22px; font-family: var(--sans); flex-shrink: 0; }
+  .stripe-hero .s-info h2{ font-family: var(--serif); font-weight: 400; font-size: 22px; margin: 0; letter-spacing: -.01em; }
+  .stripe-hero .s-info .sub{ font-size: 14px; color: var(--ink-2); margin-top: 4px; line-height: 1.45; max-width: 52ch; }
+  .stripe-stat-grid{ display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-bottom: 22px; }
+  .stripe-stat{ background: var(--card); border: 1px solid var(--rule); border-radius: var(--r-md); padding: 16px; box-shadow: var(--shadow-1); }
+  .stripe-stat .ss-label{ font-family: var(--mono); font-size: 10px; letter-spacing: .1em; text-transform: uppercase; color: var(--dim); margin-bottom: 6px; }
+  .stripe-stat .ss-val{ font-family: var(--serif); font-size: 26px; font-weight: 400; letter-spacing: -.01em; }
+  .stripe-stat .ss-sub{ font-family: var(--mono); font-size: 11px; color: var(--dim); margin-top: 3px; }
+  .conn-detail{ background: var(--card); border: 1px solid var(--rule); border-radius: var(--r-md); padding: 18px; box-shadow: var(--shadow-1); margin-bottom: 22px; }
+  .conn-detail h4{ font-family: var(--serif); font-weight: 400; font-size: 18px; margin: 0 0 14px; }
+  .cd-row{ display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--rule); }
+  .cd-row:last-child{ border-bottom: none; }
+  .cd-row .cd-label{ font-family: var(--mono); font-size: 10.5px; letter-spacing: .06em; text-transform: uppercase; color: var(--dim); }
+  .cd-row .cd-val{ font-size: 13.5px; color: var(--ink); font-family: var(--mono); font-size: 12px; }
+  @media (max-width: 720px){ .stripe-stat-grid{ grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<div class="shell">
+    <aside class="side">
+    <a href="Assistant.html" class="back">← back to assistant</a>
+    <div><h2>Settings</h2><div class="org">Law Offices of Sarah Chen · solo</div></div>
+    <div class="nav-section"><div class="lbl">Practice</div>
+      <a href="Profile.html" class="nav-item"><span class="ic">⌂</span>Profile &amp; areas</a>
+      <a href="Team.html" class="nav-item"><span class="ic">＋</span>Team <span class="badge">1</span></a>
+      <a href="Services.html" class="nav-item"><span class="ic">⏳</span>Services &amp; pricing <span class="badge">5</span></a></div>
+    <div class="nav-section"><div class="lbl">Money</div>
+      <a href="Subscription.html" class="nav-item"><span class="ic">$</span>Subscription</a>
+      <a href="StripeConnect.html" class="nav-item on"><span class="ic">⇄</span>Stripe Connect</a>
+      <a href="Trust.html" class="nav-item"><span class="ic">▤</span>Trust accounting <span class="badge">IOLTA</span></a></div>
+    <div class="nav-section"><div class="lbl">Intelligence</div>
+      <a href="Settings.html" class="nav-item"><span class="ic">✦</span>AI behavior</a>
+      <a href="IntakeForms.html" class="nav-item"><span class="ic">📥</span>Intake forms <span class="badge">3</span></a>
+      <a href="EngagementTemplates.html" class="nav-item"><span class="ic">⌥</span>Engagement templates</a>
+      <a href="Apps.html" class="nav-item"><span class="ic">⬡</span>Apps &amp; integrations <span class="badge">1</span></a>
+      <a href="MCP.html" class="nav-item"><span class="ic">▦</span>MCP &amp; API <span class="badge">beta</span></a></div>
+    <div class="nav-section"><div class="lbl">Account</div>
+      <a href="Security.html" class="nav-item"><span class="ic">⚿</span>Security</a>
+      <a href="Sessions.html" class="nav-item"><span class="ic">◉</span>Sessions</a>
+      <a href="Appearance.html" class="nav-item"><span class="ic">◐</span>Appearance</a>
+      <a href="Notifications.html" class="nav-item"><span class="ic">⌘</span>Notifications</a>
+      <a href="AuditLog.html" class="nav-item"><span class="ic">⎯</span>Audit log</a>
+      <a href="ExportData.html" class="nav-item"><span class="ic">↧</span>Export data</a></div>
+  </aside>
+  <main class="main">
+    <div class="crumb">Settings · Money</div>
+    <h1>Stripe <em>Connect.</em></h1>
+    <p class="lede">Your Stripe Connect account handles client payments, retainer replenishments, and trust deposits. Blawby never holds funds directly.</p>
+
+    <section class="group" style="border:none;padding-top:0">
+      <div class="stripe-hero">
+        <div class="s-icon">S</div>
+        <div class="s-info">
+          <h2>Connected <span class="pill dot live" style="margin-left:8px">live</span></h2>
+          <div class="sub">Your Stripe Connect account is fully onboarded. Charges, payouts, and refunds are enabled.</div>
+        </div>
+      </div>
+
+      <div class="stripe-stat-grid">
+        <div class="stripe-stat">
+          <div class="ss-label">This month</div>
+          <div class="ss-val">$12,450</div>
+          <div class="ss-sub">8 payments collected</div>
+        </div>
+        <div class="stripe-stat">
+          <div class="ss-label">Pending payout</div>
+          <div class="ss-val">$3,200</div>
+          <div class="ss-sub">Next payout Jun 3</div>
+        </div>
+        <div class="stripe-stat">
+          <div class="ss-label">Trust deposits</div>
+          <div class="ss-val">$8,750</div>
+          <div class="ss-sub">IOLTA compliant</div>
+        </div>
+      </div>
+    </section>
+
+    <section class="group">
+      <div class="conn-detail">
+        <h4>Account details</h4>
+        <div class="cd-row"><span class="cd-label">Account ID</span><span class="cd-val">acct_1Q3pXzKj8mN2vB</span></div>
+        <div class="cd-row"><span class="cd-label">Business name</span><span class="cd-val">Law Offices of Sarah Chen</span></div>
+        <div class="cd-row"><span class="cd-label">Payout bank</span><span class="cd-val">Bank of America ••••6789</span></div>
+        <div class="cd-row"><span class="cd-label">Payout schedule</span><span class="cd-val">Daily (2-day rolling)</span></div>
+        <div class="cd-row"><span class="cd-label">Connected since</span><span class="cd-val">Oct 14, 2024</span></div>
+        <div class="cd-row"><span class="cd-label">Platform fee</span><span class="cd-val">0.5% + Stripe fees</span></div>
+      </div>
+    </section>
+
+    <section class="group">
+      <h3>Payment settings</h3>
+      <p class="gdesc">How Blawby processes payments through your Stripe account.</p>
+
+      <div class="setting">
+        <div class="meta">
+          <div class="h">Auto-charge retainer replenishments</div>
+          <div class="d">When a retainer drops below the threshold, charge the card on file automatically. Client receives a receipt.</div>
+        </div>
+        <div class="ctrl"><span class="toggle on" data-toggle></span></div>
+      </div>
+      <div class="setting">
+        <div class="meta">
+          <div class="h">Trust deposit routing</div>
+          <div class="d">Route trust deposits to your IOLTA account automatically. Requires a separate bank account in Stripe.</div>
+        </div>
+        <div class="ctrl"><span class="toggle on" data-toggle></span></div>
+      </div>
+      <div class="setting">
+        <div class="meta">
+          <div class="h">Payment link branding</div>
+          <div class="d">Client-facing payment pages show your firm name and logo, not "Blawby".</div>
+        </div>
+        <div class="ctrl"><span class="toggle on" data-toggle></span></div>
+      </div>
+      <div class="setting">
+        <div class="meta">
+          <div class="h">Require invoice before payment</div>
+          <div class="d">Clients can only pay after an invoice is generated. Disabling allows ad-hoc payment links.</div>
+        </div>
+        <div class="ctrl"><span class="toggle" data-toggle></span></div>
+      </div>
+    </section>
+
+    <div class="danger">
+      <h3>Disconnect Stripe</h3>
+      <p class="gdesc">Disconnecting stops all payment processing. Outstanding invoices will show as unpaid. Trust ledger entries are preserved.</p>
+      <button class="btn btn-ghost btn-sm" style="color:var(--neg);border-color:color-mix(in oklab, var(--neg) 30%, var(--rule));margin-top:8px">Disconnect Stripe account</button>
+    </div>
+  </main>
+</div>
+<script>
+  document.querySelectorAll('[data-toggle]').forEach(t=>{
+    t.addEventListener('click', ()=> t.classList.toggle('on'));
+  });
+</script>
+</body></html>
