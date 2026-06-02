@@ -4,10 +4,13 @@ export type ConversationSurface = 'assistant' | 'messages' | 'onboarding';
 
 const getConversationMode = (conversationOrMetadata: Conversation | ConversationMetadata | null | undefined): ConversationMode | null => {
   if (!conversationOrMetadata) return null;
+  if (typeof conversationOrMetadata !== 'object') return null;
   if ('user_info' in conversationOrMetadata) {
-    return conversationOrMetadata.user_info?.mode ?? null;
+    const conversation = conversationOrMetadata as Conversation;
+    return conversation.user_info?.mode ?? null;
   }
-  return conversationOrMetadata.mode ?? null;
+  const metadata = conversationOrMetadata as ConversationMetadata;
+  return metadata.mode ?? null;
 };
 
 export const getConversationSurface = (

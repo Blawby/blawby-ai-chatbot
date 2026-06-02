@@ -137,7 +137,12 @@ const greetingFor = (now = new Date()): string => {
 
 // ── RecentActivityFeed ────────────────────────────────────────────────────────
 
-interface BackendActivity { id: string; description: string | null; activity_type?: string | null; created_at: string; }
+type ActivityFeedItem = {
+  id: string;
+  description: string | null;
+  activity_type?: string | null;
+  created_at: string;
+};
 
 function RecentActivityFeed({ practiceId, matterId, onOpen, prefetched }: {
   practiceId: string;
@@ -145,7 +150,7 @@ function RecentActivityFeed({ practiceId, matterId, onOpen, prefetched }: {
   onOpen: (id: string) => void;
   prefetched?: Array<{ id: string; description: string; createdAt: string }>;
 }) {
-  const [items, setItems] = useState<BackendActivity[]>([]);
+  const [items, setItems] = useState<ActivityFeedItem[]>([]);
   const fetchedKeyRef = useRef<string | null>(null);
 
   useEffect(() => {
@@ -167,11 +172,11 @@ function RecentActivityFeed({ practiceId, matterId, onOpen, prefetched }: {
     if (fetchedKeyRef.current === key) return;
     const ctrl = new AbortController();
     const url = `${matterNestedPath(practiceId, matterId, 'activity')}?limit=5`;
-    void apiClient.get<{ activities: BackendActivity[] }>(url, { signal: ctrl.signal })
+    void apiClient.get<import('@/shared/types/wire').BackendActivityListResponse>(url, { signal: ctrl.signal })
       .then((res) => {
         if (ctrl.signal.aborted) return;
         fetchedKeyRef.current = key;
-        setItems(res.activities ?? []);
+        setItems(res.data.activities ?? []);
       })
       .catch(() => {});
     return () => ctrl.abort();
@@ -236,8 +241,6 @@ export function PracticeAssistantBriefing({
 
   const userName = session?.user?.name || session?.user?.email || 'there';
   const firstName = userName.split(' ')[0] || userName;
-  const userEmail = session?.user?.email ?? null;
-
   const practiceBasePath = practiceSlug
     ? `/practice/${encodeURIComponent(practiceSlug)}`
     : null;
@@ -252,7 +255,7 @@ export function PracticeAssistantBriefing({
     void fetchDetails();
   }, [practiceId, hasDetails, fetchDetails]);
 
-  const { counts: sidebarCounts, raw: rawSidebarCounts } = useSidebarCounts(
+  const { raw: rawSidebarCounts } = useSidebarCounts(
     practiceId ?? null,
     'home',
   );

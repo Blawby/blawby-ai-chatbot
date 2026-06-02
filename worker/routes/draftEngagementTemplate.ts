@@ -132,11 +132,14 @@ const draftTemplate = async (
   const body = typeof obj.body === 'string' ? obj.body.trim() : '';
 
   if (!name || !body) {
-    Logger.warn('[draftEngagementTemplate] AI returned incomplete draft fields', {
+    const diagnostics = {
       name,
       bodyLength: body.length,
+      resolvedFeeType,
       modelOutput: obj,
-    });
+    };
+    Logger.warn('[draftEngagementTemplate] AI returned incomplete draft fields', diagnostics);
+    throw HttpErrors.internalServerError(`AI returned incomplete draft fields: ${JSON.stringify(diagnostics)}`);
   }
 
   return {

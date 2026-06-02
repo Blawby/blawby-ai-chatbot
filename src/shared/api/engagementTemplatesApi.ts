@@ -30,7 +30,7 @@ export type DraftTemplatePayload = {
 const base = (practiceId: string) =>
   `/api/practices/${encodeURIComponent(practiceId)}/engagement-templates`;
 
-async function apiFetch<T>(url: string, init?: RequestInit): Promise<T> {
+async function apiFetch<T>(url: string, init?: RequestInit): Promise<T | undefined> {
   const res = await fetch(url, {
     ...init,
     headers: { 'Content-Type': 'application/json', ...init?.headers },
@@ -46,33 +46,45 @@ async function apiFetch<T>(url: string, init?: RequestInit): Promise<T> {
     throw new Error(message);
   }
   if (res.status === 204) {
-    return undefined as T;
+    return undefined;
   }
   const text = await res.text();
   if (!text.trim()) {
-    return undefined as T;
+    return undefined;
   }
   return JSON.parse(text) as T;
 }
 
 export const engagementTemplatesApi = {
-  list(practiceId: string): Promise<EngagementTemplateRecord[]> {
-    return apiFetch(base(practiceId));
+  async list(practiceId: string): Promise<EngagementTemplateRecord[]> {
+    const response = await apiFetch<EngagementTemplateRecord[]>(base(practiceId));
+    if (!response) {
+      throw new Error('Empty response while loading engagement templates.');
+    }
+    return response;
   },
 
-  create(practiceId: string, payload: CreateTemplatePayload): Promise<EngagementTemplateRecord> {
+  async create(practiceId: string, payload: CreateTemplatePayload): Promise<EngagementTemplateRecord> {
     const { id: _id, ...body } = payload as CreateTemplatePayload & { id?: string };
-    return apiFetch(base(practiceId), {
+    const response = await apiFetch<EngagementTemplateRecord>(base(practiceId), {
       method: 'POST',
       body: JSON.stringify(body),
     });
+    if (!response) {
+      throw new Error('Empty response while creating engagement template.');
+    }
+    return response;
   },
 
-  update(practiceId: string, templateId: string, payload: UpdateTemplatePayload): Promise<EngagementTemplateRecord> {
-    return apiFetch(`${base(practiceId)}/${encodeURIComponent(templateId)}`, {
+  async update(practiceId: string, templateId: string, payload: UpdateTemplatePayload): Promise<EngagementTemplateRecord> {
+    const response = await apiFetch<EngagementTemplateRecord>(`${base(practiceId)}/${encodeURIComponent(templateId)}`, {
       method: 'PATCH',
       body: JSON.stringify(payload),
     });
+    if (!response) {
+      throw new Error('Empty response while updating engagement template.');
+    }
+    return response;
   },
 
   delete(practiceId: string, templateId: string): Promise<void> {
@@ -82,10 +94,14 @@ export const engagementTemplatesApi = {
   },
 
   // Worker route — generates a new template from a natural-language prompt.
-  draftFromPrompt(practiceId: string, payload: DraftTemplatePayload): Promise<{ template: Partial<EngagementLetterTemplate> }> {
-    return apiFetch('/api/ai/draft-engagement-template', {
+  async draftFromPrompt(practiceId: string, payload: DraftTemplatePayload): Promise<{ template: Partial<EngagementLetterTemplate> }> {
+    const response = await apiFetch<{ template: Partial<EngagementLetterTemplate> }>('/api/ai/draft-engagement-template', {
       method: 'POST',
       body: JSON.stringify({ ...payload, practiceId }),
     });
+    if (!response) {
+      throw new Error('Empty response while drafting engagement template.');
+    }
+    return response;
   },
 };

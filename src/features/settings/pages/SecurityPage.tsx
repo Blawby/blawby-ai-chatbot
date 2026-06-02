@@ -11,6 +11,7 @@ import { Icon } from '@/shared/ui/Icon';
 import { useTranslation } from '@/shared/i18n/hooks';
 import type { SecuritySettings } from '@/shared/types/user';
 import { LoadingBlock } from '@/shared/ui/layout/LoadingBlock';
+import { LoadingSpinner } from '@/shared/ui/layout/LoadingSpinner';
 import { SettingSection } from '@/features/settings/components/SettingSection';
 import { SettingRow } from '@/features/settings/components/SettingRow';
 import { getPreferencesCategory, updatePreferencesCategory } from '@/shared/lib/preferencesApi';
@@ -287,16 +288,17 @@ export const SecurityPage = ({
             <Button variant="ghost" size="sm"
               onClick={() => void handleUpdateEmail()}
               disabled={emailSubmitting || !emailInput.trim() || emailInput.trim() === session?.user?.email}>
-              {emailSubmitting ? 'Sending…' : 'Update email'}
+              {emailSubmitting ? <LoadingSpinner size="sm" ariaLabel="Updating email" /> : null}
+              Update email
             </Button>
-            {session?.user?.emailVerified && (
+            {session?.user?.email_verified && (
               <span className="inline-flex items-center gap-1 font-mono text-[11px] text-[var(--pos)]">✓ Verified</span>
             )}
           </div>
         </div>
       </SettingSection>
 
-      <SettingSection title="Password" description="Change your password. You'll be signed out of all other sessions.">
+      <SettingSection title="Password" description="Change your password. You&apos;ll be signed out of all other sessions.">
         <div className={securityCardClassName}>
           <div className="flex flex-col gap-3.5">
             {hasPasswordAccount && (
@@ -320,11 +322,13 @@ export const SecurityPage = ({
           {passwordError && <p className="mt-3 text-[12px] text-[var(--neg)]">{passwordError}</p>}
           <div className="flex items-center gap-2 mt-4">
             <Button variant="primary" size="sm" onClick={() => void handleChangePassword()} disabled={passwordSubmitting}>
-              {passwordSubmitting ? 'Updating…' : 'Update password'}
+              {passwordSubmitting ? <LoadingSpinner size="sm" ariaLabel="Updating password" /> : null}
+              Update password
             </Button>
             {hasPasswordAccount && (
               <Button variant="ghost" size="sm" onClick={() => void handleResetPassword()} disabled={isResettingPassword}>
-                {isResettingPassword ? 'Sending…' : 'Forgot password?'}
+                {isResettingPassword ? <LoadingSpinner size="sm" ariaLabel="Sending password reset email" /> : null}
+                Forgot password?
               </Button>
             )}
           </div>
@@ -387,7 +391,7 @@ export const SecurityPage = ({
 
       <section className="mt-8 rounded-[20px] border border-[color:color-mix(in_oklab,var(--neg)_30%,var(--rule))] bg-[color:color-mix(in_oklab,var(--neg)_6%,var(--card))] px-5 py-5 sm:px-6">
         <h3 className="font-serif text-2xl font-normal tracking-tight text-[var(--neg)]">Delete account</h3>
-        <p className="mt-1 max-w-[60ch] text-[13.5px] leading-relaxed text-ink-2">Permanently delete your Blawby account and all associated data. This removes you from the organization but does not delete the practice. Transfer ownership first if you're the sole owner.</p>
+        <p className="mt-1 max-w-[60ch] text-[13.5px] leading-relaxed text-ink-2">Permanently delete your Blawby account and all associated data. This removes you from the organization but does not delete the practice. Transfer ownership first if you&apos;re the sole owner.</p>
         <Button variant="danger-ghost" size="sm" className="mt-3"
           onClick={() => showError('Contact support', 'To delete your account, please contact support@blawby.com.')}>
           Delete my account

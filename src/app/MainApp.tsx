@@ -26,7 +26,7 @@ import { clearPendingPracticeInviteLink, readPendingPracticeInviteLink } from '@
 import { usePracticeManagement } from '@/shared/hooks/usePracticeManagement';
 import { usePracticeDetails } from '@/shared/hooks/usePracticeDetails';
 import type { ConversationMode } from '@/shared/types/conversation';
-import { lazy, Suspense } from 'preact/compat';
+import { lazy } from 'preact/compat';
 import { Plus, Mail, Phone, Briefcase } from 'lucide-preact';
 const PracticeMattersPage = lazy(() => import('@/features/matters/pages/PracticeMattersPage').then(m => ({ default: m.PracticeMattersPage })));
 const PracticeContactsPage = lazy(() => import('@/features/clients/pages/PracticeContactsPage').then(m => ({ default: m.PracticeContactsPage })));

@@ -29,7 +29,6 @@ import { signOut } from '@/shared/utils/auth';
 import { Icon, type IconComponent } from '@/shared/ui/Icon';
 import { WorkspaceMainPane } from '@/shared/ui/layout/WorkspaceMainPane';
 import type { WorkspaceMainPaneLayout } from '@/shared/ui/layout/WorkspaceMainPane';
-import { Panel } from '@/shared/ui/layout/Panel';
 import { WorkspaceListHeader } from '@/shared/ui/layout/WorkspaceListHeader';
 import type { WorkspacePlaceholderAction } from '@/shared/ui/layout/WorkspacePlaceholderState';
 import { Button } from '@/shared/ui/Button';
@@ -287,7 +286,6 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
   // When the home page composer submits a question it navigates here with
   // ?ask=<encoded question>. We fire it as a new PRACTICE_ASSISTANT
   // conversation once and clear the param so a refresh doesn't re-send.
-  const autoAskFiredRef = useRef(false);
   const filteredMessages = useMemo(() => filterWorkspaceMessages(messages), [messages]);
   const intakeContactStarted = useMemo(
     () => hasIntakeContactStarted(messages),
@@ -335,7 +333,6 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
     refreshConversations,
     resolvedConversations,
     resolvedConversationsLoading,
-    resolvedConversationsError,
     isInitialConversationCheckRef,
     activeConversationMissingNotification,
     setActiveConversationMissingNotification,
@@ -664,7 +661,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
     setSetupSidebarView('info');
   }, [previewStrongReady, onboardingProgress?.completionScore]);
 
-  const handleStartConversation = async (
+  const handleStartConversation = useCallback(async (
     mode: ConversationMode,
     options?: {
       forceNew?: boolean;
@@ -745,7 +742,20 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
       showError('Unable to start conversation', 'Please try again in a moment.');
       return undefined;
     }
-  };
+  }, [
+    conversationsPath,
+    isPracticeWorkspace,
+    layoutMode,
+    navigate,
+    normalizedBase,
+    onStartNewConversation,
+    refreshConversations,
+    resolvedConversations,
+    showError,
+    withWidgetQuery,
+    workspace,
+    workspaceSection,
+  ]);
 
   const handleOpenRecentMessage = () => {
     if (recentMessage?.conversationId) {
@@ -764,9 +774,9 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
     });
   }, [handleStartConversation]);
 
-  const handleEnterDraftMode = () => {
+  const handleEnterDraftMode = useCallback(() => {
     setDraftConversation((prev) => prev ?? { kind: 'user', contactUserId: null });
-  };
+  }, []);
 
   const handleCancelDraft = () => {
     setDraftConversation(null);
@@ -992,9 +1002,9 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
     path: location.path,
   });
 
-  const handleNavActivate = () => {
+  const handleNavActivate = useCallback(() => {
     setIsInspectorOpen(false);
-  };
+  }, []);
 
   const sidebarUser = session?.user
     ? {

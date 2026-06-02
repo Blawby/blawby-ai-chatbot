@@ -5,6 +5,7 @@ import { Button } from '@/shared/ui/Button';
 import { Alert } from '@/shared/ui/feedback/Alert';
 import { Icon } from '@/shared/ui/Icon';
 import { LoadingScreen } from '@/shared/ui/layout/LoadingScreen';
+import { LoadingSpinner } from '@/shared/ui/layout/LoadingSpinner';
 import { useNavigation } from '@/shared/utils/navigation';
 import { useSessionContext } from '@/shared/contexts/SessionContext';
 import { useToastContext } from '@/shared/contexts/ToastContext';
@@ -113,10 +114,8 @@ export default function OAuthConsentPage() {
         setSubmitting(null);
         return;
       }
-      const redirectURI =
-        (data as { url?: string; redirect_uri?: string; redirectURI?: string } | null)?.url
-        ?? (data as { url?: string; redirect_uri?: string; redirectURI?: string } | null)?.redirect_uri
-        ?? (data as { url?: string; redirect_uri?: string; redirectURI?: string } | null)?.redirectURI;
+      const payload = data as { url?: string; redirect_uri?: string; redirectURI?: string } | null;
+      const redirectURI = payload?.url ?? payload?.redirect_uri ?? payload?.redirectURI;
       if (redirectURI) {
         window.location.href = redirectURI;
         return;
@@ -159,7 +158,9 @@ export default function OAuthConsentPage() {
         ) : (
           <>
             {clientInfoPending ? (
-              <p className="mt-6 text-sm text-dim-2">Loading client details…</p>
+              <div className="mt-6 flex justify-center">
+                <LoadingSpinner size="sm" ariaLabel="Loading client details" className="text-dim-2" />
+              </div>
             ) : null}
 
             {clientInfo?.logo_uri ? (

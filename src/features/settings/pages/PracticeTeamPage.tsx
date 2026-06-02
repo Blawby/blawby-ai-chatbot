@@ -2,7 +2,6 @@ import { useCallback, useEffect, useMemo, useState } from 'preact/hooks';
 import { useLocation } from 'preact-iso';
 import { Copy, X } from 'lucide-preact';
 
-import { Icon } from '@/shared/ui/Icon';
 import { usePracticeManagement, type Role } from '@/shared/hooks/usePracticeManagement';
 import { usePracticeTeam } from '@/shared/hooks/usePracticeTeam';
 import { usePracticeInvitations } from '@/shared/hooks/usePracticeInvitations';
@@ -77,7 +76,7 @@ export const PracticeTeamPage = ({ className }: PracticeTeamPageProps) => {
   const isMember = Boolean(normalizedActiveRole ?? roleFromMembers);
   const teamRoleOptions = PRACTICE_ROLE_OPTIONS.filter(option => option.value !== 'owner');
 
-  const [isInvitingMember, setIsInvitingMember] = useState(false);
+  const [, setIsInvitingMember] = useState(false);
   // Tracks the invitation currently being acted on (accept / decline / cancel).
   // One flag is sufficient since these actions are mutually exclusive per row.
   const [pendingInvitationId, setPendingInvitationId] = useState<string | null>(null);
@@ -91,8 +90,6 @@ export const PracticeTeamPage = ({ className }: PracticeTeamPageProps) => {
     name?: string;
     role: Role;
   } | null>(null);
-  const isEditingMember = editMemberData !== null;
-
   const origin = (typeof window !== 'undefined' && window.location)
     ? window.location.origin
     : '';

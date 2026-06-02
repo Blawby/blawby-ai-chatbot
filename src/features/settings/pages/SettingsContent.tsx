@@ -239,7 +239,7 @@ const SettingsRouter = ({
         </header>
         <div
           className={cn(
-            activeNavItemId === 'practice-team' || activeNavItemId === 'apps' || activeNavItemId === 'app-detail'
+            activeNavItemId === 'practice-team' || activeNavItemId === 'apps'
               ? 'max-w-none'
               : 'max-w-[min(100%,820px)]'
           )}
