@@ -318,7 +318,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
     isClientWorkspace,
     view,
     workspaceSection,
-    activeSecondaryFilter,
+    activeSecondaryFilter: activeSecondaryFilter ?? undefined,
     activeConversationId,
     sessionUserId,
     mockConversations,
@@ -386,7 +386,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
     view,
     layoutMode,
     workspaceSection,
-    activeSecondaryFilter,
+    activeSecondaryFilter: activeSecondaryFilter ?? undefined,
     selectedMatterIdFromPath,
     sessionUserId,
   });
@@ -909,7 +909,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
         isLoadingMoreMessages: onboardingMessageHandling.isLoadingMoreMessages,
         onLoadMoreMessages: onboardingMessageHandling.loadMoreMessages,
         onToggleReaction: features.enableMessageReactions ? onboardingMessageHandling.toggleMessageReaction : undefined,
-        onRequestReactions: onboardingMessageHandling.requestMessageReactions,
+        onRequestReactions: (id: string) => { void onboardingMessageHandling.requestMessageReactions(id); },
       } : null}
       fallbackContent={workspaceFallbackHome}
     />
@@ -1032,9 +1032,9 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
       collapsed={false}
     />
   ) : sidebarOrg ? (
-    <BrandMark word={sidebarOrg.name} />
+    <BrandMark word={sidebarOrg.name} className="px-2 py-2" />
   ) : (
-    <BrandMark />
+    <BrandMark className="px-2 py-2" />
   );
 
   const profileFooter = sidebarUser ? (
@@ -1441,11 +1441,12 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
   };
 
   const showLeftRail = !isFullscreenEditorRoute && railItems.length > 0;
+  const isSettingsView = view === 'settings';
 
   return (
     <>
       <div className="flex h-dvh flex-col lg:flex-row">
-        {showLeftRail && (
+        {!isSettingsView && showLeftRail && (
           <LeftRail
             variant="desktop"
             items={railItems}
@@ -1469,7 +1470,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
             ? { listPanelLgWidth: '340px', inspectorXlWidth: '400px' }
             : {})}
         />
-        {showBottomNav && showLeftRail && (
+        {!isSettingsView && showBottomNav && showLeftRail && (
           <LeftRail
             variant="mobile"
             items={railItems}

@@ -51,6 +51,7 @@ export interface SidebarProps {
 }
 
 export const Sidebar: FunctionComponent<SidebarProps> & {
+  Header: typeof SidebarHeader;
   Org: typeof SidebarOrg;
   Section: typeof SidebarSection;
   Item: typeof SidebarItem;
@@ -70,9 +71,9 @@ export const Sidebar: FunctionComponent<SidebarProps> & {
   const childArr = toChildArray(children);
   const isOfType = (node: unknown, target: unknown): node is VNode =>
     isValidElement(node) && (node as VNode).type === target;
-  const orgEls = childArr.filter((c) => isOfType(c, SidebarOrg));
+  const topEls = childArr.filter((c) => isOfType(c, SidebarHeader) || isOfType(c, SidebarOrg));
   const footerEls = childArr.filter((c) => isOfType(c, SidebarFooter));
-  const bodyEls = childArr.filter((c) => !isOfType(c, SidebarOrg) && !isOfType(c, SidebarFooter));
+  const bodyEls = childArr.filter((c) => !isOfType(c, SidebarHeader) && !isOfType(c, SidebarOrg) && !isOfType(c, SidebarFooter));
 
   // Collapsed mode: toggle button sticks out half-over the right edge so the user
   // can always grab it. Aside uses overflow-visible to allow the bleed; inner
@@ -89,7 +90,7 @@ export const Sidebar: FunctionComponent<SidebarProps> & {
         style={width ? { width: typeof width === 'number' ? `${width}px` : width } : undefined}
       >
         <div className={cn('flex h-full min-h-0 flex-col gap-2 overflow-hidden', collapsed ? 'p-2 pt-3' : 'p-3')}>
-          {orgEls.length > 0 ? <div className="shrink-0">{orgEls}</div> : null}
+          {topEls.length > 0 ? <div className="shrink-0">{topEls}</div> : null}
           <div className="sidebar-scroll flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto">
             {bodyEls}
           </div>
@@ -109,6 +110,19 @@ export const Sidebar: FunctionComponent<SidebarProps> & {
     </SidebarContext.Provider>
   );
 };
+
+// ---------------------------------------------------------------------------
+// Header
+// ---------------------------------------------------------------------------
+
+export interface SidebarHeaderProps {
+  className?: string;
+  children?: ComponentChildren;
+}
+
+const SidebarHeader: FunctionComponent<SidebarHeaderProps> = ({ className, children }) => (
+  <div className={cn(className)}>{children}</div>
+);
 
 // ---------------------------------------------------------------------------
 // Org row
@@ -293,6 +307,8 @@ export interface SidebarItemProps {
   persistKey?: string;
   /** Optional trailing icon (overrides chevron when set). */
   trailingIcon?: IconComponent;
+  /** Fired on hover/focus so routes can preload before click. */
+  prefetch?: () => void;
   children?: ComponentChildren;
 }
 
@@ -325,6 +341,7 @@ const SidebarItem: FunctionComponent<SidebarItemProps> = ({
   onExpandedChange,
   persistKey,
   trailingIcon,
+  prefetch,
   children,
 }) => {
   const ctx = useContext(SidebarContext);
@@ -438,6 +455,8 @@ const SidebarItem: FunctionComponent<SidebarItemProps> = ({
       <button
         type="button"
         onClick={handleClick}
+        onMouseEnter={prefetch}
+        onFocus={prefetch}
         aria-current={isActive ? 'page' : undefined}
         aria-label={label}
         title={label}
@@ -464,6 +483,8 @@ const SidebarItem: FunctionComponent<SidebarItemProps> = ({
       <button
         type="button"
         onClick={handleClick}
+        onMouseEnter={prefetch}
+        onFocus={prefetch}
         aria-current={isActive ? 'page' : undefined}
         aria-expanded={hasChildren ? isExpanded : undefined}
         title={label}
@@ -738,6 +759,7 @@ const SidebarBadge: FunctionComponent<{ children: ComponentChildren }> = ({ chil
   </span>
 );
 
+Sidebar.Header = SidebarHeader;
 Sidebar.Org = SidebarOrg;
 Sidebar.Section = SidebarSection;
 Sidebar.Item = SidebarItem;

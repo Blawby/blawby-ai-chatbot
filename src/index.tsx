@@ -479,6 +479,9 @@ function AppShell() {
           <Route path="/client/:practiceSlug/settings/apps" component={ClientPracticeRoute} workspaceView="settings" settingsView="apps" />
           <Route path="/client/:practiceSlug/settings/apps/:appId" component={ClientPracticeRoute} workspaceView="settings" settingsView="app-detail" />
           <Route path="/client/:practiceSlug/settings/security" component={ClientPracticeRoute} workspaceView="settings" settingsView="security" />
+          <Route path="/client/:practiceSlug/settings/sessions" component={ClientPracticeRoute} workspaceView="settings" settingsView="sessions" />
+          <Route path="/client/:practiceSlug/settings/audit-log" component={ClientPracticeRoute} workspaceView="settings" settingsView="audit-log" />
+          <Route path="/client/:practiceSlug/settings/export-data" component={ClientPracticeRoute} workspaceView="settings" settingsView="export-data" />
           <Route path="/client/:practiceSlug/settings/help" component={ClientPracticeRoute} workspaceView="settings" settingsView="help" />
           <Route path="/practice" component={App404} />
           <Route path="/practice/:practiceSlug" component={PracticeAppRoute} workspaceView="assistant" />
@@ -523,6 +526,9 @@ function AppShell() {
           <Route path="/practice/:practiceSlug/settings/apps" component={PracticeAppRoute} workspaceView="settings" settingsView="apps" />
           <Route path="/practice/:practiceSlug/settings/apps/:appId" component={PracticeAppRoute} workspaceView="settings" settingsView="app-detail" />
           <Route path="/practice/:practiceSlug/settings/security" component={PracticeAppRoute} workspaceView="settings" settingsView="security" />
+          <Route path="/practice/:practiceSlug/settings/sessions" component={PracticeAppRoute} workspaceView="settings" settingsView="sessions" />
+          <Route path="/practice/:practiceSlug/settings/audit-log" component={PracticeAppRoute} workspaceView="settings" settingsView="audit-log" />
+          <Route path="/practice/:practiceSlug/settings/export-data" component={PracticeAppRoute} workspaceView="settings" settingsView="export-data" />
           <Route path="/practice/:practiceSlug/settings/help" component={PracticeAppRoute} workspaceView="settings" settingsView="help" />
           <Route path="/p/:practiceSlug" component={({ practiceSlug }: { practiceSlug?: string }) => <PaymentResultPage practiceSlug={practiceSlug} />} />
           {/* U10: engineer-only intake inspector. The worker route is gated by

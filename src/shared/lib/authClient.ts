@@ -2,6 +2,7 @@ import { createAuthClient } from 'better-auth/react';
 import { organizationClient } from 'better-auth/client/plugins';
 import { anonymousClient } from 'better-auth/client/plugins';
 import { multiSessionClient } from 'better-auth/client/plugins';
+import { oauthProviderClient } from '@better-auth/oauth-provider/client';
 import { stripeClient } from '@better-auth/stripe/client';
 import type { SessionUser, AuthSessionPayload } from '@/shared/types/user';
 import { safeConvertToDate, validateRequiredFields } from '@/shared/types/user';
@@ -83,7 +84,7 @@ function getAuthClient(): AuthClientType {
   if (typeof window === 'undefined') {
     const placeholderBaseURL = getAuthBaseUrl(); // Returns a placeholder during SSR/build, not the real backend URL.
     return createAuthClient({
-      plugins: [organizationClient(), anonymousClient(), multiSessionClient(), stripeClient({ subscription: true })],
+      plugins: [organizationClient(), anonymousClient(), multiSessionClient(), oauthProviderClient(), stripeClient({ subscription: true })],
       baseURL: placeholderBaseURL,
       fetchOptions: {
         credentials: 'include'
@@ -93,7 +94,7 @@ function getAuthClient(): AuthClientType {
 
   // Browser context - create the REAL client (only one is ever created and cached)
   const client = createAuthClient({
-    plugins: [organizationClient(), anonymousClient(), multiSessionClient(), stripeClient({ subscription: true })],
+    plugins: [organizationClient(), anonymousClient(), multiSessionClient(), oauthProviderClient(), stripeClient({ subscription: true })],
     baseURL: getAuthBaseUrl(),
     fetchOptions: {
       credentials: 'include'

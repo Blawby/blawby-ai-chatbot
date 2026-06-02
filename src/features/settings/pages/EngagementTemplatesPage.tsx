@@ -848,11 +848,9 @@ const BLANK_TEMPLATE = (): EngagementLetterTemplate => ({
   body: '',
 });
 
-interface EngagementTemplatesPageProps {
-  onBack?: () => void;
-}
+interface EngagementTemplatesPageProps {}
 
-export const EngagementTemplatesPage = ({ onBack }: EngagementTemplatesPageProps) => {
+export const EngagementTemplatesPage = (_: EngagementTemplatesPageProps) => {
   const { currentPractice, isLoading, updatePractice } = usePracticeManagement({ fetchPracticeDetails: true });
   const { details: practiceDetails, setDetails } = usePracticeDetails(
     currentPractice?.id,
@@ -950,12 +948,7 @@ export const EngagementTemplatesPage = ({ onBack }: EngagementTemplatesPageProps
   }
 
   return (
-    <EditorShell
-      title="Engagement templates"
-      showBack
-      onBack={onBack}
-      contentMaxWidth={null}
-    >
+    <div>
       {isLoading ? (
         <div className="p-6">
           <LoadingSpinner ariaLabel="Loading engagement templates" />
@@ -968,6 +961,6 @@ export const EngagementTemplatesPage = ({ onBack }: EngagementTemplatesPageProps
           onEdit={setEditTarget}
         />
       )}
-    </EditorShell>
+    </div>
   );
 };

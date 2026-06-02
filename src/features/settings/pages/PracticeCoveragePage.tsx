@@ -8,12 +8,13 @@ import { getServiceDetailsForSave } from '@/features/services/utils';
 import { resolveServiceDetails } from '@/features/services/utils/serviceNormalization';
 import { useToastContext } from '@/shared/contexts/ToastContext';
 import { useTranslation } from '@/shared/i18n/hooks';
-import { SectionDivider, EditorShell } from '@/shared/ui/layout';
-
 import { Combobox } from '@/shared/ui/input/Combobox';
 import { STATE_OPTIONS } from '@/shared/ui/address/AddressFields';
 import { Button } from '@/shared/ui/Button';
 import { SettingsHelperText } from '@/features/settings/components/SettingsHelperText';
+import { SettingSection } from '@/features/settings/components/SettingSection';
+import { SettingsCard } from '@/features/settings/components/SettingsCard';
+import { cn } from '@/shared/utils/cn';
 import { buildPracticeProfilePayloads } from '@/shared/utils/practiceProfile';
 
 
@@ -212,96 +213,100 @@ export const PracticeCoveragePage = ({ className, onBack }: PracticeCoveragePage
   }
 
   return (
-    <EditorShell
-      title="Coverage"
-      subtitle="Services, licensed states, and billing rules"
-      showBack={Boolean(onBack)}
-      backVariant="close"
-      onBack={onBack}
-      className={className}
-      contentMaxWidth={null}
-      crumb="Settings · Practice · Coverage"
-      accentTitle={(
-        <>
-          What you <em>take on</em>, and where.
-        </>
+    <div
+      className={cn(
+        'h-full overflow-y-auto bg-[radial-gradient(rgba(15,30,54,0.025)_1px,transparent_1.2px)] [background-size:3px_3px]',
+        className,
       )}
-      lede="Services you offer and the states you're licensed in. The assistant uses this to route intakes."
     >
-      <div className="space-y-6">
-
+      <div className="max-w-[920px] px-14 pb-20 pt-9 max-[980px]:px-[22px] max-[980px]:pb-12 max-[980px]:pt-6">
+        <header className="mb-9">
+          <div className="mb-1.5 font-mono text-[10px] uppercase tracking-[0.14em] text-dim">Settings · Practice · Coverage</div>
+          <div className="flex items-start justify-between gap-4 max-sm:flex-col">
+            <div>
+              <h1 className="font-serif text-[48px] font-normal leading-[1.05] tracking-[-0.02em] text-ink [&_em]:text-accent">
+                Where you <em>practice.</em>
+              </h1>
+              <p className="mt-3 max-w-[60ch] text-[15px] leading-relaxed text-ink-2">
+                Services you offer and the jurisdictions you are licensed in. The assistant uses this to route and qualify intakes.
+              </p>
+            </div>
+            {onBack ? (
+              <Button variant="secondary" size="sm" onClick={onBack}>
+                Back
+              </Button>
+            ) : null}
+          </div>
+        </header>
 
         {servicesError && (
-          <p className="text-xs text-neg dark:text-neg mb-4">
+          <p className="mb-4 text-xs text-neg dark:text-neg">
             {servicesError}
           </p>
         )}
         {statesError && (
-          <p className="text-xs text-red-600 dark:text-red-400 mb-4">
+          <p className="mb-4 text-xs text-red-600 dark:text-red-400">
             {statesError}
           </p>
         )}
 
-        <section className="space-y-4">
-          <div>
-            <h3 className="text-sm font-semibold text-ink">Services</h3>
-            <SettingsHelperText className="mt-1">
-              Choose the legal service areas this practice accepts for routing and intake setup.
-            </SettingsHelperText>
-          </div>
-          <ServicesEditor
-            services={initialServiceDetails}
-            onChange={(nextServices) => void saveServices(nextServices)}
-            catalog={SERVICE_CATALOG}
-          />
-        </section>
+        <SettingSection
+          first
+          title="Services"
+          description="Choose the service areas this practice accepts for intake routing, pricing, and assistant grounding."
+        >
+          <SettingsCard>
+            <ServicesEditor
+              services={initialServiceDetails}
+              onChange={(nextServices) => void saveServices(nextServices)}
+              catalog={SERVICE_CATALOG}
+            />
+          </SettingsCard>
+        </SettingSection>
 
-        <SectionDivider />
-        <section className="space-y-3">
-          <div>
-            <h3 className="text-sm font-semibold text-ink">Licensed states</h3>
-            <SettingsHelperText className="mt-1">
-              Enter US state codes where this practice is licensed. Used to help the assistant reason about jurisdiction.
-            </SettingsHelperText>
-          </div>
-          <Combobox
-            multiple
-            options={STATE_OPTIONS}
-            value={displayedLicensedStates}
-            onChange={(nextStates) => {
-              setLicensedStatesDraft(nextStates);
-              setStatesDraftTouched(true);
-            }}
-            placeholder="Select licensed states"
-            disabled={isSavingStates}
-            aria-label="Licensed states"
-          />
-          {/* Per-state bar number/admission date inputs hidden until backend
-              support exists — they were local-only and never persisted, which
-              misled users into thinking they were saving credentials. */}
-          <SectionDivider />
-          <div className="flex items-center justify-end gap-2">
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={() => {
-                setLicensedStatesDraft(savedLicensedStates);
-                setStatesDraftTouched(false);
+        <SettingSection
+          title="Licensed jurisdictions"
+          description="Select the states where this practice is authorized to operate so intake qualification stays within your licensed footprint."
+        >
+          <SettingsCard className="max-w-[760px]">
+            <Combobox
+              multiple
+              options={STATE_OPTIONS}
+              value={displayedLicensedStates}
+              onChange={(nextStates) => {
+                setLicensedStatesDraft(nextStates);
+                setStatesDraftTouched(true);
               }}
+              placeholder="Select licensed states"
               disabled={isSavingStates}
-            >
-              Reset
-            </Button>
-            <Button
-              size="sm"
-              onClick={handleSaveLicensedStates}
-              disabled={isSavingStates}
-            >
-              {isSavingStates ? 'Saving...' : 'Save'}
-            </Button>
-          </div>
-        </section>
+              aria-label="Licensed states"
+            />
+            <SettingsHelperText className="mt-3 block">
+              Per-state bar numbers and admission dates stay hidden until backend support exists, so the UI only shows fields that actually persist.
+            </SettingsHelperText>
+            <div className="mt-5 flex items-center justify-end gap-2">
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => {
+                  setLicensedStatesDraft(savedLicensedStates);
+                  setStatesDraftTouched(false);
+                }}
+                disabled={isSavingStates}
+              >
+                Reset
+              </Button>
+              <Button
+                size="sm"
+                onClick={handleSaveLicensedStates}
+                disabled={isSavingStates}
+              >
+                {isSavingStates ? 'Saving...' : 'Save'}
+              </Button>
+            </div>
+          </SettingsCard>
+        </SettingSection>
       </div>
-    </EditorShell>
+    </div>
   );
 };

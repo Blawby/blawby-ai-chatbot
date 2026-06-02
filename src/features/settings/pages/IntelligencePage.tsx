@@ -1,16 +1,13 @@
 import { useCallback, useEffect, useMemo, useState } from 'preact/hooks';
-import { useLocation } from 'preact-iso';
 import { Activity, PauseCircle, ShieldCheck, Sparkles } from 'lucide-preact';
 
 import { Button } from '@/shared/ui/Button';
 import { Input, Switch, Textarea } from '@/shared/ui/input';
-import { EditorShell, SectionDivider } from '@/shared/ui/layout';
+import { SectionDivider } from '@/shared/ui/layout';
 import { Icon } from '@/shared/ui/Icon';
 import { Dialog, DialogBody, DialogFooter } from '@/shared/ui/dialog';
 import { useToastContext } from '@/shared/contexts/ToastContext';
-import { useNavigation } from '@/shared/utils/navigation';
 import { cn } from '@/shared/utils/cn';
-import { resolveSettingsBasePath } from '@/shared/utils/workspace';
 
 import { SettingSection } from '@/features/settings/components/SettingSection';
 import { SettingsAIPreface } from '@/features/settings/components/SettingsAIPreface';
@@ -135,14 +132,10 @@ const writeExcludedLS = (excluded: Set<string>): void => {
 
 export interface IntelligencePageProps {
   className?: string;
-  onBack?: () => void;
 }
 
-export const IntelligencePage = ({ className, onBack }: IntelligencePageProps) => {
+export const IntelligencePage = ({ className }: IntelligencePageProps) => {
   const { showSuccess } = useToastContext();
-  const { navigate } = useNavigation();
-  const location = useLocation();
-  const settingsBasePath = resolveSettingsBasePath(location.path);
 
   // ─── AI Behavior ─────────────────────────────────────────────────────────
   const [assistantName, setAssistantName] = useState<string>('Blawby');
@@ -276,29 +269,10 @@ export const IntelligencePage = ({ className, onBack }: IntelligencePageProps) =
   }, [excludedSources, handleToggleSource]);
 
   // ─── Render ──────────────────────────────────────────────────────────────
-  const fallbackBack = useCallback(() => {
-    navigate(`${settingsBasePath}/practice`);
-  }, [navigate, settingsBasePath]);
-
   return (
-    <EditorShell
-      title="Intelligence"
-      subtitle="Assistant behavior, grounding, and safety"
-      showBack
-      backVariant="close"
-      onBack={onBack ?? fallbackBack}
-      className={className}
-      contentMaxWidth={null}
-      crumb="Settings · Practice · Intelligence"
-      accentTitle={
-        <>
-          How the <em>assistant</em> works for you.
-        </>
-      }
-      lede="I'm here so you can see and audit the rules I follow. Every write I propose is staged for your approval — never automatic."
-      heroSlot={<SettingsAIPreface />}
-    >
-      <div className="space-y-10">
+    <div className={className}>
+      <SettingsAIPreface />
+      <div className="space-y-10 mt-8">
         {/* ─── AI Behavior ─────────────────────────────────────────────── */}
         <SettingSection
           title="AI behavior"
@@ -550,7 +524,7 @@ export const IntelligencePage = ({ className, onBack }: IntelligencePageProps) =
           </Button>
         </DialogFooter>
       </Dialog>
-    </EditorShell>
+    </div>
   );
 };
 

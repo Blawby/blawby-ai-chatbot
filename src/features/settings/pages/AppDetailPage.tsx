@@ -3,10 +3,12 @@ import { ComponentChildren } from 'preact';
 import { App, mockConnectApp, mockDisconnectApp } from './appsData';
 import { AppConnectionDialog } from '@/features/settings/components/AppConnectionDialog';
 import { Button } from '@/shared/ui/Button';
-import { SectionDivider, EditorShell } from '@/shared/ui/layout';
+import { ChevronLeft } from 'lucide-preact';
+import { Icon } from '@/shared/ui/Icon';
 import { SettingRow } from '@/features/settings/components/SettingRow';
 import { SettingSection } from '@/features/settings/components/SettingSection';
 import { SettingsBadge } from '@/features/settings/components/SettingsBadge';
+import { SettingsCard } from '@/features/settings/components/SettingsCard';
 import { Input } from '@/shared/ui/input';
 import { MoreVertical, Globe, Puzzle, Settings } from 'lucide-preact';
 
@@ -14,7 +16,6 @@ import { useToastContext } from '@/shared/contexts/ToastContext';
 import { useTranslation } from '@/shared/i18n/hooks';
 import { formatDate } from '@/shared/utils/dateTime';
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from '@/shared/ui/dropdown';
-import { Icon } from '@/shared/ui/Icon';
 
 interface AppDetailPageProps {
   app: App;
@@ -85,14 +86,13 @@ export const AppDetailPage = ({ app, onBack, onUpdate }: AppDetailPageProps) => 
   };
 
   return (
-    <EditorShell
-      title={app.name}
-      showBack
-      onBack={onBack}
-      contentMaxWidth={null}
-    >
+    <div>
+      <button type="button" onClick={onBack} className="inline-flex items-center gap-1.5 font-mono text-[11px] uppercase tracking-widest text-dim hover:text-ink mb-6 transition-colors">
+        <Icon icon={ChevronLeft} className="h-3.5 w-3.5" />
+        Apps
+      </button>
       <div className="space-y-6">
-      <div className="pt-2 pb-6">
+      <SettingsCard className="max-w-[860px]">
         <SettingRow
           label={app.name}
           labelNode={(
@@ -157,11 +157,10 @@ export const AppDetailPage = ({ app, onBack, onUpdate }: AppDetailPageProps) => 
             </DropdownMenu>
           </div>
         </SettingRow>
-      </div>
+      </SettingsCard>
 
-      <SectionDivider />
-      {/* Information */}
-      <SettingSection title={t('settings:apps.clio.information')} className="py-6">
+      <SettingSection first title={t('settings:apps.clio.information')} className="pt-0">
+        <SettingsCard className="max-w-[860px]">
           {app.connected && app.connectedAt && (
             <InfoRowSimple 
               label={t('settings:apps.clio.connectedOn')} 
@@ -198,13 +197,12 @@ export const AppDetailPage = ({ app, onBack, onUpdate }: AppDetailPageProps) => 
               </a>
             }
           />
+        </SettingsCard>
       </SettingSection>
 
-      <SectionDivider />
-
-      {/* Actions */}
       {app.actions && app.actions.length > 0 && (
-        <SettingSection title={t('settings:apps.clio.actions')} className="py-6">
+        <SettingSection title={t('settings:apps.clio.actions')}>
+          <SettingsCard className="max-w-[860px]">
           <div className="space-y-6">
             {app.actions.map((action) => (
               <div key={action.name} className="space-y-2 w-full">
@@ -232,6 +230,7 @@ export const AppDetailPage = ({ app, onBack, onUpdate }: AppDetailPageProps) => 
               </div>
             ))}
           </div>
+          </SettingsCard>
         </SettingSection>
       )}
 
@@ -242,7 +241,7 @@ export const AppDetailPage = ({ app, onBack, onUpdate }: AppDetailPageProps) => 
         onConnect={handleConnect}
       />
     </div>
-    </EditorShell>
+    </div>
   );
 };
 

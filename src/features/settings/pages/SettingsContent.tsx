@@ -1,4 +1,4 @@
-import { useMemo, useState, useEffect } from 'preact/hooks';
+import { useMemo, useState, useEffect, useCallback } from 'preact/hooks';
 import type { ComponentChildren } from 'preact';
 import { useNavigation } from '@/shared/utils/navigation';
 import { cn } from '@/shared/utils/cn';
@@ -20,9 +20,11 @@ import { IntelligencePage } from './IntelligencePage';
 import { AppsPage } from './AppsPage';
 import { AppDetailPage } from './AppDetailPage';
 import { McpAccessPage } from './McpAccessPage';
-import { EditorShell } from '@/shared/ui/layout';
+import { SessionsPage } from './SessionsPage';
+import { AuditLogPage } from './AuditLogPage';
+import { ExportDataPage } from './ExportDataPage';
+import { SettingsShell } from '@/features/settings/components/SettingsShell';
 import { getSettingsNavConfig } from '@/shared/config/navConfig';
-import { useTranslation } from '@/shared/i18n/hooks';
 
 export type SettingsView =
   | 'general'
@@ -36,6 +38,9 @@ export type SettingsView =
   | 'apps'
   | 'app-detail'
   | 'security'
+  | 'sessions'
+  | 'audit-log'
+  | 'export-data'
   | 'help'
   | 'mfa-enrollment'
   ;
@@ -51,15 +56,9 @@ export interface SettingsContentProps {
   apps?: App[];
 }
 
-// ---------------------------------------------------------------------------
-// Chat-first hero map — Settings.html typography sweep.
-// Each top-level (non-self-wrapped) view supplies its own crumb + serif H1
-// with em accent + lede. Self-wrapped pages (Practice, Team, Payouts,
-// Engagement Templates, Intelligence, MFA Enrollment, App Detail) drive their
-// own EditorShell hero — those map entries are still defined here for
-// reference / parity with non-self-wrapped pages but unused at runtime.
-// ---------------------------------------------------------------------------
-
+// Hero text per view — matches the design file headings exactly.
+// All settings pages use the same flat layout: crumb → serif h1 → lede → content.
+// The existing editor-shell-hero__* CSS classes in index.css handle the typography.
 interface SettingsViewHero {
   crumb: string;
   accentTitle: ComponentChildren;
@@ -68,57 +67,83 @@ interface SettingsViewHero {
 
 const SETTINGS_VIEW_HERO: Partial<Record<SettingsView, SettingsViewHero>> = {
   general: {
-    crumb: 'Settings · Personal · Appearance',
-    accentTitle: (
-      <>
-        How Blawby <em>looks</em> to you.
-      </>
-    ),
-    lede: 'Theme, language, and the small choices that make this workspace feel like yours.',
+    crumb: 'Settings · Account',
+    accentTitle: <>Look &amp; <em>feel.</em></>,
+    lede: 'Customize how Blawby looks for you. These settings are per-user — they don\'t affect your team or clients.',
   },
   notifications: {
-    crumb: 'Settings · Personal · Notifications',
-    accentTitle: (
-      <>
-        What I <em>tell you</em>, and where.
-      </>
-    ),
-    lede: 'Pick the channels that reach you and the categories that matter. Silence the rest.',
+    crumb: 'Settings · Account',
+    accentTitle: <>How we <em>reach you.</em></>,
+    lede: 'Choose which events send you email or push notifications.',
   },
   account: {
-    crumb: 'Settings · Account · Profile',
-    accentTitle: (
-      <>
-        Your <em>account</em>, on your terms.
-      </>
-    ),
+    crumb: 'Settings · Account',
+    accentTitle: <>Your <em>account</em>, on your terms.</>,
     lede: 'Name, email, plan, and the controls you need to close out cleanly.',
   },
   security: {
-    crumb: 'Settings · Account · Security',
-    accentTitle: (
-      <>
-        Keep your <em>account</em> safe.
-      </>
-    ),
-    lede: 'Passwords, multi-factor, trusted devices, and session controls.',
+    crumb: 'Settings · Account',
+    accentTitle: <>Password &amp; <em>security.</em></>,
+    lede: 'Manage your login credentials, two-factor authentication, and account security.',
+  },
+  sessions: {
+    crumb: 'Settings · Account',
+    accentTitle: <>Active <em>sessions.</em></>,
+    lede: 'See where your account is signed in. Revoke any session you don\'t recognize.',
+  },
+  'audit-log': {
+    crumb: 'Settings · Account',
+    accentTitle: <>Audit <em>log.</em></>,
+    lede: 'Every action in your workspace is recorded. Use this for compliance reviews, bar audits, and troubleshooting.',
+  },
+  'export-data': {
+    crumb: 'Settings · Account',
+    accentTitle: <>Export your <em>data.</em></>,
+    lede: 'Download your practice data at any time. Your data is always yours — Blawby never restricts portability.',
+  },
+  practice: {
+    crumb: 'Settings · Practice',
+    accentTitle: <>Profile &amp; <em>practice areas.</em></>,
+    lede: 'Your firm identity, bar credentials, and the areas of law you practice. This information grounds the assistant\'s scope.',
+  },
+  'practice-team': {
+    crumb: 'Settings · Practice',
+    accentTitle: <>Your <em>team.</em></>,
+    lede: 'Manage who has access to your workspace. Each seat includes full assistant access with their own conversation history.',
+  },
+  'practice-payouts': {
+    crumb: 'Settings · Practice',
+    accentTitle: <>Payouts &amp; <em>billing.</em></>,
+    lede: 'Stripe Connect, payout schedule, and trust accounting settings.',
+  },
+  'engagement-templates': {
+    crumb: 'Settings · Practice',
+    accentTitle: <>Engagement <em>templates.</em></>,
+    lede: 'Reusable templates for engagement letters and retainer agreements.',
+  },
+  intelligence: {
+    crumb: 'Settings · Intelligence',
+    accentTitle: <>How the <em>assistant</em> works for you.</>,
+    lede: 'Blawby\'s assistant is grounded in your matters, intakes, and ledger — never in someone else\'s data. Tune how it behaves below.',
   },
   apps: {
-    crumb: 'Settings · Practice · Apps',
-    accentTitle: (
-      <>
-        Tools the assistant can <em>reach</em>.
-      </>
-    ),
+    crumb: 'Settings · Intelligence',
+    accentTitle: <>Apps &amp; <em>integrations.</em></>,
     lede: 'Connect Clio, Stripe, Google Calendar, and other services the assistant can act on with your approval.',
   },
+  'app-detail': {
+    crumb: 'Settings · Intelligence · Apps',
+    accentTitle: <>App <em>connection.</em></>,
+    lede: 'Review permissions and manage this integration.',
+  },
+  'mfa-enrollment': {
+    crumb: 'Settings · Account · Security',
+    accentTitle: <>Set up <em>two-factor.</em></>,
+    lede: 'Scan the QR code with your authenticator app to enable two-factor authentication.',
+  },
   help: {
-    crumb: 'Settings · Support · Help',
-    accentTitle: (
-      <>
-        Get <em>unstuck</em>.
-      </>
-    ),
+    crumb: 'Settings · Support',
+    accentTitle: <>Get <em>unstuck.</em></>,
     lede: 'Documentation, contact, and the small print.',
   },
 };
@@ -129,63 +154,55 @@ const SettingsRouter = ({
   apps,
   handleAppUpdate,
   toSettingsPath,
-  viewLabel,
+  onBackToWorkspace,
+  navSections,
+  orgLabel,
 }: {
   view: SettingsView;
   appId?: string;
   apps: App[];
   handleAppUpdate: (targetAppId: string, updates: Partial<App>) => void;
   toSettingsPath: (subPath?: string) => string;
-  viewLabel: string;
+  onBackToWorkspace: () => void;
+  navSections: Array<{ label?: string; items: Array<{ id: string; label: string; href: string; icon?: unknown; badge?: number | null }> }>;
+  orgLabel?: string;
 }) => {
   const { navigate } = useNavigation();
 
-  const renderViewContent = () => {
+  const content = (() => {
     switch (view) {
-      case 'general':
-        return <GeneralPage />;
-      case 'notifications':
-        return <NotificationsPage />;
-      case 'account':
-        return <AccountPage />;
-      case 'practice':
-        return <PracticePage onBack={() => navigate(toSettingsPath('general'))} />;
-      case 'practice-payouts':
-        return <PayoutsPage onBack={() => navigate(toSettingsPath('practice'))} />;
-      case 'practice-team':
-        return <PracticeTeamPage onBack={() => navigate(toSettingsPath('practice'))} />;
-      case 'engagement-templates':
-        return <EngagementTemplatesPage onBack={() => navigate(toSettingsPath('practice'))} />;
-      case 'intelligence':
-        return <IntelligencePage onBack={() => navigate(toSettingsPath('practice'))} />;
+      case 'general':              return <GeneralPage />;
+      case 'notifications':        return <NotificationsPage />;
+      case 'account':              return <AccountPage />;
+      case 'security':             return <SecurityPage />;
+      case 'sessions':             return <SessionsPage />;
+      case 'audit-log':            return <AuditLogPage />;
+      case 'export-data':          return <ExportDataPage />;
+      case 'help':                 return <HelpPage />;
+      case 'practice':             return <PracticePage />;
+      case 'practice-payouts':     return <PayoutsPage />;
+      case 'practice-team':        return <PracticeTeamPage />;
+      case 'engagement-templates': return <EngagementTemplatesPage />;
+      case 'intelligence':         return <IntelligencePage />;
+      case 'mfa-enrollment':       return <MFAEnrollmentPage onBack={() => navigate(toSettingsPath('security'))} />;
       case 'apps':
         return (
           <AppsPage
             apps={apps}
-            onSelect={(selectedAppId) => navigate(toSettingsPath(`apps/${selectedAppId}`))}
+            onSelect={(id) => navigate(toSettingsPath(`apps/${id}`))}
           />
         );
       case 'app-detail': {
-        if (!appId) {
-          return (
-            <EditorShell title="Apps" showBack onBack={() => navigate(toSettingsPath('apps'))} contentMaxWidth={null}>
-              <AppsPage apps={apps} onSelect={(id) => navigate(toSettingsPath(`apps/${id}`))} />
-            </EditorShell>
-          );
-        }
-        const currentApp = apps.find((app) => app.id === appId);
+        const currentApp = appId ? apps.find((a) => a.id === appId) : null;
         if (!currentApp) {
-          return (
-            <EditorShell title="Apps" showBack onBack={() => navigate(toSettingsPath('apps'))} contentMaxWidth={null}>
-              <AppsPage apps={apps} onSelect={(id) => navigate(toSettingsPath(`apps/${id}`))} />
-            </EditorShell>
-          );
+          return <AppsPage apps={apps} onSelect={(id) => navigate(toSettingsPath(`apps/${id}`))} />;
         }
         if (currentApp.id === 'claude-mcp') {
           return (
             <McpAccessPage
               app={currentApp}
               onBack={() => navigate(toSettingsPath('apps'))}
+              onUpdate={(updates) => handleAppUpdate(currentApp.id, updates)}
             />
           );
         }
@@ -197,51 +214,35 @@ const SettingsRouter = ({
           />
         );
       }
-      case 'security':
-        return <SecurityPage />;
-      case 'mfa-enrollment':
-        return <MFAEnrollmentPage onBack={() => navigate(toSettingsPath('security'))} />;
-      case 'help':
-        return <HelpPage />;
       default:
         return <GeneralPage />;
     }
-  };
-
-  const isSelfWrappedView = view === 'app-detail'
-    || view === 'practice'
-    || view === 'practice-payouts'
-    || view === 'practice-team'
-    || view === 'engagement-templates'
-    || view === 'intelligence'
-    || view === 'mfa-enrollment';
-
-  if (isSelfWrappedView) {
-    return renderViewContent();
-  }
+  })();
 
   const hero = SETTINGS_VIEW_HERO[view];
 
+  const activeNavItemId = view === 'app-detail'
+    ? 'apps'
+    : view === 'mfa-enrollment'
+      ? 'security'
+      : view;
+
   return (
-    <EditorShell
-      title={viewLabel}
-      contentMaxWidth={null}
-      crumb={hero?.crumb}
-      accentTitle={hero?.accentTitle}
-      lede={hero?.lede}
+    <SettingsShell
+      orgLabel={orgLabel}
+      onBack={onBackToWorkspace}
+      crumb={hero?.crumb ?? ''}
+      title={hero?.accentTitle ?? ''}
+      lede={hero?.lede ?? ''}
+      sections={navSections}
+      activeItemId={activeNavItemId}
+      onNavigate={navigate}
     >
-      {renderViewContent()}
-    </EditorShell>
+      {content}
+    </SettingsShell>
   );
 };
 
-/**
- * Controller for all settings views.
- *
- * Provides settings routing while keeping list pages and detail/editor pages explicit.
- * Top-level views are wrapped here. Detail/editor views render their own EditorShell
- * so header actions, back behavior, and previews stay local to the editor state.
- */
 export const SettingsContent = (props: SettingsContentProps) => {
   const {
     className = '',
@@ -253,14 +254,29 @@ export const SettingsContent = (props: SettingsContentProps) => {
   } = props;
 
   const { navigate } = useNavigation();
-  const { t } = useTranslation(['settings']);
   const [appUpdates, setAppUpdates] = useState<Record<string, Partial<App>>>({});
-
   const { isPending: sessionPending } = useSessionContext();
   const { activeMemberRole } = useMemberRoleContext();
   const { canAccessPractice } = useWorkspace();
 
   const settingsBasePath = `/${workspace}/${encodeURIComponent(practiceSlug)}/settings`;
+  const workspaceBasePath = `/${workspace}/${encodeURIComponent(practiceSlug)}`;
+  const orgLabel = useMemo(() => {
+    let decodedSlug = practiceSlug;
+    try {
+      decodedSlug = decodeURIComponent(practiceSlug);
+    } catch {
+      decodedSlug = practiceSlug;
+    }
+    const name = decodedSlug
+      .split('-')
+      .filter(Boolean)
+      .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+      .join(' ');
+    return workspace === 'practice'
+      ? `${name || 'Workspace'} · practice`
+      : `${name || 'Workspace'} · client`;
+  }, [practiceSlug, workspace]);
   const toSettingsPath = (subPath?: string) => {
     if (!subPath) return settingsBasePath;
     return `${settingsBasePath}/${subPath.replace(/^\/+/, '')}`;
@@ -282,9 +298,7 @@ export const SettingsContent = (props: SettingsContentProps) => {
   }, [canAccessPractice, isPracticeScopedView, navigate, sessionPending, settingsBasePath]);
 
   useEffect(() => {
-    if (initialApps) {
-      setAppUpdates({});
-    }
+    if (initialApps) setAppUpdates({});
   }, [initialApps]);
 
   const apps = useMemo(() => {
@@ -292,36 +306,33 @@ export const SettingsContent = (props: SettingsContentProps) => {
     return sourceApps.map((app) => ({ ...app, ...appUpdates[app.id] }));
   }, [appUpdates, initialApps]);
 
-  const handleAppUpdate = (targetAppId: string, updates: Partial<App>) => {
+  const handleAppUpdate = useCallback((targetAppId: string, updates: Partial<App>) => {
     setAppUpdates((prev) => ({
       ...prev,
-      [targetAppId]: {
-        ...prev[targetAppId],
-        ...updates,
-      },
+      [targetAppId]: { ...prev[targetAppId], ...updates },
     }));
-  };
+  }, []);
 
-  const currentApp = useMemo(() => apps.find((item) => item.id === appId), [appId, apps]);
+  const navConfig = useMemo(() => getSettingsNavConfig({
+    practiceSlug,
+    role: normalizePracticeRole(activeMemberRole) ?? null,
+    canAccessPractice,
+  }), [activeMemberRole, canAccessPractice, practiceSlug]);
 
-  const navConfig = useMemo(() => {
-    return getSettingsNavConfig({
-      practiceSlug,
-      role: normalizePracticeRole(activeMemberRole) ?? null,
-      canAccessPractice,
-    });
-  }, [activeMemberRole, canAccessPractice, practiceSlug]);
-
-  const viewLabel = useMemo(() => {
-    if (view === 'app-detail' && currentApp) return currentApp.name;
-    for (const section of navConfig.secondary ?? []) {
-      const item = section.items.find((i) => i.id === view);
-      if (item) return item.label;
-    }
-    if (view === 'practice') return t('settings:practice.title');
-    if (view === 'mfa-enrollment') return t('settings:mfa.title');
-    return t(`settings:${view}.title`);
-  }, [currentApp, navConfig.secondary, t, view]);
+  const settingsNavSections = useMemo(() => (
+    (navConfig.secondary ?? []).map((section) => ({
+      label: section.label,
+      items: section.items
+        .filter((item): item is typeof item & { href: string } => typeof item.href === 'string')
+        .map((item) => ({
+          id: item.id,
+          label: item.label,
+          href: item.href,
+          icon: item.icon,
+          badge: item.badge ?? null,
+        })),
+    }))
+  ), [navConfig.secondary]);
 
   return (
     <div className={cn('h-full min-h-0 overflow-hidden', className)}>
@@ -331,7 +342,9 @@ export const SettingsContent = (props: SettingsContentProps) => {
         apps={apps}
         handleAppUpdate={handleAppUpdate}
         toSettingsPath={toSettingsPath}
-        viewLabel={viewLabel}
+        onBackToWorkspace={() => navigate(workspaceBasePath)}
+        navSections={settingsNavSections}
+        orgLabel={orgLabel}
       />
     </div>
   );

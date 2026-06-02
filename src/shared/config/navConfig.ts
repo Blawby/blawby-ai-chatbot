@@ -365,35 +365,39 @@ const buildReportsSecondary = (basePath: string, workspace: 'practice' | 'client
 };
 
 const buildSettingsSecondary = (basePath: string, canAccessPractice: boolean): NavSection[] => {
-  // Pencil GtRGH > settingsSubItems: PERSONAL / ACCOUNT / PRACTICE / SUPPORT
+  // Settings shell IA follows the redesign files: practice-first for practice
+  // workspaces, then intelligence, then account-level controls.
   const sections: NavSection[] = [
-    {
-      label: 'Personal',
-      items: [
-        { id: 'general', label: 'Appearance', href: `${basePath}/settings/general`, icon: Palette },
-        { id: 'notifications', label: 'Notifications', href: `${basePath}/settings/notifications`, icon: Bell },
-      ],
-    },
     {
       label: 'Account',
       items: [
         { id: 'security', label: 'Security', href: `${basePath}/settings/security`, icon: Shield },
+        { id: 'sessions', label: 'Sessions', href: `${basePath}/settings/sessions`, icon: Briefcase },
+        { id: 'general', label: 'Appearance', href: `${basePath}/settings/general`, icon: Palette },
+        { id: 'notifications', label: 'Notifications', href: `${basePath}/settings/notifications`, icon: Bell },
+        { id: 'audit-log', label: 'Audit log', href: `${basePath}/settings/audit-log`, icon: FileText },
+        { id: 'export-data', label: 'Export data', href: `${basePath}/settings/export-data`, icon: Folder },
         { id: 'account', label: 'Profile', href: `${basePath}/settings/account`, icon: User },
       ],
     },
   ];
 
   if (canAccessPractice) {
-    sections.push({
+    sections.unshift({
       label: 'Practice',
       items: [
-        { id: 'practice', label: 'Practice', href: `${basePath}/settings/practice`, icon: Building2 },
-        { id: 'practice-payouts', label: 'Payouts', href: `${basePath}/settings/practice/payouts`, icon: CreditCard },
+        { id: 'practice', label: 'Profile & areas', href: `${basePath}/settings/practice`, icon: Building2 },
         { id: 'practice-team', label: 'Team', href: `${basePath}/settings/practice/team`, icon: Users },
-        { id: 'engagement-templates', label: 'Engagement Templates', href: `${basePath}/settings/practice/engagement-templates`, icon: FileText },
-        { id: 'intelligence', label: 'Intelligence', href: `${basePath}/settings/practice/intelligence`, icon: Sparkles },
+        { id: 'practice-payouts', label: 'Payouts & billing', href: `${basePath}/settings/practice/payouts`, icon: CreditCard },
+      ],
+    });
+    sections.splice(1, 0, {
+      label: 'Intelligence',
+      items: [
+        { id: 'intelligence', label: 'AI behavior', href: `${basePath}/settings/practice/intelligence`, icon: Sparkles },
+        { id: 'engagement-templates', label: 'Engagement templates', href: `${basePath}/settings/practice/engagement-templates`, icon: FileText },
         { id: 'coverage', label: 'Coverage', href: `${basePath}/coverage`, icon: Map },
-        { id: 'apps', label: 'Apps', href: `${basePath}/settings/apps`, icon: Puzzle },
+        { id: 'apps', label: 'Apps & integrations', href: `${basePath}/settings/apps`, icon: Puzzle },
       ],
     });
   }

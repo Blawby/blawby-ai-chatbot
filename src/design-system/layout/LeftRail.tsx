@@ -2,6 +2,7 @@ import type { ComponentChildren, JSX } from 'preact';
 import { useLocation } from 'preact-iso';
 import { MoreHorizontal } from 'lucide-preact';
 import { Icon, type IconComponent } from '@/shared/ui/Icon';
+import { Sidebar } from '@/shared/ui/nav/Sidebar';
 import { useNavigation } from '@/shared/utils/navigation';
 import { cn } from '@/shared/utils/cn';
 
@@ -9,8 +10,6 @@ export interface LeftRailItem {
   id: string;
   label: string;
   icon?: IconComponent;
-  /** When true, renders a 6px dot indicator instead of an icon. */
-  dot?: boolean;
   href: string;
   matchHrefs?: string[];
   badge?: number | null;
@@ -109,6 +108,8 @@ export function LeftRail(props: LeftRailProps): JSX.Element | null {
     if (score > best.score) return { id: item.id, score };
     return best;
   }, { id: null, score: -1 }).id;
+  const forcedActiveItemId = allItems.find((item) => item.isActive)?.id ?? null;
+  const resolvedActiveItemId = forcedActiveItemId ?? activeItemId;
 
   const getIsActive = (item: LeftRailItem) =>
     item.isActive !== undefined ? item.isActive : (!item.isAction && activeItemId === item.id);
@@ -182,56 +183,43 @@ export function LeftRail(props: LeftRailProps): JSX.Element | null {
     );
   }
 
-  // Desktop variant — 240px sticky rail
-  const renderItem = (item: LeftRailItem) => {
-    const isActive = getIsActive(item);
-    return (
-      <button
-        key={item.id}
-        type="button"
-        aria-current={isActive ? 'page' : undefined}
-        className={cn(
-          'left-rail-item',
-          isActive && 'active',
-          item.variant === 'danger' && 'danger'
-        )}
-        onMouseEnter={item.prefetch}
-        onFocus={item.prefetch}
-        onClick={() => handleItemClick(item)}
-      >
-        {item.dot
-        ? <span className="left-rail-item-dot" aria-hidden="true" />
-        : item.icon
-          ? <Icon icon={item.icon} className="h-4 w-4 shrink-0" />
-          : null}
-        <span className="left-rail-item-label">{item.label}</span>
-        {item.badge && item.badge > 0 && (
-          <span className="left-rail-badge" aria-label={`${item.badge} unread`}>{item.badge}</span>
-        )}
-      </button>
-    );
-  };
+  // Desktop delegates to the canonical Sidebar primitive so settings and the
+  // rest of the workspace share one source of truth for rail chrome.
+  const renderSidebarItem = (item: LeftRailItem) => (
+    <Sidebar.Item
+      key={item.id}
+      id={item.id}
+      label={item.label}
+      icon={item.icon}
+      href={item.href}
+      badge={item.badge}
+      variant={item.variant}
+      isAction={item.isAction}
+      onClick={item.onClick}
+      prefetch={item.prefetch}
+    />
+  );
 
   return (
-    <aside className={cn('left-rail', className)} aria-label="Primary">
-      {brandMark && <div className="left-rail-brand">{brandMark}</div>}
-      <div className="left-rail-scroll">
-        {sections?.length ? (
-          sections.map((section) => (
-            <div key={section.id} className="left-rail-section">
-              {section.label && (
-                <div className="left-rail-section-label">{section.label}</div>
-              )}
-              {section.items.map(renderItem)}
-            </div>
-          ))
-        ) : (
-          <div className="left-rail-section">
-            {allItems.map(renderItem)}
-          </div>
-        )}
-      </div>
-      {footer && <div className="left-rail-footer">{footer}</div>}
-    </aside>
+    <Sidebar
+      activeItemId={resolvedActiveItemId}
+      onItemActivate={onItemActivate}
+      width={240}
+      className={className}
+    >
+      {brandMark ? <Sidebar.Header>{brandMark}</Sidebar.Header> : null}
+      {sections?.length ? (
+        sections.map((section, index) => (
+          <Sidebar.Section key={section.id} label={section.label} first={index === 0}>
+            {section.items.map(renderSidebarItem)}
+          </Sidebar.Section>
+        ))
+      ) : (
+        <Sidebar.Section first>
+          {allItems.map(renderSidebarItem)}
+        </Sidebar.Section>
+      )}
+      {footer ? <Sidebar.Footer>{footer}</Sidebar.Footer> : null}
+    </Sidebar>
   );
 }
