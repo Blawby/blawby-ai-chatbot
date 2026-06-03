@@ -134,13 +134,13 @@ const buildOnboardingProfileMetadata = (
   const detailAddress = details;
   const detailAddressObject = isRecord(details?.address) ? details.address : null;
 
-  const name = readAnyString(onboardingFields, ['name']) ?? readAnyString(details, ['name', 'practiceName', 'practice_name']);
+  const name = readAnyString(onboardingFields, ['name']) ?? readAnyString(details, ['name']);
   const onboardingDescription = readAnyString(onboardingFields, ['description']);
   const persistedDescription = readAnyString(details, ['description', 'overview']);
   const description = onboardingDescription ?? persistedDescription;
   const website = readAnyString(onboardingFields, ['website']) ?? readAnyString(details, ['website']);
-  const contactPhone = readAnyString(onboardingFields, ['contactPhone']) ?? readAnyString(details, ['businessPhone', 'business_phone', 'contactPhone', 'contact_phone']);
-  const businessEmail = readAnyString(onboardingFields, ['businessEmail']) ?? readAnyString(details, ['businessEmail', 'business_email', 'email']);
+  const contactPhone = readAnyString(onboardingFields, ['contactPhone']) ?? readAnyString(details, ['business_phone']);
+  const businessEmail = readAnyString(onboardingFields, ['businessEmail']) ?? readAnyString(details, ['business_email', 'email']);
   const accentColor = readAnyString(onboardingFields, ['accentColor']) ?? readAnyString(details, ['accentColor', 'accent_color']);
   const services = normalizeOnboardingServices(onboardingFields?.services ?? details?.services);
   const hasServices = services.length > 0;

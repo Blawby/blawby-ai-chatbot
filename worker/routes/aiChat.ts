@@ -90,14 +90,8 @@ const readFiniteNumberField = (record: Record<string, unknown> | null, keys: str
 
 const resolvePracticeRequiresPaymentBeforeSubmission = (details: Record<string, unknown> | null): boolean => {
   if (!details) return false;
-  const consultationFee = readFiniteNumberField(details, [
-    'consultationFee',
-    'consultation_fee',
-  ]);
-  const paymentLinkEnabled = readBooleanField(details, [
-    'paymentLinkEnabled',
-    'payment_link_enabled',
-  ]);
+  const consultationFee = readFiniteNumberField(details, ['consultation_fee']);
+  const paymentLinkEnabled = readBooleanField(details, ['payment_link_enabled']);
   return paymentLinkEnabled === true && consultationFee !== null && consultationFee > 0;
 };
 
@@ -449,9 +443,8 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
   const auditService = new SessionAuditService(env);
   const intakeEventService = new IntakeEventService(env);
 
-  // The internal practiceId is the upstream organization_id (the practice/org id),
-  // not details.id — see worker/routes/widget.ts. Use the slug-based prefetch as-is
-  // when present rather than re-comparing identifiers.
+  // The backend canonical practice identifier is details.id. Use the slug-based
+  // prefetch as-is when present rather than forcing an extra fetch up front.
   const practiceDetailsPromise = anonymousPracticeDetailsPromise ?? fetchPracticeDetailsWithCache(
     env,
     request,
@@ -489,11 +482,7 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
       anonymousPracticeDetailsPromise && details &&
       typeof conversation.practice_id === 'string'
     ) {
-      // Acceptable id fields on details
-      const resolvedId =
-        typeof details.organization_id === 'string' ? details.organization_id :
-        typeof details.practice_id === 'string' ? details.practice_id :
-        typeof details.id === 'string' ? details.id : null;
+      const resolvedId = typeof details.id === 'string' ? details.id : null;
       if (resolvedId && resolvedId !== conversation.practice_id) {
         // Mismatch: fetch canonical details for practiceId
         const canonical = await fetchPracticeDetailsWithCache(
@@ -1048,14 +1037,7 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
       // Step 1: partial-intake submission to backend (U7).
       try {
         const partialService = new PartialIntakeSubmissionService(env, request);
-        const consultationFee =
-          (typeof details?.consultationFee === 'number' && Number.isFinite(details.consultationFee)
-            ? details.consultationFee
-            : null) ??
-          (typeof (details as Record<string, unknown> | null)?.consultation_fee === 'number'
-            ? ((details as Record<string, unknown>).consultation_fee as number)
-            : null) ??
-          0;
+        const consultationFee = readFiniteNumberField(details, ['consultation_fee']) ?? 0;
         await partialService.submit({
           conversationId: body.conversationId,
           practiceSlug,
@@ -1476,7 +1458,7 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
         } else if (isIntakeMode && finalToolResult?.success && patchToMerge) {
           const consultationFee = templatePaymentConfig.hasConfig
             ? templatePaymentConfig.consultationFee
-            : readFiniteNumberField(details, ['consultationFee', 'consultation_fee']);
+            : readFiniteNumberField(details, ['consultation_fee']);
           const nextRequiredFieldAfterPatch = mergedIntakeState
             ? resolveNextField(activeTemplate, mergedIntakeState as Record<string, unknown>, 'required')
             : null;

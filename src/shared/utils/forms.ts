@@ -3,8 +3,8 @@ import {
   getPracticeClientIntakeCheckoutSessionEndpoint,
   getPracticeClientIntakeSettingsEndpoint
 } from '@/config/api';
-import { asMinor, assertMinorUnits, toMinorUnitsValue, type MinorAmount } from '@/shared/utils/money';
-import { apiClient, getPublicPracticeDetails, isHttpError } from '@/shared/lib/apiClient';
+import { asMinor, assertMinorUnits, type MinorAmount } from '@/shared/utils/money';
+import { apiClient, isHttpError } from '@/shared/lib/apiClient';
 
 const getTrimmedString = (value: unknown): string | undefined => {
   if (typeof value !== 'string') return undefined;
@@ -91,27 +91,17 @@ export function formatFormData(formData: Record<string, unknown>, practiceSlug: 
 }
 
 type IntakeSettingsRecord = {
-  paymentLinkEnabled?: boolean;
   payment_link_enabled?: boolean;
-  consultationFee?: number;
   consultation_fee?: number;
 };
 type IntakeSettingsOrganization = {
   name?: string;
   logo?: string;
 };
-// Backend emits the flat shape ({success, settings, organization}); the nested
-// ({data: {settings}}) form was used by an earlier version. The worker-side
-// helper at RemoteApiService.getPracticeClientIntakeSettings already accepts
-// both, and so do we.
 type IntakeSettingsResponse = {
   success?: boolean;
   organization?: IntakeSettingsOrganization;
   settings?: IntakeSettingsRecord;
-  data?: {
-    organization?: IntakeSettingsOrganization;
-    settings?: IntakeSettingsRecord;
-  };
   error?: string;
 };
 
@@ -272,18 +262,14 @@ const createCheckoutSession = async (intakeUuid: string): Promise<{ url?: string
 
 async function fetchIntakeSettings(
   practiceSlug: string
-): Promise<IntakeSettingsResponse | null> {
-  try {
-    const { data } = await apiClient.get<IntakeSettingsResponse>(
-      getPracticeClientIntakeSettingsEndpoint(practiceSlug),
-    );
-    return data;
-  } catch (error) {
-    if (!isHttpError(error)) {
-      console.warn('[Intake] Failed to fetch intake settings', error);
-    }
-    return null;
+) : Promise<IntakeSettingsResponse> {
+  const { data } = await apiClient.get<IntakeSettingsResponse>(
+    getPracticeClientIntakeSettingsEndpoint(practiceSlug),
+  );
+  if (data && typeof data === 'object' && 'data' in data && data.data && typeof data.data === 'object') {
+    return data.data as IntakeSettingsResponse;
   }
+  return data;
 }
 
 const resolveIntakeCreateData = (
@@ -313,17 +299,11 @@ export async function submitContactForm(
     
     const formPayload = formatFormData(formData, practiceSlug);
     const settings = await fetchIntakeSettings(practiceSlug);
-    const settingsRecord = settings?.settings ?? settings?.data?.settings;
-    const consultationFee = typeof settingsRecord?.consultationFee === 'number'
-      ? settingsRecord.consultationFee
-      : typeof settingsRecord?.consultation_fee === 'number'
-        ? settingsRecord.consultation_fee
-        : undefined;
-    const paymentLinkEnabled = typeof settingsRecord?.paymentLinkEnabled === 'boolean'
-      ? settingsRecord.paymentLinkEnabled
-      : typeof settingsRecord?.payment_link_enabled === 'boolean'
-        ? settingsRecord.payment_link_enabled
-        : false;
+    const settingsRecord = settings.settings;
+    const consultationFee = typeof settingsRecord?.consultation_fee === 'number'
+      ? settingsRecord.consultation_fee
+      : undefined;
+    const paymentLinkEnabled = settingsRecord?.payment_link_enabled === true;
     if (import.meta.env.DEV) {
       console.info('[Intake] Settings resolved', {
         practiceSlug,
@@ -332,21 +312,7 @@ export async function submitContactForm(
         rawSettings: settingsRecord
       });
     }
-    let resolvedConsultationFee = consultationFee;
-    if ((resolvedConsultationFee === undefined || resolvedConsultationFee <= 0) && paymentLinkEnabled) {
-      try {
-        const practiceDetails = await getPublicPracticeDetails(practiceSlug);
-        const practiceConsultationFee = practiceDetails?.details?.consultationFee;
-        const fallbackMinor = toMinorUnitsValue(practiceConsultationFee);
-        if (typeof fallbackMinor === 'number' && fallbackMinor > 0) {
-          resolvedConsultationFee = fallbackMinor;
-        }
-      } catch (error) {
-        if (import.meta.env.DEV) {
-          console.warn('[Intake] Failed to load consultation fee from practice details', error);
-        }
-      }
-    }
+    const resolvedConsultationFee = consultationFee;
 
     if (paymentLinkEnabled) {
       if (typeof resolvedConsultationFee !== 'number' || !Number.isFinite(resolvedConsultationFee)) {
@@ -363,10 +329,6 @@ export async function submitContactForm(
         : 0
     );
     assertMinorUnits(amount, 'intake.create.amount');
-
-    if (settings && settings.data?.settings?.paymentLinkEnabled === false) {
-      console.info('[Intake] Payment link disabled for practice intake');
-    }
 
     const description = formatDescription(formPayload.description as string | undefined);
     const resolvedUserId = typeof formData.userId === 'string' && formData.userId.trim().length > 0
@@ -464,8 +426,8 @@ export async function submitContactForm(
           amount: typeof intakeData?.amount === 'number' ? intakeData?.amount : amount,
           currency: intakeData?.currency ?? 'usd',
           paymentLinkEnabled,
-          organizationName: intakeData?.organization?.name ?? settings?.data?.organization?.name,
-          organizationLogo: intakeData?.organization?.logo ?? settings?.data?.organization?.logo
+          organizationName: intakeData?.organization?.name ?? settings?.organization?.name,
+          organizationLogo: intakeData?.organization?.logo ?? settings?.organization?.logo
         }
       };
     }

@@ -1858,100 +1858,39 @@ function normalizePracticeUpdatePayload(payload: UpdatePracticeRequest): Record<
   return normalized;
 }
 
+function unwrapPublicPracticePayload(payload: unknown): Record<string, unknown> | null {
+  if (!isRecord(payload)) return null;
+
+  const dataRecord = isRecord(payload.data) ? payload.data : null;
+  const dataPractice = dataRecord && isRecord(dataRecord.practice) ? dataRecord.practice : null;
+  const dataOrganization = dataRecord && isRecord(dataRecord.organization) ? dataRecord.organization : null;
+  const practiceRecord = isRecord(payload.practice) ? payload.practice : null;
+  const practiceOrganization = practiceRecord && isRecord(practiceRecord.organization)
+    ? practiceRecord.organization
+    : null;
+
+  return dataPractice
+    ?? dataOrganization
+    ?? practiceOrganization
+    ?? practiceRecord
+    ?? payload;
+}
+
 function extractPublicPracticeDisplayDetails(
   payload: unknown
 ): { name?: string | null; logo?: string | null } {
-  if (!isRecord(payload)) {
-    return {};
-  }
-
-  const candidates: Record<string, unknown>[] = [];
-  const pushCandidate = (value: unknown) => {
-    if (isRecord(value)) {
-      candidates.push(value);
-    }
+  const unwrapped = unwrapPublicPracticePayload(payload);
+  if (!unwrapped) return {};
+  return {
+    name: toNullableString(unwrapped.name),
+    logo: normalizePublicFileUrl(toNullableString(unwrapped.logo)),
   };
-
-  if ('details' in payload && isRecord(payload.details)) {
-    if ('data' in payload.details && isRecord(payload.details.data)) {
-      pushCandidate(payload.details.data);
-    }
-    pushCandidate(payload.details);
-  }
-
-  if ('data' in payload && isRecord(payload.data)) {
-    if ('details' in payload.data && isRecord(payload.data.details)) {
-      pushCandidate(payload.data.details);
-    }
-    pushCandidate(payload.data);
-  }
-
-  pushCandidate(payload);
-
-  for (const candidate of candidates) {
-    const name = toNullableString(candidate.name ?? candidate.practice_name);
-    const rawLogo = toNullableString(candidate.logo ?? candidate.practice_logo);
-    const logo = normalizePublicFileUrl(rawLogo);
-    if (name || logo) {
-      return { name, logo };
-    }
-  }
-
-  return {};
 }
 
 function extractPublicPracticeId(payload: unknown): string | null {
-  if (!isRecord(payload)) return null;
-
-  const candidates: Record<string, unknown>[] = [];
-  if ('details' in payload && isRecord(payload.details)) {
-    if ('data' in payload.details && isRecord(payload.details.data)) {
-      candidates.push(payload.details.data);
-    }
-    candidates.push(payload.details);
-  }
-  if ('data' in payload && isRecord(payload.data)) {
-    if ('details' in payload.data && isRecord(payload.data.details)) {
-      candidates.push(payload.data.details);
-    }
-    candidates.push(payload.data);
-  }
-  if ('organization' in payload && isRecord(payload.organization)) {
-    candidates.push(payload.organization);
-  }
-  candidates.push(payload);
-
-  for (const candidate of candidates) {
-    const id = toNullableString(
-      candidate.organization_id ??
-      candidate.practice_id ??
-      candidate.id
-    );
-    if (id) return id;
-    if ('organization' in candidate && isRecord(candidate.organization)) {
-      const nested = toNullableString(
-        (candidate.organization as Record<string, unknown>).id ??
-        (candidate.organization as Record<string, unknown>).organization_id
-      );
-      if (nested) return nested;
-    }
-    if ('practice' in candidate && isRecord(candidate.practice)) {
-      const practice = candidate.practice as Record<string, unknown>;
-      const practiceId = toNullableString(
-        practice.practice_id ??
-        practice.organization_id ?? practice.id
-      );
-      if (practiceId) return practiceId;
-      if ('organization' in practice && isRecord(practice.organization)) {
-        const nested = toNullableString(
-          (practice.organization as Record<string, unknown>).id ??
-          (practice.organization as Record<string, unknown>).organization_id
-        );
-        if (nested) return nested;
-      }
-    }
-  }
-  return null;
+  const unwrapped = unwrapPublicPracticePayload(payload);
+  if (!unwrapped) return null;
+  return toNullableString(unwrapped.id);
 }
 
 function normalizePracticeDetailsPayload(payload: PracticeDetailsUpdate): Record<string, unknown> {
@@ -2263,12 +2202,12 @@ export function normalizePracticeDetailsResponse(payload: unknown): PracticeDeta
   };
 
   return {
-    id: getOptionalNullableString(container, ['id', 'uuid', 'practice_id', 'organization_id']) ?? undefined,
+    id: getOptionalNullableString(container, ['id']) ?? undefined,
     businessPhone: getOptionalNullableString(container, ['business_phone']),
     businessEmail: getOptionalNullableString(container, ['business_email']),
-    name: getOptionalNullableString(container, ['name', 'practice_name', 'business_name']),
-    logo: normalizePublicFileUrl(getOptionalNullableString(container, ['logo', 'logo_url', 'profile_image'])),
-    slug: getOptionalNullableString(container, ['slug', 'practice_slug']),
+    name: getOptionalNullableString(container, ['name']),
+    logo: normalizePublicFileUrl(getOptionalNullableString(container, ['logo'])),
+    slug: getOptionalNullableString(container, ['slug']),
     consultationFee: (() => {
       if ('consultation_fee' in container) {
         const value = container.consultation_fee;

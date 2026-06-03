@@ -110,14 +110,10 @@ export type BackendIntakeConvertResponse = z.infer<typeof BackendIntakeConvertRe
 /**
  * Response from GET /api/practice-client-intakes/:slug/intake.
  * Backend exposes per-practice intake settings (payment link toggle,
- * consultation fee, organization branding). Field names appear in
- * both camelCase and snake_case across backend versions; the schema
- * accepts both to tolerate version skew.
+ * consultation fee, organization branding) in canonical snake_case.
  */
 const IntakeSettingsObjectSchema = z.object({
-  paymentLinkEnabled: z.boolean().optional(),
   payment_link_enabled: z.boolean().optional(),
-  consultationFee: z.number().optional(),
   consultation_fee: z.number().optional(),
 }).passthrough();
 

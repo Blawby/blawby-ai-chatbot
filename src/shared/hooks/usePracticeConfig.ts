@@ -67,7 +67,7 @@ export const resolvePracticeConfigFromBootstrap = (
   pd: Record<string, unknown>,
   fallbackSlug?: string | null
 ): UIPracticeConfig => ({
-  id: (pd.organization_id as string) || (pd.id as string) || '',
+  id: (pd.id as string) || '',
   slug: (pd.slug as string) || fallbackSlug || '',
   name: (pd.name as string) || '',
   profileImage: pd.logo as string | null ?? null,

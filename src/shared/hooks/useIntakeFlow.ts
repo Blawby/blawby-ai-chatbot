@@ -557,50 +557,20 @@ export function useIntakeFlow({
       }
       let practicePaymentLinkEnabled = false;
 
-      try {
-        if (!templateHasPaymentConfig) {
-          try {
-            type SettingsRecord = {
-              consultationFee?: number;
-              consultation_fee?: number;
-              paymentLinkEnabled?: boolean;
-              payment_link_enabled?: boolean;
-            };
-            const { data: settingsPayload } = await apiClient.get<{
-              success?: boolean;
-              settings?: SettingsRecord;
-              data?: { settings?: SettingsRecord };
-            }>(getPracticeClientIntakeSettingsEndpoint(effectivePracticeSlug));
-            // Backend emits the flat shape ({success, settings, organization}); the
-            // nested ({data: {settings}}) form was used by an earlier version. The
-            // worker-side helper already accepts both, so mirror that here.
-            const settings = settingsPayload.settings ?? settingsPayload.data?.settings;
-            consultationFee =
-              (typeof settings?.consultationFee === 'number' ? settings.consultationFee : 0) ||
-              (typeof settings?.consultation_fee === 'number' ? settings.consultation_fee : 0);
-            practicePaymentLinkEnabled =
-              settings?.paymentLinkEnabled === true ||
-              settings?.payment_link_enabled === true;
-          } catch (apiError) {
-            // Non-2xx silently falls through to the catch below; preserves prior `if (settingsRes.ok)` behavior.
-            if (!isHttpError(apiError)) throw apiError;
-          }
-        }
-      } catch (settingsError) {
-        // If fetching practice-level settings fails, we default to zero
-        // consultation fee when there is no template-level payment config.
-        // Notes: `storedTemplate` (from conversation metadata) and
-        // `templateHasPaymentConfig` were evaluated above; if a template
-        // includes payment settings we preserve those values and do not
-        // override them here. When no template config exists a failed
-        // settings fetch results in `consultationFee = 0` (no payment
-        // required) to avoid blocking submissions due to transient
-        // settings API errors.
-        console.warn('[handleConfirmSubmit] Failed to fetch intake settings; using default consultation fee', settingsError, {
-          storedTemplate, templateHasPaymentConfig, consultationFee
-        });
-        if (!templateHasPaymentConfig) {
-          consultationFee = 0;
+      if (!templateHasPaymentConfig) {
+        type SettingsRecord = {
+          consultation_fee?: number;
+          payment_link_enabled?: boolean;
+        };
+        const { data: settingsPayload } = await apiClient.get<{
+          success?: boolean;
+          settings?: SettingsRecord;
+        }>(getPracticeClientIntakeSettingsEndpoint(effectivePracticeSlug));
+        const settings = settingsPayload.settings;
+        consultationFee = typeof settings?.consultation_fee === 'number' ? settings.consultation_fee : 0;
+        practicePaymentLinkEnabled = settings?.payment_link_enabled === true;
+        if (practicePaymentLinkEnabled && consultationFee <= 0) {
+          throw new Error('Consultation fee is not configured for this practice.');
         }
       }
 

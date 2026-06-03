@@ -87,12 +87,7 @@ test.describe('Intake form templates', () => {
     );
     expect(publicDetailsResponse.ok(), `practice details should load for ${practiceSlug}`).toBe(true);
     const publicDetails = unwrapRecord(await publicDetailsResponse.json());
-    const practiceId =
-      typeof publicDetails.organization_id === 'string'
-        ? publicDetails.organization_id
-        : typeof publicDetails.id === 'string'
-          ? publicDetails.id
-          : null;
+    const practiceId = typeof publicDetails.id === 'string' ? publicDetails.id : null;
     expect(practiceId, `practice id should resolve from details: ${JSON.stringify(publicDetails)}`).toBeTruthy();
 
     const practiceResponse = await ownerContext.request.get(`/api/practice/${encodeURIComponent(practiceId!)}`);

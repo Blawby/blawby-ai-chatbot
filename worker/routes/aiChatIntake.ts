@@ -319,7 +319,7 @@ export const handleSaveCaseDetails = (
   const templatePaymentConfigured = typeof submissionGate.templateConsultationFee === 'number';
   const consultationFee = templatePaymentConfigured
     ? submissionGate.templateConsultationFee
-    : readFiniteNumberField(submissionGate.details, ['consultationFee', 'consultation_fee']);
+    : readFiniteNumberField(submissionGate.details, ['consultation_fee']);
   const actions = deriveNextActions(merged, submissionGate, consultationFee, postSaveNextEnrichmentField);
   if (actions.length > 0) {
     patch.ctaShown = true;
@@ -921,10 +921,6 @@ const normalizePracticeDetailsForAi = (details: Record<string, unknown> | null):
     const next = normalizeMoney(normalized.consultation_fee);
     if (next !== undefined) normalized.consultation_fee = next;
   }
-  if ('consultationFee' in normalized) {
-    const next = normalizeMoney(normalized.consultationFee);
-    if (next !== undefined) normalized.consultationFee = next;
-  }
   return normalized;
 };
 
@@ -945,18 +941,18 @@ const buildCompactPracticeContextForPrompt = (
     }
   };
 
-  copyIfPresent('practiceName', ['practice_name', 'practiceName', 'name']);
+  copyIfPresent('practiceName', ['name']);
   copyIfPresent('description', ['description', 'about', 'summary']);
-  copyIfPresent('businessPhone', ['businessPhone', 'business_phone', 'contactPhone', 'contact_phone']);
-  copyIfPresent('businessEmail', ['businessEmail', 'business_email', 'email']);
+  copyIfPresent('businessPhone', ['business_phone']);
+  copyIfPresent('businessEmail', ['business_email', 'email']);
   copyIfPresent('website', ['website']);
-  copyIfPresent('consultationFee', ['consultationFee', 'consultation_fee']);
+  copyIfPresent('consultationFee', ['consultation_fee']);
 
   if (Array.isArray(normalized.services)) {
     compact.services = normalizeServicesForPrompt(normalized);
   }
 
-  const rawServiceStates = normalized.service_states ?? normalized.serviceStates;
+  const rawServiceStates = normalized.service_states;
   if (Array.isArray(rawServiceStates)) {
     const states = rawServiceStates
       .filter((state): state is string => typeof state === 'string' && state.trim().length > 0)
@@ -973,8 +969,8 @@ const buildPracticeContactErrorReply = (
   practiceName: string,
   details: Record<string, unknown> | null,
 ): string => {
-  const phone = readAnyString(details, ['businessPhone', 'business_phone', 'contactPhone', 'contact_phone']);
-  const email = readAnyString(details, ['businessEmail', 'business_email', 'email']);
+  const phone = readAnyString(details, ['business_phone']);
+  const email = readAnyString(details, ['business_email', 'email']);
   const website = readAnyString(details, ['website']);
   const lines = [
     `We hit an internal error while continuing your consultation with ${practiceName}.`,

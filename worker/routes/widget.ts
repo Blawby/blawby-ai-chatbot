@@ -12,6 +12,12 @@ import {
 import type { BackendIntakeTemplatePublic, IntakeTemplate } from '../../src/shared/types/intake.js';
 import { STANDARD_FIELD_DEFINITIONS } from '../../src/shared/constants/intakeTemplates.js';
 
+const asNonEmptyString = (value: unknown): string | null => (
+  typeof value === 'string' && value.trim().length > 0
+    ? value.trim()
+    : null
+);
+
 const normalizeCrossSiteWidgetCookie = (cookie: string, request: Request): string => {
   const protocol = new URL(request.url).protocol;
   // Secure cookies are ignored on http://localhost in dev; keep upstream cookie
@@ -46,9 +52,6 @@ export async function handleWidgetBootstrap(request: Request, env: Env): Promise
     throw HttpErrors.badRequest('slug parameter is required');
   }
 
-  // ?template param — resolved after practice details arrive
-  const templateSlugParam = url.searchParams.get('template')?.trim() || null;
-
   // Define headers for upstream calls
   const incomingCookie = request.headers.get('Cookie');
   const headers = new Headers();
@@ -61,7 +64,7 @@ export async function handleWidgetBootstrap(request: Request, env: Env): Promise
     upstreamHeaders[key] = value;
   });
 
-  // 1. Fetch practice details (in parallel with session check)
+  // 1. Fetch practice details + intake settings (in parallel with session check)
   const getPracticeDetails = (async () => {
     const res = await RemoteApiService.getPublicPracticeDetails(env, slug, request);
     if (!res.ok) {
@@ -75,6 +78,21 @@ export async function handleWidgetBootstrap(request: Request, env: Env): Promise
       return await res.json();
     } catch (parseErr) {
       throw new Error(`[Bootstrap] Failed to parse JSON from upstream practice details: ${parseErr instanceof Error ? parseErr.message : String(parseErr)}`);
+    }
+  })();
+  const getIntakeSettings = (async () => {
+    const res = await RemoteApiService.getPublicPracticeIntakeSettings(env, slug, request);
+    if (!res.ok) {
+      if (res.status === 404) {
+        throw HttpErrors.notFound('Practice intake settings not found');
+      }
+      const text = await res.text().catch(() => 'No body');
+      throw new Error(`[Bootstrap] Error fetching intake settings: ${res.status} - ${text}`);
+    }
+    try {
+      return await res.json();
+    } catch (parseErr) {
+      throw new Error(`[Bootstrap] Failed to parse JSON from upstream intake settings: ${parseErr instanceof Error ? parseErr.message : String(parseErr)}`);
     }
   })();
 
@@ -230,9 +248,9 @@ export async function handleWidgetBootstrap(request: Request, env: Env): Promise
 
   // 3. Wait for practice details
   const practiceDetails = await getPracticeDetails as Record<string, unknown>;
-  const pd = practiceDetails as Record<string, unknown>;
-  const practiceId =
-    (typeof pd.organization_id === 'string' && pd.organization_id.trim()) || null;
+  const intakeSettingsPayload = await getIntakeSettings as Record<string, unknown>;
+  const pd = practiceDetails;
+  const practiceId = asNonEmptyString(pd.id);
   if (!practiceId) {
     throw HttpErrors.badGateway('Unable to resolve practice id from practice details');
   }
@@ -302,7 +320,7 @@ export async function handleWidgetBootstrap(request: Request, env: Env): Promise
   // If absent or null the practice has no published template — fail fast
   // so the root cause is fixed upstream rather than masked here.
   // ------------------------------------------------------------------
-  const rawIntakeTemplate = pd?.intake_template as BackendIntakeTemplatePublic | null | undefined;
+  const rawIntakeTemplate = intakeSettingsPayload.intake_template as BackendIntakeTemplatePublic | null | undefined;
   if (!rawIntakeTemplate) {
     throw HttpErrors.badGateway(`[Bootstrap] No published intake template found for practice '${slug}'. Ensure the practice has a published default template.`);
   }
@@ -388,36 +406,38 @@ export async function handlePublicPracticeIntakeSettings(request: Request, env: 
     throw HttpErrors.badRequest('Practice slug is required');
   }
 
-  const res = await RemoteApiService.getPublicPracticeDetails(env, slug, request);
+  const res = await RemoteApiService.getPublicPracticeIntakeSettings(env, slug, request);
   if (!res.ok) {
     if (res.status === 404) {
       throw HttpErrors.notFound('Practice not found');
     }
     const text = await res.text().catch(() => 'No body');
-    throw HttpErrors.badGateway(`[Public intake settings] Error fetching practice details: ${res.status} - ${text}`);
+    throw HttpErrors.badGateway(`[Public intake settings] Error fetching intake settings: ${res.status} - ${text}`);
   }
 
-  const practiceDetails = await res.json().catch(() => null) as Record<string, unknown> | null;
-  if (!practiceDetails) {
-    throw HttpErrors.badGateway('Failed to parse public practice details');
+  const intakeSettingsPayload = await res.json().catch(() => null) as Record<string, unknown> | null;
+  if (!intakeSettingsPayload) {
+    throw HttpErrors.badGateway('Failed to parse public intake settings');
   }
+  const settingsRecord = intakeSettingsPayload.settings && typeof intakeSettingsPayload.settings === 'object'
+    ? intakeSettingsPayload.settings as Record<string, unknown>
+    : {};
+  const organizationRecord = intakeSettingsPayload.organization && typeof intakeSettingsPayload.organization === 'object'
+    ? intakeSettingsPayload.organization as Record<string, unknown>
+    : {};
 
-  // PR #318: backend now returns `intake_template` — forward it as-is.
-  // If the backend does not return a template, surface null explicitly.
-  const intakeTemplate = (practiceDetails.intake_template as unknown) ?? null;
+  const intakeTemplate = (intakeSettingsPayload.intake_template as unknown) ?? null;
 
   const settings = {
-    paymentLinkEnabled: Boolean(practiceDetails.payment_link_enabled),
-    payment_link_enabled: Boolean(practiceDetails.payment_link_enabled),
-    consultationFee: typeof practiceDetails.consultation_fee === 'number' ? practiceDetails.consultation_fee : undefined,
-    consultation_fee: typeof practiceDetails.consultation_fee === 'number' ? practiceDetails.consultation_fee : undefined,
+    payment_link_enabled: Boolean(settingsRecord.payment_link_enabled),
+    consultation_fee: typeof settingsRecord.consultation_fee === 'number' ? settingsRecord.consultation_fee : undefined,
   };
 
   const organization = {
-    id: typeof practiceDetails.organization_id === 'string' ? practiceDetails.organization_id : undefined,
-    slug: typeof practiceDetails.slug === 'string' ? practiceDetails.slug : slug,
-    name: typeof practiceDetails.name === 'string' ? practiceDetails.name : undefined,
-    logo: typeof practiceDetails.logo === 'string' ? practiceDetails.logo : undefined,
+    id: asNonEmptyString(organizationRecord.id) ?? undefined,
+    slug: typeof organizationRecord.slug === 'string' ? organizationRecord.slug : slug,
+    name: typeof organizationRecord.name === 'string' ? organizationRecord.name : undefined,
+    logo: typeof organizationRecord.logo === 'string' ? organizationRecord.logo : undefined,
   };
 
   return new Response(JSON.stringify({
