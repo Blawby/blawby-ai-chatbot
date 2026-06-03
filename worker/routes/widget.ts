@@ -304,7 +304,7 @@ export async function handleWidgetBootstrap(request: Request, env: Env): Promise
   // ------------------------------------------------------------------
   const rawIntakeTemplate = pd?.intake_template as BackendIntakeTemplatePublic | null | undefined;
   if (!rawIntakeTemplate) {
-    throw HttpErrors.badGateway('[Bootstrap] No published intake template found for this practice. Ensure the practice has a published default template.');
+    throw HttpErrors.badGateway(`[Bootstrap] No published intake template found for practice '${slug}'. Ensure the practice has a published default template.`);
   }
 
   // Normalise backend shape → app IntakeTemplate (same logic as intakeTemplatesApi.ts edge)

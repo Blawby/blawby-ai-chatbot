@@ -82,6 +82,8 @@ type EditorState = {
   consultationFee: number | null;
   requiredFields: EditorField[];
   enrichmentFields: EditorField[];
+  /** Preserved from the original template so the flag survives a save round-trip. */
+  is_default: boolean;
 };
 
 type BuilderSelectionId = 'none' | 'contact' | 'opening' | 'disclaimer' | 'payment' | `required:${string}` | `enrichment:${string}`;
@@ -182,6 +184,7 @@ function buildEditorState(
       consultationFee: defaults.consultationFee,
       requiredFields: getLockedRequiredFields([]),
       enrichmentFields: [],
+      is_default: false,
     };
   }
 
@@ -202,6 +205,7 @@ function buildEditorState(
       : defaults.consultationFee,
     requiredFields: [...lockedRequiredFields, ...requiredFields],
     enrichmentFields,
+    is_default: template.is_default ?? false,
   };
 }
 
@@ -220,7 +224,7 @@ function editorStateToTemplate(state: EditorState): IntakeTemplate {
   return {
     slug,
     name: state.name.trim(),
-    is_default: false,
+    is_default: state.is_default,
     introMessage: state.introMessage.trim() || undefined,
     legalDisclaimer: state.legalDisclaimer.trim() || undefined,
     paymentLinkEnabled: state.paymentLinkEnabled,
@@ -1079,6 +1083,7 @@ function TemplateEditor({
       const discardId = initial?.id || state.slug || initial?.slug;
       if (!discardId) {
         showError('Cannot discard', 'No template identifier found — refresh and try again.');
+        onCancel();
         return;
       }
       await onDiscardDraft(discardId);

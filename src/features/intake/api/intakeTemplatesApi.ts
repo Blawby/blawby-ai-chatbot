@@ -27,6 +27,7 @@ function normalizeField(f: BackendIntakeTemplateField): IntakeFieldDefinition {
     isStandard: f.is_standard,
     promptHint: f.prompt_hint ?? undefined,
     options: f.options ? f.options.map((o) => o.value) : undefined,
+    backendFieldType: f.field_type,
   };
 }
 
@@ -85,8 +86,10 @@ export type UpdateIntakeTemplateInput = Partial<CreateIntakeTemplateInput>;
 
 export async function listIntakeTemplates(practiceId: string): Promise<IntakeTemplate[]> {
   const result = await apiClient.get<{ data: BackendIntakeTemplate[] }>(intakeTemplatesPath(practiceId));
-  const list = Array.isArray(result?.data) ? result.data : [];
-  return list.map(normalizeTemplate);
+  if (!Array.isArray(result?.data)) {
+    throw new Error(`Unexpected response from backend: missing data for intake templates (practice ${practiceId})`);
+  }
+  return result.data.map(normalizeTemplate);
 }
 
 export async function getIntakeTemplate(practiceId: string, templateId: string): Promise<IntakeTemplate> {

@@ -47,6 +47,7 @@ const PRACTICE_AREAS: readonly string[] = [
 export const PracticeStep = ({ draft, onChange }: PracticeStepProps) => {
   const computedSlug = slugify(draft.practiceName ?? '');
   const selectedAreas = new Set(draft.practiceAreas ?? []);
+  const publicOrigin = (() => { try { return getPublicFormOrigin(); } catch { return ''; } })();
 
   const togglePracticeArea = (area: string) => {
     const next = new Set(selectedAreas);
@@ -91,7 +92,7 @@ export const PracticeStep = ({ draft, onChange }: PracticeStepProps) => {
               iconClassName="h-5 w-5 text-dim-2"
             />
             <p className="mt-1 text-xs" style={{ color: 'var(--dim)' }}>
-              {getPublicFormOrigin()}/p/{computedSlug || 'your-practice'}
+              {publicOrigin}/p/{computedSlug || 'your-practice'}
             </p>
           </div>
 

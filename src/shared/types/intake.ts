@@ -75,6 +75,11 @@ export interface IntakeFieldDefinition {
    * under `custom_fields`.
    */
   mapsTo?: string;
+  /**
+   * Raw backend field_type before normalization (e.g. 'textarea', 'email', 'phone').
+   * Preserved so UI rendering and validation can access specialized semantics.
+   */
+  backendFieldType?: string;
 }
 
 // ---------------------------------------------------------------------------
