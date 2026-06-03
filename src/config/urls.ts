@@ -88,6 +88,12 @@ export const uploadItemPath = (uploadId: string): string =>
 export const uploadConfirmPath = (uploadId: string): string =>
 	`${uploadItemPath(uploadId)}/confirm`;
 
+export const intakeTemplatesPath = (practiceId: string): string =>
+	`/api/practice/${encodeSegment(practiceId)}/intake-templates`;
+
+export const intakeTemplatePath = (practiceId: string, templateId: string): string =>
+	`${intakeTemplatesPath(practiceId)}/${encodeSegment(templateId)}`;
+
 export const matterCollectionPath = (practiceId: string): string => `/api/matters/${encodeSegment(practiceId)}`;
 
 export const matterItemPath = (practiceId: string, matterId: string): string =>
@@ -329,10 +335,14 @@ export function getPublicFormOrigin(): string {
     if (typeof window !== 'undefined' && window.location?.origin) {
         return window.location.origin;
     }
-    if (import.meta.env.VITE_PUBLIC_FORM_ORIGIN) {
-        return import.meta.env.VITE_PUBLIC_FORM_ORIGIN;
-    }
-    return 'https://app.blawby.com';
+    const explicit =
+        import.meta.env.VITE_APP_BASE_URL ||
+        import.meta.env.VITE_PUBLIC_APP_URL ||
+        import.meta.env.VITE_APP_URL;
+    if (explicit) return explicit.replace(/\/+$/, '');
+    throw new Error(
+        'Public form origin could not be determined. Set VITE_APP_BASE_URL.'
+    );
 }
 
 const WIDGET_TOKEN_ALLOWLIST_PATTERNS: RegExp[] = [

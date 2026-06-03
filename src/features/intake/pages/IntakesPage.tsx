@@ -130,7 +130,7 @@ export const IntakesPage: FunctionComponent<IntakesPageProps> = ({
     try { return decodeURIComponent(value); } catch { return value; }
   };
   const selectedIntakeId = isResponsesRoute && pathSegments[1] ? safeDecode(pathSegments[1]) : null;
-  const selectedTemplateSlug = isFormsRoute && pathSegments[1] && pathSegments[1] !== 'new'
+  const selectedTemplateId = isFormsRoute && pathSegments[1] && pathSegments[1] !== 'new'
     ? safeDecode(pathSegments[1])
     : isFormsRoute && pathSegments[1] === 'new'
       ? 'new'
@@ -243,7 +243,7 @@ export const IntakesPage: FunctionComponent<IntakesPageProps> = ({
         basePath={`${basePath}/forms`}
         responsesPath={`${basePath}/responses`}
         routeMode={templateRouteMode}
-        routeTemplateSlug={selectedTemplateSlug}
+        routeTemplateId={selectedTemplateId}
         onBack={() => location.route(`${basePath}/forms`)}
       />
     );

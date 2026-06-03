@@ -66,6 +66,7 @@ const DebugDialogsPage = lazy(() => import('@/pages/DebugDialogsPage'));
 const DebugChatPage = lazy(() => import('@/pages/DebugChatPage'));
 const DebugConversationsPage = lazy(() => import('@/pages/DebugConversationsPage'));
 const DebugMatterPage = lazy(() => import('@/pages/DebugMatterPage'));
+const DebugOnboardingPage = lazy(() => import('@/pages/DebugOnboardingPage'));
 const ClientEngagementReviewPage = lazy(() => import('@/features/engagements/pages/ClientEngagementReviewPage').then((m) => ({ default: m.ClientEngagementReviewPage })));
 // MainApp is the workspace shell — it carries the chat composer, file
 // upload pipeline, presence provider, etc. Lazy so the browser only loads
@@ -145,6 +146,11 @@ const DevDebugConversationsRoute = () => {
 const DevDebugMatterRoute = () => {
   if (!import.meta.env.DEV) return <App404 />;
   return <DebugMatterPage />;
+};
+
+const DevDebugOnboardingRoute = () => {
+  if (!import.meta.env.DEV) return <App404 />;
+  return <DebugOnboardingPage />;
 };
 
 
@@ -245,14 +251,33 @@ function PayRedirect() {
 export function App() {
   return (
     <LocationProvider>
-      <SessionProvider>
-        <AuthBootGate>
-          <AppGuard>
-            <AppShell />
-          </AppGuard>
-        </AuthBootGate>
-      </SessionProvider>
+      <AppRoot />
     </LocationProvider>
+  );
+}
+
+function AppRoot() {
+  const location = useLocation();
+  const isDebugOnboardingRoute = import.meta.env.DEV && location.path === '/debug/onboarding';
+
+  if (isDebugOnboardingRoute) {
+    return (
+      <ToastProvider>
+        <Suspense fallback={<LoadingScreen />}>
+          <DebugOnboardingPage />
+        </Suspense>
+      </ToastProvider>
+    );
+  }
+
+  return (
+    <SessionProvider>
+      <AuthBootGate>
+        <AppGuard>
+          <AppShell />
+        </AppGuard>
+      </AuthBootGate>
+    </SessionProvider>
   );
 }
 
@@ -451,6 +476,7 @@ function AppShell() {
           <Route path="/debug/chat" component={DevDebugChatRoute} />
           <Route path="/debug/conversations" component={DevDebugConversationsRoute} />
           <Route path="/debug/matters" component={DevDebugMatterRoute} />
+          <Route path="/debug/onboarding" component={DevDebugOnboardingRoute} />
           <Route path="/pay" component={PayRedirect} />
           <Route path="/public/:practiceSlug/welcome" component={(props) => <PublicWorkspaceRoute {...props} shell="marketing" />} />
           <Route path="/public/:practiceSlug/intake/:templateSlug" component={PublicWorkspaceRoute} />
@@ -502,8 +528,8 @@ function AppShell() {
           <Route path="/practice/:practiceSlug/intakes/responses/:intakeId" component={PracticeAppRoute} workspaceView="intakes" />
           <Route path="/practice/:practiceSlug/intakes/forms" component={PracticeAppRoute} workspaceView="intakes" />
           <Route path="/practice/:practiceSlug/intakes/forms/new" component={PracticeAppRoute} workspaceView="intakes" />
-          <Route path="/practice/:practiceSlug/intakes/forms/:templateSlug/edit" component={PracticeAppRoute} workspaceView="intakes" />
-          <Route path="/practice/:practiceSlug/intakes/forms/:templateSlug" component={PracticeAppRoute} workspaceView="intakes" />
+          <Route path="/practice/:practiceSlug/intakes/forms/:templateId/edit" component={PracticeAppRoute} workspaceView="intakes" />
+          <Route path="/practice/:practiceSlug/intakes/forms/:templateId" component={PracticeAppRoute} workspaceView="intakes" />
           <Route path="/practice/:practiceSlug/engagements" component={PracticeAppRoute} workspaceView="engagements" />
           <Route path="/practice/:practiceSlug/engagements/:engagementId" component={PracticeAppRoute} workspaceView="engagements" />
           <Route path="/practice/:practiceSlug/files" component={PracticeAppRoute} workspaceView="files" />

@@ -16,21 +16,34 @@ type BillingPeriod = 'monthly' | 'yearly';
 
 interface PricingViewProps {
   onUpgrade?: (planName: string) => Promise<boolean | void> | boolean | void;
+  planOverride?: SubscriptionPlan | null;
+  variant?: 'default' | 'onboarding';
   className?: string;
 }
 
 const DISPLAY_PLAN_NAME = 'blawby_practice';
 
-const PricingView: FunctionComponent<PricingViewProps> = ({ className, onUpgrade }) => {
+const PricingView: FunctionComponent<PricingViewProps> = ({
+  className,
+  onUpgrade,
+  planOverride = null,
+  variant = 'default'
+}) => {
   const { t } = useTranslation(['pricing', 'common']);
   const { showError } = useToastContext();
   const { submitUpgrade, submitting } = usePaymentUpgrade();
 
-  const [plan, setPlan] = useState<SubscriptionPlan | null>(null);
+  const [plan, setPlan] = useState<SubscriptionPlan | null>(planOverride);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [billingPeriod, setBillingPeriod] = useState<BillingPeriod>('monthly');
 
   useEffect(() => {
+    if (planOverride) {
+      setPlan(planOverride);
+      setLoadError(null);
+      return;
+    }
+
     let mounted = true;
     const controller = new AbortController();
 
@@ -63,7 +76,7 @@ const PricingView: FunctionComponent<PricingViewProps> = ({ className, onUpgrade
       mounted = false;
       controller.abort();
     };
-  }, []);
+  }, [planOverride]);
 
   if (loadError) {
     return (
@@ -150,13 +163,15 @@ const PricingView: FunctionComponent<PricingViewProps> = ({ className, onUpgrade
     { value: 'monthly', label: monthlyLabel, disabled: !hasMonthlyPrice },
     { value: 'yearly', label: annuallyLabelWithDiscount, disabled: !hasYearly }
   ];
+  const isOnboarding = variant === 'onboarding';
+
   return (
     <div className={`w-full text-ink ${className ?? ''}`}>
-      <div className="mx-auto w-full max-w-xl px-2 pt-2 pb-2 md:px-3 md:pt-3 md:pb-3">
+      <div className={`mx-auto w-full max-w-xl ${isOnboarding ? '' : 'px-2 pt-2 pb-2 md:px-3 md:pt-3 md:pb-3'}`}>
         {showBillingSelector ? (
-          <div className="flex justify-center pb-1">
+          <div className={`flex justify-center ${isOnboarding ? 'pb-0' : 'pb-1'}`}>
             <Seg<BillingPeriod>
-              className="w-full max-w-[420px]"
+              className={isOnboarding ? 'w-full max-w-[420px] rounded-[14px] border border-[var(--rule)] bg-[var(--card)] p-1 shadow-[var(--shadow-1)]' : 'w-full max-w-[420px]'}
               value={billingPeriod}
               options={billingOptions}
               onChange={setBillingPeriod}
@@ -166,32 +181,52 @@ const PricingView: FunctionComponent<PricingViewProps> = ({ className, onUpgrade
           </div>
         ) : null}
 
-        <div className="mt-6 card px-5 py-6 md:px-7 md:py-8">
+        <div
+          className={isOnboarding ? 'mt-5 rounded-[20px] border bg-[var(--card)] px-6 py-7 shadow-[var(--shadow-2)] md:px-8 md:py-8' : 'mt-6 card px-5 py-6 md:px-7 md:py-8'}
+          style={isOnboarding ? { borderColor: 'var(--rule)' } : undefined}
+        >
           <div className="flex flex-col items-start text-left">
-            <h1 data-testid="pricing-page-title" className="text-3xl font-semibold tracking-tight text-ink md:text-4xl">
+            <h1
+              data-testid="pricing-page-title"
+              className={isOnboarding ? 'text-[40px] tracking-[-0.03em] text-ink md:text-[52px]' : 'text-3xl font-semibold tracking-tight text-ink md:text-4xl'}
+              style={isOnboarding ? { fontFamily: 'var(--serif)', fontWeight: 400, lineHeight: 0.95 } : undefined}
+            >
               {plan.displayName || plan.name}
             </h1>
             {plan.description ? (
-              <p className="mt-4 max-w-xl text-base leading-7 text-dim-2">
+              <p
+                className={isOnboarding ? 'mt-4 max-w-[34ch] text-lg leading-8 text-ink-2' : 'mt-4 max-w-xl text-base leading-7 text-dim-2'}
+              >
                 {plan.description}
               </p>
             ) : null}
             {hasDisplayPrice && plan.currency ? (
-              <div className="mt-7 flex items-end gap-1.5">
-                <span className="text-5xl font-semibold tracking-tight text-ink md:text-6xl">
+              <div className={`flex items-end gap-1.5 ${isOnboarding ? 'mt-8' : 'mt-7'}`}>
+                <span
+                  className={isOnboarding ? 'text-[54px] tracking-[-0.04em] text-ink md:text-[68px]' : 'text-5xl font-semibold tracking-tight text-ink md:text-6xl'}
+                  style={isOnboarding ? { fontFamily: 'var(--serif)', fontWeight: 400, lineHeight: 0.95 } : undefined}
+                >
                   {formatCurrency(selectedPriceValue, plan.currency, i18n.language)}
                 </span>
-                <span className="pb-1 text-xl font-semibold text-dim-2 md:pb-2 md:text-2xl">/{periodLabel}</span>
+                <span
+                  className={isOnboarding ? 'pb-1 text-lg text-dim md:pb-2 md:text-xl' : 'pb-1 text-xl font-semibold text-dim-2 md:pb-2 md:text-2xl'}
+                  style={isOnboarding ? { fontFamily: 'var(--mono)', letterSpacing: '0.08em', textTransform: 'uppercase' } : undefined}
+                >
+                  /{periodLabel}
+                </span>
               </div>
             ) : null}
           </div>
 
-          <div className="mt-8">
+          <div className={isOnboarding ? 'mt-8 rounded-[16px] border border-[var(--rule)] bg-[var(--paper)]/70 px-5 py-5' : 'mt-8'}>
             {features.length > 0 ? (
-              <ul className="space-y-3 text-base text-dim-2">
+              <ul className={isOnboarding ? 'space-y-3 text-[15px] text-ink-2' : 'space-y-3 text-base text-dim-2'}>
                 {features.map((feature) => (
                   <li key={feature} className="flex items-start gap-2">
-                    <Icon icon={Check} className="mt-0.5 h-5 w-5 flex-none text-accent"  />
+                    <Icon
+                      icon={Check}
+                      className={isOnboarding ? 'mt-0.5 h-4 w-4 flex-none text-[var(--accent-deep)]' : 'mt-0.5 h-5 w-5 flex-none text-accent'}
+                    />
                     <span>{feature}</span>
                   </li>
                 ))}
@@ -201,12 +236,12 @@ const PricingView: FunctionComponent<PricingViewProps> = ({ className, onUpgrade
             )}
           </div>
 
-          <div className="mt-8">
+          <div className={isOnboarding ? 'mt-7' : 'mt-8'}>
             <Button
               onClick={() => handleUpgrade(plan)}
               variant="primary"
               size="lg"
-              className="h-14 w-full"
+              className={isOnboarding ? 'h-14 w-full text-base' : 'h-14 w-full'}
               disabled={submitting}
             >
               {submitting
@@ -222,7 +257,9 @@ const PricingView: FunctionComponent<PricingViewProps> = ({ className, onUpgrade
                   : plan.displayName || plan.name}
             </Button>
             {hasDisplayPrice ? (
-              <p className="mt-4 text-center text-sm text-dim-2">
+              <p
+                className={isOnboarding ? 'mt-4 text-center text-xs uppercase tracking-[0.14em] text-dim' : 'mt-4 text-center text-sm text-dim-2'}
+              >
                 {billingDescription}
               </p>
             ) : null}

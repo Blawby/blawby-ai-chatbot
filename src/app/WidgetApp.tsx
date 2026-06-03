@@ -37,7 +37,6 @@ import type { FileAttachment } from '../../worker/types';
 import type { UploadingFile } from '@/shared/types/upload';
 import type { IntakeTemplate } from '@/shared/types/intake';
 import type { AuthSessionPayload } from '@/shared/types/user';
-import { DEFAULT_INTAKE_TEMPLATE } from '@/shared/constants/intakeTemplates';
 import { INTAKE_HARD_ERROR_MESSAGE } from '@/shared/constants/intakeErrors';
 
 // Widget mode never supports file uploads — stable references avoid ChatContainer re-renders.
@@ -68,7 +67,7 @@ interface WidgetAppProps {
   routeConversationId?: string;
   bootstrapConversationId?: string | null;
   bootstrapSession?: AuthSessionPayload;
-  /** Resolved intake template from bootstrap. Falls back to DEFAULT_INTAKE_TEMPLATE if absent. */
+  /** Resolved intake template from bootstrap. Absent means no published template exists for this practice. */
   intakeTemplate?: IntakeTemplate | null;
 }
 
@@ -134,7 +133,7 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
   const effectiveConversationId = routeConversationId ?? setupConversationId ?? (bootstrapIgnored ? null : bootstrapConversationId) ?? null;
 
   // Derive active template from prop on every render so updates propagate
-  const activeIntakeTemplate = intakeTemplateProp ?? DEFAULT_INTAKE_TEMPLATE;
+  const activeIntakeTemplate = intakeTemplateProp ?? null;
 
   const createConversationIfNeeded = useCallback(async () => {
     if (effectiveConversationId) return effectiveConversationId;

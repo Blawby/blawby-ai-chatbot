@@ -18,7 +18,7 @@ const toBase64Url = (bytes: Uint8Array): string =>
 
 const randomBase64Url = (size: number): string => toBase64Url(crypto.getRandomValues(new Uint8Array(size)));
 
-const buildCallbackUrl = (): string => `${window.location.origin}${MCP_OAUTH_CALLBACK_PATH}`;
+const buildCallbackUrl = (): string => `${getWorkerApiUrl()}${MCP_OAUTH_CALLBACK_PATH}`;
 
 const setSessionItem = (key: string, value: string): void => {
   window.sessionStorage.setItem(key, value);

@@ -30,13 +30,20 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { cn } from '@/shared/utils/cn';
 import { usePracticeManagement } from '@/shared/hooks/usePracticeManagement';
 import { EntityList } from '@/shared/ui/list/EntityList';
-import { usePracticeDetails } from '@/shared/hooks/usePracticeDetails';
 import { useToastContext } from '@/shared/contexts/ToastContext';
 import { useNavigation } from '@/shared/utils/navigation';
 import { listIntakes, type IntakeListItem } from '@/features/intake/api/intakesApi';
+import {
+  listIntakeTemplates,
+  createIntakeTemplate,
+  updateIntakeTemplate,
+  deleteIntakeTemplate,
+  type CreateIntakeTemplateInput,
+  type IntakeTemplateFieldInput,
+} from '@/features/intake/api/intakeTemplatesApi';
 import { fromMinorUnits, toMinorUnitsValue } from '@/shared/utils/money';
 import { getOnboardingStatusPayload } from '@/shared/lib/apiClient';
-import { STANDARD_FIELD_DEFINITIONS, DEFAULT_INTAKE_TEMPLATE } from '@/shared/constants/intakeTemplates';
+import { STANDARD_FIELD_DEFINITIONS } from '@/shared/constants/intakeTemplates';
 import type { FieldPhase, IntakeFieldDefinition, IntakeTemplate } from '@/shared/types/intake';
 import { EmbedCodeDialog, getPublicFormUrl, copyTextToClipboard } from '@/features/intake/components/EmbedCodeBlock';
 import { Pill } from '@/design-system/primitives';
@@ -60,7 +67,8 @@ type IntakeTemplatesPageProps = {
   practiceId?: string | null;
   basePath?: string;
   responsesPath?: string;
-  routeTemplateSlug?: string | null;
+  /** Backend template UUID from the URL segment (replaces slug-based routing). */
+  routeTemplateId?: string | null;
   routeMode?: 'list' | 'detail' | 'editor';
 };
 
@@ -92,28 +100,6 @@ function slugify(name: string): string {
 }
 
 
-function parseTemplateListFromMetadata(metadata: Record<string, unknown> | null | undefined, key: string): IntakeTemplate[] {
-  if (!metadata) return [];
-
-  const raw = metadata[key];
-  if (typeof raw === 'string') {
-    try {
-      const parsed = JSON.parse(raw);
-      return Array.isArray(parsed) ? (parsed as IntakeTemplate[]) : [];
-    } catch {
-      return [];
-    }
-  }
-  return Array.isArray(raw) ? (raw as IntakeTemplate[]) : [];
-}
-
-function parseTemplatesFromMetadata(metadata: Record<string, unknown> | null | undefined): IntakeTemplate[] {
-  return parseTemplateListFromMetadata(metadata, 'intakeTemplates');
-}
-
-function parseDraftTemplatesFromMetadata(metadata: Record<string, unknown> | null | undefined): IntakeTemplate[] {
-  return parseTemplateListFromMetadata(metadata, 'intakeTemplateDrafts');
-}
 
 function generateFieldKey(label: string, existingKeys: Set<string>): string {
   const base = slugify(label).replace(/-([a-z])/g, (_match, char: string) => char.toUpperCase());
@@ -234,7 +220,7 @@ function editorStateToTemplate(state: EditorState): IntakeTemplate {
   return {
     slug,
     name: state.name.trim(),
-    isDefault: slug === DEFAULT_INTAKE_TEMPLATE.slug,
+    is_default: false,
     introMessage: state.introMessage.trim() || undefined,
     legalDisclaimer: state.legalDisclaimer.trim() || undefined,
     paymentLinkEnabled: state.paymentLinkEnabled,
@@ -658,7 +644,7 @@ type TemplateEditorProps = {
   onCancel: () => void;
   onSaveDraft: (template: IntakeTemplate) => Promise<void>;
   onPublish: (template: IntakeTemplate) => Promise<void>;
-  onDiscardDraft: (slug: string) => Promise<void>;
+  onDiscardDraft: (templateId: string) => Promise<void>;
 };
 
 function TemplateEditor({
@@ -820,7 +806,7 @@ function TemplateEditor({
     applyEditorState((prev) => ({
       ...prev,
       name,
-      slug: initial?.slug === DEFAULT_INTAKE_TEMPLATE.slug ? DEFAULT_INTAKE_TEMPLATE.slug : slugify(name),
+      slug: slugify(name),
     }));
     setSlugError(null);
   };
@@ -1090,7 +1076,12 @@ function TemplateEditor({
 
     setIsSaving(true);
     try {
-      await onDiscardDraft(state.slug || initial?.slug || draftTemplate.slug);
+      const discardId = initial?.id || state.slug || initial?.slug;
+      if (!discardId) {
+        showError('Cannot discard', 'No template identifier found — refresh and try again.');
+        return;
+      }
+      await onDiscardDraft(discardId);
       setHasSavedDraft(false);
       setDiscardPending(false);
       showSuccess('Draft discarded', 'Draft changes were removed.');
@@ -2022,9 +2013,8 @@ function TemplateEditor({
 }
 
 type TemplateListViewProps = {
-  defaultTemplate: IntakeTemplate;
-  existingTemplates: IntakeTemplate[];
-  draftTemplates: IntakeTemplate[];
+  defaultTemplate: IntakeTemplate | null;
+  allTemplates: IntakeTemplate[];
   practiceId: string | null;
   practiceSlug: string;
   isSaving: boolean;
@@ -2037,8 +2027,7 @@ type TemplateListViewProps = {
 
 function TemplateListView({
   defaultTemplate,
-  existingTemplates,
-  draftTemplates,
+  allTemplates,
   practiceId,
   practiceSlug,
   isSaving,
@@ -2068,8 +2057,8 @@ function TemplateListView({
       .then((result) => {
         if (controller.signal.aborted) return;
         const counts = result.intakes.reduce<Record<string, number>>((acc, intake) => {
-          const slug = getResponseTemplateSlug(intake) ?? DEFAULT_INTAKE_TEMPLATE.slug;
-          acc[slug] = (acc[slug] ?? 0) + 1;
+          const slug = getResponseTemplateSlug(intake);
+          if (slug) acc[slug] = (acc[slug] ?? 0) + 1;
           return acc;
         }, {});
         setResponseCounts(counts);
@@ -2087,22 +2076,8 @@ function TemplateListView({
     return () => controller.abort();
   }, [practiceId]);
 
-  const draftBySlug = useMemo(
-    () => new Map(draftTemplates.map((template) => [template.slug, template])),
-    [draftTemplates],
-  );
-  const publishedSlugs = useMemo(
-    () => new Set([defaultTemplate.slug, ...existingTemplates.map((template) => template.slug)]),
-    [defaultTemplate.slug, existingTemplates],
-  );
-  const draftOnlyTemplates = useMemo(
-    () => draftTemplates.filter((template) => !publishedSlugs.has(template.slug)),
-    [draftTemplates, publishedSlugs],
-  );
-  // EntityList requires `T extends { id: string }`; IntakeTemplate is keyed by slug.
-  const allTemplates = [defaultTemplate, ...existingTemplates, ...draftOnlyTemplates].map(
-    (template) => ({ ...template, id: template.slug }),
-  );
+  // EntityList requires `T extends { id: string }` — use backend UUID if present, else slug
+  const listItems = allTemplates.map((template) => ({ ...template, id: template.id ?? template.slug }));
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-4 p-4 sm:p-6">
@@ -2110,18 +2085,17 @@ function TemplateListView({
         <Button icon={Plus} onClick={onNew} disabled={isSaving}>New form</Button>
       </div>
       <EntityList
-        items={allTemplates}
+        items={listItems}
         onSelect={(template) => {
-          const isDraftOnly = !publishedSlugs.has(template.slug);
-          return isDraftOnly ? onEdit(template) : onOpen(template);
+          const isDraft = template.status === 'draft';
+          return isDraft ? onEdit(template) : onOpen(template);
         }}
         isLoading={!responseCountsLoaded}
         emptyState={<div className="text-sm text-dim-2">No intake forms yet.</div>}
         className="panel overflow-hidden"
         renderItem={(template) => {
-          const isDefault = template.slug === defaultTemplate.slug;
-          const hasDraft = draftBySlug.has(template.slug);
-          const isDraftOnly = !publishedSlugs.has(template.slug);
+          const isDefault = template.is_default || template.isDefault || template.slug === defaultTemplate?.slug;
+          const isDraft = template.status === 'draft';
           const publicUrl = getPublicFormUrl(practiceSlug, template.slug);
           return (
             <div className="flex w-full items-center gap-4 px-4 py-3 hover:bg-paper-2/10">
@@ -2136,7 +2110,7 @@ function TemplateListView({
                 </div>
                 {isDefault ? (
                   <p className="text-xs text-dim-2">Default form</p>
-                ) : isDraftOnly ? (
+                ) : isDraft ? (
                   <p className="text-xs text-dim-2">Not published yet</p>
                 ) : null}
               </div>
@@ -2191,7 +2165,7 @@ function TemplateListView({
                   </span>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="min-w-[180px]">
-                  {!isDraftOnly ? (
+                  {!isDraft ? (
                     <DropdownMenuItem
                       onSelect={() => {
                         copyTextToClipboard(
@@ -2204,7 +2178,7 @@ function TemplateListView({
                       Copy URL
                     </DropdownMenuItem>
                   ) : null}
-                  {!isDraftOnly ? (
+                  {!isDraft ? (
                     <DropdownMenuItem onSelect={() => setEmbedTarget(template)}>
                       Copy embed code
                     </DropdownMenuItem>
@@ -2276,93 +2250,57 @@ export default function IntakeTemplatesPage({
   practiceId = null,
   basePath = '/practice/intakes',
   responsesPath = '/practice/intakes/responses',
-  routeTemplateSlug = null,
+  routeTemplateId = null,
   routeMode = 'list',
 }: IntakeTemplatesPageProps) {
-  const { currentPractice, isLoading: practiceLoading, updatePractice } = usePracticeManagement({ fetchPracticeDetails: true });
-  const { details: practiceDetails, setDetails } = usePracticeDetails(
-    currentPractice?.id,
-    currentPractice?.slug,
-    false,
-  );
+  const { currentPractice, isLoading: practiceLoading } = usePracticeManagement({ fetchPracticeDetails: true });
   const { showSuccess, showError } = useToastContext();
   const { navigate } = useNavigation();
   const [isSaving, setIsSaving] = useState(false);
 
-  const existingTemplates = useMemo(
-    () => parseTemplatesFromMetadata(practiceDetails?.metadata ?? currentPractice?.metadata),
-    [currentPractice?.metadata, practiceDetails?.metadata],
-  );
-  const draftTemplates = useMemo(
-    () => parseDraftTemplatesFromMetadata(practiceDetails?.metadata ?? currentPractice?.metadata),
-    [currentPractice?.metadata, practiceDetails?.metadata],
-  );
-  const defaultTemplate = useMemo(
-    () => existingTemplates.find((template) => template.slug === DEFAULT_INTAKE_TEMPLATE.slug) ?? DEFAULT_INTAKE_TEMPLATE,
-    [existingTemplates],
-  );
-  const customTemplates = useMemo(
-    () => existingTemplates.filter((template) => template.slug !== DEFAULT_INTAKE_TEMPLATE.slug),
-    [existingTemplates],
-  );
-  const editTarget = useMemo(
-    () => {
-      if (!routeTemplateSlug || routeTemplateSlug === 'new') return undefined;
-      if (routeTemplateSlug === DEFAULT_INTAKE_TEMPLATE.slug) return defaultTemplate;
-      return customTemplates.find((template) => template.slug === routeTemplateSlug);
-    },
-    [customTemplates, defaultTemplate, routeTemplateSlug],
-  );
-  const draftEditTarget = useMemo(
-    () => {
-      if (!routeTemplateSlug || routeTemplateSlug === 'new') return undefined;
-      return draftTemplates.find((template) => template.slug === routeTemplateSlug);
-    },
-    [draftTemplates, routeTemplateSlug],
-  );
-  const templateNotFound = Boolean(routeTemplateSlug && routeTemplateSlug !== 'new' && !editTarget && !draftEditTarget);
+  // Load templates from backend — the only source of truth
+  const [allTemplates, setAllTemplates] = useState<IntakeTemplate[]>([]);
+  const [templatesLoading, setTemplatesLoading] = useState(true);
 
-  const persistTemplateMetadata = useCallback(async (nextTemplates: IntakeTemplate[], nextDraftTemplates: IntakeTemplate[]) => {
-    if (!currentPractice) return;
+  const resolvedPracticeId = practiceId ?? currentPractice?.id ?? null;
 
-    const currentMetadata = (() => {
-      try {
-        const raw = practiceDetails?.metadata ?? currentPractice?.metadata;
-        if (typeof raw === 'string') return JSON.parse(raw) as Record<string, unknown>;
-        if (raw && typeof raw === 'object') return raw as Record<string, unknown>;
-        return {};
-      } catch { return {}; }
-    })();
+  const reloadTemplates = useCallback(async () => {
+    if (!resolvedPracticeId) return;
+    const list = await listIntakeTemplates(resolvedPracticeId);
+    setAllTemplates(list);
+  }, [resolvedPracticeId]);
 
-    const nextMetadata = {
-      ...currentMetadata,
-      intakeTemplates: JSON.stringify(nextTemplates),
-      intakeTemplateDrafts: JSON.stringify(nextDraftTemplates),
-    };
+  useEffect(() => {
+    if (!resolvedPracticeId) return;
+    let mounted = true;
+    setTemplatesLoading(true);
+    listIntakeTemplates(resolvedPracticeId)
+      .then((list) => { if (mounted) { setAllTemplates(list); setTemplatesLoading(false); } })
+      .catch((err: unknown) => {
+        if (mounted) {
+          setTemplatesLoading(false);
+          showError('Failed to load forms', err instanceof Error ? err.message : 'Unexpected error.');
+        }
+      });
+    return () => { mounted = false; };
+  }, [resolvedPracticeId, showError]);
 
-    // Snapshot BEFORE optimistic update
-    const snapshot = practiceDetails;
-    const optimisticDetails = {
-      ...(snapshot ?? {}),
-      metadata: nextMetadata,
-    };
+  const defaultTemplate = useMemo(() => allTemplates.find((t) => t.is_default) ?? null, [allTemplates]);
+  const customTemplates = useMemo(() => allTemplates.filter((t) => !t.is_default), [allTemplates]);
 
-    setDetails(optimisticDetails);
+  const editTarget = useMemo(() => {
+    if (!routeTemplateId || routeTemplateId === 'new') return undefined;
+    return allTemplates.find((t) => t.id === routeTemplateId);
+  }, [allTemplates, routeTemplateId]);
 
-    try {
-      await updatePractice(currentPractice.id, { metadata: nextMetadata });
-    } catch (error) {
-      setDetails(snapshot ?? null);
-      throw error;
-    }
-  }, [currentPractice, practiceDetails, setDetails, updatePractice]);
+  const templateNotFound = Boolean(routeTemplateId && routeTemplateId !== 'new' && !editTarget && !templatesLoading);
 
   const handleNew = () => {
     navigate(`${basePath}/new`);
   };
 
   const handleOpen = (template: IntakeTemplate) => {
-    navigate(`${basePath}/${encodeURIComponent(template.slug)}`);
+    navigate(`${basePath}/${encodeURIComponent(template.id ?? template.slug)}`);
   };
 
   const handleViewResponses = (template: IntakeTemplate) => {
@@ -2370,24 +2308,52 @@ export default function IntakeTemplatesPage({
   };
 
   const handleEdit = (template: IntakeTemplate) => {
-    navigate(`${basePath}/${encodeURIComponent(template.slug)}/edit`);
+    navigate(`${basePath}/${encodeURIComponent(template.id ?? template.slug)}/edit`);
   };
 
   const handleCancel = () => {
     navigate(basePath);
   };
 
+  /** Convert app EditorState fields back to the backend field input shape. */
+  const toFieldInputs = useCallback((template: IntakeTemplate): IntakeTemplateFieldInput[] =>
+    template.fields.map((f, idx) => ({
+      key: f.key,
+      label: f.label,
+      field_type: (f.type === 'select' ? 'select' : f.type === 'date' ? 'date' : f.type === 'boolean' ? 'boolean' : f.type === 'number' ? 'number' : 'text') as IntakeTemplateFieldInput['field_type'],
+      phase: f.phase ?? (f.required ? 'required' : 'enrichment'),
+      required: f.required,
+      order_index: idx,
+      prompt_hint: f.promptHint,
+      is_standard: f.isStandard,
+      options: Array.isArray(f.options) ? f.options.map((o) => ({ value: o, label: o })) : undefined,
+    })), []);
+
   const handleSaveDraft = async (template: IntakeTemplate) => {
+    if (!resolvedPracticeId) return;
     setIsSaving(true);
     try {
-      const previousSlug = draftEditTarget?.slug ?? editTarget?.slug ?? template.slug;
-      const nextDraftTemplates = [
-        ...draftTemplates.filter((existing) => existing.slug !== previousSlug && existing.slug !== template.slug),
-        template,
-      ];
-      await persistTemplateMetadata(existingTemplates, nextDraftTemplates);
-      if (routeTemplateSlug === 'new' || !routeTemplateSlug) {
-        navigate(`${basePath}/${encodeURIComponent(template.slug)}/edit`);
+      const input: CreateIntakeTemplateInput = {
+        slug: template.slug,
+        name: template.name,
+        status: 'draft',
+        is_default: template.is_default ?? template.isDefault ?? false,
+        intro_message: template.introMessage,
+        legal_disclaimer: template.legalDisclaimer,
+        payment_link_enabled: template.paymentLinkEnabled ?? false,
+        consultation_fee: template.consultationFee,
+        fields: toFieldInputs(template),
+      };
+
+      let saved: IntakeTemplate;
+      if (template.id && template.id !== 'new') {
+        saved = await updateIntakeTemplate(resolvedPracticeId, template.id, input);
+      } else {
+        saved = await createIntakeTemplate(resolvedPracticeId, input);
+      }
+      await reloadTemplates();
+      if (routeTemplateId === 'new' || !routeTemplateId) {
+        navigate(`${basePath}/${encodeURIComponent(saved.id ?? saved.slug)}/edit`);
       }
     } catch (error) {
       showError('Draft save failed', error instanceof Error ? error.message : 'Unable to save draft.');
@@ -2398,38 +2364,29 @@ export default function IntakeTemplatesPage({
   };
 
   const handlePublishTemplate = async (template: IntakeTemplate) => {
+    if (!resolvedPracticeId) return;
     setIsSaving(true);
     try {
-      // Prevent renaming if there are existing intake responses tied to the
-      // current edit target's slug, since renaming would orphan those links.
-      if (editTarget && template.slug !== editTarget.slug && currentPractice) {
-        // Fetch only the first page of intakes and check for any that reference the editTarget.slug
-        try {
-          const result = await listIntakes(currentPractice.id, { page: 1, limit: 100 });
-          const hasResponses = result.intakes.some((i) => getResponseTemplateSlug(i) === editTarget.slug);
-          if (!hasResponses && result.total > 100) {
-            // Too many to check client-side — block rename conservatively
-            throw new Error('Unable to verify whether this form has existing responses. Rename aborted.');
-          }
-          if (hasResponses) {
-            throw new Error('This form has existing responses and cannot be renamed.');
-          }
-        } catch (_err) {
-          // If the check fails, be conservative and prevent rename to avoid accidental orphaning.
-          throw new Error(_err instanceof Error ? _err.message : 'Unable to verify whether this form has existing responses. Rename aborted.');
-        }
-      }
+      const input: CreateIntakeTemplateInput = {
+        slug: template.slug,
+        name: template.name,
+        status: 'published',
+        is_default: template.is_default ?? template.isDefault ?? false,
+        intro_message: template.introMessage,
+        legal_disclaimer: template.legalDisclaimer,
+        payment_link_enabled: template.paymentLinkEnabled ?? false,
+        consultation_fee: template.consultationFee,
+        fields: toFieldInputs(template),
+      };
 
-      // Build the next templates list by removing any existing entries with the
-      // old or new slug, then inserting the updated template. This preserves
-      // ordering while ensuring the old slug is removed during a rename.
-      const nextTemplates = [
-        ...existingTemplates.filter((existing) => existing.slug !== (editTarget?.slug ?? template.slug) && existing.slug !== template.slug),
-        template,
-      ];
-      const nextDraftTemplates = draftTemplates.filter((existing) => existing.slug !== (draftEditTarget?.slug ?? editTarget?.slug ?? template.slug) && existing.slug !== template.slug);
-      await persistTemplateMetadata(nextTemplates, nextDraftTemplates);
-      navigate(`${basePath}/${encodeURIComponent(template.slug)}`);
+      let saved: IntakeTemplate;
+      if (template.id && template.id !== 'new') {
+        saved = await updateIntakeTemplate(resolvedPracticeId, template.id, input);
+      } else {
+        saved = await createIntakeTemplate(resolvedPracticeId, input);
+      }
+      await reloadTemplates();
+      navigate(`${basePath}/${encodeURIComponent(saved.id ?? saved.slug)}`);
     } catch (error) {
       showError('Publish failed', error instanceof Error ? error.message : 'Unable to publish form.');
       throw error;
@@ -2438,11 +2395,13 @@ export default function IntakeTemplatesPage({
     }
   };
 
-  const handleDiscardDraft = async (slug: string) => {
+  const handleDiscardDraft = async (templateId: string) => {
+    if (!resolvedPracticeId) return;
     setIsSaving(true);
     try {
-      const nextDraftTemplates = draftTemplates.filter((existing) => existing.slug !== slug && existing.slug !== draftEditTarget?.slug);
-      await persistTemplateMetadata(existingTemplates, nextDraftTemplates);
+      await deleteIntakeTemplate(resolvedPracticeId, templateId);
+      await reloadTemplates();
+      navigate(basePath);
     } catch (error) {
       showError('Discard failed', error instanceof Error ? error.message : 'Unable to discard draft.');
       throw error;
@@ -2452,13 +2411,13 @@ export default function IntakeTemplatesPage({
   };
 
   const handleDelete = async (template: IntakeTemplate) => {
+    if (!resolvedPracticeId || !template.id) return;
     setIsSaving(true);
     try {
-      await persistTemplateMetadata(
-        existingTemplates.filter((existing) => existing.slug !== template.slug),
-        draftTemplates.filter((existing) => existing.slug !== template.slug),
-      );
+      await deleteIntakeTemplate(resolvedPracticeId, template.id);
+      await reloadTemplates();
       showSuccess('Form deleted', `"${template.name}" has been removed.`);
+      navigate(basePath);
     } catch (error) {
       showError('Delete failed', error instanceof Error ? error.message : 'Unable to delete form.');
     } finally {
@@ -2493,20 +2452,20 @@ export default function IntakeTemplatesPage({
   if (routeMode === 'editor') {
     return (
       <TemplateEditor
-        key={editTarget?.slug ?? routeTemplateSlug ?? 'new'}
-        initial={draftEditTarget ?? editTarget}
-        hasSavedDraft={Boolean(draftEditTarget)}
+        key={editTarget?.id ?? routeTemplateId ?? 'new'}
+        initial={editTarget}
+        hasSavedDraft={editTarget?.status === 'draft'}
         existingTemplates={customTemplates}
         practiceSlug={currentPractice.slug ?? ''}
         practiceOrganizationId={currentPractice.betterAuthOrgId ?? currentPractice.id}
         practiceBusinessEmail={currentPractice.businessEmail ?? null}
-        defaultIntroMessage={practiceDetails?.introMessage ?? ''}
-        defaultLegalDisclaimer={practiceDetails?.legalDisclaimer ?? ''}
+        defaultIntroMessage={currentPractice.introMessage ?? ''}
+        defaultLegalDisclaimer={currentPractice.legalDisclaimer ?? ''}
         currencyCode={currentPractice.currency ?? 'USD'}
         practicePreviewConfig={{
           name: currentPractice.name,
           profileImage: currentPractice.logo ?? undefined,
-          accentColor: practiceDetails?.accentColor ?? currentPractice.accentColor ?? undefined,
+          accentColor: currentPractice.accentColor ?? undefined,
         }}
         onCancel={handleCancel}
         onSaveDraft={handleSaveDraft}
@@ -2519,9 +2478,8 @@ export default function IntakeTemplatesPage({
   return (
     <TemplateListView
       defaultTemplate={defaultTemplate}
-      existingTemplates={customTemplates}
-      draftTemplates={draftTemplates}
-      practiceId={practiceId ?? currentPractice.id}
+      allTemplates={allTemplates}
+      practiceId={resolvedPracticeId}
       practiceSlug={currentPractice.slug ?? ''}
       isSaving={isSaving}
       onNew={handleNew}

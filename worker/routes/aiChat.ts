@@ -67,7 +67,7 @@ import type { ChatMessageAction } from '../../src/shared/types/conversation.js';
 import { normalizeChatActions } from '../../src/shared/utils/chatActions.js';
 import type { IntakeFieldDefinition } from '../../src/shared/types/intake.js';
 import type { IntakeTemplate } from '../../src/shared/types/intake.js';
-import { DEFAULT_INTAKE_TEMPLATE } from '../../src/shared/constants/intakeTemplates.js';
+import { STANDARD_FIELD_DEFINITIONS } from '../../src/shared/constants/intakeTemplates.js';
 
 const readBooleanField = (record: Record<string, unknown> | null, keys: string[]): boolean | null => {
   if (!record) return null;
@@ -831,7 +831,9 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
       };
     }
   } else {
-    activeTemplate = DEFAULT_INTAKE_TEMPLATE;
+    // No template in session — use standard fields. This should only happen
+    // if the bootstrap failed to attach a template; the real fix is upstream.
+    activeTemplate = { slug: 'default', name: 'Default', is_default: true, fields: STANDARD_FIELD_DEFINITIONS };
   }
 
   const flatState = (storedIntakeState ?? {}) as Record<string, unknown>;

@@ -9,7 +9,7 @@ import {
 import type { ChatMessageAction } from '../../src/shared/types/conversation';
 import { createSubmitAction } from '../../src/shared/utils/chatActions';
 import type { IntakeFieldDefinition, IntakeTemplate } from '../../src/shared/types/intake.js';
-import { STANDARD_FIELD_KEYS, DEFAULT_INTAKE_TEMPLATE } from '../../src/shared/constants/intakeTemplates.js';
+import { STANDARD_FIELD_KEYS, STANDARD_FIELD_DEFINITIONS } from '../../src/shared/constants/intakeTemplates.js';
 import {
   resolveNextField,
   isFieldCollected,
@@ -45,7 +45,7 @@ const US_STATE_NAME_TO_CODE: Record<string, string> = {
  * IntakeTemplate fields. Falls back to the default template if fields are empty.
  */
 export function buildSaveCaseDetailsTool(fields: IntakeFieldDefinition[]) {
-  const activeFields = fields.length > 0 ? fields : DEFAULT_INTAKE_TEMPLATE.fields;
+  const activeFields = fields.length > 0 ? fields : STANDARD_FIELD_DEFINITIONS;
   const properties: Record<string, object> = {};
 
   for (const field of activeFields) {
@@ -103,14 +103,14 @@ export function buildSaveCaseDetailsTool(fields: IntakeFieldDefinition[]) {
 }
 
 /** Convenience constant: the default tool schema using the default template. */
-export const SAVE_CASE_DETAILS_TOOL = buildSaveCaseDetailsTool(DEFAULT_INTAKE_TEMPLATE.fields);
+export const SAVE_CASE_DETAILS_TOOL = buildSaveCaseDetailsTool(STANDARD_FIELD_DEFINITIONS);
 
 /**
  * Generates the field instruction block injected into the system prompt.
  * Incorporates Phase 2 (promptHint) and Phase 3 (validationHint, condition).
  */
 export function buildFieldInstructions(fields: IntakeFieldDefinition[]): string {
-  const activeFields = fields.length > 0 ? fields : DEFAULT_INTAKE_TEMPLATE.fields;
+  const activeFields = fields.length > 0 ? fields : STANDARD_FIELD_DEFINITIONS;
   return activeFields.map((f) => {
     const req = f.required ? '(required)' : '(optional)';
     const questionText = f.isStandard ? (f.previewQuestion?.trim() || f.label) : f.label;
@@ -205,7 +205,7 @@ export function buildIntakeTools(fields: IntakeFieldDefinition[]) {
 }
 
 /** Default tools using the default template. */
-export const INTAKE_TOOLS = buildIntakeTools(DEFAULT_INTAKE_TEMPLATE.fields);
+export const INTAKE_TOOLS = buildIntakeTools(STANDARD_FIELD_DEFINITIONS);
 
 // ---------------------------------------------------------------------------
 // Tool result types

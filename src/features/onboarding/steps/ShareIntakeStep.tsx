@@ -4,6 +4,7 @@ import { Button } from '@/shared/ui/Button';
 import { Icon } from '@/shared/ui/Icon';
 import { StatStrip } from '@/design-system/patterns/StatStrip';
 import { useToastContext } from '@/shared/contexts/ToastContext';
+import { getPublicFormOrigin } from '@/config/urls';
 import type { OnboardingDraft } from '../types';
 
 interface ShareIntakeStepProps {
@@ -18,17 +19,13 @@ interface ShareIntakeStepProps {
  * proof the user is set up.
  */
 export const ShareIntakeStep = ({ draft }: ShareIntakeStepProps) => {
-  const { showSuccess } = useToastContext();
+  const { showSuccess, showError } = useToastContext();
   const [copied, setCopied] = useState(false);
 
   const intakeUrl = useMemo(() => {
-    const slug = draft.createdOrganizationSlug ?? draft.practiceSlug ?? 'your-practice';
-    if (typeof window === 'undefined') {
-      return `https://blawby.com/p/${slug}`;
-    }
-    const origin = window.location.origin;
-    return `${origin}/p/${slug}`;
-  }, [draft.createdOrganizationSlug, draft.practiceSlug]);
+    const slug = draft.createdOrganizationSlug ?? 'your-practice';
+    return `${getPublicFormOrigin()}/p/${slug}`;
+  }, [draft.createdOrganizationSlug]);
 
   const handleCopy = async () => {
     try {
@@ -39,7 +36,7 @@ export const ShareIntakeStep = ({ draft }: ShareIntakeStepProps) => {
         setTimeout(() => setCopied(false), 2000);
       }
     } catch {
-      showSuccess('Copy failed', 'Select the link below and copy manually.');
+      showError('Copy failed', 'Select the link below and copy manually.');
     }
   };
 
@@ -48,9 +45,8 @@ export const ShareIntakeStep = ({ draft }: ShareIntakeStepProps) => {
     window.open(intakeUrl, '_blank', 'noopener,noreferrer');
   };
 
-  const serviceCount = draft.selectedServices?.length ?? 0;
   const practiceAreaCount = draft.practiceAreas?.length ?? 0;
-  const quirksWords = (draft.practiceQuirks ?? '').trim().split(/\s+/).filter(Boolean).length;
+  const descriptionWords = (draft.description ?? '').trim().split(/\s+/).filter(Boolean).length;
 
   return (
     <section className="flex flex-col gap-6">
@@ -112,15 +108,10 @@ export const ShareIntakeStep = ({ draft }: ShareIntakeStepProps) => {
             extra: practiceAreaCount > 0 ? 'tuned to your work' : 'add anytime in Settings'
           },
           {
-            label: 'Services live',
-            value: serviceCount,
-            extra: serviceCount > 0 ? 'on your intake form' : 'add from your workspace'
-          },
-          {
-            label: 'Custom rules',
-            value: quirksWords,
+            label: 'Practice description',
+            value: descriptionWords,
             unit: 'words',
-            extra: quirksWords > 0 ? 'grounded in your prompt' : "we'll learn as you go"
+            extra: descriptionWords > 0 ? 'grounding your setup' : 'add in Settings any time'
           }
         ]}
       />

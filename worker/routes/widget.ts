@@ -9,8 +9,8 @@ import {
   issueWidgetAuthToken,
   validateWidgetAuthToken
 } from '../utils/widgetAuthToken.js';
-import type { IntakeTemplate } from '../../src/shared/types/intake.js';
-import { DEFAULT_INTAKE_TEMPLATE } from '../../src/shared/constants/intakeTemplates.js';
+import type { BackendIntakeTemplatePublic, IntakeTemplate } from '../../src/shared/types/intake.js';
+import { STANDARD_FIELD_DEFINITIONS } from '../../src/shared/constants/intakeTemplates.js';
 
 const normalizeCrossSiteWidgetCookie = (cookie: string, request: Request): string => {
   const protocol = new URL(request.url).protocol;
@@ -296,52 +296,53 @@ export async function handleWidgetBootstrap(request: Request, env: Env): Promise
     }
   }
 
-  // 5. Resolve intake template
+  // 5. Resolve intake template from backend response (PR #318).
   // ------------------------------------------------------------------
-  // Resolution rules (never hard-fail — always fall back to default):
-  //   - no ?template param → default
-  //   - param present → find slug match in settings.intakeTemplates
-  //   - not found / broken config → default
+  // The backend returns the resolved published default as `intake_template`.
+  // If absent or null the practice has no published template — fail fast
+  // so the root cause is fixed upstream rather than masked here.
   // ------------------------------------------------------------------
-  let intakeTemplate: IntakeTemplate = DEFAULT_INTAKE_TEMPLATE;
-  try {
-    const dataSource = pd.metadata ?? pd.settings ?? pd.practice_settings;
-    let templates: unknown[] = [];
+  const rawIntakeTemplate = pd?.intake_template as BackendIntakeTemplatePublic | null | undefined;
+  if (!rawIntakeTemplate) {
+    throw HttpErrors.badGateway('[Bootstrap] No published intake template found for this practice. Ensure the practice has a published default template.');
+  }
 
-    if (typeof dataSource === 'string') {
-      const parsed = JSON.parse(dataSource) as unknown;
-      if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
-        const s = parsed as Record<string, unknown>;
-        const rawTemplates = s.intakeTemplates;
-        if (typeof rawTemplates === 'string') {
-          try { templates = JSON.parse(rawTemplates) as unknown[]; } catch { /* ignore */ }
-        } else if (Array.isArray(rawTemplates)) {
-          templates = rawTemplates;
-        }
-      }
-    } else if (dataSource && typeof dataSource === 'object' && !Array.isArray(dataSource)) {
-      const s = dataSource as Record<string, unknown>;
-      const rawTemplates = s.intakeTemplates;
-      if (typeof rawTemplates === 'string') {
-        try { templates = JSON.parse(rawTemplates) as unknown[]; } catch { /* ignore */ }
-      } else if (Array.isArray(rawTemplates)) {
-        templates = rawTemplates;
-      }
-    }
+  // Normalise backend shape → app IntakeTemplate (same logic as intakeTemplatesApi.ts edge)
+  const intakeTemplate: IntakeTemplate = {
+    id: rawIntakeTemplate.id,
+    slug: rawIntakeTemplate.slug,
+    name: rawIntakeTemplate.name,
+    is_default: true,
+    isDefault: true,
+    introMessage: rawIntakeTemplate.intro_message ?? undefined,
+    legalDisclaimer: rawIntakeTemplate.legal_disclaimer ?? undefined,
+    paymentLinkEnabled: rawIntakeTemplate.payment_link_enabled,
+    consultationFee: rawIntakeTemplate.consultation_fee ?? undefined,
+    fields: (rawIntakeTemplate.fields ?? [])
+      .slice()
+      .sort((a, b) => a.order_index - b.order_index)
+      .map((f) => ({
+        key: f.key,
+        label: f.label,
+        type: (f.field_type === 'textarea' || f.field_type === 'email' || f.field_type === 'phone'
+          ? 'text'
+          : f.field_type === 'multiselect' ? 'select' : f.field_type) as IntakeTemplate['fields'][number]['type'],
+        required: f.required,
+        phase: f.phase,
+        isStandard: f.is_standard,
+        promptHint: f.prompt_hint ?? undefined,
+        options: f.options ? f.options.map((o) => o.value) : undefined,
+      })),
+  };
 
-    const resolvedSlug = templateSlugParam ?? DEFAULT_INTAKE_TEMPLATE.slug;
-    const match = templates.find(
-      (t): t is IntakeTemplate =>
-        !!t && typeof t === 'object' && (t as Record<string, unknown>).slug === resolvedSlug
-        && Array.isArray((t as Record<string, unknown>).fields)
-        && ((t as Record<string, unknown>).fields as unknown[]).length > 0,
-    ) ?? null;
-
-    if (match) {
-      intakeTemplate = match;
-    }
-  } catch {
-    // Malformed settings JSON — fall back to default (already set)
+  // Ensure the three structurally-locked required fields are always present.
+  // If the backend template omits them (shouldn't happen but safe to guard),
+  // prepend them from STANDARD_FIELD_DEFINITIONS so the AI always collects them.
+  const LOCKED_KEYS = new Set(['description', 'city', 'state']);
+  const presentKeys = new Set(intakeTemplate.fields.map((f) => f.key));
+  const missingLocked = STANDARD_FIELD_DEFINITIONS.filter((f) => LOCKED_KEYS.has(f.key) && !presentKeys.has(f.key));
+  if (missingLocked.length > 0) {
+    intakeTemplate.fields = [...missingLocked, ...intakeTemplate.fields];
   }
 
   // Create the response object
@@ -401,6 +402,10 @@ export async function handlePublicPracticeIntakeSettings(request: Request, env: 
     throw HttpErrors.badGateway('Failed to parse public practice details');
   }
 
+  // PR #318: backend now returns `intake_template` — forward it as-is.
+  // If the backend does not return a template, surface null explicitly.
+  const intakeTemplate = (practiceDetails.intake_template as unknown) ?? null;
+
   const settings = {
     paymentLinkEnabled: Boolean(practiceDetails.payment_link_enabled),
     payment_link_enabled: Boolean(practiceDetails.payment_link_enabled),
@@ -419,6 +424,7 @@ export async function handlePublicPracticeIntakeSettings(request: Request, env: 
     success: true,
     settings,
     organization,
+    intake_template: intakeTemplate,
     data: { settings, organization },
   }), {
     status: 200,

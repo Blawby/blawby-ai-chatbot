@@ -1,7 +1,7 @@
 /**
  * Persisted onboarding draft helpers.
  *
- * The 6-step conversational onboarding collects answers across multiple
+ * The conversational onboarding collects answers across multiple
  * steps. Persisting a draft to localStorage means a reload (or accidental
  * navigation) doesn't lose the user's answers. A 7-day TTL guards against
  * stale drafts hanging around forever; `handleComplete` clears the draft

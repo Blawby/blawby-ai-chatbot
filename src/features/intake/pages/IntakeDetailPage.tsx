@@ -42,7 +42,7 @@ import {
 import { useIntakeDetail } from '@/features/intake/hooks/useIntakeDetail';
 import { useIntakeFiles } from '@/features/intake/hooks/useIntakeFiles';
 import { IntakeFilesPanel } from '@/features/intake/components/IntakeFilesPanel';
-import { DEFAULT_INTAKE_TEMPLATE } from '@/shared/constants/intakeTemplates';
+import { STANDARD_FIELD_DEFINITIONS } from '@/shared/constants/intakeTemplates';
 import type { IntakeTemplate, IntakeFieldDefinition, IntakeEnrichedData } from '@/shared/types/intake';
 import VirtualMessageList from '@/features/chat/components/VirtualMessageList';
 import MessageComposer from '@/features/chat/components/MessageComposer';
@@ -60,16 +60,6 @@ import type { AIAnswerCardSource } from '@/design-system/patterns';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
-function parseTemplatesFromPracticeDetails(details: unknown): IntakeTemplate[] {
-  if (!details || typeof details !== 'object') return [];
-  const meta = (details as Record<string, unknown>).metadata;
-  if (!meta || typeof meta !== 'object') return [];
-  const raw = (meta as Record<string, unknown>).intakeTemplates;
-  if (typeof raw === 'string') {
-    try { const p = JSON.parse(raw); return Array.isArray(p) ? p as IntakeTemplate[] : []; } catch { return []; }
-  }
-  return Array.isArray(raw) ? raw as IntakeTemplate[] : [];
-}
 
 type EngagementLetterTemplate = {
   id: string;
@@ -152,13 +142,14 @@ function resolveTemplateSlug(intake: PracticeIntakeDetail): string | null {
 }
 
 function resolveActiveTemplate(
-  intake: PracticeIntakeDetail,
-  practiceDetails: unknown,
+  _intake: PracticeIntakeDetail,
+  _practiceDetails: unknown,
 ): IntakeTemplate | null {
-  const slug = resolveTemplateSlug(intake);
-  if (!slug) return null;
-  const templates = parseTemplatesFromPracticeDetails(practiceDetails);
-  return templates.find((t) => t.slug === slug) ?? null;
+  // Template data is no longer stored in practice metadata.
+  // The intake detail view shows field values from the intake submission itself,
+  // not by re-resolving the template. Return null — callers fall back to
+  // STANDARD_FIELD_DEFINITIONS for display.
+  return null;
 }
 
 function resolveFieldValue(
@@ -749,7 +740,7 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
       { mirrorLegacyFields: true },
     );
 
-    const templateFields = (activeTemplate?.fields ?? DEFAULT_INTAKE_TEMPLATE.fields)
+    const templateFields = (activeTemplate?.fields ?? STANDARD_FIELD_DEFINITIONS)
       .filter((f) => f.phase === 'enrichment');
     const intakeStateRecord = intakeConversationState as unknown as Record<string, unknown> | null;
     const nextMissingField = templateFields.find(
@@ -935,7 +926,7 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
   const canReplyInIntake = Boolean(intake.conversation_id && effectiveTriageStatus === 'accepted');
   const engagementCreatePath = `${engagementsBasePath ?? '/practice/engagements'}?create=1&intakeId=${encodeURIComponent(intake.uuid)}`;
   const enrichmentFields: IntakeFieldDefinition[] = (
-    activeTemplate?.fields ?? DEFAULT_INTAKE_TEMPLATE.fields
+    activeTemplate?.fields ?? STANDARD_FIELD_DEFINITIONS
   ).filter((f) => f.phase === 'enrichment');
   const intakeStateRecord = intakeConversationState as unknown as Record<string, unknown> | null;
   const unansweredEnrichment = enrichmentFields.filter((f) => !resolveFieldValue(f, intakeStateRecord, intake));
