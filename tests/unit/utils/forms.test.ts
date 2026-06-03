@@ -37,6 +37,8 @@ describe('submitContactForm', () => {
           ok: true,
           json: async () => ({
             success: true,
+            organization: { name: 'Acme Law', logo: 'logo.png' },
+            settings: { payment_link_enabled: true, consultation_fee: 76 },
             data: {
               organization: { name: 'Acme Law', logo: 'logo.png' },
               settings: { payment_link_enabled: true, consultation_fee: 76 }
@@ -44,6 +46,8 @@ describe('submitContactForm', () => {
           }),
           text: async () => JSON.stringify({
             success: true,
+            organization: { name: 'Acme Law', logo: 'logo.png' },
+            settings: { payment_link_enabled: true, consultation_fee: 76 },
             data: {
               organization: { name: 'Acme Law', logo: 'logo.png' },
               settings: { payment_link_enabled: true, consultation_fee: 76 }
@@ -121,6 +125,8 @@ describe('submitContactForm', () => {
           ok: true,
           json: async () => ({
             success: true,
+            organization: { name: 'Acme Law', logo: 'logo.png' },
+            settings: { payment_link_enabled: false, consultation_fee: 50 },
             data: {
               organization: { name: 'Acme Law', logo: 'logo.png' },
               settings: { payment_link_enabled: false, consultation_fee: 50 }
@@ -128,6 +134,8 @@ describe('submitContactForm', () => {
           }),
           text: async () => JSON.stringify({
             success: true,
+            organization: { name: 'Acme Law', logo: 'logo.png' },
+            settings: { payment_link_enabled: false, consultation_fee: 50 },
             data: {
               organization: { name: 'Acme Law', logo: 'logo.png' },
               settings: { payment_link_enabled: false, consultation_fee: 50 }

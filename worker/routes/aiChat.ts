@@ -1037,7 +1037,9 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
       // Step 1: partial-intake submission to backend (U7).
       try {
         const partialService = new PartialIntakeSubmissionService(env, request);
-        const consultationFee = readFiniteNumberField(details, ['consultation_fee']) ?? 0;
+        const consultationFee = templatePaymentConfig.consultationFee
+          ?? readFiniteNumberField(details, ['consultation_fee'])
+          ?? 0;
         await partialService.submit({
           conversationId: body.conversationId,
           practiceSlug,

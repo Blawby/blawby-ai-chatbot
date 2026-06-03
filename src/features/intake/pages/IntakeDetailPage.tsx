@@ -129,18 +129,6 @@ function parseEngagementTemplates(practiceDetails: unknown): EngagementLetterTem
   return Array.isArray(raw) ? raw as EngagementLetterTemplate[] : [];
 }
 
-function resolveTemplateSlug(intake: PracticeIntakeDetail): string | null {
-  const meta = (intake.metadata ?? {}) as Record<string, unknown>;
-  const direct = meta.intake_template_slug ?? meta.template_slug;
-  if (typeof direct === 'string' && direct.trim()) return direct.trim();
-  const cf = meta.custom_fields ?? meta.customFields;
-  if (cf && typeof cf === 'object' && !Array.isArray(cf)) {
-    const slug = (cf as Record<string, unknown>)._intake_template_slug;
-    if (typeof slug === 'string' && slug.trim()) return slug.trim();
-  }
-  return null;
-}
-
 function resolveActiveTemplate(
   _intake: PracticeIntakeDetail,
   _practiceDetails: unknown,

@@ -9,7 +9,8 @@ import {
   issueWidgetAuthToken,
   validateWidgetAuthToken
 } from '../utils/widgetAuthToken.js';
-import type { BackendIntakeTemplatePublic, IntakeTemplate } from '../../src/shared/types/intake.js';
+import type { IntakeTemplate } from '../../src/shared/types/intake.js';
+import type { BackendIntakeTemplatePublic } from '../../src/shared/types/wire.js';
 import { STANDARD_FIELD_DEFINITIONS } from '../../src/shared/constants/intakeTemplates.js';
 
 const asNonEmptyString = (value: unknown): string | null => (
@@ -249,7 +250,20 @@ export async function handleWidgetBootstrap(request: Request, env: Env): Promise
   // 3. Wait for practice details
   const practiceDetails = await getPracticeDetails as Record<string, unknown>;
   const intakeSettingsPayload = await getIntakeSettings as Record<string, unknown>;
-  const pd = practiceDetails;
+  const pd = (
+    practiceDetails.data &&
+    typeof practiceDetails.data === 'object' &&
+    !Array.isArray(practiceDetails.data)
+      ? practiceDetails.data
+      : practiceDetails
+  ) as Record<string, unknown>;
+  const intakeData = (
+    intakeSettingsPayload.data &&
+    typeof intakeSettingsPayload.data === 'object' &&
+    !Array.isArray(intakeSettingsPayload.data)
+      ? intakeSettingsPayload.data
+      : intakeSettingsPayload
+  ) as Record<string, unknown>;
   const practiceId = asNonEmptyString(pd.id);
   if (!practiceId) {
     throw HttpErrors.badGateway('Unable to resolve practice id from practice details');
@@ -320,7 +334,7 @@ export async function handleWidgetBootstrap(request: Request, env: Env): Promise
   // If absent or null the practice has no published template — fail fast
   // so the root cause is fixed upstream rather than masked here.
   // ------------------------------------------------------------------
-  const rawIntakeTemplate = intakeSettingsPayload.intake_template as BackendIntakeTemplatePublic | null | undefined;
+  const rawIntakeTemplate = intakeData.intake_template as BackendIntakeTemplatePublic | null | undefined;
   if (!rawIntakeTemplate) {
     throw HttpErrors.badGateway(`[Bootstrap] No published intake template found for practice '${slug}'. Ensure the practice has a published default template.`);
   }
@@ -419,14 +433,20 @@ export async function handlePublicPracticeIntakeSettings(request: Request, env: 
   if (!intakeSettingsPayload) {
     throw HttpErrors.badGateway('Failed to parse public intake settings');
   }
-  const settingsRecord = intakeSettingsPayload.settings && typeof intakeSettingsPayload.settings === 'object'
-    ? intakeSettingsPayload.settings as Record<string, unknown>
-    : {};
-  const organizationRecord = intakeSettingsPayload.organization && typeof intakeSettingsPayload.organization === 'object'
-    ? intakeSettingsPayload.organization as Record<string, unknown>
-    : {};
-
-  const intakeTemplate = (intakeSettingsPayload.intake_template as unknown) ?? null;
+  const dataRecord = intakeSettingsPayload.data && typeof intakeSettingsPayload.data === 'object' && !Array.isArray(intakeSettingsPayload.data)
+    ? intakeSettingsPayload.data as Record<string, unknown>
+    : null;
+  const settingsRecord = dataRecord?.settings && typeof dataRecord.settings === 'object'
+    ? dataRecord.settings as Record<string, unknown>
+    : intakeSettingsPayload.settings && typeof intakeSettingsPayload.settings === 'object'
+      ? intakeSettingsPayload.settings as Record<string, unknown>
+      : {};
+  const organizationRecord = dataRecord?.organization && typeof dataRecord.organization === 'object'
+    ? dataRecord.organization as Record<string, unknown>
+    : intakeSettingsPayload.organization && typeof intakeSettingsPayload.organization === 'object'
+      ? intakeSettingsPayload.organization as Record<string, unknown>
+      : {};
+  const intakeTemplate = ((dataRecord?.intake_template as unknown) ?? intakeSettingsPayload.intake_template ?? null);
 
   const settings = {
     payment_link_enabled: Boolean(settingsRecord.payment_link_enabled),
@@ -445,7 +465,7 @@ export async function handlePublicPracticeIntakeSettings(request: Request, env: 
     settings,
     organization,
     intake_template: intakeTemplate,
-    data: { settings, organization },
+    data: { settings, organization, intake_template: intakeTemplate },
   }), {
     status: 200,
     headers: {

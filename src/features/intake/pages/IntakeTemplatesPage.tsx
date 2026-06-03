@@ -2107,7 +2107,7 @@ function TemplateListView({
               <div className="min-w-0 flex-1">
                 <div className="flex min-w-0 items-center gap-2">
                   <p className="truncate font-medium text-ink">{template.name}</p>
-                  {hasDraft ? (
+                  {isDraft ? (
                     <span className="shrink-0 rounded-full border border-amber-500/25 bg-amber-500/10 px-2 py-0.5 text-[11px] font-medium text-amber-700 dark:text-amber-300">
                       Draft
                     </span>
@@ -2464,7 +2464,7 @@ export default function IntakeTemplatesPage({
         practiceSlug={currentPractice.slug ?? ''}
         practiceOrganizationId={currentPractice.betterAuthOrgId ?? currentPractice.id}
         practiceBusinessEmail={currentPractice.businessEmail ?? null}
-        defaultIntroMessage={currentPractice.introMessage ?? ''}
+        defaultIntroMessage={(currentPractice.config?.introMessage as string | undefined) ?? ''}
         defaultLegalDisclaimer={currentPractice.legalDisclaimer ?? ''}
         currencyCode={currentPractice.currency ?? 'USD'}
         practicePreviewConfig={{

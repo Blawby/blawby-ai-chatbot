@@ -132,9 +132,9 @@ export const PracticeStep = ({ draft, onChange }: PracticeStepProps) => {
         </div>
 
         <div className="mt-6">
-          <label className="label mb-2 block">
+          <p className="label mb-2 block" id="practice-areas-label">
             Practice areas
-          </label>
+          </p>
           <div className="flex flex-wrap gap-2">
             {PRACTICE_AREAS.map((area) => {
               const isSelected = selectedAreas.has(area);

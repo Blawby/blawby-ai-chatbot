@@ -562,15 +562,17 @@ export function useIntakeFlow({
           consultation_fee?: number;
           payment_link_enabled?: boolean;
         };
-        const { data: settingsPayload } = await apiClient.get<{
-          success?: boolean;
-          settings?: SettingsRecord;
-        }>(getPracticeClientIntakeSettingsEndpoint(effectivePracticeSlug));
-        const settings = settingsPayload.settings;
-        consultationFee = typeof settings?.consultation_fee === 'number' ? settings.consultation_fee : 0;
-        practicePaymentLinkEnabled = settings?.payment_link_enabled === true;
-        if (practicePaymentLinkEnabled && consultationFee <= 0) {
-          throw new Error('Consultation fee is not configured for this practice.');
+        try {
+          const { data: settingsPayload } = await apiClient.get<{
+            success?: boolean;
+            settings?: SettingsRecord;
+          }>(getPracticeClientIntakeSettingsEndpoint(effectivePracticeSlug));
+          const settings = settingsPayload.settings;
+          consultationFee = typeof settings?.consultation_fee === 'number' ? settings.consultation_fee : 0;
+          practicePaymentLinkEnabled = settings?.payment_link_enabled === true;
+        } catch {
+          consultationFee = 0;
+          practicePaymentLinkEnabled = false;
         }
       }
 

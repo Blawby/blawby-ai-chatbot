@@ -262,14 +262,18 @@ const createCheckoutSession = async (intakeUuid: string): Promise<{ url?: string
 
 async function fetchIntakeSettings(
   practiceSlug: string
-) : Promise<IntakeSettingsResponse> {
-  const { data } = await apiClient.get<IntakeSettingsResponse>(
-    getPracticeClientIntakeSettingsEndpoint(practiceSlug),
-  );
-  if (data && typeof data === 'object' && 'data' in data && data.data && typeof data.data === 'object') {
-    return data.data as IntakeSettingsResponse;
+) : Promise<IntakeSettingsResponse | undefined> {
+  try {
+    const { data } = await apiClient.get<IntakeSettingsResponse>(
+      getPracticeClientIntakeSettingsEndpoint(practiceSlug),
+    );
+    if (data && typeof data === 'object' && 'data' in data && data.data && typeof data.data === 'object') {
+      return data.data as IntakeSettingsResponse;
+    }
+    return data;
+  } catch {
+    return undefined;
   }
-  return data;
 }
 
 const resolveIntakeCreateData = (

@@ -1862,6 +1862,8 @@ function unwrapPublicPracticePayload(payload: unknown): Record<string, unknown> 
   if (!isRecord(payload)) return null;
 
   const dataRecord = isRecord(payload.data) ? payload.data : null;
+  const dataDetails = dataRecord && isRecord(dataRecord.details) ? dataRecord.details : null;
+  const payloadDetails = isRecord(payload.details) ? payload.details : null;
   const dataPractice = dataRecord && isRecord(dataRecord.practice) ? dataRecord.practice : null;
   const dataOrganization = dataRecord && isRecord(dataRecord.organization) ? dataRecord.organization : null;
   const practiceRecord = isRecord(payload.practice) ? payload.practice : null;
@@ -1869,7 +1871,9 @@ function unwrapPublicPracticePayload(payload: unknown): Record<string, unknown> 
     ? practiceRecord.organization
     : null;
 
-  return dataPractice
+  return dataDetails
+    ?? payloadDetails
+    ?? dataPractice
     ?? dataOrganization
     ?? practiceOrganization
     ?? practiceRecord
