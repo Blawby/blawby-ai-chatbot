@@ -1,12 +1,14 @@
 import { intakeTemplatesPath, intakeTemplatePath } from '@/config/urls';
 import { apiClient } from '@/shared/lib/apiClient';
 import type {
-  BackendIntakeTemplate,
-  BackendIntakeTemplateField,
   IntakeFieldDefinition,
   IntakeTemplate,
   IntakeTemplateStatus,
 } from '@/shared/types/intake';
+import type {
+  BackendIntakeTemplate,
+  BackendIntakeTemplateField,
+} from '@/shared/types/wire';
 
 // ---------------------------------------------------------------------------
 // Normalizer — backend snake_case → app camelCase at the API edge
@@ -86,16 +88,16 @@ export type UpdateIntakeTemplateInput = Partial<CreateIntakeTemplateInput>;
 
 export async function listIntakeTemplates(practiceId: string): Promise<IntakeTemplate[]> {
   const result = await apiClient.get<{ data: BackendIntakeTemplate[] }>(intakeTemplatesPath(practiceId));
-  if (!Array.isArray(result?.data)) {
+  if (!Array.isArray(result?.data?.data)) {
     throw new Error(`Unexpected response from backend: missing data for intake templates (practice ${practiceId})`);
   }
-  return result.data.map(normalizeTemplate);
+  return result.data.data.map(normalizeTemplate);
 }
 
 export async function getIntakeTemplate(practiceId: string, templateId: string): Promise<IntakeTemplate> {
   const result = await apiClient.get<{ data: BackendIntakeTemplate }>(intakeTemplatePath(practiceId, templateId));
-  if (!result?.data) throw new Error('Intake template not found');
-  return normalizeTemplate(result.data);
+  if (!result?.data?.data) throw new Error('Intake template not found');
+  return normalizeTemplate(result.data.data);
 }
 
 export async function createIntakeTemplate(
@@ -103,8 +105,8 @@ export async function createIntakeTemplate(
   input: CreateIntakeTemplateInput,
 ): Promise<IntakeTemplate> {
   const result = await apiClient.post<{ data: BackendIntakeTemplate }>(intakeTemplatesPath(practiceId), input);
-  if (!result?.data) throw new Error('Failed to create intake template');
-  return normalizeTemplate(result.data);
+  if (!result?.data?.data) throw new Error('Failed to create intake template');
+  return normalizeTemplate(result.data.data);
 }
 
 export async function updateIntakeTemplate(
@@ -116,8 +118,8 @@ export async function updateIntakeTemplate(
     intakeTemplatePath(practiceId, templateId),
     input,
   );
-  if (!result?.data) throw new Error('Failed to update intake template');
-  return normalizeTemplate(result.data);
+  if (!result?.data?.data) throw new Error('Failed to update intake template');
+  return normalizeTemplate(result.data.data);
 }
 
 export async function deleteIntakeTemplate(practiceId: string, templateId: string): Promise<void> {

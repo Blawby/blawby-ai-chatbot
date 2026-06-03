@@ -464,8 +464,8 @@ const OnboardingFlowImpl = ({
               />
               <AssistantTurn trail="seeded for your practice">
                 <p style={{ margin: 0 }}>
-                  I've set up a general consultation intake tuned to your practice areas.
-                  Once you're in your workspace you can rename it, add custom fields, or
+                  I&apos;ve set up a general consultation intake tuned to your practice areas.
+                  Once you&apos;re in your workspace you can rename it, add custom fields, or
                   create forms for different matter types.
                 </p>
               </AssistantTurn>

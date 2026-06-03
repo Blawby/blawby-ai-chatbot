@@ -63,6 +63,9 @@ export { BackendSessionSchema } from '../../../worker/types/wire/auth';
 export type {
   BackendIntakeCreatePayload,
   BackendIntakeCreateResponse,
+  BackendIntakeTemplate,
+  BackendIntakeTemplateField,
+  BackendIntakeTemplatePublic,
 } from '../../../worker/types/wire/intake';
 export {
   BackendIntakeCreatePayloadSchema,

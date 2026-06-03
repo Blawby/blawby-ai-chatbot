@@ -89,60 +89,9 @@ export interface IntakeFieldDefinition {
 
 export type IntakeTemplateStatus = 'draft' | 'published' | 'archived';
 
-/** Field shape returned by the backend intake-template API. */
-export interface BackendIntakeTemplateField {
-  id: string;
-  template_id: string;
-  key: string;
-  label: string;
-  field_type: 'text' | 'textarea' | 'email' | 'phone' | 'select' | 'multiselect' | 'date' | 'boolean' | 'number';
-  phase: FieldPhase;
-  required: boolean;
-  order_index: number;
-  placeholder: string | null;
-  help_text: string | null;
-  prompt_hint: string | null;
-  is_standard: boolean;
-  validation_rules: unknown | null;
-  options: Array<{ value: string; label: string }> | null;
-  created_at: string;
-  updated_at: string;
-}
-
-/** Template shape returned by the backend intake-template API (staff CRUD). */
-export interface BackendIntakeTemplate {
-  id: string;
-  organization_id: string;
-  slug: string;
-  name: string;
-  description: string | null;
-  status: IntakeTemplateStatus;
-  is_default: boolean;
-  intro_message: string | null;
-  legal_disclaimer: string | null;
-  payment_link_enabled: boolean;
-  consultation_fee: number | null;
-  archived_at: string | null;
-  created_at: string;
-  updated_at: string;
-  fields: BackendIntakeTemplateField[];
-}
-
-/** Reduced shape returned inside the public /intake response (no org_id, no dates). */
-export interface BackendIntakeTemplatePublic {
-  id: string;
-  slug: string;
-  name: string;
-  intro_message: string | null;
-  legal_disclaimer: string | null;
-  payment_link_enabled: boolean;
-  consultation_fee: number | null;
-  fields: Array<Omit<BackendIntakeTemplateField, 'template_id' | 'validation_rules' | 'created_at' | 'updated_at'>>;
-}
-
 // ---------------------------------------------------------------------------
 // App-level template type — used by UI, Widget, and AI layers.
-// Normalised from BackendIntakeTemplate at the API client edge.
+// Normalised from backend wire intake-template contracts at the API client edge.
 // ---------------------------------------------------------------------------
 
 export interface IntakeTemplate {

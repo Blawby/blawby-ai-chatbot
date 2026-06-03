@@ -31,14 +31,14 @@
   --ink:          #0f1e36;
   --ink-2:        #2a3b5a;
   --ink-3:        #4a5a78;
-  --dim:          #6b7790;
-  --dim-2:        #9aa1b3;
+  --dim:          #404d60;
+  --dim-2:        #4f5a6c;
 
   --ink-rgb:      15 30 54;
   --ink-2-rgb:    42 59 90;
   --ink-3-rgb:    74 90 120;
-  --dim-rgb:      107 119 144;
-  --dim-2-rgb:    154 161 179;
+  --dim-rgb:      64 77 96;
+  --dim-2-rgb:    79 90 108;
 
   /* ---- Rule ---- */
   --rule:         #d3d6df;
@@ -108,14 +108,14 @@ html[data-theme="dark"] {
   --ink:          #f1ecdc;
   --ink-2:        #c9c4b3;
   --ink-3:        #a09b8a;
-  --dim:          #7a8198;
-  --dim-2:        #59607a;
+  --dim:          #9ba4b8;
+  --dim-2:        #8d96aa;
 
   --ink-rgb:     241 236 220;
   --ink-2-rgb:   201 196 179;
   --ink-3-rgb:   160 155 138;
-  --dim-rgb:     122 129 152;
-  --dim-2-rgb:    89  96 122;
+  --dim-rgb:     155 164 184;
+  --dim-2-rgb:   141 150 170;
 
   --rule:         #1d2c4f;
   --rule-soft:    rgba(241,236,220,0.06);
@@ -145,14 +145,14 @@ html[data-theme="midnight"] {
   --ink:          #ede7d3;
   --ink-2:        #c3bda7;
   --ink-3:        #8f8a78;
-  --dim:          #6e7488;
-  --dim-2:        #4f5468;
+  --dim:          #9aa3b8;
+  --dim-2:        #8b94a9;
 
   --ink-rgb:     237 231 211;
   --ink-2-rgb:   195 189 167;
   --ink-3-rgb:   143 138 120;
-  --dim-rgb:     110 116 136;
-  --dim-2-rgb:    79  84 104;
+  --dim-rgb:     154 163 184;
+  --dim-2-rgb:   139 148 169;
 
   --rule:         #15203b;
   --rule-soft:    rgba(237,231,211,0.06);
@@ -182,14 +182,14 @@ html[data-theme="parchment"] {
   --ink:          #0a1a30;
   --ink-2:        #28385a;
   --ink-3:        #4a5a78;
-  --dim:          #6c7286;
-  --dim-2:        #93986d;
+  --dim:          #44505e;
+  --dim-2:        #505c6a;
 
   --ink-rgb:      10  26  48;
   --ink-2-rgb:    40  56  90;
   --ink-3-rgb:    74  90 120;
-  --dim-rgb:     108 114 134;
-  --dim-2-rgb:   147 152 109;
+  --dim-rgb:      68  80  94;
+  --dim-2-rgb:    80  92 106;
 
   --rule:         #cdc9b8;
   --rule-soft:    rgba(10,26,48,0.06);

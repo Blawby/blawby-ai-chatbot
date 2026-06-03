@@ -308,6 +308,19 @@ export class RemoteApiService {
     );
   }
 
+  static async getPublicPracticeIntakeSettings(
+    env: Env,
+    slug: string,
+    request?: Request
+  ): Promise<Response> {
+    return this.fetchFromRemoteApi(
+      env,
+      `/api/practice-client-intakes/${encodeURIComponent(slug)}/intake`,
+      request,
+      { forwardAuthCookie: false }
+    );
+  }
+
   /**
    * Get practice members from remote API
    */
@@ -937,37 +950,48 @@ export class RemoteApiService {
       name?: string;
       logo?: string;
     };
-  } | null> {
-    if (!practiceSlug) return null;
-    try {
-      const response = await this.getPublicPracticeDetails(env, practiceSlug, request);
-      const json = await response.json().catch(() => null);
-      if (!json) return null;
-      const details = json && typeof json === 'object' && !Array.isArray(json)
-        ? json as Record<string, unknown>
-        : null;
-      if (!details) return null;
-
-      const consultationFee = typeof details.consultation_fee === 'number'
-        ? details.consultation_fee
-        : undefined;
-      warnIfNotMinorUnits(consultationFee, 'remote.intakeSettings.consultationFee');
-      return {
-        paymentLinkEnabled: details.payment_link_enabled === true,
-        consultationFee,
-        organization: {
-          id: typeof details.organization_id === 'string' ? details.organization_id : undefined,
-          slug: typeof details.slug === 'string' ? details.slug : practiceSlug,
-          name: typeof details.name === 'string' ? details.name : undefined,
-          logo: typeof details.logo === 'string' ? details.logo : undefined,
-        },
-      };
-    } catch (error) {
-      if (error instanceof HttpError && (error.status === 404 || error.status === 401)) {
-        return null;
-      }
-      throw error;
+  }> {
+    if (!practiceSlug) {
+      throw HttpErrors.badRequest('practiceSlug is required');
     }
+
+    const response = await this.getPublicPracticeIntakeSettings(env, practiceSlug, request);
+    const json = await response.json().catch(() => null);
+    if (!json || typeof json !== 'object' || Array.isArray(json)) {
+      throw HttpErrors.badGateway('Failed to parse public intake settings');
+    }
+
+    const details = (
+      'data' in json &&
+      json.data &&
+      typeof json.data === 'object' &&
+      !Array.isArray(json.data)
+        ? json.data
+        : json
+    ) as Record<string, unknown>;
+    const settings = details.settings && typeof details.settings === 'object'
+      ? details.settings as Record<string, unknown>
+      : null;
+    const organization = details.organization && typeof details.organization === 'object'
+      ? details.organization as Record<string, unknown>
+      : null;
+
+    const consultationFee = typeof settings?.consultation_fee === 'number'
+      ? settings.consultation_fee
+      : undefined;
+    warnIfNotMinorUnits(consultationFee, 'remote.intakeSettings.consultationFee');
+    return {
+      paymentLinkEnabled: settings?.payment_link_enabled === true,
+      consultationFee,
+      organization: organization
+        ? {
+            id: typeof organization.id === 'string' ? organization.id : undefined,
+            slug: typeof organization.slug === 'string' ? organization.slug : practiceSlug,
+            name: typeof organization.name === 'string' ? organization.name : undefined,
+            logo: typeof organization.logo === 'string' ? organization.logo : undefined,
+          }
+        : undefined,
+    };
   }
 
   /**
