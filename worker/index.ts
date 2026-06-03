@@ -75,7 +75,7 @@ export function validateRequest(request: Request): boolean {
     if (!isNoBodyEndpoint && !contentType) {
       return false;
     }
-    if (contentType && !contentType.includes('application/json') && !contentType.includes('multipart/form-data')) {
+    if (contentType && !contentType.includes('application/json') && !contentType.includes('multipart/form-data') && !contentType.includes('application/x-www-form-urlencoded')) {
       return false;
     }
   }
