@@ -4,8 +4,6 @@ import type { OnboardingDraft } from '../types';
 
 interface PaymentsStepProps {
   draft: OnboardingDraft;
-  /** True once the practice has been created (so we know there's an org to connect Stripe to). */
-  hasOrganization: boolean;
 }
 
 /**
@@ -19,7 +17,7 @@ interface PaymentsStepProps {
  * the user lands in their workspace, via the existing StripeCheckpointCard.
  * Reusing that surface unmodified avoids forking Stripe state machines.
  */
-export const PaymentsStep = (_props: PaymentsStepProps) => {
+export const PaymentsStep = (_: PaymentsStepProps) => {
   return (
     <section className="card" style={{ padding: '28px' }}>
       <h2
@@ -68,11 +66,11 @@ export const PaymentsStep = (_props: PaymentsStepProps) => {
               color: 'var(--ink)'
             }}
           >
-            Stripe Connect — IOLTA-compatible payouts
+            Set up payouts to get paid
           </h4>
           <p className="mt-1 text-sm" style={{ color: 'var(--dim)', maxWidth: '50ch' }}>
-            Accept retainers, flat fees, and trust deposits. Trust funds stay in a
-            segregated account; only earned fees move to your operating account.
+            Connect your bank account with Stripe so you can accept payments and
+            receive payouts.
           </p>
         </div>
       </div>
@@ -86,23 +84,22 @@ export const PaymentsStep = (_props: PaymentsStepProps) => {
           color: 'var(--ink-2)'
         }}
       >
-        We&apos;ll connect Stripe right after you publish — once your workspace exists
-        we can mint a connected account scoped to it. You&apos;ll see a
-        <strong> Connect Stripe</strong> banner the moment you land.
+        You&apos;ll finish Stripe setup from your workspace after onboarding. We&apos;ll
+        take you there next so you can start or resume verification.
       </div>
 
       <ul className="mt-6 flex flex-col gap-3 text-sm" style={{ color: 'var(--ink-2)' }}>
         <li className="flex items-start gap-2">
           <Icon icon={CheckCircle2} className="h-4 w-4 mt-0.5" style={{ color: 'var(--pos)' }} />
-          <span>Trust + operating accounts kept separate by default</span>
+          <span>Connect Stripe to receive payouts for your practice</span>
         </li>
         <li className="flex items-start gap-2">
           <Icon icon={CheckCircle2} className="h-4 w-4 mt-0.5" style={{ color: 'var(--pos)' }} />
-          <span>1.337% per transaction — no monthly platform fee</span>
+          <span>Stripe will verify your business and representative details before enabling payouts</span>
         </li>
         <li className="flex items-start gap-2">
           <Icon icon={CheckCircle2} className="h-4 w-4 mt-0.5" style={{ color: 'var(--pos)' }} />
-          <span>Skip now and connect from the workspace banner when you&apos;re ready</span>
+          <span>You can start or finish setup from the workspace banner when you&apos;re ready</span>
         </li>
       </ul>
     </section>

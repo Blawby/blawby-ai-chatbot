@@ -7,7 +7,7 @@
  * IntakeDetailPage) import from here — nothing else should re-define these.
  */
 
-import type { IntakeTemplate, IntakeFieldDefinition } from '../types/intake';
+import type { IntakeFieldDefinition } from '../types/intake';
 
 /** All field definitions that map onto existing IntakeConversationState keys. */
 export const STANDARD_FIELD_DEFINITIONS: IntakeFieldDefinition[] = [
@@ -134,13 +134,3 @@ export const STANDARD_FIELD_KEYS: ReadonlySet<string> = new Set(
   STANDARD_FIELD_DEFINITIONS.map((f) => f.key),
 );
 
-/**
- * The default IntakeTemplate — mirrors the current hardcoded field list exactly.
- * Used as fallback when no ?template param is present or slug resolution fails.
- */
-export const DEFAULT_INTAKE_TEMPLATE: IntakeTemplate = {
-  slug: 'default',
-  name: 'Default',
-  isDefault: true,
-  fields: STANDARD_FIELD_DEFINITIONS,
-};

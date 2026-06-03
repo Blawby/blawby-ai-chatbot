@@ -1,4 +1,5 @@
 import type { ComponentChildren } from 'preact';
+import { Logo } from '@/shared/ui/Logo';
 
 interface AssistantTurnProps {
   /** Optional mono label — defaults to "Practice assistant". */
@@ -27,15 +28,12 @@ export const AssistantTurn = ({
       <div
         className="grid h-10 w-10 place-items-center rounded-full text-base font-medium"
         style={{
-          background: 'var(--accent)',
-          color: 'var(--accent-ink)',
+          background: 'var(--paper)',
           boxShadow: '0 0 0 6px var(--paper)',
-          fontFamily: 'var(--serif)',
-          fontStyle: 'italic'
         }}
         aria-hidden="true"
       >
-        B
+        <Logo size="md" showText={false} />
       </div>
       <div
         className="card"

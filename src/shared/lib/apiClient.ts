@@ -590,6 +590,7 @@ export interface CreatePracticeRequest {
   name: string;
   slug?: string;
   logo?: string;
+  description?: string;
   metadata?: PracticeMetadata;
   businessPhone?: string;
   businessEmail?: string;
@@ -1849,6 +1850,7 @@ function normalizePracticeUpdatePayload(payload: UpdatePracticeRequest): Record<
   if ('name' in payload && payload.name !== undefined) normalized.name = payload.name;
   if ('slug' in payload && payload.slug !== undefined) normalized.slug = payload.slug;
   if ('logo' in payload && payload.logo !== undefined) normalized.logo = payload.logo;
+  if ('description' in payload && payload.description !== undefined) normalized.description = payload.description;
   if ('metadata' in payload && payload.metadata !== undefined) {
     normalized.metadata = payload.metadata;
   }
