@@ -25,6 +25,7 @@ import { AppShell } from '@/shared/ui/layout/AppShell';
 import { LeftRail, BrandMark, FocusDrawer, type LeftRailItem } from '@/design-system/layout';
 import { OrgSwitcherMenu } from '@/shared/ui/nav/OrgSwitcherMenu';
 import { SidebarProfileMenu } from '@/shared/ui/nav/SidebarProfileMenu';
+import { GlobalSearchTrigger } from '@/features/search/components/GlobalSearchTrigger';
 import { signOut } from '@/shared/utils/auth';
 import { Icon, type IconComponent } from '@/shared/ui/Icon';
 import { WorkspaceMainPane } from '@/shared/ui/layout/WorkspaceMainPane';
@@ -1057,7 +1058,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
       prefetch: item.prefetch,
     }));
   }, [navConfig.rail, practiceSlug, sidebarCounts]);
-  const brandMark = sidebarOrg && currentPractice?.id && practiceSlug ? (
+  const brandRow = sidebarOrg && currentPractice?.id && practiceSlug ? (
     <OrgSwitcherMenu
       org={{
         id: currentPractice.id,
@@ -1072,6 +1073,16 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
     <BrandMark word={sidebarOrg.name} className="px-2 py-2" />
   ) : (
     <BrandMark className="px-2 py-2" />
+  );
+  // GlobalSearchTrigger no-ops when the palette isn't enabled, so it's safe to
+  // render unconditionally — the trigger gates itself on workspace eligibility.
+  const brandMark = (
+    <div className="flex flex-col gap-1.5">
+      {brandRow}
+      <div className="px-1">
+        <GlobalSearchTrigger placement="rail" />
+      </div>
+    </div>
   );
 
   const profileFooter = sidebarUser ? (
@@ -1602,6 +1613,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
       : null;
   const sectionSidebarHeader = shouldUseSectionSidebar ? (
     <div className="flex flex-col gap-3 px-1 py-1">
+      <GlobalSearchTrigger placement="rail" />
       <div className="flex items-center justify-between gap-2">
         <button
           type="button"
@@ -1690,6 +1702,11 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
         ariaLabel="Workspace navigation"
       >
         <div className="flex flex-col gap-2">
+          <GlobalSearchTrigger
+            placement="drawer"
+            className="mb-1"
+            onBeforeOpen={() => setIsMobileRailMenuOpen(false)}
+          />
           {shouldUseSectionSidebar ? (
             <div className="mb-2 flex flex-col gap-2">
               <div className="flex items-center justify-between gap-2">
