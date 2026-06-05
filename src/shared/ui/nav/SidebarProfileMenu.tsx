@@ -134,8 +134,8 @@ export const SidebarProfileMenu: FunctionComponent<SidebarProfileMenuProps> = ({
           aria-label="Profile menu"
           className={
             collapsed
-              ? 'z-50 w-60 rounded-r-md border border-paper-edge bg-paper p-1 shadow-[0_8px_24px_rgba(0,0,0,0.4)]'
-              : 'absolute bottom-full left-0 right-0 mb-2 z-50 rounded-md border border-paper-edge bg-paper p-1 shadow-[0_-4px_24px_rgba(0,0,0,0.4)]'
+              ? 'z-50 w-60 rounded-r-md border border-[rgb(var(--sidebar-border))] bg-[rgb(var(--sidebar-bg))] p-1 shadow-[0_8px_24px_rgba(0,0,0,0.4)]'
+              : 'absolute bottom-full left-0 right-0 mb-2 z-50 rounded-md border border-[rgb(var(--sidebar-border))] bg-[rgb(var(--sidebar-bg))] p-1 shadow-[0_-4px_24px_rgba(0,0,0,0.4)]'
           }
           style={collapsed ? fixedStyle : undefined}
         >

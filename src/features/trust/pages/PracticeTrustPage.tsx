@@ -11,6 +11,7 @@ import { signOut } from '@/shared/utils/auth';
 import { LeftRail, BrandMark, type LeftRailItem } from '@/design-system/layout';
 import { OrgSwitcherMenu } from '@/shared/ui/nav/OrgSwitcherMenu';
 import { SidebarProfileMenu } from '@/shared/ui/nav/SidebarProfileMenu';
+import { GlobalSearchTrigger } from '@/features/search/components/GlobalSearchTrigger';
 import { getPracticeNavConfig } from '@/shared/config/navConfig';
 import type { IconComponent } from '@/shared/ui/Icon';
 import { PageHeader } from '@/shared/ui/layout/PageHeader';
@@ -213,7 +214,7 @@ const PracticeTrustPage: FunctionComponent = () => {
     }));
   }, [practiceSlug, sidebarCounts]);
 
-  const brandMark = currentPractice?.id && practiceSlug ? (
+  const brandRow = currentPractice?.id && practiceSlug ? (
     <OrgSwitcherMenu
       org={{
         id: currentPractice.id,
@@ -226,6 +227,15 @@ const PracticeTrustPage: FunctionComponent = () => {
     />
   ) : (
     <BrandMark className="px-2 py-2" />
+  );
+
+  const brandMark = (
+    <div className="flex flex-col gap-1.5">
+      {brandRow}
+      <div className="px-1">
+        <GlobalSearchTrigger placement="rail" />
+      </div>
+    </div>
   );
 
   const profileFooter = session?.user ? (

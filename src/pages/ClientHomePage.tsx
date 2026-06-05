@@ -14,6 +14,7 @@ import { JourneyProgress, type JourneyStep } from '@/design-system/patterns';
 import { Pill, Bar } from '@/design-system/primitives';
 import { LeftRail, BrandMark, type LeftRailItem } from '@/design-system/layout';
 import { SidebarProfileMenu } from '@/shared/ui/nav/SidebarProfileMenu';
+import { GlobalSearchTrigger } from '@/features/search/components/GlobalSearchTrigger';
 import { getClientNavConfig } from '@/shared/config/navConfig';
 import type { IconComponent } from '@/shared/ui/Icon';
 
@@ -912,7 +913,14 @@ const ClientHomePage = () => {
       <LeftRail
         variant="desktop"
         items={railItems}
-        brandMark={<BrandMark className="px-2 py-2" />}
+        brandMark={(
+          <div className="flex flex-col gap-1.5">
+            <BrandMark className="px-2 py-2" />
+            <div className="px-1">
+              <GlobalSearchTrigger placement="rail" />
+            </div>
+          </div>
+        )}
         footer={profileFooter}
         className="hidden lg:flex"
       />
