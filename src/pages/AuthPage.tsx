@@ -3,45 +3,42 @@ import { ArrowLeft } from 'lucide-preact';
 
 import { Logo } from '@/shared/ui/Logo';
 import { Button } from '@/shared/ui/Button';
-import { handleError } from '@/shared/utils/errorHandler';
 import AuthForm from '@/shared/components/AuthForm';
 import { useTranslation } from '@/shared/i18n/hooks';
 import { useNavigation } from '@/shared/utils/navigation';
-import { getSession } from '@/shared/lib/authClient';
-import { useToastContext } from '@/shared/contexts/ToastContext';
 import { SetupShell } from '@/shared/ui/layout/SetupShell';
 
 interface AuthPageProps {
   mode?: 'signin' | 'signup';
   onSuccess?: () => void | Promise<void>;
-  redirectDelay?: number;
 }
 
-const AuthPage = ({ mode = 'signin', onSuccess, redirectDelay = 1000 }: AuthPageProps) => {
+const isSafeRedirectPath = (path: string | null): path is string =>
+  Boolean(path && path.startsWith('/') && !path.startsWith('//'));
+
+const getSafeRedirectPath = (decodedRedirect: string): string | null => {
+  if (!decodedRedirect || decodedRedirect.startsWith('//')) {
+    return null;
+  }
+
+  try {
+    const url = new URL(decodedRedirect, window.location.origin);
+    if (url.origin !== window.location.origin || !url.pathname.startsWith('/')) {
+      return null;
+    }
+
+    return `${url.pathname}${url.search}${url.hash}`;
+  } catch {
+    return null;
+  }
+};
+
+const AuthPage = ({ mode = 'signin', onSuccess }: AuthPageProps) => {
   const { t } = useTranslation('auth');
   const { navigate } = useNavigation();
-  const { showError } = useToastContext();
   const [authMode, setAuthMode] = useState<'signin' | 'signup'>(mode);
   const [redirectPath, setRedirectPath] = useState<string | null>(null);
   const [initialEmail, setInitialEmail] = useState<string>('');
-  const isSafeRedirectPath = (path: string | null): path is string =>
-    Boolean(path && path.startsWith('/') && !path.startsWith('//'));
-  const getSafeRedirectPath = (decodedRedirect: string): string | null => {
-    if (!decodedRedirect || decodedRedirect.startsWith('//')) {
-      return null;
-    }
-
-    try {
-      const url = new URL(decodedRedirect, window.location.origin);
-      if (url.origin !== window.location.origin || !url.pathname.startsWith('/')) {
-        return null;
-      }
-
-      return `${url.pathname}${url.search}${url.hash}`;
-    } catch {
-      return null;
-    }
-  };
 
   // Check URL params for mode and onboarding (guarded by server truth)
   useEffect(() => {
@@ -74,72 +71,9 @@ const AuthPage = ({ mode = 'signin', onSuccess, redirectDelay = 1000 }: AuthPage
     // Only open onboarding when explicitly requested via URL param
   }, []);
 
-  // Helper function to handle redirect with proper onSuccess awaiting
-  const handleRedirect = async () => {
-    const session = await getSession().catch((err) => {
-      console.warn('[AuthPage] getSession() failed after sign-in', err);
-      return null;
-    });
-
-    const detectedUser = session?.user ?? null;
-
-    // Minimal diagnostics for debugging without leaking tokens
-    try {
-      if (typeof process !== 'undefined' && import.meta.env && import.meta.env.DEV) {
-        console.debug('[AuthPage] post-signin session shape', {
-          hasSession: !!session,
-          userId: detectedUser?.id ?? null,
-          sessionKeys: session ? Object.keys(session) : null
-        });
-      }
-    } catch (_e) {
-      // ignore diagnostics failures
-    }
-
-    if (!session || !detectedUser) {
-      // Fail fast: sign-in reported success but no usable session was returned.
-      // Surface a clear, actionable error instead of redirecting into the auth loop.
-      try {
-        showError(
-          t('signin.sessionMissing') ||
-            'Sign-in succeeded but session is not available yet. Please refresh the page or try signing in again.'
-        );
-      } catch (err) {
-        console.warn('[AuthPage] Failed to show missing-session toast', err);
-      }
-      return;
-    }
-
-    if (typeof window !== 'undefined') {
-      window.dispatchEvent(new CustomEvent('auth:session-updated'));
-    }
-
+  const handleAuthSuccess = async () => {
     if (onSuccess) {
-      try {
-        await onSuccess();
-      } catch (_error) {
-        // onSuccess callback failed - use production-safe error handling
-        handleError(_error, {
-          component: 'AuthPage',
-          action: 'onSuccess-callback',
-          mode
-        }, {
-          component: 'AuthPage',
-          action: 'handleRedirect'
-        });
-        // Continue with redirect even if onSuccess fails
-      }
-    }
-
-    const delay = redirectDelay;
-    const destination = (redirectPath && isSafeRedirectPath(redirectPath)) ? redirectPath : '/';
-
-    if (delay > 0) {
-      setTimeout(() => {
-        navigate(destination, true);
-      }, delay);
-    } else {
-      navigate(destination, true);
+      await onSuccess();
     }
   };
 
@@ -147,9 +81,7 @@ const AuthPage = ({ mode = 'signin', onSuccess, redirectDelay = 1000 }: AuthPage
     navigate('/', true);
   };
 
-  const handleAuthSuccess = async () => {
-    await handleRedirect();
-  };
+  const callbackURL = (redirectPath && isSafeRedirectPath(redirectPath)) ? redirectPath : '/';
 
   return (
     <SetupShell>
@@ -161,7 +93,7 @@ const AuthPage = ({ mode = 'signin', onSuccess, redirectDelay = 1000 }: AuthPage
               variant="ghost"
               size="sm"
               onClick={handleBackToHome}
-              className="text-sm text-input-placeholder hover:text-input-text"
+              className="text-sm text-dim-2 hover:text-ink"
               icon={ArrowLeft} iconClassName="h-4 w-4"
               iconPosition="left"
             >
@@ -172,10 +104,10 @@ const AuthPage = ({ mode = 'signin', onSuccess, redirectDelay = 1000 }: AuthPage
           <div className="flex justify-center mb-6">
             <Logo size="lg" />
           </div>
-          <h2 className="mt-6 text-center text-3xl font-extrabold text-input-text">
+          <h2 className="mt-6 text-center text-3xl font-extrabold text-ink">
             {authMode === 'signup' ? t('signup.title') : t('signin.title')}
           </h2>
-          <p className="mt-2 text-center text-sm text-input-placeholder">
+          <p className="mt-2 text-center text-sm text-dim-2">
             {authMode === 'signup' ? t('signup.subtitle') : t('signin.subtitle')}
           </p>
         </div>
@@ -185,6 +117,7 @@ const AuthPage = ({ mode = 'signin', onSuccess, redirectDelay = 1000 }: AuthPage
             mode={authMode}
             defaultMode={authMode}
             initialEmail={initialEmail}
+            callbackURL={callbackURL}
             onModeChange={(newMode) => setAuthMode(newMode)}
             onSuccess={handleAuthSuccess}
             showHeader={false}

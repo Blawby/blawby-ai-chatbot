@@ -27,10 +27,24 @@ import { handleGlobalSearch } from './routes/search.js';
 import { handlePresence } from './routes/presence.js';
 import { handleAiChat } from './routes/aiChat.js';
 import { handleAiIntent } from './routes/aiIntent.js';
+import {
+  handleMcp,
+  handleMcpWebSocket,
+  handleMcpInternalEvents,
+  handleOAuthProtectedResource,
+} from './routes/mcp/index.js';
+import { withMCPAuth } from './middleware/mcpAuth.js';
+import { handleGenerateEngagement } from './routes/generateEngagement.js';
+import { handleDraftEngagementTemplate } from './routes/draftEngagementTemplate.js';
+import { handlePracticeAssistant } from './routes/practiceAssistant.js';
 import { withAuth, withCache, withRateLimit } from './middleware/compose.js';
+import { withEngineerAllowlist } from './middleware/withEngineerAllowlist.js';
+import { handleAdminIntakeInspector } from './routes/adminIntakeInspector.js';
 import { handleWebsiteExtract } from './routes/handleWebsiteExtract.js';
 import { handleSearch } from './routes/handleSearch.js';
 import { handleStatus } from './routes/status.js';
+import { handleStagedActions } from './routes/stagedActions.js';
+import { handleMatterSummary } from './routes/matterSummary.js';
 import { handleAutocompleteWithCORS } from './routes/api/geo/autocomplete.js';
 import { Env } from './types';
 import type { NotificationQueueMessage } from './types';
@@ -42,7 +56,7 @@ import { handleNotificationQueue } from './queues/notificationProcessor.js';
 import { handleSearchIndexQueue } from './queues/searchIndexConsumer.js';
 import type { SearchIndexEvent } from './types/search.js';
 
-function validateRequest(request: Request): boolean {
+export function validateRequest(request: Request): boolean {
   const contentLength = request.headers.get('content-length');
   if (contentLength && parseInt(contentLength) > 10 * 1024 * 1024) {
     return false;
@@ -53,11 +67,15 @@ function validateRequest(request: Request): boolean {
     const url = new URL(request.url);
     const isNoBodyEndpoint =
       /^\/api\/practice-client-intakes\/[^/]+\/files\/[^/]+\/confirm$/.test(url.pathname) ||
-      /^\/api\/uploads\/[^/]+\/confirm$/.test(url.pathname);
+      /^\/api\/uploads\/[^/]+\/confirm$/.test(url.pathname) ||
+      // /api/search/{practiceId}/reindex takes no body — without this, the
+      // backfill is unreachable and the search index stays empty for every
+      // practice. See worker/routes/search.ts:handleReindex.
+      /^\/api\/search\/[^/]+\/reindex$/.test(url.pathname);
     if (!isNoBodyEndpoint && !contentType) {
       return false;
     }
-    if (contentType && !contentType.includes('application/json') && !contentType.includes('multipart/form-data')) {
+    if (contentType && !contentType.includes('application/json') && !contentType.includes('multipart/form-data') && !contentType.includes('application/x-www-form-urlencoded')) {
       return false;
     }
   }
@@ -93,6 +111,7 @@ const matchesBackendProxy: RouteMatcher = (path) =>
   path.startsWith('/api/onboarding') ||
   path.startsWith('/api/matters') ||
   path.startsWith('/api/engagement-contracts') ||
+  /^\/api\/practices\/[^/]+\/engagement-templates(\/|$)/.test(path) ||
   path.startsWith('/api/invoices') ||
   path.startsWith('/api/practice-client-intakes') ||
   path.startsWith('/api/clients') ||
@@ -109,6 +128,26 @@ const matchesBackendProxy: RouteMatcher = (path) =>
 // `/api/ai/intent` before `/api/ai/chat`).
 export const routes: RouteEntry[] = [
   { mode: 'proxy', match: prefix('/api/auth'), handler: (req, env) => handleAuthProxy(req, env) },
+  // MCP scaffolding (U6) + auth middleware (U7). Order matters: the more-
+  // specific `/api/mcp/internal/events` and `/api/mcp/ws` must come before
+  // the catch-all `/api/mcp`.
+  //
+  // The internal events route stays UNAUTHENTICATED at the Bearer-JWT layer
+  // — it's service-to-service and uses x-worker-secret single-factor auth.
+  // The well-known resource doc is also unauthenticated; the spec requires
+  // it to be publicly discoverable.
+  //
+  // Everything else under `/api/mcp` is wrapped with withMCPAuth: validates
+  // Bearer JWT against backend JWKS, checks audience and scope, then sets
+  // X-Mcp-* identity headers forwarded to the McpSession DO.
+  { mode: 'owned', match: exact('/api/mcp/internal/events'), handler: handleMcpInternalEvents },
+  { mode: 'owned', match: exact('/api/mcp/ws'), handler: withMCPAuth(handleMcpWebSocket) },
+  { mode: 'owned', match: exact('/api/mcp'), handler: withMCPAuth(handleMcp) },
+  {
+    mode: 'owned',
+    match: exact('/.well-known/oauth-protected-resource'),
+    handler: handleOAuthProtectedResource,
+  },
   { mode: 'proxy', match: regex(/^\/api\/practice\/[^/]+\/team$/), handler: (req, env) => handlePracticeTeam(req, env) },
   {
     mode: 'owned',
@@ -120,6 +159,16 @@ export const routes: RouteEntry[] = [
     mode: 'owned',
     match: regex(/^\/api\/practice\/[^/]+\/sidebar\/counts$/),
     handler: withAuth((req, env) => handleSidebarCounts(req, env), { required: true }),
+  },
+  {
+    mode: 'owned',
+    match: regex(/^\/api\/practice\/[^/]+\/staged-actions$/),
+    handler: withAuth((req, env) => handleStagedActions(req, env), { required: true }),
+  },
+  {
+    mode: 'owned',
+    match: regex(/^\/api\/practice\/[^/]+\/matter-summary\/[^/]+$/),
+    handler: withAuth((req, env) => handleMatterSummary(req, env), { required: true }),
   },
   {
     mode: 'owned',
@@ -213,8 +262,35 @@ export const routes: RouteEntry[] = [
   },
   {
     mode: 'owned',
+    match: prefix('/api/ai/practice-assistant'),
+    handler: withAuth((req, env) => handlePracticeAssistant(req, env), { required: true }),
+  },
+  {
+    mode: 'owned',
+    match: exact('/api/ai/generate-engagement'),
+    handler: withAuth((req, env) => handleGenerateEngagement(req, env), { required: true }),
+  },
+  {
+    mode: 'owned',
+    match: exact('/api/ai/draft-engagement-template'),
+    handler: withAuth((req, env) => handleDraftEngagementTemplate(req, env), { required: true }),
+  },
+  {
+    mode: 'owned',
     match: prefix('/api/ai/chat'),
     handler: withAuth(handleAiChat, { required: true }),
+  },
+  {
+    mode: 'owned',
+    // Admin intake-inspector. Gated by Better-Auth session + engineer email
+    // allowlist (INTAKE_INSPECTOR_ENGINEER_EMAILS env var). Two routes:
+    //   GET  /api/admin/intake-events/:conversationId
+    //   POST /api/admin/intake-events/:conversationId/clear-failure
+    // See U9 of docs/plans/2026-05-18-002-feat-strengthen-intake-ai-observability-plan.md.
+    match: prefix('/api/admin/intake-events/'),
+    handler: withEngineerAllowlist(
+      withAuth((req, env) => handleAdminIntakeInspector(req, env), { required: true }),
+    ),
   },
   {
     mode: 'owned',
@@ -355,3 +431,4 @@ export { ChatRoom } from './durable-objects/ChatRoom';
 export { ChatCounterObject } from './durable-objects/ChatCounterObject';
 export { MatterProgressRoom } from './durable-objects/MatterProgressRoom';
 export { PresenceRoom } from './durable-objects/PresenceRoom';
+export { McpSession } from './durable-objects/McpSession';

@@ -35,6 +35,8 @@ export interface InfoListDialogProps {
   actionFullWidth?: boolean;
   contentClassName?: string;
   showDividers?: boolean;
+  /** Render as a non-blocking overlay (no scrim, click-through). Default false. */
+  nonBlocking?: boolean;
 }
 
 export const InfoListDialog: FunctionComponent<InfoListDialogProps> = ({
@@ -52,6 +54,7 @@ export const InfoListDialog: FunctionComponent<InfoListDialogProps> = ({
   actionFullWidth = true,
   contentClassName = 'max-w-md',
   showDividers = true,
+  nonBlocking = false,
 }) => {
   const HeaderIcon = headerIcon;
   const titleId = `info-list-dialog-title-${useId()}`;
@@ -63,12 +66,13 @@ export const InfoListDialog: FunctionComponent<InfoListDialogProps> = ({
       showCloseButton={false}
       contentClassName={contentClassName}
       ariaLabelledBy={titleId}
+      nonBlocking={nonBlocking}
     >
       <DialogHeader onClose={onClose} showCloseButton className="pb-2">
         <div className="flex items-start gap-3">
           {HeaderIcon ? (
-            <div className="glass-input mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl">
-              <Icon icon={HeaderIcon} className={headerIconClassName ?? 'h-5 w-5 text-input-text'} aria-hidden="true" />
+            <div className="field mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl">
+              <Icon icon={HeaderIcon} className={headerIconClassName ?? 'h-5 w-5 text-ink'} aria-hidden="true" />
             </div>
           ) : null}
           <div className="min-w-0 space-y-1">
@@ -82,14 +86,14 @@ export const InfoListDialog: FunctionComponent<InfoListDialogProps> = ({
         {items.map((item, index) => (
           <div key={item.id}>
             <div className="flex items-start gap-3 py-1">
-              <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl bg-surface-utility/10">
-                <Icon icon={item.icon} className={item.iconClassName ?? 'h-5 w-5 text-input-text'} aria-hidden="true" />
+              <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl bg-paper-2/10">
+                <Icon icon={item.icon} className={item.iconClassName ?? 'h-5 w-5 text-ink'} aria-hidden="true" />
               </div>
               <div className="min-w-0 space-y-1">
-                <div className="text-sm font-semibold text-input-text">
+                <div className="text-sm font-semibold text-ink">
                   {item.title}
                 </div>
-                <div className="text-sm text-input-placeholder">
+                <div className="text-sm text-dim-2">
                   {item.description}
                 </div>
               </div>

@@ -61,7 +61,7 @@ type ClientMattersPageProps = {
 };
 
 const LoadingState = ({ message }: { message: string }) => (
-  <div className="flex h-full items-center justify-center p-8 text-sm text-input-placeholder">{message}</div>
+  <div className="flex h-full items-center justify-center p-8 text-sm text-dim-2">{message}</div>
 );
 
 const ErrorBanner = ({ children }: { children: ComponentChildren }) => (
@@ -435,11 +435,11 @@ export const ClientMattersPage = ({
                   role="tab"
                   className={[
                     'relative px-3 py-3 text-sm font-medium whitespace-nowrap',
-                    'transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-500 rounded-t-sm',
+                    'transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent rounded-t-sm',
                     'after:absolute after:bottom-0 after:left-0 after:right-0 after:h-0.5 after:rounded-full after:transition-all after:duration-150',
                     isActive
-                      ? 'text-input-text after:bg-accent-500'
-                      : 'text-input-placeholder hover:text-input-text after:bg-transparent hover:after:bg-line-subtle'
+                      ? 'text-ink after:bg-accent'
+                      : 'text-dim-2 hover:text-ink after:bg-transparent hover:after:bg-line-subtle'
                   ].join(' ')}
                 >
                   {tab.label}
@@ -465,39 +465,39 @@ export const ClientMattersPage = ({
                 />
                 <section className="panel overflow-hidden">
                   <header className="border-b border-line-subtle px-6 py-4">
-                    <h3 className="text-sm font-semibold text-input-text">Matter details</h3>
+                    <h3 className="text-sm font-semibold text-ink">Matter details</h3>
                   </header>
                   <div className="grid gap-4 px-6 py-5 text-sm sm:grid-cols-2">
                     <div>
-                      <p className="text-xs font-medium uppercase tracking-wide text-input-placeholder">Status</p>
-                      <p className="mt-1 text-input-text">{MATTER_STATUS_LABELS[resolvedMatter.status]}</p>
+                      <p className="text-xs font-medium uppercase tracking-wide text-dim-2">Status</p>
+                      <p className="mt-1 text-ink">{MATTER_STATUS_LABELS[resolvedMatter.status]}</p>
                     </div>
                     <div>
-                      <p className="text-xs font-medium uppercase tracking-wide text-input-placeholder">Client</p>
-                      <p className="mt-1 text-input-text">{resolvedMatter.clientName || 'Not provided'}</p>
+                      <p className="text-xs font-medium uppercase tracking-wide text-dim-2">Client</p>
+                      <p className="mt-1 text-ink">{resolvedMatter.clientName || 'Not provided'}</p>
                     </div>
                     <div>
-                      <p className="text-xs font-medium uppercase tracking-wide text-input-placeholder">Practice area</p>
-                      <p className="mt-1 text-input-text">{resolvedMatter.practiceArea || 'Not provided'}</p>
+                      <p className="text-xs font-medium uppercase tracking-wide text-dim-2">Practice area</p>
+                      <p className="mt-1 text-ink">{resolvedMatter.practiceArea || 'Not provided'}</p>
                     </div>
                     <div>
-                      <p className="text-xs font-medium uppercase tracking-wide text-input-placeholder">Opened</p>
-                      <p className="mt-1 text-input-text">{resolvedMatter.createdAt || 'Not provided'}</p>
+                      <p className="text-xs font-medium uppercase tracking-wide text-dim-2">Opened</p>
+                      <p className="mt-1 text-ink">{resolvedMatter.createdAt || 'Not provided'}</p>
                     </div>
                   </div>
                 </section>
                 <section className="panel overflow-hidden">
                   <header className="border-b border-line-subtle px-6 py-4">
-                    <h3 className="text-sm font-semibold text-input-text">Matter description</h3>
+                    <h3 className="text-sm font-semibold text-ink">Matter description</h3>
                   </header>
                   <div className="px-6 py-5">
-                    <p className="whitespace-pre-wrap text-sm leading-relaxed text-input-placeholder">
+                    <p className="whitespace-pre-wrap text-sm leading-relaxed text-dim-2">
                       {resolvedMatter.description?.trim() || 'No description available.'}
                     </p>
                   </div>
                 </section>
                 <section>
-                  <h3 className="text-sm font-semibold text-input-text">Recent activity</h3>
+                  <h3 className="text-sm font-semibold text-ink">Recent activity</h3>
                   <Panel className="mt-4 p-4">
                     {fetchError ? (
                       <ErrorBanner>{fetchError}</ErrorBanner>
@@ -569,7 +569,7 @@ export const ClientMattersPage = ({
           isLoadingMore={false}
           error={mattersError}
           minMountSkeletonMs={250}
-          emptyState={<div className="p-4 text-sm text-input-placeholder">No matters found.</div>}
+          emptyState={<div className="p-4 text-sm text-dim-2">No matters found.</div>}
         />
       </Panel>
     </>

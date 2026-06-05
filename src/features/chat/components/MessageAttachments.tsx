@@ -42,7 +42,7 @@ const ImageAttachment: FunctionComponent<ImageAttachmentProps> = ({ file, onClic
         src={src}
         type={file.type}
         alt={file.name}
-        className="max-w-[300px] max-h-[300px] w-auto h-auto block cursor-pointer rounded-xl"
+        className="max-w-[300px] max-h-[300px] w-auto h-auto block cursor-pointer rounded-r-md"
         onClick={() => onClick(file, src)}
       />
     </div>
@@ -52,7 +52,7 @@ const ImageAttachment: FunctionComponent<ImageAttachmentProps> = ({ file, onClic
 const AudioAttachment: FunctionComponent<{ file: FileAttachment }> = ({ file }) => {
   const src = useResolvedAttachmentUrl(file);
   return (
-    <div className="my-2 rounded-xl overflow-hidden max-w-75 w-full">
+    <div className="my-2 rounded-r-md overflow-hidden max-w-75 w-full">
       <LazyMedia src={src} type={file.type} alt={file.name} className="w-full h-auto block cursor-pointer" />
     </div>
   );
@@ -61,7 +61,7 @@ const AudioAttachment: FunctionComponent<{ file: FileAttachment }> = ({ file }) 
 const VideoAttachment: FunctionComponent<{ file: FileAttachment }> = ({ file }) => {
   const src = useResolvedAttachmentUrl(file);
   return (
-    <div className="my-2 rounded-xl overflow-hidden max-w-75 w-full">
+    <div className="my-2 rounded-r-md overflow-hidden max-w-75 w-full">
       <LazyMedia src={src} type={file.type} alt={file.name} className="w-full h-auto block cursor-pointer" />
     </div>
   );
@@ -103,7 +103,7 @@ const DocumentAttachment: FunctionComponent<DocumentAttachmentProps> = ({ file, 
 
   return (
     <div
-      className="flex items-center gap-2 p-2 rounded-xl glass-panel cursor-pointer my-2 max-w-[300px]"
+      className="flex items-center gap-2 p-2 rounded-r-md panel cursor-pointer my-2 max-w-[300px]"
       onClick={() => { void handleClick(); }}
       onKeyDown={handleKeyDown}
       role="button"
@@ -111,14 +111,14 @@ const DocumentAttachment: FunctionComponent<DocumentAttachmentProps> = ({ file, 
       aria-busy={busy}
       aria-label={`Open ${file.name}`}
     >
-      <div className="w-8 h-8 rounded bg-surface-base flex items-center justify-center flex-shrink-0">
+      <div className="w-8 h-8 rounded bg-paper flex items-center justify-center flex-shrink-0">
         {getDocumentIcon(file)}
       </div>
       <div className="flex-1 min-w-0">
-        <div className="text-sm font-medium text-input-text whitespace-nowrap overflow-hidden text-ellipsis" title={file.name}>
+        <div className="text-sm font-medium text-ink whitespace-nowrap overflow-hidden text-ellipsis" title={file.name}>
           {file.name.length > 25 ? `${file.name.substring(0, 25)}...` : file.name}
         </div>
-        <div className="text-xs text-input-placeholder">{formatDocumentIconSize(file.size)}</div>
+        <div className="text-xs text-dim-2">{formatDocumentIconSize(file.size)}</div>
       </div>
     </div>
   );

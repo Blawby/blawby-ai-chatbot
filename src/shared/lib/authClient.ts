@@ -2,6 +2,7 @@ import { createAuthClient } from 'better-auth/react';
 import { organizationClient } from 'better-auth/client/plugins';
 import { anonymousClient } from 'better-auth/client/plugins';
 import { multiSessionClient } from 'better-auth/client/plugins';
+import { oauthProviderClient } from '@better-auth/oauth-provider/client';
 import { stripeClient } from '@better-auth/stripe/client';
 import type { SessionUser, AuthSessionPayload } from '@/shared/types/user';
 import { safeConvertToDate, validateRequiredFields } from '@/shared/types/user';
@@ -83,7 +84,7 @@ function getAuthClient(): AuthClientType {
   if (typeof window === 'undefined') {
     const placeholderBaseURL = getAuthBaseUrl(); // Returns a placeholder during SSR/build, not the real backend URL.
     return createAuthClient({
-      plugins: [organizationClient(), anonymousClient(), multiSessionClient(), stripeClient({ subscription: true })],
+      plugins: [organizationClient(), anonymousClient(), multiSessionClient(), oauthProviderClient(), stripeClient({ subscription: true })],
       baseURL: placeholderBaseURL,
       fetchOptions: {
         credentials: 'include'
@@ -93,7 +94,7 @@ function getAuthClient(): AuthClientType {
 
   // Browser context - create the REAL client (only one is ever created and cached)
   const client = createAuthClient({
-    plugins: [organizationClient(), anonymousClient(), multiSessionClient(), stripeClient({ subscription: true })],
+    plugins: [organizationClient(), anonymousClient(), multiSessionClient(), oauthProviderClient(), stripeClient({ subscription: true })],
     baseURL: getAuthBaseUrl(),
     fetchOptions: {
       credentials: 'include'
@@ -191,6 +192,21 @@ function unwrapSessionData(d: unknown): AuthSessionPayload | null {
 export const useActiveMemberRole = () => {
   const client = getAuthClient();
   return client.useActiveMemberRole();
+};
+
+// Reactive hook over the user's full membership list. Backed by Better Auth's
+// organization plugin (/api/auth/organization/list).
+export const useListOrganizations = () => {
+  const client = getAuthClient();
+  return client.useListOrganizations();
+};
+
+// Reactive hook over the currently-active organization on the session.
+// Returns null when no org has been activated (a legitimate cold-login state —
+// not a subscription signal).
+export const useActiveOrganization = () => {
+  const client = getAuthClient();
+  return client.useActiveOrganization();
 };
 
 export const getSession = async (...args: Parameters<AuthClientType['getSession']>): Promise<AuthSessionPayload | null> => {

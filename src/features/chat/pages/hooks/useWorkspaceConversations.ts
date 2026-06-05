@@ -1,11 +1,11 @@
 import { useMemo, useRef, useState } from 'preact/hooks';
 import { useConversations } from '@/shared/hooks/useConversations';
-import { useIntakesData } from '@/features/intake/hooks/useIntakesData';
 import {
   CLIENT_CONVERSATIONS_ASSIGNED_TO_MAP,
   PRACTICE_CONVERSATIONS_ASSIGNED_TO_MAP,
 } from '@/shared/config/navConfig';
 import type { Conversation } from '@/shared/types/conversation';
+import { isAssistantConversation, isMessagesConversation } from '@/shared/utils/conversationSurface';
 
 // Visibility filtering moved to the worker (GET /api/conversations enforces
 // the `accepted intake AND requester-joined-org` invariant in SQL). The
@@ -66,21 +66,12 @@ export function useWorkspaceConversations({
     // request per conversation on mount.
     includeLatestMessage: true,
   });
-  const resolvedConversations = mockConversations ?? conversations;
+  const resolvedConversations = useMemo(
+    () => mockConversations ?? conversations,
+    [conversations, mockConversations],
+  );
   const resolvedConversationsLoading = mockConversations ? false : isConversationsLoading;
   const resolvedConversationsError = mockConversations ? null : conversationsError;
-
-  // Home view shows a recent-intakes panel (WorkspacePage uses `allIntakes`).
-  // Only fetch when needed — this is unrelated to the visibility filter,
-  // which is now entirely the worker's responsibility.
-  const {
-    items: allIntakes,
-    isLoaded: intakesLoaded,
-    error: intakesError,
-  } = useIntakesData(isPracticeWorkspace ? practiceId : null, {
-    enabled: isPracticeWorkspace && view === 'home',
-    filter: 'all',
-  });
 
   const isInitialConversationCheckRef = useRef(true);
   const [activeConversationMissingNotification, setActiveConversationMissingNotification] = useState<string | null>(null);
@@ -90,34 +81,41 @@ export function useWorkspaceConversations({
 
   // View filter only — the worker has already applied the visibility predicate.
   const filteredConversations = useMemo(() => {
+    const baseConversations = workspaceSection === 'assistant'
+      ? resolvedConversations.filter(isAssistantConversation)
+      : workspaceSection === 'conversations'
+        ? resolvedConversations.filter(isMessagesConversation)
+        : resolvedConversations;
+
     if (isPracticeWorkspace) {
       if (conversationFilterId === 'your-inbox' || conversationFilterId === 'assigned-to-me') {
-        if (!sessionUserId) return resolvedConversations;
-        return resolvedConversations.filter((conversation) => conversation.assigned_to === sessionUserId);
+        if (!sessionUserId) return baseConversations;
+        return baseConversations.filter((conversation) => conversation.assigned_to === sessionUserId);
       }
       if (conversationFilterId === 'unassigned') {
-        return resolvedConversations.filter((conversation) => !conversation.assigned_to || conversation.assigned_to.trim() === '');
+        return baseConversations.filter((conversation) => !conversation.assigned_to || conversation.assigned_to.trim() === '');
       }
       if (conversationFilterId === 'mentions') {
-        return resolvedConversations.filter((conversation) =>
+        return baseConversations.filter((conversation) =>
           Array.isArray(conversation.tags) && conversation.tags.some((tag) => tag.toLowerCase().includes('mention'))
         );
       }
-      return resolvedConversations;
+      return baseConversations;
     }
     if (isClientWorkspace) {
       if (conversationFilterId === 'your-inbox') {
-        return resolvedConversations.filter((conversation) => Number(conversation.unread_count ?? 0) > 0);
+        return baseConversations.filter((conversation) => Number(conversation.unread_count ?? 0) > 0);
       }
-      return resolvedConversations;
+      return baseConversations;
     }
-    return resolvedConversations;
+    return baseConversations;
   }, [
     conversationFilterId,
     resolvedConversations,
     isClientWorkspace,
     isPracticeWorkspace,
     sessionUserId,
+    workspaceSection,
   ]);
 
   const selectedConversation = useMemo(
@@ -139,9 +137,6 @@ export function useWorkspaceConversations({
     activeConversationMissingNotification,
     setActiveConversationMissingNotification,
     conversationFilterId,
-    allIntakes,
-    intakesLoaded,
-    intakesError,
     filteredConversations,
     selectedConversation,
   };

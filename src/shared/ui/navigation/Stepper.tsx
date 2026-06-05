@@ -49,7 +49,7 @@ export function Stepper({
                 <div
                   className={cn(
                     orientation === 'horizontal' ? 'flex-1 h-0.5' : 'w-0.5 h-6',
-                    status === 'upcoming' ? 'bg-surface-utility/10' : 'bg-accent-500',
+                    status === 'upcoming' ? 'bg-paper-2/10' : 'bg-accent',
                     'transition-colors',
                   )}
                 />
@@ -61,9 +61,9 @@ export function Stepper({
                 className={cn(
                   'shrink-0 flex items-center justify-center rounded-full transition-all',
                   'w-8 h-8 text-xs font-medium',
-                  status === 'completed' && 'bg-accent-500 text-[rgb(var(--accent-foreground))]',
-                  status === 'active' && 'bg-accent-500/15 text-accent-600 dark:text-accent-400 ring-2 ring-accent-500/30',
-                  status === 'upcoming' && 'bg-surface-utility/10 text-input-placeholder',
+                  status === 'completed' && 'bg-accent text-accent-ink',
+                  status === 'active' && 'bg-accent/15 text-accent dark:text-accent ring-2 ring-accent/30',
+                  status === 'upcoming' && 'bg-paper-2/10 text-dim-2',
                 )}
               >
                 {status === 'completed' ? (
@@ -77,7 +77,7 @@ export function Stepper({
                 <div
                   className={cn(
                     'flex-1 h-0.5',
-                    i < currentStep ? 'bg-accent-500' : 'bg-surface-utility/10',
+                    i < currentStep ? 'bg-accent' : 'bg-paper-2/10',
                     'transition-colors',
                   )}
                 />
@@ -90,12 +90,12 @@ export function Stepper({
             )}>
               <p className={cn(
                 'text-xs font-medium',
-                status === 'active' ? 'text-input-text' : 'text-input-placeholder',
+                status === 'active' ? 'text-ink' : 'text-dim-2',
               )}>
                 {step.label}
               </p>
               {step.description && (
-                <p className="text-[11px] text-input-placeholder/70 mt-0.5">{step.description}</p>
+                <p className="text-[11px] text-dim-2/70 mt-0.5">{step.description}</p>
               )}
             </div>
           </div>

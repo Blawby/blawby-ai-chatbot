@@ -96,7 +96,7 @@ const OnboardingChat: FunctionComponent<OnboardingChatProps> = ({
     <div className="space-y-6">
       {/* Header */}
       <header className="space-y-2">
-        <p className="text-[10px] font-bold uppercase tracking-[0.45em] text-input-placeholder">
+        <p className="text-[10px] font-bold uppercase tracking-[0.45em] text-dim-2">
           {status.needsSetup ? "Let's get started" : 'Practice setup'}
         </p>
         <h2 className="text-3xl font-bold tracking-tight">
@@ -182,16 +182,16 @@ const OnboardingChat: FunctionComponent<OnboardingChatProps> = ({
             headerContent={
               <div className="flex items-center justify-between mb-2 gap-3 px-4 pt-3">
                 <div className="flex items-center gap-2">
-                  <Icon icon={Sparkles} className="w-4 h-4 text-accent-500"  />
+                  <Icon icon={Sparkles} className="w-4 h-4 text-accent"  />
                   <div>
                     <div className="text-sm font-semibold">Setup assistant</div>
                     {status.needsSetup ? (
-                      <div className="text-[10px] text-input-placeholder">Onboarding</div>
+                      <div className="text-[10px] text-dim-2">Onboarding</div>
                     ) : null}
                   </div>
                 </div>
                 <div className="text-right">
-                  <div className="text-[10px] font-bold uppercase tracking-wider text-input-placeholder">
+                  <div className="text-[10px] font-bold uppercase tracking-wider text-dim-2">
                     Onboarding
                   </div>
                 </div>

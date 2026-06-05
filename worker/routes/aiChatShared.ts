@@ -11,6 +11,17 @@ const SERVICE_QUESTION_REGEX = /(?:\b(?:do you|are you|can you|what|which)\b.*\b
 const HOURS_QUESTION_REGEX = /\b(hours?|opening hours|business hours|office hours|when are you open)\b/i;
 const LEGAL_INTENT_REGEX = /\b(?:legal advice|what are my rights|is it legal|do i need (?:a )?lawyer|(?:should|can|could|would)\s+i\b.*\b(?:sue|lawsuit|liable|liability|contract dispute|charged|settlement|custody|divorce|immigration|criminal)\b)/i;
 
+// Canonical hard-error constants live in src/shared/constants/intakeErrors.ts
+// so the worker SSE event, the conversation envelope, and the widget composer
+// all reference one copy. Re-exported below so existing worker imports from
+// this module continue to resolve. See U6/U8 of
+// docs/plans/2026-05-18-002-feat-strengthen-intake-ai-observability-plan.md.
+import {
+  INTAKE_HARD_ERROR_CODE as HARD_ERROR_CODE,
+  INTAKE_HARD_ERROR_MESSAGE as HARD_ERROR_MESSAGE,
+} from '../../src/shared/constants/intakeErrors';
+const AI_RETRY_BACKOFF_MS = 500;
+
 const encoder = new TextEncoder();
 
 function looksLikeToolLeak(content: string): boolean {
@@ -192,11 +203,69 @@ const consumeAiStream = async (
 
       const choice = chunk.choices?.[0];
       const delta = choice?.delta;
+      if (requestId && diagnostics.parsedChunkCount <= 12) {
+        const message = choice?.message as Record<string, unknown> | undefined;
+        const messageToolCalls = Array.isArray(message?.tool_calls) ? message.tool_calls : [];
+        Logger.info('ai.stream.chunk_shape', {
+          requestId,
+          conversationId,
+          chunkIndex: diagnostics.parsedChunkCount,
+          hasChoice: Boolean(choice),
+          hasDelta: Boolean(delta),
+          hasDeltaContent: typeof delta?.content === 'string' && delta.content.length > 0,
+          deltaContentLength: typeof delta?.content === 'string' ? delta.content.length : null,
+          deltaToolCallCount: Array.isArray(delta?.tool_calls) ? delta.tool_calls.length : 0,
+          hasMessage: Boolean(message),
+          hasMessageContent: typeof message?.content === 'string' && message.content.length > 0,
+          messageContentLength: typeof message?.content === 'string' ? message.content.length : null,
+          messageToolCallCount: messageToolCalls.length,
+          finishReason: choice?.finish_reason ?? null,
+        });
+      }
       if (typeof choice?.finish_reason === 'string' && choice.finish_reason.length > 0) {
         diagnostics.finishReasons.push(choice.finish_reason);
       }
-      if (!delta && choice?.message && diagnostics.sampleUnexpectedChunks.length < 3) {
-        diagnostics.sampleUnexpectedChunks.push(JSON.stringify(choice.message).slice(0, 240));
+      if (!delta && choice?.message) {
+        // Some Workers AI models return tool calls in choice.message (non-streaming
+        // shape) even when stream:true. Extract them so the practice assistant
+        // tool-calling path works regardless of model streaming format.
+        const msgRecord = choice.message as Record<string, unknown>;
+        const msgContent = typeof msgRecord.content === 'string' ? msgRecord.content : null;
+        if (msgContent) {
+          localReply += msgContent;
+          if (looksLikeToolLeak(msgContent)) {
+            blockedByPotentialToolLeak = true;
+            streamStalled = true;
+            diagnostics.failClosedReason = 'potential_tool_leak';
+          }
+          if (emitTokens && !blockedByPotentialToolLeak) {
+            write({ token: msgContent });
+            localEmittedToken = true;
+          }
+        }
+        const msgToolCalls = Array.isArray(msgRecord.tool_calls) ? msgRecord.tool_calls as Array<{
+          id?: string;
+          index?: number;
+          function?: { name?: string; arguments?: string };
+        }> : null;
+        if (msgToolCalls) {
+          msgToolCalls.forEach((tc, idx) => {
+            if (typeof tc.function?.name === 'string') {
+              const key = typeof tc.index === 'number' ? tc.index : idx;
+              const existing = localToolCallsByIndex.get(key);
+              if (!existing) {
+                localToolCallsByIndex.set(key, {
+                  name: tc.function.name,
+                  arguments: tc.function.arguments ?? '{}',
+                });
+              }
+            }
+          });
+        }
+        if (!msgContent && !msgToolCalls && diagnostics.sampleUnexpectedChunks.length < 3) {
+          diagnostics.sampleUnexpectedChunks.push(JSON.stringify(choice.message).slice(0, 240));
+        }
+        continue;
       }
       if (!delta) continue;
 
@@ -303,8 +372,30 @@ const consumeAiStream = async (
               content?: string | null;
               tool_calls?: Array<{ index?: number; function?: { name?: string; arguments?: string } }>;
             };
+            message?: Record<string, unknown>;
+            finish_reason?: string | null;
           }>;
         };
+        if (requestId) {
+          const choice = chunk.choices?.[0];
+          const message = choice?.message as Record<string, unknown> | undefined;
+          const delta = choice?.delta;
+          const messageToolCalls = Array.isArray(message?.tool_calls) ? message.tool_calls : [];
+          Logger.info('ai.stream.final_buffer_shape', {
+            requestId,
+            conversationId,
+            hasChoice: Boolean(choice),
+            hasDelta: Boolean(delta),
+            hasDeltaContent: typeof delta?.content === 'string' && delta.content.length > 0,
+            deltaContentLength: typeof delta?.content === 'string' ? delta.content.length : null,
+            deltaToolCallCount: Array.isArray(delta?.tool_calls) ? delta.tool_calls.length : 0,
+            hasMessage: Boolean(message),
+            hasMessageContent: typeof message?.content === 'string' && message.content.length > 0,
+            messageContentLength: typeof message?.content === 'string' ? message.content.length : null,
+            messageToolCallCount: messageToolCalls.length,
+            finishReason: choice?.finish_reason ?? null,
+          });
+        }
         const token = chunk.choices?.[0]?.delta?.content;
         if (typeof token === 'string' && token.length > 0) {
           localReply += token;
@@ -527,6 +618,9 @@ export {
   SERVICE_QUESTION_REGEX,
   HOURS_QUESTION_REGEX,
   LEGAL_INTENT_REGEX,
+  HARD_ERROR_CODE,
+  HARD_ERROR_MESSAGE,
+  AI_RETRY_BACKOFF_MS,
   encoder,
   sseEvent,
   createSseResponse,

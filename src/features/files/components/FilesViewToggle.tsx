@@ -13,13 +13,13 @@ interface FilesViewToggleProps {
 const buttonClass = (active: boolean) => cn(
   'flex h-7 w-7 items-center justify-center rounded-md transition-colors',
   active
-    ? 'bg-surface-card text-input-text shadow-sm'
-    : 'text-input-placeholder hover:text-input-text'
+    ? 'bg-card text-ink shadow-sm'
+    : 'text-dim-2 hover:text-ink'
 );
 
 export const FilesViewToggle = ({ value, onChange }: FilesViewToggleProps) => (
   <div
-    className="inline-flex items-center gap-1 rounded-lg border border-line-glass/30 bg-surface-panel/60 p-1"
+    className="inline-flex items-center gap-1 rounded-lg border border-rule bg-paper-2/60 p-1"
     role="group"
     aria-label="File view mode"
   >

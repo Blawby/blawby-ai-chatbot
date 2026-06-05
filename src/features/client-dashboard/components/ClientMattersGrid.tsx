@@ -24,7 +24,7 @@ export const ClientMattersGrid = ({
   <section className="w-full">
     <div className="mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8">
       <div className="flex items-center justify-between">
-        <h2 className="text-base font-semibold text-input-text">Your matters</h2>
+        <h2 className="text-base font-semibold text-ink">Your matters</h2>
         <Button variant="link" size="sm" onClick={() => onViewAll?.()}>
           View all
         </Button>
@@ -32,7 +32,7 @@ export const ClientMattersGrid = ({
       {loading ? (
         <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {[1, 2, 3].map((i) => (
-            <div key={i} className="space-y-3 rounded-xl bg-surface-overlay/80 p-6 outline outline-1 outline-line-glass/40">
+            <div key={i} className="space-y-3 rounded-r-md bg-card/80 p-6 outline outline-1 outline-line-glass/40">
               <SkeletonLoader variant="text" width="w-32" />
               <SkeletonLoader variant="text" width="w-24" />
               <SkeletonLoader variant="text" width="w-20" />
@@ -40,42 +40,42 @@ export const ClientMattersGrid = ({
           ))}
         </div>
       ) : error ? (
-        <div className="mt-6 rounded-xl border border-card-border bg-card px-3 py-2 text-sm text-input-text">
+        <div className="mt-6 rounded-r-md border border-card-border bg-card px-3 py-2 text-sm text-ink">
           {error}
         </div>
       ) : matters.length === 0 ? (
-        <p className="mt-6 text-sm text-input-placeholder">No matters yet. When your firm opens a matter for you, it'll show up here.</p>
+        <p className="mt-6 text-sm text-dim-2">No matters yet. When your firm opens a matter for you, it&apos;ll show up here.</p>
       ) : (
         <ul className="mt-6 grid grid-cols-1 gap-x-6 gap-y-6 sm:grid-cols-2 lg:grid-cols-3 xl:gap-x-8">
           {matters.map((matter) => (
             <li
               key={matter.id}
-              className="overflow-hidden rounded-xl bg-surface-overlay/80 outline outline-1 outline-line-glass/40 backdrop-blur-xl"
+              className="overflow-hidden rounded-r-md bg-card/80 outline outline-1 outline-line-glass/40 backdrop-blur-xl"
             >
               <button
                 type="button"
                 onClick={() => onViewMatter?.(matter.id)}
-                className="block w-full text-left transition-colors hover:bg-surface-utility/20"
+                className="block w-full text-left transition-colors hover:bg-paper-2/20"
               >
-                <div className="flex items-start gap-3 border-b border-line-glass/20 bg-surface-overlay/70 p-5">
-                  <div className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-surface-utility/30">
-                    <Icon icon={Briefcase} className="h-5 w-5 text-input-placeholder" aria-hidden />
+                <div className="flex items-start gap-3 border-b border-line-subtle bg-card/70 p-5">
+                  <div className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-paper-2/30">
+                    <Icon icon={Briefcase} className="h-5 w-5 text-dim-2" aria-hidden />
                   </div>
                   <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-semibold text-input-text">{matter.title}</p>
+                    <p className="truncate text-sm font-semibold text-ink">{matter.title}</p>
                     {matter.practiceArea ? (
-                      <p className="truncate text-xs text-input-placeholder">{matter.practiceArea}</p>
+                      <p className="truncate text-xs text-dim-2">{matter.practiceArea}</p>
                     ) : null}
                   </div>
                 </div>
-                <dl className="divide-y divide-line-glass/20 bg-surface-overlay/60 px-5 py-3 text-sm">
+                <dl className="divide-y divide-line-subtle bg-card/60 px-5 py-3 text-sm">
                   <div className="flex justify-between gap-x-4 py-2">
-                    <dt className="text-input-placeholder">Status</dt>
-                    <dd className="text-input-text">{matter.statusLabel ?? '—'}</dd>
+                    <dt className="text-dim-2">Status</dt>
+                    <dd className="text-ink">{matter.statusLabel ?? '—'}</dd>
                   </div>
                   <div className="flex justify-between gap-x-4 py-2">
-                    <dt className="text-input-placeholder">Last update</dt>
-                    <dd className="text-input-text">
+                    <dt className="text-dim-2">Last update</dt>
+                    <dd className="text-ink">
                       {matter.updatedAt ? formatRelativeTime(matter.updatedAt) : '—'}
                     </dd>
                   </div>

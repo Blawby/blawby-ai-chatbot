@@ -271,12 +271,12 @@ export function PracticeMatterCreatePage({
     >
       <DialogBody>
         {convertError ? (
-          <div className="mb-4 rounded-xl border border-accent-error/30 bg-accent-error/10 px-4 py-3 text-sm text-accent-error">
+          <div className="mb-4 rounded-r-md border border-neg/30 bg-neg/10 px-4 py-3 text-sm text-neg">
             {convertError}
           </div>
         ) : null}
         {convertIntakeUuid && convertLoading && !convertInitialValues ? (
-          <div className="card rounded-xl p-6">
+          <div className="card rounded-r-md p-6">
             <LoadingBlock label="Loading intake details..." />
           </div>
         ) : null}

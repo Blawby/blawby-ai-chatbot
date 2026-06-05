@@ -67,6 +67,10 @@ const workerEndpoints = [
 	'config',
 	'status',
 	'ai',
+	// U9: admin intake-inspector lives under /api/admin/intake-events/*.
+	// Per AGENTS.md, a new Worker-owned API prefix must be registered here
+	// or Vite proxies it to the backend fallback and produces misleading 404s.
+	'admin/intake-events',
 	'practices',
 	'clients',
 	'onboarding',
@@ -80,6 +84,11 @@ const workerEndpoints = [
 	'widget',
 	'presence',
 	'search',
+	// U6 of MCP plan: /api/mcp, /api/mcp/ws, /api/mcp/internal/events all
+	// proxy to the worker. Register the prefix so local-dev doesn't fall
+	// through to the backend proxy and 404. Auth and tool surface are wired
+	// in U7-U11.
+	'mcp',
 ];
 
 // Proxy configuration types from http-proxy-middleware
@@ -108,6 +117,11 @@ const buildProxyEntries = (): Record<string, ProxyOptions> => {
 	workerEndpoints.forEach((endpoint) => {
 		entries[`/api/${endpoint}`] = createWorkerProxyConfig();
 	});
+
+	// RFC 9728 protected-resource metadata lives outside /api/* — register it
+	// explicitly so the worker handles it rather than letting Vite SPA-fall
+	// through to index.html. U6 of MCP plan.
+	entries['/.well-known/oauth-protected-resource'] = createWorkerProxyConfig();
 
 	return entries;
 };
@@ -221,9 +235,9 @@ export default defineConfig(({ mode }: ConfigEnv) => {
 					skipWaiting: false,
 					clientsClaim: false,
 					cleanupOutdatedCaches: true,
-					// Precache only app shell JS/CSS and PWA icons.
-					// Images, HTML pages, and widget assets are served by Cloudflare Pages directly.
-					globPatterns: ['assets/**/*.{js,css}'],
+					// Precache the SPA shell used by Workbox's navigation fallback plus
+					// app JS/CSS. Widget pages/assets are still excluded by the denylist.
+					globPatterns: ['index.html', 'assets/**/*.{js,css}'],
 					globIgnores: [],
 					navigateFallbackDenylist: [
 						// Never route API or auth requests through the SPA

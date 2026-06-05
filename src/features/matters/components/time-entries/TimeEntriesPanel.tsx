@@ -165,7 +165,7 @@ export const TimeEntriesPanel = ({
                 onClick={handlePreviousWeek}
               />
               <div className="min-w-[220px] text-center">
-                <p className="text-sm font-semibold text-input-text">{weekRangeLabel}</p>
+                <p className="text-sm font-semibold text-ink">{weekRangeLabel}</p>
               </div>
               <Button
                 variant="ghost"
@@ -192,25 +192,25 @@ export const TimeEntriesPanel = ({
                 key={day.dateKey}
                 type="button"
                 onClick={() => openNewEntry(day.dateKey)}
-                className="w-full text-left px-4 py-3 sm:px-6 hover:bg-surface-card-hover transition-colors"
+                className="w-full text-left px-4 py-3 sm:px-6 hover:bg-paper-2 transition-colors"
               >
                 <div className="grid gap-2 sm:grid-cols-12 sm:items-center">
-                  <div className="text-sm font-medium text-input-placeholder sm:col-span-3">
+                  <div className="text-sm font-medium text-dim-2 sm:col-span-3">
                     {formatDateLabel(day.date)}
                   </div>
                   <div className="sm:col-span-9">
                     <div className="flex items-center gap-3">
                       <div className="flex-1 h-2 rounded-full bg-line-subtle">
                         <div
-                          className="h-2 rounded-full bg-accent-500"
+                          className="h-2 rounded-full bg-accent"
                           style={{ width: `${day.progressPercentage}%` }}
                         />
                       </div>
-                      <div className="text-sm font-semibold text-input-text min-w-[96px] text-right">
+                      <div className="text-sm font-semibold text-ink min-w-[96px] text-right">
                         {formatDuration(day.totalSeconds)}
                       </div>
                     </div>
-                    <p className="mt-1 text-xs text-input-placeholder">
+                    <p className="mt-1 text-xs text-dim-2">
                       {day.entries.length === 1 ? '1 entry' : `${day.entries.length} entries`}
                     </p>
                   </div>
@@ -250,7 +250,7 @@ export const TimeEntriesPanel = ({
           contentClassName="max-w-xl"
         >
           <DialogBody className="space-y-4">
-            <p className="text-sm text-input-placeholder">
+            <p className="text-sm text-dim-2">
               Are you sure you want to delete this time entry? This action cannot be undone.
             </p>
           </DialogBody>

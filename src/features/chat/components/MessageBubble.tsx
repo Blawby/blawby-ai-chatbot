@@ -37,7 +37,7 @@ export const MessageBubble: FunctionComponent<MessageBubbleProps> = ({
 		variantClasses[variant],
 		messageLayoutClasses,
 		mediaOnlyClasses,
-		'text-input-text',
+		'text-ink',
 		className
 	].filter(Boolean).join(' ');
 

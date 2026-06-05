@@ -6,6 +6,8 @@ import { DetailHeader } from '@/shared/ui/layout/DetailHeader';
 import { LoadingSpinner } from '@/shared/ui/layout/LoadingSpinner';
 import { formatLongDate } from '@/shared/utils/dateFormatter';
 import { getIntakeStatus, type IntakeStatusResponse } from '../api/intakesApi';
+import { queryCache } from '@/shared/lib/queryCache';
+import { policyTtl } from '@/shared/lib/cachePolicy';
 import {
   ClientIntakeStatusPage,
   type ClientIntakeStatus,
@@ -159,7 +161,12 @@ export const ClientIntakesView: FunctionComponent<ClientIntakesViewProps> = ({
     let cancelled = false;
     setIsLoading(true);
     setError(null);
-    getIntakeStatus(intakeUuid)
+    // Cache the status so navigating away from and back to this intake within
+    // the intake TTL reuses the result instead of re-hitting the backend.
+    // Keyed by uuid only — practiceName is applied to the cached response by
+    // adaptStatus below, so it isn't part of the cache identity.
+    const cacheKey = `intake:status:${intakeUuid}`;
+    queryCache.coalesceGet(cacheKey, () => getIntakeStatus(intakeUuid), { ttl: policyTtl(cacheKey), swr: false })
       .then((response) => {
         if (cancelled) return;
         setIntake(adaptStatus(response, `${practiceName} Intake`));
@@ -182,7 +189,7 @@ export const ClientIntakesView: FunctionComponent<ClientIntakesViewProps> = ({
 
   if (isLoading) {
     return (
-      <div className="flex h-full items-center justify-center bg-surface-workspace">
+      <div className="flex h-full items-center justify-center bg-paper">
         <LoadingSpinner ariaLabel="Loading intake" />
       </div>
     );
@@ -190,7 +197,7 @@ export const ClientIntakesView: FunctionComponent<ClientIntakesViewProps> = ({
 
   if (error) {
     return (
-      <div className="flex h-full flex-col min-h-0 bg-surface-workspace">
+      <div className="flex h-full flex-col min-h-0 bg-paper">
         <DetailHeader title="Intake Forms" showBack={Boolean(intakeUuid)} onBack={intakeUuid ? onBack : undefined} />
         <div className="p-6 text-sm text-error">{error}</div>
       </div>

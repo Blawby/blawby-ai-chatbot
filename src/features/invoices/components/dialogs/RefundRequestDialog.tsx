@@ -74,7 +74,7 @@ export const RefundRequestDialog = ({
           disabled={loading}
           min={0}
         />
-        <p className="text-xs text-input-placeholder">
+        <p className="text-xs text-dim-2">
           Leave blank to request a full refund of {formatCurrency(maxAmount)}.
         </p>
         <Textarea
@@ -86,7 +86,7 @@ export const RefundRequestDialog = ({
           disabled={loading}
         />
         {error ? (
-          <p className="text-sm text-accent-error-light" role="alert">
+          <p className="text-sm text-neg" role="alert">
             {error}
           </p>
         ) : null}

@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useRef, useMemo, useState } from 'preact/compat';
+import { createContext, useContext, useEffect, useMemo, useState } from 'preact/compat';
 import { ComponentChildren } from 'preact';
 import { useSession, authClient } from '@/shared/lib/authClient';
 import { RoutePracticeContext } from '@/shared/contexts/RoutePracticeContext';
@@ -117,33 +117,6 @@ export function SessionProvider({ children }: { children: ComponentChildren }) {
   const sessionIsAnonymous = sessionData?.user?.is_anonymous === true;
   const sessionActivePracticeId = getActivePracticeId(sessionData);
   const shouldResolveActiveMemberRole = Boolean(currentUserId1 && !sessionIsAnonymous && sessionActivePracticeId);
-
-  const sessionKey =
-    currentUserId1 ??
-    (sessionData?.session as BackendSession | undefined)?.id ??
-    null;
-
-  const previousSessionKeyRef = useRef<string | null | undefined>(undefined);
-
-  useEffect(() => {
-    if (typeof window === 'undefined') {
-      return;
-    }
-
-    const previousSessionKey = previousSessionKeyRef.current;
-    if (previousSessionKey === undefined) {
-      previousSessionKeyRef.current = sessionKey;
-      if (sessionKey) {
-        window.dispatchEvent(new CustomEvent('auth:session-updated'));
-      }
-      return;
-    }
-
-    if (previousSessionKey !== sessionKey) {
-      window.dispatchEvent(new CustomEvent(sessionKey ? 'auth:session-updated' : 'auth:session-cleared'));
-      previousSessionKeyRef.current = sessionKey;
-    }
-  }, [sessionKey]);
 
   const effectiveActiveMemberRoleLoading = shouldResolveActiveMemberRole
     && (!activeMemberRoleState.resolved || activeMemberRoleState.loading);

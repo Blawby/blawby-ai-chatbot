@@ -69,13 +69,13 @@ export const UploadDestinationDialog = ({
       value: `matter:${matter.id}`,
       label: matter.title?.trim() || 'Untitled matter',
       meta: 'Matter',
-      icon: <Icon icon={Briefcase} className="h-4 w-4 text-input-placeholder" />,
+      icon: <Icon icon={Briefcase} className="h-4 w-4 text-dim-2" />,
     }));
     const intakeOptions = intakes.map((intake) => ({
       value: `intake:${intake.uuid}`,
       label: resolveIntakeTitle(intake.metadata),
       meta: 'Intake',
-      icon: <Icon icon={Inbox} className="h-4 w-4 text-input-placeholder" />,
+      icon: <Icon icon={Inbox} className="h-4 w-4 text-dim-2" />,
     }));
     return [...matterOptions, ...intakeOptions];
   }, [matters, intakes]);
@@ -184,7 +184,7 @@ export const UploadDestinationDialog = ({
           disabled={isLoading}
         />
         {error ? (
-          <div className="status-error flex items-center justify-between gap-3 rounded-xl px-3 py-2 text-sm">
+          <div className="flex items-center justify-between gap-3 rounded-r-md border border-neg/20 bg-neg/10 px-3 py-2 text-sm text-neg">
             <span className="min-w-0 flex-1 truncate">{error}</span>
             <Button variant="ghost" size="sm" onClick={() => { void refetch(); }}>
               Retry
@@ -192,7 +192,7 @@ export const UploadDestinationDialog = ({
           </div>
         ) : null}
         {!isLoading && options.length === 0 && !error ? (
-          <div className="flex items-center justify-between gap-3 rounded-xl border border-line-glass/20 bg-surface-panel/50 px-3 py-3 text-sm text-input-placeholder">
+          <div className="flex items-center justify-between gap-3 rounded-r-md border border-rule bg-paper-2/50 px-3 py-3 text-sm text-dim-2">
             <span className="min-w-0 flex-1">
               {clientUserId
                 ? "You don't have any matters or intakes yet. Open a conversation with the practice to get started."
@@ -213,7 +213,7 @@ export const UploadDestinationDialog = ({
             emptyStateLabel={null}
           />
         ) : options.length > 0 ? (
-          <p className="rounded-xl border border-line-glass/20 bg-surface-panel/50 px-3 py-4 text-sm text-input-placeholder">
+          <p className="rounded-r-md border border-rule bg-paper-2/50 px-3 py-4 text-sm text-dim-2">
             Pick a destination above to enable the upload area.
           </p>
         ) : null}

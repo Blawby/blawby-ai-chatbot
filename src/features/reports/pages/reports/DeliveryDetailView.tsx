@@ -68,7 +68,7 @@ export const DeliveryDetailView: FunctionComponent<DeliveryDetailViewProps> = ({
           <a
             href={downloadUrl}
             download
-            className="inline-flex items-center gap-2 rounded-md bg-accent-utility/10 px-3 py-1.5 text-sm font-medium text-accent-utility"
+            className="inline-flex items-center gap-2 rounded-md bg-accent/10 px-3 py-1.5 text-sm font-medium text-accent"
           >
             <Download className="h-4 w-4" />
             Download CSV
@@ -76,33 +76,33 @@ export const DeliveryDetailView: FunctionComponent<DeliveryDetailViewProps> = ({
         ) : null}
       </div>
       <div>
-        <h1 className="text-lg font-semibold text-input-text">{reportTitle}</h1>
-        <p className="mt-1 text-sm font-mono text-input-placeholder">{delivery.id}</p>
+        <h1 className="text-lg font-semibold text-ink">{reportTitle}</h1>
+        <p className="mt-1 text-sm font-mono text-dim-2">{delivery.id}</p>
       </div>
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-        <div className="rounded-2xl border border-line-glass/20 p-3">
-          <p className="text-xs text-input-placeholder">Status</p>
+        <div className="rounded-2xl border border-line-subtle p-3">
+          <p className="text-xs text-dim-2">Status</p>
           <p className={`text-sm font-medium ${STATUS_COLOR[delivery.status] ?? ''}`}>{delivery.status}</p>
         </div>
-        <div className="rounded-2xl border border-line-glass/20 p-3">
-          <p className="text-xs text-input-placeholder">Created</p>
-          <p className="text-sm text-input-text">{new Date(delivery.createdAt).toLocaleString()}</p>
+        <div className="rounded-2xl border border-line-subtle p-3">
+          <p className="text-xs text-dim-2">Created</p>
+          <p className="text-sm text-ink">{new Date(delivery.createdAt).toLocaleString()}</p>
         </div>
         {delivery.completedAt ? (
-          <div className="rounded-2xl border border-line-glass/20 p-3">
-            <p className="text-xs text-input-placeholder">Completed</p>
-            <p className="text-sm text-input-text">{new Date(delivery.completedAt).toLocaleString()}</p>
+          <div className="rounded-2xl border border-line-subtle p-3">
+            <p className="text-xs text-dim-2">Completed</p>
+            <p className="text-sm text-ink">{new Date(delivery.completedAt).toLocaleString()}</p>
           </div>
         ) : null}
         {typeof delivery.byteSize === 'number' ? (
-          <div className="rounded-2xl border border-line-glass/20 p-3">
-            <p className="text-xs text-input-placeholder">File size</p>
-            <p className="text-sm text-input-text">{delivery.byteSize.toLocaleString()} bytes</p>
+          <div className="rounded-2xl border border-line-subtle p-3">
+            <p className="text-xs text-dim-2">File size</p>
+            <p className="text-sm text-ink">{delivery.byteSize.toLocaleString()} bytes</p>
           </div>
         ) : null}
-        <div className="rounded-2xl border border-line-glass/20 p-3 sm:col-span-2">
-          <p className="text-xs text-input-placeholder">Recipients</p>
-          <p className="text-sm text-input-text">
+        <div className="rounded-2xl border border-line-subtle p-3 sm:col-span-2">
+          <p className="text-xs text-dim-2">Recipients</p>
+          <p className="text-sm text-ink">
             {delivery.recipients.length === 0 ? '—' : delivery.recipients.join(', ')}
           </p>
         </div>

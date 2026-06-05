@@ -14,11 +14,12 @@ import {
   resolveConversationContactName,
   resolveConversationDisplayTitle,
 } from '@/shared/utils/conversationDisplay';
+import { isMessagesConversation } from '@/shared/utils/conversationSurface';
 import { usePresenceContext } from '@/shared/contexts/PresenceContext';
 import { useSessionContext } from '@/shared/contexts/SessionContext';
 
 const WidgetConversationListSkeleton = ({ rows = 6 }: { rows?: number }) => (
-  <div className="divide-y divide-line-glass/[0.04] pt-1">
+  <div className="divide-y divide-line-subtle pt-1">
     {Array.from({ length: rows }, (_, i) => {
       const titleW = ['w-32', 'w-40', 'w-28', 'w-36', 'w-44', 'w-32'][i % 6];
       const previewW = ['w-44', 'w-52', 'w-36', 'w-48', 'w-40', 'w-44'][i % 6];
@@ -48,14 +49,14 @@ const WidgetConversationListEmptyState = ({
 }: { title: string; hint: string }) => (
   <div className="flex flex-1 items-center justify-center px-6 py-10">
     <div className="flex max-w-xs flex-col items-center gap-3 text-center">
-      <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-surface-overlay/60 ring-1 ring-line-glass/20">
+      <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-card/60 ring-1 ring-line-subtle">
         <Icon
           icon={MessageSquare}
-          className="h-6 w-6 text-input-placeholder"
+          className="h-6 w-6 text-dim-2"
         />
       </div>
-      <p className="text-sm font-medium text-input-text">{title}</p>
-      <p className="text-xs leading-5 text-input-placeholder">{hint}</p>
+      <p className="text-sm font-medium text-ink">{title}</p>
+      <p className="text-xs leading-5 text-dim-2">{hint}</p>
     </div>
   </div>
 );
@@ -102,7 +103,7 @@ const WidgetConversationListView: FunctionComponent<WidgetConversationListViewPr
   const { session } = useSessionContext();
   const currentUserId = session?.user?.id ?? null;
   const sorted = conversations
-    .filter((conversation) => conversation.user_info?.mode !== 'PRACTICE_ONBOARDING')
+    .filter(isMessagesConversation)
     .sort((a, b) => {
     const aTime = new Date(a.updated_at).getTime();
     const bTime = new Date(b.updated_at).getTime();
@@ -133,7 +134,7 @@ const WidgetConversationListView: FunctionComponent<WidgetConversationListViewPr
             })}
           />
         ) : (
-          <div className="pt-1 divide-y divide-line-glass/[0.04]">
+          <div className="pt-1 divide-y divide-line-subtle">
             {sorted.map((conversation) => {
               const preview = previews[conversation.id];
               const contactName = resolveConversationContactName(conversation);
@@ -154,8 +155,8 @@ const WidgetConversationListView: FunctionComponent<WidgetConversationListViewPr
                   key={conversation.id}
                   type="button"
                   className={cn(
-                    'flex w-full items-start gap-3 px-3 py-3 text-left transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-500/50',
-                    isActive ? 'bg-surface-utility/10' : 'hover:bg-surface-utility/5'
+                    'flex w-full items-start gap-3 px-3 py-3 text-left transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50',
+                    isActive ? 'bg-paper-2/10' : 'hover:bg-paper-2/5'
                   )}
                   onClick={() => onSelectConversation(conversation.id)}
                 >
@@ -163,7 +164,7 @@ const WidgetConversationListView: FunctionComponent<WidgetConversationListViewPr
                     src={null}
                     name={avatarName}
                     size="md"
-                    className="ring-2 ring-line-glass/10"
+                    className="ring-2 ring-line-subtle"
                   />
                   <div className="min-w-0 flex-1 space-y-1">
                     <div className="flex items-start justify-between gap-3">
@@ -171,7 +172,7 @@ const WidgetConversationListView: FunctionComponent<WidgetConversationListViewPr
                         <span className={cn(
                           'block truncate',
                           chatTypography.previewName,
-                          isUnread && 'font-bold text-input-text'
+                          isUnread && 'font-bold text-ink'
                         )}>
                           {title}
                         </span>
@@ -188,21 +189,21 @@ const WidgetConversationListView: FunctionComponent<WidgetConversationListViewPr
                           <span className={chatTypography.headerTime}>{timeLabel}</span>
                         )}
                         {isUnread && (
-                          <span className="inline-flex min-w-5 items-center justify-center rounded-full bg-accent-500 px-1.5 py-0.5 text-[11px] font-semibold text-[rgb(var(--accent-foreground))]">
+                          <span className="inline-flex min-w-5 items-center justify-center rounded-full bg-accent px-1.5 py-0.5 text-[11px] font-semibold text-accent-ink">
                             {unreadCount}
                           </span>
                         )}
                       </div>
                     </div>
                     {isTyping ? (
-                      <div className="flex items-center gap-1.5 text-sm italic text-accent-utility">
-                        <span className="ai-thinking-indicator__dot" aria-hidden="true" />
+                      <div className="flex items-center gap-1.5 text-sm italic text-accent">
+                        <span className="human-typing-indicator__dot" aria-hidden="true" />
                         <span>{t('workspace.conversationList.typing', { defaultValue: 'typing…' })}</span>
                       </div>
                     ) : (
                       <div className={cn(
                         'truncate text-sm',
-                        isUnread ? 'font-semibold text-input-text' : 'text-input-placeholder'
+                        isUnread ? 'font-semibold text-ink' : 'text-dim-2'
                       )}>
                         <ChatText text={previewText} className="truncate" />
                       </div>

@@ -19,7 +19,7 @@ const PrivacySupportSidebar = ({ className }: PrivacySupportSidebarProps) => {
               href="https://blawby.com/privacy"
               target="_blank"
               rel="noopener noreferrer"
-              className="flex items-center gap-2 text-xs sm:text-sm text-input-placeholder hover:text-accent dark:hover:text-accent transition-colors duration-200"
+              className="flex items-center gap-2 text-xs sm:text-sm text-dim-2 hover:text-accent dark:hover:text-accent transition-colors duration-200"
             >
               <Icon icon={ShieldCheck} className="w-4 h-4"  />
               Privacy Policy
@@ -29,7 +29,7 @@ const PrivacySupportSidebar = ({ className }: PrivacySupportSidebarProps) => {
               href="https://blawby.com/help"
               target="_blank"
               rel="noopener noreferrer"
-              className="flex items-center gap-2 text-xs sm:text-sm text-input-placeholder hover:text-accent dark:hover:text-accent transition-colors duration-200"
+              className="flex items-center gap-2 text-xs sm:text-sm text-dim-2 hover:text-accent dark:hover:text-accent transition-colors duration-200"
             >
               <Icon icon={HelpCircle} className="w-4 h-4"  />
               Help & Support

@@ -36,7 +36,7 @@ export const CollectionToolbar = ({
   return (
     <section
       className={cn(
-        'rounded-2xl border border-line-glass/30 bg-surface-panel/70 backdrop-blur-xl',
+        'rounded-2xl border border-line-subtle bg-paper-2/70 backdrop-blur-xl',
         compact ? 'p-3' : 'p-4 sm:p-5',
         className
       )}
@@ -45,8 +45,8 @@ export const CollectionToolbar = ({
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           {(title || description) ? (
             <div className="min-w-0">
-              {title ? <div className="text-sm font-semibold text-input-text sm:text-base">{title}</div> : null}
-              {description ? <div className="mt-1 text-sm text-input-placeholder">{description}</div> : null}
+              {title ? <div className="text-sm font-semibold text-ink sm:text-base">{title}</div> : null}
+              {description ? <div className="mt-1 text-sm text-dim-2">{description}</div> : null}
             </div>
           ) : null}
           {actions ? <div className="flex flex-wrap items-center gap-2 sm:justify-end">{actions}</div> : null}
@@ -75,7 +75,7 @@ export const CollectionToolbar = ({
             </div>
           ) : null}
           {resultSummary ? (
-            <div className="text-xs font-medium uppercase tracking-[0.08em] text-input-placeholder">
+            <div className="text-xs font-medium uppercase tracking-[0.08em] text-dim-2">
               {resultSummary}
             </div>
           ) : null}

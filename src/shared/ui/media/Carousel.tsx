@@ -40,7 +40,7 @@ export function Carousel({
     <div className={cn('relative group', className)} aria-roledescription="carousel">
       <div
         ref={trackRef}
-        className="flex overflow-x-auto snap-x snap-mandatory scrollbar-none rounded-xl"
+        className="flex overflow-x-auto snap-x snap-mandatory scrollbar-none rounded-r-md"
         onScroll={(e) => {
           const el = e.target as HTMLDivElement;
           const idx = Math.round(el.scrollLeft / el.clientWidth);
@@ -92,8 +92,8 @@ export function Carousel({
               className={cn(
                 'w-1.5 h-1.5 rounded-full transition-all',
                 i === current
-                  ? 'bg-accent-500 w-4'
-                  : 'bg-surface-utility/15',
+                  ? 'bg-accent w-4'
+                  : 'bg-paper-2/15',
               )}
             />
           ))}

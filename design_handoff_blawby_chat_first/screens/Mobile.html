@@ -1,0 +1,513 @@
+<!doctype html>
+<html lang="en" data-theme="">
+<head>
+<meta charset="utf-8" />
+<title>Blawby — Mobile client screens</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,opsz,wght@0,8..60,300..900;1,8..60,300..900&family=Geist:wght@300;400;500;600;700&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="tokens.css">
+
+<style>
+  body {
+    background: var(--paper);
+    background-image: radial-gradient(rgba(15,30,54,0.025) 1px, transparent 1.2px);
+    background-size: 3px 3px;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 48px 24px 80px;
+    gap: 48px;
+  }
+
+  .page-title {
+    text-align: center;
+    max-width: 700px;
+  }
+  .page-title .lab {
+    font-family: var(--mono); font-size: 10.5px;
+    letter-spacing: .16em; text-transform: uppercase;
+    color: var(--dim); margin-bottom: 8px;
+  }
+  .page-title h1 {
+    font-family: var(--serif); font-weight: 400;
+    font-size: 48px; line-height: 1.05; letter-spacing: -.02em;
+    margin: 0 0 10px; text-wrap: balance;
+  }
+  .page-title h1 em { color: var(--accent); }
+  .page-title .sub {
+    font-size: 15px; line-height: 1.55; color: var(--ink-2);
+    max-width: 56ch; margin: 0 auto;
+  }
+
+  .devices {
+    display: flex; gap: 56px;
+    align-items: flex-start;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  .device-col {
+    display: flex; flex-direction: column;
+    align-items: center; gap: 18px;
+    max-width: 420px;
+  }
+  .device-col .label {
+    font-family: var(--mono); font-size: 10px;
+    letter-spacing: .14em; text-transform: uppercase;
+    color: var(--dim); text-align: center;
+  }
+  .device-col .label b { color: var(--ink); font-weight: 500; }
+  .device-col .desc {
+    font-size: 13.5px; line-height: 1.5;
+    color: var(--ink-2); text-align: center;
+    max-width: 36ch;
+  }
+  .device-col .desc em { color: var(--accent-deep); }
+
+  /* ===== shared mobile styles ===== */
+  .m-screen { width: 100%; height: 100%; display: flex; flex-direction: column; background: var(--paper); overflow-y: auto; overflow-x: hidden; }
+  .m-screen::-webkit-scrollbar { width: 0; }
+
+  /* intake mobile styles */
+  .m-intake .firm-bar {
+    padding: 14px 18px; display: flex; align-items: center; gap: 10px;
+    border-bottom: 1px solid var(--rule);
+    background: color-mix(in oklab, var(--paper) 96%, var(--card));
+  }
+  .m-intake .firm-bar .av {
+    width: 32px; height: 32px; border-radius: 50%;
+    background: var(--ink); color: var(--accent);
+    font-family: var(--serif); font-style: italic; font-size: 16px;
+    display: grid; place-items: center; flex-shrink: 0;
+  }
+  .m-intake .firm-bar .name {
+    font-family: var(--serif); font-size: 15px; line-height: 1.2; letter-spacing: -.005em;
+  }
+  .m-intake .firm-bar .name em { color: var(--accent); }
+  .m-intake .firm-bar .sub { font-family: var(--mono); font-size: 9px; letter-spacing: .06em; text-transform: uppercase; color: var(--dim); margin-top: 2px; }
+  .m-intake .firm-bar .lock { margin-left: auto; font-family: var(--mono); font-size: 8.5px; letter-spacing: .08em; text-transform: uppercase; color: var(--dim-2); }
+
+  .m-intake .convo { flex: 1; padding: 18px 16px 12px; display: flex; flex-direction: column; gap: 14px; }
+  .m-intake .bub {
+    max-width: 82%; padding: 10px 14px;
+    font-size: 14px; line-height: 1.55;
+    border-radius: var(--r-md);
+  }
+  .m-intake .bub.ai {
+    align-self: flex-start;
+    background: linear-gradient(180deg, color-mix(in oklab, var(--accent) 14%, var(--card)), var(--card));
+    border: 1px solid color-mix(in oklab, var(--accent) 30%, var(--rule));
+    color: var(--ink);
+  }
+  .m-intake .bub.ai.plain { background: var(--card); border-color: var(--rule); }
+  .m-intake .bub.ai em { color: var(--accent-deep); }
+  .m-intake .bub.client {
+    align-self: flex-end;
+    background: var(--ink); color: var(--paper);
+    border: 1px solid var(--ink);
+  }
+  .m-intake .quick {
+    display: flex; gap: 8px; flex-wrap: wrap;
+  }
+  .m-intake .quick span {
+    font-size: 13px; padding: 8px 16px;
+    border-radius: var(--r-pill); border: 1px solid var(--rule);
+    background: var(--card); color: var(--ink-2); cursor: pointer;
+  }
+  .m-intake .quick span.on { background: var(--ink); color: var(--accent); border-color: var(--ink); }
+
+  .m-intake .pay-card {
+    margin: 2px 0;
+    background: color-mix(in oklab, var(--accent) 12%, var(--card));
+    border: 1px solid color-mix(in oklab, var(--accent) 35%, var(--rule));
+    border-radius: var(--r-md);
+    padding: 14px 16px;
+    display: grid; grid-template-columns: 1fr auto; gap: 12px;
+    align-items: center;
+  }
+  .m-intake .pay-card .lab { font-family: var(--mono); font-size: 9px; letter-spacing: .12em; text-transform: uppercase; color: var(--accent-deep); margin-bottom: 2px; }
+  .m-intake .pay-card .ti { font-family: var(--serif); font-size: 14.5px; line-height: 1.25; }
+  .m-intake .pay-card .amt { font-family: var(--serif); font-size: 24px; letter-spacing: -.015em; font-feature-settings: "tnum"; }
+
+  .m-intake .composer-bar {
+    padding: 10px 14px; display: flex; align-items: center; gap: 8px;
+    border-top: 1px solid var(--rule);
+    background: var(--card);
+  }
+  .m-intake .composer-bar .field {
+    flex: 1; padding: 10px 14px;
+    border-radius: var(--r-pill); border: 1px solid var(--rule);
+    background: var(--paper); font-size: 14px; color: var(--dim-2);
+  }
+  .m-intake .composer-bar .send {
+    width: 36px; height: 36px; border-radius: 50%;
+    background: var(--ink); color: var(--accent);
+    display: grid; place-items: center; font-size: 14px; flex-shrink: 0;
+  }
+
+  /* client portal mobile styles */
+  .m-portal .portal-nav {
+    padding: 14px 18px; display: flex; align-items: center; gap: 10px;
+    border-bottom: 1px solid var(--rule);
+    background: color-mix(in oklab, var(--paper) 96%, var(--card));
+  }
+  .m-portal .portal-nav .firm {
+    font-family: var(--serif); font-size: 15px; letter-spacing: -.005em; flex: 1;
+  }
+  .m-portal .portal-nav .firm em { color: var(--accent); }
+  .m-portal .portal-nav .av {
+    width: 28px; height: 28px; border-radius: 50%;
+    background: linear-gradient(135deg, var(--ink-2), var(--ink));
+    color: var(--paper); font-family: var(--sans); font-weight: 600;
+    font-size: 10.5px; display: grid; place-items: center;
+  }
+
+  .m-portal .content { flex: 1; padding: 22px 18px; display: flex; flex-direction: column; gap: 20px; }
+
+  .m-portal .greet h2 {
+    font-family: var(--serif); font-weight: 400;
+    font-size: 28px; line-height: 1.1; letter-spacing: -.015em; margin: 0 0 6px;
+  }
+  .m-portal .greet h2 em { color: var(--accent); }
+  .m-portal .greet .sub { font-size: 13.5px; color: var(--ink-2); line-height: 1.5; margin: 0; }
+  .m-portal .greet .sub em { color: var(--accent-deep); }
+
+  .m-portal .status {
+    background: var(--card); border: 1px solid var(--rule);
+    border-radius: var(--r-md); padding: 16px 18px;
+    box-shadow: var(--shadow-1);
+    display: flex; flex-direction: column; gap: 10px;
+  }
+  .m-portal .status .lab { font-family: var(--mono); font-size: 9.5px; letter-spacing: .12em; text-transform: uppercase; color: var(--dim); }
+  .m-portal .status .matter { font-family: var(--serif); font-size: 18px; letter-spacing: -.008em; line-height: 1.2; }
+  .m-portal .status .stage-pill {
+    display: inline-flex; align-items: center; gap: 6px;
+    font-family: var(--mono); font-size: 10px; letter-spacing: .06em; text-transform: uppercase;
+    padding: 4px 10px; border-radius: var(--r-pill);
+    background: color-mix(in oklab, var(--accent) 12%, var(--card));
+    border: 1px solid color-mix(in oklab, var(--accent) 30%, var(--rule));
+    color: var(--accent-deep); align-self: flex-start;
+  }
+  .m-portal .status .stage-pill::before { content:""; width: 5px; height: 5px; border-radius: 50%; background: var(--accent); }
+
+  /* journey */
+  .m-portal .journey {
+    display: flex; align-items: center; justify-content: space-between;
+    position: relative; padding: 12px 16px;
+  }
+  .m-portal .journey .line {
+    position: absolute; left: 28px; right: 28px; top: 50%;
+    height: 2px; background: var(--rule); transform: translateY(-50%);
+  }
+  .m-portal .journey .fill {
+    position: absolute; left: 28px; top: 50%;
+    width: 62%; height: 2px; background: var(--accent); transform: translateY(-50%);
+  }
+  .m-portal .journey .dot {
+    width: 24px; height: 24px; border-radius: 50%;
+    background: var(--card); border: 2px solid var(--rule);
+    z-index: 1; display: grid; place-items: center;
+    font-family: var(--mono); font-size: 9px; color: var(--dim);
+  }
+  .m-portal .journey .dot.done { background: var(--ink); border-color: var(--ink); color: var(--accent); }
+  .m-portal .journey .dot.now { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); box-shadow: 0 0 0 4px var(--accent-soft); }
+
+  /* next up */
+  .m-portal .next-card {
+    background: var(--card); border: 1px solid var(--rule);
+    border-radius: var(--r-md); padding: 14px 16px;
+    box-shadow: var(--shadow-1);
+  }
+  .m-portal .next-card .lab { font-family: var(--mono); font-size: 9.5px; letter-spacing: .12em; text-transform: uppercase; color: var(--dim); margin-bottom: 6px; }
+  .m-portal .next-card .txt { font-size: 14px; color: var(--ink-2); line-height: 1.55; margin: 0 0 12px; }
+  .m-portal .next-card .txt em { color: var(--accent-deep); }
+  .m-portal .next-card .acts { display: flex; gap: 8px; }
+
+  /* messages */
+  .m-portal .msgs-card {
+    background: var(--card); border: 1px solid var(--rule);
+    border-radius: var(--r-md); overflow: hidden;
+    box-shadow: var(--shadow-1);
+  }
+  .m-portal .msgs-head {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 14px 16px; border-bottom: 1px solid var(--rule);
+  }
+  .m-portal .msgs-head h3 { font-family: var(--serif); font-weight: 400; font-size: 18px; margin: 0; letter-spacing: -.005em; }
+  .m-portal .msgs-head a { font-family: var(--mono); font-size: 10px; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-2); border-bottom: 1px dotted var(--dim-2); }
+
+  .m-portal .msg {
+    display: flex; gap: 10px; padding: 14px 16px;
+    border-bottom: 1px solid var(--rule);
+  }
+  .m-portal .msg:last-child { border-bottom: none; }
+  .m-portal .msg .av {
+    width: 28px; height: 28px; border-radius: 50%;
+    flex-shrink: 0; display: grid; place-items: center;
+    font-family: var(--sans); font-weight: 600; font-size: 10.5px;
+  }
+  .m-portal .msg .av.attorney { background: var(--ink); color: var(--accent); font-family: var(--serif); font-style: italic; font-size: 14px; }
+  .m-portal .msg .av.me { background: linear-gradient(135deg, var(--ink-2), var(--ink)); color: var(--paper); }
+  .m-portal .msg .body { flex: 1; min-width: 0; }
+  .m-portal .msg .meta { font-size: 12px; color: var(--dim); margin-bottom: 4px; }
+  .m-portal .msg .meta b { color: var(--ink); font-weight: 500; }
+  .m-portal .msg .txt { font-size: 13.5px; line-height: 1.55; color: var(--ink-2); }
+  .m-portal .msg .txt em { color: var(--accent-deep); }
+
+  /* retainer */
+  .m-portal .retainer {
+    background: var(--card); border: 1px solid var(--rule);
+    border-radius: var(--r-md); padding: 16px 18px;
+    box-shadow: var(--shadow-1);
+    display: flex; flex-direction: column; gap: 8px;
+  }
+  .m-portal .retainer .lab { font-family: var(--mono); font-size: 9.5px; letter-spacing: .12em; text-transform: uppercase; color: var(--dim); }
+  .m-portal .retainer .row { display: flex; justify-content: space-between; align-items: baseline; }
+  .m-portal .retainer .amt { font-family: var(--serif); font-size: 28px; letter-spacing: -.015em; font-feature-settings: "tnum"; }
+  .m-portal .retainer .of { font-family: var(--mono); font-size: 11px; color: var(--dim); }
+  .m-portal .retainer .bar { height: 6px; background: var(--rule-soft); border-radius: var(--r-pill); overflow: hidden; }
+  .m-portal .retainer .bar i { display: block; height: 100%; background: var(--accent); border-radius: var(--r-pill); }
+  .m-portal .retainer .note { font-size: 12.5px; color: var(--ink-2); font-style: italic; }
+  .m-portal .retainer .note em { color: var(--accent-deep); }
+
+  .m-portal .reply-bar {
+    padding: 10px 14px; display: flex; align-items: center; gap: 8px;
+    border-top: 1px solid var(--rule);
+    background: var(--card);
+  }
+  .m-portal .reply-bar .field {
+    flex: 1; padding: 10px 14px;
+    border-radius: var(--r-pill); border: 1px solid var(--rule);
+    background: var(--paper); font-size: 14px; color: var(--dim-2);
+  }
+  .m-portal .reply-bar .send {
+    width: 36px; height: 36px; border-radius: 50%;
+    background: var(--ink); color: var(--accent);
+    display: grid; place-items: center; font-size: 14px; flex-shrink: 0;
+  }
+
+  .m-portal .trust-footer {
+    padding: 14px 18px;
+    font-family: var(--mono); font-size: 9.5px;
+    letter-spacing: .08em; text-transform: uppercase;
+    color: var(--dim-2);
+    text-align: center;
+    border-top: 1px solid var(--rule);
+  }
+</style>
+
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+</head>
+<body>
+
+<div id="root"></div>
+
+<script type="text/babel" src="ios-frame.jsx"></script>
+<script type="text/babel">
+
+function IntakeMobile() {
+  return (
+    <div className="m-screen m-intake">
+      <div className="firm-bar">
+        <div className="av">B</div>
+        <div>
+          <div className="name">Law Offices of <em>Sarah Chen</em></div>
+          <div className="sub">Family law · Charlotte, NC</div>
+        </div>
+        <div className="lock">🔒</div>
+      </div>
+
+      <div className="convo">
+        <div className="bub ai">
+          Hi, I'm Sarah's intake assistant. In a sentence — <em>what's going on?</em>
+        </div>
+
+        <div className="bub client">
+          my ex is refusing visitation this saturday and i don't know what to do
+        </div>
+
+        <div className="bub ai plain">
+          That sounds really stressful. I want to make sure Sarah has the right picture. <em>Is there a court order currently in place?</em>
+        </div>
+
+        <div className="quick">
+          <span className="on">Yes</span>
+          <span>No</span>
+          <span>Not sure</span>
+        </div>
+
+        <div className="bub ai plain">
+          Got it. <em>Which county</em> issued the order?
+        </div>
+
+        <div className="quick">
+          <span className="on">Mecklenburg, NC</span>
+          <span>Other NC</span>
+          <span>Out of state</span>
+        </div>
+
+        <div className="bub ai plain">
+          Mecklenburg — that's Sarah's home court. <em>How quickly</em> does this need to be resolved?
+        </div>
+
+        <div className="quick">
+          <span className="on">This week</span>
+          <span>This month</span>
+          <span>Exploring</span>
+        </div>
+
+        <div className="bub ai">
+          Sarah can help with this. She offers a <em>30-minute paid consultation</em> to walk through your options and next steps.
+        </div>
+
+        <div className="pay-card">
+          <div>
+            <div className="lab">Consult with Sarah</div>
+            <div className="ti">Wed Nov 26 · 3:00 pm</div>
+          </div>
+          <div className="amt">$150</div>
+        </div>
+      </div>
+
+      <div className="composer-bar">
+        <div className="field">Reply to Sarah's assistant…</div>
+        <div className="send">↑</div>
+      </div>
+    </div>
+  );
+}
+
+function PortalMobile() {
+  return (
+    <div className="m-screen m-portal">
+      <div className="portal-nav">
+        <div className="firm">Sarah <em>Chen</em> Law</div>
+        <div className="av">BM</div>
+      </div>
+
+      <div className="content">
+        <div className="greet">
+          <h2>Hi <em>Bob.</em></h2>
+          <p className="sub">Nothing for you to do right now — <em>demand letter went out</em> and we're waiting on State Farm.</p>
+        </div>
+
+        <div className="status">
+          <div className="lab">Your case</div>
+          <div className="matter">Auto Injury · vs State Farm</div>
+          <div className="stage-pill">Awaiting adjuster response</div>
+        </div>
+
+        <div className="journey">
+          <div className="line"></div>
+          <div className="fill"></div>
+          <div className="dot done">✓</div>
+          <div className="dot done">✓</div>
+          <div className="dot done">✓</div>
+          <div className="dot now">●</div>
+          <div className="dot">5</div>
+        </div>
+
+        <div className="next-card">
+          <div className="lab">What's next</div>
+          <p className="txt">State Farm has until <em>December 4</em> to respond. Sarah will call you once they do.</p>
+          <div className="acts">
+            <button className="btn btn-primary btn-sm">Message Sarah</button>
+            <button className="btn btn-ghost btn-sm">Timeline</button>
+          </div>
+        </div>
+
+        <div className="msgs-card">
+          <div className="msgs-head">
+            <h3>Recent messages</h3>
+            <a>all 12</a>
+          </div>
+
+          <div className="msg">
+            <div className="av attorney">S</div>
+            <div className="body">
+              <div className="meta"><b>Sarah Chen</b> · Nov 22</div>
+              <div className="txt">Adjuster is pushing back on causation — normal opening posture. <em>Your medical records are clean.</em> Nothing for you to do.</div>
+            </div>
+          </div>
+
+          <div className="msg">
+            <div className="av me">BM</div>
+            <div className="body">
+              <div className="meta"><b>You</b> · Nov 22</div>
+              <div className="txt">Should I be worried about the IME they mentioned?</div>
+            </div>
+          </div>
+
+          <div className="msg">
+            <div className="av attorney">S</div>
+            <div className="body">
+              <div className="meta"><b>Sarah Chen</b> · Nov 22</div>
+              <div className="txt">Not yet. I declined for now — we have options if they push after their response.</div>
+            </div>
+          </div>
+        </div>
+
+        <div className="retainer">
+          <div className="lab">Retainer balance</div>
+          <div className="row">
+            <div className="amt">$2,250</div>
+            <div className="of">of $4,000</div>
+          </div>
+          <div className="bar"><i style={{width: '56%'}}></i></div>
+          <div className="note">Healthy — next draw expected at <em>hearing date.</em></div>
+        </div>
+      </div>
+
+      <div className="reply-bar">
+        <div className="field">Message Sarah…</div>
+        <div className="send">↑</div>
+      </div>
+
+      <div className="trust-footer">
+        Encrypted · powered by Blawby · audit-logged
+      </div>
+    </div>
+  );
+}
+
+function App() {
+  return (
+    <>
+      <div className="page-title">
+        <div className="lab">Mobile · client-facing · iOS</div>
+        <h1>What your clients see on <em>their phones.</em></h1>
+        <p className="sub">Two screens most clients hit first — the intake chatbot (before they're a client) and the case portal (after they sign). Both are full-width mobile, no sidebars, no chrome.</p>
+      </div>
+
+      <div className="devices">
+
+        <div className="device-col">
+          <div className="label">20 · <b>Public intake</b> · first contact</div>
+          <IOSDevice title="" dark={false} keyboard={false}>
+            <IntakeMobile />
+          </IOSDevice>
+          <p className="desc">Conversational triage. Quick-reply chips, in-chat payment, no forms. Most clients land here from a <em>Google search</em> on Saturday night.</p>
+        </div>
+
+        <div className="device-col">
+          <div className="label">21 · <b>Client portal</b> · post-engagement</div>
+          <IOSDevice title="" dark={false} keyboard={false}>
+            <PortalMobile />
+          </IOSDevice>
+          <p className="desc">Case status, journey progress, messages with Sarah, retainer balance. The goal is <em>zero calls asking "what's happening."</em></p>
+        </div>
+
+      </div>
+    </>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+
+</body>
+</html>

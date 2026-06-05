@@ -1,15 +1,16 @@
 import { FunctionComponent } from 'preact';
 import type { ComponentChildren } from 'preact';
 import { useMemo, useRef, useState, useEffect, useCallback } from 'preact/hooks';
+import { lazy, Suspense } from 'preact/compat';
 import { useLocation } from 'preact-iso';
-import { Plus } from 'lucide-preact';
+import { Menu, Plus, Search, SquarePen } from 'lucide-preact';
 
 import { useNavigation } from '@/shared/utils/navigation';
+import { cn } from '@/shared/utils/cn';
 import { SessionNotReadyError } from '@/shared/types/errors';
 import WorkspaceHomeView from '@/features/chat/views/WorkspaceHomeView';
 import { WorkspaceHomeSection } from '@/features/chat/components/WorkspaceHomeSection';
 import { WorkspaceSetupSection } from '@/features/chat/components/WorkspaceSetupSection';
-import MessagesListPanel from '@/features/chat/components/MessagesListPanel';
 import ConversationContextPanel from '@/features/chat/components/ConversationContextPanel';
 import { type ComboboxOption } from '@/shared/ui/input/Combobox';
 import { deleteConversation, markAsRead, postConversationMessage, updateConversationTriage } from '@/shared/lib/conversationApi';
@@ -21,13 +22,17 @@ import { usePracticeInvitations } from '@/shared/hooks/usePracticeInvitations';
 import { DraftConversationView } from '@/features/chat/components/DraftConversationView';
 import { getPracticeRoleLabel } from '@/shared/utils/practiceRoles';
 import { AppShell } from '@/shared/ui/layout/AppShell';
-import { WorkspaceShellHeader } from '@/shared/ui/layout/WorkspaceShellHeader';
+import { LeftRail, BrandMark, FocusDrawer, type LeftRailItem } from '@/design-system/layout';
+import { OrgSwitcherMenu } from '@/shared/ui/nav/OrgSwitcherMenu';
+import { SidebarProfileMenu } from '@/shared/ui/nav/SidebarProfileMenu';
+import { signOut } from '@/shared/utils/auth';
+import { Icon, type IconComponent } from '@/shared/ui/Icon';
 import { WorkspaceMainPane } from '@/shared/ui/layout/WorkspaceMainPane';
 import type { WorkspaceMainPaneLayout } from '@/shared/ui/layout/WorkspaceMainPane';
-import { Panel } from '@/shared/ui/layout/Panel';
 import { WorkspaceListHeader } from '@/shared/ui/layout/WorkspaceListHeader';
 import type { WorkspacePlaceholderAction } from '@/shared/ui/layout/WorkspacePlaceholderState';
 import { Button } from '@/shared/ui/Button';
+import { Input } from '@/shared/ui/input/Input';
 import { useWorkspaceConversations } from './hooks/useWorkspaceConversations';
 import { useWorkspaceNavigation } from './hooks/useWorkspaceNavigation';
 import { resolveConsultationState } from '@/shared/utils/consultationState';
@@ -36,28 +41,19 @@ import { useWorkspaceSetup } from './hooks/useWorkspaceSetup';
 import { useWorkspaceData } from './hooks/useWorkspaceData';
 import { useConversationPreviews } from './hooks/useConversationPreviews';
 import { useWorkspaceInspectorActions } from './hooks/useWorkspaceInspectorActions';
-import { useInvoiceBuilderTopBar } from './hooks/useInvoiceBuilderTopBar';
 import { useWorkspaceAutoNavigation } from './hooks/useWorkspaceAutoNavigation';
 import { useRecentMessage } from './hooks/useRecentMessage';
 import { useToastContext } from '@/shared/contexts/ToastContext';
 import { useSessionContext, useMemberRoleContext } from '@/shared/contexts/SessionContext';
-import { useCommandPalette } from '@/features/search/contexts/CommandPaletteContext';
 import { normalizePracticeRole } from '@/shared/utils/practiceRoles';
+import { isAssistantConversation } from '@/shared/utils/conversationSurface';
 import {
   getWorkspaceActiveHref,
   shouldShowWorkspaceBottomNav,
   shouldShowWorkspaceMobileMenuButton,
   WORKSPACE_REPORT_SECTION_TITLES,
 } from '@/shared/utils/workspaceShell';
-import {
-  type SecondaryNavItem,
-  type WorkspaceSection,
-  buildSidebarConfig,
-} from '@/shared/config/navConfig';
 import { useSidebarCounts } from '@/shared/hooks/useSidebarCounts';
-import NavRail from '@/shared/ui/nav/NavRail';
-import { PracticeSidebar } from '@/shared/ui/nav/PracticeSidebar';
-import { ClientSidebar } from '@/shared/ui/nav/ClientSidebar';
 import InspectorPanel from '@/shared/ui/inspector/InspectorPanel';
 import { SettingsContent, type SettingsView } from '@/features/settings/pages/SettingsContent';
 import { PracticeCoveragePage } from '@/features/settings/pages/PracticeCoveragePage';
@@ -69,6 +65,9 @@ import type { UserDetailRecord, UserDetailStatus, PracticeDetails } from '@/shar
 import type { BackendMatter } from '@/features/matters/services/mattersApi';
 import type { IntakeConversationState, DerivedIntakeStatus, IntakeFieldChangeOptions } from '@/shared/types/intake';
 import { features } from '@/config/features';
+import { formatRelativeTime } from '@/features/matters/utils/formatRelativeTime';
+
+const PracticeAssistantBriefing = lazy(() => import('@/features/chat/components/PracticeAssistantBriefing').then((m) => ({ default: m.PracticeAssistantBriefing })));
 
 type PreviewTab = 'home' | 'messages' | 'intake';
 const previewTabOptions: Array<{ id: PreviewTab; label: string }> = [
@@ -92,6 +91,29 @@ type WorkspacePrefetchData = {
 };
 
 type WorkspacePrimaryCreateAction = WorkspacePlaceholderAction;
+type ThreadSidebarSection = 'assistant' | 'conversations';
+
+const isRailHrefActive = (currentPath: string, item: LeftRailItem): boolean => {
+  const normalizedCurrent = currentPath.split('?')[0].split('#')[0].replace(/\/+$/, '') || '/';
+  const targets = (item.matchHrefs?.length ? item.matchHrefs : [item.href]).map((href) => href.replace(/\/+$/, '') || '/');
+
+  return targets.some((target) => normalizedCurrent === target || normalizedCurrent.startsWith(`${target}/`));
+};
+
+const getRailItemMatchScore = (currentPath: string, item: LeftRailItem): number => {
+  const normalizedCurrent = currentPath.split('?')[0].split('#')[0].replace(/\/+$/, '') || '/';
+  const targets = (item.matchHrefs?.length ? item.matchHrefs : [item.href]).map((href) => href.replace(/\/+$/, '') || '/');
+
+  let bestScore = -1;
+  for (const target of targets) {
+    if (normalizedCurrent === target || normalizedCurrent.startsWith(`${target}/`)) {
+      bestScore = Math.max(bestScore, target.length);
+    }
+  }
+  return bestScore;
+};
+
+const SECTION_SIDEBAR_WORKSPACE_SECTIONS = new Set(['settings', 'reports', 'conversations', 'assistant', 'tasks', 'calendar'] as const);
 
 interface WorkspacePageProps {
   view: WorkspaceView;
@@ -104,7 +126,6 @@ interface WorkspacePageProps {
   workspace?: 'public' | 'practice' | 'client';
   settingsView?: SettingsView;
   settingsAppId?: string;
-  settingsIntakeTemplateSlug?: string;
   routeInvoiceId?: string | null;
   routeReportDeliveryId?: string | null;
   onStartNewConversation: (
@@ -143,8 +164,9 @@ interface WorkspacePageProps {
   invoicesView?: ComponentChildren | ((statusFilter: string[], onDetailInspector?: (() => void), detailInspectorOpen?: boolean, detailHeaderLeadingAction?: ComponentChildren) => ComponentChildren);
   invoicesListContent?: ComponentChildren | ((statusFilter: string[]) => ComponentChildren);
   reportsView?: ComponentChildren | ((title: string, reportType: string, deliveryId: string | null) => ComponentChildren);
-  intakesView?: ComponentChildren | ((activeFilter: string | null) => ComponentChildren);
-  engagementsView?: ComponentChildren | ((activeFilter: string | null) => ComponentChildren);
+  intakesView?: ComponentChildren | (() => ComponentChildren);
+  engagementsView?: ComponentChildren | (() => ComponentChildren);
+  tasksView?: ComponentChildren | (() => ComponentChildren);
   filesView?: ComponentChildren;
   primaryCreateAction?: WorkspacePrimaryCreateAction | null;
   mockConversations?: Conversation[] | null;
@@ -193,6 +215,13 @@ const hasIntakeContactStarted = (messages: ChatMessageUI[]): boolean => {
   });
 };
 
+const BLAWBY_AI_OPTION: ComboboxOption = {
+  value: '__blawby_ai__',
+  label: 'Blawby AI',
+  description: 'Practice AI assistant',
+  meta: 'AI',
+};
+
 const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
   view,
   practiceId,
@@ -204,7 +233,6 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
   workspace = 'public',
   settingsView = 'general',
   settingsAppId,
-  settingsIntakeTemplateSlug,
   routeInvoiceId: _,
   routeReportDeliveryId,
   onStartNewConversation,
@@ -221,6 +249,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
   engagementsView,
   reportsView,
   filesView,
+  tasksView,
   primaryCreateAction = null,
   mockConversations = null,
   mockConversationPreviews = null,
@@ -232,44 +261,33 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
 }) => {
   const location = useLocation();
   const { navigate } = useNavigation();
-  const { open: openCommandPalette } = useCommandPalette();
   const [previewTab, setPreviewTab] = useState<PreviewTab>('home');
   const [setupSidebarView, setSetupSidebarView] = useState<'info' | 'preview'>('info');
-  const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
-  // Persist desktop sidebar collapsed state across reloads/visits.
-  const [isDesktopSidebarCollapsed, setIsDesktopSidebarCollapsed] = useState<boolean>(() => {
-    if (typeof window === 'undefined') return false;
-    try {
-      return window.localStorage.getItem('blawby:sidebar:collapsed') === '1';
-    } catch {
-      return false;
-    }
-  });
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    try {
-      window.localStorage.setItem('blawby:sidebar:collapsed', isDesktopSidebarCollapsed ? '1' : '0');
-    } catch {
-      // localStorage may be disabled (private mode, quota); persistence is best-effort.
-    }
-  }, [isDesktopSidebarCollapsed]);
   const [isInspectorOpen, setIsInspectorOpen] = useState(false);
   const [conversationPendingDelete, setConversationPendingDelete] = useState<Conversation | null>(null);
   const [optimisticallyReadConversationIds, setOptimisticallyReadConversationIds] = useState<Set<string>>(new Set());
   const [isDeletingConversation, setIsDeletingConversation] = useState(false);
+  const [isMobileRailMenuOpen, setIsMobileRailMenuOpen] = useState(false);
+  const [threadSidebarSearch, setThreadSidebarSearch] = useState<Record<ThreadSidebarSection, string>>({
+    assistant: '',
+    conversations: '',
+  });
   const [isAddClientDialogOpen, setIsAddClientDialogOpen] = useState(false);
   // Draft conversation state. When non-null, the chat area renders
   // DraftConversationView and the messages list shows a synthetic "Draft"
   // entry pinned at the top. POST + assignment + first message are deferred
   // until the user actually sends from the draft view.
-  const [draftConversation, setDraftConversation] = useState<{
-    contactUserId?: string | null;
-    contactName?: string;
-    contactEmail?: string;
-  } | null>(null);
+  const [draftConversation, setDraftConversation] = useState<
+    | { kind: 'user'; contactUserId: string | null; contactName?: string; contactEmail?: string }
+    | { kind: 'practice_assistant' }
+    | null
+  >(null);
   const [pendingInviteOption, setPendingInviteOption] = useState<{ name: string; email: string } | null>(null);
   const navigationInitiatedRef = useRef(false);
   const hasAutoNavigatedRef = useRef(false);
+  // When the home page composer submits a question it navigates here with
+  // ?ask=<encoded question>. We fire it as a new PRACTICE_ASSISTANT
+  // conversation once and clear the param so a refresh doesn't re-send.
   const filteredMessages = useMemo(() => filterWorkspaceMessages(messages), [messages]);
   const intakeContactStarted = useMemo(
     () => hasIntakeContactStarted(messages),
@@ -288,11 +306,15 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
     conversationsPath,
     withWidgetQuery,
     isIntakeTemplateEditorRoute,
+    isIntakeResponseDetailRoute: _isIntakeResponseDetailRoute,
     selectedMatterIdFromPath,
     isMatterNonListRoute,
     selectedContactIdFromPath,
+    isEngagementCreateRoute,
+    isEngagementDetailRoute: _isEngagementDetailRoute,
+    isEngagementEditRoute,
+    isReportDeliveryDetailRoute: _isReportDeliveryDetailRoute,
     previewUrls,
-    handleDashboardCreateInvoice,
     workspaceSection,
     navConfig,
     activeSecondaryFilter,
@@ -313,11 +335,9 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
     refreshConversations,
     resolvedConversations,
     resolvedConversationsLoading,
-    resolvedConversationsError,
     isInitialConversationCheckRef,
     activeConversationMissingNotification,
     setActiveConversationMissingNotification,
-    allIntakes,
     filteredConversations,
     selectedConversation,
   } = useWorkspaceConversations({
@@ -327,7 +347,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
     isClientWorkspace,
     view,
     workspaceSection,
-    activeSecondaryFilter,
+    activeSecondaryFilter: activeSecondaryFilter ?? undefined,
     activeConversationId,
     sessionUserId,
     mockConversations,
@@ -353,6 +373,18 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
     window.addEventListener('workspace:open-inspector', handleOpenInspector);
     return () => window.removeEventListener('workspace:open-inspector', handleOpenInspector);
   }, [inspectorTarget]);
+
+  // Tracks whether the viewport has a dedicated inspector column (xl = 1280px).
+  const [isXlViewport, setIsXlViewport] = useState(
+    () => typeof window !== 'undefined' && window.matchMedia('(min-width: 1280px)').matches
+  );
+  useEffect(() => {
+    const mq = window.matchMedia('(min-width: 1280px)');
+    const handler = (e: MediaQueryListEvent) => setIsXlViewport(e.matches);
+    mq.addEventListener('change', handler);
+    return () => mq.removeEventListener('change', handler);
+  }, []);
+
   // Practice Messages design (Pencil rxzde) keeps the 320px context panel visible
   // by default. Auto-open the inspector when a practice user lands on a
   // conversation on desktop. Re-fires on conversation switch so flipping between
@@ -360,11 +392,11 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
   const inspectorTargetId = inspectorTarget?.entityType === 'conversation' ? inspectorTarget.entityId : null;
   useEffect(() => {
     if (!isPracticeWorkspace) return;
-    if (layoutMode !== 'desktop') return;
+    if (!isXlViewport) return;
     if (workspaceSection !== 'conversations') return;
     if (!inspectorTargetId) return;
     setIsInspectorOpen(true);
-  }, [isPracticeWorkspace, layoutMode, workspaceSection, inspectorTargetId]);
+  }, [isPracticeWorkspace, isXlViewport, workspaceSection, inspectorTargetId]);
   const {
     mattersStatusFilter,
     contactsStatusFilter,
@@ -383,7 +415,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
     view,
     layoutMode,
     workspaceSection,
-    activeSecondaryFilter,
+    activeSecondaryFilter: activeSecondaryFilter ?? undefined,
     selectedMatterIdFromPath,
     sessionUserId,
   });
@@ -404,7 +436,6 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
     refreshConversations,
     workspaceSection,
     session,
-    mattersData,
     showError,
     showSuccess,
   });
@@ -447,8 +478,12 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
       onSelectConversationOverride(conversationId);
       return;
     }
+    if (workspaceSection === 'assistant') {
+      navigate(`${normalizedBase}/assistant/${encodeURIComponent(conversationId)}`);
+      return;
+    }
     navigate(withWidgetQuery(`${conversationsPath}/${encodeURIComponent(conversationId)}`));
-  }, [conversationsPath, navigate, onSelectConversationOverride, withWidgetQuery, resolvedConversations, practiceId]);
+  }, [conversationsPath, navigate, normalizedBase, onSelectConversationOverride, withWidgetQuery, workspaceSection, resolvedConversations, practiceId]);
 
 
   useWorkspaceAutoNavigation({
@@ -466,6 +501,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
     navigationInitiatedRef,
     hasAutoNavigatedRef,
     conversationsPath,
+    assistantPath: `${normalizedBase}/assistant`,
     navigate,
     withWidgetQuery,
     handleSelectConversation,
@@ -495,12 +531,6 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
     applySetupFields,
     conversationMemberOptions,
     matterAssigneeOptions,
-    dashboardWindow,
-    setDashboardWindow,
-    summaryStats,
-    recentActivity,
-    practiceBillingLoading,
-    practiceBillingError,
     logoUploading,
     logoUploadProgress,
     stripeHasAccount,
@@ -526,10 +556,6 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
     refreshConversations,
     showError,
   });
-
-  const recentIntakes = useMemo(() => {
-    return allIntakes.slice(0, 3);
-  }, [allIntakes]);
 
   const handleIntakePreviewSubmit = useCallback(async () => {
     showSuccess('Intake preview submitted', 'This submission is for preview only.');
@@ -579,12 +605,13 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
         description: getPracticeRoleLabel(member.role),
       });
     }
-    return rows;
+    return isPracticeWorkspace ? [BLAWBY_AI_OPTION, ...rows] : rows;
   }, [
     composePickerEnabled,
     composeClientsData.items,
     composeTeamData.members,
     sessionUserId,
+    isPracticeWorkspace,
   ]);
 
   // Pending invitations: invitees haven't accepted yet so they have no userId
@@ -613,6 +640,13 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
     );
   }, [filteredConversations, optimisticallyReadConversationIds]);
 
+  const assistantConversations = useMemo(
+    () => resolvedConversations.filter(isAssistantConversation),
+    [resolvedConversations]
+  );
+  const conversationThreadSearch = threadSidebarSearch.conversations.trim().toLowerCase();
+  const assistantThreadSearch = threadSidebarSearch.assistant.trim().toLowerCase();
+
   useEffect(() => {
     if (previewStrongReady || (onboardingProgress?.completionScore ?? 0) >= 80) {
       setSetupSidebarView((prev) => (prev === 'info' || prev === 'preview' ? prev : 'preview'));
@@ -621,7 +655,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
     setSetupSidebarView('info');
   }, [previewStrongReady, onboardingProgress?.completionScore]);
 
-  const handleStartConversation = async (
+  const handleStartConversation = useCallback(async (
     mode: ConversationMode,
     options?: {
       forceNew?: boolean;
@@ -689,7 +723,11 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
       if (options?.forceNew && isPracticeWorkspace) {
         await refreshConversations();
       }
-      navigate(withWidgetQuery(`${conversationsPath}/${encodeURIComponent(conversationId)}`));
+      if (workspaceSection === 'assistant' || mode === 'PRACTICE_ASSISTANT') {
+        navigate(`${normalizedBase}/assistant/${encodeURIComponent(conversationId)}`);
+      } else {
+        navigate(withWidgetQuery(`${conversationsPath}/${encodeURIComponent(conversationId)}`));
+      }
       return conversationId;
     } catch (error) {
       // "Session not ready" — the toast was already shown by MainApp, so finish gracefully.
@@ -698,7 +736,20 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
       showError('Unable to start conversation', 'Please try again in a moment.');
       return undefined;
     }
-  };
+  }, [
+    conversationsPath,
+    isPracticeWorkspace,
+    layoutMode,
+    navigate,
+    normalizedBase,
+    onStartNewConversation,
+    refreshConversations,
+    resolvedConversations,
+    showError,
+    withWidgetQuery,
+    workspace,
+    workspaceSection,
+  ]);
 
   const handleOpenRecentMessage = () => {
     if (recentMessage?.conversationId) {
@@ -708,27 +759,44 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
     navigate(withWidgetQuery(conversationsPath));
   };
 
-  const handleEnterDraftMode = () => {
-    setDraftConversation((prev) => prev ?? { contactUserId: null });
-  };
+  const handleHomeAssistantAsk = useCallback((question: string) => {
+    try { sessionStorage.setItem('blawby:pending_ask', question); } catch { /* ignore */ }
+    void handleStartConversation('PRACTICE_ASSISTANT', {
+      forceNew: true,
+      additionalParticipantUserIds: [],
+      additionalMetadata: { source: 'practice_assistant', mode: 'PRACTICE_ASSISTANT' },
+    });
+  }, [handleStartConversation]);
+
+  const handleEnterDraftMode = useCallback(() => {
+    setDraftConversation((prev) => prev ?? { kind: 'user', contactUserId: null });
+  }, []);
 
   const handleCancelDraft = () => {
     setDraftConversation(null);
     setPendingInviteOption(null);
   };
 
-  const handleDraftContactChange = (next: { userId: string; name: string; email?: string } | null) => {
+  const handleDraftContactChange = (next: import('@/features/chat/components/DraftConversationView').DraftContact) => {
     if (!next) {
-      setDraftConversation((prev) => prev ? { ...prev, contactUserId: null, contactName: undefined, contactEmail: undefined } : null);
+      setDraftConversation((prev) => prev?.kind === 'user'
+        ? { ...prev, contactUserId: null, contactName: undefined, contactEmail: undefined }
+        : null);
       return;
     }
-    // If an existing conversation with this contact is already in the
-    // resolved list, jump into it instead of creating a duplicate. We match
-    // any conversation whose participant set includes the picked user — the
-    // current user is always a participant, so a hit means it's a 1-on-1
-    // (or a group containing them) we should reuse.
+    if (next.kind === 'practice_assistant') {
+      setDraftConversation(null);
+      void handleStartConversation('PRACTICE_ASSISTANT', {
+        forceNew: true,
+        additionalParticipantUserIds: [],
+        additionalMetadata: { source: 'practice_assistant', mode: 'PRACTICE_ASSISTANT' },
+      });
+      return;
+    }
+    // kind === 'user' — jump to existing 1-on-1 thread if one exists
     if (sessionUserId) {
       const existing = resolvedConversations.find((conversation) => {
+        if (isAssistantConversation(conversation)) return false;
         const participants = Array.isArray(conversation.participants) ? conversation.participants : [];
         return participants.length === 2 && participants.includes(sessionUserId) && participants.includes(next.userId);
       });
@@ -739,6 +807,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
       }
     }
     setDraftConversation({
+      kind: 'user',
       contactUserId: next.userId,
       contactName: next.name,
       contactEmail: next.email,
@@ -746,7 +815,8 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
   };
 
   const handleDraftSendFirstMessage = async (message: string, attachments: FileAttachment[] = []) => {
-    if (!draftConversation?.contactUserId || !practiceId) return;
+    if (!draftConversation || !practiceId) return;
+    if (draftConversation.kind !== 'user' || !draftConversation.contactUserId) return;
     const contactName = draftConversation.contactName?.trim();
     const contactEmail = draftConversation.contactEmail?.trim();
     const additionalMetadata = (contactName || contactEmail)
@@ -797,11 +867,11 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
     });
     if (newConversationId && postFailed) {
       showError('Conversation created, but the first message did not send', 'Try sending it again from the thread.');
-      // Keep the draft alive so the user's typed message + attachments don't
-      // vanish — the conversation now exists, but the composer state still
-      // belongs to the draft view until the user retries successfully.
-      return;
+      // Throw so DraftConversationView's catch fires and keeps the composer
+      // text + attachments alive — the user can retry from the same draft view.
+      throw new Error('first-message-post-failed');
     }
+
     if (newConversationId) {
       setDraftConversation(null);
     }
@@ -812,13 +882,13 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
       contactOptions={composePickerOptions}
       pendingInviteOptions={composePendingInviteOptions}
       isLoadingContacts={composeClientsData.isLoading || composeTeamData.isLoading}
-      draftContact={draftConversation.contactUserId
-        ? {
-          userId: draftConversation.contactUserId,
-          name: draftConversation.contactName ?? '',
-          email: draftConversation.contactEmail,
-        }
-        : null}
+      draftContact={
+        draftConversation.kind === 'practice_assistant'
+          ? { kind: 'practice_assistant' }
+          : draftConversation.contactUserId
+            ? { kind: 'user', userId: draftConversation.contactUserId, name: draftConversation.contactName ?? '', email: draftConversation.contactEmail }
+            : null
+      }
       onChangeContact={handleDraftContactChange}
       onSendFirstMessage={handleDraftSendFirstMessage}
       onCancel={handleCancelDraft}
@@ -882,37 +952,40 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
         isLoadingMoreMessages: onboardingMessageHandling.isLoadingMoreMessages,
         onLoadMoreMessages: onboardingMessageHandling.loadMoreMessages,
         onToggleReaction: features.enableMessageReactions ? onboardingMessageHandling.toggleMessageReaction : undefined,
-        onRequestReactions: onboardingMessageHandling.requestMessageReactions,
+        onRequestReactions: (id: string) => { void onboardingMessageHandling.requestMessageReactions(id); },
       } : null}
       fallbackContent={workspaceFallbackHome}
     />
   );
   const homeContent = (
-    <WorkspaceHomeSection
-      workspace={workspace}
-      practiceId={practiceId}
-      practiceSlug={practiceSlug}
-      practiceName={practiceName}
-      practiceLogo={practiceLogo}
-      recentMessage={recentMessage}
-      intakeContactStarted={intakeContactStarted}
-      onOpenRecentMessage={handleOpenRecentMessage}
-      onSendMessage={() => handleStartConversation('ASK_QUESTION')}
-      onRequestConsultation={() => handleStartConversation('REQUEST_CONSULTATION')}
-      dashboardWindow={dashboardWindow}
-      summaryStats={summaryStats}
-      practiceBillingLoading={practiceBillingLoading}
-      practiceBillingError={practiceBillingError}
-      recentActivity={recentActivity}
-      recentIntakes={recentIntakes}
-      onDashboardWindowChange={setDashboardWindow}
-      onCreateInvoice={handleDashboardCreateInvoice}
-      onOpenInvoice={(invoiceId) => navigate(`${normalizedBase}/invoices/${encodeURIComponent(invoiceId)}`)}
-      onViewAllIntakes={() => navigate(`${normalizedBase}/intakes/responses`)}
-      onViewIntake={(intakeId) => navigate(`${normalizedBase}/intakes/responses/${encodeURIComponent(intakeId)}`)}
-    />
+    isPracticeWorkspace ? (
+      <Suspense fallback={<div className="flex-1" />}>
+        <PracticeAssistantBriefing
+          practiceId={practiceId}
+          practiceSlug={practiceSlug}
+          practiceName={practiceName}
+          onAsk={handleHomeAssistantAsk}
+        />
+      </Suspense>
+    ) : (
+      <WorkspaceHomeSection
+        workspace={workspace}
+        practiceId={practiceId}
+        practiceSlug={practiceSlug}
+        practiceName={practiceName}
+        practiceLogo={practiceLogo}
+        recentMessage={recentMessage}
+        intakeContactStarted={intakeContactStarted}
+        onOpenRecentMessage={handleOpenRecentMessage}
+        onSendMessage={() => handleStartConversation('ASK_QUESTION')}
+        onRequestConsultation={() => handleStartConversation('REQUEST_CONSULTATION')}
+      />
+    )
   );
-  const showBottomNav = !isIntakeTemplateEditorRoute && shouldShowWorkspaceBottomNav({
+  const isFullscreenEditorRoute = (view === 'intakes' && isIntakeTemplateEditorRoute)
+    || isEngagementCreateRoute
+    || isEngagementEditRoute;
+  const showBottomNav = !isFullscreenEditorRoute && shouldShowWorkspaceBottomNav({
     isMobileLayout,
     workspace,
     view,
@@ -923,97 +996,9 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
     path: location.path,
   });
 
-  const handleNavActivate = () => {
-    setIsMobileNavOpen(false);
+  const handleNavActivate = useCallback(() => {
     setIsInspectorOpen(false);
-  };
-  const bottomNav = showBottomNav && navConfig.rail.length > 0 ? (
-    <NavRail
-      variant="bottom"
-      items={navConfig.rail}
-      activeHref={activeHref}
-      onItemActivate={handleNavActivate}
-      maxItems={5}
-      onOverflowClick={() => setIsMobileNavOpen(true)}
-    />
-  ) : undefined;
-
-  const sidebarConfig = navConfig.rail.length > 0 && !isIntakeTemplateEditorRoute
-    ? buildSidebarConfig(navConfig, workspaceSection)
-    : null;
-
-  // Active item resolution for the unified Sidebar:
-  // 1. Settings: match path against secondary items by href.
-  // 2. If the rail item matching the current path has expandable children, use the
-  //    active sub-filter.
-  // 3. Else, use the best-matching rail item id (longest matching prefix, so
-  //    /matters wins over Home's basePath even though both technically match).
-  const sidebarActiveItemId = (() => {
-    let bestRailId: string | null = null;
-    let bestRailScore = -1;
-    for (const item of navConfig.rail) {
-      const targets = item.matchHrefs ?? [item.href];
-      for (const target of targets) {
-        const matches = activeHref === target || activeHref.startsWith(`${target}/`);
-        if (!matches) continue;
-        if (target.length > bestRailScore) {
-          bestRailScore = target.length;
-          bestRailId = item.id;
-        }
-      }
-    }
-
-    if (workspaceSection === 'settings' && navConfig.secondary) {
-      // Longest-prefix-match: nested settings (e.g. practice/team) must beat
-      // their parent (practice). Plain startsWith would always pick whichever
-      // item appears first in the array, which is the parent.
-      let bestSettingsId: string | null = null;
-      let bestSettingsScore = -1;
-      for (const section of navConfig.secondary) {
-        for (const item of section.items) {
-          if (!item.href) continue;
-          const matches = activeHref === item.href || activeHref.startsWith(`${item.href}/`);
-          if (!matches) continue;
-          if (item.href.length > bestSettingsScore) {
-            bestSettingsScore = item.href.length;
-            bestSettingsId = item.id;
-          }
-        }
-      }
-      if (bestSettingsId) return bestSettingsId;
-    }
-
-    const matchedSidebarItem = sidebarConfig?.sections
-      .flatMap((s) => s.items)
-      .find((i) => i.id === bestRailId);
-    if (matchedSidebarItem?.children?.length && activeSecondaryFilter) {
-      return activeSecondaryFilter;
-    }
-
-    return bestRailId ?? workspaceSection;
-  })();
-
-  const handleSidebarSubItemSelect = (id: string, item: SecondaryNavItem) => {
-    if (workspaceSection === 'settings') {
-      if (item.href) navigate(item.href);
-      handleNavActivate();
-      return;
-    }
-    // Matters > Engagements is a peer route, not a filter; navigate explicitly.
-    if (workspaceSection === 'matters' && id === 'engagements' && item.href) {
-      navigate(item.href);
-      handleNavActivate();
-      return;
-    }
-    // On /engagements, the Matters sub-items still render (Matters owns the rail
-    // section) but selecting one only flips the filter — it doesn't navigate.
-    // Force a route back to /matters so the filter actually takes effect.
-    if (workspaceSection === 'matters' && view === 'engagements' && item.href) {
-      navigate(item.href);
-    }
-    handleSecondaryFilterSelect(id);
-    handleNavActivate();
-  };
+  }, []);
 
   const sidebarUser = session?.user
     ? {
@@ -1034,42 +1019,8 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
       }
     : null;
 
-  // Workspace shell header (Pencil rt13A / RuuTq).
-  const SECTION_TITLES: Record<WorkspaceSection, string> = {
-    home: 'Home',
-    conversations: 'Messages',
-    intakes: 'Intakes',
-    engagements: 'Engagements',
-    matters: 'Matters',
-    files: 'Files',
-    invoices: 'Invoices',
-    reports: 'Reports',
-    settings: 'Settings',
-    coverage: 'Coverage',
-  };
-  const baseHeaderTitle = SECTION_TITLES[workspaceSection] ?? 'Home';
-  // Reflect draft state in the shell header so the user has a clear visual
-  // anchor for "I'm composing a new conversation" — important on mobile where
-  // the listPanel isn't visible alongside the draft view.
-  const draftHeaderLabel = draftConversation
-    ? (draftConversation.contactName?.trim() || 'New conversation')
-    : null;
-  const headerTitle = draftHeaderLabel ?? baseHeaderTitle;
-  const headerBreadcrumb = orgDisplayName
-    ? draftHeaderLabel
-      ? [orgDisplayName, baseHeaderTitle, draftHeaderLabel]
-      : [orgDisplayName, baseHeaderTitle]
-    : undefined;
-  const shellHeader = sidebarOrg ? (
-    <WorkspaceShellHeader
-      orgInitial={sidebarOrg.initial}
-      title={headerTitle}
-      breadcrumb={headerBreadcrumb}
-      onMenuClick={() => setIsMobileNavOpen(true)}
-      onSearchClick={() => openCommandPalette()}
-    />
-  ) : undefined;
-
+  // WorkspaceShellHeader was removed per locked decision §5 (no top bar in
+  // chat-first DS). Section titles now live inside each page's main view.
   // Sidebar counts come from the /api/practice/:id/sidebar/counts worker
   // endpoint (Pencil GtRGH badges). All sections — matters, intakes, inbox,
   // invoices, files — are computed server-side; the active workspaceSection
@@ -1081,49 +1032,70 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
     { enabled: isPracticeWorkspace },
   );
 
-  // Build the per-workspace sidebar as a function so we can render it twice —
-  // once for the desktop column (respects collapsed state) and once for the
-  // mobile drawer (always expanded so the rail icons don't show in the overlay).
-  const renderSidebarTree = (forceExpanded: boolean) => {
-    if (!sidebarConfig || !sidebarOrg || !practiceSlug) return undefined;
-    const commonProps = {
-      org: { name: sidebarOrg.name, initial: sidebarOrg.initial, subtitle: sidebarOrg.plan },
-      user: sidebarUser,
-      collapsed: isDesktopSidebarCollapsed,
-      forceExpanded,
-      onToggleCollapsed: () => setIsDesktopSidebarCollapsed((v) => !v),
-      onItemActivate: handleNavActivate,
-      activeItemId: sidebarActiveItemId,
-      workspaceSection,
-      onSecondaryItemClick: handleSidebarSubItemSelect,
-    };
-    return isPracticeWorkspace ? (
-      <PracticeSidebar
-        {...commonProps}
-        practiceSlug={practiceSlug}
-        services={practiceDetails?.services ?? currentPractice?.services}
-        counts={sidebarCounts}
-      />
-    ) : (
-      <ClientSidebar {...commonProps} practiceSlug={practiceSlug} />
-    );
-  };
-  const sidebarNav = renderSidebarTree(false);
-  const mobileSidebarNav = renderSidebarTree(true);
+  // Build LeftRail items from the same nav config that PracticeSidebar /
+  // ClientSidebar consumed. NavRailItem maps cleanly to LeftRailItem (only
+  // icon type differs slightly). sidebarCounts merges into items.badge so
+  // unread counts surface in the rail.
+  const railItems = useMemo<LeftRailItem[]>(() => {
+    if (!practiceSlug || navConfig.rail.length === 0) return [];
+    return navConfig.rail.map((item) => ({
+      id: item.id,
+      label: item.label,
+      icon: item.icon as IconComponent,
+      href: item.href,
+      matchHrefs: item.matchHrefs,
+      badge: sidebarCounts?.[item.id] ?? item.badge ?? null,
+      variant: item.variant,
+      isAction: item.isAction,
+      onClick: item.onClick,
+      prefetch: item.prefetch,
+    }));
+  }, [navConfig.rail, practiceSlug, sidebarCounts]);
+  const brandMark = sidebarOrg && currentPractice?.id && practiceSlug ? (
+    <OrgSwitcherMenu
+      org={{
+        id: currentPractice.id,
+        name: sidebarOrg.name,
+        initial: sidebarOrg.initial,
+        subtitle: sidebarOrg.plan,
+        logoUrl: currentPractice.logo ?? null,
+      }}
+      collapsed={false}
+    />
+  ) : sidebarOrg ? (
+    <BrandMark word={sidebarOrg.name} className="px-2 py-2" />
+  ) : (
+    <BrandMark className="px-2 py-2" />
+  );
+
+  const profileFooter = sidebarUser ? (
+    <SidebarProfileMenu
+      user={sidebarUser}
+      onAccount={() => practiceSlug && navigate(`${normalizedBase}/settings/account`)}
+      onSettings={() => practiceSlug && navigate(`${normalizedBase}/settings/general`)}
+      onSignOut={() => void signOut({ navigate })}
+    />
+  ) : null;
   const showMobileMenuButton = shouldShowWorkspaceMobileMenuButton({
     isMobileLayout,
-    hasSecondaryNav: Boolean(navConfig.secondary?.length),
+    hasSecondaryNav: Boolean(navConfig.secondary?.length) || workspaceSection === 'assistant' || workspaceSection === 'conversations',
     workspaceSection,
     view,
     isPracticeWorkspace,
-    selectedMatterIdFromPath,
-    isMatterNonListRoute,
     selectedContactIdFromPath,
   });
-  // The global WorkspaceShellHeader provides the mobile menu button now, so the
-  // per-section mobile top bar no longer needs its own hamburger.
-  void showMobileMenuButton;
-  const suppressShellCreateButton = view === 'matters';
+  const mobileMenuButton = showMobileMenuButton ? (
+    <Button
+      type="button"
+      variant="icon"
+      size="icon-sm"
+      onClick={() => setIsMobileRailMenuOpen(true)}
+      aria-label="Open navigation"
+      icon={Menu}
+      iconClassName="h-5 w-5"
+    />
+  ) : null;
+  const suppressShellCreateButton = view === 'matters' || workspaceSection === 'conversations' || workspaceSection === 'assistant';
   const mobileCreateButton = primaryCreateAction && showMobileMenuButton && !suppressShellCreateButton ? (
     <Button
       type="button"
@@ -1175,70 +1147,145 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
     && !mattersDataForView.isLoading
     && !mattersDataForView.error
     && mattersDataForView.items.length === 0;
-  // Pencil oYsFt mobile tab bar — practice mobile sees segmented filters
-  // (Your Messages / Unassigned / All) above the search input. On desktop the
-  // same filters live in the sidebar's secondary nav, so tabs are mobile-only.
-  const mobileMessageTabs = useMemo(() => {
-    if (!isPracticeWorkspace) return null;
-    if (layoutMode === 'desktop') return null;
-    // Short single-word labels keep all three tabs visible without truncation
-    // on a 390-wide viewport ("Your Messages" + "Unassigned" used to overflow).
-    const options = [
-      { value: 'your-inbox', label: 'Yours' },
-      { value: 'unassigned', label: 'Unassigned' },
-      { value: 'all', label: 'All' },
-    ] as const;
-    const value = activeSecondaryFilter && options.some((o) => o.value === activeSecondaryFilter)
-      ? activeSecondaryFilter
-      : 'your-inbox';
-    return {
-      value,
-      options,
-      onChange: (next: string) => handleSecondaryFilterSelect(next),
-    };
-  }, [isPracticeWorkspace, layoutMode, activeSecondaryFilter, handleSecondaryFilterSelect]);
+  const handleThreadSidebarSearchChange = useCallback((value: string) => {
+    if (workspaceSection !== 'assistant' && workspaceSection !== 'conversations') return;
+    setThreadSidebarSearch((prev) => ({ ...prev, [workspaceSection]: value }));
+  }, [workspaceSection]);
+  const handleAssistantCreate = useCallback(() => {
+    void handleStartConversation('PRACTICE_ASSISTANT', {
+      forceNew: true,
+      additionalParticipantUserIds: [],
+      additionalMetadata: { source: 'practice_assistant', mode: 'PRACTICE_ASSISTANT' },
+    });
+  }, [handleStartConversation]);
+  const handleMessagesCreate = useCallback(() => {
+    handleEnterDraftMode();
+  }, [handleEnterDraftMode]);
+  const handleDrawerAssistantCreate = useCallback(() => {
+    setIsMobileRailMenuOpen(false);
+    handleAssistantCreate();
+  }, [handleAssistantCreate]);
+  const handleDrawerMessagesCreate = useCallback(() => {
+    setIsMobileRailMenuOpen(false);
+    handleMessagesCreate();
+  }, [handleMessagesCreate]);
+  const renderThreadRootState = (
+    message: string,
+    actionLabel: string | null,
+    onAction: (() => void) | null,
+  ) => (
+    <div className="flex flex-1 items-center justify-center px-6 py-10">
+      <div className="flex max-w-md flex-col items-center text-center">
+        <p className="text-sm text-dim-2">
+          {message}
+        </p>
+        {actionLabel && onAction ? (
+          <Button
+            type="button"
+            variant="secondary"
+            size="sm"
+            onClick={onAction}
+            className="mt-4"
+          >
+            {actionLabel}
+          </Button>
+        ) : null}
+      </div>
+    </div>
+  );
+  const assistantRootContent = workspaceSection === 'assistant' && !activeConversationId && !draftView
+    ? renderThreadRootState(
+      'Select an assistant thread from the sidebar to open the thread.',
+      isPracticeWorkspace ? 'New assistant thread' : null,
+      isPracticeWorkspace ? handleAssistantCreate : null,
+    )
+    : null;
+  const conversationsRootContent = workspaceSection === 'conversations' && !activeConversationId && !draftView
+    ? renderThreadRootState(
+      'Select a conversation from the sidebar to open the thread.',
+      isPracticeWorkspace ? 'New message' : null,
+      isPracticeWorkspace ? handleMessagesCreate : null,
+    )
+    : null;
+  const buildThreadRailItems = useCallback((
+    conversations: Conversation[],
+    section: ThreadSidebarSection,
+  ): LeftRailItem[] => {
+    const searchQuery = (section === 'assistant' ? assistantThreadSearch : conversationThreadSearch).trim();
+    const fallbackTitle = typeof practiceName === 'string' ? practiceName.trim() : '';
+    const searchNeedle = searchQuery.toLowerCase();
 
-  const listContent = (
-    <MessagesListPanel
-      conversations={filteredConversationsWithOptimisticRead}
-      previews={conversationPreviews}
-      practiceName={practiceName}
-      practiceLogo={practiceLogo}
-      isLoading={resolvedConversationsLoading}
-      error={resolvedConversationsError}
-      onSelectConversation={handleSelectConversation}
-      onCompose={handleEnterDraftMode}
-      draftEntry={draftConversation
-        ? { contactName: draftConversation.contactName, contactEmail: draftConversation.contactEmail }
-        : null}
-      onSelectDraftEntry={handleEnterDraftMode}
-      activeConversationId={activeConversationId}
-      tabs={mobileMessageTabs}
-    />
+    return conversations
+      .slice()
+      .sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime())
+      .filter((conversation) => {
+        if (!searchNeedle) return true;
+        const title = resolveConversationContactName(conversation)
+          || resolveConversationDisplayTitle(conversation, fallbackTitle)
+          || '';
+        const previewText = (conversationPreviews[conversation.id]?.content ?? conversation.last_message_content ?? '').toString();
+        return title.toLowerCase().includes(searchNeedle) || previewText.toLowerCase().includes(searchNeedle);
+      })
+      .map((conversation) => {
+        const title = resolveConversationContactName(conversation)
+          || resolveConversationDisplayTitle(conversation, fallbackTitle)
+          || 'Conversation';
+        const hrefBase = section === 'assistant' ? `${normalizedBase}/assistant` : conversationsPath;
+        return {
+          id: `${section}-thread-${conversation.id}`,
+          label: title,
+          href: `${hrefBase}/${encodeURIComponent(conversation.id)}`,
+          meta: formatRelativeTime(conversation.updated_at),
+          presentation: 'thread' as const,
+          unread: Number(conversation.unread_count ?? 0) > 0,
+          isActive: activeConversationId === conversation.id,
+        };
+      });
+  }, [
+    activeConversationId,
+    assistantThreadSearch,
+    conversationPreviews,
+    conversationThreadSearch,
+    conversationsPath,
+    normalizedBase,
+    practiceName,
+  ]);
+  const messageThreadRailItems = useMemo(
+    () => buildThreadRailItems(filteredConversationsWithOptimisticRead, 'conversations'),
+    [buildThreadRailItems, filteredConversationsWithOptimisticRead],
+  );
+  const assistantThreadRailItems = useMemo(
+    () => buildThreadRailItems(assistantConversations, 'assistant'),
+    [assistantConversations, buildThreadRailItems],
+  );
+  const desktopMessagesListContent = (
+    <div className="flex flex-1 items-center justify-center px-6 py-10 text-sm text-dim-2">
+      Select a conversation from the sidebar to open the thread.
+    </div>
   );
   const desktopCreate = layoutMode === 'desktop' ? desktopCreateButton ?? undefined : undefined;
   const mattersContent = resolveViewContent(
     mattersView,
     [mattersStatusFilter, workspacePrefetchData, toggleDetailInspector, detailInspectorOpen, desktopCreate] as const,
-    <div className="flex flex-1 flex-col glass-card">
-      <div className="mx-6 my-6 glass-panel p-5">
-        <div className="text-sm text-input-placeholder">
+    <div className="flex flex-1 flex-col card">
+      <div className="mx-6 my-6 panel p-5">
+        <div className="text-sm text-dim-2">
           Your active matters will appear here once a practice connects them to your account.
         </div>
-        <div className="mt-2 text-sm text-input-placeholder">
+        <div className="mt-2 text-sm text-dim-2">
           Start a conversation to open a new matter with the practice.
         </div>
       </div>
     </div>
   );
-  const intakesContent = resolveViewContent(intakesView, [activeSecondaryFilter] as const);
-  const engagementsContent = resolveViewContent(engagementsView, [activeSecondaryFilter] as const);
+  const intakesContent = resolveViewContent(intakesView, [] as const);
+  const engagementsContent = resolveViewContent(engagementsView, [] as const);
   const contactsContent = resolveViewContent(
     contactsView,
     [contactsStatusFilter, workspacePrefetchData, toggleDetailInspector, detailInspectorOpen, desktopCreate] as const,
-    <div className="flex flex-1 flex-col glass-card">
-      <div className="mx-6 my-6 glass-panel p-5">
-        <p className="text-sm text-input-placeholder">
+    <div className="flex flex-1 flex-col card">
+      <div className="mx-6 my-6 panel p-5">
+        <p className="text-sm text-dim-2">
           Manage contacts and relationship statuses here.
         </p>
       </div>
@@ -1247,9 +1294,9 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
   const invoicesContent = resolveViewContent(
     invoicesView,
     [invoicesStatusFilter, toggleDetailInspector, detailInspectorOpen, desktopCreate] as const,
-    <div className="flex flex-1 flex-col glass-card">
-      <div className="mx-6 my-6 glass-panel p-5">
-        <p className="text-sm text-input-placeholder">
+    <div className="flex flex-1 flex-col card">
+      <div className="mx-6 my-6 panel p-5">
+        <p className="text-sm text-dim-2">
           Invoice details and payments will appear here.
         </p>
       </div>
@@ -1259,6 +1306,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
   const reportsReportType = activeSecondaryFilter ?? 'all-reports';
   const reportsDeliveryId = reportsReportType === 'deliveries' ? routeReportDeliveryId ?? null : null;
   const reportsContent = resolveViewContent(reportsView, [reportsTitle, reportsReportType, reportsDeliveryId] as const);
+  const tasksContent = resolveViewContent(tasksView, [] as const);
   const filesContent = resolveViewContent(filesView, [] as const);
   const settingsContent = practiceSlug ? (
     <SettingsContent
@@ -1266,7 +1314,6 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
       practiceSlug={practiceSlug}
       view={settingsView}
       appId={settingsAppId}
-      intakeTemplateSlug={settingsIntakeTemplateSlug}
       apps={mockApps}
       className="h-full"
     />
@@ -1288,87 +1335,15 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
   const invoicesListPanel = layoutMode === 'desktop' && (isPracticeWorkspace || isClientWorkspace) && view === 'invoices' && shouldShowDesktopInvoicesListPanel
     ? resolveViewContent(invoicesListContent, [invoicesStatusFilter] as const)
     : undefined;
-
-  const conversationListView = (
-    <div className="flex h-full min-h-0 flex-1 flex-col gap-2">
-      <Panel className="list-panel-card-gradient min-h-0 flex-1 overflow-hidden">
-        <MessagesListPanel
-          conversations={filteredConversationsWithOptimisticRead}
-          previews={conversationPreviews}
-          practiceName={practiceName}
-          practiceLogo={practiceLogo}
-          isLoading={resolvedConversationsLoading}
-          error={resolvedConversationsError}
-          onSelectConversation={handleSelectConversation}
-          onCompose={handleEnterDraftMode}
-          draftEntry={draftConversation
-            ? { contactName: draftConversation.contactName, contactEmail: draftConversation.contactEmail }
-            : null}
-          onSelectDraftEntry={handleEnterDraftMode}
-          activeConversationId={activeConversationId}
-        />
-      </Panel>
-    </div>
-  );
-  const conversationListPanel = layoutMode === 'desktop' && (view === 'list' || view === 'conversation')
-    ? conversationListView
-    : undefined;
-  const mobileSectionTitle = (() => {
-    if (view === 'conversation') return null;
-    if (view === 'reports') {
-      return WORKSPACE_REPORT_SECTION_TITLES[activeSecondaryFilter ?? 'all-reports'] ?? WORKSPACE_REPORT_SECTION_TITLES['all-reports'];
-    }
-    switch (view) {
-      case 'list':
-        return 'Messages';
-      case 'intakes':
-        return 'Intakes';
-      case 'intakeDetail':
-        return null;
-      case 'matters':
-        return selectedMatterIdFromPath || isMatterNonListRoute ? null : 'Matters';
-      case 'contacts':
-        return selectedContactIdFromPath ? null : 'Contacts';
-      case 'invoices':
-        return 'Invoices';
-      case 'invoiceCreate':
-      case 'invoiceEdit':
-      case 'invoiceDetail':
-        return null;
-      case 'engagements':
-        return 'Engagements';
-      case 'files':
-        return 'Files';
-      case 'settings':
-        return 'Settings';
-      case 'coverage':
-        return 'Coverage';
-      case 'home':
-        return 'Home';
-      case 'setup':
-        return 'Setup';
-      default:
-        return null;
-    }
-  })();
-  const mobileSectionTopBar = layoutMode !== 'desktop' && view !== 'conversation' && !isIntakeTemplateEditorRoute && (mobileCreateButton || mobileSectionTitle)
+  const mobileSectionTopBar = layoutMode !== 'desktop' && !isFullscreenEditorRoute && (mobileMenuButton || mobileCreateButton)
     ? (
       <WorkspaceListHeader
-        title={mobileSectionTitle ? <h1 className="workspace-header__title">{mobileSectionTitle}</h1> : undefined}
-        centerTitle={Boolean(mobileSectionTitle)}
+        leftControls={mobileMenuButton ?? undefined}
         controls={mobileCreateButton ?? undefined}
         className="px-1 py-1"
       />
     )
     : undefined;
-  const invoiceBuilderTopBar = useInvoiceBuilderTopBar({
-    view,
-    workspace,
-    practiceSlug,
-    navigate,
-    layoutMode,
-    primaryCreateAction,
-  });
   const sectionContent = (() => {
     // On mobile the listPanel is hidden — when in draft mode we want the
     // draft view to take over the main pane instead of staying on the list.
@@ -1382,19 +1357,21 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
       case 'home':
         return homeContent;
       case 'list':
-        return listContent;
+        return conversationsRootContent ?? (layoutMode === 'desktop'
+          ? (draftView ?? desktopMessagesListContent)
+          : chatContent);
       case 'intakes':
       case 'intakeDetail':
         return intakesContent;
       case 'engagements':
         return engagementsContent;
+      case 'tasks':
+        return tasksContent;
       case 'matters':
         return mattersContent;
       case 'contacts':
         return contactsContent;
       case 'invoices':
-      case 'invoiceCreate':
-      case 'invoiceEdit':
       case 'invoiceDetail':
         return invoicesContent;
       case 'reports':
@@ -1405,16 +1382,18 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
         return settingsContent;
       case 'coverage':
         return coverageContent;
+      case 'assistant':
+        return assistantRootContent ?? chatContent;
       case 'conversation':
       default:
         return chatContent;
     }
   })();
   const sectionLayout: WorkspaceMainPaneLayout = (() => {
-    if (view === 'list' || view === 'conversation') {
+    if (view === 'list' || view === 'conversation' || view === 'assistant') {
       return { kind: 'conversation-shell' };
     }
-    if (view === 'intakes' || view === 'intakeDetail' || view === 'engagements') {
+    if (view === 'intakes' || view === 'intakeDetail' || view === 'engagements' || view === 'tasks') {
       return { kind: 'full-page', overflow: 'hidden' };
     }
     if (view === 'matters') {
@@ -1441,7 +1420,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
     if (view === 'contacts') {
       return { kind: 'full-page', overflow: 'hidden' };
     }
-    if (view === 'invoices' || view === 'invoiceDetail' || view === 'invoiceCreate' || view === 'invoiceEdit') {
+    if (view === 'invoices' || view === 'invoiceDetail') {
       return { kind: 'full-page', overflow: 'auto' };
     }
     if (view === 'reports') {
@@ -1456,8 +1435,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
       content={sectionContent}
       chatView={draftView ?? chatView}
       layout={sectionLayout}
-      topBar={invoiceBuilderTopBar ?? (layoutMode === 'desktop' ? undefined : mobileSectionTopBar)}
-      bottomNav={bottomNav}
+      topBar={layoutMode === 'desktop' ? undefined : mobileSectionTopBar}
     />
   );
   // Pencil rxzde context panel: when viewing a practice conversation, render a
@@ -1545,29 +1523,294 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
     }
   };
 
-  // Editor views should be full-page without the persistent app navigation sidebar
-  const isEditorView = (view === 'settings' && settingsView === 'intake-forms-editor') || view === 'invoiceEdit';
-  
+  const showLeftRail = !isFullscreenEditorRoute && railItems.length > 0;
+  const currentSectionRailItem = railItems.reduce<{ item: LeftRailItem | null; score: number }>((best, item) => {
+    const score = getRailItemMatchScore(activeHref, item);
+    if (score > best.score) return { item, score };
+    return best;
+  }, { item: null, score: -1 }).item;
+  const shouldUseSectionSidebar = Boolean(
+    ((navConfig.secondary?.length ?? 0) > 0
+      || workspaceSection === 'conversations'
+      || workspaceSection === 'assistant')
+    && currentSectionRailItem
+    && SECTION_SIDEBAR_WORKSPACE_SECTIONS.has(workspaceSection as 'settings' | 'reports' | 'conversations' | 'assistant' | 'tasks' | 'calendar')
+  );
+  const staticSectionSidebarSections = useMemo(() => (
+    (navConfig.secondary ?? []).map((section, index) => ({
+      id: `${section.label ?? currentSectionRailItem?.id ?? 'section'}-${index}`,
+      label: section.label,
+      items: section.items
+        .filter((item): item is typeof item & { href: string } => typeof item.href === 'string')
+        .map((item) => ({
+          id: item.id,
+          label: item.label,
+          icon: item.icon as IconComponent | undefined,
+          href: item.href,
+          badge: typeof item.badge === 'number' ? item.badge : null,
+          variant: item.variant,
+          isAction: item.isAction,
+          isActive: workspaceSection === 'conversations'
+            ? item.id === activeSecondaryFilter
+            : undefined,
+          onClick: workspaceSection === 'conversations'
+            ? () => handleSecondaryFilterSelect(item.id)
+            : undefined,
+          prefetch: item.prefetch,
+        })),
+    }))
+  ), [
+    activeSecondaryFilter,
+    currentSectionRailItem?.id,
+    handleSecondaryFilterSelect,
+    navConfig.secondary,
+    workspaceSection,
+  ]);
+  const sectionSidebarSections = useMemo(() => (
+    workspaceSection === 'conversations'
+      ? [
+        ...staticSectionSidebarSections,
+        { id: 'conversation-threads', label: 'Threads', items: messageThreadRailItems },
+      ]
+      : workspaceSection === 'assistant'
+        ? [
+          ...staticSectionSidebarSections,
+          { id: 'assistant-threads', label: 'Threads', items: assistantThreadRailItems },
+        ]
+        : staticSectionSidebarSections
+  ), [assistantThreadRailItems, messageThreadRailItems, staticSectionSidebarSections, workspaceSection]);
+  const sectionSidebarBackHref = normalizedBase ?? '/';
+  const sectionSidebarBackLabel = workspaceSection === 'assistant' ? 'Back to home' : 'Back to workspace';
+  const activeThreadSearchValue = workspaceSection === 'assistant'
+    ? threadSidebarSearch.assistant
+    : workspaceSection === 'conversations'
+      ? threadSidebarSearch.conversations
+      : '';
+  const sectionSidebarCreateButton = workspaceSection === 'assistant'
+    ? (
+      <Button
+        type="button"
+        variant="icon"
+        size="icon-sm"
+        onClick={handleAssistantCreate}
+        aria-label="New assistant thread"
+        icon={Plus}
+        iconClassName="h-4 w-4"
+      />
+    )
+    : workspaceSection === 'conversations'
+      ? (
+        <Button
+          type="button"
+          variant="icon"
+          size="icon-sm"
+          onClick={handleMessagesCreate}
+          aria-label="New message"
+          icon={SquarePen}
+          iconClassName="h-4 w-4"
+        />
+      )
+      : null;
+  const drawerSectionSidebarCreateButton = workspaceSection === 'assistant'
+    ? (
+      <Button
+        type="button"
+        variant="icon"
+        size="icon-sm"
+        onClick={handleDrawerAssistantCreate}
+        aria-label="New assistant thread"
+        icon={Plus}
+        iconClassName="h-4 w-4"
+      />
+    )
+    : workspaceSection === 'conversations'
+      ? (
+        <Button
+          type="button"
+          variant="icon"
+          size="icon-sm"
+          onClick={handleDrawerMessagesCreate}
+          aria-label="New message"
+          icon={SquarePen}
+          iconClassName="h-4 w-4"
+        />
+      )
+      : null;
+  const sectionSidebarHeader = shouldUseSectionSidebar ? (
+    <div className="flex flex-col gap-3 px-1 py-1">
+      <div className="flex items-center justify-between gap-2">
+        <button
+          type="button"
+          onClick={() => navigate(sectionSidebarBackHref)}
+          className="ml-[-2px] inline-flex items-center gap-1.5 px-2 py-1 text-left font-mono text-[11px] uppercase tracking-[0.06em] text-[rgb(var(--sidebar-text-secondary))] transition-colors hover:text-[rgb(var(--sidebar-text))] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50"
+        >
+          <span aria-hidden="true">←</span>
+          <span>{sectionSidebarBackLabel}</span>
+        </button>
+        {sectionSidebarCreateButton}
+      </div>
+      {(workspaceSection === 'assistant' || workspaceSection === 'conversations') ? (
+        <Input
+          type="search"
+          value={activeThreadSearchValue}
+          onChange={handleThreadSidebarSearchChange}
+          placeholder={workspaceSection === 'assistant' ? 'Search assistant threads...' : 'Search messages...'}
+          aria-label={workspaceSection === 'assistant' ? 'Search assistant threads' : 'Search messages'}
+          size="sm"
+          icon={Search}
+        />
+      ) : null}
+    </div>
+  ) : brandMark;
+
+  const handleMobileRailItemSelect = useCallback((item: LeftRailItem) => {
+    if (item.isAction) {
+      item.onClick?.();
+      setIsMobileRailMenuOpen(false);
+      handleNavActivate();
+      return;
+    }
+    if (item.onClick) {
+      item.onClick();
+      setIsMobileRailMenuOpen(false);
+      handleNavActivate();
+      return;
+    }
+    setIsMobileRailMenuOpen(false);
+    navigate(item.href);
+    handleNavActivate();
+  }, [handleNavActivate, navigate]);
+
   return (
     <>
-      <AppShell
-        className="bg-transparent h-dvh"
-        accentBackdropVariant="none"
-        header={shellHeader}
-        sidebar={isEditorView ? undefined : sidebarNav}
-        desktopSidebarCollapsed={isDesktopSidebarCollapsed}
-        mobileSidebar={isEditorView ? undefined : mobileSidebarNav}
-        listPanel={conversationListPanel ?? matterListPanel ?? contactsListPanel ?? invoicesListPanel}
-        inspector={activeInspector ?? undefined}
-        inspectorMobileOpen={detailInspectorOpen && isMobileLayout}
-        onInspectorMobileClose={() => setIsInspectorOpen(false)}
-        mobileSidebarOpen={isMobileNavOpen}
-        onMobileSidebarClose={() => setIsMobileNavOpen(false)}
-        main={unifiedMainShell}
-        mainClassName="min-h-0 h-full overflow-hidden"
-        bottomBar={layoutMode === 'desktop' ? bottomNav : undefined}
-        bottomBarClassName={layoutMode === 'desktop' && showBottomNav ? 'md:hidden fixed inset-x-0 bottom-0 z-40 bg-transparent' : undefined}
-      />
+      <div className="flex h-dvh flex-col lg:flex-row">
+        {showLeftRail && (
+          <LeftRail
+            variant="desktop"
+            {...(shouldUseSectionSidebar ? { sections: sectionSidebarSections } : { items: railItems })}
+            activeHref={activeHref}
+            onItemActivate={handleNavActivate}
+            brandMark={sectionSidebarHeader}
+            footer={profileFooter}
+            className="hidden lg:flex"
+          />
+        )}
+        <AppShell
+          className="flex-1 min-w-0 bg-transparent"
+          accentBackdropVariant="none"
+          listPanel={isFullscreenEditorRoute ? undefined : (matterListPanel ?? contactsListPanel ?? invoicesListPanel)}
+          inspector={activeInspector ?? undefined}
+          inspectorMobileOpen={detailInspectorOpen && (isMobileLayout || !isXlViewport)}
+          onInspectorMobileClose={() => setIsInspectorOpen(false)}
+          main={unifiedMainShell}
+          mainClassName="min-h-0 h-full overflow-hidden"
+          inspectorXlWidth="400px"
+        />
+        {showBottomNav && showLeftRail && (
+          <LeftRail
+            variant="mobile"
+            items={railItems}
+            activeHref={activeHref}
+            onItemActivate={handleNavActivate}
+            maxItems={5}
+            onOverflowClick={() => setIsMobileRailMenuOpen(true)}
+            className="lg:hidden"
+          />
+        )}
+      </div>
+      <FocusDrawer
+        isOpen={isMobileRailMenuOpen}
+        onClose={() => setIsMobileRailMenuOpen(false)}
+        position="bottom"
+        title={shouldUseSectionSidebar ? (currentSectionRailItem?.label ?? 'Section') : 'Navigate'}
+        ariaLabel="Workspace navigation"
+      >
+        <div className="flex flex-col gap-2">
+          {shouldUseSectionSidebar ? (
+            <div className="mb-2 flex flex-col gap-2">
+              <div className="flex items-center justify-between gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsMobileRailMenuOpen(false);
+                    navigate(sectionSidebarBackHref);
+                    handleNavActivate();
+                  }}
+                  className="inline-flex items-center gap-1.5 px-2 py-2 text-left font-mono text-[11px] uppercase tracking-[0.06em] text-dim transition-colors hover:text-ink"
+                >
+                  <span aria-hidden="true">←</span>
+                  <span>{sectionSidebarBackLabel}</span>
+                </button>
+                {drawerSectionSidebarCreateButton}
+              </div>
+              {(workspaceSection === 'assistant' || workspaceSection === 'conversations') ? (
+                <Input
+                  type="search"
+                  value={activeThreadSearchValue}
+                  onChange={handleThreadSidebarSearchChange}
+                  placeholder={workspaceSection === 'assistant' ? 'Search assistant threads...' : 'Search messages...'}
+                  aria-label={workspaceSection === 'assistant' ? 'Search assistant threads' : 'Search messages'}
+                  size="sm"
+                  icon={Search}
+                />
+              ) : null}
+            </div>
+          ) : null}
+          {(shouldUseSectionSidebar
+            ? sectionSidebarSections.flatMap((section) => section.items)
+            : railItems
+          ).map((item) => {
+            const isActive = item.isActive !== undefined ? item.isActive : isRailHrefActive(activeHref, item);
+            return (
+              <button
+                key={item.id}
+                type="button"
+                onClick={() => handleMobileRailItemSelect(item)}
+                aria-current={isActive ? 'page' : undefined}
+                className={cn(
+                  item.presentation === 'thread'
+                    ? 'flex w-full flex-col gap-1 rounded-[var(--r-xs)] px-3 py-3 text-left transition-colors'
+                    : 'flex w-full items-center gap-3 rounded-[var(--r-xs)] px-3 py-3 text-left text-[14px] transition-colors',
+                  isActive
+                    ? 'bg-ink text-accent'
+                    : 'text-ink-2 hover:bg-rule-soft hover:text-ink'
+                )}
+              >
+                {item.presentation === 'thread' ? (
+                  <>
+                    <div className="flex w-full items-start justify-between gap-2">
+                      <span className="min-w-0 flex-1 truncate text-[13px] font-medium">{item.label}</span>
+                      <span className="flex shrink-0 items-center gap-1.5">
+                        {item.unread ? <span aria-hidden="true" className={cn('h-1.5 w-1.5 rounded-full', 'bg-accent')} /> : null}
+                        {item.meta ? (
+                          <span className={cn('text-[10px] uppercase tracking-[0.08em]', isActive ? 'text-accent' : 'text-dim')}>
+                            {item.meta}
+                          </span>
+                        ) : null}
+                      </span>
+                    </div>
+                    {item.description ? (
+                      <span className={cn('truncate text-[11px]', isActive ? 'text-accent' : 'text-dim')}>
+                        {item.description}
+                      </span>
+                    ) : null}
+                  </>
+                ) : (
+                  <>
+                    {item.icon ? <Icon icon={item.icon} className={cn('h-4 w-4 shrink-0', isActive ? 'opacity-100' : 'opacity-70')} /> : null}
+                    <span className="min-w-0 flex-1 truncate">{item.label}</span>
+                    {item.badge && item.badge > 0 ? (
+                      <span className={cn('font-mono text-[10px]', isActive ? 'text-accent' : 'text-dim')}>
+                        {item.badge}
+                      </span>
+                    ) : null}
+                  </>
+                )}
+              </button>
+            );
+          })}
+        </div>
+      </FocusDrawer>
       <AddContactDialog
         practiceId={practiceId ?? null}
         isOpen={isAddClientDialogOpen}
@@ -1609,7 +1852,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
         description="This permanently removes the conversation, its messages, reactions, and audit history. This action cannot be undone."
       >
         <div className="flex flex-col gap-4 px-6 pb-6">
-          <p className="text-sm text-input-text">
+          <p className="text-sm text-ink">
             Are you sure you want to delete{' '}
             <span className="font-semibold">
               {conversationPendingDelete

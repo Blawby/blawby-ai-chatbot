@@ -1,7 +1,5 @@
-import { useState, useEffect } from 'preact/hooks';
+import { useState, useEffect, useCallback } from 'preact/hooks';
 import { useLocation } from 'preact-iso';
-import { Button } from '@/shared/ui/Button';
-import { SectionDivider } from '@/shared/ui/layout/SectionDivider';
 import { useToastContext } from '@/shared/contexts/ToastContext';
 import { useNavigation } from '@/shared/utils/navigation';
 import { useSessionContext } from '@/shared/contexts/SessionContext';
@@ -9,25 +7,25 @@ import { authClient } from '@/shared/lib/authClient';
 import { useAuthAccounts } from '@/shared/hooks/useAuthAccounts';
 import { Dialog, DialogBody, DialogFooter } from '@/shared/ui/dialog';
 import { AlertTriangle } from 'lucide-preact';
-
 import { Icon } from '@/shared/ui/Icon';
 import { useTranslation } from '@/shared/i18n/hooks';
 import type { SecuritySettings } from '@/shared/types/user';
-import { SettingSection } from '@/features/settings/components/SettingSection';
-import { SettingToggle } from '@/features/settings/components/SettingToggle';
-import { SettingRow } from '@/features/settings/components/SettingRow';
-import { PasswordChangeForm } from '@/features/settings/components/PasswordChangeForm';
 import { LoadingBlock } from '@/shared/ui/layout/LoadingBlock';
-import { SettingsDangerButton } from '@/features/settings/components/SettingsDangerButton';
-import { SettingsHelperText } from '@/features/settings/components/SettingsHelperText';
+import { LoadingSpinner } from '@/shared/ui/layout/LoadingSpinner';
+import { SettingSection } from '@/features/settings/components/SettingSection';
+import { SettingRow } from '@/features/settings/components/SettingRow';
 import { getPreferencesCategory, updatePreferencesCategory } from '@/shared/lib/preferencesApi';
 import type { SecurityPreferences } from '@/shared/types/preferences';
 import { FormActions } from '@/shared/ui/form';
 import { features } from '@/config/features';
 import { buildSettingsPath, resolveSettingsBasePath } from '@/shared/utils/workspace';
 import { cn } from '@/shared/utils/cn';
+import { Button } from '@/shared/ui/Button';
 
-// Local interface for user with security-related fields
+// ---------------------------------------------------------------------------
+// Local types & helpers
+// ---------------------------------------------------------------------------
+
 interface SecurityUser {
   twoFactorEnabled?: boolean;
   emailNotifications?: boolean;
@@ -35,58 +33,56 @@ interface SecurityUser {
   lastPasswordChange?: Date | string | number;
 }
 
-// Runtime validation for lastPasswordChange values
 const isValidDate = (value: unknown): value is Date | string | number => {
-  if (value === null || value === undefined) {
-    return false;
-  }
-  
-  // If it's already a Date, check if it's valid
-  if (value instanceof Date) {
-    return !isNaN(value.getTime());
-  }
-  
-  // Handle numbers explicitly by checking if they produce valid dates
-  if (typeof value === 'number' && Number.isFinite(value)) {
-    return Number.isFinite(new Date(value).getTime());
-  }
-  
-  // For strings, use Date.parse
-  if (typeof value === 'string') {
-    const timestamp = Date.parse(value);
-    return isFinite(timestamp);
-  }
-  
+  if (value == null) return false;
+  if (value instanceof Date) return !isNaN(value.getTime());
+  if (typeof value === 'number' && Number.isFinite(value)) return Number.isFinite(new Date(value).getTime());
+  if (typeof value === 'string') return isFinite(Date.parse(value));
   return false;
 };
 
-// Safely convert lastPasswordChange to Date or undefined
 const safeConvertLastPasswordChange = (value: unknown): Date | undefined => {
-  if (!isValidDate(value)) {
-    return undefined;
-  }
-  
+  if (!isValidDate(value)) return undefined;
   const date = new Date(value as Date | string | number);
-  // Double-check the resulting Date is valid
   return isNaN(date.getTime()) ? undefined : date;
 };
 
-type BetterAuthResult = {
-  data?: unknown;
-  error?: {
-    message?: string;
-  } | null;
-} | null | undefined;
+type BetterAuthResult = { data?: unknown; error?: { message?: string } | null } | null | undefined;
 
-const getBetterAuthErrorMessage = (
-  result: BetterAuthResult,
-  fallbackMessage: string
-): string | null => {
-  if (!result?.error) {
-    return null;
-  }
-  return result.error.message || fallbackMessage;
+const getBetterAuthErrorMessage = (result: BetterAuthResult, fallback: string): string | null => {
+  if (!result?.error) return null;
+  return result.error.message || fallback;
 };
+
+// ---------------------------------------------------------------------------
+// SecurityBadge
+// ---------------------------------------------------------------------------
+
+const SecurityBadge = ({
+  enabled,
+  onLabel = 'enabled',
+  offLabel = 'not enabled',
+}: {
+  enabled: boolean;
+  onLabel?: string;
+  offLabel?: string;
+}) => (
+  <span
+    className={cn(
+      'inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.08em]',
+      enabled
+        ? 'border-[color:color-mix(in_oklab,var(--pos)_25%,var(--rule))] bg-[color:color-mix(in_oklab,var(--pos)_10%,var(--card))] text-[var(--pos)]'
+        : 'border-rule text-dim',
+    )}
+  >
+    {enabled && <span className="h-1.5 w-1.5 rounded-full bg-[var(--pos)]" aria-hidden="true" />}
+    {enabled ? onLabel : offLabel}
+  </span>
+);
+
+// ---------------------------------------------------------------------------
+// Page
+// ---------------------------------------------------------------------------
 
 export interface SecurityPageProps {
   isMobile?: boolean;
@@ -97,490 +93,339 @@ export interface SecurityPageProps {
 export const SecurityPage = ({
   isMobile: _isMobile = false,
   onClose: _onClose,
-  className = ''
+  className = '',
 }: SecurityPageProps) => {
+  const securityCardClassName = 'max-w-[440px] rounded-[18px] border border-rule bg-card px-5 py-5 shadow-[0_10px_30px_rgba(15,23,42,0.05)] sm:px-6';
   const { showSuccess, showError } = useToastContext();
   const { navigate } = useNavigation();
   const location = useLocation();
   const { t } = useTranslation(['settings', 'common']);
   const { session, isPending } = useSessionContext();
-  const {
-    hasPasswordAccount,
-    isLoading: authAccountsLoading,
-    error: authAccountsError,
-    reload: reloadAuthAccounts
-  } = useAuthAccounts(Boolean(session?.user));
+  const { hasPasswordAccount, isLoading: authAccountsLoading, error: authAccountsError, reload: reloadAuthAccounts } = useAuthAccounts(Boolean(session?.user));
+
   const [settings, setSettings] = useState<SecuritySettings | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [isChangingPassword, setIsChangingPassword] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [passwordSubmitting, setPasswordSubmitting] = useState(false);
   const [isResettingPassword, setIsResettingPassword] = useState(false);
   const [passwordError, setPasswordError] = useState<string | null>(null);
   const [showDisableMFAConfirm, setShowDisableMFAConfirm] = useState(false);
   const showMfa = features.enableMfa;
-  const [passwordForm, setPasswordForm] = useState({
-    currentPassword: '',
-    newPassword: '',
-    confirmPassword: ''
-  });
+
+  const [passwordForm, setPasswordForm] = useState({ currentPassword: '', newPassword: '', confirmPassword: '' });
+  const [emailInput, setEmailInput] = useState('');
+  const [emailSubmitting, setEmailSubmitting] = useState(false);
+  const [linkedProviders, setLinkedProviders] = useState<string[]>([]);
+  const [googleLinking, setGoogleLinking] = useState(false);
+
   const settingsBasePath = resolveSettingsBasePath(location.path);
   const toSettingsPath = (subPath?: string) => buildSettingsPath(settingsBasePath, subPath);
 
-  // Load settings from preferences API
   useEffect(() => {
-    let isMounted = true;
-
-    const loadPreferences = async () => {
+    let mounted = true;
+    const load = async () => {
       try {
-        setIsLoading(true);
+        setLoadError(null);
         const prefs = await getPreferencesCategory<SecurityPreferences>('security');
-        if (!isMounted) return;
-        const securitySettings: SecuritySettings = {
+        if (!mounted) return;
+        setSettings({
           twoFactorEnabled: prefs?.two_factor_enabled ?? false,
           emailNotifications: prefs?.email_notifications ?? true,
           loginAlerts: prefs?.login_alerts ?? true,
           sessionTimeout: prefs?.session_timeout,
           lastPasswordChange: safeConvertLastPasswordChange((session?.user as SecurityUser | undefined)?.lastPasswordChange) ?? null,
-          connectedAccounts: [] // This would need to be populated from accounts table if needed
-        };
-        setSettings(securitySettings);
+          connectedAccounts: [],
+        });
       } catch (error) {
-        console.error('Failed to load security preferences:', error);
+        if (!mounted) return;
         setSettings(null);
+        setLoadError(error instanceof Error ? error.message : 'Failed to load security settings.');
       } finally {
-        if (isMounted) {
-          setIsLoading(false);
-        }
+        if (mounted) setIsLoading(false);
       }
     };
-
-    void loadPreferences();
-
-    return () => {
-      isMounted = false;
-    };
+    void load();
+    return () => { mounted = false; };
   }, [session?.user]);
 
-  // Refresh settings when component regains focus (e.g., returning from MFA enrollment)
   useEffect(() => {
-    const handleFocus = () => {
-      // Settings will be refreshed automatically when session updates
-      // No need to manually reload since we're using reactive session data
-    };
+    if (session?.user?.email) setEmailInput(session.user.email);
+  }, [session?.user?.email]);
 
-    window.addEventListener('focus', handleFocus);
-    return () => window.removeEventListener('focus', handleFocus);
-  }, []);
+  useEffect(() => {
+    if (!session?.user) return;
+    authClient.listUserAccounts()
+      .then((result) => {
+        const accounts = (result?.data ?? []) as Array<{ provider: string }>;
+        setLinkedProviders(accounts.map((a) => a.provider));
+      })
+      .catch(() => { /* best-effort */ });
+  }, [session?.user]);
 
-  const handleToggleChange = async (key: string, value: boolean) => {
-    if (!settings) return;
-    
-    if (key === 'twoFactorEnabled') {
-      if (!showMfa) return;
-      if (value) {
-        // Enable MFA: Navigate to enrollment page without updating state
-        navigate(toSettingsPath('mfa-enrollment'));
-      } else {
-        // Disable MFA: Show confirmation dialog
-        setShowDisableMFAConfirm(true);
+  const handleUpdateEmail = async () => {
+    const trimmed = emailInput.trim();
+    if (!trimmed || trimmed === session?.user?.email) return;
+    setEmailSubmitting(true);
+    try {
+      const result = await authClient.changeEmail({ newEmail: trimmed, callbackURL: window.location.href });
+      const errorMessage = getBetterAuthErrorMessage(result as BetterAuthResult, 'Unable to send verification email. Please try again.');
+      if (errorMessage) {
+        showError('Email change failed', errorMessage);
+        return;
       }
-    } else {
-      // Handle other toggles normally
-      const updatedSettings = { ...settings, [key]: value };
-      setSettings(updatedSettings);
-      
-      try {
-      const updateData: Partial<SecurityPreferences> = {};
-      if (key === 'emailNotifications') {
-        updateData.email_notifications = value;
-      } else if (key === 'loginAlerts') {
-        updateData.login_alerts = value;
-      }
-        await updatePreferencesCategory('security', updateData);
-        
-        showSuccess(
-          t('common:notifications.settingsSavedTitle'),
-          t('settings:security.toasts.settingsUpdated')
-        );
-      } catch (error) {
-        console.error('Failed to update security settings:', error);
-        showError(
-          t('common:notifications.settingsSaveErrorTitle'),
-          t('common:notifications.settingsSaveErrorBody')
-        );
-        
-        // Revert the local state on error
-        setSettings(settings);
-      }
+      showSuccess('Verification sent', `A confirmation link has been sent to ${trimmed}. Click it to complete the change.`);
+    } catch {
+      showError('Email change failed', 'Unable to send verification email. Please try again.');
+    } finally {
+      setEmailSubmitting(false);
+    }
+  };
+
+  const handleLinkGoogle = async () => {
+    setGoogleLinking(true);
+    try {
+      await authClient.linkSocialAccount({ provider: 'google', callbackURL: window.location.href });
+    } catch {
+      showError('Link failed', 'Unable to start Google sign-in. Please try again.');
+      setGoogleLinking(false);
     }
   };
 
   const handleConfirmDisableMFA = async () => {
-    if (!settings) return;
-    
-    // Check if user session is authenticated
-    if (!session?.user) {
-      showError(
-        t('common:notifications.settingsSaveErrorTitle'),
-        t('common:notifications.sessionExpired')
-      );
+    if (!settings || !session?.user) {
+      showError(t('common:notifications.settingsSaveErrorTitle'), t('common:notifications.sessionExpired'));
       setShowDisableMFAConfirm(false);
       return;
     }
-    
-    const updatedSettings = { ...settings, twoFactorEnabled: false };
-    setSettings(updatedSettings);
-    
+    setSettings({ ...settings, twoFactorEnabled: false });
     try {
-      // Disable MFA using Better Auth twoFactor plugin (if available)
       const twoFactorClient = (authClient as { twoFactor?: { disable: () => Promise<void> } }).twoFactor;
-      if (twoFactorClient) {
-        await twoFactorClient.disable();
-      } else {
-        throw new Error('Two-factor authentication is not available');
-      }
-      
+      if (twoFactorClient) await twoFactorClient.disable();
+      else throw new Error('Two-factor authentication is not available');
       await updatePreferencesCategory('security', { two_factor_enabled: false });
-      
-      showSuccess(
-        t('settings:security.mfa.disable.toastTitle'),
-        t('settings:security.mfa.disable.toastBody')
-      );
-    } catch (error) {
-      console.error('Failed to disable MFA:', error);
-      showError(
-        t('common:notifications.settingsSaveErrorTitle'),
-        t('common:notifications.settingsSaveErrorBody')
-      );
-      
-      // Revert the local state on error
+      showSuccess(t('settings:security.mfa.disable.toastTitle'), t('settings:security.mfa.disable.toastBody'));
+    } catch {
+      showError(t('common:notifications.settingsSaveErrorTitle'), t('common:notifications.settingsSaveErrorBody'));
       setSettings(settings);
     }
-    
     setShowDisableMFAConfirm(false);
-  };
-
-  const handleCancelDisableMFA = () => {
-    setShowDisableMFAConfirm(false);
-  };
-
-  const handlePasswordChange = (field: string, value: string) => {
-    setPasswordError(null);
-    setPasswordForm(prev => ({ ...prev, [field]: value }));
   };
 
   const handleChangePassword = async () => {
-    if ((!hasPasswordAccount && !passwordForm.newPassword) || !passwordForm.confirmPassword || (hasPasswordAccount && !passwordForm.currentPassword)) {
-      showError(
-        t('settings:security.password.errors.missing.title'),
-        t('settings:security.password.errors.missing.body')
-      );
+    if (!passwordForm.newPassword || !passwordForm.confirmPassword || (hasPasswordAccount && !passwordForm.currentPassword)) {
+      showError(t('settings:security.password.errors.missing.title'), t('settings:security.password.errors.missing.body'));
       return;
     }
-
     if (passwordForm.newPassword !== passwordForm.confirmPassword) {
-      showError(
-        t('settings:security.password.errors.mismatch.title'),
-        t('settings:security.password.errors.mismatch.body')
-      );
+      showError(t('settings:security.password.errors.mismatch.title'), t('settings:security.password.errors.mismatch.body'));
       return;
     }
-
     if (passwordForm.newPassword.length < 8) {
-      showError(
-        t('settings:security.password.errors.weak.title'),
-        t('settings:security.password.errors.weak.body')
-      );
+      showError(t('settings:security.password.errors.weak.title'), t('settings:security.password.errors.weak.body'));
       return;
     }
-
     try {
       setPasswordSubmitting(true);
       setPasswordError(null);
       if (hasPasswordAccount) {
-        const { data: _data, error } = await authClient.changePassword({
-          currentPassword: passwordForm.currentPassword,
-          newPassword: passwordForm.newPassword
-        });
-        const errorMessage = getBetterAuthErrorMessage(
-          { data: _data, error },
-          t('settings:security.password.errors.failed.body')
-        );
-        if (errorMessage) {
-          setPasswordError(errorMessage);
-          showError(
-            t('settings:security.password.errors.failed.title'),
-            errorMessage
-          );
-          return;
-        }
-
-        showSuccess(
-          t('settings:security.password.success.title'),
-          t('settings:security.password.success.body')
-        );
-        reloadAuthAccounts().catch((err) => {
-          console.error('Failed to reload auth accounts:', err);
-        });
-        setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' });
-        setIsChangingPassword(false);
+        const { data: _d, error } = await authClient.changePassword({ currentPassword: passwordForm.currentPassword, newPassword: passwordForm.newPassword });
+        const msg = getBetterAuthErrorMessage({ data: _d, error }, t('settings:security.password.errors.failed.body'));
+        if (msg) { setPasswordError(msg); showError(t('settings:security.password.errors.failed.title'), msg); return; }
       } else {
-        const { data: _data, error } = await authClient.setPassword({
-          newPassword: passwordForm.newPassword
-        });
-        const errorMessage = getBetterAuthErrorMessage(
-          { data: _data, error },
-          t('settings:security.password.errors.failed.body')
-        );
-        if (errorMessage) {
-          setPasswordError(errorMessage);
-          showError(
-            t('settings:security.password.errors.failed.title'),
-            errorMessage
-          );
-          return;
-        }
-
-        setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' });
-        setIsChangingPassword(false);
-        reloadAuthAccounts().catch((err) => {
-          console.error('Failed to reload auth accounts:', err);
-        });
-        showSuccess(
-          t('settings:security.password.success.title'),
-          t('settings:security.password.success.body')
-        );
+        const { data: _d, error } = await authClient.setPassword({ newPassword: passwordForm.newPassword });
+        const msg = getBetterAuthErrorMessage({ data: _d, error }, t('settings:security.password.errors.failed.body'));
+        if (msg) { setPasswordError(msg); showError(t('settings:security.password.errors.failed.title'), msg); return; }
       }
-    } catch (error) {
-      const message = error instanceof Error ? error.message : t('settings:security.password.errors.failed.body');
-      setPasswordError(message);
-      showError(
-        t('settings:security.password.errors.failed.title'),
-        message
-      );
+      showSuccess(t('settings:security.password.success.title'), t('settings:security.password.success.body'));
+      setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' });
+      reloadAuthAccounts().catch(() => {});
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : t('settings:security.password.errors.failed.body');
+      setPasswordError(msg);
+      showError(t('settings:security.password.errors.failed.title'), msg);
     } finally {
       setPasswordSubmitting(false);
     }
   };
 
   const handleResetPassword = async () => {
-    if (isResettingPassword) return;
-    if (!session?.user?.email) {
-      showError(
-        t('settings:security.password.errors.failed.title'),
-        t('settings:security.password.errorEmailUnavailable.reset')
-      );
-      return;
-    }
-
+    if (isResettingPassword || !session?.user?.email) return;
     setIsResettingPassword(true);
     try {
-      const { data: _data, error } = await authClient.requestPasswordReset({
-        email: session.user.email
-      });
-      const errorMessage = getBetterAuthErrorMessage(
-        { data: _data, error },
-        t('settings:security.password.errors.failed.body')
-      );
-      if (errorMessage) {
-        showError(
-          t('settings:security.password.errors.failed.title'),
-          errorMessage
-        );
-        return;
-      }
-      showSuccess(
-        t('settings:security.password.reset.title'),
-        t('settings:security.password.reset.body')
-      );
-    } catch (error) {
-      showError(
-        t('settings:security.password.errors.failed.title'),
-        error instanceof Error ? error.message : t('settings:security.password.errors.failed.body')
-      );
+      const { data: _d, error } = await authClient.requestPasswordReset({ email: session.user.email });
+      const msg = getBetterAuthErrorMessage({ data: _d, error }, t('settings:security.password.errors.failed.body'));
+      if (msg) { showError(t('settings:security.password.errors.failed.title'), msg); return; }
+      showSuccess(t('settings:security.password.reset.title'), t('settings:security.password.reset.body'));
+    } catch (err) {
+      showError(t('settings:security.password.errors.failed.title'), err instanceof Error ? err.message : t('settings:security.password.errors.failed.body'));
     } finally {
       setIsResettingPassword(false);
     }
   };
 
-  const handleLogout = (type: 'current' | 'all') => {
-    if (type === 'current') {
-      showSuccess(
-        t('settings:security.logout.current.toastTitle'),
-        t('settings:security.logout.current.toastBody')
-      );
-    } else {
-      showSuccess(
-        t('settings:security.logout.all.toastTitle'),
-        t('settings:security.logout.all.toastBody')
-      );
-    }
-  };
+  const handleGenerateRecoveryCodes = useCallback(() => {
+    showError('Not implemented', 'Backup code generation is not available yet.');
+  }, [showError]);
 
-  // Show loading state while session or preferences are loading
-  if (isPending || isLoading || authAccountsLoading) {
-    return <LoadingBlock className={className} />;
-  }
+  if (isPending || isLoading || authAccountsLoading) return <LoadingBlock className={className} />;
+  if (authAccountsError) throw new Error(authAccountsError);
+  if (!settings) throw new Error(loadError ?? 'Failed to load security settings.');
 
-  if (authAccountsError) {
-    throw new Error(authAccountsError);
-  }
-
-  if (!settings) {
-    return (
-      <div className={`h-full flex items-center justify-center ${className}`}>
-        <p className="text-input-placeholder">{t('settings:security.fallback')}</p>
-      </div>
-    );
-  }
+  const lastChanged = settings.lastPasswordChange instanceof Date
+    ? settings.lastPasswordChange.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+    : null;
 
   return (
-    <div className={cn('space-y-6', className)}>
-      {/* Password Section */}
-      <SettingSection
-        title={t('settings:security.password.sectionTitle')}
-        description={hasPasswordAccount
-          ? t('settings:security.password.description')
-          : t('settings:security.password.addDescription')}
-      >
-        <div className="flex items-center justify-end gap-2 mb-4">
-          <Button
-            variant="secondary"
-            size="sm"
-            onClick={() => setIsChangingPassword(!isChangingPassword)}
+    <div className={className}>
+      <SettingSection first title="Email address" description="Your login email. Changing this sends a verification link to the new address.">
+        <div className={securityCardClassName}>
+          <div className="form-field">
+            <label className="label" htmlFor="email-input">Email</label>
+            <input id="email-input" className="input" type="email" value={emailInput}
+              onInput={(e) => setEmailInput((e.target as HTMLInputElement).value)} />
+          </div>
+          <div className="flex items-center gap-3 mt-3.5">
+            <Button variant="ghost" size="sm"
+              onClick={() => void handleUpdateEmail()}
+              disabled={emailSubmitting || !emailInput.trim() || emailInput.trim() === session?.user?.email}>
+              {emailSubmitting ? <LoadingSpinner size="sm" ariaLabel="Updating email" /> : null}
+              Update email
+            </Button>
+            {session?.user?.email_verified && (
+              <span className="inline-flex items-center gap-1 font-mono text-[11px] text-[var(--pos)]">✓ Verified</span>
+            )}
+          </div>
+        </div>
+      </SettingSection>
+
+      <SettingSection title="Password" description="Change your password. You&apos;ll be signed out of all other sessions.">
+        <div className={securityCardClassName}>
+          <div className="flex flex-col gap-3.5">
+            {hasPasswordAccount && (
+              <div className="form-field">
+                <label className="label" htmlFor="current-password-input">Current password</label>
+                <input id="current-password-input" className="input" type="password" placeholder="••••••••" value={passwordForm.currentPassword}
+                  onInput={(e) => { setPasswordError(null); setPasswordForm(p => ({ ...p, currentPassword: (e.target as HTMLInputElement).value })); }} />
+              </div>
+            )}
+            <div className="form-field">
+              <label className="label" htmlFor="new-password-input">New password</label>
+              <input id="new-password-input" className="input" type="password" placeholder="At least 8 characters" value={passwordForm.newPassword}
+                onInput={(e) => { setPasswordError(null); setPasswordForm(p => ({ ...p, newPassword: (e.target as HTMLInputElement).value })); }} />
+            </div>
+            <div className="form-field">
+              <label className="label" htmlFor="confirm-password-input">Confirm new password</label>
+              <input id="confirm-password-input" className="input" type="password" placeholder="••••••••" value={passwordForm.confirmPassword}
+                onInput={(e) => { setPasswordError(null); setPasswordForm(p => ({ ...p, confirmPassword: (e.target as HTMLInputElement).value })); }} />
+            </div>
+          </div>
+          {passwordError && <p className="mt-3 text-[12px] text-[var(--neg)]">{passwordError}</p>}
+          <div className="flex items-center gap-2 mt-4">
+            <Button variant="primary" size="sm" onClick={() => void handleChangePassword()} disabled={passwordSubmitting}>
+              {passwordSubmitting ? <LoadingSpinner size="sm" ariaLabel="Updating password" /> : null}
+              Update password
+            </Button>
+            {hasPasswordAccount && (
+              <Button variant="ghost" size="sm" onClick={() => void handleResetPassword()} disabled={isResettingPassword}>
+                {isResettingPassword ? <LoadingSpinner size="sm" ariaLabel="Sending password reset email" /> : null}
+                Forgot password?
+              </Button>
+            )}
+          </div>
+          {lastChanged && <p className="mt-3" style={{ fontSize: 12.5, color: 'var(--dim)' }}>Last changed: {lastChanged}</p>}
+        </div>
+      </SettingSection>
+
+      {showMfa && (
+        <SettingSection title="Two-factor authentication" description="Add an extra layer of security. When enabled, you'll need your authenticator app to sign in.">
+          <SettingRow
+            label="Authenticator app"
+            description="Use an app like Google Authenticator, Authy, or 1Password to generate time-based codes."
+            controlClassName="min-w-[212px] justify-end"
           >
-            {isChangingPassword
-              ? t('settings:security.password.cancelButton')
-              : (hasPasswordAccount ? t('settings:security.password.changeButton') : t('settings:security.password.addPassword'))}
-          </Button>
-          {hasPasswordAccount && (
+            <SecurityBadge enabled={settings.twoFactorEnabled} />
+            <Button variant="ghost" size="sm"
+              onClick={() => settings.twoFactorEnabled ? setShowDisableMFAConfirm(true) : navigate(toSettingsPath('mfa-enrollment'))}>
+              {settings.twoFactorEnabled ? 'Disable' : 'Set up'}
+            </Button>
+          </SettingRow>
+          <SettingRow
+            label="Recovery codes"
+            description="One-time backup codes in case you lose access to your authenticator. Generate these after enabling 2FA."
+            controlClassName="min-w-[212px] justify-end"
+          >
             <Button
               variant="ghost"
               size="sm"
-              onClick={() => void handleResetPassword()}
-              disabled={isResettingPassword}
-              className="text-accent-600 dark:text-accent-400 hover:text-accent-700 dark:hover:text-accent-300"
+              onClick={handleGenerateRecoveryCodes}
+              disabled={!settings.twoFactorEnabled}
+              className={settings.twoFactorEnabled ? '' : 'opacity-40'}
             >
-              {isResettingPassword ? t('common:status.sending', { defaultValue: 'Sending…' }) : t('settings:security.password.resetButton')}
+              Generate codes
             </Button>
-          )}
-        </div>
-
-        <PasswordChangeForm
-          currentPassword={passwordForm.currentPassword}
-          newPassword={passwordForm.newPassword}
-          confirmPassword={passwordForm.confirmPassword}
-          onCurrentPasswordChange={(value) => handlePasswordChange('currentPassword', value)}
-          onNewPasswordChange={(value) => handlePasswordChange('newPassword', value)}
-          onConfirmPasswordChange={(value) => handlePasswordChange('confirmPassword', value)}
-          onSubmit={handleChangePassword}
-          onCancel={() => {
-            setIsChangingPassword(false);
-            setPasswordError(null);
-            setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' });
-          }}
-          isOpen={isChangingPassword}
-          isLoading={passwordSubmitting}
-          error={passwordError}
-          showCurrentPassword={hasPasswordAccount}
-          submitText={hasPasswordAccount ? t('settings:security.password.submit') : t('settings:security.password.addPassword')}
-        />
-      </SettingSection>
-
-      <SectionDivider />
-      {showMfa && (
-        <>
-          {/* Multi-factor authentication Section */}
-          <SettingToggle
-            label={t('settings:security.mfa.title')}
-            description={t('settings:security.mfa.description')}
-            value={settings.twoFactorEnabled}
-            onChange={(value) => handleToggleChange('twoFactorEnabled', value)}
-            id="mfa-toggle"
-          />
-
-          <SectionDivider />
-        </>
+          </SettingRow>
+        </SettingSection>
       )}
 
-      {/* Trusted Devices Section */}
-      <SettingRow
-        label={t('settings:security.trustedDevices.title')}
-        description={t('settings:security.trustedDevices.description')}
-      >
-        <SettingsHelperText
-          aria-label={t('settings:security.trustedDevices.comingSoonAria', { defaultValue: 'Trusted devices management is coming soon' })}
-        >
-          {t('settings:security.trustedDevices.comingSoon', { defaultValue: 'Coming soon' })}
-        </SettingsHelperText>
-      </SettingRow>
+      {/* Connected accounts */}
+      <SettingSection title="Connected accounts" description="Social sign-in providers linked to your account.">
+        {(() => {
+          const isLinked = linkedProviders.includes('google');
+          return (
+            <SettingRow
+              label="Google"
+              description="Sign in with your Google account instead of a password."
+              controlClassName="min-w-[212px] justify-end"
+            >
+              <SecurityBadge enabled={isLinked} onLabel="linked" offLabel="not linked" />
+              {!isLinked && (
+                <Button variant="ghost" size="sm"
+                  onClick={() => void handleLinkGoogle()} disabled={googleLinking}>
+                  {googleLinking ? 'Redirecting…' : 'Link Google'}
+                </Button>
+              )}
+            </SettingRow>
+          );
+        })()}
+      </SettingSection>
 
-      <SectionDivider />
-
-      {/* Log out of this device Section */}
-      <SettingRow
-        label={t('settings:security.logout.current.title')}
-      >
-        <Button
-          variant="secondary"
-          size="sm"
-          onClick={() => handleLogout('current')}
-        >
-          {t('settings:security.logout.current.button')}
+      <section className="mt-8 rounded-[20px] border border-[color:color-mix(in_oklab,var(--neg)_30%,var(--rule))] bg-[color:color-mix(in_oklab,var(--neg)_6%,var(--card))] px-5 py-5 sm:px-6">
+        <h3 className="font-serif text-2xl font-normal tracking-tight text-[var(--neg)]">Delete account</h3>
+        <p className="mt-1 max-w-[60ch] text-[13.5px] leading-relaxed text-ink-2">Permanently delete your Blawby account and all associated data. This removes you from the organization but does not delete the practice. Transfer ownership first if you&apos;re the sole owner.</p>
+        <Button variant="danger-ghost" size="sm" className="mt-3"
+          onClick={() => showError('Contact support', 'To delete your account, please contact support@blawby.com.')}>
+          Delete my account
         </Button>
-      </SettingRow>
+      </section>
 
-      <SectionDivider />
-
-      {/* Log out of all devices Section */}
-      <SettingRow
-        label={t('settings:security.logout.all.title')}
-        description={t('settings:security.logout.all.description')}
-      >
-        <SettingsDangerButton
-          size="sm"
-          onClick={() => handleLogout('all')}
-        >
-          {t('settings:security.logout.all.button')}
-        </SettingsDangerButton>
-      </SettingRow>
-
+      {/* MFA disable confirmation dialog */}
       {showMfa && (
-        <>
-          {/* MFA Disable Confirmation Modal */}
-          <Dialog
-            isOpen={showDisableMFAConfirm}
-            onClose={handleCancelDisableMFA}
-            title={t('settings:security.mfa.disable.modalTitle')}
-            description={t('settings:security.mfa.disable.description')}
-            showCloseButton={true}
-          >
-            <DialogBody className="space-y-4">
-              <div className="flex items-start gap-3">
-                <div className="flex-shrink-0">
-                  <Icon icon={AlertTriangle} className="w-6 h-6 text-orange-500"  />
-                </div>
-                <div className="flex-1">
-                  <h3 className="text-lg font-semibold text-input-text mb-2">
-                    {t('settings:security.mfa.disable.heading')}
-                  </h3>
-                </div>
-              </div>
-            </DialogBody>
-            <DialogFooter className="p-0">
-              <FormActions
-                className="w-full justify-end border-0 px-5 py-4 sm:px-6"
-                size="sm"
-                onCancel={handleCancelDisableMFA}
-                onSubmit={handleConfirmDisableMFA}
-                submitType="button"
-                submitVariant="warning"
-                cancelText={t('settings:security.mfa.disable.cancel')}
-                submitText={t('settings:security.mfa.disable.confirm')}
-              />
-            </DialogFooter>
-          </Dialog>
-        </>
+        <Dialog
+          isOpen={showDisableMFAConfirm}
+          onClose={() => setShowDisableMFAConfirm(false)}
+          title={t('settings:security.mfa.disable.modalTitle')}
+          description={t('settings:security.mfa.disable.description')}
+          showCloseButton
+        >
+          <DialogBody>
+            <div className="flex items-start gap-3">
+              <Icon icon={AlertTriangle} className="w-6 h-6 text-orange-500 shrink-0" />
+              <h3 className="text-base font-semibold text-ink">{t('settings:security.mfa.disable.heading')}</h3>
+            </div>
+          </DialogBody>
+          <DialogFooter className="p-0">
+            <FormActions
+              className="w-full justify-end border-0 px-5 py-4 sm:px-6"
+              size="sm"
+              onCancel={() => setShowDisableMFAConfirm(false)}
+              onSubmit={handleConfirmDisableMFA}
+              submitType="button"
+              submitVariant="warning"
+              cancelText={t('settings:security.mfa.disable.cancel')}
+              submitText={t('settings:security.mfa.disable.confirm')}
+            />
+          </DialogFooter>
+        </Dialog>
       )}
     </div>
   );

@@ -97,6 +97,7 @@ export interface EngagementListItem {
   conversation_id?: string | null;
   organization_id: string;
   contract_body?: string | null;
+  billing_snapshot?: unknown | null;
   engagement_notes?: string | null;
   sent_at?: string | null;
   accepted_at?: string | null;

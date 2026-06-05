@@ -128,7 +128,7 @@ Both patterns: spinner in the button is optional, but the disabled state and lab
 
 ## Persistence (sessionStorage-backed cache)
 
-`queryCache` writes to `sessionStorage` under key `blawby:queryCache:v1`. On page reload, hydrates non-evicted entries into the in-memory atom — so navigating back to a list shows data immediately instead of a loader. Cleared on `auth:session-cleared`. Versioned key so a deploy that changes data shapes can bump `v1` → `v2` to invalidate stored data.
+`queryCache` writes to `sessionStorage` under key `blawby:queryCache:v1`. On page reload, hydrates non-evicted entries into the in-memory atom — so navigating back to a list shows data immediately instead of a loader. Cleared explicitly by the sign-out flow. Versioned key so a deploy that changes data shapes can bump `v1` → `v2` to invalidate stored data.
 
 Quota/private-browsing failures are silent (try/catch); the in-memory cache stays authoritative. Don't use this for huge blobs.
 

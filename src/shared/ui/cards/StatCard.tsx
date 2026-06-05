@@ -16,15 +16,15 @@ export function StatCard({ label, value, trend, icon, className }: StatCardProps
     ? 'text-emerald-500'
     : trend?.direction === 'down'
       ? 'text-red-500'
-      : 'text-input-placeholder';
+      : 'text-dim-2';
 
   return (
     <div className={cn('panel p-4 rounded-2xl', className)}>
       <div className="flex items-start justify-between mb-2">
-        <span className="text-xs text-input-placeholder">{label}</span>
-        {icon && <span className="text-input-placeholder/60">{icon}</span>}
+        <span className="text-xs text-dim-2">{label}</span>
+        {icon && <span className="text-dim-2/60">{icon}</span>}
       </div>
-      <div className="text-2xl font-semibold text-input-text tabular-nums">{value}</div>
+      <div className="text-2xl font-semibold text-ink tabular-nums">{value}</div>
       {trend && (
         <div className={cn('flex items-center gap-1 mt-1.5', trendColor)}>
           <TrendIcon size={13} />

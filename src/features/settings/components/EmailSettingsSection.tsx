@@ -26,8 +26,8 @@ export const EmailSettingsSection = ({
     <SettingSection title={title} className={className}>
       {/* Email Address */}
       <div className="flex items-center gap-3 py-3">
-        <Icon icon={Mail} className="w-4 h-4 text-input-placeholder"  />
-        <span className="text-sm text-input-text">
+        <Icon icon={Mail} className="w-4 h-4 text-dim-2"  />
+        <span className="text-sm text-ink">
           {email}
         </span>
       </div>
@@ -40,9 +40,9 @@ export const EmailSettingsSection = ({
             id="feedback-emails"
             checked={receiveFeedbackEmails}
             onChange={(e) => onFeedbackChange(e.currentTarget.checked)}
-            className="w-4 h-4 text-accent-500 bg-transparent border-line-glass/30 rounded focus:ring-accent-500 focus:ring-2"
+            className="w-4 h-4 text-accent bg-transparent border-line-subtle rounded focus:ring-accent focus:ring-2"
           />
-          <label htmlFor="feedback-emails" className="text-sm text-input-text cursor-pointer">
+          <label htmlFor="feedback-emails" className="text-sm text-ink cursor-pointer">
             {feedbackLabel}
           </label>
         </div>

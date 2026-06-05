@@ -94,19 +94,19 @@ const ConversationalCorrection: FunctionComponent<ConversationalCorrectionProps>
       {correctionRequests.map((request, index) => (
         <div key={request.field} className="card p-4">
           <div className="flex items-start gap-3">
-            <div className="w-8 h-8 bg-accent-100 rounded-full flex items-center justify-center flex-shrink-0">
-              <span className="text-accent-600 font-semibold text-sm">{index + 1}</span>
+            <div className="w-8 h-8 bg-accent/20 rounded-full flex items-center justify-center flex-shrink-0">
+              <span className="text-accent font-semibold text-sm">{index + 1}</span>
             </div>
             <div className="flex-1">
-              <p className="text-sm text-input-text mb-2">{request.question}</p>
+              <p className="text-sm text-ink mb-2">{request.question}</p>
               
               {request.examples && request.examples.length > 0 && (
-                <div className="text-xs text-input-placeholder mb-3">
+                <div className="text-xs text-dim-2 mb-3">
                   Examples: {request.examples.join(', ')}
                 </div>
               )}
               
-              <div className="text-xs text-accent-600">
+              <div className="text-xs text-accent">
                 Type your response in the chat above
               </div>
             </div>

@@ -1,0 +1,600 @@
+<!doctype html>
+<html lang="en" data-theme="">
+<head>
+<meta charset="utf-8" />
+<title>Blawby — Invoices</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,opsz,wght@0,8..60,300..900;1,8..60,300..900&family=Geist:wght@300;400;500;600;700&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="tokens.css">
+<style>
+  body{ background-image: radial-gradient(rgba(15,30,54,0.025) 1px, transparent 1.2px); background-size: 3px 3px; background-attachment: fixed; }
+
+  .shell{ display:grid; grid-template-columns: 240px 1fr; min-height: 100vh; max-width: 1520px; margin: 0 auto; }
+
+  /* === reused rail === */
+  .rail{ border-right: 1px solid var(--rule); padding: 22px 16px; display:flex; flex-direction:column; gap: 18px; position: sticky; top:0; height: 100vh; background: color-mix(in oklab, var(--paper) 96%, var(--card)); }
+  .rail .meta{ font-family:var(--mono); font-size:10px; letter-spacing:.06em; text-transform:uppercase; color: var(--dim); margin-top:-8px; padding-left:30px; }
+  .new-btn{ width:100%; background:var(--ink); color:var(--paper); border:1px solid var(--ink); border-radius:var(--r-xs); padding:11px 14px; font-size:13px; font-weight:500; display:flex; align-items:center; justify-content:space-between; cursor:pointer; transition:all .18s; }
+  .new-btn:hover{ background:var(--accent); color:var(--accent-ink); border-color:var(--accent); }
+  .new-btn kbd{ font-family:var(--mono); font-size:10px; background:rgba(255,255,255,.12); color:var(--paper-2); padding:2px 6px; border-radius:3px; }
+  .new-btn:hover kbd{ background:rgba(0,0,0,.12); color:var(--accent-ink); }
+  .rail-section{ display:flex; flex-direction:column; gap:2px; }
+  .rail-label{ font-family:var(--mono); font-size:9.5px; letter-spacing:.12em; text-transform:uppercase; color:var(--dim-2); padding:0 8px 4px; }
+  .rail-item{ display:flex; align-items:center; gap:10px; padding:7px 10px; border-radius:var(--r-xs); font-size:13px; color:var(--ink-2); cursor:pointer; transition: background .12s; }
+  .rail-item:hover{ background:var(--rule-soft); color:var(--ink); }
+  .rail-item.on{ background:var(--ink); color:var(--accent); }
+  .rail-item .dot{ width:6px; height:6px; border-radius:50%; background:var(--dim-2); flex-shrink:0; }
+  .rail-item.on .dot{ background: var(--accent); }
+  .rail-item .badge{ margin-left:auto; font-family: var(--mono); font-size: 10px; color: var(--dim); }
+  .rail-item.on .badge{ color: var(--accent); }
+  .user-chip{ margin-top:auto; display:flex; align-items:center; gap:10px; padding:9px 10px; border-radius:var(--r-xs); border:1px solid var(--rule); background:var(--card); cursor:pointer; }
+  .user-chip .who{ font-size:12.5px; line-height:1.2; }
+  .user-chip .who small{ display:block; color:var(--dim); font-size:10.5px; }
+
+  /* page */
+  .page{ display:grid; grid-template-columns: 380px 1fr; min-height: 100vh; }
+
+  /* invoice list (left) */
+  .list-col{ border-right: 1px solid var(--rule); display:flex; flex-direction: column; background: color-mix(in oklab, var(--paper) 98%, var(--card)); }
+  .list-head{
+    padding: 22px 22px 14px; border-bottom: 1px solid var(--rule);
+  }
+  .list-head .crumb{ font-family: var(--mono); font-size: 10px; letter-spacing: .14em; text-transform: uppercase; color: var(--dim); }
+  .list-head h1{ font-family: var(--serif); font-weight: 400; font-size: 34px; letter-spacing: -.02em; margin: 4px 0 0; line-height: 1; }
+  .list-head h1 em{ color: var(--accent); }
+  .list-head .stats{
+    margin-top: 12px; display:flex; gap: 14px;
+    font-family: var(--mono); font-size: 10.5px; color: var(--dim); letter-spacing: .04em; text-transform: uppercase;
+  }
+  .list-head .stats b{ color: var(--ink); font-family: var(--sans); font-size: 14px; font-weight: 500; letter-spacing: 0; text-transform: none; display:block; }
+
+  .filter-tabs{
+    display:flex; gap: 4px; padding: 10px 22px; border-bottom: 1px solid var(--rule);
+    background: var(--paper-2); overflow-x: auto;
+  }
+  .filter-tab{
+    display:inline-flex; align-items: center; gap: 6px;
+    padding: 6px 10px; border-radius: var(--r-xs);
+    font-family: var(--sans); font-size: 12px; cursor: pointer;
+    border: 1px solid transparent;
+    color: var(--ink-2);
+    flex-shrink: 0;
+  }
+  .filter-tab:hover{ background: var(--card); }
+  .filter-tab.on{ background: var(--card); border-color: var(--rule); color: var(--ink); }
+  .filter-tab .ct{ font-family: var(--mono); font-size: 10px; color: var(--dim); }
+  .filter-tab.on .ct{ color: var(--ink-2); }
+
+  /* invoice row */
+  .inv-list{ flex: 1; overflow-y: auto; }
+  .inv-row{
+    padding: 14px 22px; border-bottom: 1px solid var(--rule);
+    cursor: pointer;
+    display:flex; flex-direction: column; gap: 6px;
+    transition: background .12s;
+    position: relative;
+  }
+  .inv-row:hover{ background: var(--rule-soft); }
+  .inv-row.on{ background: var(--card); }
+  .inv-row.on::before{
+    content:""; position: absolute; left: 0; top: 8px; bottom: 8px; width: 3px;
+    background: var(--accent); border-radius: 0 2px 2px 0;
+  }
+  .inv-row .top{ display:flex; justify-content: space-between; align-items: baseline; gap: 10px; }
+  .inv-row .top .who{ font-family: var(--serif); font-size: 17px; letter-spacing: -.005em; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .inv-row .top .amt{ font-family: var(--mono); font-size: 14px; font-feature-settings: "tnum"; letter-spacing: -.01em; }
+  .inv-row .mid{
+    font-family: var(--mono); font-size: 11px; color: var(--dim); letter-spacing: .02em;
+    display:flex; gap: 10px; align-items: center;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .inv-row .mid b{ font-family: var(--sans); color: var(--ink-2); font-weight: 500; letter-spacing: 0; }
+  .inv-row .bot{ display:flex; justify-content: space-between; align-items: center; gap: 8px; }
+  .inv-row .bot .pill{ font-size: 9.5px; }
+
+  /* status pills */
+  .pill.draft{ color: var(--dim); }
+  .pill.draft::before{ content:""; width: 5px; height: 5px; border-radius: 50%; background: var(--dim-2); }
+  .pill.sent{ color: var(--accent-deep); background: color-mix(in oklab, var(--accent) 10%, var(--card)); border-color: color-mix(in oklab, var(--accent) 30%, var(--rule)); }
+  .pill.sent::before{ content:""; width: 5px; height: 5px; border-radius: 50%; background: var(--accent); }
+  .pill.paid{ color: var(--pos); background: color-mix(in oklab, var(--pos) 10%, var(--card)); border-color: color-mix(in oklab, var(--pos) 30%, var(--rule)); }
+  .pill.paid::before{ content:""; width: 5px; height: 5px; border-radius: 50%; background: var(--pos); }
+  .pill.overdue{ color: var(--neg); background: color-mix(in oklab, var(--neg) 10%, var(--card)); border-color: color-mix(in oklab, var(--neg) 30%, var(--rule)); }
+  .pill.overdue::before{ content:""; width: 5px; height: 5px; border-radius: 50%; background: var(--neg); }
+  .pill.staged{ color: var(--warn); background: color-mix(in oklab, var(--warn) 10%, var(--card)); border-color: color-mix(in oklab, var(--warn) 30%, var(--rule)); }
+  .pill.staged::before{ content:""; width: 5px; height: 5px; border-radius: 50%; background: var(--warn); }
+
+  /* ============ detail (right) ============ */
+  .detail-col{ overflow-y: auto; min-width: 0; background: var(--paper); }
+  .detail-head{
+    padding: 22px 36px 18px;
+    border-bottom: 1px solid var(--rule);
+    background: color-mix(in oklab, var(--paper) 96%, var(--card));
+    display:flex; align-items: center; gap: 16px;
+    position: sticky; top: 0; z-index: 5;
+  }
+  .detail-head .breadcrumb{ display:flex; flex-direction: column; gap: 2px; flex: 1; }
+  .detail-head .breadcrumb .crumb{ font-family: var(--mono); font-size: 10px; letter-spacing: .14em; text-transform: uppercase; color: var(--dim); }
+  .detail-head .breadcrumb h2{ font-family: var(--serif); font-weight: 400; font-size: 24px; margin: 0; line-height: 1.1; letter-spacing: -.012em; }
+  .detail-head .acts{ display:flex; gap: 8px; align-items: center; }
+
+  /* AI staged */
+  .staged-bar{
+    margin: 18px 36px 0;
+    background: linear-gradient(180deg, color-mix(in oklab, var(--accent) 18%, var(--card)), color-mix(in oklab, var(--accent) 8%, var(--card)));
+    border: 1px solid color-mix(in oklab, var(--accent) 40%, var(--rule));
+    border-radius: var(--r-md);
+    padding: 14px 18px;
+    display:grid; grid-template-columns: 32px 1fr auto; gap: 14px; align-items: center;
+    box-shadow: 0 1px 0 rgba(255,255,255,.6) inset, 0 8px 24px -16px color-mix(in oklab, var(--accent-deep) 50%, transparent);
+  }
+  .staged-bar .av{ width: 32px; height: 32px; border-radius: 50%; background: var(--ink); color: var(--accent); display:grid; place-items:center; font-family: var(--serif); font-style: italic; font-size: 16px; }
+  .staged-bar .lab{ font-family: var(--mono); font-size: 10px; letter-spacing: .12em; text-transform: uppercase; color: var(--accent-deep); }
+  .staged-bar .txt{ font-family: var(--serif); font-size: 16px; line-height: 1.4; color: var(--ink); margin-top: 2px; }
+  .staged-bar .acts{ display:flex; gap: 6px; }
+
+  /* invoice doc */
+  .doc-wrap{ padding: 28px 36px 60px; }
+  .doc{
+    background: white;
+    max-width: 760px; margin: 0 auto;
+    padding: 56px 60px;
+    color: #15140F;
+    border: 1px solid var(--rule); border-radius: var(--r-xs);
+    box-shadow: 0 32px 80px -48px rgba(15,30,54,.4);
+    font-family: var(--serif); font-size: 14px;
+  }
+  .doc .top{
+    display:flex; justify-content: space-between; align-items: flex-start;
+    padding-bottom: 22px; border-bottom: 1px solid #d3d6df;
+    margin-bottom: 28px;
+  }
+  .doc .firm{ font-family: var(--serif); font-size: 22px; letter-spacing: -.012em; line-height: 1; color: #0f1e36; }
+  .doc .firm em{ color: oklch(0.55 0.12 78); }
+  .doc .firm-meta{ font-family: var(--sans); font-size: 11.5px; line-height: 1.5; color: #6b7790; margin-top: 8px; }
+  .doc .inv-meta{ text-align: right; }
+  .doc .inv-meta .label{ font-family: var(--mono); font-size: 10px; letter-spacing: .12em; text-transform: uppercase; color: #6b7790; }
+  .doc .inv-meta .num{ font-family: var(--serif); font-size: 32px; letter-spacing: -.012em; margin-top: 4px; line-height: 1; }
+  .doc .inv-meta .date{ font-family: var(--sans); font-size: 12px; color: #6b7790; margin-top: 8px; }
+  .doc h3.sub{
+    font-family: var(--mono); font-size: 10.5px; letter-spacing: .12em; text-transform: uppercase;
+    color: #6b7790; margin: 0 0 10px;
+  }
+  .doc .billto{ display:grid; grid-template-columns: 1fr 1fr 1fr; gap: 24px; margin-bottom: 32px; padding-bottom: 24px; border-bottom: 1px solid #d3d6df; }
+  .doc .billto .col h3.sub{ margin-bottom: 6px; }
+  .doc .billto .col p{ margin: 0; font-family: var(--serif); font-size: 14px; line-height: 1.45; color: #15140F; }
+  .doc .billto .col p .m{ font-family: var(--mono); font-size: 11px; color: #6b7790; }
+
+  /* line items */
+  .lines{ width: 100%; border-collapse: collapse; margin-bottom: 24px; }
+  .lines th{
+    font-family: var(--mono); font-size: 10px; letter-spacing: .12em; text-transform: uppercase;
+    color: #6b7790; font-weight: 400; text-align: left; padding: 0 0 10px;
+    border-bottom: 1px solid #15140F;
+  }
+  .lines td{
+    padding: 12px 0; border-bottom: 1px solid #d3d6df;
+    vertical-align: top; font-size: 14px;
+  }
+  .lines td.num{ font-family: var(--mono); text-align: right; font-feature-settings: "tnum"; letter-spacing: -.01em; }
+  .lines td .desc{ font-family: var(--serif); }
+  .lines td .when{ font-family: var(--mono); font-size: 11px; color: #6b7790; margin-top: 2px; letter-spacing: .04em; text-transform: uppercase; }
+  .lines tr.subtotal td{ border-bottom: none; padding: 10px 0 4px; color: #6b7790; }
+  .lines tr.total td{ border-top: 1px solid #15140F; padding: 14px 0 0; font-family: var(--serif); font-size: 18px; }
+  .lines tr.total td:last-child{ font-size: 22px; font-feature-settings: "tnum"; }
+
+  /* payment status box */
+  .pay-status{
+    background: #f6f3ea;
+    border: 1px solid #d3d6df; border-radius: 4px;
+    padding: 14px 18px;
+    margin-top: 28px;
+    display:grid; grid-template-columns: 1fr 1fr; gap: 14px;
+  }
+  .pay-status .col{ display:flex; flex-direction: column; gap: 4px; }
+  .pay-status .col .l{ font-family: var(--mono); font-size: 10px; letter-spacing: .12em; text-transform: uppercase; color: #6b7790; }
+  .pay-status .col .v{ font-family: var(--serif); font-size: 16px; line-height: 1.1; }
+
+  /* footer */
+  .doc-foot{ display:flex; justify-content: space-between; align-items: flex-end; margin-top: 32px; padding-top: 18px; border-top: 1px solid #d3d6df; }
+  .doc-foot .note{ font-family: var(--serif); font-size: 13px; color: #6b7790; max-width: 50ch; line-height: 1.5; }
+  .doc-foot .meta{ font-family: var(--mono); font-size: 10.5px; color: #6b7790; letter-spacing: .04em; text-align: right; line-height: 1.6; }
+
+  /* side audit */
+  .audit-side{
+    max-width: 760px; margin: 22px auto 0;
+    background: var(--card); border: 1px solid var(--rule); border-radius: var(--r-md);
+    padding: 14px 22px;
+  }
+  .audit-side h4{ font-family: var(--serif); font-size: 17px; margin: 0 0 6px; font-weight: 400; }
+  .audit-side .row{ display:grid; grid-template-columns: 80px 1fr; gap: 14px; padding: 10px 0; border-bottom: 1px dotted var(--rule); font-size: 12.5px; align-items: flex-start; }
+  .audit-side .row:last-child{ border-bottom: none; }
+  .audit-side .row .w{ font-family: var(--mono); font-size: 10.5px; color: var(--dim); letter-spacing: .04em; text-transform: uppercase; }
+  .audit-side .row .t{ color: var(--ink-2); line-height: 1.5; }
+  .audit-side .row .t b{ color: var(--ink); font-weight: 500; }
+  .audit-side .row .t code{ font-family: var(--mono); font-size: 11px; background: var(--rule-soft); padding: 1px 5px; border-radius: 3px; }
+
+  @media (max-width: 1080px){
+    .page{ grid-template-columns: 1fr; }
+    .list-col{ display: none; }
+  }
+</style>
+</head>
+<body>
+
+<div class="shell">
+
+  <aside class="rail">
+    <div class="brand-mark">
+      <span class="brand-mark-glyph">B</span>
+      <span class="brand-mark-word" style="font-family:var(--sans);font-weight:500">Blawby</span>
+    </div>
+    <div class="meta">Demo Owner Local · solo</div>
+    <button class="new-btn" onclick="location.href='Assistant.html'">
+      <span>＋  New conversation</span>
+      <kbd>⌘N</kbd>
+    </button>
+
+    <div class="rail-section">
+      <div class="rail-label">Workspace</div>
+      <div class="rail-item"><span class="dot"></span><a href="Matters.html" style="color:inherit">Matters</a> <span class="badge">4</span></div>
+      <div class="rail-item"><span class="dot"></span>Intakes <span class="badge">3</span></div>
+      <div class="rail-item"><span class="dot"></span><a href="Trust.html" style="color:inherit">Trust ledger</a></div>
+      <div class="rail-item on"><span class="dot"></span>Invoices <span class="badge">9</span></div>
+      <div class="rail-item"><span class="dot"></span>Files</div>
+    </div>
+    <div class="rail-section">
+      <div class="rail-label">Account</div>
+      <div class="rail-item"><span class="dot" style="background:transparent;border:1px solid var(--dim-2)"></span><a href="Settings.html" style="color:inherit">Settings</a></div>
+    </div>
+    <div class="user-chip">
+      <div class="avatar user">DO</div>
+      <div class="who">Demo Owner<small>solo · NC bar #45382</small></div>
+    </div>
+  </aside>
+
+  <!-- ============ list + detail ============ -->
+  <div class="page">
+
+    <!-- LIST -->
+    <aside class="list-col">
+      <div class="list-head">
+        <div class="crumb">Workspace · 9 invoices</div>
+        <h1>Invoices</h1>
+        <div class="stats">
+          <span style="display:flex;flex-direction:column;gap:2px"><span style="font-family:var(--mono);font-size:10px;color:var(--dim);letter-spacing:.04em">outstanding</span><b>$3,200</b></span>
+          <span style="display:flex;flex-direction:column;gap:2px"><span style="font-family:var(--mono);font-size:10px;color:var(--dim);letter-spacing:.04em">paid 30d</span><b>$7,945</b></span>
+          <span style="display:flex;flex-direction:column;gap:2px"><span style="font-family:var(--mono);font-size:10px;color:var(--dim);letter-spacing:.04em">overdue</span><b style="color:var(--neg)">$420</b></span>
+        </div>
+      </div>
+
+      <div class="filter-tabs">
+        <span class="filter-tab on">All <span class="ct">9</span></span>
+        <span class="filter-tab">Staged <span class="ct">1</span></span>
+        <span class="filter-tab">Sent <span class="ct">2</span></span>
+        <span class="filter-tab">Paid <span class="ct">5</span></span>
+        <span class="filter-tab">Overdue <span class="ct">1</span></span>
+      </div>
+
+      <div class="inv-list">
+
+        <div class="inv-row on">
+          <div class="top">
+            <div class="who">Bob Martinez</div>
+            <div class="amt">$1,245.00</div>
+          </div>
+          <div class="mid">
+            INV-0192 · Auto Injury · <b>5 lines · 8.3h</b>
+          </div>
+          <div class="bot">
+            <span class="pill staged">staged by AI</span>
+            <span style="font-family:var(--mono);font-size:10px;color:var(--dim);letter-spacing:.04em;text-transform:uppercase">draft · 8m ago</span>
+          </div>
+        </div>
+
+        <div class="inv-row">
+          <div class="top">
+            <div class="who">Alice Johnson</div>
+            <div class="amt">$1,800.00</div>
+          </div>
+          <div class="mid">INV-0188 · Estate Plan · milestone 1 of 3</div>
+          <div class="bot">
+            <span class="pill paid">paid</span>
+            <span style="font-family:var(--mono);font-size:10px;color:var(--dim);letter-spacing:.04em;text-transform:uppercase">Nov 25</span>
+          </div>
+        </div>
+
+        <div class="inv-row">
+          <div class="top">
+            <div class="who">Demo Client Local</div>
+            <div class="amt">$2,400.00</div>
+          </div>
+          <div class="mid">INV-0184 · Separation Agreement · monthly</div>
+          <div class="bot">
+            <span class="pill sent">sent · awaiting payment</span>
+            <span style="font-family:var(--mono);font-size:10px;color:var(--dim);letter-spacing:.04em;text-transform:uppercase">3d · due Dec 2</span>
+          </div>
+        </div>
+
+        <div class="inv-row">
+          <div class="top">
+            <div class="who">Garza Family</div>
+            <div class="amt">$800.00</div>
+          </div>
+          <div class="mid">INV-0179 · Estate · filing fees + work</div>
+          <div class="bot">
+            <span class="pill paid">paid</span>
+            <span style="font-family:var(--mono);font-size:10px;color:var(--dim);letter-spacing:.04em;text-transform:uppercase">Nov 14</span>
+          </div>
+        </div>
+
+        <div class="inv-row">
+          <div class="top">
+            <div class="who">Patel · Singh PLLC</div>
+            <div class="amt">$420.00</div>
+          </div>
+          <div class="mid">INV-0175 · Small business · advisory hours</div>
+          <div class="bot">
+            <span class="pill overdue">overdue · 18d</span>
+            <span style="font-family:var(--mono);font-size:10px;color:var(--dim);letter-spacing:.04em;text-transform:uppercase">Oct 30</span>
+          </div>
+        </div>
+
+        <div class="inv-row">
+          <div class="top">
+            <div class="who">Bob Martinez</div>
+            <div class="amt">$675.00</div>
+          </div>
+          <div class="mid">INV-0168 · Auto Injury · prior work</div>
+          <div class="bot">
+            <span class="pill paid">paid</span>
+            <span style="font-family:var(--mono);font-size:10px;color:var(--dim);letter-spacing:.04em;text-transform:uppercase">Oct 18</span>
+          </div>
+        </div>
+
+        <div class="inv-row">
+          <div class="top">
+            <div class="who">Alice Johnson</div>
+            <div class="amt">$1,800.00</div>
+          </div>
+          <div class="mid">INV-0162 · Estate Plan · 1 of 3 (deposit)</div>
+          <div class="bot">
+            <span class="pill paid">paid</span>
+            <span style="font-family:var(--mono);font-size:10px;color:var(--dim);letter-spacing:.04em;text-transform:uppercase">Oct 12</span>
+          </div>
+        </div>
+
+        <div class="inv-row" style="opacity:.6">
+          <div class="top">
+            <div class="who">[two more · scroll]</div>
+            <div class="amt"></div>
+          </div>
+        </div>
+
+      </div>
+    </aside>
+
+    <!-- DETAIL -->
+    <main class="detail-col">
+
+      <div class="detail-head">
+        <div class="breadcrumb">
+          <div class="crumb">Invoice · INV-0192 · draft</div>
+          <h2>Auto Injury — Bob Martinez</h2>
+        </div>
+        <div class="acts">
+          <button class="btn btn-ghost btn-sm">Edit lines</button>
+          <button class="btn btn-ghost btn-sm">Download PDF</button>
+          <button class="btn btn-primary">Approve &amp; send ↗</button>
+        </div>
+      </div>
+
+      <!-- staged by AI -->
+      <div class="staged-bar">
+        <div class="av">B</div>
+        <div>
+          <div class="lab">Staged by assistant · awaits your approval</div>
+          <div class="txt">I aggregated <b>5 unbilled time entries</b> on Auto Injury from Nov 14–22 (8.3h @ $150). Paying this from retainer drops it to <b>$1,005</b> — that's below your 30% replenish threshold, so I've staged a $2,500 replenish request too.</div>
+        </div>
+        <div class="acts">
+          <button class="chip primary">Approve &amp; send</button>
+          <button class="chip">Send replenish too</button>
+          <button class="chip">Edit</button>
+          <button class="chip warn">Discard</button>
+        </div>
+      </div>
+
+      <div class="doc-wrap">
+
+        <div class="doc">
+          <div class="top">
+            <div>
+              <div class="firm">Law Offices of <em>Sarah Chen</em>, PLLC</div>
+              <div class="firm-meta">
+                201 S Tryon St, Suite 1200<br>
+                Charlotte, NC 28202 · NC Bar #45382<br>
+                (704) 555-0184 · sarah@chenlaw.com
+              </div>
+            </div>
+            <div class="inv-meta">
+              <div class="label">Invoice</div>
+              <div class="num">INV-0192</div>
+              <div class="date">Issued November 25, 2026 · Due on receipt</div>
+            </div>
+          </div>
+
+          <div class="billto">
+            <div class="col">
+              <h3 class="sub">Billed to</h3>
+              <p>
+                Bob Martinez<br>
+                <span class="m">(704) 555-0143</span><br>
+                <span class="m">bmartinez.client@example.com</span>
+              </p>
+            </div>
+            <div class="col">
+              <h3 class="sub">Matter</h3>
+              <p>
+                Auto Injury<br>
+                <span class="m">BLB-0241 · personal injury</span><br>
+                <span class="m">opened Oct 04, 2026</span>
+              </p>
+            </div>
+            <div class="col">
+              <h3 class="sub">Period</h3>
+              <p>
+                Nov 14 – Nov 22<br>
+                <span class="m">5 time entries · 8.3h</span><br>
+                <span class="m">draws from IOLTA retainer</span>
+              </p>
+            </div>
+          </div>
+
+          <h3 class="sub">Services rendered</h3>
+          <table class="lines">
+            <thead>
+              <tr>
+                <th>Description</th>
+                <th style="text-align:right; width: 80px">Hours</th>
+                <th style="text-align:right; width: 80px">Rate</th>
+                <th style="text-align:right; width: 100px">Amount</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>
+                  <div class="desc">Call with State Farm adjuster · clarified medical authorization scope</div>
+                  <div class="when">Nov 22, 2026 · 2:15pm</div>
+                </td>
+                <td class="num">0.5</td>
+                <td class="num">$150.00</td>
+                <td class="num">$75.00</td>
+              </tr>
+              <tr>
+                <td>
+                  <div class="desc">Drafted demand letter to State Farm</div>
+                  <div class="when">Nov 19, 2026</div>
+                </td>
+                <td class="num">2.8</td>
+                <td class="num">$150.00</td>
+                <td class="num">$420.00</td>
+              </tr>
+              <tr>
+                <td>
+                  <div class="desc">Reviewed medical records from CMC Main</div>
+                  <div class="when">Nov 18, 2026</div>
+                </td>
+                <td class="num">1.5</td>
+                <td class="num">$150.00</td>
+                <td class="num">$225.00</td>
+              </tr>
+              <tr>
+                <td>
+                  <div class="desc">Strategy call with client · settlement floor &amp; timing</div>
+                  <div class="when">Nov 16, 2026 · 10am</div>
+                </td>
+                <td class="num">1.0</td>
+                <td class="num">$150.00</td>
+                <td class="num">$150.00</td>
+              </tr>
+              <tr>
+                <td>
+                  <div class="desc">Intake summary &amp; case opening (AI-generated, reviewed)</div>
+                  <div class="when">Nov 14, 2026</div>
+                </td>
+                <td class="num">2.5</td>
+                <td class="num">$150.00</td>
+                <td class="num">$375.00</td>
+              </tr>
+              <tr class="subtotal">
+                <td></td>
+                <td class="num"><b>8.3</b></td>
+                <td class="num" style="font-family:var(--mono); font-size: 11px; letter-spacing: .04em; text-transform: uppercase">Subtotal</td>
+                <td class="num">$1,245.00</td>
+              </tr>
+              <tr class="subtotal">
+                <td></td>
+                <td></td>
+                <td class="num" style="font-family:var(--mono); font-size: 11px; letter-spacing: .04em; text-transform: uppercase">Tax</td>
+                <td class="num">—</td>
+              </tr>
+              <tr class="total">
+                <td></td>
+                <td></td>
+                <td>Total due</td>
+                <td class="num">$1,245.00</td>
+              </tr>
+            </tbody>
+          </table>
+
+          <div class="pay-status">
+            <div class="col">
+              <div class="l">Source of payment</div>
+              <div class="v">IOLTA trust retainer</div>
+              <div style="font-family:var(--mono); font-size: 11px; color: #6b7790; letter-spacing: .02em">$2,250.00 → $1,005.00 after this invoice</div>
+            </div>
+            <div class="col">
+              <div class="l">Stripe</div>
+              <div class="v" style="display:flex; align-items:center; gap: 8px">
+                <span style="width:14px;height:14px;background:#635BFF;color:white;border-radius:2px;display:inline-grid;place-items:center;font-family:var(--sans);font-size:9px;font-weight:700">S</span>
+                Card &amp; ACH enabled
+              </div>
+              <div style="font-family:var(--mono); font-size: 11px; color: #6b7790; letter-spacing: .02em">platform fee ~1.337% if client pays directly</div>
+            </div>
+          </div>
+
+          <div class="doc-foot">
+            <div class="note">
+              Thank you for your trust. Questions? Reply to this email or message me at any time in your client portal.
+            </div>
+            <div class="meta">
+              Generated by Blawby<br>
+              <span style="text-transform:none;font-family:var(--sans);font-size:11px">blawby.com/p/sarah-chen-law</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="audit-side">
+          <h4>Activity</h4>
+          <div class="row">
+            <div class="w">8m ago</div>
+            <div class="t"><b>Practice assistant</b> · staged invoice <code>INV-0192</code> from 5 unbilled time entries (8.3h on Auto Injury, Nov 14–22).</div>
+          </div>
+          <div class="row">
+            <div class="w">Nov 22</div>
+            <div class="t"><b>Sarah Chen</b> · logged time entry · 0.5h · call with adjuster.</div>
+          </div>
+          <div class="row">
+            <div class="w">Nov 19</div>
+            <div class="t"><b>Sarah Chen</b> · logged time entry · 2.8h · demand letter draft.</div>
+          </div>
+          <div class="row">
+            <div class="w">Nov 18</div>
+            <div class="t"><b>Sarah Chen</b> · logged time entry · 1.5h · records review.</div>
+          </div>
+        </div>
+
+      </div>
+
+    </main>
+  </div>
+
+</div>
+
+<script>
+  document.querySelectorAll('.filter-tab').forEach(t=>{
+    t.addEventListener('click', ()=>{
+      document.querySelectorAll('.filter-tab').forEach(x=>x.classList.remove('on'));
+      t.classList.add('on');
+    });
+  });
+  document.querySelectorAll('.inv-row').forEach(r=>{
+    r.addEventListener('click', ()=>{
+      document.querySelectorAll('.inv-row').forEach(x=>x.classList.remove('on'));
+      r.classList.add('on');
+    });
+  });
+</script>
+</body>
+</html>

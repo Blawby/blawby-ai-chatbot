@@ -64,7 +64,7 @@ export const UploadSurface = ({
           ))}
         </div>
       ) : emptyStateLabel ? (
-        <div className="mt-3 rounded-xl border border-line-glass/15 px-3 py-4 text-center text-sm text-input-placeholder">
+        <div className="mt-3 rounded-r-md border border-line-subtle px-3 py-4 text-center text-sm text-dim-2">
           {emptyStateLabel}
         </div>
       ) : null}

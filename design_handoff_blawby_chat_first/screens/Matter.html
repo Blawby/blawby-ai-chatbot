@@ -1,0 +1,769 @@
+<!doctype html>
+<html lang="en" data-theme="">
+<head>
+<meta charset="utf-8" />
+<title>Blawby — Auto Injury · Martinez</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,opsz,wght@0,8..60,300..900;1,8..60,300..900&family=Geist:wght@300;400;500;600;700&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="tokens.css">
+<style>
+  body{ background-image: radial-gradient(rgba(15,30,54,0.025) 1px, transparent 1.2px); background-size: 3px 3px; background-attachment: fixed; }
+
+  .shell{ display:grid; grid-template-columns: 240px 1fr; min-height: 100vh; max-width: 1520px; margin: 0 auto; }
+
+  /* rail (reused) */
+  .rail{ border-right: 1px solid var(--rule); padding: 22px 16px; display:flex; flex-direction:column; gap: 18px; position: sticky; top:0; height: 100vh; background: color-mix(in oklab, var(--paper) 96%, var(--card)); }
+  .rail .meta{ font-family:var(--mono); font-size:10px; letter-spacing:.06em; text-transform:uppercase; color: var(--dim); margin-top:-8px; padding-left:30px; }
+  .new-btn{ width:100%; background:var(--ink); color:var(--paper); border:1px solid var(--ink); border-radius:var(--r-xs); padding:11px 14px; font-size:13px; font-weight:500; display:flex; align-items:center; justify-content:space-between; cursor:pointer; transition:all .18s; }
+  .new-btn:hover{ background:var(--accent); color:var(--accent-ink); border-color:var(--accent); }
+  .new-btn kbd{ font-family:var(--mono); font-size:10px; background:rgba(255,255,255,.12); color:var(--paper-2); padding:2px 6px; border-radius:3px; }
+  .rail-section{ display:flex; flex-direction:column; gap:2px; }
+  .rail-label{ font-family:var(--mono); font-size:9.5px; letter-spacing:.12em; text-transform:uppercase; color:var(--dim-2); padding:0 8px 4px; }
+  .rail-item{ display:flex; align-items:center; gap:10px; padding:7px 10px; border-radius:var(--r-xs); font-size:13px; color:var(--ink-2); cursor:pointer; transition: background .12s; }
+  .rail-item:hover{ background:var(--rule-soft); color:var(--ink); }
+  .rail-item.on{ background:var(--ink); color:var(--accent); }
+  .rail-item .dot{ width:6px; height:6px; border-radius:50%; background:var(--dim-2); flex-shrink:0; }
+  .rail-item.on .dot{ background: var(--accent); }
+  .rail-item .badge{ margin-left:auto; font-family: var(--mono); font-size: 10px; color: var(--dim); }
+  .rail-item.on .badge{ color: var(--accent); }
+  .user-chip{ margin-top:auto; display:flex; align-items:center; gap:10px; padding:9px 10px; border-radius:var(--r-xs); border:1px solid var(--rule); background:var(--card); cursor:pointer; }
+  .user-chip .who{ font-size:12.5px; line-height:1.2; }
+  .user-chip .who small{ display:block; color:var(--dim); font-size:10.5px; }
+
+  /* ============= main ============= */
+  .main{ min-width: 0; }
+
+  /* matter header */
+  .matter-head{
+    padding: 28px 40px 22px;
+    border-bottom: 1px solid var(--rule);
+    background: color-mix(in oklab, var(--paper) 96%, var(--card));
+  }
+  .breadcrumb-row{ display:flex; align-items: center; gap: 6px; font-family: var(--mono); font-size: 10.5px; letter-spacing: .08em; text-transform: uppercase; color: var(--dim); margin-bottom: 6px; }
+  .breadcrumb-row a{ color: var(--ink-2); cursor: pointer; }
+  .breadcrumb-row a:hover{ color: var(--ink); }
+  .breadcrumb-row .sep{ color: var(--dim-2); }
+
+  .title-row{
+    display:grid; grid-template-columns: 1fr auto; gap: 32px; align-items: flex-end;
+  }
+  .title-row .title{ min-width: 0; }
+  .title-row h1{
+    font-family: var(--serif); font-weight: 400; font-size: 44px; letter-spacing: -.02em;
+    line-height: 1.05; margin: 0;
+  }
+  .title-row h1 em{ color: var(--accent); }
+  .title-row .sub{
+    margin-top: 8px;
+    display:flex; flex-wrap: wrap; align-items: center; gap: 8px;
+    font-family: var(--mono); font-size: 11px; color: var(--dim); letter-spacing: .04em; text-transform: uppercase;
+  }
+  .title-row .sub b{ font-family: var(--sans); font-weight: 500; color: var(--ink-2); text-transform: none; letter-spacing: 0; font-size: 13px; }
+  .title-row .actions{ display:flex; gap: 8px; align-items: flex-end; flex-direction: column; }
+  .title-row .actions .top{ display:flex; gap: 8px; }
+
+  /* stat strip */
+  .stat-strip{
+    display:grid; grid-template-columns: repeat(5, 1fr); gap: 0;
+    margin-top: 22px;
+    border: 1px solid var(--rule); border-radius: var(--r-md);
+    overflow: hidden;
+    background: var(--card);
+  }
+  .stat-strip .cell{
+    padding: 16px 20px;
+    border-right: 1px solid var(--rule);
+    display:flex; flex-direction: column; gap: 4px;
+  }
+  .stat-strip .cell:last-child{ border-right: none; }
+  .stat-strip .lab{ font-family: var(--mono); font-size: 10px; letter-spacing: .12em; text-transform: uppercase; color: var(--dim); }
+  .stat-strip .val{ font-family: var(--serif); font-size: 26px; line-height: 1; letter-spacing: -.012em; font-feature-settings: "tnum"; }
+  .stat-strip .val small{ font-family: var(--mono); font-size: 10.5px; color: var(--dim); margin-left: 4px; }
+  .stat-strip .extra{ font-family: var(--mono); font-size: 10.5px; color: var(--dim); margin-top: 4px; }
+  .stat-strip .extra.warn{ color: var(--neg); }
+
+  /* tabs */
+  .tabs{
+    padding: 0 40px;
+    display:flex; gap: 0; align-items: center;
+    border-bottom: 1px solid var(--rule);
+    background: var(--paper);
+    overflow-x: auto;
+  }
+  .tabs .tab{
+    padding: 14px 16px;
+    font-family: var(--sans); font-size: 13.5px; color: var(--dim);
+    cursor: pointer; position: relative;
+    display:inline-flex; align-items: center; gap: 8px;
+    flex-shrink: 0;
+  }
+  .tabs .tab:hover{ color: var(--ink-2); }
+  .tabs .tab.on{ color: var(--ink); }
+  .tabs .tab.on::after{
+    content:""; position: absolute; left: 12px; right: 12px; bottom: -1px; height: 2px;
+    background: var(--accent);
+  }
+  .tabs .tab .ct{ font-family: var(--mono); font-size: 10px; color: var(--dim); padding: 2px 6px; border-radius: var(--r-pill); background: var(--rule-soft); }
+  .tabs .tab.on .ct{ background: var(--accent-soft); color: var(--accent-deep); }
+
+  /* body grid */
+  .body{ display:grid; grid-template-columns: 1fr 360px; gap: 28px; padding: 28px 40px 60px; }
+
+  /* AI summary card */
+  .ai-summary{
+    background: linear-gradient(180deg, color-mix(in oklab, var(--accent) 12%, var(--card)), var(--card));
+    border: 1px solid color-mix(in oklab, var(--accent) 30%, var(--rule));
+    border-radius: var(--r-md);
+    padding: 20px 22px;
+    box-shadow: var(--shadow-1);
+    margin-bottom: 22px;
+  }
+  .ai-summary .lab{ font-family: var(--mono); font-size: 10px; letter-spacing: .14em; text-transform: uppercase; color: var(--accent-deep); display: flex; align-items: center; gap: 8px; }
+  .ai-summary .lab .v{ color: var(--pos); display:inline-flex; align-items: center; gap: 4px; }
+  .ai-summary .lab .v::before{ content: ""; width: 5px; height: 5px; border-radius: 50%; background: var(--pos); }
+  .ai-summary p{
+    font-family: var(--serif); font-size: 18px; line-height: 1.5; color: var(--ink);
+    margin: 8px 0 0; max-width: 64ch;
+  }
+  .ai-summary p em{ color: var(--accent-deep); }
+  .ai-summary .acts{ display:flex; gap: 6px; margin-top: 14px; flex-wrap: wrap; }
+
+  /* section card */
+  .section{
+    background: var(--card); border: 1px solid var(--rule); border-radius: var(--r-md);
+    box-shadow: var(--shadow-1); margin-bottom: 22px;
+    overflow: hidden;
+  }
+  .section .s-head{
+    display:flex; justify-content: space-between; align-items: center;
+    padding: 14px 20px;
+    border-bottom: 1px solid var(--rule);
+    background: var(--paper-2);
+  }
+  .section .s-head h3{ font-family: var(--serif); font-weight: 400; font-size: 18px; margin: 0; letter-spacing: -.005em; }
+  .section .s-head .label{ font-family: var(--mono); font-size: 10px; color: var(--dim); letter-spacing: .1em; text-transform: uppercase; }
+  .section .s-head .acts{ display:flex; gap: 6px; align-items: center; }
+
+  /* timeline */
+  .timeline{ padding: 4px 20px; }
+  .ev{
+    display:grid; grid-template-columns: 26px 1fr auto; gap: 14px;
+    padding: 14px 0;
+    border-bottom: 1px solid var(--rule);
+    align-items: flex-start;
+  }
+  .ev:last-child{ border-bottom: none; }
+  .ev .marker{
+    width: 26px; height: 26px; border-radius: 50%;
+    display:grid; place-items: center;
+    background: var(--rule-soft); color: var(--ink-2);
+    font-family: var(--mono); font-size: 11px;
+    border: 1px solid var(--rule);
+    flex-shrink: 0;
+  }
+  .ev .marker.call{ background: color-mix(in oklab, var(--accent) 14%, var(--card)); color: var(--accent-deep); border-color: color-mix(in oklab, var(--accent) 30%, var(--rule)); }
+  .ev .marker.file{ background: color-mix(in oklab, var(--pos) 14%, var(--card)); color: var(--pos); border-color: color-mix(in oklab, var(--pos) 30%, var(--rule)); }
+  .ev .marker.note{ background: var(--rule-soft); }
+  .ev .marker.ai{ background: var(--ink); color: var(--accent); border-color: var(--ink); font-family: var(--serif); font-style: italic; font-size: 13px; }
+  .ev .marker.money{ background: color-mix(in oklab, var(--warn) 14%, var(--card)); color: var(--warn); border-color: color-mix(in oklab, var(--warn) 30%, var(--rule)); }
+  .ev .body{ min-width: 0; }
+  .ev .body .title{ font-size: 14px; color: var(--ink); }
+  .ev .body .title b{ font-weight: 500; }
+  .ev .body .detail{ font-size: 13px; color: var(--ink-2); margin-top: 4px; line-height: 1.5; max-width: 60ch; }
+  .ev .body .meta{ font-family: var(--mono); font-size: 10.5px; color: var(--dim); letter-spacing: .04em; margin-top: 6px; }
+  .ev .when{ font-family: var(--mono); font-size: 10.5px; color: var(--dim); letter-spacing: .04em; text-transform: uppercase; padding-top: 4px; }
+
+  /* milestones */
+  .milestones{ padding: 6px 22px 18px; }
+  .ms{
+    display:grid; grid-template-columns: 24px 1fr auto; gap: 12px;
+    padding: 12px 0;
+    border-bottom: 1px solid var(--rule);
+    align-items: flex-start;
+  }
+  .ms:last-child{ border-bottom: none; }
+  .ms .check{
+    width: 18px; height: 18px; border-radius: 50%;
+    border: 1.5px solid var(--rule);
+    display:grid; place-items: center;
+    margin-top: 2px; font-size: 10px; flex-shrink: 0;
+  }
+  .ms.done .check{ background: var(--ink); border-color: var(--ink); color: var(--accent); }
+  .ms.next .check{ border-color: var(--accent); background: color-mix(in oklab, var(--accent) 20%, var(--card)); }
+  .ms .body{ min-width: 0; }
+  .ms .body .t{ font-size: 14px; line-height: 1.3; }
+  .ms.done .body .t{ text-decoration: line-through; text-decoration-color: var(--dim-2); color: var(--dim); }
+  .ms .body .d{ font-size: 12.5px; color: var(--dim); margin-top: 2px; }
+  .ms .when{ font-family: var(--mono); font-size: 10.5px; color: var(--dim); letter-spacing: .04em; text-transform: uppercase; padding-top: 2px; white-space: nowrap; }
+
+  /* unbilled time table */
+  .time-table{ padding: 0 6px; }
+  .time-row{
+    display:grid; grid-template-columns: 80px 1fr 50px 70px 80px 24px;
+    gap: 14px; align-items: center;
+    padding: 12px 14px;
+    border-bottom: 1px solid var(--rule);
+  }
+  .time-row:last-child{ border-bottom: none; }
+  .time-row:hover{ background: var(--rule-soft); }
+  .time-row.head{
+    background: var(--paper-2);
+    font-family: var(--mono); font-size: 10px; letter-spacing: .1em; text-transform: uppercase; color: var(--dim);
+    padding: 9px 14px;
+  }
+  .time-row .when{ font-family: var(--mono); font-size: 11.5px; color: var(--dim); letter-spacing: .02em; text-transform: uppercase; }
+  .time-row .desc{ font-size: 13.5px; color: var(--ink); }
+  .time-row .num{ font-family: var(--mono); font-size: 13px; text-align: right; font-feature-settings: "tnum"; }
+  .time-row .amt{ font-family: var(--mono); font-size: 13px; text-align: right; font-feature-settings: "tnum"; }
+  .time-row .ic{ color: var(--dim-2); cursor: pointer; text-align: center; }
+
+  .time-foot{
+    padding: 12px 22px; background: var(--paper-2); border-top: 1px solid var(--rule);
+    display:flex; justify-content: space-between; align-items: center;
+    font-family: var(--mono); font-size: 10.5px; color: var(--dim); letter-spacing: .04em; text-transform: uppercase;
+  }
+  .time-foot b{ font-family: var(--sans); font-weight: 500; color: var(--ink); text-transform: none; letter-spacing: 0; font-size: 13px; }
+
+  /* ===== right column ===== */
+  .side{ display:flex; flex-direction: column; gap: 22px; }
+  .side-card{
+    background: var(--card); border: 1px solid var(--rule); border-radius: var(--r-md);
+    overflow: hidden;
+    box-shadow: var(--shadow-1);
+  }
+  .side-card .head{
+    padding: 12px 18px; border-bottom: 1px solid var(--rule);
+    background: var(--paper-2);
+    display:flex; justify-content: space-between; align-items: center;
+  }
+  .side-card .head h4{ font-family: var(--serif); font-size: 16px; margin: 0; font-weight: 400; }
+  .side-card .head .label{ font-family: var(--mono); font-size: 9.5px; color: var(--dim); letter-spacing: .1em; text-transform: uppercase; }
+  .side-card .body{ padding: 12px 18px; }
+
+  /* facts list */
+  .fact{ display:grid; grid-template-columns: 96px 1fr; gap: 12px; padding: 8px 0; border-bottom: 1px dotted var(--rule); font-size: 13px; }
+  .fact:last-child{ border-bottom: none; }
+  .fact .k{ font-family: var(--mono); font-size: 10px; color: var(--dim); letter-spacing: .08em; text-transform: uppercase; padding-top: 2px; }
+  .fact .v{ color: var(--ink); }
+  .fact .v small{ display:block; font-family: var(--mono); font-size: 11px; color: var(--dim); letter-spacing: .02em; margin-top: 2px; }
+
+  /* people */
+  .person{ display:grid; grid-template-columns: 32px 1fr auto; gap: 10px; align-items: center; padding: 8px 0; border-bottom: 1px dotted var(--rule); }
+  .person:last-child{ border-bottom: none; }
+  .person .av{ width: 32px; height: 32px; border-radius: 50%; background: linear-gradient(135deg, var(--ink-2), var(--ink)); color: var(--paper); display:grid; place-items:center; font-family: var(--sans); font-weight: 600; font-size: 11.5px; }
+  .person .av.opp{ background: linear-gradient(135deg, #B0432F, #872C1C); }
+  .person .av.staff{ background: var(--ink); color: var(--accent); font-family: var(--serif); font-style: italic; }
+  .person .who{ font-size: 13.5px; line-height: 1.2; min-width: 0; }
+  .person .who small{ display: block; font-family: var(--mono); font-size: 10.5px; color: var(--dim); letter-spacing: .02em; margin-top: 2px; }
+  .person .role{ font-family: var(--mono); font-size: 10px; letter-spacing: .08em; text-transform: uppercase; color: var(--dim); }
+
+  /* ask-this-matter mini chat */
+  .ask-card{
+    background: var(--ink); color: var(--paper);
+    border-radius: var(--r-md);
+    padding: 16px 18px;
+    box-shadow: var(--shadow-2);
+  }
+  .ask-card .head{ display:flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+  .ask-card .head .av{ width: 26px; height: 26px; border-radius: 50%; background: var(--accent); color: var(--accent-ink); display:grid; place-items:center; font-family: var(--serif); font-style: italic; font-size: 14px; }
+  .ask-card .head h4{ font-family: var(--serif); font-size: 16px; margin: 0; font-weight: 400; color: var(--paper); }
+  .ask-card .head .label{ font-family: var(--mono); font-size: 9px; letter-spacing: .1em; text-transform: uppercase; color: color-mix(in oklab, var(--paper) 50%, transparent); }
+  .ask-card p{ font-size: 13px; line-height: 1.55; color: color-mix(in oklab, var(--paper) 80%, var(--ink-3)); margin: 0 0 12px; }
+  .ask-card .inp{
+    background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.15);
+    border-radius: var(--r-xs); padding: 10px 12px;
+    font-family: var(--sans); font-size: 13.5px; color: color-mix(in oklab, var(--paper) 60%, transparent);
+  }
+  .ask-card .sugs{ display:flex; flex-direction: column; gap: 4px; margin-top: 12px; }
+  .ask-card .sug{
+    font-family: var(--sans); font-size: 12.5px;
+    color: var(--accent); cursor: pointer;
+    display:flex; align-items: center; gap: 6px;
+    padding: 4px 0;
+  }
+  .ask-card .sug:hover{ color: color-mix(in oklab, var(--accent) 80%, white); }
+  .ask-card .sug .ic{ font-family: var(--serif); font-style: italic; opacity: .7; }
+
+  @media (max-width: 1180px){
+    .body{ grid-template-columns: 1fr; }
+    .stat-strip{ grid-template-columns: repeat(3, 1fr); }
+    .stat-strip .cell:nth-child(n+4){ border-top: 1px solid var(--rule); }
+  }
+</style>
+</head>
+<body>
+
+<div class="shell">
+
+  <!-- left rail -->
+  <aside class="rail">
+    <div class="brand-mark">
+      <span class="brand-mark-glyph">B</span>
+      <span class="brand-mark-word" style="font-family:var(--sans);font-weight:500">Blawby</span>
+    </div>
+    <div class="meta">Demo Owner Local · solo</div>
+    <button class="new-btn" onclick="location.href='Assistant.html'">
+      <span>＋  New conversation</span>
+      <kbd>⌘N</kbd>
+    </button>
+
+    <div class="rail-section">
+      <div class="rail-label">Workspace</div>
+      <div class="rail-item on"><span class="dot"></span>Matters <span class="badge">4</span></div>
+      <div class="rail-item"><span class="dot"></span>Intakes <span class="badge">3</span></div>
+      <div class="rail-item"><span class="dot"></span><a href="Trust.html" style="color:inherit">Trust ledger</a></div>
+      <div class="rail-item"><span class="dot"></span><a href="Invoices.html" style="color:inherit">Invoices</a></div>
+      <div class="rail-item"><span class="dot"></span>Files</div>
+    </div>
+
+    <div class="rail-section">
+      <div class="rail-label">Active matters</div>
+      <div class="rail-item on" style="background:var(--accent-soft);color:var(--ink)"><span class="dot" style="background:var(--neg)"></span>Auto Injury · Martinez</div>
+      <div class="rail-item"><span class="dot"></span>Estate Plan · Johnson</div>
+      <div class="rail-item"><span class="dot"></span>Separation · Demo</div>
+      <div class="rail-item"><span class="dot"></span>sdtest</div>
+    </div>
+
+    <div class="rail-section">
+      <div class="rail-label">Account</div>
+      <div class="rail-item"><span class="dot" style="background:transparent;border:1px solid var(--dim-2)"></span><a href="Settings.html" style="color:inherit">Settings</a></div>
+    </div>
+
+    <div class="user-chip">
+      <div class="avatar user">DO</div>
+      <div class="who">Demo Owner<small>solo · NC bar #45382</small></div>
+    </div>
+  </aside>
+
+  <!-- ============ main ============ -->
+  <main class="main">
+
+    <!-- matter header -->
+    <header class="matter-head">
+      <div class="breadcrumb-row">
+        <a href="Matters.html">Matters</a>
+        <span class="sep">/</span>
+        <span>BLB-0241</span>
+        <span class="sep">·</span>
+        <span style="color:var(--neg)">priority high</span>
+      </div>
+      <div class="title-row">
+        <div class="title">
+          <h1>Auto Injury — <em>Bob Martinez</em></h1>
+          <div class="sub">
+            <b>Personal injury</b>
+            <span style="color:var(--dim-2)">·</span>
+            <b>NC · Mecklenburg County</b>
+            <span style="color:var(--dim-2)">·</span>
+            <span>opened Oct 04, 2026 · 53 days</span>
+            <span style="color:var(--dim-2)">·</span>
+            <span class="pill" style="font-size:9.5px;font-family:var(--mono)">contingency</span>
+            <span class="pill" style="font-size:9.5px;font-family:var(--mono)">pre-litigation</span>
+          </div>
+        </div>
+        <div class="actions">
+          <div class="top">
+            <button class="btn btn-ghost">⋯</button>
+            <button class="btn btn-ghost">Log time</button>
+            <button class="btn btn-primary">＋ Add note</button>
+          </div>
+          <div style="display:flex;align-items:center;gap:6px;margin-top:4px">
+            <span class="pill urgent" style="font-size:10px">at risk</span>
+            <span class="pill" style="font-size:10px">status: open</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="stat-strip">
+        <div class="cell">
+          <span class="lab">Retainer balance</span>
+          <span class="val">$2,250<small>/ $5,000</small></span>
+          <div class="bar warn" style="margin-top:6px"><i style="width:45%"></i></div>
+          <span class="extra warn">45% · below threshold</span>
+        </div>
+        <div class="cell">
+          <span class="lab">Unbilled time</span>
+          <span class="val">8.3<small>h · $1,245</small></span>
+          <span class="extra">5 entries · Nov 14–22</span>
+        </div>
+        <div class="cell">
+          <span class="lab">Events / 30d</span>
+          <span class="val">14</span>
+          <span class="extra">last: 2 days ago</span>
+        </div>
+        <div class="cell">
+          <span class="lab">SoL</span>
+          <span class="val">Mar 12 '27</span>
+          <span class="extra">113 days away</span>
+        </div>
+        <div class="cell">
+          <span class="lab">Est. value</span>
+          <span class="val">$28K<small>est.</small></span>
+          <span class="extra">contingency · 33%</span>
+        </div>
+      </div>
+    </header>
+
+    <!-- tabs -->
+    <nav class="tabs">
+      <div class="tab on">Overview</div>
+      <div class="tab">Activity <span class="ct">14</span></div>
+      <div class="tab">Time &amp; expenses <span class="ct">12</span></div>
+      <div class="tab">Files <span class="ct">8</span></div>
+      <div class="tab">Notes <span class="ct">6</span></div>
+      <div class="tab">Tasks <span class="ct">3</span></div>
+      <div class="tab">Milestones</div>
+      <div class="tab">Invoices <span class="ct">2</span></div>
+      <div class="tab">People</div>
+    </nav>
+
+    <!-- body -->
+    <div class="body">
+
+      <!-- LEFT: main content -->
+      <div>
+
+        <!-- AI summary -->
+        <div class="ai-summary">
+          <div class="lab">Assistant summary <span class="v">grounded in 14 matter events · 8 files</span></div>
+          <p>Mr. Martinez was rear-ended by a State Farm insured driver on <em>Oct 1, 2026</em> in Charlotte. Medical records from CMC Main show whiplash and a torn rotator cuff — <em>$8,400 in treatment to date</em>. You filed a demand letter on Nov 19; the adjuster pushed back on causation in your Nov 22 call. <em>Retainer is at 45%</em> and you have 8.3 unbilled hours; I drafted an invoice and a replenishment request — both waiting in <a href="Invoices.html" style="color:var(--accent-deep); border-bottom: 1px dotted var(--accent-deep);">Invoices</a>.</p>
+          <div class="acts">
+            <button class="chip primary">Approve invoice ($1,245)</button>
+            <button class="chip">Reply to adjuster</button>
+            <button class="chip">Draft litigation timeline</button>
+            <button class="chip">Settlement projection</button>
+          </div>
+        </div>
+
+        <!-- Activity timeline -->
+        <div class="section">
+          <div class="s-head">
+            <h3>Recent activity</h3>
+            <div class="acts">
+              <span class="label">last 30 days · 14 events</span>
+              <button class="btn btn-ghost btn-sm">Filter</button>
+              <button class="btn btn-ghost btn-sm">＋ Log</button>
+            </div>
+          </div>
+          <div class="timeline">
+
+            <div class="ev">
+              <div class="marker ai">B</div>
+              <div class="body">
+                <div class="title"><b>Assistant</b> · staged invoice INV-0192 for $1,245.00</div>
+                <div class="detail">5 unbilled time entries aggregated. Paying drops retainer to $1,005 — below your 30% threshold, so a $2,500 replenish request was also staged.</div>
+                <div class="meta">automatic · awaiting Sarah's approval</div>
+              </div>
+              <div class="when">8m ago</div>
+            </div>
+
+            <div class="ev">
+              <div class="marker call">📞</div>
+              <div class="body">
+                <div class="title"><b>Call with State Farm adjuster</b> · 0.5h logged</div>
+                <div class="detail">Discussed medical authorization scope. Adjuster (J. Reeves, ext. 4421) pushed on causation, claiming pre-existing condition. Suggested IME — declined pending records review.</div>
+                <div class="meta">billable · $75.00 added to unbilled</div>
+              </div>
+              <div class="when">Nov 22</div>
+            </div>
+
+            <div class="ev">
+              <div class="marker file">📄</div>
+              <div class="body">
+                <div class="title"><b>Filed demand letter</b> to State Farm Insurance</div>
+                <div class="detail">$48,000 demand · 2.8h drafting time logged. Letter requests response by Dec 4. Auto-saved to matter files as <span style="font-family:var(--mono);font-size:12px;color:var(--ink-2);background:var(--rule-soft);padding:1px 5px;border-radius:3px">demand_letter_v3.pdf</span>.</div>
+                <div class="meta">$420.00 added to unbilled · response due 16d</div>
+              </div>
+              <div class="when">Nov 19</div>
+            </div>
+
+            <div class="ev">
+              <div class="marker note">✎</div>
+              <div class="body">
+                <div class="title"><b>Reviewed</b> medical records from CMC Main · 1.5h</div>
+                <div class="detail">213 pages. Key findings: cervical strain (confirmed MRI), rotator cuff tear (right shoulder, surgical consult pending). No prior treatment for either.</div>
+                <div class="meta">billable · $225.00 added to unbilled</div>
+              </div>
+              <div class="when">Nov 18</div>
+            </div>
+
+            <div class="ev">
+              <div class="marker call">📞</div>
+              <div class="body">
+                <div class="title"><b>Strategy call with client</b> · 1.0h</div>
+                <div class="detail">Walked through demand range ($35k–$60k). Bob is comfortable with $40k floor; would prefer to avoid litigation. Authorized demand letter.</div>
+                <div class="meta">billable · $150.00 added to unbilled</div>
+              </div>
+              <div class="when">Nov 16</div>
+            </div>
+
+            <div class="ev">
+              <div class="marker money">$</div>
+              <div class="body">
+                <div class="title"><b>Initial retainer received</b> · $5,000.00</div>
+                <div class="detail">Stripe payment intent succeeded. Deposited to IOLTA trust account. Client signed engagement letter the same day.</div>
+                <div class="meta">trust ledger updated · ch_3Q9wYz</div>
+              </div>
+              <div class="when">Nov 14</div>
+            </div>
+
+            <div class="ev">
+              <div class="marker ai">B</div>
+              <div class="body">
+                <div class="title"><b>Matter created from intake</b> by assistant</div>
+                <div class="detail">Intake converted on acceptance. AI summary generated, contact details migrated, engagement letter drafted from family/PI template.</div>
+                <div class="meta">automatic · 0.0h</div>
+              </div>
+              <div class="when">Nov 14</div>
+            </div>
+
+          </div>
+        </div>
+
+        <!-- Unbilled time -->
+        <div class="section">
+          <div class="s-head">
+            <h3>Unbilled time</h3>
+            <div class="acts">
+              <span class="label">5 entries · 8.3h · $1,245</span>
+              <button class="btn btn-ghost btn-sm">Export</button>
+              <button class="btn btn-primary btn-sm">Draft invoice</button>
+            </div>
+          </div>
+          <div class="time-table">
+            <div class="time-row head">
+              <div>Date</div>
+              <div>Description</div>
+              <div style="text-align:right">Hrs</div>
+              <div style="text-align:right">Rate</div>
+              <div style="text-align:right">Amount</div>
+              <div></div>
+            </div>
+            <div class="time-row">
+              <div class="when">Nov 22</div>
+              <div class="desc">Call with State Farm adjuster</div>
+              <div class="num">0.5</div>
+              <div class="num">$150</div>
+              <div class="amt">$75.00</div>
+              <div class="ic">⋯</div>
+            </div>
+            <div class="time-row">
+              <div class="when">Nov 19</div>
+              <div class="desc">Drafted demand letter to State Farm</div>
+              <div class="num">2.8</div>
+              <div class="num">$150</div>
+              <div class="amt">$420.00</div>
+              <div class="ic">⋯</div>
+            </div>
+            <div class="time-row">
+              <div class="when">Nov 18</div>
+              <div class="desc">Reviewed medical records from CMC Main</div>
+              <div class="num">1.5</div>
+              <div class="num">$150</div>
+              <div class="amt">$225.00</div>
+              <div class="ic">⋯</div>
+            </div>
+            <div class="time-row">
+              <div class="when">Nov 16</div>
+              <div class="desc">Strategy call with client</div>
+              <div class="num">1.0</div>
+              <div class="num">$150</div>
+              <div class="amt">$150.00</div>
+              <div class="ic">⋯</div>
+            </div>
+            <div class="time-row">
+              <div class="when">Nov 14</div>
+              <div class="desc">Intake summary &amp; case opening</div>
+              <div class="num">2.5</div>
+              <div class="num">$150</div>
+              <div class="amt">$375.00</div>
+              <div class="ic">⋯</div>
+            </div>
+          </div>
+          <div class="time-foot">
+            <span>5 unbilled entries</span>
+            <span>total · <b>$1,245.00 · 8.3h</b></span>
+          </div>
+        </div>
+
+        <!-- Milestones -->
+        <div class="section">
+          <div class="s-head">
+            <h3>Milestones</h3>
+            <div class="acts">
+              <span class="label">3 of 6 complete</span>
+              <button class="btn btn-ghost btn-sm">＋</button>
+            </div>
+          </div>
+          <div class="milestones">
+            <div class="ms done">
+              <div class="check">✓</div>
+              <div class="body">
+                <div class="t">Intake accepted &amp; engagement signed</div>
+                <div class="d">Initial retainer received · client portal active</div>
+              </div>
+              <div class="when">Nov 14</div>
+            </div>
+            <div class="ms done">
+              <div class="check">✓</div>
+              <div class="body">
+                <div class="t">Medical records collected</div>
+                <div class="d">CMC Main · 213 pages · MRI + chart notes</div>
+              </div>
+              <div class="when">Nov 18</div>
+            </div>
+            <div class="ms done">
+              <div class="check">✓</div>
+              <div class="body">
+                <div class="t">Demand letter filed</div>
+                <div class="d">$48,000 demand · response window 30d</div>
+              </div>
+              <div class="when">Nov 19</div>
+            </div>
+            <div class="ms next">
+              <div class="check"></div>
+              <div class="body">
+                <div class="t">Adjuster response or counteroffer</div>
+                <div class="d">expected by Dec 4 · 9 days · followup scheduled</div>
+              </div>
+              <div class="when">Dec 4</div>
+            </div>
+            <div class="ms">
+              <div class="check"></div>
+              <div class="body">
+                <div class="t">Settlement negotiation</div>
+                <div class="d">target range $35k–$60k</div>
+              </div>
+              <div class="when">Dec '26</div>
+            </div>
+            <div class="ms">
+              <div class="check"></div>
+              <div class="body">
+                <div class="t">Settlement or file complaint</div>
+                <div class="d">SoL: Mar 12, 2027</div>
+              </div>
+              <div class="when">Q1 '27</div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- RIGHT: side -->
+      <aside class="side">
+
+        <!-- Ask about this matter -->
+        <div class="ask-card">
+          <div class="head">
+            <div class="av">B</div>
+            <div>
+              <div class="label">Pinned to this matter</div>
+              <h4>Ask about Martinez</h4>
+            </div>
+          </div>
+          <p>Anything you ask here is scoped to this matter — 14 events, 8 files, the engagement letter, the trust history.</p>
+          <div class="inp">Try: "what's a fair settlement range?"</div>
+          <div class="sugs">
+            <span class="sug"><span class="ic">a</span>Summarize the adjuster's pushback</span>
+            <span class="sug"><span class="ic">b</span>Draft a reply to State Farm</span>
+            <span class="sug"><span class="ic">c</span>Compare to my other PI matters</span>
+            <span class="sug"><span class="ic">d</span>What's the realistic floor?</span>
+          </div>
+        </div>
+
+        <!-- Facts -->
+        <div class="side-card">
+          <div class="head">
+            <h4>Facts</h4>
+            <span class="label">12 fields</span>
+          </div>
+          <div class="body">
+            <div class="fact"><div class="k">Matter #</div><div class="v">BLB-0241</div></div>
+            <div class="fact"><div class="k">Opened</div><div class="v">Oct 4, 2026 <small>53 days ago</small></div></div>
+            <div class="fact"><div class="k">Type</div><div class="v">Auto injury — personal injury</div></div>
+            <div class="fact"><div class="k">Jurisdiction</div><div class="v">NC · Mecklenburg County <small>state superior</small></div></div>
+            <div class="fact"><div class="k">Opposing</div><div class="v">State Farm Insurance <small>adj: J. Reeves · ext 4421</small></div></div>
+            <div class="fact"><div class="k">SoL</div><div class="v">Mar 12, 2027 <small>113 days · 1.5y from incident</small></div></div>
+            <div class="fact"><div class="k">Fee model</div><div class="v">Contingency · 33% of recovery</div></div>
+            <div class="fact"><div class="k">Retainer</div><div class="v">$5,000 initial · $2,250 left</div></div>
+            <div class="fact"><div class="k">Est. value</div><div class="v">$28,000 <small>AI estimate, based on similar cases</small></div></div>
+          </div>
+        </div>
+
+        <!-- People -->
+        <div class="side-card">
+          <div class="head">
+            <h4>People</h4>
+            <span class="label">4 parties</span>
+          </div>
+          <div class="body">
+            <div class="person">
+              <div class="av">BM</div>
+              <div class="who">Bob Martinez<small>(704) 555-0143 · client portal active</small></div>
+              <span class="role">client</span>
+            </div>
+            <div class="person">
+              <div class="av staff">S</div>
+              <div class="who">Sarah Chen<small>NC Bar #45382 · lead attorney</small></div>
+              <span class="role">attorney</span>
+            </div>
+            <div class="person">
+              <div class="av opp">JR</div>
+              <div class="who">J. Reeves<small>State Farm · adjuster · ext 4421</small></div>
+              <span class="role">opposing</span>
+            </div>
+            <div class="person">
+              <div class="av" style="background:linear-gradient(135deg, #5b8def, #2E4A7B)">DM</div>
+              <div class="who">Dr. Mendez<small>CMC Main · orthopedic surgeon</small></div>
+              <span class="role">witness</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Linked -->
+        <div class="side-card">
+          <div class="head">
+            <h4>Linked</h4>
+            <span class="label">2 invoices · 8 files</span>
+          </div>
+          <div class="body" style="padding: 6px 18px">
+            <div class="fact" style="grid-template-columns: 1fr auto">
+              <div class="v" style="font-size:13.5px">INV-0192 — $1,245.00</div>
+              <span class="pill staged" style="font-size: 9.5px">staged</span>
+            </div>
+            <div class="fact" style="grid-template-columns: 1fr auto">
+              <div class="v" style="font-size:13.5px">INV-0168 — $675.00</div>
+              <span class="pill paid" style="font-size: 9.5px">paid</span>
+            </div>
+            <div class="fact" style="grid-template-columns: 1fr auto; border-top: 1px solid var(--rule); margin-top: 4px; padding-top: 10px">
+              <div class="v" style="font-size:13.5px">Engagement letter</div>
+              <span class="pill paid" style="font-size: 9.5px">signed</span>
+            </div>
+            <div class="fact" style="grid-template-columns: 1fr auto">
+              <div class="v" style="font-size:13.5px;font-family:var(--mono);font-size:12px">demand_letter_v3.pdf</div>
+              <span class="label">3d</span>
+            </div>
+            <div class="fact" style="grid-template-columns: 1fr auto; border-bottom: none">
+              <div class="v" style="font-size:13.5px;font-family:var(--mono);font-size:12px">cmc_records_full.pdf</div>
+              <span class="label">7d</span>
+            </div>
+          </div>
+        </div>
+
+      </aside>
+    </div>
+
+  </main>
+</div>
+
+<script>
+  document.querySelectorAll('.tabs .tab').forEach(t=>{
+    t.addEventListener('click', ()=>{
+      document.querySelectorAll('.tabs .tab').forEach(x=>x.classList.remove('on'));
+      t.classList.add('on');
+    });
+  });
+</script>
+</body>
+</html>

@@ -5,7 +5,7 @@ import { Receipt } from 'lucide-preact';
 import { Button } from '@/shared/ui/Button';
 import { InfoCard } from '@/shared/ui/cards/InfoCard';
 import { DetailRow } from '@/shared/ui/detail/DetailRow';
-import { SegmentedFilter } from '@/shared/ui/tabs/SegmentedFilter';
+import { Seg } from '@/design-system/patterns';
 import { TimeEntriesPanel } from '@/features/matters/components/time-entries/TimeEntriesPanel';
 import { MatterExpensesPanel } from '@/features/matters/components/expenses/MatterExpensesPanel';
 import { InvoicesSection } from '@/features/matters/components/billing/InvoicesSection';
@@ -23,7 +23,7 @@ import { formatCurrency } from '@/shared/utils/currencyFormatter';
 
 export type BillingSubTab = 'unbilled' | 'time' | 'expenses' | 'rates';
 
-const BILLING_SEGMENTS = [
+const BILLING_SEGMENTS: ReadonlyArray<{ id: BillingSubTab; label: string }> = [
   { id: 'unbilled', label: 'Unbilled' },
   { id: 'time', label: 'Time' },
   { id: 'expenses', label: 'Expenses' },
@@ -137,10 +137,12 @@ export const MatterBillingTab = ({
 }: MatterBillingTabProps) => (
   <BillingErrorBoundary onRetry={onRetry}>
     <div className="space-y-5">
-      <SegmentedFilter
-        items={BILLING_SEGMENTS}
-        activeId={subTab}
-        onChange={(id) => onSubTabChange(id as BillingSubTab)}
+      <Seg<BillingSubTab>
+        value={subTab}
+        options={BILLING_SEGMENTS.map((segment) => ({ value: segment.id, label: segment.label }))}
+        onChange={onSubTabChange}
+        ariaLabel="Billing section"
+        className="w-full sm:w-auto sm:min-w-[28rem]"
       />
 
       {subTab === 'unbilled' ? (

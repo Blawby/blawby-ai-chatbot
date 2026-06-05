@@ -26,9 +26,9 @@ export function ErrorState({
       <div className="mb-4 text-red-400/70">
         {icon ?? <AlertCircle size={40} strokeWidth={1.5} />}
       </div>
-      <h3 className="text-sm font-medium text-input-text mb-1">{title}</h3>
+      <h3 className="text-sm font-medium text-ink mb-1">{title}</h3>
       {description && (
-        <p className="text-sm text-input-placeholder max-w-xs">{description}</p>
+        <p className="text-sm text-dim-2 max-w-xs">{description}</p>
       )}
       <div className="mt-4">
         {action ?? (onRetry && (

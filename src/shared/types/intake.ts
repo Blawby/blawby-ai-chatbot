@@ -75,12 +75,34 @@ export interface IntakeFieldDefinition {
    * under `custom_fields`.
    */
   mapsTo?: string;
+  /**
+   * Raw backend field_type before normalization (e.g. 'textarea', 'email', 'phone').
+   * Preserved so UI rendering and validation can access specialized semantics.
+   */
+  backendFieldType?: string;
 }
 
+// ---------------------------------------------------------------------------
+// Backend canonical shapes — matched exactly to the PR #318 contract.
+// Normalization from these to IntakeTemplate happens at the API client edge.
+// ---------------------------------------------------------------------------
+
+export type IntakeTemplateStatus = 'draft' | 'published' | 'archived';
+
+// ---------------------------------------------------------------------------
+// App-level template type — used by UI, Widget, and AI layers.
+// Normalised from backend wire intake-template contracts at the API client edge.
+// ---------------------------------------------------------------------------
+
 export interface IntakeTemplate {
+  /** Backend UUID. Present on all server-backed templates; absent only on legacy local objects (being removed). */
+  id?: string;
   slug: string;
   name: string;
-  isDefault: boolean;
+  status?: IntakeTemplateStatus;
+  is_default?: boolean;
+  /** @deprecated use is_default */
+  isDefault?: boolean;
   introMessage?: string;
   legalDisclaimer?: string;
   paymentLinkEnabled?: boolean;
@@ -197,4 +219,27 @@ export interface DerivedIntakeStatus {
   paymentRequired?: boolean;
   paymentReceived?: boolean;
   templateSlug?: string | null;
+}
+
+/**
+ * Structured data extracted from an intake submission by AI enrichment.
+ * Mirrors worker/routes/submitIntake.ts:IntakeEnrichedData
+ */
+export interface IntakeEnrichedData {
+  practice_area: string | null;
+  sub_type: string | null;
+  matter_stage: 'pre_litigation' | 'active_litigation' | 'post_judgment' | 'transactional' | null;
+  client_role: 'petitioner' | 'respondent' | 'plaintiff' | 'defendant' | 'buyer' | 'seller' | 'other' | null;
+  complexity: 'simple' | 'moderate' | 'complex' | null;
+  conflict_check_names: string[];
+  sol_risk: boolean | null;
+  sol_risk_notes: string | null;
+  emergency_relief_needed: boolean | null;
+  multi_state: boolean | null;
+  multi_state_notes: string | null;
+  legal_aid_eligible: boolean | null;
+  estimated_value_band: 'low' | 'medium' | 'high' | null;
+  ai_matter_description: string | null;
+  ai_scope_suggestion: string | null;
+  confidence: number;
 }

@@ -195,13 +195,13 @@ export const InvoiceBuilderSurface = forwardRef<InvoiceFormHandle, InvoiceBuilde
   }
 
   if (mode === 'edit' && !resolvedInvoice && !shouldShowLoading && !displayErrorMessage) {
-    return <div className="p-6 text-sm text-input-placeholder">Invoice not found</div>;
+    return <div className="p-6 text-sm text-dim-2">Invoice not found</div>;
   }
 
   if (mode === 'edit' && displayErrorMessage && !resolvedInvoice) {
     return (
       <div className="flex min-h-0 flex-1 flex-col gap-6">
-        <div className="rounded-xl border border-accent-error/30 bg-accent-error/10 px-4 py-3 text-sm text-accent-error-foreground">
+        <div className="rounded-r-md border border-neg/30 bg-neg/10 px-4 py-3 text-sm text-neg">
           {displayErrorMessage}
         </div>
       </div>
@@ -211,7 +211,7 @@ export const InvoiceBuilderSurface = forwardRef<InvoiceFormHandle, InvoiceBuilde
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-6">
       {displayErrorMessage ? (
-        <div className="rounded-xl border border-accent-error/30 bg-accent-error/10 px-4 py-3 text-sm text-accent-error-foreground">
+        <div className="rounded-r-md border border-neg/30 bg-neg/10 px-4 py-3 text-sm text-neg">
           {displayErrorMessage}
         </div>
       ) : null}

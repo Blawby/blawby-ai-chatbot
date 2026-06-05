@@ -1,0 +1,190 @@
+<!doctype html>
+<html lang="en" data-theme="">
+<head>
+<meta charset="utf-8" />
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,opsz,wght@0,8..60,300..900;1,8..60,300..900&family=Geist:wght@300;400;500;600;700&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="tokens.css">
+<title>Blawby — Profile &amp; Areas</title>
+
+<style>
+  body{ background-image: radial-gradient(rgba(15,30,54,0.025) 1px, transparent 1.2px); background-size: 3px 3px; background-attachment: fixed; }
+  .shell{ display:grid; grid-template-columns: 280px 1fr; min-height: 100vh; max-width: 1440px; margin: 0 auto; }
+  .side{
+    border-right: 1px solid var(--rule); padding: 22px 16px;
+    display:flex; flex-direction:column; gap: 14px;
+    position: sticky; top: 0; height: 100vh; overflow-y: auto;
+    background: color-mix(in oklab, var(--paper) 96%, var(--card));
+  }
+  .back{ display:inline-flex; align-items:center; gap: 6px; font-family: var(--mono); font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--dim); cursor: pointer; padding: 4px 8px; margin-left: -8px; text-decoration:none; }
+  .back:hover{ color: var(--ink); }
+  .side h2{ font-family: var(--serif); font-weight:400; font-size: 28px; margin: 4px 0 0; letter-spacing:-.012em; }
+  .side .org{ font-family:var(--mono); font-size:11px; color: var(--dim); letter-spacing: .04em; }
+  .nav-section{ display:flex; flex-direction:column; gap: 1px; margin-top: 6px; }
+  .nav-section .lbl{ font-family: var(--mono); font-size: 9.5px; letter-spacing: .12em; text-transform: uppercase; color: var(--dim-2); padding: 14px 10px 6px; }
+  .nav-item{ display:flex; align-items:center; gap: 10px; padding: 8px 10px; border-radius: var(--r-xs); font-size: 13.5px; color: var(--ink-2); cursor: pointer; transition: background .14s, color .14s; text-decoration: none; }
+  .nav-item:hover{ background: var(--rule-soft); color: var(--ink); }
+  .nav-item.on{ background: var(--ink); color: var(--accent); }
+  .nav-item .ic{ width:14px; height:14px; opacity:.7; flex-shrink:0; }
+  .nav-item.on .ic{ opacity: 1; }
+  .nav-item .badge{ margin-left: auto; font-family: var(--mono); font-size: 10px; color: var(--dim); }
+  .nav-item.on .badge{ color: var(--accent); }
+  .main{ padding: 36px 56px 80px; max-width: 920px; }
+  .crumb{ font-family: var(--mono); font-size: 10px; letter-spacing: .14em; text-transform: uppercase; color: var(--dim); margin-bottom: 6px; }
+  .main h1{ font-family: var(--serif); font-weight: 400; font-size: 48px; letter-spacing:-.02em; line-height: 1.05; margin: 0; }
+  .main h1 em{ color: var(--accent); }
+  .main > .lede{ margin: 12px 0 36px; }
+  section.group{ padding: 32px 0; border-top: 1px solid var(--rule); }
+  section.group:first-of-type{ border-top: none; padding-top: 0; }
+  section.group h3{ font-family: var(--serif); font-weight: 400; font-size: 24px; margin: 0 0 4px; letter-spacing:-.01em; }
+  section.group .gdesc{ font-size: 13.5px; color: var(--dim); margin: 0 0 24px; max-width: 60ch; }
+  .setting{ display:grid; grid-template-columns: 1fr auto; gap: 28px; align-items: center; padding: 18px 0; border-bottom: 1px solid var(--rule); }
+  .setting:last-child{ border-bottom: none; }
+  .setting .meta{ display:flex; flex-direction:column; gap:4px; }
+  .setting .meta .h{ font-size: 14px; font-weight: 500; color: var(--ink); }
+  .setting .meta .d{ font-size: 13px; color: var(--dim); max-width: 64ch; line-height: 1.5; }
+  .setting .meta .d code{ font-family: var(--mono); font-size: 11.5px; background: var(--rule-soft); padding: 1px 6px; border-radius: 3px; color: var(--ink-2); }
+  .setting .ctrl{ display:flex; align-items:center; gap: 8px; min-width: 200px; justify-content: flex-end; }
+  .setting .ctrl .input, .setting .ctrl .select{ width: 220px; }
+  .danger{ margin-top: 32px; padding: 22px; border: 1px solid color-mix(in oklab, var(--neg) 30%, var(--rule)); border-radius: var(--r-md); background: color-mix(in oklab, var(--neg) 6%, var(--card)); }
+  .danger h3{ color: var(--neg); }
+  .danger .gdesc{ color: var(--ink-2); }
+  @media (max-width: 980px){ .shell{ grid-template-columns: 1fr; } .side{ display:none; } .main{ padding: 24px 22px; } }
+</style>
+<style>
+  .avatar-edit{ position: relative; width: 72px; height: 72px; border-radius: 50%; background: var(--ink); color: var(--accent); font-family: var(--serif); font-style: italic; font-size: 28px; display: grid; place-items: center; cursor: pointer; }
+  .avatar-edit::after{ content: '✎'; position: absolute; bottom: -2px; right: -2px; width: 22px; height: 22px; background: var(--accent); color: var(--accent-ink); border-radius: 50%; font-size: 11px; display: grid; place-items: center; font-style: normal; }
+  .profile-head{ display: flex; align-items: center; gap: 22px; margin-bottom: 32px; }
+  .profile-head .info h2{ font-family: var(--serif); font-weight: 400; font-size: 22px; margin: 0; letter-spacing: -.01em; }
+  .profile-head .info .email{ font-family: var(--mono); font-size: 12px; color: var(--dim); margin-top: 2px; }
+  .area-chips{ display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+  .area-chip{ display: inline-flex; align-items: center; gap: 6px; padding: 7px 12px; font-size: 13px; border: 1px solid var(--rule); border-radius: var(--r-xs); background: var(--card); color: var(--ink-2); cursor: pointer; transition: all .14s; }
+  .area-chip:hover{ border-color: var(--ink); }
+  .area-chip.on{ background: var(--ink); color: var(--accent); border-color: var(--ink); }
+  .area-chip .x{ font-size: 10px; opacity: .5; margin-left: 2px; }
+  .two-col{ display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  @media (max-width: 720px){ .two-col{ grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<div class="shell">
+    <aside class="side">
+    <a href="Assistant.html" class="back">← back to assistant</a>
+    <div><h2>Settings</h2><div class="org">Law Offices of Sarah Chen · solo</div></div>
+    <div class="nav-section"><div class="lbl">Practice</div>
+      <a href="Profile.html" class="nav-item on"><span class="ic">⌂</span>Profile &amp; areas</a>
+      <a href="Team.html" class="nav-item"><span class="ic">＋</span>Team <span class="badge">1</span></a>
+      <a href="Services.html" class="nav-item"><span class="ic">⏳</span>Services &amp; pricing <span class="badge">5</span></a></div>
+    <div class="nav-section"><div class="lbl">Money</div>
+      <a href="Subscription.html" class="nav-item"><span class="ic">$</span>Subscription</a>
+      <a href="StripeConnect.html" class="nav-item"><span class="ic">⇄</span>Stripe Connect</a>
+      <a href="Trust.html" class="nav-item"><span class="ic">▤</span>Trust accounting <span class="badge">IOLTA</span></a></div>
+    <div class="nav-section"><div class="lbl">Intelligence</div>
+      <a href="Settings.html" class="nav-item"><span class="ic">✦</span>AI behavior</a>
+      <a href="IntakeForms.html" class="nav-item"><span class="ic">📥</span>Intake forms <span class="badge">3</span></a>
+      <a href="EngagementTemplates.html" class="nav-item"><span class="ic">⌥</span>Engagement templates</a>
+      <a href="Apps.html" class="nav-item"><span class="ic">⬡</span>Apps &amp; integrations <span class="badge">1</span></a>
+      <a href="MCP.html" class="nav-item"><span class="ic">▦</span>MCP &amp; API <span class="badge">beta</span></a></div>
+    <div class="nav-section"><div class="lbl">Account</div>
+      <a href="Security.html" class="nav-item"><span class="ic">⚿</span>Security</a>
+      <a href="Sessions.html" class="nav-item"><span class="ic">◉</span>Sessions</a>
+      <a href="Appearance.html" class="nav-item"><span class="ic">◐</span>Appearance</a>
+      <a href="Notifications.html" class="nav-item"><span class="ic">⌘</span>Notifications</a>
+      <a href="AuditLog.html" class="nav-item"><span class="ic">⎯</span>Audit log</a>
+      <a href="ExportData.html" class="nav-item"><span class="ic">↧</span>Export data</a></div>
+  </aside>
+  <main class="main">
+    <div class="crumb">Settings · Practice</div>
+    <h1>Profile &amp; <em>practice areas.</em></h1>
+    <p class="lede">Your firm identity, bar credentials, and the areas of law you practice. This information grounds the assistant's scope.</p>
+
+    <section class="group" style="border:none;padding-top:0">
+      <div class="profile-head">
+        <div class="avatar-edit">S</div>
+        <div class="info">
+          <h2>Sarah Chen, Esq.</h2>
+          <div class="email">sarah@sarahchenlaw.com</div>
+        </div>
+      </div>
+
+      <h3>Firm details</h3>
+      <p class="gdesc">How your practice appears to clients and in generated documents.</p>
+
+      <div class="two-col" style="margin-bottom: 22px">
+        <div class="field"><label>Firm name</label><input class="input" value="Law Offices of Sarah Chen" /></div>
+        <div class="field"><label>DBA / public name</label><input class="input" value="Sarah Chen Law" /></div>
+      </div>
+      <div class="two-col" style="margin-bottom: 22px">
+        <div class="field"><label>Phone</label><input class="input" value="(704) 555-0142" /></div>
+        <div class="field"><label>Fax</label><input class="input" value="(704) 555-0143" placeholder="Optional" /></div>
+      </div>
+      <div class="field" style="margin-bottom: 22px"><label>Address line 1</label><input class="input" value="227 West Trade St, Suite 1200" /></div>
+      <div class="two-col" style="margin-bottom: 22px">
+        <div class="field"><label>City</label><input class="input" value="Charlotte" /></div>
+        <div class="field"><label>State</label><input class="input" value="NC" /></div>
+      </div>
+      <div class="two-col" style="margin-bottom: 22px">
+        <div class="field"><label>Postal code</label><input class="input" value="28202" /></div>
+        <div class="field"><label>Country</label><select class="select"><option selected>US</option><option>CA</option><option>GB</option></select></div>
+      </div>
+      <div class="two-col">
+        <div class="field"><label>Bar number</label><input class="input" value="NC 38421" /></div>
+        <div class="field"><label>Admitted</label><input class="input" value="2016" /></div>
+      </div>
+    </section>
+
+    <section class="group">
+      <h3>Jurisdictions</h3>
+      <p class="gdesc">Where you're licensed. The assistant will decline matters outside these jurisdictions.</p>
+      <div class="area-chips">
+        <span class="area-chip on">North Carolina</span>
+        <span class="area-chip on">South Carolina</span>
+        <span class="area-chip" style="border-style:dashed;color:var(--dim)">＋ Add jurisdiction</span>
+      </div>
+    </section>
+
+    <section class="group">
+      <h3>Practice areas</h3>
+      <p class="gdesc">The assistant uses these to qualify intakes and route consultations. Toggle areas on or off as your practice evolves.</p>
+      <div class="area-chips">
+        <span class="area-chip on">Family law</span>
+        <span class="area-chip on">Divorce &amp; separation</span>
+        <span class="area-chip on">Child custody</span>
+        <span class="area-chip on">Domestic violence</span>
+        <span class="area-chip on">Estate planning</span>
+        <span class="area-chip">Immigration</span>
+        <span class="area-chip">Personal injury</span>
+        <span class="area-chip">Criminal defense</span>
+        <span class="area-chip">Real estate</span>
+        <span class="area-chip">Business law</span>
+        <span class="area-chip">Bankruptcy</span>
+        <span class="area-chip" style="border-style:dashed;color:var(--dim)">＋ Custom area</span>
+      </div>
+    </section>
+
+    <section class="group">
+      <h3>Bio &amp; credentials</h3>
+      <p class="gdesc">Used in engagement letters, the client portal, and intake widget.</p>
+      <div class="field" style="margin-bottom:18px">
+        <label>Professional bio</label>
+        <textarea class="textarea" rows="4">Sarah Chen is a family law attorney based in Charlotte, NC with over 8 years of experience in divorce, custody, and domestic violence cases. She is admitted to practice in North Carolina and South Carolina.</textarea>
+      </div>
+      <div class="field">
+        <label>Specializations / certifications</label>
+        <input class="input" value="NC Board Certified Specialist — Family Law" />
+      </div>
+    </section>
+
+    <div style="display:flex;gap:10px;margin-top:8px">
+      <button class="btn btn-primary">Save changes</button>
+      <button class="btn btn-ghost">Discard</button>
+    </div>
+  </main>
+</div>
+<script>
+  document.querySelectorAll('.area-chip:not([style])').forEach(c=>{
+    c.addEventListener('click', ()=> c.classList.toggle('on'));
+  });
+</script>
+</body></html>

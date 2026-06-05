@@ -30,16 +30,16 @@ export function ListItem({
       type={onClick ? 'button' : undefined}
       onClick={onClick}
       className={cn(
-        'flex items-center gap-3 px-3 py-2.5 w-full text-left rounded-xl transition-colors',
-        onClick && 'hover:bg-surface-utility/10 cursor-pointer',
+        'flex items-center gap-3 px-3 py-2.5 w-full text-left rounded-r-md transition-colors',
+        onClick && 'hover:bg-paper-2/10 cursor-pointer',
         className,
       )}
     >
-      {icon && <span className="shrink-0 text-input-placeholder">{icon}</span>}
+      {icon && <span className="shrink-0 text-dim-2">{icon}</span>}
       <div className="flex-1 min-w-0">
-        <p className="text-sm text-input-text truncate">{title}</p>
+        <p className="text-sm text-ink truncate">{title}</p>
         {description && (
-          <p className="text-xs text-input-placeholder truncate">{description}</p>
+          <p className="text-xs text-dim-2 truncate">{description}</p>
         )}
       </div>
       {trailing && <span className="shrink-0">{trailing}</span>}
@@ -54,7 +54,7 @@ export function List({ items, divided = true, className }: ListProps) {
         <div key={i} role="listitem">
           <ListItem {...item} />
           {divided && i < items.length - 1 && (
-            <div className="mx-3 border-t border-line-glass/10" />
+            <div className="mx-3 border-t border-line-subtle" />
           )}
         </div>
       ))}

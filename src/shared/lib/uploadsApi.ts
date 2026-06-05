@@ -128,10 +128,10 @@ const confirmUpload = async (uploadId: string, signal?: AbortSignal): Promise<Co
   }
 };
 
-// Wire type lives in worker/types/wire/upload.ts (single source of truth).
+// Wire types live in worker/types/wire/upload.ts (single source of truth).
 // Re-exported here for existing consumers; new code should import from
 // `@/shared/types/wire` directly.
-import type { BackendUploadRecord } from '@/shared/types/wire';
+import type { BackendUploadRecord, BackendUploadsListResponse } from '@/shared/types/wire';
 export type { BackendUploadRecord };
 
 interface ListUploadsParams {
@@ -139,13 +139,6 @@ interface ListUploadsParams {
   scopeId: string;
   subContext?: UploadSubContext;
   signal?: AbortSignal;
-}
-
-interface BackendUploadsListResponse {
-  uploads: BackendUploadRecord[];
-  total?: number;
-  page?: number;
-  limit?: number;
 }
 
 export const listUploadsByScope = async ({

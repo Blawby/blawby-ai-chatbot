@@ -139,7 +139,7 @@ export const MatterTaskForm = ({
           onChange={(value) => setFormState((prev) => ({ ...prev, dueDate: value }))}
         />
         <div>
-          <span id="matter-task-assignee-label" className="mb-1 block text-sm font-medium text-input-text">
+          <span id="matter-task-assignee-label" className="mb-1 block text-sm font-medium text-ink">
             Assignee
           </span>
           <Combobox
@@ -155,7 +155,7 @@ export const MatterTaskForm = ({
 
       <div className="grid gap-4 sm:grid-cols-2">
         <div>
-          <span id="matter-task-status-label" className="mb-1 block text-sm font-medium text-input-text">
+          <span id="matter-task-status-label" className="mb-1 block text-sm font-medium text-ink">
             Status
           </span>
           <Combobox
@@ -168,7 +168,7 @@ export const MatterTaskForm = ({
           />
         </div>
         <div>
-          <span id="matter-task-priority-label" className="mb-1 block text-sm font-medium text-input-text">
+          <span id="matter-task-priority-label" className="mb-1 block text-sm font-medium text-ink">
             Priority
           </span>
           <Combobox
@@ -183,7 +183,7 @@ export const MatterTaskForm = ({
       </div>
 
       <div>
-        <span id="matter-task-stage-label" className="mb-1 block text-sm font-medium text-input-text">
+        <span id="matter-task-stage-label" className="mb-1 block text-sm font-medium text-ink">
           Stage
         </span>
         <Combobox

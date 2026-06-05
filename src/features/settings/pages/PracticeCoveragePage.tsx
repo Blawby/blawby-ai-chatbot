@@ -8,13 +8,13 @@ import { getServiceDetailsForSave } from '@/features/services/utils';
 import { resolveServiceDetails } from '@/features/services/utils/serviceNormalization';
 import { useToastContext } from '@/shared/contexts/ToastContext';
 import { useTranslation } from '@/shared/i18n/hooks';
-import { SectionDivider, EditorShell } from '@/shared/ui/layout';
-
 import { Combobox } from '@/shared/ui/input/Combobox';
-import { Input } from '@/shared/ui/input';
 import { STATE_OPTIONS } from '@/shared/ui/address/AddressFields';
 import { Button } from '@/shared/ui/Button';
 import { SettingsHelperText } from '@/features/settings/components/SettingsHelperText';
+import { SettingSection } from '@/features/settings/components/SettingSection';
+import { SettingsCard } from '@/features/settings/components/SettingsCard';
+import { cn } from '@/shared/utils/cn';
 import { buildPracticeProfilePayloads } from '@/shared/utils/practiceProfile';
 
 
@@ -45,9 +45,6 @@ export const PracticeCoveragePage = ({ className, onBack }: PracticeCoveragePage
   const [statesDraftTouched, setStatesDraftTouched] = useState(false);
   // Local-only: bar/admission info keyed by state code
   const [isSavingStates, setIsSavingStates] = useState(false);
-  const [billingIncrementDraft, setBillingIncrementDraft] = useState<number | ''>('');
-  const [billingTouched, setBillingTouched] = useState(false);
-  const [isSavingBilling, setIsSavingBilling] = useState(false);
   const lastSavedKeyRef = useRef<string>('');
   const saveRequestIdRef = useRef(0);
   const pendingSaveSnapshotsRef = useRef(new Map<number, { optimisticDetails: typeof details }>());
@@ -61,14 +58,9 @@ export const PracticeCoveragePage = ({ className, onBack }: PracticeCoveragePage
     [details, currentPractice]
   );
   const savedLicensedStates = useMemo(() => details?.serviceStates ?? [], [details?.serviceStates]);
-  const savedBillingIncrement = useMemo(() => {
-    const raw = details?.billingIncrementMinutes ?? currentPractice?.billingIncrementMinutes ?? null;
-    return typeof raw === 'number' && Number.isFinite(raw) ? raw : 6;
-  }, [currentPractice?.billingIncrementMinutes, details?.billingIncrementMinutes]);
   const displayedLicensedStates = statesDraftTouched || isSavingStates
     ? licensedStatesDraft
     : savedLicensedStates;
-  const displayedBillingIncrement = billingTouched ? billingIncrementDraft : savedBillingIncrement;
 
   const saveServices = useCallback(async (nextServices: Service[]) => {
     if (!currentPractice) return;
@@ -212,169 +204,109 @@ export const PracticeCoveragePage = ({ className, onBack }: PracticeCoveragePage
     }
   };
 
-  const handleSaveBillingIncrement = async () => {
-    if (!currentPractice) return;
-    const nextValue = typeof displayedBillingIncrement === 'number' ? displayedBillingIncrement : Number(displayedBillingIncrement);
-    if (!Number.isInteger(nextValue) || nextValue < 1 || nextValue > 60) {
-      showError(t('settings:billing.invalidIncrement') || 'Billing increment must be a whole number between 1 and 60 minutes.');
-      return;
-    }
-
-    if (nextValue === savedBillingIncrement) {
-      setBillingTouched(false);
-      setBillingIncrementDraft(nextValue);
-      return;
-    }
-
-    setIsSavingBilling(true);
-    try {
-      const savedDetails = await updateDetails({ billingIncrementMinutes: nextValue });
-      if (savedDetails !== undefined) setDetails(savedDetails);
-      setBillingTouched(false);
-      setBillingIncrementDraft(nextValue);
-      showSuccess(t('settings:billing.updated') || 'Billing increment updated.');
-    } catch (err) {
-      const message = err instanceof Error ? err.message : (t('settings:billing.updateFailed') || 'Failed to update billing increment');
-      showError(message);
-    } finally {
-      setIsSavingBilling(false);
-    }
-  };
-
   if (!currentPractice) {
     return (
       <div className="h-full flex items-center justify-center">
-        <p className="text-sm text-input-placeholder">No practice selected.</p>
+        <p className="text-sm text-dim-2">No practice selected.</p>
       </div>
     );
   }
 
   return (
-    <EditorShell
-      title="Coverage"
-      subtitle="Services, licensed states, and billing rules"
-      showBack={Boolean(onBack)}
-      backVariant="close"
-      onBack={onBack}
-      className={className}
-      contentMaxWidth={null}
+    <div
+      className={cn(
+        'h-full overflow-y-auto bg-[radial-gradient(rgba(15,30,54,0.025)_1px,transparent_1.2px)] [background-size:3px_3px]',
+        className,
+      )}
     >
-      <div className="space-y-6">
-
+      <div className="max-w-[920px] px-14 pb-20 pt-9 max-[980px]:px-[22px] max-[980px]:pb-12 max-[980px]:pt-6">
+        <header className="mb-9">
+          <div className="mb-1.5 font-mono text-[10px] uppercase tracking-[0.14em] text-dim">Settings · Practice · Coverage</div>
+          <div className="flex items-start justify-between gap-4 max-sm:flex-col">
+            <div>
+              <h1 className="font-serif text-[48px] font-normal leading-[1.05] tracking-[-0.02em] text-ink [&_em]:text-accent">
+                Where you <em>practice.</em>
+              </h1>
+              <p className="mt-3 max-w-[60ch] text-[15px] leading-relaxed text-ink-2">
+                Services you offer and the jurisdictions you are licensed in. The assistant uses this to route and qualify intakes.
+              </p>
+            </div>
+            {onBack ? (
+              <Button variant="secondary" size="sm" onClick={onBack}>
+                Back
+              </Button>
+            ) : null}
+          </div>
+        </header>
 
         {servicesError && (
-          <p className="text-xs text-accent-error dark:text-accent-error-light mb-4">
+          <p className="mb-4 text-xs text-neg dark:text-neg">
             {servicesError}
           </p>
         )}
         {statesError && (
-          <p className="text-xs text-red-600 dark:text-red-400 mb-4">
+          <p className="mb-4 text-xs text-red-600 dark:text-red-400">
             {statesError}
           </p>
         )}
 
-        <section className="space-y-4">
-          <div>
-            <h3 className="text-sm font-semibold text-input-text">Services</h3>
-            <SettingsHelperText className="mt-1">
-              Choose the legal service areas this practice accepts for routing and intake setup.
+        <SettingSection
+          first
+          title="Services"
+          description="Choose the service areas this practice accepts for intake routing, pricing, and assistant grounding."
+        >
+          <SettingsCard>
+            <ServicesEditor
+              services={initialServiceDetails}
+              onChange={(nextServices) => void saveServices(nextServices)}
+              catalog={SERVICE_CATALOG}
+            />
+          </SettingsCard>
+        </SettingSection>
+
+        <SettingSection
+          title="Licensed jurisdictions"
+          description="Select the states where this practice is authorized to operate so intake qualification stays within your licensed footprint."
+        >
+          <SettingsCard className="max-w-[760px]">
+            <Combobox
+              multiple
+              options={STATE_OPTIONS}
+              value={displayedLicensedStates}
+              onChange={(nextStates) => {
+                setLicensedStatesDraft(nextStates);
+                setStatesDraftTouched(true);
+              }}
+              placeholder="Select licensed states"
+              disabled={isSavingStates}
+              aria-label="Licensed states"
+            />
+            <SettingsHelperText className="mt-3 block">
+              Additional bar details can be added after selecting your licensed states.
             </SettingsHelperText>
-          </div>
-          <ServicesEditor
-            services={initialServiceDetails}
-            onChange={(nextServices) => void saveServices(nextServices)}
-            catalog={SERVICE_CATALOG}
-          />
-        </section>
-        <SectionDivider />
-        <section className="space-y-4">
-          <div>
-            <h3 className="text-sm font-semibold text-input-text">Time entry billing increment</h3>
-            <SettingsHelperText className="mt-1">
-              Round billable time to this many minutes when entries are created.
-            </SettingsHelperText>
-          </div>
-          <div className="glass-panel rounded-xl p-4">
-            <div className="flex flex-col gap-4 sm:flex-row sm:items-end">
-              <div className="w-full max-w-[220px]">
-                <label className="mb-2 block text-sm font-medium text-input-text" htmlFor="billing-increment-minutes">
-                  Minutes
-                </label>
-                <Input
-                  id="billing-increment-minutes"
-                  type="number"
-                  min={1}
-                  max={60}
-                  step={1}
-                  value={displayedBillingIncrement === '' ? '' : String(displayedBillingIncrement)}
-                  onChange={(value) => {
-                    const trimmed = value.trim();
-                    const parsed = trimmed === '' ? '' : Number(trimmed);
-                    setBillingTouched(true);
-                    setBillingIncrementDraft(Number.isFinite(parsed as number) ? (parsed as number) : '');
-                  }}
-                  disabled={isSavingBilling}
-                  placeholder="6"
-                />
-              </div>
+            <div className="mt-5 flex items-center justify-end gap-2">
               <Button
-                type="button"
+                variant="secondary"
                 size="sm"
-                onClick={() => void handleSaveBillingIncrement()}
-                disabled={isSavingBilling || (!billingTouched && displayedBillingIncrement === savedBillingIncrement)}
+                onClick={() => {
+                  setLicensedStatesDraft(savedLicensedStates);
+                  setStatesDraftTouched(false);
+                }}
+                disabled={isSavingStates}
               >
-                {isSavingBilling ? 'Saving...' : 'Save'}
+                Reset
+              </Button>
+              <Button
+                size="sm"
+                onClick={handleSaveLicensedStates}
+                disabled={isSavingStates}
+              >
+                {isSavingStates ? 'Saving...' : 'Save'}
               </Button>
             </div>
-          </div>
-        </section>
-
-        <SectionDivider />
-        <section className="space-y-3">
-          <div>
-            <h3 className="text-sm font-semibold text-input-text">Licensed states</h3>
-            <SettingsHelperText className="mt-1">
-              Enter US state codes where this practice is licensed. Used to help the assistant reason about jurisdiction.
-            </SettingsHelperText>
-          </div>
-          <Combobox
-            multiple
-            options={STATE_OPTIONS}
-            value={displayedLicensedStates}
-            onChange={(nextStates) => {
-              setLicensedStatesDraft(nextStates);
-              setStatesDraftTouched(true);
-            }}
-            placeholder="Select licensed states"
-            disabled={isSavingStates}
-            aria-label="Licensed states"
-          />
-          {/* Per-state bar number/admission date inputs hidden until backend
-              support exists — they were local-only and never persisted, which
-              misled users into thinking they were saving credentials. */}
-          <SectionDivider />
-          <div className="flex items-center justify-end gap-2">
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={() => {
-                setLicensedStatesDraft(savedLicensedStates);
-                setStatesDraftTouched(false);
-              }}
-              disabled={isSavingStates}
-            >
-              Reset
-            </Button>
-            <Button
-              size="sm"
-              onClick={handleSaveLicensedStates}
-              disabled={isSavingStates}
-            >
-              {isSavingStates ? 'Saving...' : 'Save'}
-            </Button>
-          </div>
-        </section>
+          </SettingsCard>
+        </SettingSection>
       </div>
-    </EditorShell>
+    </div>
   );
 };

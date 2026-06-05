@@ -188,23 +188,23 @@ export const DebugOverlay: FunctionComponent<DebugOverlayProps> = ({ isVisible =
       aria-label="Debug information overlay"
       aria-live="polite"
     >
-      <div className="glass-panel p-4 text-xs font-mono text-input-text">
+      <div className="panel p-4 text-xs font-mono text-ink">
         <div className="mb-2 flex justify-between items-center">
           <strong>Debug Overlay</strong>
           <button
             onClick={() => setIsExpanded(!isExpanded)}
-            className="text-input-placeholder hover:text-input-text focus:outline-none focus:ring-2 focus:ring-accent-500 focus:ring-opacity-50 rounded px-1"
+            className="text-dim-2 hover:text-ink focus:outline-none focus:ring-2 focus:ring-accent focus:ring-opacity-50 rounded px-1"
             aria-label={isExpanded ? 'Collapse debug overlay' : 'Expand debug overlay'}
             aria-expanded={isExpanded}
           >
-            {isExpanded ? '−' : '+'}
+            {isExpanded ? 'âˆ’' : '+'}
           </button>
         </div>
         
         {error && (
-          <div className="mb-2 p-2 bg-accent-error/30 rounded border border-accent-error" role="alert" aria-live="assertive">
-            <div className="text-accent-error font-semibold">Error:</div>
-            <div className="text-accent-error/80 text-xs">{error}</div>
+          <div className="mb-2 p-2 bg-neg/30 rounded border border-neg" role="alert" aria-live="assertive">
+            <div className="text-neg font-semibold">Error:</div>
+            <div className="text-neg/80 text-xs">{error}</div>
           </div>
         )}
         
@@ -215,13 +215,13 @@ export const DebugOverlay: FunctionComponent<DebugOverlayProps> = ({ isVisible =
         <div className="mb-2">
           <div><strong>Tool Calls ({toolCalls.length}):</strong></div>
           {toolCalls.length === 0 ? (
-            <div className="text-input-placeholder" aria-label="No tool calls have been detected">No tool calls detected</div>
+            <div className="text-dim-2" aria-label="No tool calls have been detected">No tool calls detected</div>
           ) : (
             <div className="max-h-32 overflow-y-auto" role="list" aria-label="List of tool calls">
               {toolCalls.map((call, index) => (
                 <div 
                   key={index} 
-                  className="text-accent-success" 
+                  className="text-pos" 
                   role="listitem"
                   aria-label={`Tool call ${index + 1}: ${call.tool} at ${new Date(call.timestamp).toLocaleTimeString()}`}
                 >
@@ -232,15 +232,15 @@ export const DebugOverlay: FunctionComponent<DebugOverlayProps> = ({ isVisible =
           )}
         </div>
         
-        <div className="text-xs text-input-placeholder" aria-label={lastUpdated ? `Last updated at ${lastUpdated.toLocaleTimeString()}` : 'No successful updates yet'}>
+        <div className="text-xs text-dim-2" aria-label={lastUpdated ? `Last updated at ${lastUpdated.toLocaleTimeString()}` : 'No successful updates yet'}>
           Last updated: {lastUpdated ? lastUpdated.toLocaleTimeString() : 'Never'}
         </div>
         
         {isExpanded && (
-          <div className="mt-2 pt-2 border-t border-line-glass/40" role="region" aria-label="Additional debug information">
-            <div className="text-xs text-input-placeholder">
-              <div>Press <kbd className="bg-surface-utility/40 px-1 rounded">Esc</kbd> to collapse</div>
-              <div>Press <kbd className="bg-surface-utility/40 px-1 rounded">Enter</kbd> or <kbd className="bg-surface-utility/40 px-1 rounded">Space</kbd> to toggle</div>
+          <div className="mt-2 pt-2 border-t border-line-subtle" role="region" aria-label="Additional debug information">
+            <div className="text-xs text-dim-2">
+              <div>Press <kbd className="bg-paper-2/40 px-1 rounded">Esc</kbd> to collapse</div>
+              <div>Press <kbd className="bg-paper-2/40 px-1 rounded">Enter</kbd> or <kbd className="bg-paper-2/40 px-1 rounded">Space</kbd> to toggle</div>
             </div>
           </div>
         )}

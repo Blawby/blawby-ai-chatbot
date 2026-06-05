@@ -15,9 +15,9 @@ export function Divider({
   className,
 }: DividerProps) {
   const variantClasses = {
-    default: 'border-line-glass/30',
-    subtle: 'border-line-glass/15',
-    strong: 'border-line-glass/40',
+    default: 'border-line-subtle',
+    subtle: 'border-line-subtle/50',
+    strong: 'border-line-subtle',
   };
 
   if (orientation === 'vertical') {
@@ -37,7 +37,7 @@ export function Divider({
         className={cn('flex items-center gap-3', className)}
       >
         <div className={cn('flex-1 border-t', variantClasses[variant])} />
-        <span className="text-xs text-input-placeholder shrink-0">{label}</span>
+        <span className="text-xs text-dim-2 shrink-0">{label}</span>
         <div className={cn('flex-1 border-t', variantClasses[variant])} />
       </div>
     );

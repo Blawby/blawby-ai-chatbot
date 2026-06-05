@@ -46,9 +46,9 @@ export const InteractiveListItem = ({
   };
 
   const itemClassName = cn(
-    'flex flex-wrap items-start justify-between gap-4 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-accent-500/40',
+    'flex flex-wrap items-start justify-between gap-4 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-accent/40',
     padding,
-    isSelected ? SELECTED_ACCENT_SURFACE_CLASS : (isClickable && !disabled && 'hover:bg-surface-utility/40 cursor-pointer'),
+    isSelected ? SELECTED_ACCENT_SURFACE_CLASS : (isClickable && !disabled && 'hover:bg-paper-2/40 cursor-pointer'),
     disabled && 'opacity-60 cursor-not-allowed',
     className
   );

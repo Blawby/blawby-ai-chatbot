@@ -1,0 +1,1147 @@
+<!doctype html>
+<html lang="en" data-theme="">
+<head>
+<meta charset="utf-8" />
+<title>Blawby — Apps &amp; Integrations</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,opsz,wght@0,8..60,300..900;1,8..60,300..900&family=Geist:wght@300;400;500;600;700&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="tokens.css">
+
+<style>
+  body{ background-image: radial-gradient(rgba(15,30,54,0.025) 1px, transparent 1.2px); background-size: 3px 3px; background-attachment: fixed; }
+
+  .shell{ display:grid; grid-template-columns: 280px 1fr; min-height: 100vh; max-width: 1440px; margin: 0 auto; }
+
+  /* ===== nav ===== */
+  .side{
+    border-right: 1px solid var(--rule);
+    padding: 22px 16px;
+    display:flex; flex-direction:column; gap: 14px;
+    position: sticky; top: 0; height: 100vh; overflow-y: auto;
+    background: color-mix(in oklab, var(--paper) 96%, var(--card));
+  }
+  .back{
+    display:inline-flex; align-items:center; gap: 6px;
+    font-family: var(--mono); font-size: 11px; letter-spacing: .06em; text-transform: uppercase;
+    color: var(--dim); cursor: pointer; padding: 4px 8px; margin-left: -8px;
+  }
+  .back:hover{ color: var(--ink); }
+  .side h2{ font-family: var(--serif); font-weight:400; font-size: 28px; margin: 4px 0 0; letter-spacing:-.012em; }
+  .side .org{ font-family:var(--mono); font-size:11px; color: var(--dim); letter-spacing: .04em; }
+
+  .nav-section{ display:flex; flex-direction:column; gap: 1px; margin-top: 6px; }
+  .nav-section .lbl{
+    font-family: var(--mono); font-size: 9.5px; letter-spacing: .12em; text-transform: uppercase;
+    color: var(--dim-2); padding: 14px 10px 6px;
+  }
+  .nav-item{
+    display:flex; align-items:center; gap: 10px;
+    padding: 8px 10px; border-radius: var(--r-xs);
+    font-size: 13.5px; color: var(--ink-2); cursor: pointer;
+    transition: background .14s, color .14s;
+  }
+  .nav-item:hover{ background: var(--rule-soft); color: var(--ink); }
+  .nav-item.on{ background: var(--ink); color: var(--accent); }
+  .nav-item .ic{ width:14px; height:14px; opacity:.7; flex-shrink:0; }
+  .nav-item.on .ic{ opacity: 1; }
+  .nav-item .badge{ margin-left: auto; font-family: var(--mono); font-size: 10px; color: var(--dim); }
+  .nav-item.on .badge{ color: var(--accent); }
+
+  /* ===== main ===== */
+  .main{ padding: 36px 56px 80px; max-width: 920px; overflow-y: auto; }
+  .crumb{
+    font-family: var(--mono); font-size: 10px; letter-spacing: .14em; text-transform: uppercase;
+    color: var(--dim); margin-bottom: 6px;
+  }
+  .main > h1{
+    font-family: var(--serif); font-weight: 400; font-size: 48px; letter-spacing:-.02em;
+    line-height: 1.05; margin: 0;
+  }
+  .main > h1 em{ color: var(--accent); }
+  .main > .lede{ margin: 12px 0 36px; }
+
+  /* ===== filter tabs ===== */
+  .filter-row{ display: flex; align-items: center; gap: 6px; margin-bottom: 28px; flex-wrap: wrap; }
+  .ftab{
+    padding: 6px 12px; font-size: 12.5px; border-radius: var(--r-xs);
+    border: 1px solid transparent; cursor: pointer; color: var(--ink-2);
+    transition: all .14s; font-family: var(--sans);
+    background: transparent;
+  }
+  .ftab:hover{ background: var(--rule-soft); }
+  .ftab.on{ background: var(--card); border-color: var(--rule); color: var(--ink); }
+  .ftab .ct{ font-family: var(--mono); font-size: 10px; color: var(--dim); margin-left: 4px; }
+
+  /* ===== apps grid ===== */
+  .apps-grid{ display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 14px; }
+
+  .app-card{
+    background: var(--card); border: 1px solid var(--rule); border-radius: var(--r-md);
+    padding: 20px; cursor: pointer;
+    transition: border-color .14s, box-shadow .14s, transform .12s;
+    box-shadow: var(--shadow-1);
+    display: flex; flex-direction: column; gap: 12px;
+  }
+  .app-card:hover{ border-color: var(--ink); transform: translateY(-1px); box-shadow: var(--shadow-2); }
+  .app-card .app-head{ display: flex; align-items: flex-start; gap: 14px; }
+  .app-card .app-icon{
+    width: 40px; height: 40px; border-radius: var(--r-sm);
+    display: grid; place-items: center;
+    font-weight: 700; font-size: 16px; flex-shrink: 0;
+    font-family: var(--sans);
+  }
+  .app-card .app-info{ flex: 1; min-width: 0; }
+  .app-card .app-name{ font-size: 14px; font-weight: 500; color: var(--ink); line-height: 1.2; }
+  .app-card .app-by{ font-family: var(--mono); font-size: 10px; letter-spacing: .04em; color: var(--dim); margin-top: 2px; }
+  .app-card .app-desc{ font-size: 13px; color: var(--ink-2); line-height: 1.5; }
+
+  .app-card .app-foot{ display: flex; align-items: center; justify-content: space-between; margin-top: auto; }
+  .app-card .app-scopes{ font-family: var(--mono); font-size: 10px; letter-spacing: .04em; color: var(--dim); }
+
+  .conn-badge{
+    display: inline-flex; align-items: center; gap: 5px;
+    font-family: var(--mono); font-size: 10px; letter-spacing: .04em; text-transform: uppercase;
+    padding: 3px 8px; border-radius: var(--r-pill);
+  }
+  .conn-badge.live{ background: color-mix(in oklab, var(--pos) 12%, var(--card)); color: var(--pos); border: 1px solid color-mix(in oklab, var(--pos) 25%, var(--rule)); }
+  .conn-badge.live::before{ content:""; width:5px; height:5px; border-radius:50%; background: var(--pos); }
+  .conn-badge.off{ color: var(--dim); border: 1px solid var(--rule); }
+
+  /* ===== section headers ===== */
+  .section-hd{
+    display: flex; align-items: baseline; gap: 8px;
+    margin-bottom: 16px; padding-top: 32px;
+    border-top: 1px solid var(--rule);
+  }
+  .section-hd:first-of-type{ border-top: none; padding-top: 0; }
+  .section-hd h3{ font-family: var(--serif); font-weight: 400; font-size: 22px; letter-spacing: -.01em; margin: 0; }
+  .section-hd .ct{ font-family: var(--mono); font-size: 10px; color: var(--dim); letter-spacing: .06em; }
+
+  /* ===== detail view ===== */
+  .detail-back{
+    display: inline-flex; align-items: center; gap: 6px;
+    font-family: var(--mono); font-size: 11px; letter-spacing: .06em; text-transform: uppercase;
+    color: var(--dim); cursor: pointer; margin-bottom: 18px;
+    padding: 4px 0;
+  }
+  .detail-back:hover{ color: var(--ink); }
+
+  .detail-hero{
+    display: flex; align-items: flex-start; gap: 22px;
+    margin-bottom: 32px;
+  }
+  .detail-hero .app-icon{
+    width: 56px; height: 56px; border-radius: var(--r-md);
+    display: grid; place-items: center;
+    font-weight: 700; font-size: 22px; flex-shrink: 0;
+    font-family: var(--sans);
+  }
+  .detail-hero .info{ flex: 1; }
+  .detail-hero .info h1{
+    font-family: var(--serif); font-weight: 400; font-size: 36px;
+    letter-spacing: -.015em; line-height: 1.1; margin: 0;
+  }
+  .detail-hero .info h1 em{ color: var(--accent); }
+  .detail-hero .info .by{
+    font-family: var(--mono); font-size: 11px; letter-spacing: .04em;
+    color: var(--dim); margin-top: 4px;
+  }
+  .detail-hero .info .desc{
+    font-size: 15px; color: var(--ink-2); line-height: 1.55;
+    margin-top: 10px; max-width: 56ch;
+  }
+  .detail-hero .actions{ display: flex; flex-direction: column; gap: 8px; align-items: flex-end; flex-shrink: 0; }
+
+  /* scopes */
+  .scope-group{
+    margin-bottom: 28px;
+  }
+  .scope-group h3{
+    font-family: var(--serif); font-weight: 400; font-size: 22px;
+    letter-spacing: -.01em; margin: 0 0 4px;
+  }
+  .scope-group .gdesc{ font-size: 13.5px; color: var(--dim); margin: 0 0 18px; max-width: 60ch; }
+
+  .scope-row{
+    display: grid; grid-template-columns: 1fr auto;
+    gap: 18px; align-items: center;
+    padding: 14px 0;
+    border-bottom: 1px solid var(--rule);
+  }
+  .scope-row:last-child{ border-bottom: none; }
+  .scope-row .s-meta{ display: flex; flex-direction: column; gap: 3px; }
+  .scope-row .s-name{ font-size: 14px; font-weight: 500; color: var(--ink); display: flex; align-items: center; gap: 8px; }
+  .scope-row .s-name code{ font-family: var(--mono); font-size: 11px; color: var(--dim); font-weight: 400; background: var(--rule-soft); padding: 1px 6px; border-radius: 3px; }
+  .scope-row .s-desc{ font-size: 13px; color: var(--dim); line-height: 1.5; max-width: 56ch; }
+  .scope-row .s-req{ font-family: var(--mono); font-size: 9.5px; letter-spacing: .06em; text-transform: uppercase; color: var(--dim-2); margin-top: 2px; }
+
+  /* connection info */
+  .conn-info{
+    background: var(--card); border: 1px solid var(--rule); border-radius: var(--r-md);
+    padding: 18px; margin-bottom: 22px; box-shadow: var(--shadow-1);
+  }
+  .conn-info .ci-head{ display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+  .conn-info .ci-head h4{ font-family: var(--serif); font-weight: 400; font-size: 18px; margin: 0; }
+  .conn-info .ci-row{ display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--rule); }
+  .conn-info .ci-row:last-child{ border-bottom: none; }
+  .conn-info .ci-label{ font-family: var(--mono); font-size: 10.5px; letter-spacing: .06em; text-transform: uppercase; color: var(--dim); }
+  .conn-info .ci-val{ font-size: 13.5px; color: var(--ink); font-family: var(--mono); font-size: 12px; }
+
+  /* ===== oauth modal ===== */
+  .modal-overlay{
+    position: fixed; inset: 0; z-index: 100;
+    background: rgba(15,30,54,0.55);
+    display: grid; place-items: center;
+    animation: fadeIn .2s ease;
+  }
+  @keyframes fadeIn{ from{ opacity: 0; } to{ opacity: 1; } }
+  @keyframes rise{ from{ opacity:0; transform: translateY(8px); } to{ opacity:1; transform:none; } }
+
+  .modal{
+    background: var(--card); border: 1px solid var(--rule);
+    border-radius: var(--r-md); box-shadow: var(--shadow-3);
+    width: 520px; max-width: 92vw; max-height: 90vh;
+    overflow-y: auto; animation: rise .35s cubic-bezier(.2,.7,.2,1);
+  }
+  .modal-head{
+    padding: 28px 28px 0;
+    display: flex; flex-direction: column; align-items: center;
+    text-align: center;
+  }
+  .modal-head .app-icon{
+    width: 52px; height: 52px; border-radius: var(--r-md);
+    display: grid; place-items: center;
+    font-weight: 700; font-size: 20px; margin-bottom: 16px;
+    font-family: var(--sans);
+  }
+  .modal-head h2{
+    font-family: var(--serif); font-weight: 400; font-size: 26px;
+    letter-spacing: -.01em; margin: 0 0 6px; line-height: 1.15;
+  }
+  .modal-head h2 em{ color: var(--accent); }
+  .modal-head .sub{ font-size: 14px; color: var(--ink-2); line-height: 1.5; max-width: 40ch; }
+  .modal-head .org-line{
+    margin-top: 14px; display: flex; align-items: center; gap: 8px;
+    font-size: 13px; color: var(--ink-2);
+  }
+  .modal-head .org-line .av{
+    width: 22px; height: 22px; border-radius: 50%;
+    background: var(--ink); color: var(--accent);
+    font-family: var(--serif); font-style: italic; font-size: 11px;
+    display: grid; place-items: center;
+  }
+
+  .modal-body{ padding: 22px 28px; }
+  .modal-body .consent-label{
+    font-family: var(--mono); font-size: 10px; letter-spacing: .12em;
+    text-transform: uppercase; color: var(--dim); margin-bottom: 12px;
+  }
+
+  .consent-scope{
+    display: flex; align-items: flex-start; gap: 12px;
+    padding: 12px 0; border-bottom: 1px solid var(--rule);
+  }
+  .consent-scope:last-child{ border-bottom: none; }
+  .consent-scope .cs-icon{
+    width: 28px; height: 28px; border-radius: var(--r-xs);
+    background: var(--rule-soft); display: grid; place-items: center;
+    font-size: 13px; flex-shrink: 0; color: var(--ink-2); margin-top: 1px;
+  }
+  .consent-scope .cs-info{ flex: 1; }
+  .consent-scope .cs-name{ font-size: 13.5px; font-weight: 500; color: var(--ink); }
+  .consent-scope .cs-desc{ font-size: 12.5px; color: var(--dim); line-height: 1.45; margin-top: 2px; }
+  .consent-scope .cs-perm{
+    font-family: var(--mono); font-size: 9.5px; letter-spacing: .06em;
+    text-transform: uppercase; padding: 2px 6px; border-radius: var(--r-pill);
+    flex-shrink: 0; margin-top: 3px;
+  }
+  .cs-perm.read{ color: var(--pos); background: color-mix(in oklab, var(--pos) 10%, var(--card)); border: 1px solid color-mix(in oklab, var(--pos) 20%, var(--rule)); }
+  .cs-perm.write{ color: var(--warn); background: color-mix(in oklab, var(--warn) 10%, var(--card)); border: 1px solid color-mix(in oklab, var(--warn) 20%, var(--rule)); }
+  .cs-perm.admin{ color: var(--neg); background: color-mix(in oklab, var(--neg) 10%, var(--card)); border: 1px solid color-mix(in oklab, var(--neg) 20%, var(--rule)); }
+
+  .modal-trust{
+    margin: 14px 0 0; padding: 14px 0 0; border-top: 1px solid var(--rule);
+    font-family: var(--mono); font-size: 10px; letter-spacing: .04em;
+    color: var(--dim-2); text-align: center; line-height: 1.6;
+  }
+
+  .modal-foot{
+    padding: 18px 28px 24px;
+    display: flex; gap: 10px; justify-content: flex-end;
+  }
+
+  /* ===== BYOK ===== */
+  .key-card{
+    background: var(--card); border: 1px solid var(--rule); border-radius: var(--r-md);
+    padding: 18px; margin-bottom: 12px; box-shadow: var(--shadow-1);
+    display: flex; align-items: center; gap: 16px;
+  }
+  .key-card .key-icon{
+    width: 36px; height: 36px; border-radius: var(--r-sm);
+    display: grid; place-items: center; font-size: 14px; flex-shrink: 0;
+    font-family: var(--mono); font-weight: 600;
+  }
+  .key-card .key-info{ flex: 1; min-width: 0; }
+  .key-card .key-name{ font-size: 14px; font-weight: 500; color: var(--ink); }
+  .key-card .key-hint{
+    font-family: var(--mono); font-size: 12px; color: var(--dim);
+    margin-top: 2px; display: flex; align-items: center; gap: 8px;
+  }
+  .key-card .key-hint .mask{ letter-spacing: .08em; }
+  .key-card .key-meta{
+    display: flex; gap: 14px; margin-top: 6px;
+  }
+  .key-card .key-meta span{
+    font-family: var(--mono); font-size: 10px; letter-spacing: .04em;
+    color: var(--dim-2);
+  }
+  .key-card .key-actions{ display: flex; gap: 6px; flex-shrink: 0; }
+
+  .key-form{
+    background: var(--card); border: 1px solid var(--rule); border-radius: var(--r-md);
+    padding: 22px; margin-bottom: 12px; box-shadow: var(--shadow-1);
+  }
+  .key-form h4{
+    font-family: var(--serif); font-weight: 400; font-size: 18px;
+    margin: 0 0 4px; letter-spacing: -.005em;
+  }
+  .key-form .kf-desc{ font-size: 13px; color: var(--dim); margin: 0 0 18px; }
+  .key-form .kf-row{ display: flex; gap: 12px; align-items: flex-end; margin-bottom: 14px; }
+  .key-form .kf-row .field{ flex: 1; }
+  .key-form .kf-help{
+    font-size: 12px; color: var(--dim); line-height: 1.5; margin-top: 8px;
+    padding: 10px 14px; background: var(--rule-soft); border-radius: var(--r-xs);
+  }
+  .key-form .kf-help code{
+    font-family: var(--mono); font-size: 11px; background: var(--card);
+    padding: 1px 5px; border-radius: 2px; color: var(--ink-2);
+  }
+
+  /* ===== oauth success state ===== */
+  .success-card{
+    background: color-mix(in oklab, var(--pos) 8%, var(--card));
+    border: 1px solid color-mix(in oklab, var(--pos) 25%, var(--rule));
+    border-radius: var(--r-md); padding: 22px;
+    display: flex; align-items: flex-start; gap: 16px;
+    margin-bottom: 22px;
+  }
+  .success-card .sc-icon{
+    width: 36px; height: 36px; border-radius: 50%;
+    background: var(--pos); color: white;
+    display: grid; place-items: center; font-size: 16px; flex-shrink: 0;
+  }
+  .success-card .sc-body h4{ font-family: var(--serif); font-weight: 400; font-size: 18px; margin: 0 0 4px; }
+  .success-card .sc-body p{ font-size: 13.5px; color: var(--ink-2); margin: 0; line-height: 1.5; }
+
+  @media (max-width: 980px){
+    .shell{ grid-template-columns: 1fr; }
+    .side{ display:none; }
+    .main{ padding: 24px 22px; }
+    .apps-grid{ grid-template-columns: 1fr; }
+    .detail-hero{ flex-direction: column; }
+  }
+</style>
+
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+</head>
+<body>
+<div id="root"></div>
+
+<script type="text/babel">
+
+/* ============================================================
+   DATA
+   ============================================================ */
+const APPS = [
+  {
+    id: 'google-calendar',
+    name: 'Google Calendar',
+    by: 'Google',
+    icon: { bg: '#4285F4', color: '#fff', letter: 'G' },
+    cat: 'calendar',
+    desc: 'Sync court dates, client meetings, and deadlines. The assistant sees your availability to suggest times.',
+    descLong: 'Two-way sync between Blawby and Google Calendar. Court dates, filing deadlines, and client meetings created in Blawby appear on your calendar automatically. The assistant reads your free/busy status to suggest meeting times and warn when two hearings overlap.',
+    connected: false,
+    scopes: [
+      { id: 'calendar.read', name: 'Read calendars', desc: 'View your calendar events and free/busy status', perm: 'read', required: true },
+      { id: 'calendar.write', name: 'Create & update events', desc: 'Add court dates, client meetings, and deadline reminders to your calendar', perm: 'write', required: true },
+      { id: 'calendar.settings', name: 'Calendar settings', desc: 'Read which calendars you have and their time zones', perm: 'read', required: false },
+    ]
+  },
+  {
+    id: 'google-drive',
+    name: 'Google Drive',
+    by: 'Google',
+    icon: { bg: '#0F9D58', color: '#fff', letter: 'D' },
+    cat: 'storage',
+    desc: 'Attach case documents, pleadings, and client correspondence from your Drive.',
+    descLong: 'Mount your Google Drive as a document source. The assistant can search, preview, and attach Drive files to matters. Engagement letters and invoices can be exported to a designated folder for archival.',
+    connected: false,
+    scopes: [
+      { id: 'drive.read', name: 'Read files', desc: 'Search and preview documents in your Drive', perm: 'read', required: true },
+      { id: 'drive.write', name: 'Create files', desc: 'Export engagement letters and invoices to Drive', perm: 'write', required: false },
+    ]
+  },
+  {
+    id: 'stripe',
+    name: 'Stripe',
+    by: 'Stripe, Inc.',
+    icon: { bg: '#635BFF', color: '#fff', letter: 'S' },
+    cat: 'billing',
+    desc: 'Process client payments, retainer replenishments, and trust deposits via Stripe Connect.',
+    descLong: 'Full payment processing through Stripe Connect. Supports one-time invoice payments, recurring retainer replenishments, and IOLTA-compliant trust deposits with automatic ledger entries. The assistant can draft invoices that include a Stripe payment link.',
+    connected: true,
+    connectedAs: 'acct_1Q3pXz',
+    connectedAt: 'Oct 14, 2024',
+    scopes: [
+      { id: 'payments.read', name: 'Read payments', desc: 'View charges, payouts, and balance history', perm: 'read', required: true, granted: true },
+      { id: 'payments.write', name: 'Create charges', desc: 'Process client payments and generate payment links', perm: 'write', required: true, granted: true },
+      { id: 'payouts.read', name: 'Payout history', desc: 'View bank transfer history for reconciliation', perm: 'read', required: false, granted: true },
+      { id: 'customers.write', name: 'Manage customers', desc: 'Create and update Stripe customer records for your clients', perm: 'write', required: false, granted: false },
+    ]
+  },
+  {
+    id: 'outlook',
+    name: 'Microsoft 365',
+    by: 'Microsoft',
+    icon: { bg: '#0078D4', color: '#fff', letter: 'M' },
+    cat: 'calendar',
+    desc: 'Outlook calendar and email integration. Sync events, pull email threads into matter context.',
+    descLong: 'Connect your Microsoft 365 account for Outlook calendar sync and email integration. Calendar events sync bi-directionally. Email threads can be linked to matters for context, and the assistant can draft replies in your Outlook.',
+    connected: false,
+    scopes: [
+      { id: 'mail.read', name: 'Read email', desc: 'Access email threads to link to matter context', perm: 'read', required: true },
+      { id: 'calendar.read', name: 'Read calendar', desc: 'View events and free/busy status', perm: 'read', required: true },
+      { id: 'calendar.write', name: 'Create events', desc: 'Add court dates and meetings to Outlook', perm: 'write', required: true },
+      { id: 'mail.send', name: 'Send email', desc: 'Send client communications through Outlook on your behalf', perm: 'write', required: false },
+    ]
+  },
+  {
+    id: 'quickbooks',
+    name: 'QuickBooks Online',
+    by: 'Intuit',
+    icon: { bg: '#2CA01C', color: '#fff', letter: 'Q' },
+    cat: 'billing',
+    desc: 'Sync invoices, payments, and trust ledger entries with your accounting system.',
+    descLong: 'Bi-directional sync between Blawby\'s billing system and QuickBooks Online. Invoices generated in Blawby appear in QBO, payments recorded in QBO update Blawby\'s ledger. IOLTA trust account entries are mapped to the correct QBO accounts for compliant bookkeeping.',
+    connected: false,
+    scopes: [
+      { id: 'accounting.read', name: 'Read accounts', desc: 'View chart of accounts and balances', perm: 'read', required: true },
+      { id: 'accounting.write', name: 'Create transactions', desc: 'Post invoices and journal entries to QuickBooks', perm: 'write', required: true },
+      { id: 'reports.read', name: 'Read reports', desc: 'Pull P&L and balance sheet for practice health reports', perm: 'read', required: false },
+    ]
+  },
+  {
+    id: 'slack',
+    name: 'Slack',
+    by: 'Salesforce',
+    icon: { bg: '#4A154B', color: '#fff', letter: '#' },
+    cat: 'comms',
+    desc: 'Get assistant briefings and intake alerts in your Slack workspace.',
+    descLong: 'Route Blawby notifications to Slack channels. Morning briefings, new intake alerts, retainer warnings, and approval requests can be delivered to designated channels or DMs. You can also interact with the assistant directly from Slack.',
+    connected: false,
+    scopes: [
+      { id: 'chat.write', name: 'Post messages', desc: 'Send notifications and briefings to your chosen channels', perm: 'write', required: true },
+      { id: 'commands', name: 'Slash commands', desc: 'Respond to /blawby commands in Slack', perm: 'read', required: false },
+    ]
+  },
+  {
+    id: 'twilio',
+    name: 'Twilio',
+    by: 'Twilio',
+    icon: { bg: '#F22F46', color: '#fff', letter: 'T' },
+    cat: 'comms',
+    desc: 'SMS and voice for client notifications, intake follow-ups, and appointment reminders.',
+    descLong: 'Enable SMS and voice communication through Twilio. The assistant sends appointment reminders, intake follow-ups, and payment confirmations via text. Voice capabilities allow automated call summaries and voicemail transcription linked to matters.',
+    connected: false,
+    scopes: [
+      { id: 'sms.send', name: 'Send SMS', desc: 'Send text messages to clients for reminders and follow-ups', perm: 'write', required: true },
+      { id: 'voice.read', name: 'Call logs', desc: 'Read call logs and voicemail transcriptions', perm: 'read', required: false },
+    ]
+  },
+  {
+    id: 'clio',
+    name: 'Clio Manage',
+    by: 'Clio (Themis Solutions)',
+    icon: { bg: '#1B365D', color: '#fff', letter: 'C' },
+    cat: 'legal',
+    desc: 'Import matters, contacts, and billing data from your existing Clio workspace.',
+    descLong: 'Migrate from or run alongside Clio Manage. Import your existing matters, contacts, time entries, and billing history. Optionally keep the two systems in sync during a transition period. The assistant can read Clio data the same way it reads Blawby tables.',
+    connected: false,
+    scopes: [
+      { id: 'matters.read', name: 'Read matters', desc: 'Import and sync matter data from Clio', perm: 'read', required: true },
+      { id: 'contacts.read', name: 'Read contacts', desc: 'Import client and contact records', perm: 'read', required: true },
+      { id: 'billing.read', name: 'Read billing', desc: 'Import invoices and time entries', perm: 'read', required: false },
+      { id: 'matters.write', name: 'Write matters', desc: 'Push Blawby status changes back to Clio', perm: 'write', required: false },
+    ]
+  },
+];
+
+const CATEGORIES = [
+  { id: 'all', label: 'All', count: APPS.length },
+  { id: 'calendar', label: 'Calendar', count: APPS.filter(a => a.cat === 'calendar').length },
+  { id: 'billing', label: 'Billing', count: APPS.filter(a => a.cat === 'billing').length },
+  { id: 'comms', label: 'Communication', count: APPS.filter(a => a.cat === 'comms').length },
+  { id: 'storage', label: 'Storage', count: APPS.filter(a => a.cat === 'storage').length },
+  { id: 'legal', label: 'Legal tools', count: APPS.filter(a => a.cat === 'legal').length },
+];
+
+const API_KEYS = [
+  {
+    id: 'anthropic-1',
+    provider: 'Anthropic',
+    name: 'Production key',
+    icon: { bg: '#D97757', color: '#fff', letter: 'A' },
+    masked: 'sk-ant-••••••••••••gR4x',
+    addedAt: 'Nov 3, 2024',
+    lastUsed: '2 hours ago',
+    model: 'claude-sonnet-4-20250514',
+  }
+];
+
+/* ============================================================
+   COMPONENTS
+   ============================================================ */
+
+function Sidebar({ view }) {
+  return (
+    <aside className="side">
+      <a href="Settings.html" className="back">← back to settings</a>
+      <div>
+        <h2>Settings</h2>
+        <div className="org">Law Offices of Sarah Chen · solo</div>
+      </div>
+
+      <div className="nav-section">
+        <div className="lbl">Practice</div>
+        <a href="Profile.html" className="nav-item"><span className="ic">⌂</span>Profile &amp; areas</a>
+        <a href="Team.html" className="nav-item"><span className="ic">＋</span>Team <span className="badge">1</span></a>
+        <a href="Services.html" className="nav-item"><span className="ic">⏳</span>Services &amp; pricing <span className="badge">5</span></a>
+      </div>
+
+      <div className="nav-section">
+        <div className="lbl">Money</div>
+        <a href="Subscription.html" className="nav-item"><span className="ic">$</span>Subscription</a>
+        <a href="StripeConnect.html" className="nav-item"><span className="ic">⇄</span>Stripe Connect</a>
+        <a href="Trust.html" className="nav-item"><span className="ic">▤</span>Trust accounting <span className="badge">IOLTA</span></a>
+      </div>
+
+      <div className="nav-section">
+        <div className="lbl">Intelligence</div>
+        <a href="Settings.html" className="nav-item"><span className="ic">✦</span>AI behavior</a>
+        <a href="IntakeForms.html" className="nav-item"><span className="ic">📥</span>Intake forms <span className="badge">3</span></a>
+        <a href="EngagementTemplates.html" className="nav-item"><span className="ic">⌥</span>Engagement templates</a>
+        <a href="Apps.html" className="nav-item on"><span className="ic">⬡</span>Apps &amp; integrations <span className="badge">1</span></a>
+        <a href="MCP.html" className="nav-item"><span className="ic">▦</span>MCP &amp; API <span className="badge">beta</span></a>
+      </div>
+
+      <div className="nav-section">
+        <div className="lbl">Account</div>
+        <a href="Security.html" className="nav-item"><span className="ic">⚿</span>Security</a>
+        <a href="Sessions.html" className="nav-item"><span className="ic">◉</span>Sessions</a>
+        <a href="Appearance.html" className="nav-item"><span className="ic">◐</span>Appearance</a>
+        <a href="Notifications.html" className="nav-item"><span className="ic">⌘</span>Notifications</a>
+        <a href="AuditLog.html" className="nav-item"><span className="ic">⎯</span>Audit log</a>
+        <a href="ExportData.html" className="nav-item"><span className="ic">↧</span>Export data</a>
+      </div>
+    </aside>
+  );
+}
+
+function AppIcon({ icon, size = 40 }) {
+  return (
+    <div className="app-icon" style={{ width: size, height: size, background: icon.bg, color: icon.color, fontSize: size * 0.4 }}>
+      {icon.letter}
+    </div>
+  );
+}
+
+/* ---------- Index ---------- */
+function AppsIndex({ onSelect, filter, setFilter }) {
+  const filtered = filter === 'all' ? APPS : APPS.filter(a => a.cat === filter);
+  const connected = filtered.filter(a => a.connected);
+  const available = filtered.filter(a => !a.connected);
+
+  return (
+    <>
+      <div className="crumb">Settings · Intelligence</div>
+      <h1>Apps &amp; <em>integrations.</em></h1>
+      <p className="lede">
+        Connect the tools your practice already uses. The assistant treats each integration as a grounded source — same rules, same audit trail.
+      </p>
+
+      <div className="filter-row">
+        {CATEGORIES.map(c => (
+          <button key={c.id} className={'ftab' + (filter === c.id ? ' on' : '')} onClick={() => setFilter(c.id)}>
+            {c.label}<span className="ct">{c.count}</span>
+          </button>
+        ))}
+      </div>
+
+      {connected.length > 0 && (
+        <>
+          <div className="section-hd">
+            <h3>Connected</h3>
+            <span className="ct">{connected.length} active</span>
+          </div>
+          <div className="apps-grid" style={{ marginBottom: 32 }}>
+            {connected.map(app => (
+              <div key={app.id} className="app-card" onClick={() => onSelect(app.id)}>
+                <div className="app-head">
+                  <AppIcon icon={app.icon} />
+                  <div className="app-info">
+                    <div className="app-name">{app.name}</div>
+                    <div className="app-by">{app.by}</div>
+                  </div>
+                </div>
+                <div className="app-desc">{app.desc}</div>
+                <div className="app-foot">
+                  <span className="app-scopes">{app.scopes.length} scopes</span>
+                  <span className="conn-badge live">connected</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
+
+      {available.length > 0 && (
+        <>
+          <div className="section-hd">
+            <h3>Available</h3>
+            <span className="ct">{available.length} apps</span>
+          </div>
+          <div className="apps-grid">
+            {available.map(app => (
+              <div key={app.id} className="app-card" onClick={() => onSelect(app.id)}>
+                <div className="app-head">
+                  <AppIcon icon={app.icon} />
+                  <div className="app-info">
+                    <div className="app-name">{app.name}</div>
+                    <div className="app-by">{app.by}</div>
+                  </div>
+                </div>
+                <div className="app-desc">{app.desc}</div>
+                <div className="app-foot">
+                  <span className="app-scopes">{app.scopes.length} scopes</span>
+                  <span className="conn-badge off">not connected</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
+
+      {/* BYOK section removed — managed in MCP & API settings */}
+    </>
+  );
+}
+
+/* ---------- App Detail ---------- */
+function AppDetail({ appId, onBack, onConnect }) {
+  const app = APPS.find(a => a.id === appId);
+  if (!app) return null;
+
+  const [scopeStates, setScopeStates] = React.useState(() => {
+    const init = {};
+    app.scopes.forEach(s => {
+      init[s.id] = s.granted !== undefined ? s.granted : s.required;
+    });
+    return init;
+  });
+
+  const toggleScope = (id, required) => {
+    if (required) return;
+    setScopeStates(prev => ({ ...prev, [id]: !prev[id] }));
+  };
+
+  return (
+    <>
+      <div className="detail-back" onClick={onBack}>← All apps</div>
+
+      <div className="detail-hero">
+        <AppIcon icon={app.icon} size={56} />
+        <div className="info">
+          <h1>{app.name}</h1>
+          <div className="by">{app.by}</div>
+          <div className="desc">{app.descLong}</div>
+        </div>
+        <div className="actions">
+          {app.connected ? (
+            <>
+              <span className="conn-badge live" style={{ fontSize: 11 }}>connected</span>
+              <button className="btn btn-ghost btn-sm" style={{ color: 'var(--neg)', borderColor: 'color-mix(in oklab, var(--neg) 30%, var(--rule))' }}>Disconnect</button>
+            </>
+          ) : (
+            <button className="btn btn-primary" onClick={() => onConnect(app.id)}>Connect {app.name} →</button>
+          )}
+        </div>
+      </div>
+
+      {app.connected && (
+        <div className="conn-info">
+          <div className="ci-head">
+            <h4>Connection details</h4>
+            <span className="pill live">live</span>
+          </div>
+          <div className="ci-row">
+            <span className="ci-label">Account</span>
+            <span className="ci-val">{app.connectedAs}</span>
+          </div>
+          <div className="ci-row">
+            <span className="ci-label">Connected</span>
+            <span className="ci-val">{app.connectedAt}</span>
+          </div>
+          <div className="ci-row">
+            <span className="ci-label">Auth method</span>
+            <span className="ci-val">OAuth 2.0 (Better Auth)</span>
+          </div>
+          <div className="ci-row">
+            <span className="ci-label">Last sync</span>
+            <span className="ci-val">3 minutes ago</span>
+          </div>
+        </div>
+      )}
+
+      {/* Scopes */}
+      <div className="scope-group">
+        <h3>Permissions &amp; scopes</h3>
+        <p className="gdesc">
+          {app.connected
+            ? 'These are the scopes currently granted. Toggle optional scopes to expand or restrict access.'
+            : 'Review the permissions this integration requires. Required scopes are needed for core functionality; optional scopes add extra capabilities.'
+          }
+        </p>
+
+        {app.scopes.map(scope => (
+          <div key={scope.id} className="scope-row">
+            <div className="s-meta">
+              <div className="s-name">
+                {scope.name}
+                <code>{scope.id}</code>
+              </div>
+              <div className="s-desc">{scope.desc}</div>
+              <div className="s-req">{scope.required ? 'required' : 'optional'}</div>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              <span className={'cs-perm ' + scope.perm}>{scope.perm}</span>
+              <span
+                className={'toggle' + (scopeStates[scope.id] ? ' on' : '')}
+                style={ scope.required ? { opacity: 0.5, cursor: 'not-allowed' } : {} }
+                onClick={() => toggleScope(scope.id, scope.required)}
+              ></span>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* AI behavior for this integration */}
+      {app.connected && (
+        <div className="scope-group">
+          <h3>Assistant behavior</h3>
+          <p className="gdesc">How the assistant uses this integration. These can also be changed in chat.</p>
+
+          <div className="scope-row">
+            <div className="s-meta">
+              <div className="s-name">Auto-sync on new matter</div>
+              <div className="s-desc">When a new matter is created, automatically push relevant events to the connected calendar.</div>
+            </div>
+            <span className="toggle on" onClick={e => e.target.classList.toggle('on')}></span>
+          </div>
+          <div className="scope-row">
+            <div className="s-meta">
+              <div className="s-name">Include in AI grounding</div>
+              <div className="s-desc">Let the assistant read data from this integration when answering questions.</div>
+            </div>
+            <span className="toggle on" onClick={e => e.target.classList.toggle('on')}></span>
+          </div>
+          <div className="scope-row">
+            <div className="s-meta">
+              <div className="s-name">Staged writes only</div>
+              <div className="s-desc">Require your approval before the assistant writes anything through this integration.</div>
+            </div>
+            <span className="toggle on" onClick={e => e.target.classList.toggle('on')}></span>
+          </div>
+        </div>
+      )}
+
+      {!app.connected && (
+        <div style={{ display: 'flex', gap: 10, marginTop: 12, paddingTop: 22, borderTop: '1px solid var(--rule)' }}>
+          <button className="btn btn-primary" onClick={() => onConnect(app.id)}>Connect {app.name} →</button>
+          <button className="btn btn-ghost" onClick={onBack}>Cancel</button>
+        </div>
+      )}
+    </>
+  );
+}
+
+/* ---------- OAuth Consent Modal ---------- */
+function OAuthModal({ appId, onClose, onAuthorize }) {
+  const app = APPS.find(a => a.id === appId);
+  if (!app) return null;
+
+  const [step, setStep] = React.useState('consent'); // consent | scopes | authorizing | done
+  const [selectedScopes, setSelectedScopes] = React.useState(() => {
+    const init = {};
+    app.scopes.forEach(s => { init[s.id] = s.required; });
+    return init;
+  });
+
+  const toggleScope = (id, required) => {
+    if (required) return;
+    setSelectedScopes(prev => ({ ...prev, [id]: !prev[id] }));
+  };
+
+  const handleAuthorize = () => {
+    setStep('authorizing');
+    setTimeout(() => {
+      setStep('done');
+      setTimeout(() => {
+        onAuthorize(appId);
+      }, 1800);
+    }, 2000);
+  };
+
+  const permIcon = (perm) => {
+    if (perm === 'read') return '◎';
+    if (perm === 'write') return '✎';
+    return '⚙';
+  };
+
+  return (
+    <div className="modal-overlay" onClick={(e) => { if (e.target === e.currentTarget && step !== 'authorizing') onClose(); }}>
+      <div className="modal">
+        <div className="modal-head">
+          <AppIcon icon={app.icon} size={52} />
+
+          {step === 'consent' && (
+            <>
+              <h2>Connect <em>{app.name}</em></h2>
+              <div className="sub">{app.name} will be able to access data in your Blawby workspace. Review the permissions below.</div>
+              <div className="org-line">
+                <span className="av">B</span>
+                Law Offices of Sarah Chen
+              </div>
+            </>
+          )}
+
+          {step === 'scopes' && (
+            <>
+              <h2>Choose <em>permissions</em></h2>
+              <div className="sub">Required scopes are locked on. Toggle optional scopes based on what you need.</div>
+            </>
+          )}
+
+          {step === 'authorizing' && (
+            <>
+              <h2>Connecting…</h2>
+              <div className="sub">Authenticating with {app.by} via Better Auth OAuth 2.0</div>
+            </>
+          )}
+
+          {step === 'done' && (
+            <>
+              <h2 style={{ color: 'var(--pos)' }}>Connected</h2>
+              <div className="sub">{app.name} is now linked to your workspace. Redirecting…</div>
+            </>
+          )}
+        </div>
+
+        {step === 'consent' && (
+          <>
+            <div className="modal-body">
+              <div className="consent-label">This app will be able to</div>
+              {app.scopes.filter(s => s.required).map(scope => (
+                <div key={scope.id} className="consent-scope">
+                  <div className="cs-icon">{permIcon(scope.perm)}</div>
+                  <div className="cs-info">
+                    <div className="cs-name">{scope.name}</div>
+                    <div className="cs-desc">{scope.desc}</div>
+                  </div>
+                  <span className={'cs-perm ' + scope.perm}>{scope.perm}</span>
+                </div>
+              ))}
+
+              {app.scopes.filter(s => !s.required).length > 0 && (
+                <>
+                  <div className="consent-label" style={{ marginTop: 18 }}>Optional permissions</div>
+                  {app.scopes.filter(s => !s.required).map(scope => (
+                    <div key={scope.id} className="consent-scope">
+                      <div className="cs-icon">{permIcon(scope.perm)}</div>
+                      <div className="cs-info">
+                        <div className="cs-name">{scope.name}</div>
+                        <div className="cs-desc">{scope.desc}</div>
+                      </div>
+                      <span className={'cs-perm ' + scope.perm}>{scope.perm}</span>
+                    </div>
+                  ))}
+                </>
+              )}
+
+              <div className="modal-trust">
+                Better Auth OAuth 2.0 · encrypted in transit · tokens stored in your org vault<br></br>
+                Blawby never shares credentials across organizations
+              </div>
+            </div>
+
+            <div className="modal-foot">
+              <button className="btn btn-ghost" onClick={onClose}>Cancel</button>
+              <button className="btn btn-ghost" onClick={() => setStep('scopes')}>Customize scopes</button>
+              <button className="btn btn-primary" onClick={handleAuthorize}>Authorize &amp; connect →</button>
+            </div>
+          </>
+        )}
+
+        {step === 'scopes' && (
+          <>
+            <div className="modal-body">
+              {app.scopes.map(scope => (
+                <div key={scope.id} className="consent-scope" style={{ alignItems: 'center' }}>
+                  <div className="cs-icon" style={{ background: selectedScopes[scope.id] ? 'color-mix(in oklab, var(--accent) 15%, var(--rule-soft))' : 'var(--rule-soft)' }}>
+                    {permIcon(scope.perm)}
+                  </div>
+                  <div className="cs-info" style={{ flex: 1 }}>
+                    <div className="cs-name">{scope.name} <code style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--dim)', background: 'var(--rule-soft)', padding: '1px 5px', borderRadius: 3, fontWeight: 400 }}>{scope.id}</code></div>
+                    <div className="cs-desc">{scope.desc}</div>
+                    {scope.required && (
+                      <div style={{ fontFamily: 'var(--mono)', fontSize: '9.5px', letterSpacing: '.06em', textTransform: 'uppercase', color: 'var(--dim-2)', marginTop: 3 }}>required for core functionality</div>
+                    )}
+                  </div>
+                  <span
+                    className={'toggle' + (selectedScopes[scope.id] ? ' on' : '')}
+                    style={ scope.required ? { opacity: 0.5, cursor: 'not-allowed' } : { cursor: 'pointer' } }
+                    onClick={() => toggleScope(scope.id, scope.required)}
+                  ></span>
+                </div>
+              ))}
+            </div>
+
+            <div className="modal-foot">
+              <button className="btn btn-ghost" onClick={() => setStep('consent')}>← Back</button>
+              <button className="btn btn-primary" onClick={handleAuthorize}>Authorize with {Object.values(selectedScopes).filter(Boolean).length} scopes →</button>
+            </div>
+          </>
+        )}
+
+        {step === 'authorizing' && (
+          <div className="modal-body" style={{ textAlign: 'center', padding: '32px 28px 40px' }}>
+            <div style={{
+              width: 40, height: 40, border: '3px solid var(--rule)',
+              borderTopColor: 'var(--accent)', borderRadius: '50%',
+              margin: '0 auto 18px',
+              animation: 'spin .8s linear infinite',
+            }}></div>
+            <style>{'@keyframes spin{ to{ transform:rotate(360deg) } }'}</style>
+            <div style={{ fontFamily: 'var(--mono)', fontSize: 11, letterSpacing: '.06em', textTransform: 'uppercase', color: 'var(--dim)' }}>
+              Exchanging tokens…
+            </div>
+          </div>
+        )}
+
+        {step === 'done' && (
+          <div className="modal-body" style={{ textAlign: 'center', padding: '28px 28px 36px' }}>
+            <div style={{
+              width: 48, height: 48, borderRadius: '50%',
+              background: 'var(--pos)', color: '#fff',
+              display: 'grid', placeItems: 'center',
+              fontSize: 22, margin: '0 auto 14px',
+            }}>✓</div>
+            <div style={{ fontFamily: 'var(--mono)', fontSize: 11, letterSpacing: '.06em', textTransform: 'uppercase', color: 'var(--pos)' }}>
+              Token stored · sync starting
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/* ---------- BYOK Section ---------- */
+function BYOKSection() {
+  const [showForm, setShowForm] = React.useState(false);
+  const [keys, setKeys] = React.useState(API_KEYS);
+  const [provider, setProvider] = React.useState('anthropic');
+  const [keyName, setKeyName] = React.useState('');
+  const [keyValue, setKeyValue] = React.useState('');
+
+  const providers = [
+    { id: 'anthropic', name: 'Anthropic', icon: { bg: '#D97757', color: '#fff', letter: 'A' }, prefix: 'sk-ant-' },
+    { id: 'openai', name: 'OpenAI', icon: { bg: '#000', color: '#fff', letter: 'O' }, prefix: 'sk-' },
+    { id: 'google', name: 'Google AI', icon: { bg: '#4285F4', color: '#fff', letter: 'G' }, prefix: 'AIza' },
+  ];
+
+  const handleAdd = () => {
+    if (!keyValue.trim()) return;
+    const prov = providers.find(p => p.id === provider);
+    const masked = keyValue.slice(0, 6) + '••••••••••••' + keyValue.slice(-4);
+    setKeys(prev => [...prev, {
+      id: provider + '-' + Date.now(),
+      provider: prov.name,
+      name: keyName || 'New key',
+      icon: prov.icon,
+      masked,
+      addedAt: 'Just now',
+      lastUsed: 'Never',
+      model: provider === 'anthropic' ? 'claude-sonnet-4-20250514' : provider === 'openai' ? 'gpt-4o' : 'gemini-2.0-flash',
+    }]);
+    setShowForm(false);
+    setKeyValue('');
+    setKeyName('');
+  };
+
+  return (
+    <>
+      <p style={{ fontSize: 13.5, color: 'var(--dim)', marginBottom: 18, marginTop: -6 }}>
+        Use your own API keys for model providers. Keys are encrypted at rest and never leave your org boundary.
+      </p>
+
+      {keys.map(k => (
+        <div key={k.id} className="key-card">
+          <div className="key-icon" style={{ background: k.icon.bg, color: k.icon.color }}>{k.icon.letter}</div>
+          <div className="key-info">
+            <div className="key-name">{k.name}</div>
+            <div className="key-hint">
+              <span className="mask">{k.masked}</span>
+            </div>
+            <div className="key-meta">
+              <span>Added {k.addedAt}</span>
+              <span>Last used {k.lastUsed}</span>
+              <span>Model: {k.model}</span>
+            </div>
+          </div>
+          <div className="key-actions">
+            <button className="btn btn-ghost btn-sm">Rotate</button>
+            <button className="btn btn-ghost btn-sm" style={{ color: 'var(--neg)', borderColor: 'color-mix(in oklab, var(--neg) 30%, var(--rule))' }}>Revoke</button>
+          </div>
+        </div>
+      ))}
+
+      {!showForm ? (
+        <button className="btn btn-ghost" style={{ marginTop: 8 }} onClick={() => setShowForm(true)}>
+          + Add API key
+        </button>
+      ) : (
+        <div className="key-form">
+          <h4>Add API key</h4>
+          <p className="kf-desc">Your key is encrypted with your org's vault key before storage. Blawby staff cannot read it.</p>
+
+          <div className="kf-row">
+            <div className="field">
+              <label>Provider</label>
+              <select className="select" value={provider} onChange={e => setProvider(e.target.value)}>
+                {providers.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+              </select>
+            </div>
+            <div className="field">
+              <label>Label</label>
+              <input className="input" placeholder="e.g. Production" value={keyName} onChange={e => setKeyName(e.target.value)} />
+            </div>
+          </div>
+
+          <div className="field" style={{ marginBottom: 14 }}>
+            <label>API key</label>
+            <input
+              className="input"
+              type="password"
+              placeholder={providers.find(p => p.id === provider).prefix + '••••••••'}
+              value={keyValue}
+              onChange={e => setKeyValue(e.target.value)}
+              style={{ fontFamily: 'var(--mono)', fontSize: 13 }}
+            />
+          </div>
+
+          <div className="kf-help">
+            Keys are validated on save. The assistant will use your key instead of Blawby's managed model for all AI operations.
+            Your data is sent directly to <code>{providers.find(p => p.id === provider).name}</code>'s API — Blawby does not proxy or cache model responses.
+          </div>
+
+          <div style={{ display: 'flex', gap: 8, marginTop: 16 }}>
+            <button className="btn btn-primary" onClick={handleAdd}>Save key</button>
+            <button className="btn btn-ghost" onClick={() => setShowForm(false)}>Cancel</button>
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
+
+
+/* ============================================================
+   APP
+   ============================================================ */
+function App() {
+  const [view, setView] = React.useState('index'); // index | detail
+  const [selectedApp, setSelectedApp] = React.useState(null);
+  const [filter, setFilter] = React.useState('all');
+  const [showOAuth, setShowOAuth] = React.useState(null);
+  const [apps, setApps] = React.useState(APPS);
+
+  const handleSelect = (appId) => {
+    setSelectedApp(appId);
+    setView('detail');
+    window.scrollTo(0, 0);
+  };
+
+  const handleBack = () => {
+    setView('index');
+    setSelectedApp(null);
+  };
+
+  const handleConnect = (appId) => {
+    setShowOAuth(appId);
+  };
+
+  const handleAuthorize = (appId) => {
+    // Update the app to be connected
+    const idx = APPS.findIndex(a => a.id === appId);
+    if (idx >= 0) {
+      APPS[idx] = {
+        ...APPS[idx],
+        connected: true,
+        connectedAs: 'user@sarahchenlaw.com',
+        connectedAt: 'Just now',
+      };
+      APPS[idx].scopes = APPS[idx].scopes.map(s => ({ ...s, granted: s.required }));
+    }
+    setShowOAuth(null);
+    setView('detail');
+    setSelectedApp(appId);
+  };
+
+  return (
+    <div className="shell">
+      <Sidebar view={view} />
+      <main className="main">
+        {view === 'index' && (
+          <AppsIndex
+            onSelect={handleSelect}
+            filter={filter}
+            setFilter={setFilter}
+          />
+        )}
+        {view === 'detail' && (
+          <AppDetail
+            appId={selectedApp}
+            onBack={handleBack}
+            onConnect={handleConnect}
+          />
+        )}
+        {showOAuth && (
+          <OAuthModal
+            appId={showOAuth}
+            onClose={() => setShowOAuth(null)}
+            onAuthorize={handleAuthorize}
+          />
+        )}
+      </main>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+</body>
+</html>

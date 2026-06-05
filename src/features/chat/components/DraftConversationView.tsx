@@ -10,11 +10,10 @@ import { usePresenceContext } from '@/shared/contexts/PresenceContext';
 import type { FileAttachment } from '../../../../worker/types';
 import type { UploadingFile } from '@/shared/types/upload';
 
-export type DraftContact = {
-  userId: string;
-  name: string;
-  email?: string;
-} | null;
+export type DraftContact =
+  | { kind: 'user'; userId: string; name: string; email?: string }
+  | { kind: 'practice_assistant' }
+  | null;
 
 interface DraftConversationViewProps {
   contactOptions: ComboboxOption[];
@@ -93,6 +92,10 @@ export const DraftConversationView: FunctionComponent<DraftConversationViewProps
       onChangeContact(null);
       return;
     }
+    if (rawValue === '__blawby_ai__') {
+      onChangeContact({ kind: 'practice_assistant' });
+      return;
+    }
     if (rawValue.startsWith('__pending__:')) {
       const realValue = rawValue.slice('__pending__:'.length);
       const option = pendingInviteOptions.find((opt) => opt.value === realValue);
@@ -102,6 +105,7 @@ export const DraftConversationView: FunctionComponent<DraftConversationViewProps
     const option = contactOptions.find((opt) => opt.value === rawValue);
     if (!option) return;
     onChangeContact({
+      kind: 'user',
       userId: option.value,
       name: option.label,
       email: typeof option.meta === 'string' ? option.meta : undefined,
@@ -109,7 +113,7 @@ export const DraftConversationView: FunctionComponent<DraftConversationViewProps
   };
 
   const handleComposerSubmit = async () => {
-    if (!draftContact?.userId) return;
+    if (!draftContact) return;
     const trimmed = inputValue.trim();
     const attachments = fileUploadProps?.previewFiles ?? [];
     if (!trimmed && attachments.length === 0) return;
@@ -137,27 +141,30 @@ export const DraftConversationView: FunctionComponent<DraftConversationViewProps
     }
   };
 
-  const composerDisabled = !draftContact?.userId || isSending;
+  const composerDisabled = draftContact === null || isSending;
+  const isPracticeAssistant = draftContact?.kind === 'practice_assistant';
+  const displayName = isPracticeAssistant ? 'Blawby AI' : (draftContact?.kind === 'user' ? draftContact.name : null);
+  const comboboxValue = isPracticeAssistant ? '__blawby_ai__' : (draftContact?.kind === 'user' ? draftContact.userId : '');
 
   return (
-    <div className="flex h-full min-h-0 flex-col bg-surface-workspace">
-      <header className="flex items-center justify-between gap-3 border-b border-line-glass/30 px-4 py-3 sm:px-6">
+    <div className="flex h-full min-h-0 flex-col bg-paper">
+      <header className="flex items-center justify-between gap-3 border-b border-line-subtle px-4 py-3 sm:px-6">
         <div className="flex min-w-0 flex-1 items-center gap-3">
           <Avatar
             src={null}
-            name={draftContact?.name ?? 'New conversation'}
+            name={displayName ?? 'New conversation'}
             size="md"
-            className="ring-1 ring-line-glass/10"
-            status={draftContact?.userId
+            className="ring-1 ring-line-subtle"
+            status={draftContact?.kind === 'user'
               ? (onlineUserIds.has(draftContact.userId) ? 'active' : 'offline')
               : undefined}
           />
           <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-            <span className="text-xs uppercase tracking-wide text-input-placeholder">
+            <span className="text-xs uppercase tracking-wide text-dim-2">
               New conversation
             </span>
-            <span className="truncate text-sm font-semibold text-input-text">
-              {draftContact?.name ?? 'Pick a contact below to begin'}
+            <span className="truncate text-sm font-semibold text-ink">
+              {displayName ?? 'Pick a contact below to begin'}
             </span>
           </div>
         </div>
@@ -172,25 +179,26 @@ export const DraftConversationView: FunctionComponent<DraftConversationViewProps
         />
       </header>
 
-      <div className="border-b border-line-glass/30 px-4 py-3 sm:px-6">
-        <span className="mb-1 block text-[11px] font-semibold uppercase tracking-[0.08em] text-input-placeholder">
+      <div className="border-b border-line-subtle px-4 py-3 sm:px-6">
+        <span className="mb-1 block text-[11px] font-semibold uppercase tracking-[0.08em] text-dim-2">
           To
         </span>
         <Combobox
-          value={draftContact?.userId ?? ''}
+          value={comboboxValue}
           onChange={handlePickContact}
           options={allOptions}
           searchable
           placeholder={isLoadingContacts ? 'Loading contacts…' : 'Search clients and team…'}
           optionLeading={(option) => {
+            const isAi = option.value === '__blawby_ai__';
             const isPending = option.value.startsWith('__pending__:');
-            const isOnline = !isPending && onlineUserIds.has(option.value);
+            const isOnline = !isAi && !isPending && onlineUserIds.has(option.value);
             return (
               <Avatar
                 src={null}
                 name={option.label}
                 size="sm"
-                status={isPending ? undefined : isOnline ? 'active' : 'offline'}
+                status={isAi || isPending ? undefined : isOnline ? 'active' : 'offline'}
               />
             );
           }}
@@ -211,10 +219,10 @@ export const DraftConversationView: FunctionComponent<DraftConversationViewProps
               }}
               className={cn(
                 'flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm',
-                'text-input-text hover:bg-surface-utility/10 focus-visible:bg-surface-utility/10',
+                'text-ink hover:bg-paper-2/10 focus-visible:bg-paper-2/10',
               )}
             >
-              <span className="text-accent-utility">+ Invite a new contact</span>
+              <span className="text-accent">+ Invite a new contact</span>
             </button>
           ) : undefined}
         />
@@ -222,14 +230,18 @@ export const DraftConversationView: FunctionComponent<DraftConversationViewProps
 
       <div className="flex min-h-0 flex-1 items-center justify-center px-6 py-10">
         <div className="max-w-sm text-center">
-          <p className="text-sm text-input-text">
-            {draftContact
-              ? `Type a message to ${draftContact.name} below to start the conversation.`
-              : 'Pick a contact above, then write the first message.'}
+          <p className="text-sm text-ink">
+            {isPracticeAssistant
+              ? 'What would you like to work on?'
+              : draftContact?.kind === 'user'
+                ? `Type a message to ${draftContact.name} below to start the conversation.`
+                : 'Pick a contact above, then write the first message.'}
           </p>
-          <p className="mt-1 text-xs text-input-placeholder">
-            The conversation is created when you send the first message.
-          </p>
+          {!isPracticeAssistant ? (
+            <p className="mt-1 text-xs text-dim-2">
+              The conversation is created when you send the first message.
+            </p>
+          ) : null}
         </div>
       </div>
 

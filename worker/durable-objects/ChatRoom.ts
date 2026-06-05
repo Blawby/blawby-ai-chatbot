@@ -4,7 +4,7 @@ import type { Env } from '../types.js';
 import { HttpError } from '../types.js';
 import { checkPracticeMembership, requireAuth } from '../middleware/auth.js';
 import { parseEnvBool } from '../utils/safeStringUtils.js';
-import { createAiClient } from '../utils/aiClient.js';
+import { createWorkersAiClient } from '../utils/workersAiClient.js';
 import { ConversationService } from '../services/ConversationService.js';
 import {
   extractMentionUserIds,
@@ -1695,7 +1695,7 @@ export class ChatRoom {
   private async generateTitleFromMessage(content: string): Promise<string | null> {
     let aiClient;
     try {
-      aiClient = createAiClient(this.env);
+      aiClient = createWorkersAiClient(this.env);
     } catch (error) {
       console.warn('[ChatRoom] AI client unavailable for title generation', error);
       return null;

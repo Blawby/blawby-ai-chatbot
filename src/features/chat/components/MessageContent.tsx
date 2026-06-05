@@ -42,6 +42,8 @@ interface MessageContentProps {
   variant?: 'default' | 'compact' | 'detailed';
   size?: 'sm' | 'md' | 'lg';
   className?: string;
+  /** Accent-tinted assistant bubble for the intake intro (Intake.html .a-bub.first). */
+  isIntro?: boolean;
 }
 
 export const MessageContent: FunctionComponent<MessageContentProps> = ({
@@ -50,7 +52,8 @@ export const MessageContent: FunctionComponent<MessageContentProps> = ({
   isUser = false,
   variant = 'default',
   size = 'md',
-  className = ''
+  className = '',
+  isIntro = false,
 }) => {
   if (!content) return null;
   
@@ -68,7 +71,7 @@ export const MessageContent: FunctionComponent<MessageContentProps> = ({
 
   if (isAnalysisMessage) {
     return (
-      <div className={`status-info flex items-center gap-2 px-3 py-2 rounded-xl ${className}`}>
+      <div className={`status-info flex items-center gap-2 px-3 py-2 rounded-r-md ${className}`}>
         <LoadingSpinner size="md" ariaLabel={analysisAriaLabel} />
         <ChatMarkdown text={displayContent} isStreaming={isStreaming} variant={variant} size={size} />
       </div>
@@ -78,9 +81,17 @@ export const MessageContent: FunctionComponent<MessageContentProps> = ({
   // Chat-bubble surface (Pencil LymwK / rmTOt). Sent uses accent fill with a
   // sharper bottom-right corner; received uses a raised surface with a sharper
   // bottom-left corner. Padding & radius mirror the design components.
+  // `isIntro` (received-only) swaps the surface for the accent-tinted gradient
+  // intake intro per Intake.html `.a-bub.first` — symmetric radius and a
+  // gradient that fades from accent-tint to card with an accent-mix border.
+  const introBubbleClassName = 'inline-block max-w-full rounded-2xl border px-[14px] py-[10px] text-ink shadow-sm '
+    + 'border-[color:color-mix(in_oklab,var(--accent)_35%,var(--rule))] '
+    + 'bg-[linear-gradient(180deg,color-mix(in_oklab,var(--accent)_14%,var(--card))_0%,var(--card)_100%)]';
   const bubbleClassName = isUser
-    ? 'inline-block max-w-full rounded-2xl rounded-br-[4px] bg-accent-500 px-[14px] py-[10px] text-[rgb(var(--accent-foreground))] shadow-sm'
-    : 'inline-block max-w-full rounded-2xl rounded-bl-[4px] bg-[rgb(var(--surface-card-hover))] px-[14px] py-[10px] text-input-text';
+    ? 'inline-block max-w-full rounded-2xl rounded-br-[4px] bg-accent px-[14px] py-[10px] text-accent-ink shadow-sm'
+    : isIntro
+      ? introBubbleClassName
+      : 'inline-block max-w-full rounded-2xl rounded-bl-[4px] bg-[rgb(var(--surface-card-hover))] px-[14px] py-[10px] text-ink';
 
   // The outer wrapper is a flex row so the inline-block bubble follows the
   // sender alignment even when the column it sits in (MessageBubble) is wider

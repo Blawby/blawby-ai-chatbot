@@ -51,6 +51,7 @@ export interface SidebarProps {
 }
 
 export const Sidebar: FunctionComponent<SidebarProps> & {
+  Header: typeof SidebarHeader;
   Org: typeof SidebarOrg;
   Section: typeof SidebarSection;
   Item: typeof SidebarItem;
@@ -70,9 +71,9 @@ export const Sidebar: FunctionComponent<SidebarProps> & {
   const childArr = toChildArray(children);
   const isOfType = (node: unknown, target: unknown): node is VNode =>
     isValidElement(node) && (node as VNode).type === target;
-  const orgEls = childArr.filter((c) => isOfType(c, SidebarOrg));
+  const topEls = childArr.filter((c) => isOfType(c, SidebarHeader) || isOfType(c, SidebarOrg));
   const footerEls = childArr.filter((c) => isOfType(c, SidebarFooter));
-  const bodyEls = childArr.filter((c) => !isOfType(c, SidebarOrg) && !isOfType(c, SidebarFooter));
+  const bodyEls = childArr.filter((c) => !isOfType(c, SidebarHeader) && !isOfType(c, SidebarOrg) && !isOfType(c, SidebarFooter));
 
   // Collapsed mode: toggle button sticks out half-over the right edge so the user
   // can always grab it. Aside uses overflow-visible to allow the bleed; inner
@@ -89,7 +90,7 @@ export const Sidebar: FunctionComponent<SidebarProps> & {
         style={width ? { width: typeof width === 'number' ? `${width}px` : width } : undefined}
       >
         <div className={cn('flex h-full min-h-0 flex-col gap-2 overflow-hidden', collapsed ? 'p-2 pt-3' : 'p-3')}>
-          {orgEls.length > 0 ? <div className="shrink-0">{orgEls}</div> : null}
+          {topEls.length > 0 ? <div className="shrink-0">{topEls}</div> : null}
           <div className="sidebar-scroll flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto">
             {bodyEls}
           </div>
@@ -100,7 +101,7 @@ export const Sidebar: FunctionComponent<SidebarProps> & {
             type="button"
             onClick={onToggleCollapsed}
             aria-label="Expand sidebar"
-            className="absolute right-0 top-4 z-20 flex h-7 w-7 translate-x-1/2 items-center justify-center rounded-md border border-[rgb(var(--sidebar-border))] bg-[rgb(var(--sidebar-bg))] text-[rgb(var(--sidebar-text-secondary))] shadow-md transition-colors hover:bg-[rgb(var(--sidebar-hover-bg))] hover:text-[rgb(var(--sidebar-text))] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-500/50"
+            className="absolute right-0 top-4 z-20 flex h-7 w-7 translate-x-1/2 items-center justify-center rounded-md border border-[rgb(var(--sidebar-border))] bg-[rgb(var(--sidebar-bg))] text-[rgb(var(--sidebar-text-secondary))] shadow-md transition-colors hover:bg-[rgb(var(--sidebar-hover-bg))] hover:text-[rgb(var(--sidebar-text))] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50"
           >
             <Icon icon={PanelLeft} className="h-4 w-4" />
           </button>
@@ -109,6 +110,19 @@ export const Sidebar: FunctionComponent<SidebarProps> & {
     </SidebarContext.Provider>
   );
 };
+
+// ---------------------------------------------------------------------------
+// Header
+// ---------------------------------------------------------------------------
+
+export interface SidebarHeaderProps {
+  className?: string;
+  children?: ComponentChildren;
+}
+
+const SidebarHeader: FunctionComponent<SidebarHeaderProps> = ({ className, children }) => (
+  <div className={cn(className)}>{children}</div>
+);
 
 // ---------------------------------------------------------------------------
 // Org row
@@ -158,7 +172,7 @@ const SidebarOrg: FunctionComponent<SidebarOrgProps> = ({ name, subtitle, logo, 
         <button
           type="button"
           onClick={onClick}
-          className="flex min-w-0 flex-1 items-center rounded-md text-left transition-colors hover:bg-[rgb(var(--sidebar-hover-bg))] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-500/50"
+          className="flex min-w-0 flex-1 items-center rounded-md text-left transition-colors hover:bg-[rgb(var(--sidebar-hover-bg))] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50"
         >
           {left}
         </button>
@@ -170,7 +184,7 @@ const SidebarOrg: FunctionComponent<SidebarOrgProps> = ({ name, subtitle, logo, 
           type="button"
           onClick={toggleCollapsed}
           aria-label="Collapse sidebar"
-          className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-[rgb(var(--sidebar-border))] text-[rgb(var(--sidebar-text-secondary))] transition-colors hover:bg-[rgb(var(--sidebar-hover-bg))] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-500/50"
+          className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-[rgb(var(--sidebar-border))] text-[rgb(var(--sidebar-text-secondary))] transition-colors hover:bg-[rgb(var(--sidebar-hover-bg))] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50"
         >
           <Icon icon={PanelLeft} className="h-4 w-4" />
         </button>
@@ -200,7 +214,7 @@ const SidebarPracticeAreaItem: FunctionComponent<SidebarPracticeAreaItemProps> =
         onClick={onClick}
         title={label}
         aria-label={label}
-        className="flex h-9 w-full items-center justify-center rounded-lg transition-colors hover:bg-[rgb(var(--sidebar-hover-bg))] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-500/50"
+        className="flex h-9 w-full items-center justify-center rounded-lg transition-colors hover:bg-[rgb(var(--sidebar-hover-bg))] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50"
       >
         <span className="h-2 w-2 rounded-full" style={{ backgroundColor: color }} aria-hidden="true" />
       </button>
@@ -211,7 +225,7 @@ const SidebarPracticeAreaItem: FunctionComponent<SidebarPracticeAreaItemProps> =
       <button
         type="button"
         onClick={onClick}
-        className="flex min-w-0 flex-1 items-center gap-2.5 text-left text-xs text-[rgb(var(--sidebar-text-secondary))] transition-colors hover:text-[rgb(var(--sidebar-text))] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-500/50"
+        className="flex min-w-0 flex-1 items-center gap-2.5 text-left text-xs text-[rgb(var(--sidebar-text-secondary))] transition-colors hover:text-[rgb(var(--sidebar-text))] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50"
       >
         <span className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: color }} aria-hidden="true" />
         <span className="truncate">{label}</span>
@@ -221,7 +235,7 @@ const SidebarPracticeAreaItem: FunctionComponent<SidebarPracticeAreaItemProps> =
           type="button"
           onClick={onMore}
           aria-label={`${label} options`}
-          className="ml-2 flex h-5 w-5 shrink-0 items-center justify-center rounded text-[rgb(var(--sidebar-text-secondary))] opacity-0 transition-opacity hover:text-[rgb(var(--sidebar-text))] group-hover:opacity-100 focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-500/50"
+          className="ml-2 flex h-5 w-5 shrink-0 items-center justify-center rounded text-[rgb(var(--sidebar-text-secondary))] opacity-0 transition-opacity hover:text-[rgb(var(--sidebar-text))] group-hover:opacity-100 focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50"
         >
           <Icon icon={MoreHorizontal} className="h-3.5 w-3.5" />
         </button>
@@ -293,6 +307,8 @@ export interface SidebarItemProps {
   persistKey?: string;
   /** Optional trailing icon (overrides chevron when set). */
   trailingIcon?: IconComponent;
+  /** Fired on hover/focus so routes can preload before click. */
+  prefetch?: () => void;
   children?: ComponentChildren;
 }
 
@@ -325,6 +341,7 @@ const SidebarItem: FunctionComponent<SidebarItemProps> = ({
   onExpandedChange,
   persistKey,
   trailingIcon,
+  prefetch,
   children,
 }) => {
   const ctx = useContext(SidebarContext);
@@ -438,16 +455,18 @@ const SidebarItem: FunctionComponent<SidebarItemProps> = ({
       <button
         type="button"
         onClick={handleClick}
+        onMouseEnter={prefetch}
+        onFocus={prefetch}
         aria-current={isActive ? 'page' : undefined}
         aria-label={label}
         title={label}
         className={cn(
           'relative flex h-9 w-full items-center justify-center rounded-lg transition-colors',
-          'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-500/50',
+          'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50',
           isDanger
             ? 'text-red-400 hover:bg-red-500/10'
             : isActive
-              ? 'bg-[rgb(var(--sidebar-active-bg))] text-[rgb(var(--sidebar-active-text))] before:absolute before:left-0 before:top-1.5 before:bottom-1.5 before:w-0.5 before:rounded-full before:bg-accent-utility [&_svg]:text-accent-utility'
+              ? 'bg-[rgb(var(--sidebar-active-bg))] text-[rgb(var(--sidebar-active-text))] before:absolute before:left-0 before:top-1.5 before:bottom-1.5 before:w-0.5 before:rounded-full before:bg-accent [&_svg]:text-accent'
               : 'text-[rgb(var(--sidebar-text-secondary))] hover:bg-[rgb(var(--sidebar-hover-bg))] hover:text-[rgb(var(--sidebar-text))]',
         )}
       >
@@ -464,16 +483,18 @@ const SidebarItem: FunctionComponent<SidebarItemProps> = ({
       <button
         type="button"
         onClick={handleClick}
+        onMouseEnter={prefetch}
+        onFocus={prefetch}
         aria-current={isActive ? 'page' : undefined}
         aria-expanded={hasChildren ? isExpanded : undefined}
         title={label}
         className={cn(
           'flex w-full items-center justify-between gap-2.5 rounded-lg px-2.5 py-[9px] text-left text-xs font-normal transition-colors',
-          'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-500/50',
+          'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50',
           isDanger
             ? 'text-red-400 hover:bg-red-500/10'
             : isActive
-              ? 'relative bg-[rgb(var(--sidebar-active-bg))] text-[rgb(var(--sidebar-active-text))] before:absolute before:left-0 before:top-1.5 before:bottom-1.5 before:w-0.5 before:rounded-full before:bg-accent-utility [&_svg]:text-accent-utility'
+              ? 'relative bg-[rgb(var(--sidebar-active-bg))] text-[rgb(var(--sidebar-active-text))] before:absolute before:left-0 before:top-1.5 before:bottom-1.5 before:w-0.5 before:rounded-full before:bg-accent [&_svg]:text-accent'
               : 'text-[rgb(var(--sidebar-text-secondary))] hover:bg-[rgb(var(--sidebar-hover-bg))]',
         )}
       >
@@ -559,11 +580,11 @@ const SidebarSubItem: FunctionComponent<SidebarSubItemProps> = ({
       title={label}
       className={cn(
         'flex w-full items-center justify-between rounded-lg pl-9 pr-2.5 py-[7px] text-left text-xs transition-colors',
-        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-500/50',
+        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50',
         isDanger
           ? 'text-red-400 hover:bg-red-500/10'
           : isActive
-            ? 'relative bg-[rgb(var(--sidebar-active-bg))] text-[rgb(var(--sidebar-active-text))] before:absolute before:left-0 before:top-1.5 before:bottom-1.5 before:w-0.5 before:rounded-full before:bg-accent-utility [&_svg]:text-accent-utility'
+            ? 'relative bg-[rgb(var(--sidebar-active-bg))] text-[rgb(var(--sidebar-active-text))] before:absolute before:left-0 before:top-1.5 before:bottom-1.5 before:w-0.5 before:rounded-full before:bg-accent [&_svg]:text-accent'
             : 'text-[rgb(var(--sidebar-text-secondary))] hover:bg-[rgb(var(--sidebar-hover-bg))]',
       )}
     >
@@ -655,7 +676,7 @@ const SidebarUserRow: FunctionComponent<SidebarUserRowProps> = ({ name, subtitle
         onClick={onClick}
         title={name}
         aria-label={name}
-        className={cn(collapsedClass, 'hover:bg-[rgb(var(--sidebar-hover-bg))] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-500/50')}
+        className={cn(collapsedClass, 'hover:bg-[rgb(var(--sidebar-hover-bg))] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50')}
       >
         {avatar}
       </button>
@@ -688,7 +709,7 @@ const SidebarUserRow: FunctionComponent<SidebarUserRowProps> = ({ name, subtitle
     <button
       type="button"
       onClick={onClick}
-      className={cn(baseClass, 'hover:bg-[rgb(var(--sidebar-hover-bg))] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-500/50')}
+      className={cn(baseClass, 'hover:bg-[rgb(var(--sidebar-hover-bg))] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50')}
     >
       {content}
     </button>
@@ -738,6 +759,7 @@ const SidebarBadge: FunctionComponent<{ children: ComponentChildren }> = ({ chil
   </span>
 );
 
+Sidebar.Header = SidebarHeader;
 Sidebar.Org = SidebarOrg;
 Sidebar.Section = SidebarSection;
 Sidebar.Item = SidebarItem;

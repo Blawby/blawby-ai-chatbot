@@ -16,7 +16,7 @@ import { Button } from '@/shared/ui/Button';
 import { DetailHeader } from '@/shared/ui/layout';
 import { LoadingSpinner } from '@/shared/ui/layout/LoadingSpinner';
 import { Dialog, DialogBody, DialogFooter } from '@/shared/ui/dialog';
-import { Input, Textarea, Combobox, type ComboboxOption } from '@/shared/ui/input';
+import { Textarea } from '@/shared/ui/input';
 import { useNavigation } from '@/shared/utils/navigation';
 import { useToastContext } from '@/shared/contexts/ToastContext';
 import { useSessionContext } from '@/shared/contexts/SessionContext';
@@ -30,9 +30,9 @@ import VirtualMessageList from '@/features/chat/components/VirtualMessageList';
 import type { ChatMessageUI } from '../../../../worker/types';
 
 import { EngagementDetailSkeleton } from '../components/EngagementDetailSkeleton';
+import { EngagementWorkbench } from '../components/EngagementWorkbench';
 import {
   declineEngagement,
-  patchEngagementProposal,
   sendEngagementToClient,
 } from '../api/engagementsApi';
 import type {
@@ -40,7 +40,6 @@ import type {
   EngagementDetail,
   EngagementStatus,
   ProposalData,
-  ProposalFees,
 } from '../types/engagement';
 import { useEngagementDetail } from '../hooks/useEngagementDetail';
 
@@ -48,7 +47,7 @@ import { useEngagementDetail } from '../hooks/useEngagementDetail';
 
 const STATUS_VARIANTS: Record<EngagementStatus, { label: string; className: string }> = {
   draft:    { label: 'Draft',    className: 'bg-amber-500/10 text-amber-700 ring-amber-500/20 dark:text-amber-300' },
-  sent:     { label: 'Sent',     className: 'bg-surface-overlay/60 text-input-placeholder ring-line-glass/30' },
+  sent:     { label: 'Sent',     className: 'bg-card/60 text-dim-2 ring-line-subtle' },
   accepted: { label: 'Accepted', className: 'bg-emerald-500/10 text-emerald-700 ring-emerald-500/20 dark:text-emerald-300' },
   declined: { label: 'Declined', className: 'bg-rose-500/10 text-rose-700 ring-rose-500/20 dark:text-rose-300' },
 };
@@ -66,8 +65,8 @@ const CONFLICT_VARIANTS: Record<ConflictStatus, { label: string; className: stri
   clear:             { label: 'Clear',             className: 'bg-emerald-500/10 text-emerald-700 ring-emerald-500/20 dark:text-emerald-300' },
   review_required:   { label: 'Review Required',   className: 'bg-amber-500/10 text-amber-700 ring-amber-500/20 dark:text-amber-300' },
   conflicted:        { label: 'Conflicted',        className: 'bg-rose-500/10 text-rose-700 ring-rose-500/20 dark:text-rose-300' },
-  unknown:           { label: 'Unknown',           className: 'bg-surface-overlay/60 text-input-placeholder ring-line-glass/30' },
-  insufficient_data: { label: 'Insufficient Data', className: 'bg-surface-overlay/60 text-input-placeholder ring-line-glass/30' },
+  unknown:           { label: 'Unknown',           className: 'bg-card/60 text-dim-2 ring-line-subtle' },
+  insufficient_data: { label: 'Insufficient Data', className: 'bg-card/60 text-dim-2 ring-line-subtle' },
 };
 
 // ── Display helpers ──────────────────────────────────────────────────────────
@@ -108,9 +107,9 @@ const SectionCard: FunctionComponent<{
   className?: string;
   action?: ComponentChildren;
 }> = ({ title, children, className, action }) => (
-  <section className={cn('glass-card p-5 sm:p-6 space-y-4', className)}>
+  <section className={cn('card p-5 sm:p-6 space-y-4', className)}>
     <header className="flex items-center justify-between gap-2">
-      <h3 className="text-xs font-semibold uppercase tracking-widest text-input-placeholder">{title}</h3>
+      <h3 className="text-xs font-semibold uppercase tracking-widest text-dim-2">{title}</h3>
       {action}
     </header>
     {children}
@@ -123,8 +122,8 @@ const InfoRow: FunctionComponent<{
   fallback?: string;
 }> = ({ label, value, fallback = 'Not specified' }) => (
   <div className="grid grid-cols-[120px_minmax(0,1fr)] gap-3 text-sm">
-    <dt className="text-input-placeholder">{label}</dt>
-    <dd className="text-input-text break-words">{value || <span className="text-input-placeholder italic">{fallback}</span>}</dd>
+    <dt className="text-dim-2">{label}</dt>
+    <dd className="text-ink break-words">{value || <span className="text-dim-2 italic">{fallback}</span>}</dd>
   </div>
 );
 
@@ -153,16 +152,16 @@ const ScopeOfRepresentationCard: FunctionComponent<{ proposal: ProposalData | nu
   return (
     <SectionCard title="Scope of representation">
       {scope ? (
-        <p className="text-sm leading-relaxed text-input-text">{scope}</p>
+        <p className="text-sm leading-relaxed text-ink">{scope}</p>
       ) : (
-        <p className="text-sm italic text-input-placeholder">Not yet drafted</p>
+        <p className="text-sm italic text-dim-2">Not yet drafted</p>
       )}
       {included.length > 0 && (
         <div className="space-y-1.5">
-          <p className="text-xs font-medium uppercase tracking-wide text-input-placeholder">Included</p>
+          <p className="text-xs font-medium uppercase tracking-wide text-dim-2">Included</p>
           <ul className="space-y-1">
             {included.map((service, i) => (
-              <li key={i} className="flex items-start gap-2 text-sm text-input-text">
+              <li key={i} className="flex items-start gap-2 text-sm text-ink">
                 <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-500" />
                 <span>{service}</span>
               </li>
@@ -172,10 +171,10 @@ const ScopeOfRepresentationCard: FunctionComponent<{ proposal: ProposalData | nu
       )}
       {excluded.length > 0 && (
         <div className="space-y-1.5">
-          <p className="text-xs font-medium uppercase tracking-wide text-input-placeholder">Excluded</p>
+          <p className="text-xs font-medium uppercase tracking-wide text-dim-2">Excluded</p>
           <ul className="space-y-1">
             {excluded.map((service, i) => (
-              <li key={i} className="flex items-start gap-2 text-sm text-input-text">
+              <li key={i} className="flex items-start gap-2 text-sm text-ink">
                 <XCircle className="mt-0.5 h-4 w-4 shrink-0 text-rose-500/70" />
                 <span>{service}</span>
               </li>
@@ -192,7 +191,7 @@ const FeeStructureCard: FunctionComponent<{ proposal: ProposalData | null }> = (
   if (!fees) {
     return (
       <SectionCard title="Fee structure">
-        <p className="text-sm italic text-input-placeholder">Not yet drafted</p>
+        <p className="text-sm italic text-dim-2">Not yet drafted</p>
       </SectionCard>
     );
   }
@@ -210,7 +209,7 @@ const FeeStructureCard: FunctionComponent<{ proposal: ProposalData | null }> = (
   if (visible.length === 0) {
     return (
       <SectionCard title="Fee structure">
-        <p className="text-sm italic text-input-placeholder">Not yet drafted</p>
+        <p className="text-sm italic text-dim-2">Not yet drafted</p>
       </SectionCard>
     );
   }
@@ -220,17 +219,29 @@ const FeeStructureCard: FunctionComponent<{ proposal: ProposalData | null }> = (
       <dl className="grid grid-cols-1 gap-x-6 gap-y-4 sm:grid-cols-2">
         {visible.map(({ label, value }) => (
           <div key={label}>
-            <dt className="text-xs text-input-placeholder">{label}</dt>
-            <dd className="mt-0.5 text-sm font-medium text-input-text">{value}</dd>
+            <dt className="text-xs text-dim-2">{label}</dt>
+            <dd className="mt-0.5 text-sm font-medium text-ink">{value}</dd>
           </div>
         ))}
       </dl>
       {fees.fee_notes && (
-        <p className="border-t border-line-glass/10 pt-3 text-sm text-input-text">{fees.fee_notes}</p>
+        <p className="border-t border-line-subtle pt-3 text-sm text-ink">{fees.fee_notes}</p>
       )}
     </SectionCard>
   );
 };
+
+const ContractBodyCard: FunctionComponent<{ engagement: EngagementDetail }> = ({ engagement }) => (
+  <SectionCard title="Contract body">
+    {engagement.contract_body?.trim() ? (
+      <div className="max-h-[360px] overflow-y-auto whitespace-pre-wrap rounded-lg border border-line-subtle bg-card/30 p-3 text-sm leading-relaxed text-ink">
+        {engagement.contract_body}
+      </div>
+    ) : (
+      <p className="text-sm italic text-dim-2">Not yet drafted</p>
+    )}
+  </SectionCard>
+);
 
 // ── View-mode right cards ────────────────────────────────────────────────────
 
@@ -252,8 +263,8 @@ const TimelineCard: FunctionComponent<{ engagement: EngagementDetail }> = ({ eng
       <dl className="space-y-2.5">
         {rows.map(({ label, value }) => (
           <div key={label} className="flex items-center justify-between gap-3 text-sm">
-            <dt className="text-input-placeholder">{label}</dt>
-            <dd className="text-right text-input-text">{value ?? <span className="italic text-input-placeholder">Pending</span>}</dd>
+            <dt className="text-dim-2">{label}</dt>
+            <dd className="text-right text-ink">{value ?? <span className="italic text-dim-2">Pending</span>}</dd>
           </div>
         ))}
       </dl>
@@ -283,11 +294,11 @@ const RiskReviewCard: FunctionComponent<{ proposal: ProposalData | null }> = ({ 
           {jurisdictionLabel}
         </span>
       </div>
-      {risk?.conflict_note && <p className="text-sm text-input-text">{risk.conflict_note}</p>}
+      {risk?.conflict_note && <p className="text-sm text-ink">{risk.conflict_note}</p>}
       {risk?.open_questions && risk.open_questions.length > 0 && (
         <ul className="space-y-1.5">
           {risk.open_questions.map((q, i) => (
-            <li key={i} className="flex items-start gap-2 text-sm text-input-text">
+            <li key={i} className="flex items-start gap-2 text-sm text-ink">
               <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-500" />
               <span>{q}</span>
             </li>
@@ -310,13 +321,13 @@ const SourceInformationCard: FunctionComponent<{ engagement: EngagementDetail }>
   return (
     <SectionCard title="Source information">
       {visible.length === 0 ? (
-        <p className="text-sm italic text-input-placeholder">No source context</p>
+        <p className="text-sm italic text-dim-2">No source context</p>
       ) : (
         <dl className="space-y-2.5">
           {visible.map(({ label, value }) => (
             <div key={label} className="flex items-start justify-between gap-3 text-sm">
-              <dt className="text-input-placeholder">{label}</dt>
-              <dd className="text-right text-input-text capitalize">{value}</dd>
+              <dt className="text-dim-2">{label}</dt>
+              <dd className="text-right text-ink capitalize">{value}</dd>
             </div>
           ))}
         </dl>
@@ -328,9 +339,9 @@ const SourceInformationCard: FunctionComponent<{ engagement: EngagementDetail }>
 const EngagementNotesCard: FunctionComponent<{ engagement: EngagementDetail }> = ({ engagement }) => (
   <SectionCard title="Engagement notes">
     {engagement.engagement_notes ? (
-      <p className="text-sm leading-relaxed text-input-text whitespace-pre-wrap">{engagement.engagement_notes}</p>
+      <p className="text-sm leading-relaxed text-ink whitespace-pre-wrap">{engagement.engagement_notes}</p>
     ) : (
-      <p className="text-sm italic text-input-placeholder">No internal notes yet</p>
+      <p className="text-sm italic text-dim-2">No internal notes yet</p>
     )}
   </SectionCard>
 );
@@ -450,8 +461,8 @@ const ConversationPreviewCard: FunctionComponent<ConversationPreviewCardProps> =
   if (isExpanded && isMobile) {
     return (
       <div className="fixed inset-0 z-40 flex flex-col bg-app-background">
-        <header className="flex items-center justify-between border-b border-card-border px-4 py-3">
-          <h2 className="text-base font-semibold text-input-text">Messages</h2>
+        <header className="flex items-center justify-between border-b border-line-subtle px-4 py-3">
+          <h2 className="text-base font-semibold text-ink">Messages</h2>
           <Button variant="ghost" icon={X} onClick={onToggle} aria-label="Close conversation" />
         </header>
         <div className="min-h-0 flex-1">
@@ -468,7 +479,7 @@ const ConversationPreviewCard: FunctionComponent<ConversationPreviewCardProps> =
           />
         </div>
         {conversationsBasePath && conversationId && (
-          <div className="border-t border-card-border p-3">
+          <div className="border-t border-line-subtle p-3">
             <Button
               variant="secondary"
               className="w-full"
@@ -483,26 +494,26 @@ const ConversationPreviewCard: FunctionComponent<ConversationPreviewCardProps> =
   }
 
   return (
-    <section className="glass-card overflow-hidden">
+    <section className="card overflow-hidden">
       <button
         type="button"
         onClick={onToggle}
-        className="flex w-full items-center justify-between gap-3 p-5 text-left transition-colors hover:bg-surface-card-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/40 sm:p-6"
+        className="flex w-full items-center justify-between gap-3 p-5 text-left transition-colors hover:bg-paper-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/40 sm:p-6"
       >
         <div className="flex min-w-0 items-center gap-3">
-          <MessagesSquare className="h-4 w-4 shrink-0 text-input-placeholder" />
-          <h3 className="text-xs font-semibold uppercase tracking-widest text-input-placeholder">Messages</h3>
+          <MessagesSquare className="h-4 w-4 shrink-0 text-dim-2" />
+          <h3 className="text-xs font-semibold uppercase tracking-widest text-dim-2">Messages</h3>
           {lastActivity && (
-            <span className="truncate text-xs text-input-placeholder">
+            <span className="truncate text-xs text-dim-2">
               · {formatRelativeTime(lastActivity)}
             </span>
           )}
         </div>
-        {isExpanded ? <ChevronUp className="h-4 w-4 text-input-placeholder" /> : <ChevronDown className="h-4 w-4 text-input-placeholder" />}
+        {isExpanded ? <ChevronUp className="h-4 w-4 text-dim-2" /> : <ChevronDown className="h-4 w-4 text-dim-2" />}
       </button>
       {isExpanded && !isMobile && (
-        <div className="border-t border-line-glass/10">
-          <div className="h-[320px] bg-surface-overlay/20">
+        <div className="border-t border-line-subtle">
+          <div className="h-[320px] bg-card/20">
             <ConversationContent
               isLoading={isLoading}
               error={error}
@@ -516,7 +527,7 @@ const ConversationPreviewCard: FunctionComponent<ConversationPreviewCardProps> =
             />
           </div>
           {conversationsBasePath && conversationId && targetPracticeId && (
-            <div className="border-t border-line-glass/10 p-3">
+            <div className="border-t border-line-subtle p-3">
               <Button
                 variant="secondary"
                 className="w-full"
@@ -573,251 +584,6 @@ const ConversationContent: FunctionComponent<{
       isLoadingMoreMessages={isLoadingMore}
       onLoadMoreMessages={onLoadMore}
     />
-  );
-};
-
-// ── Edit form ────────────────────────────────────────────────────────────────
-
-type EditFormState = {
-  clientName: string;
-  matterSummary: string;
-  locationSummary: string;
-  scopeSummary: string;
-  includedServicesText: string;
-  billingType: string;
-  contingencyPercentage: string;
-  retainerAmount: string;
-  paymentFrequency: string;
-  engagementNotes: string;
-};
-
-const BILLING_TYPE_OPTIONS: ComboboxOption[] = [
-  { value: 'flat', label: 'Flat Fee' },
-  { value: 'hourly', label: 'Hourly' },
-  { value: 'contingency', label: 'Contingency' },
-  { value: 'retainer', label: 'Retainer' },
-];
-
-const PAYMENT_FREQUENCY_OPTIONS: ComboboxOption[] = [
-  { value: 'one_time', label: 'One time' },
-  { value: 'monthly', label: 'Monthly' },
-  { value: 'quarterly', label: 'Quarterly' },
-  { value: 'on_completion', label: 'On completion' },
-];
-
-const buildEditFormState = (engagement: EngagementDetail): EditFormState => {
-  const summary = engagement.proposal_data?.client_summary;
-  const rep = engagement.proposal_data?.representation;
-  const fees = engagement.proposal_data?.fees;
-  return {
-    clientName: summary?.client_name ?? engagement.client_name ?? '',
-    matterSummary: summary?.matter_summary ?? '',
-    locationSummary: summary?.location_summary ?? '',
-    scopeSummary: rep?.scope_summary ?? '',
-    includedServicesText: (rep?.included_services ?? []).join('\n'),
-    billingType: fees?.billing_type ?? '',
-    contingencyPercentage: fees?.contingency_percentage != null ? String(fees.contingency_percentage) : '',
-    retainerAmount: fees?.retainer_amount != null ? String(fees.retainer_amount) : '',
-    paymentFrequency: fees?.payment_frequency ?? '',
-    engagementNotes: engagement.engagement_notes ?? '',
-  };
-};
-
-const mergeEditFormIntoProposal = (engagement: EngagementDetail, form: EditFormState): ProposalData => {
-  const existing = engagement.proposal_data;
-  const baseProposal: ProposalData = existing ?? {
-    representation: { scope_summary: '' },
-    fees: {},
-    risk_review: { conflict_status: 'unknown', jurisdiction_status: 'unknown' },
-    client_summary: {},
-    draft_meta: { version: 1, generated_at: new Date().toISOString() },
-  };
-
-  const includedServices = form.includedServicesText
-    .split('\n')
-    .map((s) => s.trim())
-    .filter(Boolean);
-
-  const fees: ProposalFees = {
-    ...baseProposal.fees,
-    billing_type: form.billingType || baseProposal.fees.billing_type || null,
-    contingency_percentage: form.contingencyPercentage ? Number(form.contingencyPercentage) : null,
-    retainer_amount: form.retainerAmount ? Number(form.retainerAmount) : null,
-    payment_frequency: form.paymentFrequency || baseProposal.fees.payment_frequency || null,
-  };
-
-  return {
-    ...baseProposal,
-    representation: {
-      ...baseProposal.representation,
-      scope_summary: form.scopeSummary,
-      included_services: includedServices.length > 0 ? includedServices : baseProposal.representation.included_services,
-    },
-    fees,
-    client_summary: {
-      ...baseProposal.client_summary,
-      client_name: form.clientName || baseProposal.client_summary?.client_name || null,
-      matter_summary: form.matterSummary || baseProposal.client_summary?.matter_summary || null,
-      location_summary: form.locationSummary || baseProposal.client_summary?.location_summary || null,
-    },
-    draft_meta: {
-      ...baseProposal.draft_meta,
-      version: (baseProposal.draft_meta?.version ?? 0) + 1,
-      generated_at: new Date().toISOString(),
-    },
-  };
-};
-
-interface EditModeViewProps {
-  engagement: EngagementDetail;
-  saving: boolean;
-  saveError: string | null;
-  feesEditingDisabled: boolean;
-  onSaveDraft: (form: EditFormState) => Promise<void>;
-  onReviewAndSend: (form: EditFormState) => Promise<void>;
-  onCancel: () => void;
-}
-
-const EditModeView: FunctionComponent<EditModeViewProps> = ({
-  engagement,
-  saving,
-  saveError,
-  feesEditingDisabled,
-  onSaveDraft,
-  onReviewAndSend,
-  onCancel,
-}) => {
-  const [form, setForm] = useState<EditFormState>(() => buildEditFormState(engagement));
-
-  // Refresh form when engagement payload changes (e.g. after save -> re-enter edit).
-  // Intentionally narrow the deps to id + updated_at so transient state (localStatus,
-  // dialog flags) doesn't clobber unsaved user edits.
-  useEffect(() => {
-    setForm(buildEditFormState(engagement));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [engagement.id, engagement.updated_at]);
-
-  const update = useCallback(<K extends keyof EditFormState>(field: K, value: EditFormState[K]) => {
-    setForm((prev) => ({ ...prev, [field]: value }));
-  }, []);
-
-  return (
-    <div className="flex h-full min-h-0 flex-col">
-      <header className="flex items-center justify-between gap-3 border-b border-card-border bg-surface-workspace px-4 py-3 sm:px-6">
-        <Button variant="ghost" icon={X} onClick={onCancel} disabled={saving} aria-label="Cancel" />
-        <h1 className="text-base font-semibold text-input-text">Edit engagement</h1>
-        <div className="flex items-center gap-2">
-          <Button variant="secondary" onClick={() => onSaveDraft(form)} disabled={saving}>
-            {saving ? 'Saving…' : 'Save draft'}
-          </Button>
-          <Button variant="primary" icon={Send} iconPosition="right" onClick={() => onReviewAndSend(form)} disabled={saving}>
-            Review &amp; send
-          </Button>
-        </div>
-      </header>
-
-      <div className="flex-1 overflow-y-auto">
-        <form className="mx-auto max-w-3xl space-y-6 p-4 sm:p-6" onSubmit={(e) => e.preventDefault()}>
-          {saveError && (
-            <div className="rounded-lg border border-rose-500/30 bg-rose-500/10 px-3 py-2 text-sm text-rose-300">
-              {saveError}
-            </div>
-          )}
-
-          <SectionCard title="Client information">
-            <div className="space-y-3">
-              <Input
-                label="Client name"
-                value={form.clientName}
-                onChange={(v) => update('clientName', v)}
-                disabled={saving}
-              />
-              <Input
-                label="Matter"
-                value={form.matterSummary}
-                onChange={(v) => update('matterSummary', v)}
-                disabled={saving}
-              />
-              <Input
-                label="Location"
-                value={form.locationSummary}
-                onChange={(v) => update('locationSummary', v)}
-                disabled={saving}
-              />
-            </div>
-          </SectionCard>
-
-          <SectionCard title="Scope of representation">
-            <div className="space-y-3">
-              <Textarea
-                label="Scope summary"
-                value={form.scopeSummary}
-                onChange={(v) => update('scopeSummary', v)}
-                rows={4}
-                disabled={saving}
-              />
-              <Textarea
-                label="Included services (one per line)"
-                value={form.includedServicesText}
-                onChange={(v) => update('includedServicesText', v)}
-                rows={4}
-                placeholder="Initial consultation&#10;Document preparation&#10;Court appearances"
-                disabled={saving}
-              />
-            </div>
-          </SectionCard>
-
-          <SectionCard title="Fee structure">
-            {feesEditingDisabled && (
-              <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-400">
-                Billing terms were captured when this engagement was sent. Edits here will not change what the client has already seen.
-              </div>
-            )}
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              <Combobox
-                label="Billing type"
-                options={BILLING_TYPE_OPTIONS}
-                value={form.billingType}
-                onChange={(v) => update('billingType', v)}
-                disabled={saving || feesEditingDisabled}
-              />
-              <Combobox
-                label="Payment frequency"
-                options={PAYMENT_FREQUENCY_OPTIONS}
-                value={form.paymentFrequency}
-                onChange={(v) => update('paymentFrequency', v)}
-                disabled={saving || feesEditingDisabled}
-              />
-              <Input
-                label="Contingency rate (%)"
-                type="number"
-                value={form.contingencyPercentage}
-                onChange={(v) => update('contingencyPercentage', v)}
-                disabled={saving || feesEditingDisabled}
-              />
-              <Input
-                label="Retainer amount"
-                type="number"
-                value={form.retainerAmount}
-                onChange={(v) => update('retainerAmount', v)}
-                disabled={saving || feesEditingDisabled}
-              />
-            </div>
-          </SectionCard>
-
-          <SectionCard title="Engagement notes">
-            <Textarea
-              label="Internal notes"
-              value={form.engagementNotes}
-              onChange={(v) => update('engagementNotes', v)}
-              rows={4}
-              placeholder="Add internal notes for your team…"
-              disabled={saving}
-            />
-          </SectionCard>
-        </form>
-      </div>
-    </div>
   );
 };
 
@@ -883,10 +649,6 @@ export const EngagementDetailPage: FunctionComponent<EngagementDetailPageProps> 
   const [dialogNote, setDialogNote] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isConversationExpanded, setIsConversationExpanded] = useState(false);
-
-  const [isSaving, setIsSaving] = useState(false);
-  const [saveError, setSaveError] = useState<string | null>(null);
-
   const isMountedRef = useRef(true);
   useEffect(() => {
     isMountedRef.current = true;
@@ -908,54 +670,6 @@ export const EngagementDetailPage: FunctionComponent<EngagementDetailPageProps> 
   const handleExitEdit = useCallback(() => {
     navigate(`${basePath}/${encodeURIComponent(engagementId)}`);
   }, [basePath, engagementId, navigate]);
-
-  const persistProposalChanges = useCallback(async (form: EditFormState): Promise<EngagementDetail | null> => {
-    if (!engagement || !practiceId) return null;
-    const merged = mergeEditFormIntoProposal(engagement, form);
-    const updated = await patchEngagementProposal(practiceId, engagement.id, merged);
-    if (isMountedRef.current) {
-      setEngagementCache(updated);
-    }
-    return updated;
-  }, [engagement, practiceId, setEngagementCache]);
-
-  const handleSaveDraft = useCallback(async (form: EditFormState) => {
-    if (isSaving) return;
-    setIsSaving(true);
-    setSaveError(null);
-    try {
-      await persistProposalChanges(form);
-      if (isMountedRef.current) {
-        showSuccess('Draft saved', 'Your engagement changes have been saved.');
-        handleExitEdit();
-      }
-    } catch (err) {
-      if (isMountedRef.current) {
-        setSaveError(err instanceof Error ? err.message : 'Failed to save draft');
-      }
-    } finally {
-      if (isMountedRef.current) setIsSaving(false);
-    }
-  }, [isSaving, persistProposalChanges, showSuccess, handleExitEdit]);
-
-  const handleReviewAndSend = useCallback(async (form: EditFormState) => {
-    if (isSaving) return;
-    setIsSaving(true);
-    setSaveError(null);
-    try {
-      await persistProposalChanges(form);
-      if (isMountedRef.current) {
-        handleExitEdit();
-        setDialogAction('send');
-      }
-    } catch (err) {
-      if (isMountedRef.current) {
-        setSaveError(err instanceof Error ? err.message : 'Failed to save before sending');
-      }
-    } finally {
-      if (isMountedRef.current) setIsSaving(false);
-    }
-  }, [isSaving, persistProposalChanges, handleExitEdit]);
 
   const closeDialog = useCallback(() => {
     if (isSubmitting) return;
@@ -1034,7 +748,7 @@ export const EngagementDetailPage: FunctionComponent<EngagementDetailPageProps> 
       <div className="flex h-full flex-col min-h-0">
         <DetailHeader title="Engagement" showBack onBack={onBack} />
         <div className="p-6">
-          <div className="glass-card p-6 text-sm text-rose-400">
+          <div className="card p-6 text-sm text-rose-400">
             {loadError ?? 'Engagement not found.'}
           </div>
         </div>
@@ -1044,13 +758,21 @@ export const EngagementDetailPage: FunctionComponent<EngagementDetailPageProps> 
 
   if (mode === 'edit') {
     return (
-      <EditModeView
+      <EngagementWorkbench
+        mode="edit"
+        practiceId={practiceId}
         engagement={engagement}
-        saving={isSaving}
-        saveError={saveError}
+        practiceName={practiceName}
         feesEditingDisabled={feesEditingDisabled}
-        onSaveDraft={handleSaveDraft}
-        onReviewAndSend={handleReviewAndSend}
+        setEngagementCache={setEngagementCache}
+        onSaved={() => {
+          showSuccess('Draft saved', 'Your engagement changes have been saved.');
+          handleExitEdit();
+        }}
+        onSavedAndSend={() => {
+          handleExitEdit();
+          setDialogAction('send');
+        }}
         onCancel={handleExitEdit}
       />
     );
@@ -1059,6 +781,10 @@ export const EngagementDetailPage: FunctionComponent<EngagementDetailPageProps> 
   const clientName = engagement.client_name || 'Unknown Client';
   const matterLabel = getMatterDisplay(engagement);
   const detailTitle = matterLabel !== '—' ? `${clientName} — ${matterLabel}` : clientName;
+  const canSendEngagement = Boolean(engagement.contract_body?.trim());
+  const createdMatterPath = engagement.matter_id
+    ? `${basePath.replace(/\/engagements$/, '/matters')}/${encodeURIComponent(engagement.matter_id)}`
+    : null;
 
   const headerActions = (
     <div className="flex items-center gap-2">
@@ -1068,7 +794,7 @@ export const EngagementDetailPage: FunctionComponent<EngagementDetailPageProps> 
         </Button>
       )}
       {isDraft && (
-        <Button variant="primary" icon={Send} onClick={() => openDialog('send')} disabled={isSubmitting}>
+        <Button variant="primary" icon={Send} onClick={() => openDialog('send')} disabled={isSubmitting || !canSendEngagement}>
           <span className="hidden sm:inline">Send to client</span>
           <span className="sm:hidden">Send</span>
         </Button>
@@ -1085,23 +811,36 @@ export const EngagementDetailPage: FunctionComponent<EngagementDetailPageProps> 
   const statusBanner = (() => {
     if (isSent) {
       return (
-        <div className="rounded-xl border border-line-glass/20 bg-surface-overlay/40 p-4 text-sm text-input-text">
+        <div className="rounded-r-md border border-line-subtle bg-card/40 p-4 text-sm text-ink">
           <p className="font-medium">Awaiting client response</p>
-          <p className="mt-1 text-input-placeholder">The client received this engagement and will accept or decline online.</p>
+          <p className="mt-1 text-dim-2">The client received this engagement and will accept or decline online.</p>
         </div>
       );
     }
     if (isAccepted) {
       return (
-        <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/10 p-4 text-sm text-emerald-700 dark:text-emerald-300">
-          <p className="font-medium">Engagement active</p>
-          <p className="mt-1 text-emerald-700/80 dark:text-emerald-200/80">The client has accepted this engagement.</p>
+        <div className="rounded-r-md border border-emerald-500/20 bg-emerald-500/10 p-4 text-sm text-emerald-700 dark:text-emerald-300">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="font-medium">Engagement active</p>
+              <p className="mt-1 text-emerald-700/80 dark:text-emerald-200/80">
+                {createdMatterPath
+                  ? 'The client accepted this engagement and the matter is linked.'
+                  : 'The client accepted this engagement, but the backend response has not linked a matter_id.'}
+              </p>
+            </div>
+            {createdMatterPath ? (
+              <Button variant="secondary" size="sm" onClick={() => navigate(createdMatterPath)}>
+                View matter
+              </Button>
+            ) : null}
+          </div>
         </div>
       );
     }
     if (isDeclined) {
       return (
-        <div className="rounded-xl border border-rose-500/20 bg-rose-500/10 p-4 text-sm text-rose-700 dark:text-rose-300">
+        <div className="rounded-r-md border border-rose-500/20 bg-rose-500/10 p-4 text-sm text-rose-700 dark:text-rose-300">
           <p className="font-medium">Declined</p>
           <p className="mt-1 text-rose-700/80 dark:text-rose-200/80">This engagement was marked declined.</p>
         </div>
@@ -1128,6 +867,7 @@ export const EngagementDetailPage: FunctionComponent<EngagementDetailPageProps> 
           <div className="flex flex-col gap-4">
             {statusBanner}
             <ClientSummaryCard engagement={engagement} />
+            <ContractBodyCard engagement={engagement} />
             <ScopeOfRepresentationCard proposal={proposal} />
             <FeeStructureCard proposal={proposal} />
           </div>

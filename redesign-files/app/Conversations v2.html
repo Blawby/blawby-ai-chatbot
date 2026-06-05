@@ -1,0 +1,927 @@
+<!doctype html>
+<html lang="en" data-theme="">
+<head>
+<meta charset="utf-8" />
+<title>Blawby — Conversations</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,opsz,wght@0,8..60,300..900;1,8..60,300..900&family=Geist:wght@300;400;500;600;700&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="tokens.css">
+<style>
+/* ============================================================
+   SHELL
+   ============================================================ */
+body{
+  background-image: radial-gradient(rgba(15,30,54,0.025) 1px, transparent 1.2px);
+  background-size: 3px 3px; background-attachment: fixed;
+}
+.app{
+  display: grid;
+  grid-template-columns: 240px 320px 1fr;
+  min-height: 100vh; max-width: 1640px; margin: 0 auto;
+}
+.app.drawer-open{ grid-template-columns: 240px 320px 1fr 360px; }
+
+/* ============================================================
+   LEFT RAIL
+   ============================================================ */
+.rail{
+  border-right: 1px solid var(--rule);
+  padding: 22px 16px 16px;
+  display: flex; flex-direction: column; gap: 18px;
+  position: sticky; top: 0; height: 100vh;
+  background: color-mix(in oklab, var(--paper) 96%, var(--card));
+}
+.rail .brand-mark-word{ font-family: var(--sans); font-weight: 500; }
+.rail .meta{ font-family: var(--mono); font-size: 10px; letter-spacing: .06em; text-transform: uppercase; color: var(--dim); margin-top: -8px; padding-left: 30px; }
+.new-btn{
+  width: 100%; background: var(--ink); color: var(--paper);
+  border: 1px solid var(--ink); border-radius: var(--r-xs);
+  padding: 11px 14px; font-size: 13px; font-weight: 500;
+  display: flex; align-items: center; justify-content: space-between;
+  cursor: pointer; transition: all .18s ease;
+}
+.new-btn:hover{ background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+.new-btn kbd{ font-family: var(--mono); font-size: 10px; background: rgba(255,255,255,.12); color: var(--paper-2); padding: 2px 6px; border-radius: 3px; }
+.rail-section{ display: flex; flex-direction: column; gap: 2px; }
+.rail-label{ font-family: var(--mono); font-size: 9.5px; letter-spacing: .12em; text-transform: uppercase; color: var(--dim-2); padding: 0 8px 4px; }
+.rail-item{
+  display: flex; align-items: center; gap: 10px;
+  padding: 7px 10px; border-radius: var(--r-xs);
+  font-size: 13px; color: var(--ink-2); cursor: pointer;
+  transition: background .12s; text-decoration: none;
+}
+.rail-item:hover{ background: var(--rule-soft); color: var(--ink); }
+.rail-item .dot{ width: 6px; height: 6px; border-radius: 50%; background: var(--dim-2); flex-shrink: 0; }
+.rail-item.now{ background: var(--accent-soft); color: var(--ink); }
+.rail-item.now .dot{ background: var(--accent); }
+.rail-item .count{ margin-left: auto; font-family: var(--mono); font-size: 10px; color: var(--dim); }
+.rail-item.unread .count{ color: var(--neg); }
+.user-chip{
+  margin-top: auto; display: flex; align-items: center; gap: 10px;
+  padding: 9px 10px; border-radius: var(--r-xs);
+  border: 1px solid var(--rule); background: var(--card); cursor: pointer;
+}
+.user-chip .who{ font-size: 12.5px; line-height: 1.2; }
+.user-chip .who small{ display: block; color: var(--dim); font-size: 10.5px; }
+.user-chip .caret{ margin-left: auto; color: var(--dim-2); }
+
+/* ============================================================
+   INBOX (thread list)
+   ============================================================ */
+.inbox{
+  border-right: 1px solid var(--rule);
+  background: color-mix(in oklab, var(--paper) 98%, var(--card));
+  display: flex; flex-direction: column;
+  position: sticky; top: 0; height: 100vh;
+}
+.inbox-head{
+  padding: 22px 18px 14px;
+  display: flex; flex-direction: column; gap: 10px;
+}
+.inbox-head h1{
+  font-family: var(--serif); font-weight: 400;
+  font-size: 26px; letter-spacing: -.012em; line-height: 1; margin: 0;
+}
+.inbox-counts{
+  display: flex; gap: 12px;
+  font-family: var(--mono); font-size: 10px; letter-spacing: .08em;
+  text-transform: uppercase; color: var(--dim);
+}
+.inbox-counts b{ font-weight: 500; color: var(--ink); }
+.inbox-counts .accent b{ color: var(--accent-deep); }
+.inbox-search{
+  display: flex; align-items: center; gap: 8px;
+  background: var(--card); border: 1px solid var(--rule);
+  border-radius: var(--r-xs); padding: 7px 10px;
+  font-size: 12.5px; color: var(--dim-2);
+}
+.inbox-search kbd{
+  margin-left: auto; font-family: var(--mono); font-size: 9px;
+  background: var(--rule-soft); border: 1px solid var(--rule);
+  padding: 1px 5px; border-radius: 3px; color: var(--ink-2);
+}
+.filters{
+  display: flex; gap: 0; padding: 0 18px;
+  border-bottom: 1px solid var(--rule);
+}
+.ftab{
+  font-family: var(--mono); font-size: 10px;
+  letter-spacing: .06em; text-transform: uppercase;
+  padding: 10px 10px 8px; color: var(--dim);
+  cursor: pointer; border-bottom: 2px solid transparent;
+  transition: color .14s;
+}
+.ftab:hover{ color: var(--ink-2); }
+.ftab.on{ color: var(--ink); border-bottom-color: var(--ink); }
+.ftab .n{ color: var(--accent-deep); margin-left: 3px; }
+.threads{ flex: 1; overflow-y: auto; }
+.threads::-webkit-scrollbar{ width: 0; }
+
+/* thread card — compact */
+.th{
+  padding: 12px 18px;
+  border-bottom: 1px solid var(--rule);
+  cursor: pointer; display: flex; gap: 10px; align-items: flex-start;
+  transition: background .12s;
+  position: relative;
+}
+.th:hover{ background: var(--rule-soft); }
+.th.active{
+  background: var(--card);
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+.th .av{
+  width: 32px; height: 32px; border-radius: 50%; flex-shrink: 0;
+  display: grid; place-items: center;
+  font-family: var(--sans); font-weight: 600; font-size: 11px;
+  background: linear-gradient(135deg, var(--ink-2), var(--ink));
+  color: var(--paper);
+}
+.th .av.ai{ background: var(--ink); color: var(--accent); font-family: var(--serif); font-style: italic; font-size: 14px; font-weight: 400; }
+.th .body{ flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.th .row1{ display: flex; align-items: baseline; gap: 6px; }
+.th .name{
+  font-size: 13.5px; font-weight: 400; color: var(--ink);
+  flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.th.unread .name{ font-weight: 500; }
+.th .when{
+  font-family: var(--mono); font-size: 9.5px; letter-spacing: .06em;
+  text-transform: uppercase; color: var(--dim); flex-shrink: 0;
+}
+.th.unread .when{ color: var(--accent-deep); }
+.th .matter{
+  font-family: var(--mono); font-size: 10px; letter-spacing: .03em;
+  color: var(--dim); display: flex; align-items: center; gap: 5px;
+}
+.th .matter .mdot{ width: 4px; height: 4px; border-radius: 50%; background: var(--dim-2); flex-shrink: 0; }
+.th .matter .mdot.gold{ background: var(--accent); }
+.th .matter .mdot.red{ background: var(--neg); }
+.th .matter .mdot.green{ background: var(--pos); }
+.th .preview{
+  font-size: 12.5px; color: var(--ink-2); line-height: 1.4;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  margin-top: 1px;
+}
+.th .status{
+  position: absolute; top: 12px; right: 18px;
+  display: flex; gap: 4px; align-items: center;
+}
+.th .sdot{
+  width: 7px; height: 7px; border-radius: 50%;
+}
+.th .sdot.urgent{ background: var(--neg); }
+.th .sdot.staged{ background: var(--accent); }
+.th .sdot.autopilot{ background: var(--accent); border: 1.5px solid var(--card); box-shadow: 0 0 0 1px var(--accent); }
+
+/* ============================================================
+   CONVERSATION PANE
+   ============================================================ */
+.conv{
+  display: flex; flex-direction: column;
+  min-width: 0; background: var(--paper);
+}
+.conv-head{
+  padding: 18px 32px;
+  border-bottom: 1px solid var(--rule);
+  background: color-mix(in oklab, var(--paper) 96%, var(--card));
+  display: flex; align-items: center; gap: 16px;
+}
+.conv-head .left{ flex: 1; min-width: 0; }
+.conv-head .crumb{
+  font-family: var(--mono); font-size: 10px; letter-spacing: .1em;
+  text-transform: uppercase; color: var(--dim);
+}
+.conv-head .crumb a{ color: var(--ink-2); }
+.conv-head h2{
+  font-family: var(--serif); font-weight: 400;
+  font-size: 24px; line-height: 1.1; letter-spacing: -.01em;
+  margin: 4px 0 0;
+}
+.conv-head h2 em{ color: var(--accent); }
+.conv-head .right{ display: flex; gap: 6px; align-items: center; flex-shrink: 0; }
+.conv-head .drawer-toggle{
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 6px 10px; border-radius: var(--r-xs);
+  border: 1px solid var(--rule); background: var(--card);
+  font-family: var(--mono); font-size: 10px; letter-spacing: .06em;
+  text-transform: uppercase; color: var(--dim); cursor: pointer;
+  transition: all .14s;
+}
+.conv-head .drawer-toggle:hover{ border-color: var(--ink); color: var(--ink); }
+.conv-head .drawer-toggle.on{ background: var(--ink); color: var(--accent); border-color: var(--ink); }
+
+.conv-body{
+  flex: 1; overflow-y: auto;
+  padding: 28px 32px 180px;
+  display: flex; flex-direction: column; gap: 20px;
+}
+.conv-body::-webkit-scrollbar{ width: 0; }
+
+.day-sep{
+  display: flex; align-items: center; gap: 12px;
+  font-family: var(--mono); font-size: 9.5px; letter-spacing: .14em;
+  text-transform: uppercase; color: var(--dim); margin: 6px 0;
+}
+.day-sep::before, .day-sep::after{ content: ""; flex: 1; height: 1px; background: var(--rule); }
+
+.msg{
+  display: flex; gap: 10px; max-width: 680px;
+  animation: rise .35s cubic-bezier(.2,.7,.2,1) both;
+}
+@keyframes rise{ from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:none} }
+.msg .av{
+  width: 28px; height: 28px; border-radius: 50%; flex-shrink: 0;
+  display: grid; place-items: center;
+  font-family: var(--serif); font-style: italic; font-size: 14px;
+  background: var(--ink); color: var(--accent);
+}
+.msg .av.user{
+  background: linear-gradient(135deg, var(--ink-2), var(--ink));
+  color: var(--paper); font-family: var(--sans); font-style: normal; font-weight: 600; font-size: 10px;
+}
+.msg .av.staff{
+  background: var(--ink); color: var(--accent);
+  font-family: var(--sans); font-style: normal; font-weight: 500; font-size: 10px;
+}
+.msg .body{ flex: 1; min-width: 0; }
+.msg .meta{
+  font-family: var(--mono); font-size: 9.5px; letter-spacing: .08em;
+  text-transform: uppercase; color: var(--dim); margin-bottom: 4px;
+  display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
+}
+.msg .meta .who{ color: var(--ink); }
+.msg .meta .who.ai{ color: var(--accent-deep); }
+.msg .bub{
+  font-size: 14px; line-height: 1.55; color: var(--ink);
+  background: var(--card); border: 1px solid var(--rule);
+  border-radius: var(--r-md); padding: 10px 14px;
+  box-shadow: var(--shadow-1);
+}
+.msg .bub p{ margin: 0 0 6px; }
+.msg .bub p:last-child{ margin: 0; }
+.msg .bub em{ color: var(--accent-deep); font-style: italic; }
+.msg.ai .bub{
+  background: linear-gradient(180deg, color-mix(in oklab, var(--accent) 8%, var(--card)), var(--card));
+  border-color: color-mix(in oklab, var(--accent) 22%, var(--rule));
+}
+.msg.ai .bub .lede{
+  font-family: var(--serif); font-size: 17px; line-height: 1.35;
+  letter-spacing: -.005em; margin: 0 0 6px;
+}
+.msg.staff{ flex-direction: row-reverse; align-self: flex-end; max-width: 100%; }
+.msg.staff .body{ display: flex; flex-direction: column; align-items: flex-end; max-width: 520px; }
+.msg.staff .meta{ justify-content: flex-end; }
+.msg.staff .bub{ background: var(--ink); color: var(--paper); border-color: var(--ink); }
+.msg.staff .bub em{ color: var(--accent); }
+
+.tooluse{
+  margin-left: 38px;
+  font-family: var(--mono); font-size: 9.5px; letter-spacing: .05em;
+  text-transform: uppercase; color: var(--dim);
+}
+.tooluse code{
+  background: var(--rule-soft); padding: 1px 5px; border-radius: 3px;
+  color: var(--ink-2); font-size: 10px; text-transform: none; letter-spacing: 0;
+}
+.cites{ display: flex; gap: 4px; flex-wrap: wrap; margin-left: 38px; margin-top: -4px; }
+
+/* staged action — inline */
+.staged{
+  margin-left: 38px; max-width: 640px;
+  background: linear-gradient(180deg, color-mix(in oklab, var(--accent) 18%, var(--card)), color-mix(in oklab, var(--accent) 8%, var(--card)));
+  border: 1px solid color-mix(in oklab, var(--accent) 40%, var(--rule));
+  border-radius: var(--r-md); padding: 16px 18px;
+  box-shadow: 0 1px 0 rgba(255,255,255,.5) inset, 0 10px 28px -20px color-mix(in oklab, var(--accent-deep) 50%, transparent);
+}
+.staged .lab{
+  font-family: var(--mono); font-size: 9.5px; letter-spacing: .1em;
+  text-transform: uppercase; color: var(--accent-deep);
+  display: flex; align-items: center; gap: 6px;
+}
+.staged .lab .pulse{ width: 6px; height: 6px; border-radius: 50%; background: var(--accent); }
+.staged h3{
+  font-family: var(--serif); font-weight: 400;
+  font-size: 20px; line-height: 1.2; letter-spacing: -.008em; margin: 5px 0 3px;
+}
+.staged .why{ font-size: 12.5px; color: var(--ink-2); margin: 0 0 10px; }
+.staged .draft{
+  background: var(--card); border: 1px solid var(--rule);
+  border-radius: var(--r-sm); padding: 12px 14px;
+  font-size: 13.5px; line-height: 1.6; box-shadow: var(--shadow-1);
+}
+.staged .draft p{ margin: 0 0 6px; }
+.staged .draft p:last-child{ margin: 0; }
+.staged .draft em{ color: var(--accent-deep); }
+.staged .acts{ display: flex; gap: 5px; flex-wrap: wrap; margin-top: 12px; }
+
+/* composer */
+.comp-wrap{
+  position: sticky; bottom: 0;
+  padding: 24px 32px 18px;
+  background: linear-gradient(180deg, transparent, var(--paper) 36%);
+  margin-top: auto;
+}
+.comp{
+  background: var(--card); border: 1px solid var(--rule);
+  border-radius: var(--r-md); box-shadow: var(--shadow-2);
+  max-width: 680px;
+}
+.comp .tabs{
+  display: flex; gap: 0;
+  border-bottom: 1px solid var(--rule);
+}
+.comp .tabs .t{
+  font-family: var(--mono); font-size: 10px; letter-spacing: .06em;
+  text-transform: uppercase; padding: 9px 14px; color: var(--dim);
+  cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px;
+}
+.comp .tabs .t:hover{ color: var(--ink-2); }
+.comp .tabs .t.on{ color: var(--ink); border-bottom-color: var(--ink); }
+.comp .tabs .scope{
+  margin-left: auto; font-family: var(--mono); font-size: 9px;
+  color: var(--dim); padding: 9px 12px; letter-spacing: .05em; text-transform: uppercase;
+}
+.comp .input-area{
+  padding: 12px 14px 8px; font-size: 14px; line-height: 1.5;
+  color: var(--ink); outline: none; min-height: 22px;
+}
+.comp .input-area:empty::before{ content: attr(data-ph); color: var(--dim-2); }
+.comp .bar{
+  display: flex; align-items: center; gap: 6px;
+  padding: 6px 10px 8px;
+}
+.iconbtn{
+  width: 28px; height: 28px; border-radius: var(--r-xs);
+  border: 1px solid var(--rule); background: var(--paper);
+  display: grid; place-items: center; cursor: pointer; color: var(--ink-2);
+  font-size: 13px; transition: all .14s;
+}
+.iconbtn:hover{ background: var(--card); border-color: var(--ink-3); color: var(--ink); }
+.iconbtn.primary{ background: var(--ink); color: var(--paper); border-color: var(--ink); }
+.iconbtn.primary:hover{ background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+.comp .bar .spacer{ flex: 1; }
+.comp .hint{
+  padding: 0 12px 8px;
+  font-family: var(--mono); font-size: 9px; letter-spacing: .06em;
+  text-transform: uppercase; color: var(--dim-2);
+}
+.comp .hint kbd{
+  background: var(--rule-soft); border: 1px solid var(--rule);
+  padding: 1px 4px; border-radius: 3px; font-family: var(--mono); font-size: 9px; color: var(--ink-2);
+}
+
+/* ============================================================
+   FOCUS DRAWER (togglable)
+   ============================================================ */
+.focus{
+  border-left: 1px solid var(--rule);
+  padding: 24px 18px;
+  position: sticky; top: 0; height: 100vh; overflow-y: auto;
+  display: flex; flex-direction: column; gap: 12px;
+  background: color-mix(in oklab, var(--paper) 96%, var(--card));
+}
+.focus::-webkit-scrollbar{ width: 0; }
+.focus-head .kind{
+  font-family: var(--mono); font-size: 9.5px; letter-spacing: .12em;
+  text-transform: uppercase; color: var(--dim);
+}
+.focus-head h2{
+  font-family: var(--serif); font-weight: 400;
+  font-size: 24px; line-height: 1.1; letter-spacing: -.01em; margin: 6px 0 2px;
+}
+.focus-head .sub{ font-size: 12.5px; color: var(--dim); }
+.focus-grid{ display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.stat-tile{
+  background: var(--card); border: 1px solid var(--rule);
+  border-radius: var(--r-md); padding: 10px 12px;
+}
+.stat-tile .lab{ font-family: var(--mono); font-size: 9px; letter-spacing: .1em; text-transform: uppercase; color: var(--dim); }
+.stat-tile .val{
+  font-family: var(--serif); font-size: 20px; letter-spacing: -.01em;
+  margin-top: 3px; line-height: 1; font-feature-settings: "tnum";
+}
+.stat-tile .val.pos{ color: var(--pos); }
+.section-label{
+  font-family: var(--mono); font-size: 9.5px; letter-spacing: .12em;
+  text-transform: uppercase; color: var(--dim); margin: 8px 0 2px;
+  display: flex; justify-content: space-between;
+}
+.section-label a{ font-family: var(--sans); font-size: 11px; color: var(--ink-2); text-transform: none; letter-spacing: 0; cursor: pointer; }
+.field-list{
+  background: var(--card); border: 1px solid var(--rule);
+  border-radius: var(--r-md); padding: 2px 12px;
+}
+.field-list .f{
+  display: grid; grid-template-columns: 72px 1fr; gap: 8px;
+  padding: 7px 0; border-bottom: 1px solid var(--rule); font-size: 12.5px;
+}
+.field-list .f:last-child{ border-bottom: none; }
+.field-list .f .k{ font-family: var(--mono); font-size: 9.5px; letter-spacing: .06em; text-transform: uppercase; color: var(--dim); padding-top: 2px; }
+.field-list .f .v em{ color: var(--accent-deep); }
+.timeline{
+  background: var(--card); border: 1px solid var(--rule);
+  border-radius: var(--r-md); padding: 2px 12px;
+}
+.timeline .ev{
+  display: grid; grid-template-columns: 54px 1fr; gap: 8px;
+  padding: 7px 0; border-bottom: 1px solid var(--rule); font-size: 12.5px;
+}
+.timeline .ev:last-child{ border-bottom: none; }
+.timeline .ev .when{ font-family: var(--mono); font-size: 9.5px; letter-spacing: .05em; text-transform: uppercase; color: var(--dim); padding-top: 2px; }
+.timeline .ev .what b{ font-weight: 500; }
+.timeline .ev .what em{ font-style: italic; color: var(--dim); }
+.focus-actions{ display: flex; gap: 5px; flex-wrap: wrap; }
+.focus-footer{
+  margin-top: auto; padding-top: 12px; border-top: 1px solid var(--rule);
+  font-family: var(--mono); font-size: 9.5px; letter-spacing: .05em;
+  text-transform: uppercase; color: var(--dim-2); line-height: 1.5;
+}
+
+/* ============================================================
+   MOBILE BOTTOM SHEET
+   ============================================================ */
+.sheet-overlay{
+  display: none; position: fixed; inset: 0; z-index: 90;
+  background: rgba(15,30,54,.4); opacity: 0; transition: opacity .25s;
+}
+.sheet-overlay.show{ opacity: 1; }
+.sheet{
+  display: none; position: fixed; bottom: 0; left: 0; right: 0; z-index: 100;
+  background: var(--card); border-radius: 14px 14px 0 0;
+  box-shadow: 0 -8px 40px rgba(15,30,54,.2);
+  max-height: 70vh; overflow-y: auto;
+  transform: translateY(100%); transition: transform .3s cubic-bezier(.2,.7,.2,1);
+  padding: 8px 20px 28px;
+}
+.sheet.show{ transform: translateY(0); }
+.sheet .handle{
+  width: 36px; height: 4px; border-radius: 2px;
+  background: var(--dim-2); margin: 4px auto 14px;
+}
+
+/* ============================================================
+   MOBILE BACK BUTTON (conversation header)
+   ============================================================ */
+.back-btn{
+  display: none; align-items: center; gap: 4px;
+  font-family: var(--mono); font-size: 11px; letter-spacing: .06em;
+  text-transform: uppercase; color: var(--dim);
+  cursor: pointer; padding: 4px 8px; margin-left: -8px;
+  background: none; border: none;
+}
+.back-btn:hover{ color: var(--ink); }
+
+/* ============================================================
+   RESPONSIVE
+   ============================================================ */
+@media (max-width: 1280px){
+  .app{ grid-template-columns: 240px 300px 1fr; }
+  .app.drawer-open{ grid-template-columns: 240px 300px 1fr; }
+  .focus{ display: none; }
+}
+@media (max-width: 980px){
+  .app, .app.drawer-open{ grid-template-columns: 1fr; }
+  .rail{ display: none; }
+  /* mobile: show list OR conversation */
+  .inbox{ position: fixed; inset: 0; height: 100%; z-index: 10; }
+  .conv{ position: fixed; inset: 0; z-index: 20; transform: translateX(100%); transition: transform .28s cubic-bezier(.2,.7,.2,1); }
+  .conv.visible{ transform: translateX(0); }
+  .focus{ display: none; }
+  .back-btn{ display: inline-flex; }
+  .conv-head{ padding: 14px 18px; }
+  .conv-head h2{ font-size: 20px; }
+  .conv-body{ padding: 20px 18px 160px; }
+  .comp-wrap{ padding: 16px 18px 12px; }
+  .comp .hint{ display: none; }
+  /* bottom sheet */
+  .sheet-overlay, .sheet{ display: block; }
+  .drawer-toggle{ display: none !important; }
+  .conv-head .info-btn{ display: inline-flex; }
+  .msg{ max-width: 100%; }
+  .msg.staff .body{ max-width: 85%; }
+  .staged{ margin-left: 0; max-width: 100%; }
+  .tooluse, .cites{ margin-left: 0; }
+}
+@media (min-width: 981px){
+  .conv-head .info-btn{ display: none; }
+}
+</style>
+</head>
+<body>
+
+<div class="app" id="app">
+
+  <!-- ============ LEFT RAIL ============ -->
+    <aside class="rail">
+    <a href="Assistant.html" class="brand-mark">
+      <span class="brand-mark-glyph">B</span>
+      <span class="brand-mark-word" style="font-family:var(--sans);font-weight:500">Blawby</span>
+    </a>
+    <div class="meta">Law Offices of Sarah Chen · solo</div>
+
+    <button class="new-btn">
+      <span>＋  New conversation</span>
+      <kbd>⌘N</kbd>
+    </button>
+
+    <div class="rail-section">
+      <div class="rail-label">Workspace</div>
+      <a class="rail-item" href="Assistant.html"><span class="dot"></span>Assistant</a>
+      <a class="rail-item on" href="Conversations v2.html"><span class="dot"></span>Conversations</a>
+      <a class="rail-item" href="Matters.html"><span class="dot"></span>Matters</a>
+      <a class="rail-item" href="Intakes.html"><span class="dot"></span>Intakes</a>
+      <a class="rail-item" href="Invoices.html"><span class="dot"></span>Invoices</a>
+      <a class="rail-item" href="Files.html"><span class="dot"></span>Files</a>
+    </div>
+
+    <div class="rail-section">
+      <div class="rail-label">Practice</div>
+      <a class="rail-item" href="Clients.html"><span class="dot"></span>Clients</a>
+      <a class="rail-item" href="Calendar.html"><span class="dot"></span>Calendar</a>
+      <a class="rail-item" href="Tasks.html"><span class="dot"></span>Tasks</a>
+      <a class="rail-item" href="Trust.html"><span class="dot"></span>Trust ledger</a>
+      <a class="rail-item" href="Reports.html"><span class="dot"></span>Reports</a>
+    </div>
+
+    <a class="rail-item" href="Settings.html" style="margin-top:auto"><span class="dot" style="background:transparent;border:1px solid var(--dim-2)"></span>Settings</a>
+
+    <div class="user-chip">
+      <div class="avatar user">SC</div>
+      <div class="who">Sarah Chen<small>sarah@chenlawoffice.com</small></div>
+      <div class="caret">⌃</div>
+    </div>
+  </aside>
+
+  <!-- ============ INBOX ============ -->
+  <section class="inbox" data-screen-label="inbox">
+    <div class="inbox-head">
+      <h1>Conversations</h1>
+      <div class="inbox-counts">
+        <span><b>3</b> need you</span>
+        <span class="accent"><b>5</b> autopilot</span>
+        <span><b>6</b> waiting</span>
+      </div>
+      <div class="inbox-search">
+        <span style="color:var(--dim);flex-shrink:0">⌕</span>
+        <span>Search threads…</span>
+        <kbd>⌘K</kbd>
+      </div>
+    </div>
+
+    <div class="filters">
+      <span class="ftab on">All <span class="n">14</span></span>
+      <span class="ftab">Needs you <span class="n">3</span></span>
+      <span class="ftab">Autopilot</span>
+      <span class="ftab">Waiting</span>
+    </div>
+
+    <div class="threads">
+      <article class="th unread active" onclick="showConv()">
+        <div class="av">BM</div>
+        <div class="body">
+          <div class="row1">
+            <div class="name">Bianca Martinez</div>
+            <div class="when">9:42 am</div>
+          </div>
+          <div class="matter"><span class="mdot red"></span>Auto Injury · settled</div>
+          <div class="preview">The settlement check came — when do I see my part?</div>
+        </div>
+        <div class="status"><span class="sdot urgent"></span><span class="sdot staged"></span></div>
+      </article>
+
+      <article class="th unread" onclick="showConv()">
+        <div class="av">SC</div>
+        <div class="body">
+          <div class="row1">
+            <div class="name">Sarah Chen</div>
+            <div class="when">8:14 am</div>
+          </div>
+          <div class="matter"><span class="mdot gold"></span>Intake · custody</div>
+          <div class="preview">Can you upload the existing order so I can flag what's changing?</div>
+        </div>
+        <div class="status"><span class="sdot autopilot"></span></div>
+      </article>
+
+      <article class="th" onclick="showConv()">
+        <div class="av">DJ</div>
+        <div class="body">
+          <div class="row1">
+            <div class="name">D. Johnson</div>
+            <div class="when">Yesterday</div>
+          </div>
+          <div class="matter"><span class="mdot green"></span>Estate planning</div>
+          <div class="preview">Filed and uploaded. Probate clerk confirmed receipt.</div>
+        </div>
+      </article>
+
+      <article class="th unread" onclick="showConv()">
+        <div class="av">MP</div>
+        <div class="body">
+          <div class="row1">
+            <div class="name">Marcus Park</div>
+            <div class="when">Yesterday</div>
+          </div>
+          <div class="matter"><span class="mdot gold"></span>Will revision</div>
+          <div class="preview">I want to add a healthcare directive — can we do that?</div>
+        </div>
+      </article>
+
+      <article class="th" onclick="showConv()">
+        <div class="av">RA</div>
+        <div class="body">
+          <div class="row1">
+            <div class="name">R. Alvarez</div>
+            <div class="when">Mon</div>
+          </div>
+          <div class="matter"><span class="mdot"></span>Separation</div>
+          <div class="preview">I drafted the response to opposing counsel's email.</div>
+        </div>
+        <div class="status"><span class="sdot autopilot"></span><span class="sdot staged"></span></div>
+      </article>
+
+      <article class="th" onclick="showConv()">
+        <div class="av">TN</div>
+        <div class="body">
+          <div class="row1">
+            <div class="name">T. Nguyen</div>
+            <div class="when">Mon</div>
+          </div>
+          <div class="matter"><span class="mdot"></span>Lease dispute</div>
+          <div class="preview">The demand letter goes out today.</div>
+        </div>
+      </article>
+
+      <article class="th" onclick="showConv()">
+        <div class="av">LO</div>
+        <div class="body">
+          <div class="row1">
+            <div class="name">L. Okafor</div>
+            <div class="when">Fri</div>
+          </div>
+          <div class="matter"><span class="mdot gold"></span>Intake · landlord</div>
+          <div class="preview">This looks like a habitability claim. Sarah will review tomorrow.</div>
+        </div>
+        <div class="status"><span class="sdot autopilot"></span></div>
+      </article>
+
+      <article class="th" onclick="showConv()">
+        <div class="av">JP</div>
+        <div class="body">
+          <div class="row1">
+            <div class="name">J. Patel</div>
+            <div class="when">Fri</div>
+          </div>
+          <div class="matter"><span class="mdot green"></span>Small claims · closed</div>
+          <div class="preview">Thank you so much for everything.</div>
+        </div>
+      </article>
+
+      <article class="th" onclick="showConv()">
+        <div class="av">AK</div>
+        <div class="body">
+          <div class="row1">
+            <div class="name">A. Kim</div>
+            <div class="when">Thu</div>
+          </div>
+          <div class="matter"><span class="mdot"></span>Contract review</div>
+          <div class="preview">I uploaded the LLC agreement.</div>
+        </div>
+      </article>
+    </div>
+  </section>
+
+  <!-- ============ CONVERSATION ============ -->
+  <main class="conv" id="conv" data-screen-label="conversation">
+    <header class="conv-head">
+      <button class="back-btn" onclick="hideConv()">← Back</button>
+      <div class="left">
+        <div class="crumb"><a href="Matter.html">Martinez · Auto Injury</a></div>
+        <h2><em>Bianca</em> asks about her settlement.</h2>
+      </div>
+      <div class="right">
+        <button class="info-btn iconbtn" onclick="toggleSheet()" title="Thread info" style="display:none">ℹ</button>
+        <button class="drawer-toggle" onclick="toggleDrawer()" id="drawerBtn">Context</button>
+        <button class="iconbtn" title="More">⋯</button>
+      </div>
+    </header>
+
+    <div class="conv-body">
+      <div class="day-sep">Tuesday · November 25</div>
+
+      <article class="msg client">
+        <div class="av user">BM</div>
+        <div class="body">
+          <div class="meta"><span class="who">Bianca Martinez</span><span>9:42 am</span></div>
+          <div class="bub">
+            <p>The settlement check came — when do I see my part? My rent is due Friday and I'm starting to panic a little.</p>
+          </div>
+        </div>
+      </article>
+
+      <div class="tooluse">› <code>trust_balance</code> · <code>retainer_terms</code> · 188ms</div>
+
+      <article class="msg ai">
+        <div class="av">B</div>
+        <div class="body">
+          <div class="meta"><span class="who ai">Assistant</span><span>9:43 am · draft</span><span style="color:var(--accent-deep)">4 sources</span></div>
+          <div class="bub">
+            <p class="lede">I drafted a reply. It explains timing without promising a Friday transfer.</p>
+            <p>State Farm check cleared into trust this morning ($14,200). Hold runs through <em>Monday Dec 1</em>. After fees and costs, Bianca's net is <em>$8,840</em>.</p>
+          </div>
+        </div>
+      </article>
+
+      <div class="cites">
+        <span class="pill live">payment_history · 1</span>
+        <span class="pill">trust_ledger · 3</span>
+        <span class="pill">matter_events · 9</span>
+      </div>
+
+      <div class="staged">
+        <div class="lab"><span class="pulse"></span>Staged reply · awaits your approval</div>
+        <h3>Reply to Bianca about settlement timing</h3>
+        <p class="why">Based on trust ledger, disbursement timing, and her tone in the last 3 messages.</p>
+        <div class="draft">
+          <p>Hi Bianca — good news, the check cleared into your trust account this morning. The hold runs through Monday Dec 1, which is standard.</p>
+          <p>Your net after fees and costs is <em>$8,840</em>. As soon as the hold lifts, I'll sign the disbursement and we'll send it same day — <em>Tuesday Dec 2</em> is the realistic earliest.</p>
+          <p>I hear you on Friday. If you want, I can connect you with a resource to talk through bridge options for this week.</p>
+        </div>
+        <div class="acts">
+          <button class="chip primary">Approve &amp; send ↗</button>
+          <button class="chip">Edit</button>
+          <button class="chip">Rewrite</button>
+          <button class="chip warn">Discard</button>
+        </div>
+      </div>
+
+      <div class="day-sep">Monday · November 24</div>
+
+      <article class="msg ai">
+        <div class="av">B</div>
+        <div class="body">
+          <div class="meta"><span class="who ai">Assistant</span><span>4:08 pm</span><span style="color:var(--accent-deep)">autopilot</span></div>
+          <div class="bub">
+            <p>Hi Bianca — confirming we received the State Farm correspondence today. Sarah will review tomorrow morning and reach out before noon.</p>
+          </div>
+        </div>
+      </article>
+
+      <article class="msg client">
+        <div class="av user">BM</div>
+        <div class="body">
+          <div class="meta"><span class="who">Bianca Martinez</span><span>3:51 pm</span></div>
+          <div class="bub">
+            <p>State Farm just emailed me a letter — I'm forwarding it. Looks like maybe the check is going out?</p>
+          </div>
+        </div>
+      </article>
+
+      <div class="day-sep">Friday · November 21</div>
+
+      <article class="msg staff">
+        <div class="body">
+          <div class="meta"><span>10:12 am</span><span class="who">Sarah Chen</span></div>
+          <div class="bub">
+            <p>Hey Bianca — good news. State Farm came back with their final figure. I'm reviewing now and will walk through it Monday at 11.</p>
+          </div>
+        </div>
+        <div class="av staff">SC</div>
+      </article>
+
+      <article class="msg client">
+        <div class="av user">BM</div>
+        <div class="body">
+          <div class="meta"><span class="who">Bianca Martinez</span><span>9:48 am</span></div>
+          <div class="bub">
+            <p>Monday at 11 works. Thanks Sarah.</p>
+          </div>
+        </div>
+      </article>
+    </div>
+
+    <div class="comp-wrap">
+      <div class="comp">
+        <div class="tabs">
+          <span class="t on">Reply</span>
+          <span class="t">Note</span>
+          <span class="t">Ask AI</span>
+          <span class="scope">as <b style="color:var(--ink);font-weight:500">Sarah Chen</b></span>
+        </div>
+        <div class="input-area" contenteditable="true" data-ph="Write a reply, or / to summon a draft…"></div>
+        <div class="bar">
+          <button class="iconbtn" title="Attach">📎</button>
+          <button class="iconbtn" title="Voice">🎙</button>
+          <div class="spacer"></div>
+          <button class="iconbtn" title="Draft with AI" style="font-family:var(--serif);font-style:italic;font-size:14px;color:var(--accent)">B</button>
+          <button class="iconbtn primary" title="Send">↑</button>
+        </div>
+        <div class="hint"><kbd>⌘↵</kbd> send · <kbd>⌘B</kbd> draft with AI · the assistant never sends without you.</div>
+      </div>
+    </div>
+  </main>
+
+  <!-- ============ FOCUS DRAWER (desktop, togglable) ============ -->
+  <aside class="focus" id="focusDrawer" style="display:none" data-screen-label="focus-drawer">
+    <header class="focus-head">
+      <div class="kind">Thread context</div>
+      <h2>Bianca Martinez</h2>
+      <div class="sub">Auto injury · settled · awaiting disbursement</div>
+    </header>
+    <div class="focus-actions">
+      <button class="chip primary"><a href="Matter.html" style="color:inherit">Open matter ↗</a></button>
+      <button class="chip">Profile</button>
+      <button class="chip">Call</button>
+    </div>
+    <div class="section-label">At a glance</div>
+    <div class="focus-grid">
+      <div class="stat-tile"><div class="lab">Net to client</div><div class="val">$8,840</div></div>
+      <div class="stat-tile"><div class="lab">Hold lifts</div><div class="val">Dec 1</div></div>
+      <div class="stat-tile"><div class="lab">Trust</div><div class="val pos">$14,200</div></div>
+      <div class="stat-tile"><div class="lab">Unbilled</div><div class="val">$0</div></div>
+    </div>
+    <div class="section-label">Client <a>edit</a></div>
+    <div class="field-list">
+      <div class="f"><div class="k">Counsel</div><div class="v">Sarah Chen</div></div>
+      <div class="f"><div class="k">Phone</div><div class="v">(704) 555-0182</div></div>
+      <div class="f"><div class="k">Channel</div><div class="v">Text + portal</div></div>
+      <div class="f"><div class="k">Tone</div><div class="v"><em>Anxious — keep concrete</em></div></div>
+      <div class="f"><div class="k">Conflicts</div><div class="v" style="color:var(--pos)">Cleared</div></div>
+    </div>
+    <div class="section-label">Activity</div>
+    <div class="timeline">
+      <div class="ev"><div class="when">9:43 am</div><div class="what"><b>AI</b> drafted reply <em>· pending</em></div></div>
+      <div class="ev"><div class="when">9:42 am</div><div class="what"><b>Bianca</b> asked about timing</div></div>
+      <div class="ev"><div class="when">9:11 am</div><div class="what">Check <b>cleared into trust</b> · $14,200</div></div>
+      <div class="ev"><div class="when">Mon</div><div class="what">Autopilot acknowledged correspondence</div></div>
+      <div class="ev"><div class="when">Fri</div><div class="what"><b>Sarah</b> scheduled call</div></div>
+    </div>
+    <div class="focus-footer">
+      Autopilot is <b style="color:var(--ink-2)">off</b> — money topics escalate to you.
+    </div>
+  </aside>
+</div>
+
+<!-- ============ MOBILE BOTTOM SHEET ============ -->
+<div class="sheet-overlay" id="sheetOverlay" onclick="toggleSheet()"></div>
+<div class="sheet" id="sheet">
+  <div class="handle"></div>
+  <div class="focus-head">
+    <div class="kind">Thread context</div>
+    <h2 style="font-family:var(--serif);font-weight:400;font-size:22px;letter-spacing:-.01em;margin:6px 0 2px">Bianca Martinez</h2>
+    <div style="font-size:12.5px;color:var(--dim)">Auto injury · settled · awaiting disbursement</div>
+  </div>
+  <div style="display:flex;gap:5px;flex-wrap:wrap;margin:12px 0">
+    <button class="chip primary">Open matter ↗</button>
+    <button class="chip">Profile</button>
+    <button class="chip">Call</button>
+  </div>
+  <div class="focus-grid" style="margin-bottom:14px">
+    <div class="stat-tile"><div class="lab">Net to client</div><div class="val">$8,840</div></div>
+    <div class="stat-tile"><div class="lab">Hold lifts</div><div class="val">Dec 1</div></div>
+    <div class="stat-tile"><div class="lab">Trust</div><div class="val pos">$14,200</div></div>
+    <div class="stat-tile"><div class="lab">Unbilled</div><div class="val">$0</div></div>
+  </div>
+  <div class="section-label" style="margin-bottom:4px">Client</div>
+  <div class="field-list" style="margin-bottom:14px">
+    <div class="f"><div class="k">Counsel</div><div class="v">Sarah Chen</div></div>
+    <div class="f"><div class="k">Phone</div><div class="v">(704) 555-0182</div></div>
+    <div class="f"><div class="k">Channel</div><div class="v">Text + portal</div></div>
+    <div class="f"><div class="k">Tone</div><div class="v"><em>Anxious — keep concrete</em></div></div>
+  </div>
+</div>
+
+<script>
+// Desktop drawer toggle
+function toggleDrawer() {
+  const app = document.getElementById('app');
+  const drawer = document.getElementById('focusDrawer');
+  const btn = document.getElementById('drawerBtn');
+  const open = app.classList.toggle('drawer-open');
+  drawer.style.display = open ? '' : 'none';
+  btn.classList.toggle('on', open);
+}
+
+// Mobile: show conversation (slide in)
+function showConv() {
+  if (window.innerWidth <= 980) {
+    document.getElementById('conv').classList.add('visible');
+  }
+}
+function hideConv() {
+  document.getElementById('conv').classList.remove('visible');
+}
+
+// Mobile bottom sheet
+function toggleSheet() {
+  const sheet = document.getElementById('sheet');
+  const overlay = document.getElementById('sheetOverlay');
+  const show = !sheet.classList.contains('show');
+  sheet.classList.toggle('show', show);
+  overlay.classList.toggle('show', show);
+}
+</script>
+</body>
+</html>

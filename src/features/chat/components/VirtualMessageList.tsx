@@ -128,7 +128,14 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
     const intakeStatus = intakeContext.intakeStatus;
     const intakeConversationState = intakeContext.intakeConversationState;
 
-    const participantsByUserId = useConversationParticipants(practiceId, conversationId);
+    const shouldResolveParticipantProfiles = Boolean(
+        (typingUserIds && typingUserIds.length > 0) ||
+        (readReceiptsByUser && readReceiptsByUser.size > 0)
+    );
+    const participantsByUserId = useConversationParticipants(
+        shouldResolveParticipantProfiles ? practiceId : null,
+        shouldResolveParticipantProfiles ? conversationId : null
+    );
 
     const typingParticipants = useMemo<readonly TypingParticipant[]>(() => {
         if (!typingUserIds || typingUserIds.length === 0) return [];
@@ -467,6 +474,13 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
 
 
     useLayoutEffect(() => {
+        isScrolledToBottomRef.current = true;
+        isUserScrollingRef.current = false;
+        hasUserScrolledUpRef.current = false;
+        setShowScrollToBottom(false);
+    }, [conversationId]);
+
+    useLayoutEffect(() => {
         // Scroll to bottom when new messages are added and we're at the bottom
         if (listRef.current && isScrolledToBottomRef.current && !isUserScrollingRef.current) {
             listRef.current.scrollTo({ top: listRef.current.scrollHeight, behavior: 'auto' });
@@ -743,14 +757,16 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
                     const intakeStep = intakeStatus?.step ?? null;
                     const intakeIsTerminal =
                         ['submitted', 'pending_review', 'completed'].includes(String(intakeStep));
+                    const rawActions = normalizeChatActions(message.metadata?.actions);
                     const baseActions = (isLast && !isStreamingMessage)
-                        ? normalizeChatActions(message.metadata?.actions).filter((action) => {
+                        ? rawActions.filter((action) => {
                             if (!intakeIsTerminal) return true;
                             return action.type === 'submit'
                                 || action.type === 'continue_payment'
-                                || action.type === 'open_url';
+                                || action.type === 'open_url'
+                                || action.type === 'practice_assistant_decision';
                         })
-                        : [];
+                        : rawActions.filter((a) => a.type === 'practice_assistant_decision');
                     const messageActions = buildMessageActions(baseActions, message, isLast);
                     const onboardingMetaFromMessage = (
                         message.metadata && typeof message.metadata.onboardingProfile === 'object' && message.metadata.onboardingProfile
@@ -821,7 +837,7 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
                             onOpenSidebar={onOpenSidebar}
                             isStreaming={isStreamingMessage}
                             isLoading={message.isLoading}
-                            // REMOVED: aiState - AI functionality removed
+                            toolProgress={message.toolProgress}
                             toolMessage={message.toolMessage}
                             id={message.id}
                             practiceId={practiceId}
@@ -837,6 +853,7 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
                                 isSystemEvent={isSystemEvent}
                                 hideMessageActions={hideMessageActions}
                                 readReceipts={readers}
+                                isIntro={message.metadata?.systemMessageKey === 'intro'}
                             />
                         );
                     })}
@@ -848,7 +865,7 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
         {showScrollToBottom && (
             <button
                 type="button"
-                className="absolute bottom-4 left-1/2 z-20 inline-flex h-9 w-9 -translate-x-1/2 items-center justify-center rounded-full bg-accent-500 text-accent-foreground shadow-lg transition hover:bg-accent-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-utility border border-line-utility"
+                className="absolute bottom-4 left-1/2 z-20 inline-flex h-9 w-9 -translate-x-1/2 items-center justify-center rounded-full bg-accent text-accent-ink shadow-lg transition hover:bg-accent focus:outline-none focus-visible:ring-2 focus-visible:ring-accent border border-line-utility"
                 onClick={scrollToBottom}
                 aria-label="Scroll to latest message"
             >

@@ -100,9 +100,10 @@ const AudioRecordingUI: FunctionComponent<AudioRecordingUIProps> = ({
         const barGap = 2;
         const barCount = Math.floor(canvas.width / (barWidth + barGap));
         const radius = 2; // Radius for rounded corners
-        const accentColor = getComputedStyle(document.documentElement).getPropertyValue('--accent-color');
-        
-        ctx.fillStyle = accentColor || '#0ea5e9';
+        const accentRgb = getComputedStyle(document.documentElement).getPropertyValue('--accent-rgb').trim();
+        const accentColor = accentRgb ? `rgb(${accentRgb})` : '#d4af37';
+
+        ctx.fillStyle = accentColor;
         
         function draw() {
             if (!analyserRef.current || !dataArrayRef.current) return;
@@ -188,9 +189,10 @@ const AudioRecordingUI: FunctionComponent<AudioRecordingUIProps> = ({
         const barHeightMultiplier = 30;
         const baseHeight = canvas.height / 4;
         const radius = 2; // Radius for rounded corners
-        const accentColor = getComputedStyle(document.documentElement).getPropertyValue('--accent-color');
-        
-        ctx.fillStyle = accentColor || '#0ea5e9';
+        const accentRgb = getComputedStyle(document.documentElement).getPropertyValue('--accent-rgb').trim();
+        const accentColor = accentRgb ? `rgb(${accentRgb})` : '#d4af37';
+
+        ctx.fillStyle = accentColor;
         
         function animateBarData() {
             const amplitudes = [];
@@ -329,13 +331,13 @@ const AudioRecordingUI: FunctionComponent<AudioRecordingUIProps> = ({
                 onClick={onCancel}
                 aria-label="Cancel recording"
                 title="Cancel recording"
-                className="flex items-center justify-center w-8 h-8 p-1.5 border-none rounded-full cursor-pointer transition-all duration-200 text-input-placeholder hover:text-red-400 bg-surface-utility/5 hover:bg-red-500/10 animate-zoom-in"
+                className="flex items-center justify-center w-8 h-8 p-1.5 border-none rounded-full cursor-pointer transition-all duration-200 text-dim-2 hover:text-red-400 bg-paper-2/5 hover:bg-red-500/10 animate-zoom-in"
             >
                 <Icon icon={X} className="w-5 h-5" aria-hidden="true"  />
             </Button>
             <div className="flex-1 flex items-center gap-4 h-8 animate-zoom-in bg-transparent" aria-live="polite">
-                <canvas ref={canvasRef} width="300" height="40" aria-hidden="true" className="flex-1 h-8 rounded-xl block image-rendering-crisp-edges image-rendering-webkit-optimize-contrast bg-surface-utility/5" />
-                <div className="text-sm text-accent-500 font-tabular-nums min-w-10 text-right" role="timer" aria-label={`Recording time: ${formatTime(recordingTime)}`}>
+                <canvas ref={canvasRef} width="300" height="40" aria-hidden="true" className="flex-1 h-8 rounded-r-md block image-rendering-crisp-edges image-rendering-webkit-optimize-contrast bg-paper-2/5" />
+                <div className="text-sm text-accent font-tabular-nums min-w-10 text-right" role="timer" aria-label={`Recording time: ${formatTime(recordingTime)}`}>
                     {formatTime(recordingTime)}
                 </div>
                 <div className="sr-only" aria-live="assertive">
@@ -349,7 +351,7 @@ const AudioRecordingUI: FunctionComponent<AudioRecordingUIProps> = ({
                 aria-label="Confirm and send recording"
                 title="Confirm and send recording"
                 ref={confirmBtnRef}
-                className="flex items-center justify-center w-8 h-8 p-1.5 rounded-full shadow-lg shadow-accent-500/20 cursor-pointer transition-all duration-200 animate-zoom-in hover:scale-110 active:scale-95"
+                className="flex items-center justify-center w-8 h-8 p-1.5 rounded-full shadow-lg shadow-accent/20 cursor-pointer transition-all duration-200 animate-zoom-in hover:scale-110 active:scale-95"
             >
                 <Icon icon={Check} className="w-5 h-5" aria-hidden="true"  />
             </Button>

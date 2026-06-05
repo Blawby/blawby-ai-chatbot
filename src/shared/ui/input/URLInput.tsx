@@ -115,15 +115,15 @@ export const URLInput = forwardRef<HTMLInputElement, URLInputProps>(({
   };
 
   const variantClasses = {
-    default: 'focus:ring-2 ring-inset focus:ring-accent-500/30',
+    default: 'focus:ring-2 ring-inset focus:ring-accent/30',
     error: 'ring-2 ring-inset ring-red-500/40 focus:ring-red-500/60',
     success: 'ring-2 ring-inset ring-green-500/40'
   };
 
   const inputClasses = cn(
-    'w-full rounded-xl text-input-text placeholder:text-input-placeholder',
+    'w-full rounded-r-md text-ink placeholder:text-dim-2',
     'focus:outline-none transition-all duration-200',
-    'glass-input border-none',
+    'field border-none',
     sizeClasses[size],
     iconPaddingClasses[size],
     variantClasses[variant],
@@ -250,15 +250,15 @@ export const URLInput = forwardRef<HTMLInputElement, URLInputProps>(({
   return (
     <div className="w-full">
       {displayLabel && (
-        <label htmlFor={inputId} className="block text-sm font-medium text-input-text mb-1">
+        <label htmlFor={inputId} className="block text-sm font-medium text-ink mb-1">
           {displayLabel}
-          {required && <span className="text-accent-error ml-1">*</span>}
+          {required && <span className="text-neg ml-1">*</span>}
         </label>
       )}
       
       <div className="relative">
         <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
-          <Icon icon={Link} className="w-4 h-4 text-input-placeholder"  />
+          <Icon icon={Link} className="w-4 h-4 text-dim-2"  />
         </div>
         
         <input
@@ -278,9 +278,9 @@ export const URLInput = forwardRef<HTMLInputElement, URLInputProps>(({
         {showValidationIcon && (
           <div className="absolute inset-y-0 right-0 flex items-center pr-3">
             {isURLValid ? (
-              <Icon icon={Check} className="w-4 h-4 text-accent-success"  />
+              <Icon icon={Check} className="w-4 h-4 text-pos"  />
             ) : (
-              <Icon icon={X} className="w-4 h-4 text-accent-error dark:text-accent-error-light"  />
+              <Icon icon={X} className="w-4 h-4 text-neg dark:text-neg"  />
             )}
           </div>
         )}
@@ -299,18 +299,18 @@ export const URLInput = forwardRef<HTMLInputElement, URLInputProps>(({
         
         return (
           <div className="mt-2 p-2 bg-[rgb(var(--surface-panel))] dark:bg-[rgb(var(--surface-panel))]/80 rounded border">
-            <p className="text-xs text-input-placeholder mb-1">Preview:</p>
+            <p className="text-xs text-dim-2 mb-1">Preview:</p>
             {isSafeProtocol ? (
               <a
                 href={value}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-sm text-accent-600 dark:text-accent-400 hover:underline"
+                className="text-sm text-accent dark:text-accent hover:underline"
               >
                 {value}
               </a>
             ) : (
-              <span className="text-sm text-input-placeholder">
+              <span className="text-sm text-dim-2">
                 {value}
               </span>
             )}
@@ -319,19 +319,19 @@ export const URLInput = forwardRef<HTMLInputElement, URLInputProps>(({
       })()}
       
       {displayError && (
-        <p id={errorId} className="text-xs text-accent-error dark:text-accent-error-light mt-1" role="alert" aria-live="assertive">
+        <p id={errorId} className="text-xs text-neg dark:text-neg mt-1" role="alert" aria-live="assertive">
           {displayError}
         </p>
       )}
       
       {showValidation && value && !isURLValid && !displayError && (
-        <p id={validationErrorId} className="text-xs text-accent-error dark:text-accent-error-light mt-1">
+        <p id={validationErrorId} className="text-xs text-neg dark:text-neg mt-1">
           Please enter a valid URL.
         </p>
       )}
       
       {displayDescription && !displayError && (
-        <p id={descriptionId} className="text-xs text-input-placeholder mt-1">
+        <p id={descriptionId} className="text-xs text-dim-2 mt-1">
           {displayDescription}
         </p>
       )}

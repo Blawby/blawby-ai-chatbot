@@ -1,0 +1,500 @@
+<!doctype html>
+<html lang="en" data-theme="">
+<head>
+<meta charset="utf-8" />
+<title>Blawby — Files</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,opsz,wght@0,8..60,300..900;1,8..60,300..900&family=Geist:wght@300;400;500;600;700&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="tokens.css">
+<style>
+body{ background-image: radial-gradient(rgba(15,30,54,0.025) 1px, transparent 1.2px); background-size: 3px 3px; background-attachment: fixed; }
+.app{ display: grid; grid-template-columns: 240px 1fr 400px; min-height: 100vh; max-width: 1640px; margin: 0 auto; }
+
+/* rail */
+.rail{ border-right: 1px solid var(--rule); padding: 22px 16px 16px; display: flex; flex-direction: column; gap: 18px; position: sticky; top: 0; height: 100vh; background: color-mix(in oklab, var(--paper) 96%, var(--card)); }
+.rail .meta{ font-family: var(--mono); font-size: 10px; letter-spacing: .06em; text-transform: uppercase; color: var(--dim); margin-top: -8px; padding-left: 30px; }
+.new-btn{ width: 100%; background: var(--ink); color: var(--paper); border: 1px solid var(--ink); border-radius: var(--r-xs); padding: 11px 14px; font-size: 13px; font-weight: 500; display: flex; align-items: center; justify-content: space-between; cursor: pointer; transition: all .18s; }
+.new-btn:hover{ background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+.new-btn kbd{ font-family: var(--mono); font-size: 10px; background: rgba(255,255,255,.12); color: var(--paper-2); padding: 2px 6px; border-radius: 3px; }
+.rail-section{ display: flex; flex-direction: column; gap: 2px; }
+.rail-label{ font-family: var(--mono); font-size: 9.5px; letter-spacing: .12em; text-transform: uppercase; color: var(--dim-2); padding: 0 8px 4px; }
+.rail-item{ display: flex; align-items: center; gap: 10px; padding: 7px 10px; border-radius: var(--r-xs); font-size: 13px; color: var(--ink-2); cursor: pointer; transition: background .12s; text-decoration: none; }
+.rail-item:hover{ background: var(--rule-soft); color: var(--ink); }
+.rail-item.on{ background: var(--ink); color: var(--accent); }
+.rail-item .dot{ width: 6px; height: 6px; border-radius: 50%; background: var(--dim-2); flex-shrink: 0; }
+.rail-item.on .dot{ background: var(--accent); }
+.rail-item .badge{ margin-left: auto; font-family: var(--mono); font-size: 10px; color: var(--dim); }
+.rail-item.on .badge{ color: var(--accent); }
+.user-chip{ margin-top: auto; display: flex; align-items: center; gap: 10px; padding: 9px 10px; border-radius: var(--r-xs); border: 1px solid var(--rule); background: var(--card); cursor: pointer; }
+.user-chip .who{ font-size: 12.5px; line-height: 1.2; }
+.user-chip .who small{ display: block; color: var(--dim); font-size: 10.5px; }
+
+/* center */
+.center{ padding: 32px 48px 80px; min-width: 0; display: flex; flex-direction: column; }
+.page-head{ display: flex; justify-content: space-between; align-items: flex-end; padding-bottom: 18px; border-bottom: 1px solid var(--rule); margin-bottom: 20px; }
+.page-head .crumb{ font-family: var(--mono); font-size: 10px; letter-spacing: .14em; text-transform: uppercase; color: var(--dim); }
+.page-head h1{ font-family: var(--serif); font-weight: 400; font-size: 48px; line-height: 1; letter-spacing: -.02em; margin: 6px 0 0; }
+.page-head h1 em{ color: var(--accent); }
+.page-head .right{ display: flex; gap: 8px; align-items: center; }
+
+/* stats strip */
+.stats{ display: flex; gap: 24px; margin-bottom: 20px; }
+.stat{ display: flex; flex-direction: column; }
+.stat .lab{ font-family: var(--mono); font-size: 9.5px; letter-spacing: .1em; text-transform: uppercase; color: var(--dim); }
+.stat .val{ font-family: var(--serif); font-size: 22px; line-height: 1.1; font-feature-settings: "tnum"; letter-spacing: -.01em; }
+.stat .val small{ font-family: var(--mono); font-size: 10px; color: var(--dim); margin-left: 3px; }
+
+/* drop zone */
+.dropzone{
+  border: 2px dashed var(--rule); border-radius: var(--r-md);
+  padding: 28px; text-align: center; margin-bottom: 20px;
+  color: var(--dim); cursor: pointer; transition: all .18s;
+  background: color-mix(in oklab, var(--paper) 50%, var(--card));
+}
+.dropzone:hover{ border-color: var(--accent); background: var(--accent-soft); color: var(--accent-deep); }
+.dropzone .icon{ font-size: 24px; margin-bottom: 6px; }
+.dropzone .label{ font-family: var(--mono); font-size: 11px; letter-spacing: .06em; text-transform: uppercase; }
+.dropzone .hint{ font-size: 12px; color: var(--dim-2); margin-top: 4px; }
+
+/* toolbar */
+.toolbar{ display: flex; align-items: center; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; }
+.search-box{
+  display: flex; align-items: center; gap: 8px;
+  background: var(--card); border: 1px solid var(--rule);
+  border-radius: var(--r-xs); padding: 7px 10px; flex: 1; min-width: 180px;
+  font-size: 13px; color: var(--dim-2);
+}
+.search-box kbd{ margin-left: auto; font-family: var(--mono); font-size: 9px; background: var(--rule-soft); border: 1px solid var(--rule); padding: 1px 5px; border-radius: 3px; color: var(--ink-2); }
+.filters{ display: flex; gap: 4px; }
+.ftab{
+  font-family: var(--mono); font-size: 10px; letter-spacing: .06em; text-transform: uppercase;
+  padding: 6px 10px; border-radius: var(--r-xs); border: 1px solid transparent;
+  color: var(--dim); cursor: pointer; transition: all .14s; background: transparent;
+}
+.ftab:hover{ background: var(--rule-soft); }
+.ftab.on{ background: var(--card); border-color: var(--rule); color: var(--ink); }
+.ftab .n{ color: var(--accent-deep); margin-left: 2px; }
+.view-toggle{ display: flex; border: 1px solid var(--rule); border-radius: var(--r-xs); background: var(--card); margin-left: auto; }
+.view-toggle button{ appearance: none; border: none; background: transparent; padding: 6px 10px; font-size: 13px; cursor: pointer; color: var(--dim); border-right: 1px solid var(--rule); }
+.view-toggle button:last-child{ border-right: none; }
+.view-toggle button.on{ background: var(--ink); color: var(--accent); }
+
+/* file table */
+.tbl{ border: 1px solid var(--rule); border-radius: var(--r-md); overflow: hidden; background: var(--card); box-shadow: var(--shadow-1); }
+.tbl .r{
+  display: grid; grid-template-columns: 1fr 140px 100px 90px 80px;
+  gap: 12px; padding: 11px 20px; align-items: center;
+  border-bottom: 1px solid var(--rule); font-size: 13px;
+  cursor: pointer; transition: background .12s;
+}
+.tbl .r:last-child{ border-bottom: none; }
+.tbl .r:hover{ background: var(--rule-soft); }
+.tbl .r.active{ background: var(--card); box-shadow: inset 3px 0 0 var(--accent); }
+.tbl .r.head{
+  background: var(--paper-2); font-family: var(--mono); font-size: 9.5px;
+  letter-spacing: .08em; text-transform: uppercase; color: var(--dim); padding: 9px 20px;
+  cursor: default;
+}
+.tbl .r.head:hover{ background: var(--paper-2); }
+.tbl .r .file-info{ display: flex; align-items: center; gap: 10px; min-width: 0; }
+.tbl .r .file-icon{
+  width: 32px; height: 32px; border-radius: var(--r-sm); flex-shrink: 0;
+  display: grid; place-items: center; font-family: var(--mono); font-size: 9px;
+  font-weight: 500; letter-spacing: .04em; text-transform: uppercase;
+}
+.tbl .r .file-icon.pdf{ background: color-mix(in oklab, var(--neg) 14%, var(--card)); color: var(--neg); }
+.tbl .r .file-icon.doc{ background: color-mix(in oklab, oklch(0.55 0.14 250) 14%, var(--card)); color: oklch(0.55 0.14 250); }
+.tbl .r .file-icon.img{ background: color-mix(in oklab, var(--pos) 14%, var(--card)); color: var(--pos); }
+.tbl .r .file-icon.xls{ background: color-mix(in oklab, oklch(0.55 0.14 150) 14%, var(--card)); color: oklch(0.55 0.14 150); }
+.tbl .r .file-icon.txt{ background: var(--rule-soft); color: var(--dim); }
+.tbl .r .file-detail{ min-width: 0; }
+.tbl .r .file-name{ font-size: 13.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tbl .r .file-matter{ font-family: var(--mono); font-size: 10px; color: var(--dim); letter-spacing: .03em; display: flex; align-items: center; gap: 4px; margin-top: 1px; }
+.tbl .r .file-matter .dot{ width: 4px; height: 4px; border-radius: 50%; background: var(--accent); }
+.tbl .r .type-pill{
+  font-family: var(--mono); font-size: 9.5px; letter-spacing: .06em; text-transform: uppercase;
+  padding: 3px 8px; border-radius: var(--r-pill); border: 1px solid var(--rule); color: var(--dim);
+  white-space: nowrap; text-align: center;
+}
+.tbl .r .num{ font-family: var(--mono); font-feature-settings: "tnum"; text-align: right; font-size: 12px; color: var(--dim); }
+.tbl .r .who{ font-size: 12.5px; color: var(--ink-2); }
+
+/* preview panel */
+.preview{
+  border-left: 1px solid var(--rule); padding: 24px 22px;
+  position: sticky; top: 0; height: 100vh; overflow-y: auto;
+  display: flex; flex-direction: column; gap: 14px;
+  background: color-mix(in oklab, var(--paper) 96%, var(--card));
+}
+.preview::-webkit-scrollbar{ width: 0; }
+.preview .kind{ font-family: var(--mono); font-size: 9.5px; letter-spacing: .12em; text-transform: uppercase; color: var(--dim); }
+.preview h2{ font-family: var(--serif); font-weight: 400; font-size: 22px; line-height: 1.15; letter-spacing: -.01em; margin: 0; }
+.preview .sub{ font-size: 12.5px; color: var(--dim); }
+.preview .doc-preview{
+  background: var(--card); border: 1px solid var(--rule); border-radius: var(--r-md);
+  padding: 20px; min-height: 200px; box-shadow: var(--shadow-1);
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 8px; color: var(--dim);
+}
+.preview .doc-preview .icon{ font-size: 36px; }
+.preview .doc-preview .label{ font-family: var(--mono); font-size: 10px; letter-spacing: .1em; text-transform: uppercase; }
+
+.preview .section-label{
+  font-family: var(--mono); font-size: 9.5px; letter-spacing: .12em;
+  text-transform: uppercase; color: var(--dim); margin: 8px 0 2px;
+}
+.preview .field-list{
+  background: var(--card); border: 1px solid var(--rule); border-radius: var(--r-md); padding: 2px 12px;
+}
+.preview .field-list .f{
+  display: grid; grid-template-columns: 72px 1fr; gap: 8px;
+  padding: 7px 0; border-bottom: 1px solid var(--rule); font-size: 12.5px;
+}
+.preview .field-list .f:last-child{ border-bottom: none; }
+.preview .field-list .f .k{ font-family: var(--mono); font-size: 9.5px; letter-spacing: .06em; text-transform: uppercase; color: var(--dim); padding-top: 2px; }
+.preview .field-list .f .v em{ color: var(--accent-deep); }
+
+.preview .ai-summary{
+  background: linear-gradient(180deg, color-mix(in oklab, var(--accent) 10%, var(--card)), var(--card));
+  border: 1px solid color-mix(in oklab, var(--accent) 25%, var(--rule));
+  border-radius: var(--r-md); padding: 14px 16px;
+}
+.preview .ai-summary .lab{
+  font-family: var(--mono); font-size: 9.5px; letter-spacing: .1em;
+  text-transform: uppercase; color: var(--accent-deep);
+  display: flex; align-items: center; gap: 5px;
+}
+.preview .ai-summary .lab::before{ content: ""; width: 5px; height: 5px; border-radius: 50%; background: var(--accent); }
+.preview .ai-summary .txt{
+  font-family: var(--serif); font-size: 14.5px; line-height: 1.45;
+  margin-top: 5px; color: var(--ink);
+}
+.preview .ai-summary .txt em{ color: var(--accent-deep); }
+.preview .actions{ display: flex; gap: 5px; flex-wrap: wrap; }
+
+@media (max-width: 1280px){
+  .app{ grid-template-columns: 240px 1fr; }
+  .preview{ display: none; }
+}
+@media (max-width: 980px){
+  .app{ grid-template-columns: 1fr; }
+  .rail{ display: none; }
+  .center{ padding: 24px 22px 60px; }
+  .tbl .r{ grid-template-columns: 1fr 90px 80px; }
+  .tbl .r .hide-m{ display: none; }
+  .page-head{ flex-direction: column; align-items: flex-start; gap: 10px; }
+  .page-head h1{ font-size: 36px; }
+  .stats{ flex-wrap: wrap; gap: 16px; }
+}
+</style>
+</head>
+<body>
+
+<div class="app">
+  <!-- RAIL -->
+    <aside class="rail">
+    <a href="Assistant.html" class="brand-mark">
+      <span class="brand-mark-glyph">B</span>
+      <span class="brand-mark-word" style="font-family:var(--sans);font-weight:500">Blawby</span>
+    </a>
+    <div class="meta">Law Offices of Sarah Chen · solo</div>
+
+    <button class="new-btn">
+      <span>＋  New conversation</span>
+      <kbd>⌘N</kbd>
+    </button>
+
+    <div class="rail-section">
+      <div class="rail-label">Workspace</div>
+      <a class="rail-item" href="Assistant.html"><span class="dot"></span>Assistant</a>
+      <a class="rail-item" href="Conversations v2.html"><span class="dot"></span>Conversations</a>
+      <a class="rail-item" href="Matters.html"><span class="dot"></span>Matters</a>
+      <a class="rail-item" href="Intakes.html"><span class="dot"></span>Intakes</a>
+      <a class="rail-item" href="Invoices.html"><span class="dot"></span>Invoices</a>
+      <a class="rail-item on" href="Files.html"><span class="dot"></span>Files</a>
+    </div>
+
+    <div class="rail-section">
+      <div class="rail-label">Practice</div>
+      <a class="rail-item" href="Clients.html"><span class="dot"></span>Clients</a>
+      <a class="rail-item" href="Calendar.html"><span class="dot"></span>Calendar</a>
+      <a class="rail-item" href="Tasks.html"><span class="dot"></span>Tasks</a>
+      <a class="rail-item" href="Trust.html"><span class="dot"></span>Trust ledger</a>
+      <a class="rail-item" href="Reports.html"><span class="dot"></span>Reports</a>
+    </div>
+
+    <a class="rail-item" href="Settings.html" style="margin-top:auto"><span class="dot" style="background:transparent;border:1px solid var(--dim-2)"></span>Settings</a>
+
+    <div class="user-chip">
+      <div class="avatar user">SC</div>
+      <div class="who">Sarah Chen<small>sarah@chenlawoffice.com</small></div>
+      <div class="caret">⌃</div>
+    </div>
+  </aside>
+
+  <!-- CENTER -->
+  <main class="center">
+    <header class="page-head">
+      <div>
+        <div class="crumb">Workspace</div>
+        <h1>Files.</h1>
+      </div>
+      <div class="right">
+        <button class="btn btn-primary btn-sm">Upload files ↑</button>
+      </div>
+    </header>
+
+    <div class="stats">
+      <div class="stat"><div class="lab">Total files</div><div class="val">42</div></div>
+      <div class="stat"><div class="lab">Storage</div><div class="val">148<small>MB</small></div></div>
+      <div class="stat"><div class="lab">This month</div><div class="val">8<small>new</small></div></div>
+      <div class="stat"><div class="lab">AI-summarized</div><div class="val">31<small>of 42</small></div></div>
+    </div>
+
+    <div class="dropzone">
+      <div class="icon">↑</div>
+      <div class="label">Drop files here to upload</div>
+      <div class="hint">PDF, DOCX, images, spreadsheets · max 25 MB per file</div>
+    </div>
+
+    <div class="toolbar">
+      <div class="search-box">
+        <span style="color:var(--dim);flex-shrink:0">⌕</span>
+        <span>Search files or ask — "find Martinez medical records"</span>
+        <kbd>⌘K</kbd>
+      </div>
+      <div class="filters">
+        <span class="ftab on">All <span class="n">42</span></span>
+        <span class="ftab">Contracts <span class="n">8</span></span>
+        <span class="ftab">Court <span class="n">6</span></span>
+        <span class="ftab">Medical <span class="n">5</span></span>
+        <span class="ftab">Correspondence</span>
+        <span class="ftab">Intake</span>
+      </div>
+    </div>
+
+    <div class="tbl">
+      <div class="r head">
+        <div>File</div>
+        <div>Type</div>
+        <div style="text-align:right">Size</div>
+        <div class="hide-m">Uploaded</div>
+        <div class="hide-m">By</div>
+      </div>
+
+      <div class="r active">
+        <div class="file-info">
+          <div class="file-icon pdf">PDF</div>
+          <div class="file-detail">
+            <div class="file-name">Martinez_Medical_Records_Complete.pdf</div>
+            <div class="file-matter"><span class="dot"></span>Auto Injury · B. Martinez</div>
+          </div>
+        </div>
+        <div class="type-pill">Medical</div>
+        <div class="num">4.2 MB</div>
+        <div class="num hide-m">Nov 19</div>
+        <div class="who hide-m">Sarah</div>
+      </div>
+
+      <div class="r">
+        <div class="file-info">
+          <div class="file-icon pdf">PDF</div>
+          <div class="file-detail">
+            <div class="file-name">State_Farm_Settlement_Letter.pdf</div>
+            <div class="file-matter"><span class="dot"></span>Auto Injury · B. Martinez</div>
+          </div>
+        </div>
+        <div class="type-pill">Correspondence</div>
+        <div class="num">186 KB</div>
+        <div class="num hide-m">Nov 24</div>
+        <div class="who hide-m">Client</div>
+      </div>
+
+      <div class="r">
+        <div class="file-info">
+          <div class="file-icon doc">DOC</div>
+          <div class="file-detail">
+            <div class="file-name">Chen_Engagement_Letter_Signed.docx</div>
+            <div class="file-matter"><span class="dot"></span>Custody · S. Chen</div>
+          </div>
+        </div>
+        <div class="type-pill">Contract</div>
+        <div class="num">92 KB</div>
+        <div class="num hide-m">Nov 22</div>
+        <div class="who hide-m">AI</div>
+      </div>
+
+      <div class="r">
+        <div class="file-info">
+          <div class="file-icon pdf">PDF</div>
+          <div class="file-detail">
+            <div class="file-name">Existing_Custody_Order_2021.pdf</div>
+            <div class="file-matter"><span class="dot"></span>Custody · S. Chen</div>
+          </div>
+        </div>
+        <div class="type-pill">Court</div>
+        <div class="num">1.1 MB</div>
+        <div class="num hide-m">Nov 20</div>
+        <div class="who hide-m">Client</div>
+      </div>
+
+      <div class="r">
+        <div class="file-info">
+          <div class="file-icon doc">DOC</div>
+          <div class="file-detail">
+            <div class="file-name">Johnson_Will_Draft_v3.docx</div>
+            <div class="file-matter"><span class="dot"></span>Estate · D. Johnson</div>
+          </div>
+        </div>
+        <div class="type-pill">Contract</div>
+        <div class="num">78 KB</div>
+        <div class="num hide-m">Nov 18</div>
+        <div class="who hide-m">Sarah</div>
+      </div>
+
+      <div class="r">
+        <div class="file-info">
+          <div class="file-icon pdf">PDF</div>
+          <div class="file-detail">
+            <div class="file-name">Probate_Filing_Receipt.pdf</div>
+            <div class="file-matter"><span class="dot"></span>Estate · D. Johnson</div>
+          </div>
+        </div>
+        <div class="type-pill">Court</div>
+        <div class="num">340 KB</div>
+        <div class="num hide-m">Nov 25</div>
+        <div class="who hide-m">Sarah</div>
+      </div>
+
+      <div class="r">
+        <div class="file-info">
+          <div class="file-icon pdf">PDF</div>
+          <div class="file-detail">
+            <div class="file-name">Alvarez_Asset_Disclosure.pdf</div>
+            <div class="file-matter"><span class="dot"></span>Separation · R. Alvarez</div>
+          </div>
+        </div>
+        <div class="type-pill">Court</div>
+        <div class="num">2.8 MB</div>
+        <div class="num hide-m">Nov 15</div>
+        <div class="who hide-m">Client</div>
+      </div>
+
+      <div class="r">
+        <div class="file-info">
+          <div class="file-icon img">IMG</div>
+          <div class="file-detail">
+            <div class="file-name">Martinez_Accident_Photos.zip</div>
+            <div class="file-matter"><span class="dot"></span>Auto Injury · B. Martinez</div>
+          </div>
+        </div>
+        <div class="type-pill">Evidence</div>
+        <div class="num">12.4 MB</div>
+        <div class="num hide-m">Oct 8</div>
+        <div class="who hide-m">Client</div>
+      </div>
+
+      <div class="r">
+        <div class="file-info">
+          <div class="file-icon xls">XLS</div>
+          <div class="file-detail">
+            <div class="file-name">Martinez_Medical_Expenses.xlsx</div>
+            <div class="file-matter"><span class="dot"></span>Auto Injury · B. Martinez</div>
+          </div>
+        </div>
+        <div class="type-pill">Financial</div>
+        <div class="num">48 KB</div>
+        <div class="num hide-m">Oct 12</div>
+        <div class="who hide-m">Sarah</div>
+      </div>
+
+      <div class="r">
+        <div class="file-info">
+          <div class="file-icon doc">DOC</div>
+          <div class="file-detail">
+            <div class="file-name">Nguyen_Demand_Letter_Final.docx</div>
+            <div class="file-matter"><span class="dot"></span>Lease · T. Nguyen</div>
+          </div>
+        </div>
+        <div class="type-pill">Correspondence</div>
+        <div class="num">64 KB</div>
+        <div class="num hide-m">Nov 24</div>
+        <div class="who hide-m">AI</div>
+      </div>
+
+      <div class="r">
+        <div class="file-info">
+          <div class="file-icon pdf">PDF</div>
+          <div class="file-detail">
+            <div class="file-name">Park_Healthcare_Directive_Template.pdf</div>
+            <div class="file-matter"><span class="dot"></span>Will · M. Park</div>
+          </div>
+        </div>
+        <div class="type-pill">Contract</div>
+        <div class="num">56 KB</div>
+        <div class="num hide-m">Nov 21</div>
+        <div class="who hide-m">Sarah</div>
+      </div>
+
+      <div class="r">
+        <div class="file-info">
+          <div class="file-icon txt">TXT</div>
+          <div class="file-detail">
+            <div class="file-name">Kim_LLC_Agreement.pdf</div>
+            <div class="file-matter"><span class="dot"></span>Contract · A. Kim</div>
+          </div>
+        </div>
+        <div class="type-pill">Contract</div>
+        <div class="num">220 KB</div>
+        <div class="num hide-m">Nov 23</div>
+        <div class="who hide-m">Client</div>
+      </div>
+    </div>
+  </main>
+
+  <!-- PREVIEW PANEL -->
+  <aside class="preview">
+    <div class="kind">File preview</div>
+    <h2>Martinez Medical Records Complete</h2>
+    <div class="sub">PDF · 4.2 MB · 213 pages · uploaded Nov 19</div>
+
+    <div class="doc-preview">
+      <div class="icon" style="font-size:28px;color:var(--neg)">PDF</div>
+      <div class="label">213-page document</div>
+      <div style="font-size:12px;color:var(--dim-2)">Click to open full viewer</div>
+    </div>
+
+    <div class="ai-summary">
+      <div class="lab">AI summary</div>
+      <div class="txt">Medical records spanning <em>March 2025 – October 2026</em> for Bianca Martinez. Documents <em>cervical strain, lumbar sprain, and right shoulder impingement</em> from MVA on March 12. Total medical costs: <em>$18,420</em>. Treating physician Dr. Patel recommends 6 more weeks of PT. Records support causation — <em>no pre-existing conditions noted</em>.</div>
+    </div>
+
+    <div class="section-label">Details</div>
+    <div class="field-list">
+      <div class="f"><div class="k">Matter</div><div class="v">Auto Injury · B. Martinez</div></div>
+      <div class="f"><div class="k">Type</div><div class="v">Medical records</div></div>
+      <div class="f"><div class="k">Pages</div><div class="v">213</div></div>
+      <div class="f"><div class="k">Uploaded</div><div class="v">Nov 19, 2026 · 2:14 pm</div></div>
+      <div class="f"><div class="k">By</div><div class="v">Sarah Chen</div></div>
+      <div class="f"><div class="k">Source</div><div class="v"><em>Dr. Patel's office via fax</em></div></div>
+    </div>
+
+    <div class="section-label">Related files</div>
+    <div class="field-list">
+      <div class="f"><div class="k">1</div><div class="v">Martinez_Medical_Expenses.xlsx</div></div>
+      <div class="f"><div class="k">2</div><div class="v">Martinez_Accident_Photos.zip</div></div>
+      <div class="f"><div class="k">3</div><div class="v">State_Farm_Settlement_Letter.pdf</div></div>
+    </div>
+
+    <div class="actions">
+      <button class="chip primary">Open in viewer</button>
+      <button class="chip">Download</button>
+      <button class="chip">Share with client</button>
+      <button class="chip">Re-summarize</button>
+    </div>
+  </aside>
+</div>
+</body>
+</html>

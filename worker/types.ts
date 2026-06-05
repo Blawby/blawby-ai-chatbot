@@ -129,6 +129,11 @@ export interface Env {
   MATTER_PROGRESS: DurableObjectNamespace;
   CHAT_COUNTER: DurableObjectNamespace;
   PRESENCE_ROOM: DurableObjectNamespace;
+  // U6 of MCP plan: per-session DO holding the live MCP transport
+  // (WebSocket-hibernating), per-session event replay buffer in DO SQLite
+  // storage, and the protocol version negotiation state.
+  // See docs/plans/2026-05-15-002-feat-blawby-mcp-agent-surface-plan.md.
+  MCP_SESSION: DurableObjectNamespace;
   FILES_BUCKET?: R2Bucket;
   ADOBE_CLIENT_ID?: string;
   ADOBE_CLIENT_SECRET?: string;
@@ -147,16 +152,44 @@ export interface Env {
   BACKEND_API_URL?: string;
 
   REQUIRE_EMAIL_VERIFICATION?: string | boolean;
-  ENABLE_EMAIL_NOTIFICATIONS?: string | boolean;
   ENABLE_PUSH_NOTIFICATIONS?: string | boolean;
 
+  /**
+   * Idempotency salt — required for MCP rollout (U12 of the MCP agent
+   * surface plan). Direct-write and high-risk tools refuse to derive
+   * keys without it, so MCP simply doesn't function while the salt is
+   * unset — that's the desired posture.
+   *
+   * Non-MCP callers (ActivityService cursor signing) fall back to a
+   * placeholder when this is unset; historical behavior preserved.
+   *
+   * Set via `wrangler secret put IDEMPOTENCY_SALT` per env. Rotation
+   * requires a coordinated 24h drain since in-flight idempotency keys
+   * are invalidated immediately.
+   */
   IDEMPOTENCY_SALT?: string;
+
+  // MCP server config.
+  // MCP_BACKEND_AUDIENCE — canonical resource URL for the
+  //   /.well-known/oauth-protected-resource document and JWT `aud` enforcement.
+  //   If unset, derived from the request URL (local dev).
+  // MCP_BACKEND_TOKEN — service token the Worker sends when calling backend
+  //   REST endpoints from MCP tool handlers.
+  // WORKER_EVENT_SECRET — secret backend sends in `x-worker-secret` header
+  //   on the /api/mcp/internal/events ingest route.
+  MCP_BACKEND_AUDIENCE?: string;
+  MCP_BACKEND_TOKEN?: string;
+  WORKER_EVENT_SECRET?: string;
+
   CLOUDFLARE_ACCOUNT_ID?: string;
   CLOUDFLARE_API_TOKEN?: string;
   CLOUDFLARE_PUBLIC_URL?: string;
+  // Cloudflare API token with Workers AI access. The legacy `CF_AIG_`
+  // ("AI Gateway") name is kept to avoid re-issuing the deployed secret — the
+  // Worker calls the Workers AI REST endpoint directly, not AI Gateway.
   CF_AIG_TOKEN?: string;
-  CF_AIG_GATEWAY_NAME?: string;
-  AI_PROVIDER?: string;
+  // Optional Workers AI model ID override (e.g. `@cf/zai-org/glm-4.7-flash`).
+  // Falls back to the Worker's DEFAULT_AI_MODEL when unset.
   AI_MODEL?: string;
   DOMAIN?: string;
   BETTER_AUTH_URL?: string;
@@ -167,6 +200,18 @@ export interface Env {
   DEBUG?: string;
   ENV_TEST?: string;
   IS_PRODUCTION?: string;
+
+  // Comma-separated allowlist of engineer emails permitted to access the
+  // admin intake-inspector route (U9 of the strengthen-intake-ai plan).
+  // Parsed once at module load — lowercased, trimmed, empty entries dropped.
+  // Empty/missing/whitespace-only value means no engineers have access (fail closed).
+  INTAKE_INSPECTOR_ENGINEER_EMAILS?: string;
+
+  // E2E test affordance — when set to 'true' AND NODE_ENV !== 'production',
+  // forces the intake AI request to fail so the failure path (U6 / U7 / U8)
+  // can be exercised end-to-end. Gated to non-prod so prod config drift can't
+  // silently brick intake. See U11 of the same plan.
+  INTAKE_AI_FORCE_FAILURE?: string;
 
   DEFAULT_PLATFORM_SLUG?: string;
   ALLOWED_WS_ORIGINS?: string;
@@ -334,8 +379,8 @@ export interface FileAttachment {
   url: string;
   storageKey?: string;
   /**
-   * Upload record id for files stored via the scoped uploads API
-   * (e.g. /api/practice-client-intakes/:uuid/files). When set, downloads
+   * Upload record id for files stored via the backend uploads API
+   * (e.g. /api/uploads with an intake scope). When set, downloads
    * should route through `/api/uploads/:uploadId/download` for a signed
    * URL rather than reading `url` directly.
    */
@@ -343,7 +388,7 @@ export interface FileAttachment {
   /**
    * Origin of the file:
    * - 'worker': legacy /api/files/upload pipeline (worker R2 bucket).
-   * - 'intake': scoped intake files API (backend R2, requires download endpoint).
+   * - 'intake': intake-scoped uploads API (backend R2, requires download endpoint).
    */
   source?: 'worker' | 'intake';
 }
@@ -458,6 +503,13 @@ export interface UIMessageExtras {
   isLoading?: boolean;
   /** Custom message to show during tool calls */
   toolMessage?: string;
+  /** Ephemeral or persisted tool progress tracing */
+  toolProgress?: Array<{
+    toolUseId: string;
+    toolName: string;
+    label: string;
+    status: 'queued' | 'running' | 'completed' | 'failed' | 'cancelled';
+  }>;
   assistantRetry?: {
     label?: string;
     status?: 'error' | 'retrying';

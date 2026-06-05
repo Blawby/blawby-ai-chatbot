@@ -23,15 +23,15 @@ export const InfoCard = ({
 }: InfoCardProps) => (
   <section
     className={cn(
-      'card flex flex-col rounded-xl p-5',
+      'card flex flex-col rounded-r-md p-5',
       bodyGap === 'sm' ? 'gap-3' : 'gap-4',
       className
     )}
   >
     <header className="flex items-center justify-between gap-2">
       <div className="flex items-center gap-2.5">
-        {Icon ? <Icon className="h-[18px] w-[18px] text-input-placeholder" aria-hidden="true" /> : null}
-        <h3 className="text-base font-semibold text-input-text">{title}</h3>
+        {Icon ? <Icon className="h-[18px] w-[18px] text-dim-2" aria-hidden="true" /> : null}
+        <h3 className="text-base font-semibold text-ink">{title}</h3>
       </div>
       {trailing}
     </header>

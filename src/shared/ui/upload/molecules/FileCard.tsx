@@ -66,8 +66,8 @@ export const FileCard = ({
   if (variant === 'tile') {
     const fileType = getFileTypeConfig(fileName, mimeType);
     const tileClassName = cn(
-      'group relative flex w-full flex-col overflow-hidden rounded-2xl border border-line-glass/30 bg-surface-card text-left transition-all',
-      onClick ? 'cursor-pointer hover:border-line-glass/60 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-accent-500' : '',
+      'group relative flex w-full flex-col overflow-hidden rounded-2xl border border-line-subtle bg-card text-left transition-all',
+      onClick ? 'cursor-pointer hover:border-line-subtle hover:shadow-md focus:outline-none focus:ring-2 focus:ring-accent' : '',
       className
     );
     const shouldShowTileStatus = status === 'uploading'
@@ -93,7 +93,7 @@ export const FileCard = ({
     ) : null;
     const renderTileContent = () => (
       <>
-        <div className="relative flex aspect-[4/3] w-full items-center justify-center overflow-hidden bg-surface-panel">
+        <div className="relative flex aspect-[4/3] w-full items-center justify-center overflow-hidden bg-paper-2">
           {isImage && imageUrl ? (
             <img
               src={imageUrl}
@@ -103,11 +103,11 @@ export const FileCard = ({
             />
           ) : (
             <div className={cn('flex h-14 w-14 items-center justify-center rounded-2xl', fileType.color)}>
-              <Icon icon={fileType.icon} className="h-7 w-7 text-input-text" />
+              <Icon icon={fileType.icon} className="h-7 w-7 text-ink" />
             </div>
           )}
           {shouldShowTileStatus ? (
-            <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-input-text/45 px-4 text-center text-surface-card backdrop-blur-[1px] dark:bg-surface-app-frame/75">
+            <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-input-text/45 px-4 text-center text-surface-card backdrop-blur-[1px] dark:bg-paper/75">
               {status === 'uploading' || status === 'processing' || status === 'analyzing' ? (
                 <LoadingSpinner size="sm" ariaLabel={tileStatusLabel ?? 'File status'} />
               ) : null}
@@ -115,9 +115,9 @@ export const FileCard = ({
                 <span className="text-xs font-semibold">{tileStatusLabel}</span>
               ) : null}
               {status === 'uploading' || progress !== undefined ? (
-                <div className="h-1.5 w-full max-w-32 overflow-hidden rounded-full bg-surface-card/30">
+                <div className="h-1.5 w-full max-w-32 overflow-hidden rounded-full bg-card/30">
                   <div
-                    className="h-full rounded-full bg-accent-500"
+                    className="h-full rounded-full bg-accent"
                     style={{ width: `${Math.min(100, Math.max(0, resolvedProgress))}%` }}
                   />
                 </div>
@@ -126,12 +126,12 @@ export const FileCard = ({
           ) : null}
         </div>
         <div className="flex flex-col gap-0.5 p-3">
-          <p className="truncate text-sm font-medium text-input-text" title={fileName}>{fileName}</p>
+          <p className="truncate text-sm font-medium text-ink" title={fileName}>{fileName}</p>
           {associationLabel ? (
-            <p className="truncate text-xs text-input-placeholder" title={associationLabel}>{associationLabel}</p>
+            <p className="truncate text-xs text-dim-2" title={associationLabel}>{associationLabel}</p>
           ) : null}
           {timestampLabel ? (
-            <p className="text-[11px] uppercase tracking-wide text-input-placeholder">{timestampLabel}</p>
+            <p className="text-[11px] uppercase tracking-wide text-dim-2">{timestampLabel}</p>
           ) : null}
         </div>
       </>
@@ -166,7 +166,7 @@ export const FileCard = ({
     return (
       <div className={cn(
         'relative rounded-2xl overflow-hidden flex-shrink-0',
-        'glass-panel transition-all duration-200',
+        'panel transition-all duration-200',
         // Make images square, matching the height of file cards
         size === 'sm' ? 'w-14 h-14' : size === 'md' ? 'w-16 h-16' : 'w-20 h-20',
         className

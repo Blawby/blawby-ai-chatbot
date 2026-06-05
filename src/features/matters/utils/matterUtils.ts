@@ -490,22 +490,26 @@ export const buildUpdatePayload = (
 ): Record<string, unknown> => ({
   title: values.title.trim(),
   billing_type: values.billingType,
-  description: values.description?.trim() ?? null,
-  client_id: values.clientId && values.clientId !== '' ? values.clientId : null,
-  practice_service_id: values.practiceAreaId && values.practiceAreaId !== '' ? values.practiceAreaId : null,
-  case_number: values.caseNumber && values.caseNumber !== '' ? values.caseNumber : null,
-  matter_type: values.matterType && values.matterType !== '' ? values.matterType : null,
-  urgency: values.urgency ? values.urgency : null,
-  responsible_attorney_id: values.responsibleAttorneyId && values.responsibleAttorneyId !== '' ? values.responsibleAttorneyId : null,
-  originating_attorney_id: values.originatingAttorneyId && values.originatingAttorneyId !== '' ? values.originatingAttorneyId : null,
-  court: values.court && values.court !== '' ? values.court : null,
-  judge: values.judge && values.judge !== '' ? values.judge : null,
-  opposing_party: values.opposingParty && values.opposingParty !== '' ? values.opposingParty : null,
-  opposing_counsel: values.opposingCounsel && values.opposingCounsel !== '' ? values.opposingCounsel : null,
-  attorney_hourly_rate: values.attorneyHourlyRate ?? null,
-  admin_hourly_rate: values.adminHourlyRate ?? null,
-  payment_frequency: values.paymentFrequency ?? null,
-  settlement_amount: values.settlementAmount ?? null,
+  // Optional fields are omitted (undefined → stripped by prunePayload) when
+  // empty, never sent as null. The backend update schema rejects null for these
+  // (it expects a string/number/UUID or the field to be absent), so sending
+  // null for an unset field fails validation. Mirrors buildCreatePayload.
+  description: values.description?.trim() || undefined,
+  client_id: values.clientId || undefined,
+  practice_service_id: values.practiceAreaId || undefined,
+  case_number: values.caseNumber || undefined,
+  matter_type: values.matterType || undefined,
+  urgency: values.urgency || undefined,
+  responsible_attorney_id: values.responsibleAttorneyId || undefined,
+  originating_attorney_id: values.originatingAttorneyId || undefined,
+  court: values.court || undefined,
+  judge: values.judge || undefined,
+  opposing_party: values.opposingParty || undefined,
+  opposing_counsel: values.opposingCounsel || undefined,
+  attorney_hourly_rate: values.attorneyHourlyRate ?? undefined,
+  admin_hourly_rate: values.adminHourlyRate ?? undefined,
+  payment_frequency: values.paymentFrequency ?? undefined,
+  settlement_amount: values.settlementAmount ?? undefined,
   // Only send status if it changed
   status: values.status !== currentStatus ? values.status : undefined,
   assignee_ids: Array.isArray(values.assigneeIds) ? values.assigneeIds : []

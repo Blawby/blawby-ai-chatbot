@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'preact/hooks';
+import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { MoreVertical, Pencil, Plus, Trash2 } from 'lucide-preact';
 
 import { Icon } from '@/shared/ui/Icon';
@@ -58,6 +58,9 @@ interface MatterTasksPanelProps {
   onCreateTask?: (values: MatterTaskFormValues) => Promise<void>;
   onUpdateTask?: (task: MatterTask, patch: MatterTaskPatch) => Promise<void>;
   onDeleteTask?: (task: MatterTask) => Promise<void>;
+  /** Open the create-task form once on mount (driven by an external CTA). */
+  autoOpenCreate?: boolean;
+  onAutoOpenHandled?: () => void;
 }
 
 const formatDate = (date: string | null) => (date ? formatDateOnlyUtc(date) : 'No due date');
@@ -70,7 +73,9 @@ export const MatterTasksPanel = ({
   readOnly = false,
   onCreateTask,
   onUpdateTask,
-  onDeleteTask
+  onDeleteTask,
+  autoOpenCreate = false,
+  onAutoOpenHandled
 }: MatterTasksPanelProps) => {
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<MatterTask | null>(null);
@@ -112,6 +117,23 @@ export const MatterTasksPanel = ({
     setRequestError(null);
     setIsFormOpen(false);
   };
+
+  // Open the create form once when an external CTA (e.g. the matter overview
+  // "Add task" button) navigates here with the intent to compose a task.
+  const autoOpenHandledRef = useRef(false);
+  useEffect(() => {
+    // Reset once the compose intent clears so a later "Add task" can reopen.
+    if (!autoOpenCreate) {
+      autoOpenHandledRef.current = false;
+      return;
+    }
+    if (!canCreateTask || autoOpenHandledRef.current) return;
+    autoOpenHandledRef.current = true;
+    setEditingTask(null);
+    setRequestError(null);
+    setIsFormOpen(true);
+    onAutoOpenHandled?.();
+  }, [autoOpenCreate, canCreateTask, onAutoOpenHandled]);
 
   const submitForm = async (values: MatterTaskFormValues) => {
     setRequestError(null);
@@ -204,15 +226,15 @@ export const MatterTasksPanel = ({
                 padding="px-4 py-4"
               >
                 <div className="min-w-0 flex-1">
-                  <p className="text-sm font-semibold text-input-text">{task.name}</p>
-                    <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-input-placeholder">
+                  <p className="text-sm font-semibold text-ink">{task.name}</p>
+                    <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-dim-2">
                       <span className={[STATUS_STYLES[task.status], 'rounded-md px-2 py-0.5 font-medium ring-1 ring-inset'].join(' ')}>{task.status}</span>
                       <span>Priority: {task.priority}</span>
                       <span>Stage: {task.stage}</span>
                       <span>{formatDate(task.dueDate)}</span>
                       <span>{assignee ? `Assigned: ${assignee.name}` : 'Unassigned'}</span>
                     </div>
-                    {task.description ? <p className="mt-2 text-sm text-input-placeholder">{task.description}</p> : null}
+                    {task.description ? <p className="mt-2 text-sm text-dim-2">{task.description}</p> : null}
                   </div>
                   {!readOnly && (canUpdateTask || canDeleteTask) ? (
                     <div className="flex items-center gap-2">
@@ -225,7 +247,7 @@ export const MatterTasksPanel = ({
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end" className="w-64 space-y-3 p-3">
                             <div>
-                              <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-input-placeholder">Status</span>
+                              <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-dim-2">Status</span>
                               <Combobox
                                 value={task.status}
                                 options={STATUS_OPTIONS}
@@ -234,7 +256,7 @@ export const MatterTasksPanel = ({
                               />
                             </div>
                             <div>
-                              <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-input-placeholder">Priority</span>
+                              <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-dim-2">Priority</span>
                               <Combobox
                                 value={task.priority}
                                 options={PRIORITY_OPTIONS}
@@ -243,7 +265,7 @@ export const MatterTasksPanel = ({
                               />
                             </div>
                             <div>
-                              <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-input-placeholder">Assignee</span>
+                              <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-dim-2">Assignee</span>
                               <Combobox
                                 value={task.assigneeId ?? ''}
                                 options={[{ value: '', label: 'Unassigned' }, ...assignees.map((a) => ({ value: a.id, label: a.name }))]}
@@ -252,7 +274,7 @@ export const MatterTasksPanel = ({
                               />
                             </div>
                             <div>
-                              <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-input-placeholder">Due date</span>
+                              <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-dim-2">Due date</span>
                               <Input
                                 type="date"
                                 value={task.dueDate ?? ''}
@@ -260,7 +282,7 @@ export const MatterTasksPanel = ({
                               />
                             </div>
                             <div>
-                              <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-input-placeholder">Stage</span>
+                              <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-dim-2">Stage</span>
                               <Combobox
                                 value={task.stage}
                                 options={stageRowOptions}
@@ -344,7 +366,7 @@ export const MatterTasksPanel = ({
           contentClassName="max-w-xl"
         >
           <DialogBody className="space-y-4">
-            <p className="text-sm text-input-text opacity-80">
+            <p className="text-sm text-ink opacity-80">
               Are you sure you want to delete this task? This action cannot be undone.
             </p>
             {requestError ? <p className="text-sm text-red-600 dark:text-red-400">{requestError}</p> : null}

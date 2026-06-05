@@ -29,14 +29,14 @@ export const ServicesByStateEditor = ({ licensedStates, value, onChange, onRemov
   return (
     <div className="space-y-2">
       {licensedStates.length === 0 && (
-          <div className="text-sm text-input-placeholder">{t('settings:practice.servicesByState.empty', { defaultValue: 'No states selected. Add a state to assign services.' })}</div>
+          <div className="text-sm text-dim-2">{t('settings:practice.servicesByState.empty', { defaultValue: 'No states selected. Add a state to assign services.' })}</div>
         )}
       {licensedStates.map((stateCode) => {
         const opt = STATE_OPTIONS.find((s) => s.value === stateCode);
         const label = opt ? opt.label : stateCode;
         return (
           <div key={stateCode} className="flex items-center gap-3 py-2">
-            <div className="w-40 text-sm text-input-text">{label}</div>
+            <div className="w-40 text-sm text-ink">{label}</div>
             <div className="flex-1">
               <Combobox
                 multiple
@@ -49,7 +49,7 @@ export const ServicesByStateEditor = ({ licensedStates, value, onChange, onRemov
             {typeof onRemove === 'function' && (
               <button
                 type="button"
-                className="text-sm text-accent-error focus:outline-none focus-visible:ring focus-visible:ring-accent-500 focus-visible:ring-offset-2"
+                className="text-sm text-neg focus:outline-none focus-visible:ring focus-visible:ring-accent focus-visible:ring-offset-2"
                 onClick={() => onRemove(stateCode)}
                 aria-label={t('settings:practice.servicesByState.remove', { defaultValue: 'Remove {{label}}', label })}
               >

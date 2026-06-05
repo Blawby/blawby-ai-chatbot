@@ -1,5 +1,5 @@
 import { ComponentChildren, cloneElement, isValidElement, RefObject, VNode } from 'preact';
-import { useContext, useRef } from 'preact/hooks';
+import { useContext } from 'preact/hooks';
 import { cn } from '@/shared/utils/cn';
 import { DropdownContext } from './DropdownMenu';
 
@@ -19,13 +19,12 @@ export const DropdownMenuTrigger = ({
   onKeyDown
 }: DropdownMenuTriggerProps) => {
   const context = useContext(DropdownContext);
-  const triggerRef = useRef<HTMLElement | null>(null);
-  
+
   if (!context) {
     throw new Error('DropdownMenuTrigger must be used within a DropdownMenu');
   }
 
-  const { isOpen, handleOpenChange, dropdownId } = context;
+  const { isOpen, handleOpenChange, dropdownId, triggerRef } = context;
 
   // Helper function to safely assign refs
   const assignRef = (node: HTMLElement | null, targetRef: RefObject<HTMLElement | null>, forwardedRef?: unknown) => {
@@ -145,8 +144,8 @@ export const DropdownMenuTrigger = ({
       onClick={handleClick}
       onKeyDown={handleKeyDown}
       className={cn(
-        'flex items-center gap-2 px-3 py-1 text-sm text-input-text rounded-xl',
-        'hover:bg-surface-utility/10 focus:outline-none focus:ring-2 focus:ring-accent-500',
+        'flex items-center gap-2 px-3 py-1 text-sm text-ink rounded-r-md',
+        'hover:bg-paper-2/10 focus:outline-none focus:ring-2 focus:ring-accent',
         className
       )}
       aria-haspopup="menu"

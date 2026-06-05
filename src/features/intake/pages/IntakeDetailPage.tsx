@@ -1,29 +1,26 @@
 import { FunctionComponent, type ComponentChildren } from 'preact';
-import { useCallback, useEffect, useRef, useState } from 'preact/hooks';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import {
-  AlertTriangle,
-  CheckCircle2,
-  ClipboardList,
-  Clock,
-  CreditCard,
+  Copy,
+  FileText,
   Mail,
   MessageSquare,
   Phone,
-  Scale,
   Sparkles,
 } from 'lucide-preact';
 
 import { Button } from '@/shared/ui/Button';
 import { Icon } from '@/shared/ui/Icon';
 import { Avatar } from '@/shared/ui/profile';
-import { DetailHeader } from '@/shared/ui/layout/DetailHeader';
 import { LoadingSpinner } from '@/shared/ui/layout/LoadingSpinner';
 import { MessageRowSkeleton, SkeletonLoader } from '@/shared/ui/layout';
 import { Dialog, DialogBody, DialogFooter } from '@/shared/ui/dialog';
 import { Textarea } from '@/shared/ui/input';
 import { useToastContext } from '@/shared/contexts/ToastContext';
 import { useSessionContext } from '@/shared/contexts/SessionContext';
+import { useNavigation } from '@/shared/utils/navigation';
 import { apiClient, isHttpError } from '@/shared/lib/apiClient';
+import { generateEngagement } from '@/config/urls';
 import { cn } from '@/shared/utils/cn';
 import {
   fetchConversationMessages,
@@ -35,7 +32,7 @@ import type { ConversationMessage } from '@/shared/types/conversation';
 import { useMessageHandling } from '@/shared/hooks/useMessageHandling';
 import { usePracticeDetails } from '@/shared/hooks/usePracticeDetails';
 import { applyConsultationPatchToMetadata } from '@/shared/utils/consultationState';
-import { formatLongDate } from '@/shared/utils/dateFormatter';
+import { formatRelativeTime } from '@/features/matters/utils/formatRelativeTime';
 import { resolvePracticeServiceLabel } from '@/features/matters/utils/matterUtils';
 import { resolveIntakeTitle } from '@/features/intake/utils/intakeTitle';
 import {
@@ -45,46 +42,102 @@ import {
 import { useIntakeDetail } from '@/features/intake/hooks/useIntakeDetail';
 import { useIntakeFiles } from '@/features/intake/hooks/useIntakeFiles';
 import { IntakeFilesPanel } from '@/features/intake/components/IntakeFilesPanel';
-import { DEFAULT_INTAKE_TEMPLATE } from '@/shared/constants/intakeTemplates';
-import type { IntakeTemplate, IntakeFieldDefinition } from '@/shared/types/intake';
+import { STANDARD_FIELD_DEFINITIONS } from '@/shared/constants/intakeTemplates';
+import type { IntakeTemplate, IntakeFieldDefinition, IntakeEnrichedData } from '@/shared/types/intake';
 import VirtualMessageList from '@/features/chat/components/VirtualMessageList';
 import MessageComposer from '@/features/chat/components/MessageComposer';
 import type { ChatMessageUI, FileAttachment } from '../../../../worker/types';
 import type { UploadingFile } from '@/shared/types/upload';
 
+import { Pill } from '@/design-system/primitives';
+import { IntakeStickyHeader } from '../components/IntakeStickyHeader';
+import { IntakeAIVerdict } from '../components/IntakeAIVerdict';
+import { IntakeScorecard } from '../components/IntakeScorecard';
+import { IntakePreflightChecks } from '../components/IntakePreflightChecks';
+import { IntakeAcceptancePreview } from '../components/IntakeAcceptancePreview';
+import { IntakePaymentSummary } from '../components/IntakePaymentSummary';
+import type { AIAnswerCardSource } from '@/design-system/patterns';
+
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
-function parseTemplatesFromPracticeDetails(details: unknown): IntakeTemplate[] {
-  if (!details || typeof details !== 'object') return [];
-  const meta = (details as Record<string, unknown>).metadata;
-  if (!meta || typeof meta !== 'object') return [];
-  const raw = (meta as Record<string, unknown>).intakeTemplates;
-  if (typeof raw === 'string') {
-    try { const p = JSON.parse(raw); return Array.isArray(p) ? p as IntakeTemplate[] : []; } catch { return []; }
+
+type EngagementLetterTemplate = {
+  id: string;
+  name: string;
+  practiceArea: string;
+  feeType: 'hourly' | 'flat' | 'contingency' | 'pro_bono';
+  hourlyRateCents: number | null;
+  flatFeeCents: number | null;
+  contingencyPct: number | null;
+  retainerCents: number | null;
+  scopeTemplate: string;
+  body: string;
+};
+
+function parseEnrichedData(meta: Record<string, unknown>): IntakeEnrichedData | null {
+  const cf = (meta.customFields ?? meta.custom_fields) as Record<string, unknown> | undefined;
+  if (!cf || typeof cf !== 'object') return null;
+  const raw = cf._enriched_data;
+  if (typeof raw !== 'string') return null;
+  try {
+    const parsed = JSON.parse(raw) as Record<string, unknown>;
+    if (typeof parsed !== 'object' || parsed === null) return null;
+    const conflictNames = Array.isArray(parsed.conflict_check_names)
+      ? parsed.conflict_check_names
+      : parsed.conflict_check_names == null
+        ? []
+        : [parsed.conflict_check_names];
+    return {
+      practice_area: typeof parsed.practice_area === 'string' ? parsed.practice_area : null,
+      sub_type: typeof parsed.sub_type === 'string' ? parsed.sub_type : null,
+      matter_stage: parsed.matter_stage === 'pre_litigation' || parsed.matter_stage === 'active_litigation' || parsed.matter_stage === 'post_judgment' || parsed.matter_stage === 'transactional'
+        ? parsed.matter_stage
+        : null,
+      client_role: parsed.client_role === 'petitioner' || parsed.client_role === 'respondent' || parsed.client_role === 'plaintiff' || parsed.client_role === 'defendant' || parsed.client_role === 'buyer' || parsed.client_role === 'seller' || parsed.client_role === 'other'
+        ? parsed.client_role
+        : null,
+      complexity: parsed.complexity === 'simple' || parsed.complexity === 'moderate' || parsed.complexity === 'complex'
+        ? parsed.complexity
+        : null,
+      conflict_check_names: conflictNames.filter((name): name is string => typeof name === 'string'),
+      sol_risk: typeof parsed.sol_risk === 'boolean' ? parsed.sol_risk : null,
+      sol_risk_notes: typeof parsed.sol_risk_notes === 'string' ? parsed.sol_risk_notes : null,
+      emergency_relief_needed: typeof parsed.emergency_relief_needed === 'boolean' ? parsed.emergency_relief_needed : null,
+      multi_state: typeof parsed.multi_state === 'boolean' ? parsed.multi_state : null,
+      multi_state_notes: typeof parsed.multi_state_notes === 'string' ? parsed.multi_state_notes : null,
+      legal_aid_eligible: typeof parsed.legal_aid_eligible === 'boolean' ? parsed.legal_aid_eligible : null,
+      estimated_value_band: parsed.estimated_value_band === 'low' || parsed.estimated_value_band === 'medium' || parsed.estimated_value_band === 'high'
+        ? parsed.estimated_value_band
+        : null,
+      ai_matter_description: typeof parsed.ai_matter_description === 'string' ? parsed.ai_matter_description : null,
+      ai_scope_suggestion: typeof parsed.ai_scope_suggestion === 'string' ? parsed.ai_scope_suggestion : null,
+      confidence: typeof parsed.confidence === 'number' ? Math.min(1, Math.max(0, parsed.confidence)) : 0,
+    };
+  } catch {
+    return null;
   }
-  return Array.isArray(raw) ? raw as IntakeTemplate[] : [];
 }
 
-function resolveTemplateSlug(intake: PracticeIntakeDetail): string | null {
-  const meta = (intake.metadata ?? {}) as Record<string, unknown>;
-  const direct = meta.intake_template_slug ?? meta.template_slug;
-  if (typeof direct === 'string' && direct.trim()) return direct.trim();
-  const cf = meta.custom_fields ?? meta.customFields;
-  if (cf && typeof cf === 'object' && !Array.isArray(cf)) {
-    const slug = (cf as Record<string, unknown>)._intake_template_slug;
-    if (typeof slug === 'string' && slug.trim()) return slug.trim();
+function parseEngagementTemplates(practiceDetails: unknown): EngagementLetterTemplate[] {
+  if (!practiceDetails || typeof practiceDetails !== 'object') return [];
+  const meta = (practiceDetails as Record<string, unknown>).metadata;
+  if (!meta || typeof meta !== 'object') return [];
+  const raw = (meta as Record<string, unknown>).engagementLetterTemplates;
+  if (typeof raw === 'string') {
+    try { const p = JSON.parse(raw); return Array.isArray(p) ? p as EngagementLetterTemplate[] : []; } catch { return []; }
   }
-  return null;
+  return Array.isArray(raw) ? raw as EngagementLetterTemplate[] : [];
 }
 
 function resolveActiveTemplate(
-  intake: PracticeIntakeDetail,
-  practiceDetails: unknown,
+  _intake: PracticeIntakeDetail,
+  _practiceDetails: unknown,
 ): IntakeTemplate | null {
-  const slug = resolveTemplateSlug(intake);
-  if (!slug) return null;
-  const templates = parseTemplatesFromPracticeDetails(practiceDetails);
-  return templates.find((t) => t.slug === slug) ?? null;
+  // Template data is no longer stored in practice metadata.
+  // The intake detail view shows field values from the intake submission itself,
+  // not by re-resolving the template. Return null — callers fall back to
+  // STANDARD_FIELD_DEFINITIONS for display.
+  return null;
 }
 
 function resolveFieldValue(
@@ -129,22 +182,6 @@ function resolveFieldValue(
   return null;
 }
 
-function formatAmountCents(cents: number | null | undefined, currency = 'USD'): string | null {
-  if (typeof cents !== 'number' || !Number.isFinite(cents)) return null;
-  try {
-    return new Intl.NumberFormat(undefined, { style: 'currency', currency }).format(cents / 100);
-  } catch {
-    return `${currency}${(cents / 100).toFixed(2)}`;
-  }
-}
-
-function urgencyLabel(u?: string | null): string | null {
-  if (u === 'emergency') return 'Emergency';
-  if (u === 'time_sensitive') return 'Time Sensitive';
-  if (u === 'routine') return 'Routine';
-  return null;
-}
-
 function triageLabel(status?: string | null): string {
   switch (status) {
     case 'accepted': return 'Accepted';
@@ -156,25 +193,34 @@ function triageLabel(status?: string | null): string {
   }
 }
 
-function triageBadgeClass(status?: string | null): string {
+function triagePillTone(status?: string | null): 'live' | 'warn' | 'urgent' | 'gold' | 'dim' {
   switch (status) {
-    case 'accepted':
-      return 'bg-success/10 text-success ring-success/20';
+    case 'accepted': return 'live';
     case 'declined':
-    case 'rejected':
-      return 'bg-error/10 text-error ring-error/20';
-    case 'spam':
-      return 'bg-surface-utility/40 text-input-placeholder ring-line-subtle/30';
+    case 'rejected': return 'urgent';
+    case 'spam': return 'dim';
     case 'pending_review':
-    default:
-      return 'bg-warning/10 text-warning ring-warning/20';
+    default: return 'warn';
   }
 }
 
-// ── Sub-components ───────────────────────────────────────────────────────────
+function scopeShortLabel(
+  enrichedData: IntakeEnrichedData | null,
+  fallbackTitle: string,
+): string {
+  if (enrichedData?.ai_scope_suggestion) {
+    // Truncate to first sentence / clause for the H2 line.
+    const trimmed = enrichedData.ai_scope_suggestion.split(/[.:;]/)[0]?.trim();
+    if (trimmed && trimmed.length > 0 && trimmed.length < 80) return trimmed.toLowerCase();
+  }
+  if (enrichedData?.sub_type) return enrichedData.sub_type.replace(/_/g, ' ');
+  return fallbackTitle;
+}
+
+// ── Sub-components (kept) ────────────────────────────────────────────────────
 
 const SectionLabel: FunctionComponent<{ children: ComponentChildren; className?: string }> = ({ children, className }) => (
-  <h2 className={cn('text-[10px] font-semibold uppercase tracking-[1px] text-input-placeholder', className)}>
+  <h2 className={cn('font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-dim-2', className)}>
     {children}
   </h2>
 );
@@ -182,7 +228,7 @@ const SectionLabel: FunctionComponent<{ children: ComponentChildren; className?:
 const Card: FunctionComponent<{ children: ComponentChildren; className?: string }> = ({ children, className }) => (
   <section
     className={cn(
-      'rounded-xl border border-card-border bg-surface-card p-4 sm:p-6',
+      'rounded-r-md border border-card-border bg-card p-4 sm:p-6',
       className,
     )}
   >
@@ -190,54 +236,36 @@ const Card: FunctionComponent<{ children: ComponentChildren; className?: string 
   </section>
 );
 
-type DetailFieldProps = { label: string; value: ComponentChildren; emptyText?: string };
-const DetailField: FunctionComponent<DetailFieldProps> = ({ label, value, emptyText = 'Not provided' }) => {
-  const isEmpty = value === null || value === undefined || value === '';
-  return (
-    <div className="space-y-1">
-      <dt className="text-xs font-medium uppercase tracking-wide text-input-placeholder">{label}</dt>
-      <dd className={cn('text-sm break-words', isEmpty ? 'text-input-placeholder' : 'text-input-text')}>
-        {isEmpty ? emptyText : value}
-      </dd>
-    </div>
-  );
-};
-
-type InfoChipProps = { icon: typeof CheckCircle2; label: string; tone?: 'default' | 'warning' | 'success' | 'error' };
-const InfoChip: FunctionComponent<InfoChipProps> = ({ icon: IconComp, label, tone = 'default' }) => {
-  const toneClass = {
-    default: 'text-input-placeholder',
-    warning: 'text-warning',
-    success: 'text-success',
-    error: 'text-error',
-  }[tone];
-  return (
-    <span className={cn('inline-flex items-center gap-1.5 text-xs', toneClass)}>
-      <Icon icon={IconComp} className="h-3.5 w-3.5" />
-      <span>{label}</span>
-    </span>
-  );
-};
-
 // ── Skeleton ─────────────────────────────────────────────────────────────────
 
 const DetailSkeleton: FunctionComponent<{ onBack: () => void }> = ({ onBack }) => (
   <div className="flex h-full flex-col min-h-0">
-    <DetailHeader title="Intake Details" showBack onBack={onBack} />
+    <header className="sticky top-0 z-10 border-b border-line-subtle bg-paper/95 px-4 py-4 sm:px-6">
+      <button
+        type="button"
+        onClick={onBack}
+        className="text-xs text-dim-2 hover:text-ink"
+      >
+        ← Back
+      </button>
+      <div className="mt-2 space-y-2">
+        <SkeletonLoader variant="text" width="w-32" height="h-3" />
+        <SkeletonLoader variant="title" width="w-2/3" height="h-7" />
+        <SkeletonLoader variant="text" width="w-48" height="h-3" />
+      </div>
+    </header>
     <div className="flex-1 min-h-0 overflow-y-auto">
-      <div className="grid h-full grid-cols-1 xl:grid-cols-[minmax(0,1fr)_280px]">
-        <div className="space-y-4 p-6">
-          <div className="rounded-xl border border-card-border bg-surface-card p-6 space-y-3">
+      <div className="grid h-full grid-cols-1 xl:grid-cols-[minmax(0,1fr)_320px]">
+        <div className="space-y-4 p-4 sm:p-6">
+          <div className="rounded-r-md border border-card-border bg-card p-6 space-y-3">
             <SkeletonLoader variant="text" width="w-32" height="h-3" />
             <SkeletonLoader variant="title" width="w-3/4" height="h-7" />
-            <SkeletonLoader variant="text" width="w-48" height="h-3" />
             <div className="space-y-2 pt-3">
               <SkeletonLoader variant="text" width="w-full" height="h-3" />
               <SkeletonLoader variant="text" width="w-11/12" height="h-3" />
-              <SkeletonLoader variant="text" width="w-5/6" height="h-3" />
             </div>
           </div>
-          <div className="rounded-xl border border-card-border bg-surface-card p-6 space-y-4">
+          <div className="rounded-r-md border border-card-border bg-card p-6 space-y-4">
             <SkeletonLoader variant="text" width="w-32" height="h-3" />
             <div className="grid grid-cols-2 gap-4">
               {[0, 1, 2, 3].map((i) => (
@@ -248,16 +276,16 @@ const DetailSkeleton: FunctionComponent<{ onBack: () => void }> = ({ onBack }) =
               ))}
             </div>
           </div>
-          <div className="rounded-xl border border-card-border bg-surface-card p-6 space-y-3">
+          <div className="rounded-r-md border border-card-border bg-card p-6 space-y-3">
             <SkeletonLoader variant="text" width="w-32" height="h-3" />
             <MessageRowSkeleton lineWidths={['w-40', 'w-56']} />
             <MessageRowSkeleton lineWidths={['w-64', 'w-44']} />
           </div>
         </div>
-        <aside className="hidden xl:block space-y-4 border-l border-card-border bg-surface-panel p-6">
+        <aside className="hidden xl:block space-y-4 border-l border-line-subtle bg-paper-2 p-6">
           <SkeletonLoader variant="button" width="w-full" />
           <SkeletonLoader variant="button" width="w-full" />
-          <div className="rounded-xl border border-card-border bg-surface-card p-4 space-y-3">
+          <div className="rounded-r-md border border-card-border bg-card p-4 space-y-3">
             <div className="flex items-center gap-3">
               <SkeletonLoader variant="avatar" />
               <div className="flex-1 space-y-1.5">
@@ -278,6 +306,7 @@ type IntakeDetailPageProps = {
   practiceId: string | null;
   intakeId: string;
   conversationsBasePath?: string | null;
+  engagementsBasePath?: string | null;
   practiceName: string;
   practiceLogo: string | null;
   onBack: () => void;
@@ -287,6 +316,7 @@ type IntakeDetailPageProps = {
 export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
   practiceId,
   intakeId,
+  engagementsBasePath,
   practiceName,
   practiceLogo,
   onBack,
@@ -294,6 +324,7 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
 }) => {
   const { showSuccess, showError } = useToastContext();
   const { session } = useSessionContext();
+  const { navigate } = useNavigation();
 
   const {
     data: intakeData,
@@ -415,6 +446,10 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
   const [composerValue, setComposerValue] = useState('');
   const [composerSubmitting, setComposerSubmitting] = useState(false);
   const [gatherDetailsSubmitting, setGatherDetailsSubmitting] = useState(false);
+  const [generateDialogOpen, setGenerateDialogOpen] = useState(false);
+  const [generateTemplateId, setGenerateTemplateId] = useState<string | null>(null);
+  const [generateLoading, setGenerateLoading] = useState(false);
+  const [generatedBody, setGeneratedBody] = useState<string | null>(null);
   const composerTextareaRef = useRef<HTMLTextAreaElement>(null);
 
   // Composer file state for the staff reply. Kept in page state so the
@@ -693,7 +728,7 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
       { mirrorLegacyFields: true },
     );
 
-    const templateFields = (activeTemplate?.fields ?? DEFAULT_INTAKE_TEMPLATE.fields)
+    const templateFields = (activeTemplate?.fields ?? STANDARD_FIELD_DEFINITIONS)
       .filter((f) => f.phase === 'enrichment');
     const intakeStateRecord = intakeConversationState as unknown as Record<string, unknown> | null;
     const nextMissingField = templateFields.find(
@@ -749,12 +784,102 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
     updateConversationMetadataPatch,
   ]);
 
+  const handleGenerateEngagement = useCallback(async (template: EngagementLetterTemplate) => {
+    if (!intake || generateLoading) return;
+    const metaRecord = (intake.metadata ?? {}) as Record<string, unknown>;
+    const enriched = parseEnrichedData(metaRecord);
+    setGenerateLoading(true);
+    setGeneratedBody(null);
+    try {
+      const result = await apiClient.post<{ contractBody: string }>(generateEngagement, {
+        enrichedData: enriched,
+        template,
+        intakeFields: {
+          clientName: typeof metaRecord.name === 'string' ? metaRecord.name : '',
+          clientEmail: typeof metaRecord.email === 'string' ? metaRecord.email : '',
+          opposingParty: typeof metaRecord.opposing_party === 'string' ? metaRecord.opposing_party : null,
+          description: typeof metaRecord.description === 'string' ? metaRecord.description : null,
+          courtDate: intake.court_date ?? null,
+          jurisdiction: typeof (intakeConversationState as unknown as Record<string, unknown>)?.state === 'string'
+            ? (intakeConversationState as unknown as Record<string, unknown>).state as string
+            : null,
+          practiceName: typeof (practiceDetails as Record<string, unknown> | null)?.name === 'string'
+            ? (practiceDetails as Record<string, unknown>).name as string
+            : practiceName,
+        },
+      });
+      // Validate response shape before using
+      if (result?.data && typeof result.data === 'object' && typeof result.data.contractBody === 'string') {
+        setGeneratedBody(result.data.contractBody);
+      } else {
+        console.warn('[IntakeDetailPage] Unexpected generate-engagement response shape', result);
+        showError('Generation failed', 'Unexpected response format from server');
+      }
+    } catch (error) {
+      showError('Generation failed', error instanceof Error ? error.message : 'Failed to generate engagement letter');
+    } finally {
+      if (isMountedRef.current) setGenerateLoading(false);
+    }
+  }, [generateLoading, intake, intakeConversationState, practiceDetails, practiceName, showError]);
+
+  // Scroll composer textarea into view when reply CTA fires.
+  const focusComposer = useCallback(() => {
+    const el = composerTextareaRef.current;
+    if (!el) return;
+    el.focus();
+    el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }, []);
+
+  // ── Hooks that must run on EVERY render (before any early return). ──────────
+  //
+  // React's rules-of-hooks forbid conditional hook calls; we hoist these
+  // callbacks/memos to the top of the render path so the order is stable
+  // even when intake is still loading or errored.
+
+  const handleAcceptWithCounter = useCallback(() => {
+    if (isSubmitting) return;
+    setTriageDialogAction('accepted');
+    setTriageReason('');
+  }, [isSubmitting]);
+
+  const handleAcceptAtCurrent = useCallback(() => {
+    if (isSubmitting) return;
+    setTriageDialogAction('accepted');
+    setTriageReason('');
+  }, [isSubmitting]);
+
+  // Practice coverage states (used by preflight checks). Defensive read
+  // because PracticeDetails.serviceStates is typed as `string[] | null`.
+  const coverageStates: string[] = useMemo(() => {
+    const detailRecord = practiceDetails as Record<string, unknown> | null;
+    const raw = detailRecord?.serviceStates;
+    if (!Array.isArray(raw)) return [];
+    return raw.filter((s): s is string => typeof s === 'string' && s.trim().length > 0);
+  }, [practiceDetails]);
+
+  // Practice service labels for area-fit matching. Read off practiceDetails
+  // directly (not via the local `services` const, which is re-created each
+  // render and would invalidate this memo on every paint).
+  const practiceServiceLabels: string[] = useMemo(() => {
+    const raw = (practiceDetails as Record<string, unknown> | null)?.services;
+    if (!Array.isArray(raw)) return [];
+    return raw
+      .filter((s): s is Record<string, unknown> => s !== null && typeof s === 'object')
+      .map((s) => typeof s.name === 'string' ? s.name : '')
+      .filter((label): label is string => label.length > 0);
+  }, [practiceDetails]);
+
   if (isLoading) return <DetailSkeleton onBack={onBack} />;
 
   if (loadError || !intake) {
     return (
       <div className="flex h-full flex-col min-h-0">
-        <DetailHeader title="Intake Details" showBack onBack={onBack} />
+        <IntakeStickyHeader
+          receivedRelative="just now"
+          clientName="Intake"
+          scopeLabel={null}
+          onBack={onBack}
+        />
         <div className="p-6 text-sm text-error">
           {loadError ?? 'Intake not found.'}
         </div>
@@ -767,31 +892,14 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
   const email = typeof meta.email === 'string' ? meta.email : null;
   const phone = typeof meta.phone === 'string' ? meta.phone : null;
   const description = typeof meta.description === 'string' ? meta.description : null;
-  const opposingParty = typeof meta.opposing_party === 'string' ? (meta.opposing_party.trim() || null) : null;
-  const onBehalfOf = typeof meta.on_behalf_of === 'string' ? (meta.on_behalf_of.trim() || null) : null;
   const practiceServiceUuid = typeof meta.practice_service_uuid === 'string' ? meta.practice_service_uuid : null;
   const services = Array.isArray(practiceDetails?.services) ? practiceDetails.services : [];
   const matchingService = services.find((s) => s && typeof s === 'object' && s.id === practiceServiceUuid && typeof s.name === 'string');
   const matchingServiceName = typeof matchingService?.name === 'string' ? matchingService.name : undefined;
   const practiceServiceName = practiceServiceUuid ? resolvePracticeServiceLabel(practiceServiceUuid, matchingServiceName) : null;
 
-  const dateLabel = formatLongDate(intake.created_at);
-  const caseStrength = typeof intake.case_strength === 'number' ? `${intake.case_strength}%` : null;
-  const feeAmount = formatAmountCents(intake.amount, intake.currency);
-  const householdSize = typeof intake.household_size === 'number'
-    ? intake.household_size
-    : (typeof meta.household_size === 'number' ? meta.household_size : null);
-  const income = typeof intake.income === 'number'
-    ? formatAmountCents(intake.income, intake.currency)
-    : (typeof meta.income === 'number' ? formatAmountCents(meta.income, intake.currency) : null);
   const documentCount = intakeFiles.length;
   const hasDocs = documentCount > 0 || intake.has_documents === true || meta.has_documents === true;
-  const documentsLabel = documentCount > 0
-    ? `${documentCount} document${documentCount === 1 ? '' : 's'} shared`
-    : hasDocs ? 'Documents shared' : 'No documents';
-  const courtDate = intake.court_date ? (formatLongDate(intake.court_date) ?? intake.court_date) : null;
-  const urgencyLbl = urgencyLabel(intake.urgency);
-  const desiredOutcome = intake.desired_outcome ?? null;
 
   const effectiveTriageStatus = localTriageStatus ?? intake.triage_status ?? 'pending_review';
   const isPending = effectiveTriageStatus === 'pending_review' || !effectiveTriageStatus;
@@ -804,124 +912,188 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
     name ? `${name} intake` : 'Untitled intake',
   );
   const canReplyInIntake = Boolean(intake.conversation_id && effectiveTriageStatus === 'accepted');
+  const engagementCreatePath = `${engagementsBasePath ?? '/practice/engagements'}?create=1&intakeId=${encodeURIComponent(intake.uuid)}`;
   const enrichmentFields: IntakeFieldDefinition[] = (
-    activeTemplate?.fields ?? DEFAULT_INTAKE_TEMPLATE.fields
+    activeTemplate?.fields ?? STANDARD_FIELD_DEFINITIONS
   ).filter((f) => f.phase === 'enrichment');
   const intakeStateRecord = intakeConversationState as unknown as Record<string, unknown> | null;
   const unansweredEnrichment = enrichmentFields.filter((f) => !resolveFieldValue(f, intakeStateRecord, intake));
   const showGatherDetails = unansweredEnrichment.length > 0 && Boolean(intake.conversation_id);
 
-  const customFields = (() => {
-    const cf = (meta.customFields ?? meta.custom_fields) as Record<string, unknown> | undefined;
-    if (!cf || typeof cf !== 'object') return [] as Array<{ key: string; value: string }>;
-    return Object.entries(cf)
-      .filter(([key]) => !key.startsWith('_'))
-      .map(([key, value]) => ({
-        key,
-        value: value === null || value === undefined ? '' : (typeof value === 'boolean' ? (value ? 'Yes' : 'No') : String(value)),
-      }))
-      .filter((entry) => entry.value.trim().length > 0);
+  const enrichedData = parseEnrichedData(meta as Record<string, unknown>);
+  const engagementTemplates = parseEngagementTemplates(practiceDetails);
+  const activeGenerateTemplate = generateTemplateId
+    ? (engagementTemplates.find((t) => t.id === generateTemplateId) ?? engagementTemplates[0])
+    : engagementTemplates[0];
+
+  // ── Header derivation ──────────────────────────────────────────────────────
+
+  const receivedRelative = formatRelativeTime(intake.created_at) || 'just now';
+  const headerScope = scopeShortLabel(enrichedData, intakeTitle);
+  const headerClient = name ?? 'Anonymous lead';
+  const headerPracticeArea = enrichedData?.practice_area
+    ? enrichedData.practice_area.split(/[_\s]+/).map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')
+    : practiceServiceName ?? null;
+  const addressMeta = (meta.address && typeof meta.address === 'object' && !Array.isArray(meta.address))
+    ? meta.address as Record<string, unknown>
+    : null;
+  const stateFromAddress = typeof addressMeta?.state === 'string' ? addressMeta.state.trim() : null;
+  const cityFromAddress = typeof addressMeta?.city === 'string' ? addressMeta.city.trim() : null;
+  const stateFromMetaTop = typeof meta.state === 'string' ? (meta.state as string).trim() : null;
+  const stateFromConvoState = typeof intakeStateRecord?.state === 'string' ? (intakeStateRecord.state as string).trim() : null;
+  const intakeJurisdictionState = stateFromAddress || stateFromMetaTop || stateFromConvoState || null;
+  const jurisdictionLabel = intakeJurisdictionState
+    ? cityFromAddress
+      ? `${intakeJurisdictionState} · ${cityFromAddress}`
+      : intakeJurisdictionState
+    : null;
+  // TODO(backend): expose intake source (widget origin / referral) via the
+  // intake row. For now we fall back to a generic practice label.
+  const sourceLabel = `via ${practiceName?.trim() || 'public intake form'}`;
+  // TODO(backend): expose a real response-window from practice settings;
+  // surface "urgent" when the intake is flagged as time-sensitive.
+  const responseWindow = intake.urgency === 'emergency'
+    ? '< 3h response window'
+    : intake.urgency === 'time_sensitive'
+      ? '24h response window'
+      : null;
+
+  const stampParts: string[] = [];
+  const intakeAgeMin = (() => {
+    const created = new Date(intake.created_at).getTime();
+    if (!Number.isFinite(created)) return null;
+    const diff = Date.now() - created;
+    if (diff < 0) return null;
+    const mins = Math.round(diff / 60000);
+    return mins;
   })();
+  if (intakeAgeMin != null && intakeAgeMin < 60 * 24) {
+    stampParts.push(`conversation captured ${intakeAgeMin === 0 ? '<1' : intakeAgeMin} min ago`);
+  }
+  if (intake.amount != null && intake.stripe_charge_id) {
+    const fee = (() => {
+      try {
+        return new Intl.NumberFormat(undefined, { style: 'currency', currency: intake.currency || 'USD', maximumFractionDigits: 0 }).format(intake.amount / 100);
+      } catch {
+        return `$${(intake.amount / 100).toFixed(0)}`;
+      }
+    })();
+    stampParts.push(`client paid ${fee} consult fee`);
+  }
+  const stampText = stampParts.length > 0 ? stampParts.join(' · ') : null;
 
-  const statusBadge = (
-    <span
-      className={cn(
-        'inline-flex items-center gap-1.5 rounded-md px-3 py-1 text-xs font-medium ring-1 ring-inset',
-        triageBadgeClass(effectiveTriageStatus),
-      )}
-    >
+  // Note: `handleAcceptWithCounter` / `handleAcceptAtCurrent` are hoisted
+  // above the early-return so the hook order is stable.
+
+  // ── Status pill (header) ───────────────────────────────────────────────────
+
+  const statusPill = (
+    <Pill tone={triagePillTone(effectiveTriageStatus)} dot>
       {triageLabel(effectiveTriageStatus)}
-    </span>
+    </Pill>
   );
 
-  const intakeDetailsCard = (
-    <Card>
-      <div className="space-y-2">
-        <SectionLabel>Intake Details</SectionLabel>
-        <h3 className="text-lg font-bold leading-tight text-input-text sm:text-xl">{intakeTitle}</h3>
-        <p className="text-xs text-input-placeholder">
-          Posted {dateLabel}{practiceServiceName ? ` · ${practiceServiceName}` : ''}
-        </p>
-      </div>
-      {description ? (
-        <p className="mt-4 whitespace-pre-wrap text-sm leading-relaxed text-input-text/90">{description}</p>
-      ) : null}
-      <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-2">
-        <InfoChip
-          icon={CheckCircle2}
-          label={triageLabel(effectiveTriageStatus)}
-          tone={effectiveTriageStatus === 'accepted' ? 'success' : effectiveTriageStatus === 'declined' || effectiveTriageStatus === 'rejected' ? 'error' : 'warning'}
-        />
-        {feeAmount ? <InfoChip icon={CreditCard} label={`${feeAmount}${intake.stripe_charge_id ? ' paid' : ' consultation'}`} /> : null}
-        {courtDate ? <InfoChip icon={Clock} label={courtDate} /> : null}
-        {caseStrength ? <InfoChip icon={Scale} label={`Case strength ${caseStrength}`} /> : null}
-        <InfoChip icon={ClipboardList} label={documentsLabel} />
-        {urgencyLbl ? (
-          <InfoChip
-            icon={AlertTriangle}
-            label={urgencyLbl}
-            tone={intake.urgency === 'emergency' ? 'error' : intake.urgency === 'time_sensitive' ? 'warning' : 'default'}
-          />
-        ) : null}
-      </div>
-    </Card>
-  );
+  // Compact header action cluster — uses existing handlers.
+  const headerActions = isPending ? (
+    <>
+      <Button
+        variant="secondary"
+        size="sm"
+        onClick={() => openTriageDialog('declined')}
+        disabled={isSubmitting}
+      >
+        Decline
+      </Button>
+      <Button
+        variant="secondary"
+        size="sm"
+        onClick={focusComposer}
+        disabled={!canReplyInIntake && !intake.conversation_id}
+      >
+        Ask in chat
+      </Button>
+      <Button
+        variant="primary"
+        size="sm"
+        onClick={() => openTriageDialog('accepted')}
+        disabled={isSubmitting}
+      >
+        {isSubmitting ? (
+          <span className="inline-flex items-center">
+            <LoadingSpinner size="sm" className="mr-2" ariaLabel="Accepting consultation" />
+            Accepting…
+          </span>
+        ) : 'Accept & invite'}
+      </Button>
+    </>
+  ) : effectiveTriageStatus === 'accepted' ? (
+    <Button
+      variant="primary"
+      size="sm"
+      icon={FileText}
+      onClick={() => navigate(engagementCreatePath)}
+    >
+      Create engagement
+    </Button>
+  ) : null;
 
-  const formDetailsCard = (
-    <Card>
-      <div className="mb-4 flex items-center gap-2">
-        <Icon icon={ClipboardList} className="h-4 w-4 text-input-placeholder" />
-        <h3 className="text-sm font-semibold text-input-text">Form Details</h3>
-      </div>
-      <dl className="grid grid-cols-1 gap-x-6 gap-y-4 sm:grid-cols-2">
-        <DetailField label="Case Type" value={intakeTitle} />
-        <DetailField label="Urgency" value={urgencyLbl} />
-        <DetailField label="Court Date" value={courtDate} />
-        <DetailField label="Has Documents" value={hasDocs ? 'Yes' : 'No'} />
-        <DetailField label="Desired Outcome" value={desiredOutcome} />
-        <DetailField label="Opposing Party" value={opposingParty} />
-        <DetailField label="On Behalf Of" value={onBehalfOf} />
-        <DetailField label="Income" value={income} />
-        <DetailField label="Household Size" value={householdSize === null ? null : String(householdSize)} />
-        {customFields.map((cf) => (
-          <DetailField key={cf.key} label={cf.key.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())} value={cf.value} />
-        ))}
-      </dl>
-    </Card>
-  );
+  // ── AI verdict sources ──────────────────────────────────────────────────────
 
-  const blawbyCard = showGatherDetails ? (
+  const verdictSources: AIAnswerCardSource[] = [];
+  // Always include the intake itself as a live source.
+  verdictSources.push({ table: 'intake', count: 1 });
+  if (enrichedData?.conflict_check_names?.length) {
+    verdictSources.push({ table: 'conflict_check', count: enrichedData.conflict_check_names.length });
+  }
+  if (intakeFiles.length > 0) {
+    verdictSources.push({ table: 'intake_files', count: intakeFiles.length });
+  }
+  // TODO(backend): surface counts from contact_forms / matters citations once
+  // a per-intake source aggregation endpoint exists.
+
+  // ── Counter-offer derivation ────────────────────────────────────────────────
+
+  // TODO(backend): real per-intake AI suggested fee — today we approximate by
+  // bumping the current intake amount ~33% (e.g. $3,000 → $4,000) so the
+  // surface renders deterministic copy.
+  const counterCents = intake.amount != null
+    ? Math.round((intake.amount * 4) / 3)
+    : null;
+
+  // ── Description card (preserved, simplified header) ─────────────────────────
+
+  const intakeStoryCard = description ? (
     <Card>
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-start gap-3">
-          <div className="rounded-lg bg-accent/10 p-2 text-accent">
-            <Icon icon={Sparkles} className="h-4 w-4" />
-          </div>
-          <p className="text-sm leading-relaxed text-input-text/90">
-            Blawby can ask the client for the missing legal details and add them to this thread.
-          </p>
-        </div>
-        <Button
-          type="button"
-          variant="primary"
-          size="sm"
-          onClick={() => void startGatherDetailsFlow()}
-          disabled={gatherDetailsSubmitting}
-          className="shrink-0"
-        >
-          {gatherDetailsSubmitting ? 'Starting…' : 'Use Blawby to gather details'}
-        </Button>
+      <div className="space-y-1">
+        <SectionLabel>Client&apos;s own words</SectionLabel>
+        <p className="whitespace-pre-wrap text-sm leading-relaxed text-ink/90">{description}</p>
       </div>
     </Card>
   ) : null;
 
+  // Note: `coverageStates` / `practiceServiceLabels` are hoisted above the
+  // early-return so the hook order is stable. They're used here for the
+  // preflight checks panel.
+
+  // ── Conversation card ──────────────────────────────────────────────────────
+
+  const conversationMessageCount = previewMessages.length;
+  const conversationStamp = intake.conversation_id
+    ? `${conversationMessageCount} message${conversationMessageCount === 1 ? '' : 's'} · auto-transcribed`
+    : '';
+
   const conversationCard = intake.conversation_id ? (
     <Card className="flex min-h-[420px] flex-col p-0 overflow-hidden">
-      <div className="border-b border-card-border p-4 sm:px-6 sm:py-5">
-        <SectionLabel>Conversation</SectionLabel>
-        <p className="mt-1 text-xs text-input-placeholder">Continue the client thread from this intake.</p>
+      <div className="flex items-center justify-between border-b border-line-subtle p-4 sm:px-6 sm:py-5">
+        <div>
+          <SectionLabel>Intake conversation</SectionLabel>
+          <p className="mt-1 text-xs text-dim-2">Continue the client thread from this intake.</p>
+        </div>
+        <span className="font-mono text-[10px] uppercase tracking-[0.1em] text-dim">
+          {conversationStamp}
+        </span>
       </div>
-      <div className="min-h-0 flex-1 overflow-hidden bg-surface-overlay/20 touch-pan-y">
+      <div className="min-h-0 flex-1 overflow-hidden bg-card/20 touch-pan-y">
         {previewLoading && previewMessages.length === 0 ? (
           <div className="space-y-3 px-4 py-4">
             <MessageRowSkeleton lineWidths={['w-40', 'w-56']} />
@@ -930,8 +1102,8 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
           </div>
         ) : previewMessages.length === 0 ? (
           <div className="flex h-full flex-col items-center justify-center p-6 text-center">
-            <Icon icon={MessageSquare} className="mb-2 h-6 w-6 text-input-placeholder" />
-            <p className="text-sm text-input-placeholder">No conversation history yet.</p>
+            <Icon icon={MessageSquare} className="mb-2 h-6 w-6 text-dim-2" />
+            <p className="text-sm text-dim-2">No conversation history yet.</p>
           </div>
         ) : (
           <VirtualMessageList
@@ -956,7 +1128,7 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
         )}
       </div>
       {canReplyInIntake ? (
-        <div className="border-t border-card-border px-4 py-4">
+        <div className="border-t border-line-subtle px-4 py-4">
           <MessageComposer
             inputValue={composerValue}
             setInputValue={setComposerValue}
@@ -990,28 +1162,30 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
     </Card>
   ) : null;
 
+  // ── Right column sidebar cards ──────────────────────────────────────────────
+
   const contactCard = (email || phone) ? (
     <Card>
-      <SectionLabel className="mb-3">Contact Information</SectionLabel>
+      <SectionLabel className="mb-3">Contact</SectionLabel>
       <dl className="space-y-3 text-sm">
         {email ? (
           <div className="flex items-start gap-3">
-            <Icon icon={Mail} className="mt-0.5 h-4 w-4 shrink-0 text-input-placeholder" />
+            <Icon icon={Mail} className="mt-0.5 h-4 w-4 shrink-0 text-dim-2" />
             <div className="min-w-0 flex-1">
-              <dt className="text-xs text-input-placeholder">Email</dt>
+              <dt className="text-xs text-dim-2">Email</dt>
               <dd className="truncate">
-                <a href={`mailto:${email}`} className="text-input-text hover:text-accent">{email}</a>
+                <a href={`mailto:${email}`} className="text-ink hover:text-accent">{email}</a>
               </dd>
             </div>
           </div>
         ) : null}
         {phone ? (
           <div className="flex items-start gap-3">
-            <Icon icon={Phone} className="mt-0.5 h-4 w-4 shrink-0 text-input-placeholder" />
+            <Icon icon={Phone} className="mt-0.5 h-4 w-4 shrink-0 text-dim-2" />
             <div className="min-w-0 flex-1">
-              <dt className="text-xs text-input-placeholder">Phone</dt>
+              <dt className="text-xs text-dim-2">Phone</dt>
               <dd>
-                <a href={`tel:${phone}`} className="text-input-text hover:text-accent">{phone}</a>
+                <a href={`tel:${phone}`} className="text-ink hover:text-accent">{phone}</a>
               </dd>
             </div>
           </div>
@@ -1020,111 +1194,208 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
     </Card>
   ) : null;
 
-  const triageActions = (
-    <>
-      <Button
-        variant="primary"
-        className="btn-primary btn-md w-full !bg-accent-500 text-[rgb(var(--accent-foreground))]"
-        disabled={isSubmitting}
-        onClick={() => openTriageDialog('accepted')}
-      >
-        {isSubmitting ? (
-          <span className="inline-flex items-center">
-            <LoadingSpinner size="sm" className="mr-2" ariaLabel="Accepting consultation" />
-            Accepting…
-          </span>
-        ) : 'Accept'}
-      </Button>
-      <Button
-        variant="secondary"
-        className="btn-secondary btn-md w-full"
-        disabled={isSubmitting}
-        onClick={() => openTriageDialog('declined')}
-      >
-        Reject
-      </Button>
-    </>
-  );
-
   const aboutCard = (
     <Card className="p-4">
       <div className="flex items-center gap-3">
         <Avatar
           name={name ?? ''}
           size="md"
-          className="bg-surface-utility/40 text-input-text ring-1 ring-line-glass/20"
+          className="bg-paper-2/40 text-ink ring-1 ring-line-subtle"
         />
         <div className="min-w-0">
-          <p className="truncate text-sm font-semibold text-input-text">{name ?? 'Unnamed lead'}</p>
+          <p className="truncate text-sm font-semibold text-ink">{name ?? 'Unnamed lead'}</p>
           {intake.payment_verified ? (
-            <p className="mt-0.5 inline-flex items-center gap-1 text-xs text-success">
-              <Icon icon={CheckCircle2} className="h-3 w-3" />
-              Payment verified
-            </p>
+            <p className="mt-0.5 text-xs text-success">Payment verified</p>
           ) : null}
         </div>
       </div>
-      {(email || phone) ? (
-        <dl className="mt-4 space-y-2 text-sm">
-          {email ? (
-            <div>
-              <dt className="text-xs text-input-placeholder">Email</dt>
-              <dd className="truncate">
-                <a href={`mailto:${email}`} className="text-input-text hover:text-accent">{email}</a>
-              </dd>
-            </div>
-          ) : null}
-          {phone ? (
-            <div>
-              <dt className="text-xs text-input-placeholder">Phone</dt>
-              <dd>
-                <a href={`tel:${phone}`} className="text-input-text hover:text-accent">{phone}</a>
-              </dd>
-            </div>
-          ) : null}
-        </dl>
-      ) : null}
     </Card>
   );
 
+  const engagementActionCard = effectiveTriageStatus === 'accepted' ? (
+    <Card className="flex flex-col gap-2 p-4">
+      <Button
+        variant="primary"
+        className="w-full"
+        icon={FileText}
+        onClick={() => navigate(engagementCreatePath)}
+      >
+        Create engagement
+      </Button>
+      {engagementTemplates.length > 0 ? (
+        <Button
+          variant="secondary"
+          className="w-full"
+          icon={Sparkles}
+          onClick={() => {
+            setGenerateTemplateId(engagementTemplates[0]?.id ?? null);
+            setGeneratedBody(null);
+            setGenerateDialogOpen(true);
+          }}
+        >
+          Generate Engagement Letter
+        </Button>
+      ) : null}
+    </Card>
+  ) : null;
+
+  // Gather-details (blawby) card — kept (no longer in middle, in right column).
+  const gatherDetailsCard = showGatherDetails ? (
+    <Card className="flex flex-col gap-3 p-4">
+      <div className="flex items-start gap-2">
+        <div className="rounded-lg bg-accent/10 p-2 text-accent">
+          <Icon icon={Sparkles} className="h-4 w-4" />
+        </div>
+        <p className="text-xs leading-relaxed text-ink/90">
+          Blawby can ask the client for missing legal details and add them to this thread.
+        </p>
+      </div>
+      <Button
+        type="button"
+        variant="primary"
+        size="sm"
+        onClick={() => void startGatherDetailsFlow()}
+        disabled={gatherDetailsSubmitting}
+        className="w-full"
+      >
+        {gatherDetailsSubmitting ? 'Starting…' : 'Use Blawby to gather details'}
+      </Button>
+    </Card>
+  ) : null;
+
+  // Notes card — derived from intake.triage_reason (if any).
+  const notesCard = (intake.triage_reason && intake.triage_reason.trim().length > 0) ? (
+    <Card className="p-4">
+      <SectionLabel className="mb-2">Notes</SectionLabel>
+      <p className="text-xs leading-relaxed text-ink/90 whitespace-pre-wrap">
+        {intake.triage_reason}
+      </p>
+    </Card>
+  ) : null;
+
+  // Mobile reflow strategy:
+  // - Sticky header: scope/practice/jurisdiction collapse vertically (handled
+  //   by IntakeStickyHeader); status pill + actions row stays accessible
+  // - Body grid: single-col below xl, 1fr+320px aside from xl+
+  // - Right aside: hidden below xl; key cards (contact, payment, gather,
+  //   notes) are re-rendered inline at the bottom of main col on mobile
+  // - Card padding: p-4 on mobile, p-6 from sm+ (set in Card sub-component)
+  // - Scorecard: 2-col grid below sm, 4-col from sm+
   return (
-    <div className="flex h-full flex-col min-h-0 bg-surface-workspace">
-      <DetailHeader
-        title={name ?? intakeTitle}
-        showBack
+    <div className="flex h-full flex-col min-h-0 bg-paper">
+      <IntakeStickyHeader
+        receivedRelative={`${receivedRelative}`}
+        clientName={headerClient}
+        scopeLabel={headerScope}
+        practiceArea={headerPracticeArea}
+        jurisdiction={jurisdictionLabel}
+        source={sourceLabel}
+        responseWindow={responseWindow}
+        statusBadge={statusPill}
+        actions={headerActions}
+        stamp={stampText}
         onBack={onBack}
-        actions={statusBadge}
       />
 
       <div className="flex-1 min-h-0 overflow-y-auto">
-        <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_280px]">
-          {/* Main content */}
-          <div className="flex flex-col gap-4 p-4 sm:p-6">
-            {/* Mobile-only triage actions at top */}
+        <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_320px]">
+          {/* Main column — chat-first ordered: verdict → scorecard → preflight → preview → conversation → docs → story */}
+          <div className="flex flex-col gap-5 p-4 sm:p-6">
+            {/* A. AI verdict (centerpiece). */}
+            <IntakeAIVerdict
+              enrichedData={enrichedData}
+              caseStrength={intake.case_strength ?? null}
+              urgency={intake.urgency}
+              practiceArea={enrichedData?.practice_area ?? null}
+              currentOfferCents={intake.amount ?? null}
+              counterOfferCents={counterCents}
+              currency={intake.currency || 'USD'}
+              sources={verdictSources}
+              groundingTime={receivedRelative}
+              onAcceptWithCounter={isPending ? handleAcceptWithCounter : undefined}
+              onAcceptAtCurrent={isPending ? handleAcceptAtCurrent : undefined}
+              onAskFollowUp={intake.conversation_id ? focusComposer : undefined}
+              onDecline={isPending ? () => openTriageDialog('declined') : undefined}
+              isBusy={isSubmitting}
+            />
+
+            {/* B. 4-cell scorecard. */}
+            <IntakeScorecard
+              enrichedData={enrichedData}
+              caseStrength={intake.case_strength ?? null}
+              urgency={intake.urgency}
+              // TODO(backend): expose a real enrichment duration so this stamp
+              // reflects actual compute time. For now anchor to the intake
+              // creation timestamp.
+              computedStamp={`computed at submission · ${receivedRelative}`}
+            />
+
+            {/* C. Pre-flight checks. */}
+            <IntakePreflightChecks
+              enrichedData={enrichedData}
+              intakeState={intakeJurisdictionState}
+              coverageStates={coverageStates}
+              practiceServiceLabels={practiceServiceLabels}
+            />
+
+            {/* D. Acceptance preview — informational, only when pending. */}
             {isPending ? (
-              <div className="flex flex-col gap-3 xl:hidden">
-                {triageActions}
-              </div>
+              <IntakeAcceptancePreview
+                practiceArea={enrichedData?.practice_area ?? null}
+                retainerCents={intake.amount ?? null}
+                currency={intake.currency || 'USD'}
+              />
             ) : null}
 
-            {intakeDetailsCard}
-            {formDetailsCard}
+            {/* E. Conversation transcript. */}
+            {conversationCard}
+
+            {/* F. Files panel. */}
             <IntakeFilesPanel
               intakeUuid={intake.uuid}
               canUpload
               canDelete
               files={intakeFiles}
             />
-            {/* Mobile-only contact info */}
-            <div className="xl:hidden">{contactCard}</div>
-            {blawbyCard}
-            {conversationCard}
+
+            {/* G. Client's own words. */}
+            {intakeStoryCard}
+
+            {/* Mobile-only: contact + payment + gather-details surface inline. */}
+            <div className="space-y-4 xl:hidden">
+              {contactCard}
+              <IntakePaymentSummary
+                amountCents={intake.amount ?? null}
+                currency={intake.currency || 'USD'}
+                stripeChargeId={intake.stripe_charge_id ?? null}
+                paid={Boolean(intake.stripe_charge_id) || intake.payment_verified === true}
+              />
+              {gatherDetailsCard}
+              {notesCard}
+            </div>
           </div>
 
-          {/* Desktop right panel */}
-          <aside className="hidden xl:flex flex-col gap-4 border-l border-card-border bg-surface-panel p-6">
-            {isPending ? <div className="flex flex-col gap-3">{triageActions}</div> : null}
+          {/* Right column (desktop). */}
+          <aside className="hidden xl:flex flex-col gap-4 border-l border-line-subtle bg-paper-2 p-6">
+            {engagementActionCard}
+            <IntakePaymentSummary
+              amountCents={intake.amount ?? null}
+              currency={intake.currency || 'USD'}
+              stripeChargeId={intake.stripe_charge_id ?? null}
+              paid={Boolean(intake.stripe_charge_id) || intake.payment_verified === true}
+            />
             {aboutCard}
+            {contactCard}
+            {gatherDetailsCard}
+            {notesCard}
+            <Card className="p-4 text-xs text-dim-2">
+              <SectionLabel className="mb-2">Documents</SectionLabel>
+              <p>
+                {documentCount > 0
+                  ? `${documentCount} document${documentCount === 1 ? '' : 's'} shared`
+                  : hasDocs ? 'Documents on file' : 'No documents shared'}
+              </p>
+            </Card>
           </aside>
         </div>
       </div>
@@ -1132,11 +1403,11 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
       <Dialog
         isOpen={triageDialogAction !== null}
         onClose={closeTriageDialog}
-        title={triageDialogAction === 'accepted' ? 'Accept' : 'Reject'}
+        title={triageDialogAction === 'accepted' ? 'Accept' : 'Decline'}
         description={
           triageDialogAction === 'accepted'
             ? 'This will approve the lead and prepare for onboarding.'
-            : 'This will mark the intake as rejected.'
+            : 'This will mark the intake as declined.'
         }
         disableBackdropClick={isSubmitting}
       >
@@ -1161,8 +1432,81 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
               if (triageDialogAction) void runTriage(triageDialogAction, triageReason);
             }}
           >
-            {isSubmitting ? 'Updating…' : (triageDialogAction === 'accepted' ? 'Confirm approval' : 'Confirm rejection')}
+            {isSubmitting ? 'Updating…' : (triageDialogAction === 'accepted' ? 'Confirm approval' : 'Confirm decline')}
           </Button>
+        </DialogFooter>
+      </Dialog>
+
+      <Dialog
+        isOpen={generateDialogOpen}
+        onClose={() => { setGenerateDialogOpen(false); setGeneratedBody(null); }}
+        title="Generate Engagement Letter"
+        description="AI will draft an engagement letter based on this intake."
+      >
+        <DialogBody className="space-y-4">
+          {engagementTemplates.length > 1 ? (
+            <div className="space-y-2">
+              <p className="text-xs font-medium uppercase tracking-wide text-dim-2">Select Template</p>
+              <div className="flex flex-col gap-1">
+                {engagementTemplates.map((t) => (
+                  <button
+                    key={t.id}
+                    type="button"
+                    className={cn(
+                      'flex items-center gap-2 rounded-lg border px-3 py-2 text-left text-sm transition-colors',
+                      generateTemplateId === t.id
+                        ? 'border-accent bg-accent/10 text-accent-ink'
+                        : 'border-card-border bg-card text-ink hover:bg-card/40',
+                    )}
+                    onClick={() => setGenerateTemplateId(t.id)}
+                  >
+                    <span className="flex-1 font-medium">{t.name}</span>
+                    {t.practiceArea ? <span className="text-xs text-dim-2">{t.practiceArea}</span> : null}
+                  </button>
+                ))}
+              </div>
+            </div>
+          ) : null}
+          {generatedBody ? (
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <p className="text-xs font-medium uppercase tracking-wide text-dim-2">Generated Letter</p>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  icon={Copy}
+                  onClick={async () => {
+                    try {
+                      await navigator.clipboard.writeText(generatedBody);
+                      showSuccess('Copied', 'Letter copied to clipboard');
+                    } catch (_error) {
+                      showError('Copy failed', 'Unable to copy to clipboard. Try copying manually.');
+                    }
+                  }}
+                >
+                  Copy
+                </Button>
+              </div>
+              <Textarea value={generatedBody} onChange={setGeneratedBody} rows={12} label="" />
+            </div>
+          ) : null}
+        </DialogBody>
+        <DialogFooter>
+          <Button
+            variant="secondary"
+            onClick={() => { setGenerateDialogOpen(false); setGeneratedBody(null); }}
+          >
+            {generatedBody ? 'Close' : 'Cancel'}
+          </Button>
+          {!generatedBody ? (
+            <Button
+              variant="primary"
+              disabled={generateLoading || !activeGenerateTemplate}
+              onClick={() => { if (activeGenerateTemplate) void handleGenerateEngagement(activeGenerateTemplate); }}
+            >
+              {generateLoading ? 'Generating…' : 'Generate'}
+            </Button>
+          ) : null}
         </DialogFooter>
       </Dialog>
     </div>

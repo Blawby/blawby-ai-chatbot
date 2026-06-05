@@ -78,7 +78,9 @@ const buildInvoiceUpdatePayload = ({
   invoiceType: Invoice['invoice_type'];
   lineItems: InvoiceLineItem[];
 }): InvoiceUpdatePayload => ({
-  due_date: dueDate ? new Date(`${dueDate}T00:00:00.000Z`).toISOString() : undefined,
+  // Send the date-only value (YYYY-MM-DD) as-is. The backend validates due_date
+  // as an ISO date and rejects a full datetime string (it was "Invalid ISO date").
+  due_date: dueDate || undefined,
   notes: notes.trim() || undefined,
   memo: memo.trim() || undefined,
   invoice_type: invoiceType,
@@ -251,7 +253,9 @@ export const InvoiceForm = forwardRef<InvoiceFormHandle, InvoiceFormProps>(({
     matter_id: resolvedMatterId || undefined,
     connected_account_id: accountId,
     invoice_type: invoiceType,
-    due_date: dueDate ? new Date(`${dueDate}T00:00:00.000Z`).toISOString() : undefined,
+    // Send the date-only value (YYYY-MM-DD) as-is. The backend validates due_date
+    // as an ISO date and rejects a full datetime string (it was "Invalid ISO date").
+    due_date: dueDate || undefined,
     notes: notes.trim() || undefined,
     memo: memo.trim() || undefined,
     line_items: lineItems
@@ -393,7 +397,7 @@ export const InvoiceForm = forwardRef<InvoiceFormHandle, InvoiceFormProps>(({
       >
         <>
             {!resolvedReadOnly && !isValidConnectedAccount ? (
-              <div className="status-warning rounded-xl px-4 py-3 text-sm">
+              <div className="status-warning rounded-r-md px-4 py-3 text-sm">
                 Complete Stripe onboarding to enable invoicing.
               </div>
             ) : null}
@@ -407,10 +411,10 @@ export const InvoiceForm = forwardRef<InvoiceFormHandle, InvoiceFormProps>(({
                   placeholder="Choose a contact"
                   disabled={resolvedReadOnly}
                   footer={!resolvedReadOnly ? () => (
-                    <div className="px-3 py-2 text-sm text-input-placeholder">
+                    <div className="px-3 py-2 text-sm text-dim-2">
                       <button
                         type="button"
-                        className="inline-flex items-center gap-2 text-sm text-accent-foreground underline"
+                        className="inline-flex items-center gap-2 text-sm text-accent underline"
                         onClick={() => {
                           try {
                             const draftId = createPendingInvoiceDraftContext({
@@ -464,12 +468,12 @@ export const InvoiceForm = forwardRef<InvoiceFormHandle, InvoiceFormProps>(({
               readOnly={resolvedReadOnly}
             />
             <section className="space-y-3">
-              <h3 className="text-sm font-semibold text-input-text">Request payment</h3>
-              <p className="text-xs text-input-placeholder">
+              <h3 className="text-sm font-semibold text-ink">Request payment</h3>
+              <p className="text-xs text-dim-2">
                 Choose when this invoice should be due.
               </p>
               <div className="space-y-2">
-                <label className="flex items-center gap-2 text-sm text-input-text">
+                <label className="flex items-center gap-2 text-sm text-ink">
                   <input
                     type="radio"
                     name="due-date-mode"
@@ -482,7 +486,7 @@ export const InvoiceForm = forwardRef<InvoiceFormHandle, InvoiceFormProps>(({
                   />
                   <span>Due tomorrow ({defaultDueDate})</span>
                 </label>
-                <label className="flex items-center gap-2 text-sm text-input-text">
+                <label className="flex items-center gap-2 text-sm text-ink">
                   <input
                     type="radio"
                     name="due-date-mode"
@@ -507,7 +511,7 @@ export const InvoiceForm = forwardRef<InvoiceFormHandle, InvoiceFormProps>(({
             <Textarea label="Notes to client" value={notes} onChange={handleNotesChange} rows={3} disabled={resolvedReadOnly} />
             <Textarea label="Internal memo" value={memo} onChange={handleMemoChange} rows={2} disabled={resolvedReadOnly} />
             {sendError ? (
-              <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-800">
+              <div className="rounded-r-md border border-red-200 bg-red-50 p-4 text-sm text-red-800">
                 <p>{sendError}</p>
                 {createdInvoiceId ? (
                   <div className="mt-2">

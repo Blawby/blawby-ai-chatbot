@@ -1,7 +1,7 @@
 import type { FunctionComponent } from 'preact';
 import { DatePicker } from '@/shared/ui/input/DatePicker';
 import { Input } from '@/shared/ui/input/Input';
-import { SegmentedToggle } from '@/shared/ui/input/SegmentedToggle';
+import { Seg } from '@/design-system/patterns';
 import { cn } from '@/shared/utils/cn';
 import type { FilterSpec } from '@/features/reports/config/reportCollection';
 
@@ -39,8 +39,8 @@ export const ReportFilters: FunctionComponent<ReportFiltersProps> = ({ filters, 
           const current = (values.period ?? f.defaultValue ?? 'month') as ReportPeriod;
           return (
             <div key={f.id} className="flex flex-col gap-1">
-              <label className="text-xs font-medium text-input-text">{f.label}</label>
-              <SegmentedToggle<ReportPeriod>
+              <label className="text-xs font-medium text-ink">{f.label}</label>
+              <Seg<ReportPeriod>
                 value={current}
                 options={PERIOD_OPTIONS}
                 ariaLabel={f.label}
@@ -71,11 +71,11 @@ export const ReportFilters: FunctionComponent<ReportFiltersProps> = ({ filters, 
           const current = ((values[f.id] as string | undefined) ?? f.defaultValue ?? '');
           return (
             <div key={f.id} className="flex flex-col gap-1">
-              <label className="text-xs font-medium text-input-text">{f.label}</label>
+              <label className="text-xs font-medium text-ink">{f.label}</label>
               <select
                 value={current}
                 onChange={(e) => set(f.id, (e.currentTarget as HTMLSelectElement).value)}
-                className="h-9 rounded-md border border-line-glass/30 bg-surface-utility/5 px-2 text-sm text-input-text"
+                className="h-9 rounded-md border border-line-subtle bg-paper-2/5 px-2 text-sm text-ink"
               >
                 {f.options.map((o) => (
                   <option key={o.value} value={o.value}>{o.label}</option>

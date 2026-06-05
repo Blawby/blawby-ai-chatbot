@@ -68,9 +68,7 @@ Strong success criteria let you loop independently. Weak criteria ("make it work
 
 Always verify browser/auth/signup flows through `https://local.blawby.com`, not raw Vite or Wrangler localhost URLs. Auth cookies, Worker proxying, and app routing all depend on the same origin/path shape as real deployments.
 
-### Mode A — Staging backend (default, no local backend needed)
-
-Most frontend contributors use this. Auth, preferences, and API calls all go to the staging backend.
+Always use the staging backend — auth, preferences, and API calls all proxy to `https://staging-api.blawby.com`.
 
 ```bash
 npm install
@@ -79,98 +77,43 @@ npm run dev:full
 
 Open `https://local.blawby.com`. Done.
 
-### Mode B — Local backend
+#### Wrangler auth — if `dev:full` fails to start the worker
 
-Use this when your change touches the backend, or you need to test the full stack locally.
-
-Recommended layout:
+If you see:
 
 ```text
-your-workspace/
-  blawby-ai-chatbot/   ← this repo
-  blawby-backend/      ← backend repo
+✘ [ERROR] A request to the Cloudflare API (/accounts/<id>/workers/subdomain/edge-preview) failed.
+  notes: Authentication error [code: 10000]
 ```
 
-**Terminal 1** — backend API:
+…the worker is dying because wrangler's stored OAuth token (`~/.config/.wrangler/config/default.toml` on macOS/Linux, `%APPDATA%/xdg.config/.wrangler/config/default.toml` on Windows) doesn't have the right scopes for the AI binding's remote-proxy session, and wrangler prefers the OAuth token over `CLOUDFLARE_API_TOKEN` in `worker/.dev.vars`. `.dev.vars` is loaded into the worker *runtime*, not consumed by the wrangler *CLI*.
+
+Workaround — export the API token in your shell so wrangler picks it up:
 
 ```bash
-cd ../blawby-backend
-pnpm install
-pnpm run dev
+export CLOUDFLARE_API_TOKEN=<value-from-worker/.dev.vars>
+npm run dev:full
 ```
 
-**Terminal 2** — event worker (required — without this, new-user preferences are never initialized and onboarding always fails):
+PowerShell:
+
+```powershell
+$env:CLOUDFLARE_API_TOKEN = "<value-from-worker/.dev.vars>"
+npm run dev:full
+```
+
+You can verify a token has the right scope with:
 
 ```bash
-cd ../blawby-backend
-pnpm run event-worker:dev
+curl -s "https://api.cloudflare.com/client/v4/accounts/<account-id>/workers/subdomain/edge-preview" \
+  -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN"
 ```
 
-**Terminal 3** — frontend + Worker pointing at local backend:
-
-```bash
-npm install
-npm run dev:full:local
-```
-
-Open `https://local.blawby.com`.
-
-> **Why `dev:full:local`?** The default `dev:full` uses `dev:worker`, which reads `BACKEND_API_URL` from `[env.dev.vars]` in `wrangler.toml` (staging). `dev:full:local` uses `dev:worker:local`, which passes `--var BACKEND_API_URL:http://127.0.0.1:3000` to override it. `.dev.vars` alone does not override `[env.dev.vars]`.
-
-If a Worker feature adds a D1 table, apply the migration locally before browser testing:
-
-```bash
-npx wrangler d1 execute DB --local --config worker/wrangler.toml --env dev --file worker/migrations/<migration-file>.sql
-```
+A correct response returns `{ "result": { "exchange_url": ..., "token": ... } }`. A 403 here means the token's permissions are wrong — generate a new one with "Workers Scripts:Edit" scope.
 
 If a feature adds a new Worker-owned `/api/*` prefix, add it to `workerEndpoints` in `vite.config.ts`; otherwise Vite may proxy that path to the backend fallback and produce misleading local 404s.
 
-## 6. Compound Engineering Is The Default Workflow
-
-This project develops with the [Compound Engineering plugin](https://github.com/EveryInc/compound-engineering-plugin) (`ce-*` skills). Use it. Do not invent ad-hoc flows when a `ce-*` skill covers the task.
-
-**Routing is intent-based, not word-matching.** Trigger a `ce-*` skill only when the user is initiating a phase of work that the skill is designed for. A keyword appearing inside an unrelated sentence ("this doesn't work", "I plan to refactor later", "let me review the diff myself") is NOT a trigger.
-
-A request triggers a skill only when ALL three hold:
-
-1. The user is asking *you* to start a new phase of work (not narrating, complaining, or describing).
-2. The request is the imperative form of the skill's purpose (a request to brainstorm, a request to plan, a request to review, etc.) — not the word used in another grammatical role.
-3. No more-specific in-flight task is currently being executed that the skill would interrupt.
-
-If any of the three is in doubt, do not invoke the skill — answer normally and ask whether the user wants the formal workflow.
-
-| Trigger examples | Non-triggers (do NOT route) | Skill |
-|---|---|---|
-| "let's brainstorm X", "brainstorm a feature for…", "help me think through Y" | "I was brainstorming earlier", "we already brainstormed this" | `ce-brainstorm` |
-| "ideate on X", "give me ideas for Y", "what should I improve here", "surprise me" | "that's a good idea", "the idea is to…" | `ce-ideate` |
-| "plan this feature", "create a plan for X", "break this task down" | "I plan to look at this later", "the plan is already written", "what's the deployment plan" | `ce-plan` |
-| "implement the plan", "build this feature now", "execute the plan at docs/…" | "this doesn't work", "make it work", "the test isn't working", "work on it later" | `ce-work` |
-| "debug this", "why is /preferences 404ing", "investigate this stack trace", "fix this bug" (with reproducible failure) | "the debugger config is wrong", "debug output is noisy" | `ce-debug` |
-| "code review my changes", "review this branch / PR", "do a CE code review" | "let me review the diff myself", "I'll review later", "the reviewer said…" | `ce-code-review` |
-| "review the plan doc", "doc review this spec" | "the doc reviewer caught X" | `ce-doc-review` |
-| "commit this", "save my changes as a commit" | "the last commit was bad", "commit history is messy" | `ce-commit` |
-| "ship this", "commit and open a PR", "create a PR for this branch" | "ship date is tomorrow", "the PR description is wrong" | `ce-commit-push-pr` |
-| "resolve the PR feedback", "address the review comments" | "the feedback was useful" | `ce-resolve-pr-feedback` |
-| "compound this learning", "document this as a learning", "save what we learned" | "compound interest", "compound the bug count" | `ce-compound` |
-| "simplify the code I just wrote", "clean up this implementation" | "simple is better", "simplify the design later" | `ce-simplify-code` |
-| "lfg", "run the full pipeline autonomously", "ship it hands-off" | enthusiasm-only "lfg!!" in the middle of a different request | `lfg` |
-
-The canonical loop is **brainstorm → plan → work → code-review → compound**. Reach for `ce-debug` for bug investigation and `lfg` for autonomous end-to-end runs.
-
-**Already inside a skill?** Skill invocations don't recursively re-route. If a skill is in progress and the user says something that *would* be a trigger out of context, continue the current skill — don't switch mid-flight unless the user explicitly asks to (e.g., "stop, let's plan this instead").
-
-**Plugin install check.** Before invoking a `ce-*` skill, confirm `compound-engineering:*` skills appear in the available-skills list. If they don't, tell the user the plugin isn't installed and offer to install it. Install commands (Claude Code):
-
-```text
-/plugin marketplace add EveryInc/compound-engineering-plugin
-/plugin install compound-engineering
-```
-
-After they confirm, the plugin can be installed by running those slash commands in Claude Code. Don't try to install via `npm`, `bun`, or `git clone` — use the plugin marketplace.
-
-The first time the plugin is used in this repo, run `/ce-setup` once to bootstrap project config.
-
-## 7. Browser-Agent And Playwright
+## 6. Browser-Agent And Playwright
 
 Use browser-agent for exploratory smoke tests:
 

@@ -309,7 +309,7 @@ export const AddressExperienceForm = ({
   const containerClasses = cn(
     variant === 'plain'
       ? 'w-full'
-      : 'glass-panel rounded-xl p-6',
+      : 'panel rounded-r-md p-6',
     className
   );
 
@@ -320,7 +320,7 @@ export const AddressExperienceForm = ({
   return (
     <div className={containerClasses} data-testid="address-experience-form">
       {message && (
-        <div className="mb-4 text-input-text dark:text-input-text/80">
+        <div className="mb-4 text-ink dark:text-ink/80">
           {message}
         </div>
       )}

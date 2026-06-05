@@ -15,7 +15,6 @@ export { NumberInput } from './NumberInput';
 export { CurrencyInput } from './CurrencyInput';
 export { URLInput } from './URLInput';
 export { MarkdownUploadTextarea } from './MarkdownUploadTextarea';
-export { SegmentedToggle } from './SegmentedToggle';
 
 export type { SwitchProps } from './Switch';
 export type { InputProps } from './Input';
@@ -34,7 +33,6 @@ export type { NumberInputProps } from './NumberInput';
 export type { CurrencyInputProps } from './CurrencyInput';
 export type { URLInputProps } from './URLInput';
 export type { MarkdownUploadTextareaProps } from './MarkdownUploadTextarea';
-export type { SegmentedToggleProps, SegmentedToggleOption } from './SegmentedToggle';
 
 export { Slider } from './Slider';
 export { PINInput } from './PINInput';

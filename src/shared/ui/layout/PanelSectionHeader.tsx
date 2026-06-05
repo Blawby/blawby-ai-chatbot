@@ -19,11 +19,11 @@ export const PanelSectionHeader = ({
   actions,
   className
 }: PanelSectionHeaderProps) => (
-  <header className={cn('flex flex-wrap items-center justify-between gap-3 border-b border-line-glass/30 px-6 py-4', className)}>
+  <header className={cn('flex flex-wrap items-center justify-between gap-3 border-b border-line-subtle px-6 py-4', className)}>
     <div>
-      <h3 className="text-sm font-semibold text-input-text">{title}</h3>
+      <h3 className="text-sm font-semibold text-ink">{title}</h3>
       {(subtitle !== undefined) && (
-        <p className="text-xs text-input-placeholder">
+        <p className="text-xs text-dim-2">
           {subtitle} {subtitleSuffix}
         </p>
       )}

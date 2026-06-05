@@ -16,6 +16,7 @@ import {
   resolveConversationDisplayTitle,
   resolveConversationPresence,
 } from '@/shared/utils/conversationDisplay';
+import { isMessagesConversation } from '@/shared/utils/conversationSurface';
 import { usePresenceContext, useTypingInConversation } from '@/shared/contexts/PresenceContext';
 import { useSessionContext } from '@/shared/contexts/SessionContext';
 
@@ -32,7 +33,7 @@ const ConversationListSkeleton = ({ rows = 6 }: { rows?: number }) => (
       return (
         <div
           key={i}
-          className="mb-1 flex w-full items-start gap-3 rounded-xl px-3 py-2.5"
+          className="mb-1 flex w-full items-start gap-3 rounded-r-md px-3 py-2.5"
           aria-hidden="true"
         >
           <SkeletonLoader variant="avatar" />
@@ -61,14 +62,14 @@ const ConversationListEmptyState = ({
 }: { title: string; hint: string }) => (
   <div className="flex h-full flex-1 items-center justify-center px-6 py-10">
     <div className="flex max-w-xs flex-col items-center gap-3 text-center">
-      <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-surface-overlay/60 ring-1 ring-line-glass/20">
+      <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-card/60 ring-1 ring-line-subtle">
         <Icon
           icon={MessageSquare}
-          className="h-6 w-6 text-input-placeholder"
+          className="h-6 w-6 text-dim-2"
         />
       </div>
-      <p className="text-sm font-medium text-input-text">{title}</p>
-      <p className="text-xs leading-5 text-input-placeholder">{hint}</p>
+      <p className="text-sm font-medium text-ink">{title}</p>
+      <p className="text-xs leading-5 text-dim-2">{hint}</p>
     </div>
   </div>
 );
@@ -107,7 +108,7 @@ const ConversationItem = memo(({ conversation, preview, fallbackName, isActive, 
       type="button"
       aria-current={isActive ? 'page' : undefined}
       className={cn(
-        'flex w-full items-start gap-3 rounded-xl px-3 py-2.5 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-500/50',
+        'flex w-full items-start gap-3 rounded-r-md px-3 py-2.5 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50',
         isActive ? 'nav-item-active' : 'nav-item-inactive'
       )}
     >
@@ -115,7 +116,7 @@ const ConversationItem = memo(({ conversation, preview, fallbackName, isActive, 
         src={null}
         name={avatarName}
         size="md"
-        className="ring-1 ring-line-glass/10"
+        className="ring-1 ring-line-subtle"
         status={presence.status}
       />
       <div className="min-w-0 flex-1">
@@ -124,7 +125,7 @@ const ConversationItem = memo(({ conversation, preview, fallbackName, isActive, 
             <span className={cn(
               'block truncate',
               chatTypography.previewName,
-              isUnread ? 'font-bold text-accent-utility' : 'text-input-text'
+              isUnread ? 'font-bold text-accent' : 'text-ink'
             )}>
               {title}
             </span>
@@ -140,22 +141,22 @@ const ConversationItem = memo(({ conversation, preview, fallbackName, isActive, 
             {timeLabel && (
               <span className={cn(
                 chatTypography.headerTime,
-                isUnread ? 'font-medium text-accent-utility/75' : 'text-input-placeholder'
+                isUnread ? 'font-medium text-accent/75' : 'text-dim-2'
               )}>{timeLabel}</span>
             )}
           </div>
         </div>
         {isTyping ? (
-          <div className="mt-0.5 flex items-center gap-1.5 text-xs leading-5 text-accent-utility">
-            <span className="ai-thinking-indicator__dot" aria-hidden="true" />
+          <div className="mt-0.5 flex items-center gap-1.5 text-xs leading-5 text-accent">
+            <span className="human-typing-indicator__dot" aria-hidden="true" />
             <span className="italic">{t('workspace.conversationList.typing', { defaultValue: 'typing…' })}</span>
           </div>
         ) : previewText ? (
           <div className={cn(
             'mt-0.5 truncate text-xs leading-5',
             isUnread
-              ? 'font-semibold text-accent-utility/85'
-              : 'text-input-placeholder'
+              ? 'font-semibold text-accent/85'
+              : 'text-dim-2'
           )}>
             <ChatText text={previewText} className="truncate" />
           </div>
@@ -166,7 +167,7 @@ const ConversationItem = memo(({ conversation, preview, fallbackName, isActive, 
         aria-hidden="true"
         className={cn(
           'mt-2 h-2 w-2 flex-shrink-0 rounded-full transition-opacity',
-          isUnread ? 'bg-accent-500 opacity-100' : 'opacity-0'
+          isUnread ? 'bg-accent opacity-100' : 'opacity-0'
         )}
       />
       {isUnread && (
@@ -214,7 +215,7 @@ const ConversationListView: FunctionComponent<ConversationListViewProps> = ({
   const { session } = useSessionContext();
   const currentUserId = session?.user?.id ?? null;
   const sorted = conversations
-    .filter((conversation) => conversation.user_info?.mode !== 'PRACTICE_ONBOARDING')
+    .filter(isMessagesConversation)
     .sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime());
 
   // Precompute contactId and presence for each conversation
@@ -268,7 +269,7 @@ const ConversationListView: FunctionComponent<ConversationListViewProps> = ({
       )}
 
       {showSendMessageButton ? (
-        <div className="border-t border-line-glass/30 bg-transparent px-4 py-4">
+        <div className="border-t border-line-subtle bg-transparent px-4 py-4">
           <Button
             variant="primary"
             size="lg"

@@ -23,13 +23,12 @@
  *  isPublicWorkspace / isPracticeWorkspace / isClientWorkspace
  *  isAuthenticatedClient   – public workspace + authenticated client role
  *
- *  effectivePracticeId     – the practiceId to use for API calls
- *  resolvedPracticeSlug    – canonical practice slug after fallback resolution
+ *  resolvedPracticeSlug    – canonical practice slug (prop → live practice)
  *
  *  resolvedPracticeName    – display name (live practice > config fallback)
  *  resolvedPracticeLogo    – logo URL (live practice > config fallback)
- *  resolvedPublicPracticeSlug   – slug for public workspace
- *  resolvedClientPracticeSlug   – slug for client workspace
+ *  resolvedPublicPracticeSlug   – slug for public workspace routes
+ *  resolvedClientPracticeSlug   – slug for client workspace routes
  *
  *  normalizedRouteConversationId – URL-decoded conversation ID (or null)
  *
@@ -117,48 +116,13 @@ export const useWorkspaceRouting = ({
 
   // ── slug resolution ────────────────────────────────────────────────────────
 
-  const resolvedPublicPracticeSlug = useMemo(() => {
-    if (!isPublicWorkspace) return null;
-    return publicPracticeSlug ?? practiceConfig.slug ?? null;
-  }, [isPublicWorkspace, practiceConfig.slug, publicPracticeSlug]);
+  const resolvedPublicPracticeSlug = isPublicWorkspace ? (publicPracticeSlug ?? null) : null;
+  const resolvedClientPracticeSlug = isClientWorkspace ? (clientPracticeSlug ?? null) : null;
 
-  const resolvedClientPracticeSlug = useMemo(() => {
-    if (!isClientWorkspace) return null;
-    return clientPracticeSlug ?? practiceConfig.slug ?? null;
-  }, [clientPracticeSlug, isClientWorkspace, practiceConfig.slug]);
-
-  /**
-   * The "canonical" practice slug for the current session.
-   * Priority: explicit prop → live practice → config.
-   */
   const resolvedPracticeSlug = useMemo(
-    () => practiceSlug ?? currentPractice?.slug ?? practiceConfig?.slug ?? undefined,
-    [currentPractice?.slug, practiceConfig?.slug, practiceSlug]
+    () => practiceSlug ?? currentPractice?.slug ?? undefined,
+    [currentPractice?.slug, practiceSlug]
   );
-
-  // ── effective practice ID ──────────────────────────────────────────────────
-
-  /**
-   * For public workspaces, prefer the config ID when the slug matches.
-   * This avoids an unnecessary API call when the slug is already in scope.
-   */
-  const effectivePracticeId = useMemo(() => {
-    if (isPublicWorkspace) {
-      // For public routes, the route-level practiceId is authoritative.
-      // Falling back to config.id can pick up the signed-in user's org context
-      // and break anon->auth conversation linking across practices.
-      if (practiceId) return practiceId;
-      if (
-        practiceConfig.id &&
-        resolvedPublicPracticeSlug &&
-        practiceConfig.slug === resolvedPublicPracticeSlug
-      ) {
-        return practiceConfig.id;
-      }
-      return undefined;
-    }
-    return practiceId || undefined;
-  }, [isPublicWorkspace, practiceConfig.id, practiceConfig.slug, practiceId, resolvedPublicPracticeSlug]);
 
   // ── display values ─────────────────────────────────────────────────────────
 
@@ -173,8 +137,10 @@ export const useWorkspaceRouting = ({
   }, [currentPractice?.logo, isPublicWorkspace, practiceConfig?.profileImage]);
 
   /**
-   * Resolved accent color — used by initializeAccentColor in MainApp.
-   * Returned here so MainApp's effect has a single stable value to depend on.
+   * Resolved accent color. After the DS migration the value no longer affects
+   * the visual theme (fixed gold), but the API still accepts brandColor on
+   * practice records, so consumers of this hook may still need the resolved
+   * value for non-visual purposes (forms, payload validation).
    */
   const resolvedAccentColor = useMemo(() => {
     if (isPublicWorkspace || isClientWorkspace) return practiceConfig.accentColor;
@@ -276,8 +242,7 @@ export const useWorkspaceRouting = ({
     isClientWorkspace,
     isAuthenticatedClient,
 
-    // IDs & slugs
-    effectivePracticeId,
+    // slugs
     resolvedPracticeSlug,
     resolvedPublicPracticeSlug,
     resolvedClientPracticeSlug,

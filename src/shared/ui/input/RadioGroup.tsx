@@ -71,7 +71,7 @@ export const RadioGroup = ({
   };
 
   const variantClasses = {
-    default: 'border-input-border focus:ring-accent-500 focus:border-accent-500',
+    default: 'border-input-border focus:ring-accent focus:border-accent',
     error: 'border-red-300 focus:ring-red-500 focus:border-red-500',
     success: 'border-green-300 focus:ring-green-500 focus:border-green-500'
   };
@@ -84,7 +84,7 @@ export const RadioGroup = ({
   return (
     <div className={cn('space-y-2', className)}>
       {displayLabel && (
-        <label className="block text-sm font-medium text-input-text">
+        <label className="block text-sm font-medium text-ink">
           {displayLabel}
           {required && <span className="text-red-500 ml-1">*</span>}
         </label>
@@ -109,7 +109,7 @@ export const RadioGroup = ({
                 disabled={disabled || option.disabled}
                 required={required}
                 className={cn(
-                  'border bg-input-bg text-accent-600',
+                  'border bg-input-bg text-accent',
                   'focus:outline-none focus:ring-2 ring-inset focus:ring-offset-0 transition-colors',
                   sizeClasses[size],
                   variantClasses[variant],
@@ -122,7 +122,7 @@ export const RadioGroup = ({
               <label
                 htmlFor={`${instanceId}-${option.value}`}
                 className={cn(
-                  'text-sm font-medium text-input-text',
+                  'text-sm font-medium text-ink',
                   (disabled || option.disabled) && 'opacity-50 cursor-not-allowed'
                 )}
               >
@@ -130,7 +130,7 @@ export const RadioGroup = ({
               </label>
               
               {option.description && (
-                <p className="text-xs text-input-placeholder mt-1">
+                <p className="text-xs text-dim-2 mt-1">
                   {option.description}
                 </p>
               )}
@@ -140,13 +140,13 @@ export const RadioGroup = ({
       </div>
       
       {displayDescription && !displayError && (
-        <p className="text-xs text-input-placeholder mt-1">
+        <p className="text-xs text-dim-2 mt-1">
           {displayDescription}
         </p>
       )}
       
       {displayError && (
-        <p id={errorId} className="text-xs text-accent-error dark:text-accent-error-light mt-1" role="alert" aria-live="assertive">
+        <p id={errorId} className="text-xs text-neg dark:text-neg mt-1" role="alert" aria-live="assertive">
           {displayError}
         </p>
       )}

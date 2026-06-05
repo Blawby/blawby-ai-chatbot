@@ -1,5 +1,6 @@
 import { ComponentChildren } from 'preact';
-import { useContext } from 'preact/hooks';
+import { useContext, useEffect, useState } from 'preact/hooks';
+import { createPortal } from 'preact/compat';
 import { cn } from '@/shared/utils/cn';
 import { DropdownContext } from './DropdownMenu';
 
@@ -12,69 +13,114 @@ export interface DropdownMenuContentProps {
   open?: boolean;
 }
 
+type FixedPosition = {
+  top?: number;
+  bottom?: number;
+  left?: number;
+  right?: number;
+};
+
+function computePosition(
+  rect: DOMRect,
+  side: NonNullable<DropdownMenuContentProps['side']>,
+  align: NonNullable<DropdownMenuContentProps['align']>,
+  offset: number,
+): FixedPosition {
+  const pos: FixedPosition = {};
+
+  if (side === 'bottom') {
+    pos.top = rect.bottom + offset;
+  } else if (side === 'top') {
+    pos.bottom = window.innerHeight - rect.top + offset;
+  } else if (side === 'right') {
+    pos.left = rect.right + offset;
+  } else {
+    pos.right = window.innerWidth - rect.left + offset;
+  }
+
+  const isVertical = side === 'bottom' || side === 'top';
+  if (isVertical) {
+    if (align === 'start') pos.left = rect.left;
+    else if (align === 'end') pos.right = window.innerWidth - rect.right;
+    else pos.left = rect.left + rect.width / 2;
+  } else {
+    if (align === 'start') pos.top = rect.top;
+    else if (align === 'end') pos.bottom = window.innerHeight - rect.bottom;
+    else pos.top = rect.top + rect.height / 2;
+  }
+
+  return pos;
+}
+
 export const DropdownMenuContent = ({
   children,
   align = 'end',
   side = 'bottom',
   sideOffset = 4,
   className = '',
-  open: controlledOpen
+  open: controlledOpen,
 }: DropdownMenuContentProps) => {
   const context = useContext(DropdownContext);
-  
+
   if (!context) {
     throw new Error('DropdownMenuContent must be used within a DropdownMenu');
   }
 
-  const { isOpen } = context;
+  const { isOpen, triggerRef, dropdownId, setContentRef } = context;
   const open = controlledOpen !== undefined ? controlledOpen : isOpen;
-  const getPositionClasses = () => {
-    const baseClasses = 'absolute z-50 min-w-max overflow-hidden rounded-xl border border-white/10 bg-surface-overlay shadow-glass text-input-text';
-    
-    const sideClasses = {
-      top: 'bottom-full',
-      right: 'left-full',
-      bottom: 'top-full',
-      left: 'right-full'
+  const [position, setPosition] = useState<FixedPosition>({});
+
+  useEffect(() => {
+    if (!open) {
+      setContentRef(null);
+    }
+  }, [open, setContentRef]);
+
+  useEffect(() => {
+    return () => {
+      setContentRef(null);
     };
-    
-    // For vertical sides (top/bottom), alignment controls horizontal positioning
-    const horizontalAlignClasses = {
-      start: 'left-0',
-      center: 'left-1/2 -translate-x-1/2',
-      end: 'right-0'
+  }, [setContentRef]);
+
+  useEffect(() => {
+    if (!open) return;
+
+    const update = () => {
+      const el = triggerRef.current;
+      if (!el) return;
+      setPosition(computePosition(el.getBoundingClientRect(), side, align, sideOffset));
     };
-    
-    // For horizontal sides (left/right), alignment controls vertical positioning
-    const verticalAlignClasses = {
-      start: 'top-0',
-      center: 'top-1/2 -translate-y-1/2',
-      end: 'bottom-0'
+
+    update();
+    window.addEventListener('scroll', update, { passive: true, capture: true });
+    window.addEventListener('resize', update, { passive: true });
+    return () => {
+      window.removeEventListener('scroll', update, { capture: true });
+      window.removeEventListener('resize', update);
     };
-    
-    // Choose the appropriate alignment mapping based on side
-    const alignClasses = (side === 'left' || side === 'right') 
-      ? verticalAlignClasses 
-      : horizontalAlignClasses;
-    
-    return cn(baseClasses, sideClasses[side], alignClasses[align] || alignClasses.end);
-  };
+  }, [open, side, align, sideOffset, triggerRef]);
 
   if (!open) return null;
 
-  return (
-    <div 
-      className={cn(getPositionClasses(), className)}
-      style={{ 
-        marginTop: side === 'bottom' ? sideOffset : undefined, 
-        marginBottom: side === 'top' ? sideOffset : undefined,
-        marginLeft: side === 'right' ? sideOffset : undefined,
-        marginRight: side === 'left' ? sideOffset : undefined
-      }}
+  const isVertical = side === 'bottom' || side === 'top';
+  const centerTransform = align === 'center'
+    ? (isVertical ? '-translate-x-1/2' : '-translate-y-1/2')
+    : '';
+
+  return createPortal(
+    <div
+      id={`${dropdownId}-menu`}
+      role="menu"
+      ref={(node) => setContentRef(node)}
+      className={cn(
+        'fixed z-50 min-w-max overflow-hidden rounded-r-md border border-white/10 bg-card shadow-glass text-ink',
+        centerTransform,
+        className,
+      )}
+      style={position}
     >
-      <div>
-        {children}
-      </div>
-    </div>
+      {children}
+    </div>,
+    document.body,
   );
 };

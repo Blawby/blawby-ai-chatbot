@@ -1,0 +1,215 @@
+<!doctype html>
+<html lang="en" data-theme="">
+<head>
+<meta charset="utf-8" />
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,opsz,wght@0,8..60,300..900;1,8..60,300..900&family=Geist:wght@300;400;500;600;700&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="tokens.css">
+<title>Blawby — MCP &amp; API</title>
+
+<style>
+  body{ background-image: radial-gradient(rgba(15,30,54,0.025) 1px, transparent 1.2px); background-size: 3px 3px; background-attachment: fixed; }
+  .shell{ display:grid; grid-template-columns: 280px 1fr; min-height: 100vh; max-width: 1440px; margin: 0 auto; }
+  .side{ border-right: 1px solid var(--rule); padding: 22px 16px; display:flex; flex-direction:column; gap: 14px; position: sticky; top: 0; height: 100vh; overflow-y: auto; background: color-mix(in oklab, var(--paper) 96%, var(--card)); }
+  .back{ display:inline-flex; align-items:center; gap: 6px; font-family: var(--mono); font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--dim); cursor: pointer; padding: 4px 8px; margin-left: -8px; text-decoration:none; }
+  .back:hover{ color: var(--ink); }
+  .side h2{ font-family: var(--serif); font-weight:400; font-size: 28px; margin: 4px 0 0; letter-spacing:-.012em; }
+  .side .org{ font-family:var(--mono); font-size:11px; color: var(--dim); letter-spacing: .04em; }
+  .nav-section{ display:flex; flex-direction:column; gap: 1px; margin-top: 6px; }
+  .nav-section .lbl{ font-family: var(--mono); font-size: 9.5px; letter-spacing: .12em; text-transform: uppercase; color: var(--dim-2); padding: 14px 10px 6px; }
+  .nav-item{ display:flex; align-items:center; gap: 10px; padding: 8px 10px; border-radius: var(--r-xs); font-size: 13.5px; color: var(--ink-2); cursor: pointer; transition: background .14s, color .14s; text-decoration: none; }
+  .nav-item:hover{ background: var(--rule-soft); color: var(--ink); }
+  .nav-item.on{ background: var(--ink); color: var(--accent); }
+  .nav-item .ic{ width:14px; height:14px; opacity:.7; flex-shrink:0; }
+  .nav-item.on .ic{ opacity: 1; }
+  .nav-item .badge{ margin-left: auto; font-family: var(--mono); font-size: 10px; color: var(--dim); }
+  .nav-item.on .badge{ color: var(--accent); }
+  .main{ padding: 36px 56px 80px; max-width: 920px; }
+  .crumb{ font-family: var(--mono); font-size: 10px; letter-spacing: .14em; text-transform: uppercase; color: var(--dim); margin-bottom: 6px; }
+  .main h1{ font-family: var(--serif); font-weight: 400; font-size: 48px; letter-spacing:-.02em; line-height: 1.05; margin: 0; }
+  .main h1 em{ color: var(--accent); }
+  .main > .lede{ margin: 12px 0 36px; }
+  section.group{ padding: 32px 0; border-top: 1px solid var(--rule); }
+  section.group:first-of-type{ border-top: none; padding-top: 0; }
+  section.group h3{ font-family: var(--serif); font-weight: 400; font-size: 24px; margin: 0 0 4px; letter-spacing:-.01em; }
+  section.group .gdesc{ font-size: 13.5px; color: var(--dim); margin: 0 0 24px; max-width: 60ch; }
+  .setting{ display:grid; grid-template-columns: 1fr auto; gap: 28px; align-items: center; padding: 18px 0; border-bottom: 1px solid var(--rule); }
+  .setting:last-child{ border-bottom: none; }
+  .setting .meta{ display:flex; flex-direction:column; gap:4px; }
+  .setting .meta .h{ font-size: 14px; font-weight: 500; color: var(--ink); }
+  .setting .meta .d{ font-size: 13px; color: var(--dim); max-width: 64ch; line-height: 1.5; }
+  .setting .meta .d code{ font-family: var(--mono); font-size: 11.5px; background: var(--rule-soft); padding: 1px 6px; border-radius: 3px; color: var(--ink-2); }
+  .setting .ctrl{ display:flex; align-items:center; gap: 8px; min-width: 200px; justify-content: flex-end; }
+  .setting .ctrl .input, .setting .ctrl .select{ width: 220px; }
+  .danger{ margin-top: 32px; padding: 22px; border: 1px solid color-mix(in oklab, var(--neg) 30%, var(--rule)); border-radius: var(--r-md); background: color-mix(in oklab, var(--neg) 6%, var(--card)); }
+  .danger h3{ color: var(--neg); }
+  .danger .gdesc{ color: var(--ink-2); }
+  @media (max-width: 980px){ .shell{ grid-template-columns: 1fr; } .side{ display:none; } .main{ padding: 24px 22px; } }
+</style>
+<style>
+  .endpoint-card{ background: var(--card); border: 1px solid var(--rule); border-radius: var(--r-md); padding: 20px; box-shadow: var(--shadow-1); margin-bottom: 14px; }
+  .endpoint-card h4{ font-family: var(--serif); font-weight: 400; font-size: 18px; margin: 0 0 4px; display: flex; align-items: center; gap: 10px; }
+  .endpoint-card .edesc{ font-size: 13px; color: var(--dim); margin: 0 0 16px; line-height: 1.45; }
+  .endpoint-card .url-row{ display: flex; align-items: center; gap: 8px; background: var(--rule-soft); padding: 10px 14px; border-radius: var(--r-xs); font-family: var(--mono); font-size: 12.5px; color: var(--ink); }
+  .endpoint-card .url-row .copy-btn{ margin-left: auto; font-size: 11px; cursor: pointer; color: var(--dim); padding: 2px 8px; border: 1px solid var(--rule); border-radius: var(--r-xs); background: var(--card); }
+  .endpoint-card .url-row .copy-btn:hover{ border-color: var(--ink); color: var(--ink); }
+  .tool-list{ margin-top: 16px; }
+  .tool-item{ display: grid; grid-template-columns: 1fr auto; gap: 14px; align-items: center; padding: 12px 0; border-bottom: 1px solid var(--rule); }
+  .tool-item:last-child{ border-bottom: none; }
+  .tool-item .t-name{ font-size: 13.5px; font-weight: 500; color: var(--ink); display: flex; align-items: center; gap: 8px; }
+  .tool-item .t-name code{ font-family: var(--mono); font-size: 11px; color: var(--dim); background: var(--rule-soft); padding: 1px 6px; border-radius: 3px; font-weight: 400; }
+  .tool-item .t-desc{ font-size: 12.5px; color: var(--dim); line-height: 1.4; margin-top: 2px; }
+  .key-row{ display: flex; align-items: center; gap: 14px; padding: 14px 16px; background: var(--card); border: 1px solid var(--rule); border-radius: var(--r-md); margin-bottom: 10px; box-shadow: var(--shadow-1); }
+  .key-row .k-info{ flex: 1; }
+  .key-row .k-name{ font-size: 14px; font-weight: 500; }
+  .key-row .k-mask{ font-family: var(--mono); font-size: 12px; color: var(--dim); margin-top: 2px; }
+  .key-row .k-meta{ font-family: var(--mono); font-size: 10px; color: var(--dim-2); margin-top: 4px; display: flex; gap: 14px; }
+  .wh-row{ display: grid; grid-template-columns: 1fr 140px auto; gap: 14px; align-items: center; padding: 12px 0; border-bottom: 1px solid var(--rule); }
+  .wh-row:last-child{ border-bottom: none; }
+  .wh-row .wh-url{ font-family: var(--mono); font-size: 12px; color: var(--ink); word-break: break-all; }
+  .wh-row .wh-events{ font-family: var(--mono); font-size: 10px; color: var(--dim); letter-spacing: .02em; }
+  .beta-badge{ font-family: var(--mono); font-size: 9px; letter-spacing: .08em; text-transform: uppercase; padding: 2px 7px; border-radius: var(--r-pill); background: color-mix(in oklab, var(--warn) 15%, var(--card)); color: var(--warn); border: 1px solid color-mix(in oklab, var(--warn) 25%, var(--rule)); }
+</style>
+</head>
+<body>
+<div class="shell">
+    <aside class="side">
+    <a href="Assistant.html" class="back">← back to assistant</a>
+    <div><h2>Settings</h2><div class="org">Law Offices of Sarah Chen · solo</div></div>
+    <div class="nav-section"><div class="lbl">Practice</div>
+      <a href="Profile.html" class="nav-item"><span class="ic">⌂</span>Profile &amp; areas</a>
+      <a href="Team.html" class="nav-item"><span class="ic">＋</span>Team <span class="badge">1</span></a>
+      <a href="Services.html" class="nav-item"><span class="ic">⏳</span>Services &amp; pricing <span class="badge">5</span></a></div>
+    <div class="nav-section"><div class="lbl">Money</div>
+      <a href="Subscription.html" class="nav-item"><span class="ic">$</span>Subscription</a>
+      <a href="StripeConnect.html" class="nav-item"><span class="ic">⇄</span>Stripe Connect</a>
+      <a href="Trust.html" class="nav-item"><span class="ic">▤</span>Trust accounting <span class="badge">IOLTA</span></a></div>
+    <div class="nav-section"><div class="lbl">Intelligence</div>
+      <a href="Settings.html" class="nav-item"><span class="ic">✦</span>AI behavior</a>
+      <a href="IntakeForms.html" class="nav-item"><span class="ic">📥</span>Intake forms <span class="badge">3</span></a>
+      <a href="EngagementTemplates.html" class="nav-item"><span class="ic">⌥</span>Engagement templates</a>
+      <a href="Apps.html" class="nav-item"><span class="ic">⬡</span>Apps &amp; integrations <span class="badge">1</span></a>
+      <a href="MCP.html" class="nav-item on"><span class="ic">▦</span>MCP &amp; API <span class="badge">beta</span></a></div>
+    <div class="nav-section"><div class="lbl">Account</div>
+      <a href="Security.html" class="nav-item"><span class="ic">⚿</span>Security</a>
+      <a href="Sessions.html" class="nav-item"><span class="ic">◉</span>Sessions</a>
+      <a href="Appearance.html" class="nav-item"><span class="ic">◐</span>Appearance</a>
+      <a href="Notifications.html" class="nav-item"><span class="ic">⌘</span>Notifications</a>
+      <a href="AuditLog.html" class="nav-item"><span class="ic">⎯</span>Audit log</a>
+      <a href="ExportData.html" class="nav-item"><span class="ic">↧</span>Export data</a></div>
+  </aside>
+  <main class="main">
+    <div class="crumb">Settings · Intelligence</div>
+    <h1>MCP &amp; <em>API.</em></h1>
+    <p class="lede">Connect external tools via Model Context Protocol, manage API keys, and configure webhooks for your workspace.</p>
+
+    <section class="group" style="border:none;padding-top:0">
+      <h3>MCP server <span class="beta-badge" style="margin-left:8px">beta</span></h3>
+      <p class="gdesc">Blawby exposes an MCP server so external AI tools (Claude Desktop, Cursor, etc.) can access your practice data with your permission.</p>
+
+      <div class="endpoint-card">
+        <h4>Server endpoint</h4>
+        <p class="edesc">Point your MCP client to this URL. Authenticated with your API key via Bearer token.</p>
+        <div class="url-row">
+          <span>https://api.blawby.com/v1/mcp/org_sc_2024</span>
+          <button class="copy-btn">Copy</button>
+        </div>
+
+        <div class="tool-list">
+          <div style="font-family:var(--mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--dim);padding:14px 0 8px">Exposed tools</div>
+          <div class="tool-item">
+            <div><div class="t-name">Search matters <code>search_matters</code></div><div class="t-desc">Full-text search across matter names, descriptions, and notes</div></div>
+            <span class="toggle on" data-toggle></span>
+          </div>
+          <div class="tool-item">
+            <div><div class="t-name">Get matter details <code>get_matter</code></div><div class="t-desc">Retrieve full matter record including events, parties, and financials</div></div>
+            <span class="toggle on" data-toggle></span>
+          </div>
+          <div class="tool-item">
+            <div><div class="t-name">List contacts <code>list_contacts</code></div><div class="t-desc">Query the client and contact directory</div></div>
+            <span class="toggle on" data-toggle></span>
+          </div>
+          <div class="tool-item">
+            <div><div class="t-name">Read trust ledger <code>read_trust</code></div><div class="t-desc">Read-only access to IOLTA trust account balances and transactions</div></div>
+            <span class="toggle" data-toggle></span>
+          </div>
+          <div class="tool-item">
+            <div><div class="t-name">Create time entry <code>create_time_entry</code></div><div class="t-desc">Log billable time to a matter from an external tool</div></div>
+            <span class="toggle on" data-toggle></span>
+          </div>
+          <div class="tool-item">
+            <div><div class="t-name">Draft document <code>draft_document</code></div><div class="t-desc">Generate a document from a template and matter data</div></div>
+            <span class="toggle" data-toggle></span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="group">
+      <h3>API keys</h3>
+      <p class="gdesc">Keys authenticate both the REST API and MCP connections. Treat them like passwords.</p>
+
+      <div class="key-row">
+        <div style="width:36px;height:36px;border-radius:var(--r-sm);background:var(--ink);color:var(--accent);display:grid;place-items:center;font-family:var(--mono);font-size:14px;font-weight:600;flex-shrink:0">⌘</div>
+        <div class="k-info">
+          <div class="k-name">Production key</div>
+          <div class="k-mask">blwb_live_••••••••••••aX7q</div>
+          <div class="k-meta"><span>Created Nov 3, 2024</span><span>Last used 14 min ago</span><span>Full access</span></div>
+        </div>
+        <div style="display:flex;gap:6px">
+          <button class="btn btn-ghost btn-sm">Rotate</button>
+          <button class="btn btn-ghost btn-sm" style="color:var(--neg);border-color:color-mix(in oklab, var(--neg) 30%, var(--rule))">Revoke</button>
+        </div>
+      </div>
+
+      <div class="key-row">
+        <div style="width:36px;height:36px;border-radius:var(--r-sm);background:var(--rule-soft);color:var(--dim);display:grid;place-items:center;font-family:var(--mono);font-size:14px;font-weight:600;flex-shrink:0">⌘</div>
+        <div class="k-info">
+          <div class="k-name">Development key</div>
+          <div class="k-mask">blwb_test_••••••••••••rP2m</div>
+          <div class="k-meta"><span>Created Jan 8, 2025</span><span>Last used 3 days ago</span><span>Read-only</span></div>
+        </div>
+        <div style="display:flex;gap:6px">
+          <button class="btn btn-ghost btn-sm">Rotate</button>
+          <button class="btn btn-ghost btn-sm" style="color:var(--neg);border-color:color-mix(in oklab, var(--neg) 30%, var(--rule))">Revoke</button>
+        </div>
+      </div>
+
+      <button class="btn btn-ghost" style="margin-top:12px">+ Create API key</button>
+    </section>
+
+    <section class="group">
+      <h3>Webhooks</h3>
+      <p class="gdesc">Receive real-time notifications when things happen in your workspace. Signed with HMAC-SHA256.</p>
+
+      <div class="wh-row" style="font-family:var(--mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--dim);border-bottom:1px solid var(--rule)">
+        <span>Endpoint</span><span>Events</span><span></span>
+      </div>
+      <div class="wh-row">
+        <div class="wh-url">https://hooks.sarahchenlaw.com/blawby</div>
+        <div class="wh-events">matter.created, intake.new, payment.received</div>
+        <div style="display:flex;gap:6px">
+          <span class="pill dot live">active</span>
+          <button class="btn btn-ghost btn-sm">Edit</button>
+        </div>
+      </div>
+
+      <button class="btn btn-ghost" style="margin-top:12px">+ Add webhook endpoint</button>
+    </section>
+
+    <section class="group">
+      <h3>Rate limits</h3>
+      <p class="gdesc">Your plan includes 1,000 API requests per minute and 10,000 per day.</p>
+      <div class="setting" style="border:none;padding-top:0">
+        <div class="meta">
+          <div class="h">Today's usage</div>
+          <div class="d">342 of 10,000 daily requests used</div>
+        </div>
+        <div class="ctrl"><div class="bar" style="width:180px;height:6px"><i style="width:3.4%"></i></div></div>
+      </div>
+    </section>
+  </main>
+</div>
+<script>document.querySelectorAll('[data-toggle]').forEach(t=>{t.addEventListener('click',()=>t.classList.toggle('on'))});</script>
+</body></html>

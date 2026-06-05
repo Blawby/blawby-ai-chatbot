@@ -309,12 +309,12 @@ export function PracticeContactEditorPage({
     >
       <div className="mx-auto flex w-full max-w-3xl flex-col gap-6 px-4 py-6 sm:px-6 lg:px-8">
         {loading ? (
-          <div className="rounded-xl border border-line-glass/30 bg-surface-card p-6">
+          <div className="rounded-r-md border border-line-subtle bg-card p-6">
             <LoadingBlock label="Loading contact..." />
           </div>
         ) : null}
         {error ? (
-          <div className="rounded-xl border border-accent-error/30 bg-accent-error/10 px-4 py-3 text-sm text-accent-error-foreground">
+          <div className="rounded-r-md border border-neg/30 bg-neg/10 px-4 py-3 text-sm text-neg">
             {error}
           </div>
         ) : null}
@@ -351,7 +351,7 @@ export function PracticeContactEditorPage({
               disabled={saving}
             />
             {resolvedContactId ? (
-              <p className="text-xs text-input-placeholder">
+              <p className="text-xs text-dim-2">
                 Contact record: {resolvedContactId}
               </p>
             ) : null}

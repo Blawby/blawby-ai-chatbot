@@ -10,7 +10,14 @@ import {
   validateWidgetAuthToken
 } from '../utils/widgetAuthToken.js';
 import type { IntakeTemplate } from '../../src/shared/types/intake.js';
-import { DEFAULT_INTAKE_TEMPLATE } from '../../src/shared/constants/intakeTemplates.js';
+import type { BackendIntakeTemplatePublic } from '../../src/shared/types/wire.js';
+import { STANDARD_FIELD_DEFINITIONS } from '../../src/shared/constants/intakeTemplates.js';
+
+const asNonEmptyString = (value: unknown): string | null => (
+  typeof value === 'string' && value.trim().length > 0
+    ? value.trim()
+    : null
+);
 
 const normalizeCrossSiteWidgetCookie = (cookie: string, request: Request): string => {
   const protocol = new URL(request.url).protocol;
@@ -46,9 +53,6 @@ export async function handleWidgetBootstrap(request: Request, env: Env): Promise
     throw HttpErrors.badRequest('slug parameter is required');
   }
 
-  // ?template param — resolved after practice details arrive
-  const templateSlugParam = url.searchParams.get('template')?.trim() || null;
-
   // Define headers for upstream calls
   const incomingCookie = request.headers.get('Cookie');
   const headers = new Headers();
@@ -61,7 +65,7 @@ export async function handleWidgetBootstrap(request: Request, env: Env): Promise
     upstreamHeaders[key] = value;
   });
 
-  // 1. Fetch practice details (in parallel with session check)
+  // 1. Fetch practice details + intake settings (in parallel with session check)
   const getPracticeDetails = (async () => {
     const res = await RemoteApiService.getPublicPracticeDetails(env, slug, request);
     if (!res.ok) {
@@ -75,6 +79,21 @@ export async function handleWidgetBootstrap(request: Request, env: Env): Promise
       return await res.json();
     } catch (parseErr) {
       throw new Error(`[Bootstrap] Failed to parse JSON from upstream practice details: ${parseErr instanceof Error ? parseErr.message : String(parseErr)}`);
+    }
+  })();
+  const getIntakeSettings = (async () => {
+    const res = await RemoteApiService.getPublicPracticeIntakeSettings(env, slug, request);
+    if (!res.ok) {
+      if (res.status === 404) {
+        throw HttpErrors.notFound('Practice intake settings not found');
+      }
+      const text = await res.text().catch(() => 'No body');
+      throw new Error(`[Bootstrap] Error fetching intake settings: ${res.status} - ${text}`);
+    }
+    try {
+      return await res.json();
+    } catch (parseErr) {
+      throw new Error(`[Bootstrap] Failed to parse JSON from upstream intake settings: ${parseErr instanceof Error ? parseErr.message : String(parseErr)}`);
     }
   })();
 
@@ -230,9 +249,22 @@ export async function handleWidgetBootstrap(request: Request, env: Env): Promise
 
   // 3. Wait for practice details
   const practiceDetails = await getPracticeDetails as Record<string, unknown>;
-  const pd = practiceDetails as Record<string, unknown>;
-  const practiceId =
-    (typeof pd.organization_id === 'string' && pd.organization_id.trim()) || null;
+  const intakeSettingsPayload = await getIntakeSettings as Record<string, unknown>;
+  const pd = (
+    practiceDetails.data &&
+    typeof practiceDetails.data === 'object' &&
+    !Array.isArray(practiceDetails.data)
+      ? practiceDetails.data
+      : practiceDetails
+  ) as Record<string, unknown>;
+  const intakeData = (
+    intakeSettingsPayload.data &&
+    typeof intakeSettingsPayload.data === 'object' &&
+    !Array.isArray(intakeSettingsPayload.data)
+      ? intakeSettingsPayload.data
+      : intakeSettingsPayload
+  ) as Record<string, unknown>;
+  const practiceId = asNonEmptyString(pd.id);
   if (!practiceId) {
     throw HttpErrors.badGateway('Unable to resolve practice id from practice details');
   }
@@ -296,52 +328,53 @@ export async function handleWidgetBootstrap(request: Request, env: Env): Promise
     }
   }
 
-  // 5. Resolve intake template
+  // 5. Resolve intake template from backend response (PR #318).
   // ------------------------------------------------------------------
-  // Resolution rules (never hard-fail — always fall back to default):
-  //   - no ?template param → default
-  //   - param present → find slug match in settings.intakeTemplates
-  //   - not found / broken config → default
+  // The backend returns the resolved published default as `intake_template`.
+  // If absent or null the practice has no published template — fail fast
+  // so the root cause is fixed upstream rather than masked here.
   // ------------------------------------------------------------------
-  let intakeTemplate: IntakeTemplate = DEFAULT_INTAKE_TEMPLATE;
-  try {
-    const dataSource = pd.metadata ?? pd.settings ?? pd.practice_settings;
-    let templates: unknown[] = [];
+  const rawIntakeTemplate = intakeData.intake_template as BackendIntakeTemplatePublic | null | undefined;
+  if (!rawIntakeTemplate) {
+    throw HttpErrors.badGateway(`[Bootstrap] No published intake template found for practice '${slug}'. Ensure the practice has a published default template.`);
+  }
 
-    if (typeof dataSource === 'string') {
-      const parsed = JSON.parse(dataSource) as unknown;
-      if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
-        const s = parsed as Record<string, unknown>;
-        const rawTemplates = s.intakeTemplates;
-        if (typeof rawTemplates === 'string') {
-          try { templates = JSON.parse(rawTemplates) as unknown[]; } catch { /* ignore */ }
-        } else if (Array.isArray(rawTemplates)) {
-          templates = rawTemplates;
-        }
-      }
-    } else if (dataSource && typeof dataSource === 'object' && !Array.isArray(dataSource)) {
-      const s = dataSource as Record<string, unknown>;
-      const rawTemplates = s.intakeTemplates;
-      if (typeof rawTemplates === 'string') {
-        try { templates = JSON.parse(rawTemplates) as unknown[]; } catch { /* ignore */ }
-      } else if (Array.isArray(rawTemplates)) {
-        templates = rawTemplates;
-      }
-    }
+  // Normalise backend shape → app IntakeTemplate (same logic as intakeTemplatesApi.ts edge)
+  const intakeTemplate: IntakeTemplate = {
+    id: rawIntakeTemplate.id,
+    slug: rawIntakeTemplate.slug,
+    name: rawIntakeTemplate.name,
+    is_default: true,
+    isDefault: true,
+    introMessage: rawIntakeTemplate.intro_message ?? undefined,
+    legalDisclaimer: rawIntakeTemplate.legal_disclaimer ?? undefined,
+    paymentLinkEnabled: rawIntakeTemplate.payment_link_enabled,
+    consultationFee: rawIntakeTemplate.consultation_fee ?? undefined,
+    fields: (rawIntakeTemplate.fields ?? [])
+      .slice()
+      .sort((a, b) => a.order_index - b.order_index)
+      .map((f) => ({
+        key: f.key,
+        label: f.label,
+        type: (f.field_type === 'textarea' || f.field_type === 'email' || f.field_type === 'phone'
+          ? 'text'
+          : f.field_type === 'multiselect' ? 'select' : f.field_type) as IntakeTemplate['fields'][number]['type'],
+        required: f.required,
+        phase: f.phase,
+        isStandard: f.is_standard,
+        promptHint: f.prompt_hint ?? undefined,
+        options: f.options ? f.options.map((o) => o.value) : undefined,
+      })),
+  };
 
-    const resolvedSlug = templateSlugParam ?? DEFAULT_INTAKE_TEMPLATE.slug;
-    const match = templates.find(
-      (t): t is IntakeTemplate =>
-        !!t && typeof t === 'object' && (t as Record<string, unknown>).slug === resolvedSlug
-        && Array.isArray((t as Record<string, unknown>).fields)
-        && ((t as Record<string, unknown>).fields as unknown[]).length > 0,
-    ) ?? null;
-
-    if (match) {
-      intakeTemplate = match;
-    }
-  } catch {
-    // Malformed settings JSON — fall back to default (already set)
+  // Ensure the three structurally-locked required fields are always present.
+  // If the backend template omits them (shouldn't happen but safe to guard),
+  // prepend them from STANDARD_FIELD_DEFINITIONS so the AI always collects them.
+  const LOCKED_KEYS = new Set(['description', 'city', 'state']);
+  const presentKeys = new Set(intakeTemplate.fields.map((f) => f.key));
+  const missingLocked = STANDARD_FIELD_DEFINITIONS.filter((f) => LOCKED_KEYS.has(f.key) && !presentKeys.has(f.key));
+  if (missingLocked.length > 0) {
+    intakeTemplate.fields = [...missingLocked, ...intakeTemplate.fields];
   }
 
   // Create the response object
@@ -387,39 +420,52 @@ export async function handlePublicPracticeIntakeSettings(request: Request, env: 
     throw HttpErrors.badRequest('Practice slug is required');
   }
 
-  const res = await RemoteApiService.getPublicPracticeDetails(env, slug, request);
+  const res = await RemoteApiService.getPublicPracticeIntakeSettings(env, slug, request);
   if (!res.ok) {
     if (res.status === 404) {
       throw HttpErrors.notFound('Practice not found');
     }
     const text = await res.text().catch(() => 'No body');
-    throw HttpErrors.badGateway(`[Public intake settings] Error fetching practice details: ${res.status} - ${text}`);
+    throw HttpErrors.badGateway(`[Public intake settings] Error fetching intake settings: ${res.status} - ${text}`);
   }
 
-  const practiceDetails = await res.json().catch(() => null) as Record<string, unknown> | null;
-  if (!practiceDetails) {
-    throw HttpErrors.badGateway('Failed to parse public practice details');
+  const intakeSettingsPayload = await res.json().catch(() => null) as Record<string, unknown> | null;
+  if (!intakeSettingsPayload) {
+    throw HttpErrors.badGateway('Failed to parse public intake settings');
   }
+  const dataRecord = intakeSettingsPayload.data && typeof intakeSettingsPayload.data === 'object' && !Array.isArray(intakeSettingsPayload.data)
+    ? intakeSettingsPayload.data as Record<string, unknown>
+    : null;
+  const settingsRecord = dataRecord?.settings && typeof dataRecord.settings === 'object'
+    ? dataRecord.settings as Record<string, unknown>
+    : intakeSettingsPayload.settings && typeof intakeSettingsPayload.settings === 'object'
+      ? intakeSettingsPayload.settings as Record<string, unknown>
+      : {};
+  const organizationRecord = dataRecord?.organization && typeof dataRecord.organization === 'object'
+    ? dataRecord.organization as Record<string, unknown>
+    : intakeSettingsPayload.organization && typeof intakeSettingsPayload.organization === 'object'
+      ? intakeSettingsPayload.organization as Record<string, unknown>
+      : {};
+  const intakeTemplate = ((dataRecord?.intake_template as unknown) ?? intakeSettingsPayload.intake_template ?? null);
 
   const settings = {
-    paymentLinkEnabled: Boolean(practiceDetails.payment_link_enabled),
-    payment_link_enabled: Boolean(practiceDetails.payment_link_enabled),
-    consultationFee: typeof practiceDetails.consultation_fee === 'number' ? practiceDetails.consultation_fee : undefined,
-    consultation_fee: typeof practiceDetails.consultation_fee === 'number' ? practiceDetails.consultation_fee : undefined,
+    payment_link_enabled: Boolean(settingsRecord.payment_link_enabled),
+    consultation_fee: typeof settingsRecord.consultation_fee === 'number' ? settingsRecord.consultation_fee : undefined,
   };
 
   const organization = {
-    id: typeof practiceDetails.organization_id === 'string' ? practiceDetails.organization_id : undefined,
-    slug: typeof practiceDetails.slug === 'string' ? practiceDetails.slug : slug,
-    name: typeof practiceDetails.name === 'string' ? practiceDetails.name : undefined,
-    logo: typeof practiceDetails.logo === 'string' ? practiceDetails.logo : undefined,
+    id: asNonEmptyString(organizationRecord.id) ?? undefined,
+    slug: typeof organizationRecord.slug === 'string' ? organizationRecord.slug : slug,
+    name: typeof organizationRecord.name === 'string' ? organizationRecord.name : undefined,
+    logo: typeof organizationRecord.logo === 'string' ? organizationRecord.logo : undefined,
   };
 
   return new Response(JSON.stringify({
     success: true,
     settings,
     organization,
-    data: { settings, organization },
+    intake_template: intakeTemplate,
+    data: { settings, organization, intake_template: intakeTemplate },
   }), {
     status: 200,
     headers: {

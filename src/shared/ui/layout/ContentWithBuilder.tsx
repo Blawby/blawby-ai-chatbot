@@ -23,13 +23,13 @@ export function ContentWithBuilder({
   return (
     <div
       className={cn(
-        'grid min-h-0 flex-1 md:grid-cols-[300px_minmax(0,1fr)] lg:grid-cols-[340px_minmax(0,1fr)_380px] xl:grid-cols-[360px_minmax(0,1fr)_400px]',
+        'grid min-h-0 flex-1 md:grid-cols-[300px_minmax(0,1fr)] lg:grid-cols-[340px_minmax(0,1fr)_420px] xl:grid-cols-[360px_minmax(0,1fr)_440px]',
         className
       )}
     >
       <aside
         className={cn(
-          'min-h-0 overflow-x-visible overflow-y-auto bg-surface-navigation px-4 py-4',
+          'min-h-0 overflow-x-visible overflow-y-auto bg-paper-2 px-4 py-4',
           sidebarClassName
         )}
       >
@@ -40,7 +40,7 @@ export function ContentWithBuilder({
       </main>
       <aside
         className={cn(
-          'min-h-0 overflow-y-auto bg-surface-utility px-4 py-4',
+          'min-h-0 overflow-y-auto bg-paper-2 px-4 py-4',
           inspectorClassName
         )}
       >

@@ -107,7 +107,7 @@ const MediaRow: FunctionComponent<MediaRowProps> = ({ media, onPreview, onError 
       role="button"
       tabIndex={0}
       aria-busy={busy}
-      className="cursor-pointer transition-all duration-200 hover:scale-[1.02] focus:outline-none focus:ring-2 focus:ring-accent-500/50 rounded-xl"
+      className="cursor-pointer transition-all duration-200 hover:scale-[1.02] focus:outline-none focus:ring-2 focus:ring-accent/50 rounded-r-md"
       onClick={() => { void handleActivate(); }}
       onKeyDown={(e) => {
         if (e.key === 'Enter' || e.key === ' ') {
@@ -127,20 +127,20 @@ const MediaRow: FunctionComponent<MediaRowProps> = ({ media, onPreview, onError 
         />
         <div className="flex-1 min-w-0">
           <div
-            className="text-xs sm:text-sm font-medium text-input-text whitespace-nowrap overflow-hidden text-ellipsis"
+            className="text-xs sm:text-sm font-medium text-ink whitespace-nowrap overflow-hidden text-ellipsis"
             title={media.name}
           >
             {media.name.length > 20 ? `${media.name.substring(0, 20)}...` : media.name}
           </div>
           <div className="flex items-center justify-between gap-2">
-            <span className="text-xs text-accent-500">{formatFileSize(media.size)}</span>
+            <span className="text-xs text-accent">{formatFileSize(media.size)}</span>
             <Button
               variant="ghost"
               size="sm"
               onClick={(e) => { void handleDownload(e); }}
               title="Download file"
               disabled={busy}
-              className="p-1.5 surface-hover rounded-xl text-input-placeholder hover:text-input-text"
+              className="p-1.5 surface-hover rounded-r-md text-dim-2 hover:text-ink"
             >
               <Icon icon={Download} className="w-3.5 h-3.5" />
             </Button>
@@ -175,9 +175,9 @@ export default function MediaSidebar({ messages }: MediaSidebarProps) {
           <AccordionTrigger>Media, DocumentIcons, and Links</AccordionTrigger>
           <AccordionContent>
             <div className="flex flex-col items-center justify-center text-center py-6">
-              <Icon icon={Image} className="w-6 h-6 sm:w-8 sm:h-8 text-input-placeholder/50 mb-2" />
-              <p className="text-sm font-medium mb-1 text-input-text">No files shared yet</p>
-              <p className="text-xs text-input-placeholder">Files you share in the conversation will appear here</p>
+              <Icon icon={Image} className="w-6 h-6 sm:w-8 sm:h-8 text-dim-2/50 mb-2" />
+              <p className="text-sm font-medium mb-1 text-ink">No files shared yet</p>
+              <p className="text-xs text-dim-2">Files you share in the conversation will appear here</p>
             </div>
           </AccordionContent>
         </AccordionItem>
@@ -195,7 +195,7 @@ export default function MediaSidebar({ messages }: MediaSidebarProps) {
               <div className="flex flex-col gap-3 pt-2">
                 {mediaGroups.map((group) => (
                   <div key={group.category} className="flex flex-col gap-2">
-                    <h5 className="text-[10px] font-bold text-input-placeholder uppercase tracking-[0.2em]">
+                    <h5 className="text-[10px] font-bold text-dim-2 uppercase tracking-[0.2em]">
                       {categoryLabels[group.category]} ({group.files.length})
                     </h5>
                     <div className="flex flex-col gap-2">

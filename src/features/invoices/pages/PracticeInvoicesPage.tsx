@@ -1,4 +1,5 @@
 import { useCallback, useMemo, useState } from 'preact/hooks';
+import { Inbox } from 'lucide-preact';
 import { useNavigation } from '@/shared/utils/navigation';
 import { useToastContext } from '@/shared/contexts/ToastContext';
 import {
@@ -8,35 +9,57 @@ import {
   voidInvoice,
 } from '@/features/invoices/services/invoicesService';
 import type { InvoiceFilterRule, InvoiceSummary } from '@/features/invoices/types';
-import { InvoiceStatusBadge } from '@/features/invoices/components/InvoiceStatusBadge';
 import { InvoicesTable } from '@/features/invoices/components/InvoicesTable';
-import {
-  type InvoiceColumnKey,
-} from '@/features/invoices/config/invoiceCollection';
-import { InvoiceListKpiRow } from '@/features/invoices/components/list/InvoiceListKpiRow';
-import {
-  INVOICE_TAB_STATUS_MAP,
-  InvoiceStatusTabs,
-  type InvoiceTabId,
-} from '@/features/invoices/components/list/InvoiceStatusTabs';
+import { PracticeInvoiceRow } from '@/features/invoices/components/PracticeInvoiceRow';
+import { type InvoiceColumnKey } from '@/features/invoices/config/invoiceCollection';
 import {
   InvoiceFilterChips,
   type InvoiceListFilterState,
 } from '@/features/invoices/components/list/InvoiceFilterChips';
 import { useInvoiceListAggregates } from '@/features/invoices/hooks/useInvoiceListAggregates';
 import { VoidInvoiceConfirmDialog } from '@/features/invoices/components/dialogs/VoidInvoiceConfirmDialog';
-import { Panel } from '@/shared/ui/layout/Panel';
 import { WorkspacePlaceholderState } from '@/shared/ui/layout/WorkspacePlaceholderState';
 import { EntityList } from '@/shared/ui/list/EntityList';
 import { Button } from '@/shared/ui/Button';
+import { SplitDetail } from '@/design-system/layout';
+import {
+  Seg,
+  AIAskBar,
+  AIAnswerCard,
+} from '@/design-system/patterns';
 import { usePaginatedList } from '@/shared/hooks/usePaginatedList';
 import { formatCurrency } from '@/shared/utils/currencyFormatter';
-import { formatLongDate } from '@/shared/utils/dateFormatter';
 import { cn } from '@/shared/utils/cn';
 
 const PAGE_SIZE = 10;
+const EMPTY_FILTERS: InvoiceListFilterState = {};
+// Stable identity for the default `statusFilter` prop so it keeps the same
+// reference across renders (used in fetch deps). Restored after an earlier
+// refactor removed the definition but left the usage below.
 const STABLE_EMPTY_ARRAY: string[] = [];
-const EMPTY_FILTERS: InvoiceListFilterState = { statuses: [] };
+
+// Inline status filter (Seg) — surfaces the same status buckets the canonical
+// Invoices.html mockup shows ("All / Staged / Sent / Paid / Overdue"). Counts
+// come from `useInvoiceListAggregates`. NOTE(backend): the `staged` bucket
+// will land with RA5's detail-side work; until then we map it to drafts so the
+// pill renders but the count is correct.
+type StatusTabId = 'all' | 'staged' | 'sent' | 'paid' | 'overdue';
+const STATUS_TAB_FILTER: Record<StatusTabId, string[]> = {
+  all: [],
+  staged: ['draft'],
+  sent: ['sent', 'open', 'pending'],
+  paid: ['paid'],
+  overdue: ['overdue'],
+};
+
+// Cards-vs-Table view toggle — Cards (EntityList + PracticeInvoiceRow) is the
+// default chat-first surface; power users can flip to Table (existing
+// InvoicesTable + ColumnEditor) for bulk inspection. Kept as in-page state.
+type ViewMode = 'cards' | 'table';
+const VIEW_MODE_OPTIONS: ReadonlyArray<{ value: ViewMode; label: string }> = [
+  { value: 'cards', label: 'Cards' },
+  { value: 'table', label: 'Table' },
+];
 
 const InvoicesEmptyState = ({
   hasFilters,
@@ -52,6 +75,14 @@ const InvoicesEmptyState = ({
       : 'Create your first invoice here, or link one to a matter later.'}
     primaryAction={hasFilters ? undefined : (onCreateInvoice ? { label: 'New Invoice', onClick: onCreateInvoice } : undefined)}
     className="p-8"
+  />
+);
+
+const DetailEmptyState = () => (
+  <WorkspacePlaceholderState
+    icon={Inbox}
+    title="Select an invoice"
+    description="Pick an invoice from the list to view its details, line items, and payment status."
   />
 );
 
@@ -109,29 +140,25 @@ export function PracticeInvoicesPage({
   onCreateInvoice?: () => void;
 }) {
   const { navigate } = useNavigation();
-  const { showError, showSuccess } = useToastContext();
+  const { showError, showSuccess, showInfo } = useToastContext();
   const [visibleOptionalColumns, setVisibleOptionalColumns] = useState<InvoiceColumnKey[]>([]);
-  const [activeTab, setActiveTab] = useState<InvoiceTabId>('all');
   const [chipFilters, setChipFilters] = useState<InvoiceListFilterState>(EMPTY_FILTERS);
   const [pendingVoidInvoice, setPendingVoidInvoice] = useState<InvoiceSummary | null>(null);
   const [isVoidLoading, setIsVoidLoading] = useState(false);
+  const [statusTab, setStatusTab] = useState<StatusTabId>('all');
+  const [viewMode, setViewMode] = useState<ViewMode>('cards');
+  const [askAnswer, setAskAnswer] = useState<{ query: string } | null>(null);
 
   const aggregates = useInvoiceListAggregates(practiceId);
 
-  const effectiveStatusFilter = useMemo((): string[] | null => {
-    const tabStatuses = INVOICE_TAB_STATUS_MAP[activeTab];
-    const fromTab = tabStatuses.length > 0 ? tabStatuses : null;
-    const fromChip = chipFilters.statuses.length > 0 ? chipFilters.statuses : null;
-    const incoming = statusFilter.length > 0 ? statusFilter : null;
-    const candidates = [incoming, fromTab, fromChip].filter((value): value is string[] => value !== null);
-    if (candidates.length === 0) return STABLE_EMPTY_ARRAY;
-    const result = candidates.reduce<string[]>((acc, current) => {
-      if (acc.length === 0) return current;
-      const allowed = new Set(current);
-      return acc.filter((value) => allowed.has(value));
-    }, []);
-    return result.length === 0 ? null : result;
-  }, [activeTab, chipFilters.statuses, statusFilter]);
+  // Status tab overrides the parent-supplied `statusFilter` only when the
+  // parent didn't provide one. Lets the workspace route still pin to a
+  // status group when invoked from the rail (e.g. "Overdue") without
+  // breaking the in-page tab.
+  const effectiveStatusFilter = useMemo(() => {
+    if (statusFilter.length > 0) return statusFilter;
+    return STATUS_TAB_FILTER[statusTab];
+  }, [statusFilter, statusTab]);
 
   const chipFilterRules = useMemo(() => buildChipFilterRules(chipFilters), [chipFilters]);
 
@@ -145,7 +172,7 @@ export function PracticeInvoicesPage({
     refetch,
   } = usePaginatedList<InvoiceSummary>({
     fetchPage: async (page, signal) => {
-      if (!practiceId || renderMode === 'detailOnly' || effectiveStatusFilter === null) {
+      if (!practiceId || renderMode === 'detailOnly') {
         return { items: [], hasMore: false };
       }
       const result = await listInvoices(
@@ -226,6 +253,15 @@ export function PracticeInvoicesPage({
     }
   }, [practiceId, pendingVoidInvoice, refetch, showError, showSuccess]);
 
+  // ── AI ask submit ─────────────────────────────────────────────────────
+  const handleAskSubmit = useCallback((query: string) => {
+    // TODO(backend): wire to /api/practice/:id/invoices/ask once the
+    // natural-language invoices-query endpoint exists. Today the
+    // AIAnswerCard narrates the current filter state so the chat-first
+    // shape is end-to-end without fabricating answers.
+    setAskAnswer({ query });
+  }, []);
+
   if (renderMode === 'detailOnly') {
     return null;
   }
@@ -234,7 +270,7 @@ export function PracticeInvoicesPage({
     return null;
   }
 
-  const hasFilters = effectiveStatusFilter === null || effectiveStatusFilter.length > 0
+  const hasFilters = effectiveStatusFilter.length > 0
     || chipFilters.createdFrom !== undefined
     || chipFilters.createdTo !== undefined
     || chipFilters.dueFrom !== undefined
@@ -242,47 +278,158 @@ export function PracticeInvoicesPage({
     || chipFilters.totalMin !== undefined
     || chipFilters.totalMax !== undefined;
 
-  if (renderMode === 'full') {
-    return (
-      <div className="flex min-h-0 flex-1 flex-col gap-4 p-4 sm:p-6">
-        <InvoiceListKpiRow aggregates={aggregates} />
-        <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
-          <div>
-            <h1 className="text-3xl font-semibold tracking-tight text-input-text">Invoices</h1>
+  const totalCount = aggregates.outstanding.count + aggregates.paid30d.count + aggregates.drafts.count;
+  const sentCount = Math.max(0, aggregates.outstanding.count - aggregates.pastDue.count);
+
+  // ── Status tab options with live counts ───────────────────────────────
+  const statusTabOptions: ReadonlyArray<{ value: StatusTabId; label: string }> = [
+    { value: 'all', label: `All${aggregates.loading ? '' : ` · ${totalCount}`}` },
+    { value: 'staged', label: `Staged${aggregates.loading ? '' : ` · ${aggregates.drafts.count}`}` },
+    { value: 'sent', label: `Sent${aggregates.loading ? '' : ` · ${sentCount}`}` },
+    { value: 'paid', label: `Paid${aggregates.loading ? '' : ` · ${aggregates.paid30d.count}`}` },
+    { value: 'overdue', label: `Overdue${aggregates.loading ? '' : ` · ${aggregates.pastDue.count}`}` },
+  ];
+
+  // ── Stat cells (canonical Invoices.html) ──────────────────────────────
+  const statCells = [
+    { label: 'Outstanding', value: formatCurrency(aggregates.outstanding.amount), warn: false },
+    { label: 'Paid 30d', value: formatCurrency(aggregates.paid30d.amount), warn: false },
+    { label: 'Overdue', value: String(aggregates.pastDue.count), warn: aggregates.pastDue.count > 0 },
+  ];
+
+  // Mobile reflow strategy:
+  // - listHead: padding tighter on mobile (px-4 pt-5) → px-[22px] pt-[22px] sm+
+  // - H1: 28px mobile → 34px sm+ (StatStrip aggregates stay visible)
+  // - Stat cells: 3 visible, wrap naturally (small text — no collapse needed)
+  // - Status Seg: 5 options can overflow; wrap in scrollbar-hide row
+  // - SplitDetail: hidden < xl; mobile falls back to list-only (drill-down)
+  // - The 4 just-deleted invoice subcomponents (InvoiceSummaryPanel,
+  //   InvoiceLineItemsTable, InvoicePaymentsSection, InvoiceRefundsSection)
+  //   are gone — list+detail SplitDetail still routes via right pane
+  // ── The list-shell head (used in both full + listOnly) ────────────────
+  const listHead = (
+    <div className="border-b border-rule px-4 pb-[14px] pt-5 sm:px-[22px] sm:pt-[22px]">
+      <div className="font-mono text-[10px] uppercase tracking-[0.14em] text-dim">
+        Workspace · {aggregates.loading ? '—' : `${totalCount} invoices`}
+      </div>
+      <h1 className="mt-1 font-[family-name:var(--serif)] text-[28px] font-normal leading-none tracking-[-0.02em] text-ink sm:text-[34px]">
+        Invoices
+      </h1>
+      <div className="mt-3 flex flex-wrap gap-3.5">
+        {statCells.map((cell) => (
+          <div key={cell.label} className="flex flex-col gap-0.5">
+            <span className="font-mono text-[10px] uppercase tracking-[0.04em] text-dim">
+              {cell.label}
+            </span>
+            <span className={cn(
+              'font-[family-name:var(--sans)] text-sm font-medium',
+              cell.warn ? 'text-neg' : 'text-ink'
+            )}>
+              {cell.value}
+            </span>
           </div>
-          <div className="flex flex-wrap items-center gap-2">
-            {onCreateInvoice ? (
-              <Button onClick={onCreateInvoice}>New Invoice</Button>
-            ) : null}
-          </div>
+        ))}
+      </div>
+    </div>
+  );
+
+  // ── List body (used in both full + listOnly) ──────────────────────────
+  const listBody = (
+    <>
+      <div className="border-b border-rule bg-paper-2 px-4 py-2.5 sm:px-[22px]">
+        <div className="overflow-x-auto scrollbar-hide">
+          <Seg<StatusTabId>
+            value={statusTab}
+            options={statusTabOptions}
+            onChange={setStatusTab}
+            ariaLabel="Filter invoices by status"
+          />
         </div>
-        <InvoiceStatusTabs activeTab={activeTab} onChange={setActiveTab} aggregates={aggregates} />
-        <InvoiceFilterChips
-          filters={chipFilters}
-          onChange={setChipFilters}
-          visibleOptionalColumns={visibleOptionalColumns}
-          onVisibleColumnsChange={setVisibleOptionalColumns}
+      </div>
+      <EntityList
+        items={invoices}
+        onSelect={handleRowClick}
+        selectedId={undefined}
+        isLoading={isLoading}
+        isLoadingMore={isLoadingMore}
+        error={error}
+        minMountSkeletonMs={250}
+        emptyState={<InvoicesEmptyState hasFilters={hasFilters} onCreateInvoice={onCreateInvoice} />}
+        onLoadMore={hasMore ? loadMore : undefined}
+        renderItem={(invoice, isSelected) => (
+          <PracticeInvoiceRow invoice={invoice} isSelected={isSelected} />
+        )}
+      />
+    </>
+  );
+
+  // ── Shared AI block (ask bar + answer card) ───────────────────────────
+  const aiBlock = (
+    <>
+      <AIAskBar
+        sticky={false}
+        placeholder="Find invoices ready to send..."
+        suggestions={[
+          'Drafts ready to send',
+          'Overdue this week',
+          'Paid last 30 days',
+        ]}
+        onSubmit={handleAskSubmit}
+      />
+      {askAnswer ? (
+        <AIAnswerCard
+          groundingLabel={`Practice assistant · grounded in invoices · ${invoices.length} rows · just now`}
+          lede={
+            <>
+              <em>{invoices.length}</em> {invoices.length === 1 ? 'invoice' : 'invoices'} match your filters
+              {aggregates.outstanding.amount > 0
+                ? <> · <em>{formatCurrency(aggregates.outstanding.amount)}</em> outstanding</>
+                : null}
+            </>
+          }
+          body={
+            <p className="text-sm text-dim-2">
+              You asked: <span className="italic text-ink">&ldquo;{askAnswer.query}&rdquo;</span>. Live natural-language invoice search is coming soon &mdash; for now I&apos;ve narrated the filtered set.
+            </p>
+          }
+          actions={[
+            {
+              id: 'send-all',
+              label: 'Send all',
+              variant: 'primary',
+              // TODO(backend): bulk send endpoint not yet wired.
+              onClick: () => showInfo('Send all', 'Bulk send is coming soon.'),
+            },
+            {
+              id: 'mark-paid',
+              label: 'Mark paid',
+              // TODO(backend): bulk mark-paid endpoint not yet wired.
+              onClick: () => showInfo('Mark paid', 'Bulk mark-paid is coming soon.'),
+            },
+            {
+              id: 'export',
+              label: 'Export to CSV',
+              // TODO(backend): CSV export endpoint not yet wired.
+              onClick: () => showInfo('Export', 'Invoice export is coming soon.'),
+            },
+            {
+              id: 'dismiss',
+              label: 'Dismiss',
+              onClick: () => setAskAnswer(null),
+            },
+          ]}
+          sources={[{ table: 'invoices', count: invoices.length }]}
         />
-        <InvoicesTable
-          invoices={invoices}
-          loading={isLoading}
-          loadingMore={isLoadingMore}
-          hasMore={hasMore}
-          onLoadMore={loadMore}
-          error={error}
-          emptyMessage={hasFilters ? 'No invoices match these filters.' : undefined}
-          onRowClick={handleRowClick}
-          onViewCustomer={handleViewCustomer}
-          onSendInvoice={handleSendInvoice}
-          onSyncInvoice={handleSyncInvoice}
-          onVoidInvoice={handleVoidInvoice}
-          visibleOptionalColumns={visibleOptionalColumns}
-          footer={(
-            <div className="flex w-full items-center justify-between gap-4">
-              <span>{invoices.length} item{invoices.length === 1 ? '' : 's'}</span>
-            </div>
-          )}
-        />
+      ) : null}
+    </>
+  );
+
+  // ── listOnly: render the list inside the workspace shell's listPanel ──
+  if (renderMode === 'listOnly') {
+    return (
+      <div className="flex h-full min-h-0 flex-1 flex-col">
+        {listHead}
+        {listBody}
         <VoidInvoiceConfirmDialog
           isOpen={pendingVoidInvoice !== null}
           invoiceNumber={pendingVoidInvoice?.invoiceNumber}
@@ -294,38 +441,110 @@ export function PracticeInvoicesPage({
     );
   }
 
-  return (
-    <div className={cn('flex min-h-0 flex-1 flex-col gap-2')}>
-      <Panel className="list-panel-card-gradient min-h-0 flex-1 overflow-hidden">
-        <EntityList
-          items={invoices}
-          onSelect={handleRowClick}
-          selectedId={undefined}
-          isLoading={isLoading}
-          isLoadingMore={isLoadingMore}
-          error={error}
-          minMountSkeletonMs={250}
-          emptyState={<InvoicesEmptyState hasFilters={hasFilters} onCreateInvoice={onCreateInvoice} />}
-          onLoadMore={hasMore ? loadMore : undefined}
-          renderItem={(invoice) => (
-            <div className={cn('w-full px-4 py-3 text-left hover:bg-surface-utility/10')}>
-              <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <p className="truncate text-sm font-semibold text-input-text">{invoice.invoiceNumber || '—'}</p>
-                  <p className="truncate text-xs text-input-placeholder">{invoice.clientName ?? '—'}</p>
-                  <p className="mt-1 text-xs text-input-placeholder">
-                    Due {invoice.dueDate ? formatLongDate(invoice.dueDate) : '—'}
-                  </p>
-                </div>
-                <div className="flex shrink-0 flex-col items-end gap-1">
-                  <InvoiceStatusBadge status={invoice.status} />
-                  <p className="text-sm font-semibold text-input-text">{formatCurrency(invoice.total)}</p>
-                </div>
+  // ── Table view (power users): full-width data table with column editor
+  if (viewMode === 'table') {
+    return (
+      <div className="flex min-h-0 flex-1 flex-col">
+        {listHead}
+        <div className="flex min-h-0 flex-1 flex-col gap-4 p-4 sm:p-6">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <Seg<ViewMode>
+              value={viewMode}
+              options={VIEW_MODE_OPTIONS}
+              onChange={setViewMode}
+              ariaLabel="Switch invoice view"
+            />
+            {onCreateInvoice ? (
+              <Button onClick={onCreateInvoice}>New Invoice</Button>
+            ) : null}
+          </div>
+          {aiBlock}
+          <InvoiceFilterChips
+            filters={chipFilters}
+            onChange={setChipFilters}
+            visibleOptionalColumns={visibleOptionalColumns}
+            onVisibleColumnsChange={setVisibleOptionalColumns}
+          />
+          <InvoicesTable
+            invoices={invoices}
+            loading={isLoading}
+            loadingMore={isLoadingMore}
+            hasMore={hasMore}
+            onLoadMore={loadMore}
+            error={error}
+            emptyMessage={hasFilters ? 'No invoices match these filters.' : undefined}
+            onRowClick={handleRowClick}
+            onViewCustomer={handleViewCustomer}
+            onSendInvoice={handleSendInvoice}
+            onSyncInvoice={handleSyncInvoice}
+            onVoidInvoice={handleVoidInvoice}
+            visibleOptionalColumns={visibleOptionalColumns}
+            footer={(
+              <div className="flex w-full items-center justify-between gap-4">
+                <span>{invoices.length} item{invoices.length === 1 ? '' : 's'}</span>
               </div>
-            </div>
-          )}
+            )}
+          />
+        </div>
+        <VoidInvoiceConfirmDialog
+          isOpen={pendingVoidInvoice !== null}
+          invoiceNumber={pendingVoidInvoice?.invoiceNumber}
+          loading={isVoidLoading}
+          onConfirm={handleVoidConfirm}
+          onCancel={() => setPendingVoidInvoice(null)}
         />
-      </Panel>
+      </div>
+    );
+  }
+
+  // ── Cards view (default): SplitDetail — first feature consumer of the
+  // SplitDetail primitive (shipped PR #653, previously unused).
+  const leftPane = (
+    <div className="flex h-full min-h-0 flex-1 flex-col">
+      {listHead}
+      {listBody}
     </div>
+  );
+
+  const rightPane = (
+    <div className="flex h-full min-h-0 flex-1 flex-col">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-rule px-6 py-4">
+        <Seg<ViewMode>
+          value={viewMode}
+          options={VIEW_MODE_OPTIONS}
+          onChange={setViewMode}
+          ariaLabel="Switch invoice view"
+        />
+        {onCreateInvoice ? (
+          <Button size="sm" onClick={onCreateInvoice}>New Invoice</Button>
+        ) : null}
+      </div>
+      <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-auto p-6">
+        {aiBlock}
+        {askAnswer ? null : <DetailEmptyState />}
+      </div>
+    </div>
+  );
+
+  return (
+    <>
+      <SplitDetail
+        list={leftPane}
+        detail={rightPane}
+        ariaLabel="Invoices workspace"
+        className="hidden xl:flex"
+      />
+      {/* Mobile + below-xl: list-only (drill-down to detail on row click) */}
+      <div className="flex min-h-0 flex-1 flex-col xl:hidden">
+        {leftPane}
+      </div>
+      <VoidInvoiceConfirmDialog
+        isOpen={pendingVoidInvoice !== null}
+        invoiceNumber={pendingVoidInvoice?.invoiceNumber}
+        loading={isVoidLoading}
+        onConfirm={handleVoidConfirm}
+        onCancel={() => setPendingVoidInvoice(null)}
+      />
+    </>
   );
 }

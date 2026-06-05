@@ -12,7 +12,7 @@ export const FormDescription = ({
 }: FormDescriptionProps) => {
   return (
     <p className={cn(
-      'text-xs text-input-placeholder mt-1',
+      'text-xs text-dim-2 mt-1',
       className
     )}>
       {children}

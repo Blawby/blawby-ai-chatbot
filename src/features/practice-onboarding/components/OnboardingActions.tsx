@@ -82,8 +82,8 @@ const OnboardingActions: FunctionComponent<OnboardingActionsProps> = ({
       <section className="card p-4 sm:p-5">
         <div className="flex items-center justify-between mb-4">
           <div>
-            <h3 className="text-lg font-semibold text-input-text">Setup Progress</h3>
-            <p className="text-sm text-input-placeholder mt-1">
+            <h3 className="text-lg font-semibold text-ink">Setup Progress</h3>
+            <p className="text-sm text-dim-2 mt-1">
               Complete your profile to start accepting clients
             </p>
           </div>
@@ -100,7 +100,7 @@ const OnboardingActions: FunctionComponent<OnboardingActionsProps> = ({
         </div>
 
         {missingFields.length > 0 && (
-          <div className="rounded-xl bg-accent-warning/10 border border-accent-warning/30 p-3">
+          <div className="rounded-r-md bg-warn/10 border border-warn/30 p-3">
             <p className="text-sm text-yellow-800">
               <strong>Still needed:</strong> {missingFields.join(', ')}
             </p>
@@ -108,8 +108,8 @@ const OnboardingActions: FunctionComponent<OnboardingActionsProps> = ({
         )}
 
         {saveError && (
-          <div className="rounded-xl bg-accent-error/10 border border-accent-error/30 p-3">
-            <p className="text-sm text-accent-error-foreground">
+          <div className="rounded-r-md bg-neg/10 border border-neg/30 p-3">
+            <p className="text-sm text-neg">
               <strong>Error:</strong> {saveError}
             </p>
           </div>
@@ -118,7 +118,7 @@ const OnboardingActions: FunctionComponent<OnboardingActionsProps> = ({
 
       {/* Action Buttons */}
       <section className="card p-4 sm:p-5">
-        <h3 className="text-lg font-semibold text-input-text mb-4">Quick Actions</h3>
+        <h3 className="text-lg font-semibold text-ink mb-4">Quick Actions</h3>
         <div className="flex flex-wrap gap-4">
           {onEditBasics && (
             <Button 
@@ -153,7 +153,7 @@ const OnboardingActions: FunctionComponent<OnboardingActionsProps> = ({
 
         {/* Logo Upload */}
         <div className="mt-6">
-          <h4 className="text-sm font-medium text-input-text mb-2">Practice Logo</h4>
+          <h4 className="text-sm font-medium text-ink mb-2">Practice Logo</h4>
           <div className="flex items-center gap-4">
             <input
               type="file"

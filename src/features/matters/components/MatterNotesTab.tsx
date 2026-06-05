@@ -31,7 +31,7 @@ export const MatterNotesTab = ({
     {noteLoading && noteItems.length === 0 ? (
       <LoadingBlock label="Loading notes" />
     ) : noteError && noteItems.length === 0 ? (
-      <p className="text-sm text-input-placeholder">
+      <p className="text-sm text-dim-2">
         Could not load notes.{' '}
         <button type="button" className="underline" onClick={onNoteRetry}>
           Retry

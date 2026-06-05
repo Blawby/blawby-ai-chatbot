@@ -62,8 +62,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(({
   const { t } = useTranslation(namespace);
   const generatedId = useUniqueId('input');
   const inputId = restProps.id || generatedId;
-  
-  // Extract ARIA props from restProps to preserve computed values
+
   const {
     'aria-label': ariaLabel,
     'aria-describedby': externalAriaDescribedBy,
@@ -72,7 +71,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(({
     'aria-disabled': externalAriaDisabled,
     ...inputRestProps
   } = restProps;
-  
+
   const displayLabel = labelKey ? t(labelKey) : label;
   const displayDescription = descriptionKey ? t(descriptionKey) : description;
   const displayPlaceholder = placeholderKey ? t(placeholderKey) : placeholder;
@@ -80,11 +79,9 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(({
   const isIconComponent = (iconValue: InputIcon | undefined): iconValue is IconComponent =>
     typeof iconValue === 'function';
 
-  // Generate stable IDs for description and error elements
   const descriptionId = displayDescription ? `${inputId}-description` : undefined;
   const errorId = displayError ? `${inputId}-error` : undefined;
-  
-  // Build computed aria-describedby combining external and internal IDs
+
   const computedAriaDescribedBy = [
     externalAriaDescribedBy,
     descriptionId,
@@ -92,8 +89,8 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(({
   ].filter(Boolean).join(' ') || undefined;
 
   const sizeClasses = {
-    sm: 'px-2 py-1 text-sm',
-    md: 'px-3 py-2.5 text-sm',
+    sm: 'px-2 py-1 text-xs',
+    md: '',
     lg: 'px-4 py-3 text-base'
   };
 
@@ -103,15 +100,15 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(({
     lg: iconPosition === 'left' ? 'pl-12' : 'pr-12'
   };
 
+  const isError = variant === 'error' || Boolean(displayError);
+  const isSuccess = variant === 'success';
 
   const inputClasses = cn(
-    'w-full rounded-xl text-input-text placeholder:text-input-placeholder',
-    'focus:outline-none transition-all duration-200',
-    'glass-input border-none',
+    'input',
     sizeClasses[size],
     icon && iconPaddingClasses[size],
-    variant === 'error' || displayError ? 'isError' : '',
-    variant === 'success' && 'isSuccess',
+    isError && 'is-error',
+    isSuccess && 'is-success',
     disabled && 'opacity-50 cursor-not-allowed',
     className
   );
@@ -120,11 +117,11 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(({
     if (!icon) return null;
 
     if (isIconComponent(icon)) {
-      return <Icon icon={icon} className={cn('w-4 h-4 text-input-placeholder', iconClassName)} />;
+      return <Icon icon={icon} className={cn('w-4 h-4 text-dim', iconClassName)} />;
     }
 
     return (
-      <div className="w-4 h-4 text-input-placeholder">
+      <div className="w-4 h-4 text-dim">
         {icon}
       </div>
     );
@@ -133,19 +130,19 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(({
   return (
     <div className="w-full">
       {displayLabel && (
-        <label htmlFor={inputId} className="block text-sm font-medium text-input-text mb-1">
+        <label htmlFor={inputId} className="label mb-1.5 block">
           {displayLabel}
-          {required && <span className="text-red-500 ml-1">*</span>}
+          {required && <span className="text-neg ml-1" aria-hidden="true">*</span>}
         </label>
       )}
-      
+
       <div className="relative">
         {icon && iconPosition === 'left' && (
           <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
             {renderIcon()}
           </div>
         )}
-        
+
         <input
           ref={ref}
           type={type}
@@ -158,27 +155,27 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(({
           id={inputId}
           aria-label={ariaLabel}
           aria-describedby={computedAriaDescribedBy}
-          aria-invalid={externalAriaInvalid !== undefined ? externalAriaInvalid : Boolean(displayError)}
+          aria-invalid={externalAriaInvalid !== undefined ? externalAriaInvalid : isError}
           aria-required={externalAriaRequired}
           aria-disabled={externalAriaDisabled}
           {...inputRestProps}
         />
-        
+
         {icon && iconPosition === 'right' && (
           <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
             {renderIcon()}
           </div>
         )}
       </div>
-      
+
       {displayError && (
-        <p id={errorId} className="text-xs text-red-600 dark:text-red-400 mt-1" role="alert" aria-live="assertive">
+        <p id={errorId} className="text-xs text-neg mt-1" role="alert" aria-live="assertive">
           {displayError}
         </p>
       )}
-      
+
       {displayDescription && !displayError && (
-        <p id={descriptionId} className="mt-1 text-xs text-input-placeholder">
+        <p id={descriptionId} className="mt-1 text-xs text-dim">
           {displayDescription}
         </p>
       )}

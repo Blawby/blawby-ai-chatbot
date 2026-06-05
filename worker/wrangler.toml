@@ -71,6 +71,13 @@ class_name = "MatterProgressRoom"
 name = "PRESENCE_ROOM"
 class_name = "PresenceRoom"
 
+# MCP session DO (U6 of the MCP agent surface plan).
+# Uses SQLite storage for the per-session 7-day event replay buffer so
+# replay queries stay scoped per-session and avoid global D1 contention.
+[[durable_objects.bindings]]
+name = "MCP_SESSION"
+class_name = "McpSession"
+
 [[migrations]]
 tag = "v4"
 new_classes = ["MatterProgressRoom"]
@@ -78,6 +85,10 @@ new_classes = ["MatterProgressRoom"]
 [[migrations]]
 tag = "v5"
 new_classes = ["PresenceRoom"]
+
+[[migrations]]
+tag = "v6"
+new_sqlite_classes = ["McpSession"]
 
 
 [env.dev]
@@ -136,6 +147,10 @@ class_name = "MatterProgressRoom"
 name = "PRESENCE_ROOM"
 class_name = "PresenceRoom"
 
+[[env.dev.durable_objects.bindings]]
+name = "MCP_SESSION"
+class_name = "McpSession"
+
 [[env.dev.migrations]]
 tag = "v2"
 new_classes = ["ChatRoom"]
@@ -148,6 +163,10 @@ new_classes = ["MatterProgressRoom"]
 tag = "v5"
 new_classes = ["PresenceRoom"]
 
+[[env.dev.migrations]]
+tag = "v6"
+new_sqlite_classes = ["McpSession"]
+
 [env.dev.vars]
 NODE_ENV = "development"
 LOG_LEVEL = "debug"
@@ -155,8 +174,6 @@ DEBUG = false
 VITE_DEBUG_OVERLAY = false
 CLOUDFLARE_PUBLIC_URL = "https://local.blawby.com"
 CLOUDFLARE_ACCOUNT_ID = "fa3dc6c06433f6b0ea78d95bce23ad91"
-CF_AIG_GATEWAY_NAME = "blawby-ai"
-AI_PROVIDER = "cloudflare_gateway"
 BACKEND_API_URL = "https://staging-api.blawby.com"
 ALLOWED_WS_ORIGINS = "https://local.blawby.com,http://local.blawby.com,http://localhost:5173,https://localhost:5173,http://localhost:5137,https://localhost:5137"
 REQUIRE_EMAIL_VERIFICATION = false
@@ -171,6 +188,11 @@ RATE_LIMIT_REQUESTS_PER_MINUTE = "60"
 RATE_LIMIT_BURST_SIZE = "10"
 SEARCH_SEMANTIC_ENABLED = "true"
 SEARCH_INDEX_CONCURRENCY = "8"
+# U9: comma-separated allowlist for the admin intake-inspector. Empty in dev
+# by default; engineers add their email here when they need access locally.
+# Prod/staging values must be configured via `wrangler secret put` or the
+# Cloudflare dashboard so they aren't checked into source.
+INTAKE_INSPECTOR_ENGINEER_EMAILS = ""
 
 [env.staging]
 name = "blawby-ai-chatbot-staging"
@@ -228,6 +250,10 @@ class_name = "MatterProgressRoom"
 name = "PRESENCE_ROOM"
 class_name = "PresenceRoom"
 
+[[env.staging.durable_objects.bindings]]
+name = "MCP_SESSION"
+class_name = "McpSession"
+
 [[env.staging.migrations]]
 tag = "v6"
 new_classes = ["MatterDiffStore"]
@@ -240,6 +266,10 @@ deleted_classes = ["MatterDiffStore"]
 tag = "v8"
 new_classes = ["PresenceRoom"]
 
+[[env.staging.migrations]]
+tag = "v9"
+new_sqlite_classes = ["McpSession"]
+
 [env.staging.vars]
 NODE_ENV = "staging"
 LOG_LEVEL = "warn"
@@ -249,8 +279,6 @@ CLOUDFLARE_PUBLIC_URL = "https://ai-staging.blawby.com"
 VITE_WORKER_API_URL = "https://ai-staging.blawby.com"
 BACKEND_API_URL = "https://staging-api.blawby.com"
 CLOUDFLARE_ACCOUNT_ID = "fa3dc6c06433f6b0ea78d95bce23ad91"
-CF_AIG_GATEWAY_NAME = "blawby-ai"
-AI_PROVIDER = "cloudflare_gateway"
 ALLOWED_WS_ORIGINS = "https://ai-staging.blawby.com"
 REQUIRE_EMAIL_VERIFICATION = false
 ENABLE_EMAIL_NOTIFICATIONS = true
@@ -286,6 +314,9 @@ new_classes = ["MatterProgressRoom"]
 [[env.production.migrations]]
 tag = "v6"
 new_classes = ["PresenceRoom"]
+[[env.production.migrations]]
+tag = "v7"
+new_sqlite_classes = ["McpSession"]
 [[env.production.r2_buckets]]
 binding = "FILES_BUCKET"
 bucket_name = "blawby-ai-files"
@@ -334,16 +365,18 @@ class_name = "MatterProgressRoom"
 name = "PRESENCE_ROOM"
 class_name = "PresenceRoom"
 
+[[env.production.durable_objects.bindings]]
+name = "MCP_SESSION"
+class_name = "McpSession"
+
 [env.production.vars]
 NODE_ENV = "production"
 LOG_LEVEL = "warn"
 DEBUG = false
 VITE_DEBUG_OVERLAY = false
 CLOUDFLARE_PUBLIC_URL = "https://ai.blawby.com"
-BACKEND_API_URL = "https://production-api.blawby.com"
+BACKEND_API_URL = "https://api.blawby.com"
 CLOUDFLARE_ACCOUNT_ID = "fa3dc6c06433f6b0ea78d95bce23ad91"
-CF_AIG_GATEWAY_NAME = "blawby-ai"
-AI_PROVIDER = "cloudflare_gateway"
 ALLOWED_WS_ORIGINS = "https://ai.blawby.com,https://blawby.com,https://www.blawby.com"
 REQUIRE_EMAIL_VERIFICATION = false
 ENABLE_EMAIL_NOTIFICATIONS = true

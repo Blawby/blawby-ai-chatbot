@@ -59,13 +59,14 @@ export const ChatActionCard: FunctionComponent<ChatActionCardProps> = ({
     if (typeof window === 'undefined') return;
     const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
     const updateTheme = () => {
-      const hasDarkClass = document.documentElement.classList.contains('dark');
-      setIsDarkTheme(hasDarkClass || mediaQuery.matches);
+      const themeAttr = document.documentElement.getAttribute('data-theme');
+      const hasDarkAttr = themeAttr === 'dark' || themeAttr === 'midnight';
+      setIsDarkTheme(hasDarkAttr || mediaQuery.matches);
     };
     updateTheme();
     mediaQuery.addEventListener('change', updateTheme);
     const observer = new MutationObserver(updateTheme);
-    observer.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
+    observer.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
     return () => {
       mediaQuery.removeEventListener('change', updateTheme);
       observer.disconnect();
@@ -102,7 +103,7 @@ export const ChatActionCard: FunctionComponent<ChatActionCardProps> = ({
         title={t('chat.card.disclaimer.title')}
         description={disclaimerProps.subtitle || t('chat.card.disclaimer.description')}
       >
-        <div className="max-h-[45vh] overflow-y-auto whitespace-pre-wrap text-sm leading-6 text-input-text">
+        <div className="max-h-[45vh] overflow-y-auto whitespace-pre-wrap text-sm leading-6 text-ink">
           {disclaimerProps.text}
         </div>
         <Button
@@ -139,7 +140,7 @@ export const ChatActionCard: FunctionComponent<ChatActionCardProps> = ({
             />
           </Suspense>
         ) : (
-          <div className="p-4 text-center text-sm text-input-text">
+          <div className="p-4 text-center text-sm text-ink">
             {t('common:chat.paymentDetailsMissing', 'Payment details missing or unavailable.')}
           </div>
         )}

@@ -39,14 +39,14 @@ const ToastComponent: FunctionComponent<ToastProps> = ({ toast, onRemove }) => {
   const getIcon = () => {
     switch (toast.type) {
       case 'success':
-        return <Icon icon={CheckCircle2} className="h-5 w-5 text-accent-success"  />;
+        return <Icon icon={CheckCircle2} className="h-5 w-5 text-pos"  />;
       case 'error':
-        return <Icon icon={AlertTriangle} className="h-5 w-5 text-accent-error"  />;
+        return <Icon icon={AlertTriangle} className="h-5 w-5 text-neg"  />;
       case 'warning':
-        return <Icon icon={AlertTriangle} className="h-5 w-5 text-accent-warning"  />;
+        return <Icon icon={AlertTriangle} className="h-5 w-5 text-warn"  />;
       case 'info':
       default:
-        return <Icon icon={Info} className="h-5 w-5 text-accent-400"  />;
+        return <Icon icon={Info} className="h-5 w-5 text-accent"  />;
     }
   };
 
@@ -65,17 +65,17 @@ const ToastComponent: FunctionComponent<ToastProps> = ({ toast, onRemove }) => {
   };
 
   return (
-    <div className={`max-w-sm w-full ${getStatusClass()} rounded-xl p-4 relative animate-toast-in`}>
+    <div className={`max-w-sm w-full ${getStatusClass()} rounded-r-md p-4 relative animate-toast-in`}>
       <div className="flex items-start">
         <div className="flex-shrink-0">
           {getIcon()}
         </div>
         <div className="ml-3 flex-1">
-          <h3 className="text-sm font-medium text-input-text">
+          <h3 className="text-sm font-medium text-ink">
             {toast.title}
           </h3>
           {toast.message && (
-            <p className="mt-1 text-sm text-input-placeholder">
+            <p className="mt-1 text-sm text-dim-2">
               {toast.message}
             </p>
           )}
@@ -83,7 +83,7 @@ const ToastComponent: FunctionComponent<ToastProps> = ({ toast, onRemove }) => {
         <div className="ml-4 flex-shrink-0">
           <button
             onClick={handleRemove}
-            className="inline-flex text-input-placeholder hover:text-input-text transition-colors duration-200 focus-visible:ring-2 focus-visible:ring-accent-500 rounded-sm focus:outline-none"
+            className="inline-flex text-dim-2 hover:text-ink transition-colors duration-200 focus-visible:ring-2 focus-visible:ring-accent rounded-sm focus:outline-none"
           >
             <Icon icon={X} className="h-4 w-4"  />
           </button>

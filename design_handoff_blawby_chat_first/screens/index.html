@@ -1,0 +1,1658 @@
+<!doctype html>
+<html lang="en" data-theme="">
+<head>
+<meta charset="utf-8" />
+<title>Blawby — Screens</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,opsz,wght@0,8..60,300..900;1,8..60,300..900&family=Geist:wght@300;400;500;600;700&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="tokens.css">
+<style>
+  body{
+    background:
+      radial-gradient(ellipse 1200px 700px at 80% -10%, color-mix(in oklab, var(--accent) 18%, transparent), transparent 60%),
+      radial-gradient(rgba(15,30,54,0.025) 1px, transparent 1.2px) 0 0 / 3px 3px,
+      var(--paper);
+    background-attachment: fixed;
+  }
+  .wrap{ max-width: 1280px; margin: 0 auto; padding: 56px 56px 80px; }
+
+  header.top{
+    display:flex; justify-content: space-between; align-items: flex-end;
+    padding-bottom: 32px; border-bottom: 1px solid var(--rule);
+    margin-bottom: 48px;
+  }
+  header.top .meta{ font-family: var(--mono); font-size: 11px; letter-spacing: .12em; text-transform: uppercase; color: var(--dim); }
+  header.top h1{
+    font-family: var(--serif); font-weight: 400; font-size: 72px; letter-spacing:-.025em; line-height: .95;
+    margin: 14px 0 0;
+  }
+  header.top h1 em{ color: var(--accent); }
+  header.top .sub{ max-width: 50ch; margin-top: 16px; }
+  header.top .right{ text-align: right; }
+  header.top .right .pill{ margin-top: 6px; }
+
+  /* tokens preview card */
+  .system-card{
+    display:grid; grid-template-columns: repeat(4, 1fr); gap: 24px;
+    background: var(--card); border: 1px solid var(--rule); border-radius: var(--r-md);
+    padding: 28px 32px;
+    margin-bottom: 56px;
+    box-shadow: var(--shadow-2);
+  }
+  .system-card .cell{ display:flex; flex-direction: column; gap: 8px; }
+  .system-card .cell .lbl{ font-family: var(--mono); font-size: 10px; letter-spacing: .12em; text-transform: uppercase; color: var(--dim); }
+  .system-card .swatches{ display:flex; gap: 6px; }
+  .system-card .swatches i{ width: 28px; height: 28px; border-radius: var(--r-xs); border: 1px solid var(--rule); display:block; }
+  .system-card .face{ font-family: var(--serif); font-size: 28px; line-height: 1; letter-spacing: -.01em; }
+  .system-card .face.sans{ font-family: var(--sans); }
+  .system-card .face.mono{ font-family: var(--mono); font-size: 16px; }
+  .system-card .radii{ display:flex; gap: 8px; align-items: center; }
+  .system-card .radii i{ display:block; width: 26px; height: 26px; background: var(--ink); }
+  .system-card .accent-strip{ height: 28px; border-radius: var(--r-xs); background: linear-gradient(90deg, var(--accent), var(--accent-deep)); border: 1px solid var(--rule); }
+
+  /* screens grid */
+  .screens{ display:grid; grid-template-columns: repeat(2, 1fr); gap: 28px; }
+  .screen-card{
+    display:block;
+    background: var(--card); border: 1px solid var(--rule); border-radius: var(--r-md);
+    overflow: hidden;
+    text-decoration: none; color: inherit;
+    transition: transform .18s, box-shadow .18s, border-color .18s;
+    box-shadow: var(--shadow-1);
+  }
+  .screen-card:hover{ transform: translateY(-2px); box-shadow: var(--shadow-3); border-color: var(--paper-edge); }
+  .screen-card .thumb{
+    height: 280px; background: var(--paper-2);
+    border-bottom: 1px solid var(--rule);
+    position: relative; overflow: hidden;
+  }
+  .screen-card .meta{
+    padding: 20px 24px;
+    display:flex; flex-direction: column; gap: 8px;
+  }
+  .screen-card .ix{ font-family: var(--mono); font-size: 10px; letter-spacing: .14em; text-transform: uppercase; color: var(--dim); }
+  .screen-card h3{ font-family: var(--serif); font-weight: 400; font-size: 28px; letter-spacing: -.012em; margin: 0; line-height: 1.1; }
+  .screen-card p{ font-size: 13.5px; color: var(--ink-2); margin: 0; max-width: 50ch; line-height: 1.55; }
+  .screen-card .foot{ display:flex; justify-content: space-between; align-items: center; padding-top: 6px; }
+  .screen-card .arrow{
+    font-family: var(--mono); font-size: 11px; letter-spacing: .12em; text-transform: uppercase; color: var(--ink);
+    display: inline-flex; align-items: center; gap: 6px;
+  }
+
+  /* ----- thumbnails (recreated mini-mocks) ----- */
+  .tn{ position: absolute; inset: 0; padding: 22px; display:flex; flex-direction: column; gap: 10px; }
+  .tn .bar{ height: 8px; border-radius: 2px; background: var(--rule); }
+  .tn .bar.dark{ background: var(--ink); }
+  .tn .bar.gold{ background: var(--accent); }
+  .tn .panel{ background: var(--card); border: 1px solid var(--rule); border-radius: var(--r-xs); flex: 1; padding: 12px; display:flex; flex-direction: column; gap: 8px; box-shadow: var(--shadow-1); }
+  .tn .row{ display:flex; gap: 8px; }
+  .tn .row > *{ flex: 1; }
+  .tn .row.even > *{ height: 8px; border-radius: 2px; background: var(--rule); }
+
+  /* Assistant thumbnail */
+  .tn-assist{
+    display:grid;
+    grid-template-columns: 50px 1fr 90px;
+    gap: 8px; padding: 16px;
+  }
+  .tn-assist .rail{ background: var(--paper-2); border-radius: var(--r-xs); padding: 10px 6px; display:flex; flex-direction:column; gap: 6px; }
+  .tn-assist .rail .it{ height: 6px; border-radius: 2px; background: var(--rule); }
+  .tn-assist .rail .it.gold{ background: var(--accent); }
+  .tn-assist .center{ display:flex; flex-direction:column; gap: 8px; padding-top: 4px; }
+  .tn-assist .title{ font-family: var(--serif); font-size: 22px; letter-spacing: -.01em; line-height: 1; }
+  .tn-assist .title em{ color: var(--accent); }
+  .tn-assist .feature{
+    background: linear-gradient(180deg, color-mix(in oklab, var(--accent) 20%, var(--card)), var(--card));
+    border: 1px solid color-mix(in oklab, var(--accent) 40%, var(--rule));
+    border-radius: var(--r-xs); padding: 8px; display:flex; flex-direction:column; gap: 6px;
+  }
+  .tn-assist .feature .h{ height: 8px; width: 70%; background: var(--ink-2); border-radius: 2px; }
+  .tn-assist .feature .l{ height: 5px; background: var(--rule); border-radius: 2px; }
+  .tn-assist .grid2{ display:grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+  .tn-assist .grid2 > div{ background: var(--card); border:1px solid var(--rule); border-radius: var(--r-xs); padding: 6px; display:flex; flex-direction:column; gap:4px; }
+  .tn-assist .grid2 .h{ height: 5px; width: 60%; background: var(--ink-2); border-radius: 2px; }
+  .tn-assist .grid2 .l{ height: 4px; background: var(--rule); border-radius: 2px; }
+  .tn-assist .drawer{ background: var(--paper-2); border-radius: var(--r-xs); padding: 8px; display:flex; flex-direction:column; gap: 6px; }
+  .tn-assist .drawer .h{ font-family: var(--serif); font-size: 11px; letter-spacing: -.005em; }
+  .tn-assist .drawer .stat{
+    background: var(--card); border: 1px solid var(--rule); border-radius: var(--r-xs);
+    padding: 4px 6px;
+  }
+  .tn-assist .drawer .stat .v{ font-family: var(--serif); font-size: 14px; line-height:1; }
+  .tn-assist .drawer .stat .l{ font-family: var(--mono); font-size: 7px; color: var(--dim); letter-spacing: .06em; text-transform: uppercase; }
+  .tn-assist .staged{
+    background: color-mix(in oklab, var(--accent) 15%, var(--card));
+    border: 1px solid color-mix(in oklab, var(--accent) 40%, var(--rule));
+    border-radius: var(--r-xs); padding: 6px; display:flex; flex-direction:column; gap: 4px;
+  }
+  .tn-assist .staged .lab{ font-family: var(--mono); font-size: 6px; color: var(--accent-deep); letter-spacing: .1em; text-transform: uppercase; }
+  .tn-assist .staged .ti{ font-family: var(--serif); font-size: 10px; }
+
+  /* Onboarding thumbnail */
+  .tn-onb{ display:grid; grid-template-columns: 90px 1fr; gap: 12px; padding: 16px; }
+  .tn-onb .steps{ display:flex; flex-direction: column; gap: 8px; padding-top: 8px; }
+  .tn-onb .step{ display:flex; gap: 6px; align-items: center; }
+  .tn-onb .step .ix{ width: 14px; height: 14px; border-radius: 50%; background: var(--card); border: 1px solid var(--rule); flex-shrink: 0; }
+  .tn-onb .step.done .ix{ background: var(--ink); border-color: var(--ink); }
+  .tn-onb .step.now .ix{ background: var(--accent); border-color: var(--accent); }
+  .tn-onb .step .l{ flex: 1; height: 4px; border-radius: 2px; background: var(--rule); }
+  .tn-onb .step.now .l{ background: var(--ink-2); }
+  .tn-onb .stage{ display:flex; flex-direction: column; gap: 10px; padding: 8px 0; }
+  .tn-onb .stage h{ display:block; font-family: var(--serif); font-size: 22px; line-height: 1; letter-spacing: -.012em; }
+  .tn-onb .stage h em{ color: var(--accent); }
+  .tn-onb .stage .ai{
+    background: linear-gradient(90deg, var(--accent-soft), transparent);
+    border-left: 2px solid var(--accent);
+    padding: 6px 10px;
+    display:flex; flex-direction: column; gap: 4px;
+  }
+  .tn-onb .stage .ai .b{ height: 5px; border-radius: 2px; background: var(--rule); }
+  .tn-onb .stage .form{ background: var(--card); border: 1px solid var(--rule); border-radius: var(--r-xs); padding: 8px; display:flex; flex-direction: column; gap: 6px; }
+  .tn-onb .stage .form .row{ display:flex; gap: 6px; }
+  .tn-onb .stage .form .row .input{ flex: 1; height: 14px; background: var(--paper); border: 1px solid var(--rule); border-radius: 2px; padding: 0; }
+
+  /* Settings thumbnail */
+  .tn-settings{ display:grid; grid-template-columns: 90px 1fr; gap: 12px; padding: 16px; }
+  .tn-settings .nav{ background: var(--paper-2); border-radius: var(--r-xs); padding: 8px; display:flex; flex-direction: column; gap: 4px; }
+  .tn-settings .nav .grp{ font-family: var(--mono); font-size: 6.5px; letter-spacing: .12em; text-transform: uppercase; color: var(--dim); padding: 4px 4px 0; }
+  .tn-settings .nav .it{ height: 5px; border-radius: 2px; background: var(--rule); margin: 2px 4px; }
+  .tn-settings .nav .it.on{ background: var(--ink); height: 8px; border-radius: 2px; }
+  .tn-settings .main{ display:flex; flex-direction: column; gap: 10px; padding: 6px 0; }
+  .tn-settings .main h{ display:block; font-family: var(--serif); font-size: 20px; line-height: 1; letter-spacing: -.012em; }
+  .tn-settings .main h em{ color: var(--accent); }
+  .tn-settings .main .ai{
+    background: linear-gradient(90deg, var(--accent-soft), transparent);
+    border-left: 2px solid var(--accent);
+    padding: 6px 10px;
+    height: 28px;
+  }
+  .tn-settings .main .row{ display:flex; justify-content: space-between; align-items: center; padding: 6px 0; border-top: 1px solid var(--rule); }
+  .tn-settings .main .row .l{ height: 6px; width: 60%; background: var(--rule); border-radius: 2px; }
+  .tn-settings .main .row .tog{ width: 22px; height: 12px; border-radius: 6px; background: var(--accent); }
+  .tn-settings .main .row .tog.off{ background: var(--rule); }
+  .tn-settings .main .code{ font-family: var(--mono); font-size: 7px; line-height: 1.5; background: var(--rule-soft); padding: 6px; border-radius: 2px; color: var(--ink-2); }
+  .tn-settings .main .code .var{ color: var(--accent-deep); }
+
+  /* Matters thumbnail */
+  .tn-matters{ display:flex; flex-direction: column; padding: 16px; gap: 8px; }
+  .tn-matters .ask{ background: var(--card); border: 1px solid var(--rule); border-radius: var(--r-xs); padding: 8px 10px; display:flex; gap: 6px; align-items: center; }
+  .tn-matters .ask .av{ width: 14px; height: 14px; border-radius: 50%; background: var(--ink); flex-shrink:0; }
+  .tn-matters .ask .l{ flex:1; height: 6px; border-radius: 2px; background: var(--rule); }
+  .tn-matters .answer{ background: linear-gradient(180deg, color-mix(in oklab, var(--accent) 10%, var(--card)), var(--card)); border: 1px solid color-mix(in oklab, var(--accent) 30%, var(--rule)); border-radius: var(--r-xs); padding: 8px 10px; display:flex; flex-direction: column; gap: 4px; }
+  .tn-matters .answer .h{ font-family: var(--serif); font-size: 12px; line-height: 1.2; }
+  .tn-matters .answer .h em{ color: var(--accent); }
+  .tn-matters .answer .l{ height: 4px; border-radius: 2px; background: var(--rule); width: 80%; }
+  .tn-matters .tbl{ background: var(--card); border: 1px solid var(--rule); border-radius: var(--r-xs); flex: 1; display:flex; flex-direction: column; }
+  .tn-matters .tbl .r{ display:grid; grid-template-columns: 2fr 1fr 1fr; gap: 8px; padding: 5px 8px; border-bottom: 1px dotted var(--rule); align-items:center; }
+  .tn-matters .tbl .r:last-child{ border-bottom: none; }
+  .tn-matters .tbl .r.head{ background: var(--paper-2); font-family: var(--mono); font-size: 6.5px; letter-spacing: .1em; text-transform: uppercase; color: var(--dim); }
+  .tn-matters .tbl .r .t{ font-family: var(--serif); font-size: 8px; }
+  .tn-matters .tbl .r .b{ height: 3px; border-radius: 2px; background: var(--rule); }
+  .tn-matters .tbl .r .b.warn{ background: var(--neg); }
+  .tn-matters .tbl .r .b.ok{ background: var(--pos); }
+  .tn-matters .tbl .r.urgent{ background: color-mix(in oklab, var(--neg) 5%, var(--card)); }
+  .tn-matters .tbl .r .pi{ font-family: var(--mono); font-size: 6.5px; padding: 1px 5px; border-radius: 999px; background: var(--card); border: 1px solid var(--rule); color: var(--dim); }
+  .tn-matters .tbl .r .pi.urg{ background: color-mix(in oklab, var(--neg) 14%, var(--card)); border-color: color-mix(in oklab, var(--neg) 30%, var(--rule)); color: var(--neg); }
+
+  /* Trust thumbnail */
+  .tn-trust{ display:flex; flex-direction: column; padding: 16px; gap: 8px; }
+  .tn-trust .comp{ background: linear-gradient(180deg, color-mix(in oklab, var(--pos) 10%, var(--card)), var(--card)); border: 1px solid color-mix(in oklab, var(--pos) 30%, var(--rule)); border-radius: var(--r-xs); padding: 8px 10px; display:flex; gap: 8px; align-items:center; }
+  .tn-trust .comp .seal{ width: 16px; height: 16px; border-radius: 50%; background: var(--pos); color: white; display:grid; place-items:center; font-size: 8px; }
+  .tn-trust .comp .l{ flex:1; height: 5px; border-radius: 2px; background: var(--rule); }
+  .tn-trust .sum{ display:grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 6px; }
+  .tn-trust .sum .c{ background: var(--card); border: 1px solid var(--rule); border-radius: var(--r-xs); padding: 6px 8px; display:flex; flex-direction: column; gap: 2px; }
+  .tn-trust .sum .c .lab{ font-family: var(--mono); font-size: 5.5px; letter-spacing: .1em; text-transform: uppercase; color: var(--dim); }
+  .tn-trust .sum .c .v{ font-family: var(--serif); font-size: 11px; line-height:1; letter-spacing:-.012em; font-feature-settings: "tnum"; }
+  .tn-trust .tx{ background: var(--card); border: 1px solid var(--rule); border-radius: var(--r-xs); flex: 1; display:flex; flex-direction: column; }
+  .tn-trust .tx .r{ display:grid; grid-template-columns: 24px 14px 1fr 36px; gap: 6px; padding: 4px 8px; border-bottom: 1px dotted var(--rule); align-items: center; }
+  .tn-trust .tx .r:last-child{ border-bottom: none; }
+  .tn-trust .tx .r.head{ background: var(--paper-2); font-family: var(--mono); font-size: 6.5px; letter-spacing: .1em; text-transform: uppercase; color: var(--dim); }
+  .tn-trust .tx .r .w{ font-family: var(--mono); font-size: 6.5px; color: var(--dim); letter-spacing: .04em; text-transform: uppercase; }
+  .tn-trust .tx .r .i{ width: 10px; height: 10px; border-radius: 50%; display:grid; place-items:center; font-family: var(--mono); font-size: 7px; }
+  .tn-trust .tx .r .i.dep{ background: color-mix(in oklab, var(--pos) 14%, var(--card)); color: var(--pos); }
+  .tn-trust .tx .r .i.wd{ background: color-mix(in oklab, var(--neg) 14%, var(--card)); color: var(--neg); }
+  .tn-trust .tx .r .i.tr{ background: color-mix(in oklab, var(--accent) 14%, var(--card)); color: var(--accent-deep); }
+  .tn-trust .tx .r .b{ height: 4px; border-radius: 2px; background: var(--rule); }
+  .tn-trust .tx .r .a{ font-family: var(--mono); font-size: 7.5px; text-align: right; font-feature-settings: "tnum"; }
+  .tn-trust .tx .r .a.pos{ color: var(--pos); }
+  .tn-trust .tx .r .a.neg{ color: var(--neg); }
+
+  /* Engagement thumbnail */
+  .tn-eng{ display:grid; grid-template-columns: 1fr 1fr; gap: 8px; padding: 16px; align-items: stretch; }
+  .tn-eng .col{ display:flex; flex-direction: column; gap: 6px; }
+  .tn-eng .ribbon{ grid-column: 1 / -1; background: linear-gradient(90deg, color-mix(in oklab, var(--accent) 18%, transparent), transparent 60%); border-left: 2px solid var(--accent); padding: 5px 8px; display:flex; gap: 6px; align-items:center; }
+  .tn-eng .ribbon .av{ width: 12px; height: 12px; border-radius: 50%; background: var(--ink); }
+  .tn-eng .ribbon .l{ flex: 1; height: 4px; background: var(--rule); border-radius: 2px; }
+  .tn-eng .col .lab{ font-family: var(--mono); font-size: 6.5px; letter-spacing: .1em; text-transform: uppercase; color: var(--dim); }
+  .tn-eng .col .input{ height: 12px; background: var(--card); border: 1px solid var(--rule); border-radius: 2px; }
+  .tn-eng .col .input.row{ display:flex; gap: 4px; padding: 2px; }
+  .tn-eng .col .input.row > div{ flex:1; height: 8px; background: var(--paper); border-radius: 2px; }
+  .tn-eng .col .seg{ display:flex; gap: 2px; }
+  .tn-eng .col .seg > div{ flex:1; height: 14px; background: var(--card); border: 1px solid var(--rule); border-radius: 2px; }
+  .tn-eng .col .seg > div.on{ background: var(--ink); border-color: var(--ink); }
+  .tn-eng .letter{ background: white; padding: 10px 12px; border: 1px solid var(--rule); border-radius: 2px; display:flex; flex-direction: column; gap: 5px; box-shadow: 0 8px 18px -10px rgba(15,30,54,.3); color: #15140F; }
+  .tn-eng .letter .firm{ font-family: var(--serif); font-size: 9px; letter-spacing: -.005em; color: #0f1e36; border-bottom: 1px solid #d3d6df; padding-bottom: 3px; }
+  .tn-eng .letter .firm em{ color: oklch(0.55 0.12 78); }
+  .tn-eng .letter .h{ font-family: var(--serif); font-size: 11px; line-height: 1.1; color: #15140F; }
+  .tn-eng .letter .l{ height: 3px; background: #e3e7ee; border-radius: 2px; }
+  .tn-eng .letter .l.ph{ background: color-mix(in oklab, oklch(0.72 0.13 82) 30%, transparent); width: 40%; display:inline-block; }
+  .tn-eng .letter .fee{ background: #f6f3ea; border: 1px solid #d3d6df; border-radius: 2px; padding: 5px 6px; display:flex; justify-content: space-between; }
+  .tn-eng .letter .fee .lab{ font-family: var(--mono); font-size: 5.5px; letter-spacing: .1em; text-transform: uppercase; color: #6b7790; }
+  .tn-eng .letter .fee .v{ font-family: var(--serif); font-size: 9px; }
+
+  /* Invoices thumbnail */
+  .tn-inv{ display:grid; grid-template-columns: 110px 1fr; padding: 16px; gap: 8px; }
+  .tn-inv .list{ background: var(--paper-2); border-radius: var(--r-xs); padding: 6px; display:flex; flex-direction:column; gap: 4px; overflow: hidden; }
+  .tn-inv .list .h{ font-family: var(--mono); font-size: 6.5px; letter-spacing: .1em; text-transform: uppercase; color: var(--dim); padding: 2px 4px; }
+  .tn-inv .list .it{ background: var(--card); border: 1px solid var(--rule); border-radius: 2px; padding: 4px 5px; display:flex; flex-direction: column; gap: 2px; }
+  .tn-inv .list .it.on{ border-color: var(--accent); box-shadow: -2px 0 0 var(--accent); }
+  .tn-inv .list .it .who{ font-family: var(--serif); font-size: 8px; line-height: 1; }
+  .tn-inv .list .it .amt{ font-family: var(--mono); font-size: 7px; color: var(--ink-2); }
+  .tn-inv .list .it .pi{ font-family: var(--mono); font-size: 5.5px; padding: 1px 4px; border-radius: 999px; align-self: flex-start; background: var(--rule-soft); color: var(--dim); }
+  .tn-inv .list .it .pi.s{ background: color-mix(in oklab, var(--warn) 14%, var(--card)); color: var(--warn); }
+  .tn-inv .list .it .pi.p{ background: color-mix(in oklab, var(--pos) 14%, var(--card)); color: var(--pos); }
+  .tn-inv .list .it .pi.o{ background: color-mix(in oklab, var(--neg) 14%, var(--card)); color: var(--neg); }
+  .tn-inv .doc{ background: white; border: 1px solid var(--rule); border-radius: 2px; padding: 10px 12px; display:flex; flex-direction: column; gap: 6px; box-shadow: 0 8px 18px -10px rgba(15,30,54,.3); color: #15140F; }
+  .tn-inv .doc .top{ display:flex; justify-content: space-between; border-bottom: 1px solid #d3d6df; padding-bottom: 4px; }
+  .tn-inv .doc .firm{ font-family: var(--serif); font-size: 9px; letter-spacing: -.005em; color: #0f1e36; }
+  .tn-inv .doc .firm em{ color: oklch(0.55 0.12 82); }
+  .tn-inv .doc .num{ font-family: var(--serif); font-size: 13px; line-height: 1; text-align: right; }
+  .tn-inv .doc .num .lab{ font-family: var(--mono); font-size: 5.5px; letter-spacing: .1em; text-transform: uppercase; color: #6b7790; }
+  .tn-inv .doc .lines{ display:flex; flex-direction: column; gap: 3px; }
+  .tn-inv .doc .lines .l{ display:flex; justify-content: space-between; padding: 2px 0; border-bottom: 1px dotted #d3d6df; font-size: 7.5px; }
+  .tn-inv .doc .lines .l .d{ font-family: var(--serif); }
+  .tn-inv .doc .lines .l .a{ font-family: var(--mono); font-feature-settings: "tnum"; }
+  .tn-inv .doc .total{ display:flex; justify-content: space-between; padding-top: 4px; border-top: 1px solid #15140F; font-family: var(--serif); font-size: 10px; }
+
+  /* Matter detail thumbnail */
+  .tn-md{ display:flex; flex-direction: column; padding: 14px; gap: 6px; }
+  .tn-md .crumb{ font-family: var(--mono); font-size: 6.5px; letter-spacing: .1em; text-transform: uppercase; color: var(--dim); }
+  .tn-md .ttl{ font-family: var(--serif); font-size: 16px; line-height: 1; letter-spacing: -.015em; }
+  .tn-md .ttl em{ color: var(--accent); }
+  .tn-md .sub{ font-family: var(--mono); font-size: 6.5px; letter-spacing: .04em; color: var(--dim); text-transform: uppercase; }
+  .tn-md .strip{ display:grid; grid-template-columns: repeat(5, 1fr); border: 1px solid var(--rule); border-radius: var(--r-xs); background: var(--card); overflow: hidden; margin-top: 2px; }
+  .tn-md .strip .c{ padding: 4px 6px; border-right: 1px solid var(--rule); display:flex; flex-direction: column; gap: 1px; }
+  .tn-md .strip .c:last-child{ border-right: none; }
+  .tn-md .strip .c .lab{ font-family: var(--mono); font-size: 5.5px; letter-spacing: .1em; text-transform: uppercase; color: var(--dim); }
+  .tn-md .strip .c .v{ font-family: var(--serif); font-size: 10px; line-height: 1; font-feature-settings: "tnum"; }
+  .tn-md .strip .c .b{ height: 2px; background: var(--rule); border-radius: 1px; margin-top: 2px; }
+  .tn-md .strip .c .b.warn{ background: var(--neg); width: 45%; }
+  .tn-md .tabs{ display:flex; gap: 4px; padding: 3px 0 1px; border-bottom: 1px solid var(--rule); }
+  .tn-md .tabs .t{ font-family: var(--sans); font-size: 6.5px; padding: 2px 4px; color: var(--dim); }
+  .tn-md .tabs .t.on{ color: var(--ink); border-bottom: 1px solid var(--accent); padding-bottom: 1px; }
+  .tn-md .body{ display:grid; grid-template-columns: 1fr 60px; gap: 6px; flex: 1; }
+  .tn-md .body .ai{ background: linear-gradient(180deg, color-mix(in oklab, var(--accent) 12%, var(--card)), var(--card)); border: 1px solid color-mix(in oklab, var(--accent) 30%, var(--rule)); border-radius: var(--r-xs); padding: 5px 6px; display:flex; flex-direction: column; gap: 3px; }
+  .tn-md .body .ai .lab{ font-family: var(--mono); font-size: 5.5px; letter-spacing: .1em; text-transform: uppercase; color: var(--accent-deep); }
+  .tn-md .body .ai .h{ height: 3px; border-radius: 2px; background: var(--rule); }
+  .tn-md .body .tl{ background: var(--card); border: 1px solid var(--rule); border-radius: var(--r-xs); padding: 4px 6px; display:flex; flex-direction: column; gap: 4px; flex: 1; }
+  .tn-md .body .tl .e{ display:grid; grid-template-columns: 10px 1fr; gap: 4px; padding: 3px 0; border-bottom: 1px dotted var(--rule); }
+  .tn-md .body .tl .e:last-child{ border-bottom: none; }
+  .tn-md .body .tl .e .dot{ width: 8px; height: 8px; border-radius: 50%; background: var(--rule); }
+  .tn-md .body .tl .e .dot.ai{ background: var(--ink); border: 1px solid var(--accent); }
+  .tn-md .body .tl .e .dot.call{ background: color-mix(in oklab, var(--accent) 14%, var(--card)); border: 1px solid var(--accent); }
+  .tn-md .body .tl .e .dot.money{ background: color-mix(in oklab, var(--warn) 14%, var(--card)); border: 1px solid var(--warn); }
+  .tn-md .body .tl .e .l{ height: 2.5px; background: var(--rule); border-radius: 2px; }
+  .tn-md .body .side{ display:flex; flex-direction: column; gap: 4px; }
+  .tn-md .body .side .ask{ background: var(--ink); border-radius: var(--r-xs); padding: 4px; flex: 1; display:flex; flex-direction: column; gap: 3px; }
+  .tn-md .body .side .ask .av{ width: 8px; height: 8px; border-radius: 50%; background: var(--accent); }
+  .tn-md .body .side .ask .l{ height: 2px; background: rgba(255,255,255,.15); border-radius: 1px; }
+  .tn-md .body .side .ask .l.acc{ background: var(--accent); width: 70%; }
+
+  /* Intakes queue thumbnail */
+  .tn-iq{ display:grid; grid-template-columns: 130px 1fr; padding: 16px; gap: 8px; }
+  .tn-iq .list{ background: var(--paper-2); border-radius: var(--r-xs); padding: 6px; display:flex; flex-direction:column; gap: 4px; overflow: hidden; }
+  .tn-iq .list .it{ background: var(--card); border: 1px solid var(--rule); border-radius: 2px; padding: 5px 6px; display:flex; flex-direction: column; gap: 2px; }
+  .tn-iq .list .it.on{ border-color: var(--accent); box-shadow: -2px 0 0 var(--accent); background: color-mix(in oklab, var(--neg) 6%, var(--card)); }
+  .tn-iq .list .it .n{ font-family: var(--serif); font-size: 8px; line-height: 1; }
+  .tn-iq .list .it .l{ height: 3px; background: var(--rule); border-radius: 2px; }
+  .tn-iq .list .it .l.short{ width: 70%; }
+  .tn-iq .list .it .score{ font-family: var(--mono); font-size: 5.5px; padding: 1px 4px; border-radius: 999px; align-self: flex-start; background: color-mix(in oklab, var(--pos) 14%, var(--card)); color: var(--pos); }
+  .tn-iq .list .it .score.m{ background: color-mix(in oklab, var(--accent) 14%, var(--card)); color: var(--accent-deep); }
+  .tn-iq .verdict{ background: linear-gradient(180deg, color-mix(in oklab, var(--accent) 14%, var(--card)), var(--card)); border: 1px solid color-mix(in oklab, var(--accent) 30%, var(--rule)); border-radius: var(--r-xs); padding: 8px 10px; display:flex; flex-direction: column; gap: 4px; }
+  .tn-iq .verdict .av{ width: 12px; height: 12px; border-radius: 50%; background: var(--ink); }
+  .tn-iq .verdict .h{ font-family: var(--serif); font-size: 12px; line-height: 1.2; }
+  .tn-iq .verdict .h em{ color: var(--accent); }
+  .tn-iq .verdict .l{ height: 3px; border-radius: 2px; background: var(--rule); }
+  .tn-iq .scores{ display:grid; grid-template-columns: repeat(4, 1fr); gap: 4px; }
+  .tn-iq .scores .c{ background: var(--card); border: 1px solid var(--rule); border-radius: 2px; padding: 4px; display:flex; flex-direction: column; gap: 1px; }
+  .tn-iq .scores .c .lab{ font-family: var(--mono); font-size: 5px; letter-spacing: .1em; color: var(--dim); text-transform: uppercase; }
+  .tn-iq .scores .c .v{ font-family: var(--serif); font-size: 10px; line-height: 1; }
+  .tn-iq .scores .c .v.pos{ color: var(--pos); }
+  .tn-iq .scores .c .v.neg{ color: var(--neg); }
+  .tn-iq .body{ display:flex; flex-direction: column; gap: 4px; }
+
+  /* Client portal thumbnail */
+  .tn-cp{ display:flex; flex-direction: column; padding: 14px; gap: 6px; }
+  .tn-cp .top{ display:flex; justify-content: space-between; align-items: center; padding-bottom: 4px; border-bottom: 1px solid var(--rule); }
+  .tn-cp .firm{ font-family: var(--serif); font-size: 11px; letter-spacing: -.005em; }
+  .tn-cp .firm em{ color: var(--accent); }
+  .tn-cp .nav{ display:flex; gap: 4px; }
+  .tn-cp .nav i{ font-family: var(--sans); font-size: 7px; padding: 2px 5px; border-radius: 2px; color: var(--dim); }
+  .tn-cp .nav i.on{ background: var(--ink); color: var(--accent); }
+  .tn-cp .h{ font-family: var(--serif); font-size: 16px; letter-spacing: -.015em; line-height: 1; margin-top: 4px; }
+  .tn-cp .h em{ color: var(--accent); }
+  .tn-cp .status{ background: var(--card); border: 1px solid var(--rule); border-radius: var(--r-xs); padding: 6px 8px; display:flex; flex-direction: column; gap: 4px; box-shadow: var(--shadow-1); }
+  .tn-cp .status .lab{ font-family: var(--mono); font-size: 5.5px; color: var(--accent-deep); letter-spacing: .12em; text-transform: uppercase; }
+  .tn-cp .status .ti{ font-family: var(--serif); font-size: 10px; line-height: 1; }
+  .tn-cp .journey{ display:flex; align-items: center; justify-content: space-between; position: relative; padding: 2px 8px; }
+  .tn-cp .journey::before{ content:""; position: absolute; left: 14px; right: 14px; top: 50%; height: 1.5px; background: var(--rule); transform: translateY(-50%); }
+  .tn-cp .journey::after{ content:""; position: absolute; left: 14px; top: 50%; width: 50%; height: 1.5px; background: var(--accent); transform: translateY(-50%); }
+  .tn-cp .journey .dot{ width: 10px; height: 10px; border-radius: 50%; background: var(--card); border: 1.5px solid var(--rule); z-index: 1; }
+  .tn-cp .journey .dot.done{ background: var(--ink); border-color: var(--ink); }
+  .tn-cp .journey .dot.now{ background: var(--accent); border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+  .tn-cp .grid{ display:grid; grid-template-columns: 1.4fr 1fr; gap: 6px; flex: 1; }
+  .tn-cp .grid .msgs{ background: var(--card); border: 1px solid var(--rule); border-radius: var(--r-xs); padding: 6px; display:flex; flex-direction: column; gap: 4px; }
+  .tn-cp .grid .msgs .m{ display:flex; gap: 4px; padding: 4px 0; border-bottom: 1px dotted var(--rule); }
+  .tn-cp .grid .msgs .m:last-child{ border-bottom: none; }
+  .tn-cp .grid .msgs .m .av{ width: 10px; height: 10px; border-radius: 50%; background: var(--ink); flex-shrink: 0; }
+  .tn-cp .grid .msgs .m .av.me{ background: linear-gradient(135deg, var(--ink-2), var(--ink)); }
+  .tn-cp .grid .msgs .m .body{ flex: 1; display:flex; flex-direction: column; gap: 1px; }
+  .tn-cp .grid .msgs .m .body .l{ height: 2.5px; background: var(--rule); border-radius: 1px; }
+  .tn-cp .grid .side{ display:flex; flex-direction: column; gap: 4px; }
+  .tn-cp .grid .side .att{ background: var(--ink); color: var(--paper); border-radius: var(--r-xs); padding: 5px 6px; display:flex; flex-direction: column; gap: 2px; flex: 1; }
+  .tn-cp .grid .side .att .av{ width: 10px; height: 10px; border-radius: 50%; background: var(--accent); }
+  .tn-cp .grid .side .att .l{ height: 2px; background: rgba(255,255,255,.18); border-radius: 1px; }
+  .tn-cp .grid .side .ret{ background: var(--card); border: 1px solid var(--rule); border-radius: var(--r-xs); padding: 5px 6px; display:flex; flex-direction: column; gap: 2px; }
+  .tn-cp .grid .side .ret .lab{ font-family: var(--mono); font-size: 5.5px; letter-spacing: .1em; text-transform: uppercase; color: var(--dim); }
+  .tn-cp .grid .side .ret .v{ font-family: var(--serif); font-size: 12px; line-height: 1; }
+  .tn-cp .grid .side .ret .b{ height: 3px; border-radius: 2px; background: var(--rule); }
+  .tn-cp .grid .side .ret .b i{ display:block; height: 100%; width: 45%; background: var(--accent); border-radius: 2px; }
+
+  /* Reports thumbnail */
+  .tn-rp{ display:flex; flex-direction: column; padding: 14px; gap: 6px; }
+  .tn-rp .h{ font-family: var(--serif); font-size: 14px; line-height: 1.05; letter-spacing: -.015em; }
+  .tn-rp .h em{ color: var(--accent); }
+  .tn-rp .ai{ background: linear-gradient(180deg, color-mix(in oklab, var(--accent) 12%, var(--card)), var(--card)); border: 1px solid color-mix(in oklab, var(--accent) 30%, var(--rule)); border-radius: var(--r-xs); padding: 6px 8px; display:flex; flex-direction: column; gap: 3px; }
+  .tn-rp .ai .lab{ font-family: var(--mono); font-size: 5.5px; letter-spacing: .12em; text-transform: uppercase; color: var(--accent-deep); }
+  .tn-rp .ai .t{ font-family: var(--serif); font-size: 10px; line-height: 1.25; }
+  .tn-rp .ai .t em{ color: var(--accent-deep); font-style: italic; }
+  .tn-rp .kpis{ display:grid; grid-template-columns: repeat(4, 1fr); gap: 4px; }
+  .tn-rp .kpis .c{ background: var(--card); border: 1px solid var(--rule); border-radius: 2px; padding: 4px 5px; display:flex; flex-direction: column; gap: 1px; }
+  .tn-rp .kpis .c .lab{ font-family: var(--mono); font-size: 5px; letter-spacing: .1em; color: var(--dim); text-transform: uppercase; }
+  .tn-rp .kpis .c .v{ font-family: var(--serif); font-size: 11px; line-height: 1; font-feature-settings: "tnum"; }
+  .tn-rp .kpis .c .d{ font-family: var(--mono); font-size: 5px; color: var(--pos); }
+  .tn-rp .chart{ background: var(--card); border: 1px solid var(--rule); border-radius: var(--r-xs); padding: 6px; flex: 1; display:flex; flex-direction: column; gap: 3px; }
+  .tn-rp .chart .lab{ font-family: var(--mono); font-size: 5.5px; letter-spacing: .1em; text-transform: uppercase; color: var(--dim); }
+  .tn-rp .chart .bars{ display:flex; gap: 3px; align-items: flex-end; height: 32px; padding-top: 2px; }
+  .tn-rp .chart .bars i{ flex: 1; background: var(--paper-2); border: 1px solid var(--rule); }
+  .tn-rp .chart .bars i.acc{ background: var(--accent); border-color: var(--accent-deep); }
+
+  /* Intake thumbnail */
+  .tn-intake{ display:flex; flex-direction:column; padding: 16px; gap: 0; }
+  .tn-intake .head{ display:flex; gap: 8px; align-items: center; padding: 8px 10px; background: var(--paper-2); border-radius: var(--r-xs) var(--r-xs) 0 0; border: 1px solid var(--rule); border-bottom: none; }
+  .tn-intake .head .av{ width: 18px; height: 18px; border-radius: 50%; background: var(--ink); color: var(--accent); display:grid; place-items:center; font-family: var(--serif); font-style: italic; font-size: 10px; }
+  .tn-intake .head .n{ font-family: var(--serif); font-size: 13px; line-height: 1; letter-spacing: -.01em; }
+  .tn-intake .head .n em{ color: var(--accent); }
+  .tn-intake .head .trust{ margin-left: auto; font-family: var(--mono); font-size: 6px; letter-spacing: .08em; text-transform: uppercase; color: var(--dim); }
+  .tn-intake .convo{ background: var(--card); border: 1px solid var(--rule); border-radius: 0 0 var(--r-xs) var(--r-xs); padding: 10px; display:flex; flex-direction: column; gap: 6px; flex: 1; }
+  .tn-intake .a{ display:flex; gap: 6px; }
+  .tn-intake .a .av{ width: 14px; height: 14px; border-radius: 50%; background: var(--ink); color: var(--accent); display:grid; place-items:center; font-family: var(--serif); font-style: italic; font-size: 8px; flex-shrink:0; }
+  .tn-intake .a .bub{ background: var(--paper); border: 1px solid var(--rule); border-radius: 4px; padding: 4px 6px; font-size: 8px; line-height: 1.4; flex: 1; }
+  .tn-intake .a.first .bub{ background: linear-gradient(180deg, color-mix(in oklab, var(--accent) 15%, var(--card)), var(--card)); border-color: color-mix(in oklab, var(--accent) 30%, var(--rule)); }
+  .tn-intake .u{ display:flex; justify-content: flex-end; }
+  .tn-intake .u .bub{ background: var(--ink); color: var(--paper); border-radius: 4px; padding: 4px 6px; font-size: 8px; max-width: 70%; }
+  .tn-intake .quick{ display:flex; gap: 4px; padding-left: 20px; flex-wrap: wrap; }
+  .tn-intake .quick i{ height: 12px; border-radius: 6px; background: var(--card); border: 1px solid var(--rule); padding: 0 8px; display:inline-flex; align-items: center; font-size: 7px; color: var(--ink-2); }
+  .tn-intake .quick i.on{ background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+  .tn-intake .pay{
+    background: color-mix(in oklab, var(--accent) 12%, var(--card));
+    border: 1px solid color-mix(in oklab, var(--accent) 35%, var(--rule));
+    border-radius: 4px;
+    padding: 6px; margin-left: 20px; display:flex; gap: 6px; align-items: center;
+  }
+  .tn-intake .pay .l{ flex:1; font-size: 7px; font-family: var(--serif); }
+  .tn-intake .pay .a{ font-family: var(--serif); font-size: 11px; }
+  .tn-intake .composer{
+    margin-top: 8px;
+    background: var(--paper); border: 1px solid var(--rule);
+    border-radius: 999px; padding: 4px 4px 4px 10px;
+    display:flex; align-items:center; gap: 4px;
+    font-size: 7px; color: var(--dim-2);
+  }
+  .tn-intake .composer .send{ width: 14px; height: 14px; border-radius: 50%; background: var(--ink); }
+
+  /* footer */
+  footer.foot{
+    margin-top: 64px; padding-top: 24px; border-top: 1px solid var(--rule);
+    display:flex; justify-content: space-between; align-items: flex-end;
+    font-family: var(--mono); font-size: 11px; color: var(--dim); letter-spacing: .06em; text-transform: uppercase;
+  }
+  footer.foot a{ color: var(--ink-2); border-bottom: 1px dotted var(--dim-2); cursor: pointer; }
+
+  @media (max-width: 900px){
+    .system-card{ grid-template-columns: repeat(2, 1fr); }
+    .screens{ grid-template-columns: 1fr; }
+    header.top{ flex-direction: column; align-items: flex-start; gap: 16px; }
+    header.top h1{ font-size: 48px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+
+  <header class="top">
+    <div>
+      <div class="meta">Blawby app · v0.2 · chat-first</div>
+      <h1>The practice that <em>runs itself.</em></h1>
+      <p class="lede sub">Nineteen screens on one design system &mdash; navy &amp; gold, Source Serif 4 + Geist. Twelve from the refactor, four added last round, and three this round (Engagement review, Intake builder, Engagement templates). Click a card to open the full screen.</p>
+    </div>
+    <div class="right">
+      <div class="meta">design system</div>
+      <span class="pill live" style="margin-top:8px">tokens.css · live</span>
+    </div>
+  </header>
+
+  <!-- system summary -->
+  <div class="system-card">
+    <div class="cell">
+      <div class="lbl">Palette</div>
+      <div class="swatches">
+        <i style="background: var(--ink)"></i>
+        <i style="background: var(--paper-2)"></i>
+        <i style="background: var(--paper)"></i>
+        <i style="background: var(--accent)"></i>
+        <i style="background: var(--accent-deep)"></i>
+      </div>
+      <div class="accent-strip"></div>
+      <div class="help">navy ink · cream paper · gold accent</div>
+    </div>
+    <div class="cell">
+      <div class="lbl">Type</div>
+      <div class="face">Source Serif 4 — <em>display</em></div>
+      <div class="face sans" style="font-size:15px;color:var(--ink-2)">Geist — body &amp; UI</div>
+      <div class="face mono">Geist Mono — labels &amp; data</div>
+    </div>
+    <div class="cell">
+      <div class="lbl">Radii</div>
+      <div class="radii">
+        <i style="border-radius: 2px"></i>
+        <i style="border-radius: 4px"></i>
+        <i style="border-radius: 8px"></i>
+        <i style="border-radius: 14px"></i>
+        <i style="border-radius: 999px"></i>
+      </div>
+      <div class="help">2px on buttons (sharp) · 8px on cards · pill on chips</div>
+    </div>
+    <div class="cell">
+      <div class="lbl">Tone</div>
+      <div style="font-family:var(--serif); font-size:18px; line-height:1.3; color:var(--ink); font-style: italic">Editorial. Confident. The opposite of a dashboard.</div>
+      <div class="help">a lot of space, one accent, never busy</div>
+    </div>
+  </div>
+
+  <!-- screens -->
+  <div class="screens">
+
+    <a href="Assistant.html" class="screen-card">
+      <div class="thumb">
+        <div class="tn tn-assist">
+          <div class="rail">
+            <div class="it" style="background:var(--ink);height:10px"></div>
+            <div class="it gold"></div>
+            <div class="it"></div>
+            <div class="it"></div>
+            <div class="it"></div>
+            <div class="it"></div>
+            <div class="it"></div>
+          </div>
+          <div class="center">
+            <div class="title">Good morning, <em>Sarah.</em></div>
+            <div class="feature">
+              <div class="h"></div>
+              <div class="l" style="width:90%"></div>
+              <div class="l" style="width:65%"></div>
+              <div style="display:flex;gap:4px;margin-top:2px">
+                <div style="height:10px;width:60px;background:var(--ink);border-radius:2px"></div>
+                <div style="height:10px;width:40px;background:var(--card);border:1px solid var(--rule);border-radius:2px"></div>
+              </div>
+            </div>
+            <div class="grid2">
+              <div><div class="h"></div><div class="l"></div><div class="l" style="width:50%"></div></div>
+              <div><div class="h"></div><div class="l"></div><div class="l" style="width:80%"></div></div>
+            </div>
+          </div>
+          <div class="drawer">
+            <div class="h">Martinez</div>
+            <div class="staged">
+              <div class="lab">staged</div>
+              <div class="ti">Invoice $1,245</div>
+            </div>
+            <div class="stat"><div class="l">retainer</div><div class="v">$2.2k</div></div>
+            <div class="stat"><div class="l">unbilled</div><div class="v">8.3h</div></div>
+          </div>
+        </div>
+      </div>
+      <div class="meta">
+        <div class="ix">01 · Assistant</div>
+        <h3>The home screen <em>is the chat.</em></h3>
+        <p>Opens to an AI-written morning briefing. Entities the AI mentions auto-pin to the right; staged writes wait for your approval before touching the database.</p>
+        <div class="foot">
+          <span class="pill gold">main app</span>
+          <span class="arrow">Open →</span>
+        </div>
+      </div>
+    </a>
+
+    <a href="Onboarding.html" class="screen-card">
+      <div class="thumb">
+        <div class="tn tn-onb">
+          <div class="steps">
+            <div class="step done"><div class="ix"></div><div class="l"></div></div>
+            <div class="step done"><div class="ix"></div><div class="l"></div></div>
+            <div class="step now"><div class="ix"></div><div class="l"></div></div>
+            <div class="step"><div class="ix"></div><div class="l"></div></div>
+            <div class="step"><div class="ix"></div><div class="l"></div></div>
+            <div class="step"><div class="ix"></div><div class="l"></div></div>
+          </div>
+          <div class="stage">
+            <span class="h">What kind of <em>work</em> do you do?</span>
+            <div class="ai">
+              <div class="b" style="width:80%"></div>
+              <div class="b" style="width:60%"></div>
+            </div>
+            <div class="form">
+              <div class="row"><div class="input"></div><div class="input"></div></div>
+              <div class="row"><div class="input"></div><div class="input"></div></div>
+              <div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:4px">
+                <span style="font-size:8px;padding:3px 8px;background:var(--accent);color:var(--accent-ink);border-radius:999px">Family law</span>
+                <span style="font-size:8px;padding:3px 8px;background:var(--accent);color:var(--accent-ink);border-radius:999px">Civil litigation</span>
+                <span style="font-size:8px;padding:3px 8px;background:var(--card);color:var(--ink-2);border:1px solid var(--rule);border-radius:999px">Estate</span>
+                <span style="font-size:8px;padding:3px 8px;background:var(--card);color:var(--ink-2);border:1px solid var(--rule);border-radius:999px">PI</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="meta">
+        <div class="ix">02 · Onboarding</div>
+        <h3>The AI <em>guesses first.</em></h3>
+        <p>Six conversational steps. The assistant infers your firm shape from public records and your bar profile, then asks you to confirm — not type from scratch.</p>
+        <div class="foot">
+          <span class="pill">first-run flow</span>
+          <span class="arrow">Open →</span>
+        </div>
+      </div>
+    </a>
+
+    <a href="Settings.html" class="screen-card">
+      <div class="thumb">
+        <div class="tn tn-settings">
+          <div class="nav">
+            <div class="grp">Practice</div>
+            <div class="it"></div>
+            <div class="it"></div>
+            <div class="grp">Money</div>
+            <div class="it"></div>
+            <div class="it"></div>
+            <div class="grp">Intelligence</div>
+            <div class="it on"></div>
+            <div class="it"></div>
+            <div class="grp">Account</div>
+            <div class="it"></div>
+          </div>
+          <div class="main">
+            <span class="h">How the <em>assistant</em> works.</span>
+            <div class="ai"></div>
+            <div class="row" style="border-top:none"><div class="l"></div><div class="tog"></div></div>
+            <div class="row"><div class="l" style="width:75%"></div><div class="tog"></div></div>
+            <div class="row"><div class="l" style="width:50%"></div><div class="tog off"></div></div>
+            <div class="code">You are <span class="var">Sarah's assistant</span>, refuse <span class="var">criminal</span>, sliding scale for <span class="var">DV</span>…</div>
+          </div>
+        </div>
+      </div>
+      <div class="meta">
+        <div class="ix">03 · Settings</div>
+        <h3>Auditable, not <em>configurable.</em></h3>
+        <p>Settings exist so you can see what rules the AI is using — every page is also editable from chat with "remember that…". Includes the org system prompt, readable sources, audit log.</p>
+        <div class="foot">
+          <span class="pill">AI behavior tab</span>
+          <span class="arrow">Open →</span>
+        </div>
+      </div>
+    </a>
+
+    <a href="Matters.html" class="screen-card">
+      <div class="thumb">
+        <div class="tn tn-matters">
+          <div class="ask">
+            <div class="av"></div>
+            <div class="l"></div>
+          </div>
+          <div class="answer">
+            <div class="h">Two of four matters are <em>at risk this week.</em></div>
+            <div class="l"></div>
+            <div style="display:flex;gap:4px;margin-top:2px">
+              <div style="height:8px;width:50px;background:var(--ink);border-radius:2px"></div>
+              <div style="height:8px;width:38px;background:var(--card);border:1px solid var(--rule);border-radius:2px"></div>
+            </div>
+          </div>
+          <div class="tbl">
+            <div class="r head"><div>Matter</div><div>Retainer</div><div>Status</div></div>
+            <div class="r urgent"><div class="t">Martinez · Auto Injury</div><div class="b warn"></div><div class="pi urg">at risk</div></div>
+            <div class="r urgent"><div class="t">Johnson · Estate</div><div class="b" style="background:var(--accent)"></div><div class="pi urg">court Fri</div></div>
+            <div class="r"><div class="t">Demo Client · Separation</div><div class="b ok"></div><div class="pi">healthy</div></div>
+            <div class="r"><div class="t">sdtest</div><div class="b" style="background:var(--rule)"></div><div class="pi">lead</div></div>
+          </div>
+        </div>
+      </div>
+      <div class="meta">
+        <div class="ix">04 · Matters</div>
+        <h3>A list that <em>answers questions</em>.</h3>
+        <p>Filter via chat — "at risk", "retainer below 30%", "no activity 7+ days" — and the table reshapes. Toggle to a kanban board when you'd rather see flow.</p>
+        <div class="foot">
+          <span class="pill">filterable table + board</span>
+          <span class="arrow">Open →</span>
+        </div>
+      </div>
+    </a>
+
+    <a href="Trust.html" class="screen-card">
+      <div class="thumb">
+        <div class="tn tn-trust">
+          <div class="comp">
+            <div class="seal">✓</div>
+            <div class="l"></div>
+            <div style="font-family:var(--mono);font-size:6.5px;color:var(--pos);letter-spacing:.08em;text-transform:uppercase">IOLTA · live</div>
+          </div>
+          <div class="sum">
+            <div class="c"><div class="lab">trust</div><div class="v">$18,720</div></div>
+            <div class="c"><div class="lab">operating</div><div class="v">$4,318</div></div>
+            <div class="c"><div class="lab">bank</div><div class="v">$23,038</div></div>
+            <div class="c"><div class="lab">reconciled</div><div class="v" style="font-family:var(--sans);font-size:9px;font-weight:500">2h ago</div></div>
+          </div>
+          <div class="tx">
+            <div class="r head"><div></div><div></div><div>Recent transactions</div><div style="text-align:right">USD</div></div>
+            <div class="r"><div class="w">Nov 25</div><div class="i tr">→</div><div class="b"></div><div class="a neg">−$1,800</div></div>
+            <div class="r"><div class="w">Nov 22</div><div class="i dep">+</div><div class="b"></div><div class="a pos">+$5,000</div></div>
+            <div class="r"><div class="w">Nov 19</div><div class="i tr">→</div><div class="b"></div><div class="a neg">−$1,245</div></div>
+            <div class="r"><div class="w">Nov 14</div><div class="i dep">+</div><div class="b"></div><div class="a pos">+$5,000</div></div>
+            <div class="r"><div class="w">Nov 12</div><div class="i wd">−</div><div class="b"></div><div class="a neg">−$420</div></div>
+          </div>
+        </div>
+      </div>
+      <div class="meta">
+        <div class="ix">05 · Trust ledger</div>
+        <h3>IOLTA, <em>not bolted on</em>.</h3>
+        <p>Per-client balances, 3-way auto-reconciliation, full audit trail. The AI flags low retainers and stages a replenishment request before you notice.</p>
+        <div class="foot">
+          <span class="pill">compliance + audit</span>
+          <span class="arrow">Open →</span>
+        </div>
+      </div>
+    </a>
+
+    <a href="Engagement.html" class="screen-card">
+      <div class="thumb">
+        <div class="tn tn-eng">
+          <div class="ribbon">
+            <div class="av"></div>
+            <div class="l"></div>
+            <div style="font-family:var(--mono);font-size:6.5px;color:var(--accent-deep);letter-spacing:.08em;text-transform:uppercase">3 open</div>
+          </div>
+          <div class="col">
+            <div class="lab">Client &amp; matter</div>
+            <div class="input"></div>
+            <div class="input row"><div></div><div></div></div>
+            <div class="lab" style="margin-top:2px">Fee structure</div>
+            <div class="seg"><div></div><div class="on"></div><div></div><div></div></div>
+            <div class="input row"><div></div><div></div><div></div></div>
+          </div>
+          <div class="letter">
+            <div class="firm">Law Offices of <em>Sarah Chen</em></div>
+            <div class="h">Engagement letter</div>
+            <div class="l"></div>
+            <div class="l" style="width: 85%"></div>
+            <div class="l" style="width: 70%"></div>
+            <div class="fee">
+              <span class="lab">Retainer</span>
+              <span class="v">$4,000</span>
+            </div>
+            <div class="l" style="width: 60%"></div>
+            <div class="l ph"></div>
+          </div>
+        </div>
+      </div>
+      <div class="meta">
+        <div class="ix">06 · Engagement editor</div>
+        <h3>Form left, <em>letter right</em>.</h3>
+        <p>17 named placeholders, AI-resolved from intake data. Live formatted preview. Conflict + jurisdiction + SoL checks run automatically before you can send.</p>
+        <div class="foot">
+          <span class="pill">staff-side draft view</span>
+          <span class="arrow">Open →</span>
+        </div>
+      </div>
+    </a>
+
+    <a href="Invoices.html" class="screen-card">
+      <div class="thumb">
+        <div class="tn tn-inv">
+          <div class="list">
+            <div class="h">Invoices</div>
+            <div class="it on"><span class="who">B. Martinez</span><span class="amt">$1,245</span><span class="pi s">staged</span></div>
+            <div class="it"><span class="who">A. Johnson</span><span class="amt">$1,800</span><span class="pi p">paid</span></div>
+            <div class="it"><span class="who">Demo Client</span><span class="amt">$2,400</span><span class="pi">sent</span></div>
+            <div class="it"><span class="who">Patel</span><span class="amt">$420</span><span class="pi o">overdue</span></div>
+            <div class="it"><span class="who">B. Martinez</span><span class="amt">$675</span><span class="pi p">paid</span></div>
+          </div>
+          <div class="doc">
+            <div class="top">
+              <div class="firm">Law Offices of <em>Sarah Chen</em></div>
+              <div class="num"><span class="lab">Invoice</span>INV-0192</div>
+            </div>
+            <div class="lines">
+              <div class="l"><span class="d">Call with adjuster</span><span class="a">$75</span></div>
+              <div class="l"><span class="d">Demand letter</span><span class="a">$420</span></div>
+              <div class="l"><span class="d">Records review</span><span class="a">$225</span></div>
+              <div class="l"><span class="d">Strategy call</span><span class="a">$150</span></div>
+              <div class="l"><span class="d">Intake summary</span><span class="a">$375</span></div>
+            </div>
+            <div class="total"><span>Total</span><span>$1,245.00</span></div>
+          </div>
+        </div>
+      </div>
+      <div class="meta">
+        <div class="ix">07 · Invoices</div>
+        <h3>Drafted by the <em>AI</em>, sent by you.</h3>
+        <p>List on the left, hi-fi document on the right. The assistant aggregates unbilled time into a draft, flags retainer impact, and stages a replenishment if needed — all waiting for your one-click approval.</p>
+        <div class="foot">
+          <span class="pill">list + detail</span>
+          <span class="arrow">Open →</span>
+        </div>
+      </div>
+    </a>
+
+    <a href="Matter.html" class="screen-card">
+      <div class="thumb">
+        <div class="tn tn-md">
+          <div class="crumb">Matters / BLB-0241</div>
+          <div class="ttl">Auto Injury — <em>Bob Martinez</em></div>
+          <div class="sub">Personal injury · NC Mecklenburg · opened 53d</div>
+          <div class="strip">
+            <div class="c"><div class="lab">retainer</div><div class="v">$2.2k</div><div class="b warn"></div></div>
+            <div class="c"><div class="lab">unbilled</div><div class="v">8.3h</div><div class="b" style="width:60%;background:var(--accent)"></div></div>
+            <div class="c"><div class="lab">events</div><div class="v">14</div></div>
+            <div class="c"><div class="lab">SoL</div><div class="v">Mar '27</div></div>
+            <div class="c"><div class="lab">est value</div><div class="v">$28k</div></div>
+          </div>
+          <div class="tabs">
+            <span class="t on">Overview</span>
+            <span class="t">Activity</span>
+            <span class="t">Time</span>
+            <span class="t">Files</span>
+            <span class="t">Notes</span>
+            <span class="t">Tasks</span>
+            <span class="t">Milestones</span>
+          </div>
+          <div class="body">
+            <div style="display:flex;flex-direction:column;gap:4px">
+              <div class="ai">
+                <div class="lab">Assistant summary</div>
+                <div class="h" style="width:90%"></div>
+                <div class="h" style="width:75%"></div>
+                <div class="h" style="width:60%"></div>
+              </div>
+              <div class="tl">
+                <div class="e"><div class="dot ai"></div><div class="l" style="width:80%"></div></div>
+                <div class="e"><div class="dot call"></div><div class="l" style="width:70%"></div></div>
+                <div class="e"><div class="dot"></div><div class="l" style="width:65%"></div></div>
+                <div class="e"><div class="dot money"></div><div class="l" style="width:50%"></div></div>
+              </div>
+            </div>
+            <div class="side">
+              <div class="ask">
+                <div class="av"></div>
+                <div class="l" style="width:80%"></div>
+                <div class="l" style="width:60%"></div>
+                <div class="l acc"></div>
+                <div class="l acc" style="width:50%"></div>
+                <div class="l acc" style="width:60%"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="meta">
+        <div class="ix">08 · Matter detail</div>
+        <h3>A workspace, not a <em>record card</em>.</h3>
+        <p>Stats strip, AI-written case summary grounded in every event, activity timeline with logged time and milestones, plus a pinned assistant scoped just to this matter.</p>
+        <div class="foot">
+          <span class="pill">single matter view</span>
+          <span class="arrow">Open →</span>
+        </div>
+      </div>
+    </a>
+
+    <a href="Intakes.html" class="screen-card">
+      <div class="thumb">
+        <div class="tn tn-iq">
+          <div class="list">
+            <div class="it on">
+              <span class="n">Sarah Chen</span>
+              <div class="l short"></div>
+              <span class="score">4.2</span>
+            </div>
+            <div class="it">
+              <span class="n">Marcus Lee</span>
+              <div class="l short"></div>
+              <span class="score m">3.4</span>
+            </div>
+            <div class="it">
+              <span class="n">Jenna Park</span>
+              <div class="l short"></div>
+              <span class="score m">3.8</span>
+            </div>
+            <div class="it" style="opacity:.6">
+              <span class="n">Kim Wallace</span>
+              <div class="l short"></div>
+              <span class="score" style="background:var(--rule-soft);color:var(--dim)">declined</span>
+            </div>
+          </div>
+          <div class="body">
+            <div class="verdict">
+              <div style="display:flex;gap:4px;align-items:center"><div class="av"></div><div class="l" style="flex:1"></div></div>
+              <div class="h">Accept this. <em>4.2/5</em>, urgent, jurisdiction match.</div>
+              <div class="l" style="width:70%"></div>
+              <div style="display:flex;gap:3px;margin-top:2px">
+                <div style="height:8px;width:50px;background:var(--ink);border-radius:2px"></div>
+                <div style="height:8px;width:34px;background:var(--card);border:1px solid var(--rule);border-radius:2px"></div>
+              </div>
+            </div>
+            <div class="scores">
+              <div class="c"><div class="lab">case</div><div class="v pos">4.2</div></div>
+              <div class="c"><div class="lab">urgency</div><div class="v neg">urgent</div></div>
+              <div class="c"><div class="lab">area</div><div class="v" style="font-family:var(--sans);font-size:9px;font-weight:500">Family</div></div>
+              <div class="c"><div class="lab">retainer</div><div class="v">$3k</div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="meta">
+        <div class="ix">09 · Intakes queue</div>
+        <h3>Triage that's already <em>done</em>.</h3>
+        <p>Every intake arrives with an AI verdict, a case score, conflict + jurisdiction + capacity checks, and the full conversation transcript. You just accept, ask, or decline.</p>
+        <div class="foot">
+          <span class="pill">staff triage</span>
+          <span class="arrow">Open →</span>
+        </div>
+      </div>
+    </a>
+
+    <a href="ClientPortal.html" class="screen-card">
+      <div class="thumb">
+        <div class="tn tn-cp">
+          <div class="top">
+            <div class="firm">Law Offices of <em>Sarah Chen</em></div>
+            <div class="nav"><i class="on">Case</i><i>Docs</i><i>Billing</i></div>
+          </div>
+          <div class="h">Hi <em>Bob</em>. Here's where your case stands.</div>
+          <div class="status">
+            <div class="lab">Awaiting adjuster response</div>
+            <div class="ti">Auto Injury · vs State Farm</div>
+            <div class="journey">
+              <div class="dot done"></div>
+              <div class="dot done"></div>
+              <div class="dot done"></div>
+              <div class="dot now"></div>
+              <div class="dot"></div>
+            </div>
+          </div>
+          <div class="grid">
+            <div class="msgs">
+              <div class="m"><div class="av"></div><div class="body"><div class="l" style="width:80%"></div><div class="l" style="width:60%"></div><div class="l" style="width:70%"></div></div></div>
+              <div class="m"><div class="av me"></div><div class="body"><div class="l" style="width:50%"></div><div class="l" style="width:65%"></div></div></div>
+              <div class="m"><div class="av"></div><div class="body"><div class="l" style="width:75%"></div><div class="l" style="width:55%"></div></div></div>
+            </div>
+            <div class="side">
+              <div class="att">
+                <div class="av"></div>
+                <div class="l" style="width:60%"></div>
+                <div class="l" style="width:80%"></div>
+              </div>
+              <div class="ret">
+                <div class="lab">Retainer</div>
+                <div class="v">$2,250</div>
+                <div class="b"><i></i></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="meta">
+        <div class="ix">10 · Client portal</div>
+        <h3>What <em>clients</em> see after signing.</h3>
+        <p>Their own private workspace: case stage on a journey, plain-English status updates, threaded messages with the attorney, signed documents, retainer balance held in trust, payment history.</p>
+        <div class="foot">
+          <span class="pill">client-facing</span>
+          <span class="arrow">Open →</span>
+        </div>
+      </div>
+    </a>
+
+    <a href="Reports.html" class="screen-card">
+      <div class="thumb">
+        <div class="tn tn-rp">
+          <div class="h">Your practice, in <em>3 minutes.</em></div>
+          <div class="ai">
+            <div class="lab">Executive summary</div>
+            <div class="t">You billed <em>$9,190</em>, accepted <em>5 of 18</em>. Biggest leak: <em>retainer replenishment</em>.</div>
+          </div>
+          <div class="kpis">
+            <div class="c"><div class="lab">revenue</div><div class="v">$9.2k</div><div class="d">↑ 14%</div></div>
+            <div class="c"><div class="lab">intake →</div><div class="v">28%</div><div class="d" style="color:var(--dim)">—</div></div>
+            <div class="c"><div class="lab">to close</div><div class="v">68d</div><div class="d">22% faster</div></div>
+            <div class="c"><div class="lab">utilization</div><div class="v">61%</div><div class="d">↑ 4pt</div></div>
+          </div>
+          <div class="chart">
+            <div class="lab">Revenue · 6mo trailing</div>
+            <div class="bars">
+              <i style="height:35%"></i>
+              <i style="height:50%"></i>
+              <i style="height:55%"></i>
+              <i style="height:62%"></i>
+              <i style="height:65%"></i>
+              <i class="acc" style="height:78%"></i>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="meta">
+        <div class="ix">11 · Reports</div>
+        <h3>A narrative, not a <em>dashboard</em>.</h3>
+        <p>Every Monday the assistant writes you a 3-minute monthly review: exec summary, KPI strip, revenue mix, intake quality, matter projections, peer benchmark, and what to do this week.</p>
+        <div class="foot">
+          <span class="pill">AI-narrated analytics</span>
+          <span class="arrow">Open →</span>
+        </div>
+      </div>
+    </a>
+
+    <a href="Intake.html" class="screen-card">
+      <div class="thumb">
+        <div class="tn tn-intake">
+          <div class="head">
+            <div class="av">B</div>
+            <div class="n">Law Offices of <em>Sarah Chen</em></div>
+            <div class="trust">encrypted</div>
+          </div>
+          <div class="convo">
+            <div class="a first"><div class="av">B</div><div class="bub">Hi, I'm Sarah's intake assistant. Tell me what's going on — a sentence or a paragraph is fine.</div></div>
+            <div class="u"><div class="bub">my ex is refusing visitation this saturday and i don't know what to do</div></div>
+            <div class="a"><div class="av">B</div><div class="bub">Is there a court order in place?</div></div>
+            <div class="quick">
+              <i class="on">Yes</i><i>No</i><i>Not sure</i>
+            </div>
+            <div class="pay">
+              <div class="l">30-min consult with Sarah</div>
+              <div class="a">$150</div>
+            </div>
+            <div class="composer"><span>Reply to Sarah's assistant…</span><div style="flex:1"></div><div class="send"></div></div>
+          </div>
+        </div>
+      </div>
+      <div class="meta">
+        <div class="ix">12 · Public intake</div>
+        <h3>What your <em>clients</em> see.</h3>
+        <p>Embeddable on any firm site or hosted at blawby.com/p/your-slug. Conversational triage with in-chat payment for paid consults. Funds held in IOLTA trust.</p>
+        <div class="foot">
+          <span class="pill">widget + direct URL</span>
+          <span class="arrow">Open →</span>
+        </div>
+      </div>
+    </a>
+
+    <!-- ============ NEW THIS ROUND ============ -->
+    <style>
+      /* Conversations thumbnail */
+      .tn-conv{ display:grid; grid-template-columns: 130px 1fr 90px; padding:14px; gap:6px; }
+      .tn-conv .list{ background: var(--paper-2); border-radius: var(--r-xs); padding:6px; display:flex; flex-direction:column; gap:4px; overflow:hidden; }
+      .tn-conv .list .it{ background: var(--card); border:1px solid var(--rule); border-radius:2px; padding:4px 5px; display:flex; flex-direction:column; gap:2px; }
+      .tn-conv .list .it.on{ border-color: var(--accent); box-shadow: -2px 0 0 var(--accent); }
+      .tn-conv .list .it .who{ font-family: var(--serif); font-size:8px; line-height:1; }
+      .tn-conv .list .it .pv{ font-size:6.5px; color: var(--ink-2); line-height:1.3; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
+      .tn-conv .list .it .tg{ font-family: var(--mono); font-size:5.5px; padding:1px 4px; border-radius:999px; align-self:flex-start; }
+      .tn-conv .list .it .tg.urg{ background: color-mix(in oklab, var(--neg) 14%, var(--card)); color: var(--neg); }
+      .tn-conv .list .it .tg.auto{ background: color-mix(in oklab, var(--accent) 14%, var(--card)); color: var(--accent-deep); }
+      .tn-conv .conv{ display:flex; flex-direction:column; gap:5px; padding:2px; }
+      .tn-conv .conv .crumb{ font-family:var(--mono); font-size:5.5px; letter-spacing:.08em; text-transform:uppercase; color:var(--dim); }
+      .tn-conv .conv .h{ font-family:var(--serif); font-size:11px; line-height:1.15; letter-spacing:-.01em; }
+      .tn-conv .conv .h em{ color:var(--accent); }
+      .tn-conv .conv .day{ font-family:var(--mono); font-size:5.5px; letter-spacing:.1em; text-transform:uppercase; color:var(--dim); text-align:center; padding:2px 0; border-top:1px solid var(--rule); border-bottom:1px solid var(--rule); }
+      .tn-conv .conv .bub{ background:var(--card); border:1px solid var(--rule); border-radius:3px; padding:4px 6px; font-size:7px; line-height:1.4; color:var(--ink-2); max-width: 78%; }
+      .tn-conv .conv .bub.client{ align-self:flex-start; }
+      .tn-conv .conv .bub.ai{ background: linear-gradient(180deg, color-mix(in oklab, var(--accent) 12%, var(--card)), var(--card)); border-color: color-mix(in oklab, var(--accent) 30%, var(--rule)); align-self:flex-start; }
+      .tn-conv .conv .bub.me{ align-self:flex-end; background:var(--ink); color:var(--paper); border-color:var(--ink); }
+      .tn-conv .conv .staged{ background: linear-gradient(180deg, color-mix(in oklab, var(--accent) 22%, var(--card)), color-mix(in oklab, var(--accent) 10%, var(--card))); border:1px solid color-mix(in oklab, var(--accent) 45%, var(--rule)); border-radius:3px; padding:5px 6px; }
+      .tn-conv .conv .staged .lab{ font-family:var(--mono); font-size:5.5px; letter-spacing:.1em; text-transform:uppercase; color:var(--accent-deep); }
+      .tn-conv .conv .staged .ti{ font-family:var(--serif); font-size:9px; line-height:1; margin-top:2px; }
+      .tn-conv .drawer{ background:var(--paper-2); border-radius:var(--r-xs); padding:6px; display:flex; flex-direction:column; gap:4px; }
+      .tn-conv .drawer .h{ font-family:var(--serif); font-size:10px; letter-spacing:-.005em; }
+      .tn-conv .drawer .h em{ color:var(--accent); }
+      .tn-conv .drawer .st{ background:var(--card); border:1px solid var(--rule); border-radius:var(--r-xs); padding:3px 5px; }
+      .tn-conv .drawer .st .l{ font-family:var(--mono); font-size:6px; color:var(--dim); letter-spacing:.06em; text-transform:uppercase; }
+      .tn-conv .drawer .st .v{ font-family:var(--serif); font-size:11px; line-height:1; font-feature-settings:"tnum"; }
+
+      /* Clients thumbnail */
+      .tn-clients{ display:flex; flex-direction:column; padding:14px; gap:8px; }
+      .tn-clients .ask{ background:var(--card); border:1px solid var(--rule); border-radius:var(--r-xs); padding:6px 8px; display:flex; gap:6px; align-items:center; }
+      .tn-clients .ask .av{ width:12px; height:12px; border-radius:50%; background:var(--ink); flex-shrink:0; }
+      .tn-clients .ask .l{ flex:1; height:5px; border-radius:2px; background:var(--rule); }
+      .tn-clients .answer{ background: linear-gradient(180deg, color-mix(in oklab, var(--accent) 12%, var(--card)), var(--card)); border:1px solid color-mix(in oklab, var(--accent) 30%, var(--rule)); border-radius:var(--r-xs); padding:6px 8px; display:flex; flex-direction:column; gap:3px; }
+      .tn-clients .answer .h{ font-family:var(--serif); font-size:11px; line-height:1.2; }
+      .tn-clients .answer .h em{ color:var(--accent-deep); }
+      .tn-clients .answer .l{ height:3px; border-radius:2px; background:var(--rule); }
+      .tn-clients .dir{ background:var(--card); border:1px solid var(--rule); border-radius:var(--r-xs); flex:1; display:flex; flex-direction:column; }
+      .tn-clients .dir .r{ display:grid; grid-template-columns: 14px 1.6fr 1fr 60px 60px; gap:6px; padding:4px 8px; border-bottom:1px dotted var(--rule); align-items:center; }
+      .tn-clients .dir .r:last-child{ border-bottom:none; }
+      .tn-clients .dir .r.head{ background:var(--paper-2); font-family:var(--mono); font-size:5.5px; letter-spacing:.1em; text-transform:uppercase; color:var(--dim); }
+      .tn-clients .dir .r.on{ background: color-mix(in oklab, var(--accent) 7%, var(--card)); border-left: 2px solid var(--accent); padding-left:6px; }
+      .tn-clients .dir .av{ width:12px; height:12px; border-radius:50%; background: linear-gradient(135deg, var(--ink-2), var(--ink)); }
+      .tn-clients .dir .av.urg{ background: linear-gradient(135deg, color-mix(in oklab, var(--neg) 80%, var(--ink)), var(--neg)); }
+      .tn-clients .dir .nm{ font-family:var(--serif); font-size:8.5px; line-height:1; }
+      .tn-clients .dir .mt{ font-size:7px; color:var(--ink-2); line-height:1.3; }
+      .tn-clients .dir .b{ height:3px; border-radius:2px; background:var(--rule-soft); }
+      .tn-clients .dir .b i{ display:block; height:100%; border-radius:2px; background:var(--accent); }
+      .tn-clients .dir .b.warn i{ background:var(--neg); }
+      .tn-clients .dir .b.ok i{ background:var(--pos); }
+      .tn-clients .dir .pi{ font-family:var(--mono); font-size:5.5px; padding:1px 4px; border-radius:999px; align-self:flex-start; background:var(--paper); border:1px solid var(--rule); color:var(--dim); }
+      .tn-clients .dir .pi.calm{ background: color-mix(in oklab, var(--pos) 14%, var(--card)); color:var(--pos); }
+      .tn-clients .dir .pi.anx{ background: color-mix(in oklab, var(--warn) 14%, var(--card)); color:var(--warn); }
+      .tn-clients .dir .pi.frust{ background: color-mix(in oklab, var(--neg) 14%, var(--card)); color:var(--neg); }
+
+      /* Calendar thumbnail */
+      .tn-cal{ display:flex; flex-direction:column; padding:14px; gap:6px; }
+      .tn-cal .h{ font-family:var(--serif); font-size:12px; line-height:1.1; letter-spacing:-.012em; }
+      .tn-cal .h em{ color:var(--accent); }
+      .tn-cal .ai{ background: linear-gradient(180deg, color-mix(in oklab, var(--accent) 12%, var(--card)), var(--card)); border:1px solid color-mix(in oklab, var(--accent) 30%, var(--rule)); border-radius:var(--r-xs); padding:5px 7px; display:flex; flex-direction:column; gap:2px; }
+      .tn-cal .ai .lab{ font-family:var(--mono); font-size:5.5px; letter-spacing:.12em; text-transform:uppercase; color:var(--accent-deep); }
+      .tn-cal .ai .t{ font-family:var(--serif); font-size:10px; line-height:1.2; }
+      .tn-cal .ai .t em{ color:var(--accent-deep); font-style:italic; }
+      .tn-cal .week{ display:grid; grid-template-columns: repeat(7, 1fr); border:1px solid var(--rule); border-radius:var(--r-xs); background:var(--card); overflow:hidden; }
+      .tn-cal .week .d{ padding:5px 4px; border-right:1px solid var(--rule); display:flex; flex-direction:column; gap:3px; min-height:60px; }
+      .tn-cal .week .d:last-child{ border-right:none; }
+      .tn-cal .week .d.wknd{ background: color-mix(in oklab, var(--paper-2) 60%, var(--card)); }
+      .tn-cal .week .d.today .n{ color: var(--accent-deep); }
+      .tn-cal .week .d .nm{ font-family:var(--mono); font-size:5px; letter-spacing:.1em; text-transform:uppercase; color:var(--dim); }
+      .tn-cal .week .d .n{ font-family:var(--serif); font-size:10px; line-height:1; }
+      .tn-cal .week .d .ev{ background:var(--paper); border:1px solid var(--rule); border-left:2px solid var(--dim-2); border-radius:2px; padding:2px 3px; font-size:5.5px; line-height:1.2; color:var(--ink-2); }
+      .tn-cal .week .d .ev.court{ border-left-color:var(--neg); background: color-mix(in oklab, var(--neg) 5%, var(--paper)); }
+      .tn-cal .week .d .ev.dl{ border-left-color:var(--warn); background: color-mix(in oklab, var(--warn) 5%, var(--paper)); }
+      .tn-cal .week .d .ev.call{ border-left-color:var(--accent); }
+      .tn-cal .up{ background:var(--card); border:1px solid var(--rule); border-radius:var(--r-xs); flex:1; display:flex; flex-direction:column; }
+      .tn-cal .up .r{ display:grid; grid-template-columns: 24px 14px 1fr 50px; gap:5px; padding:3px 6px; border-bottom:1px dotted var(--rule); align-items:center; }
+      .tn-cal .up .r:last-child{ border-bottom:none; }
+      .tn-cal .up .r .dt{ font-family:var(--serif); font-size:9px; line-height:1; font-feature-settings:"tnum"; }
+      .tn-cal .up .r.urg .dt{ color:var(--neg); }
+      .tn-cal .up .r .ic{ width:11px; height:11px; border-radius:50%; display:grid; place-items:center; font-family:var(--serif); font-style:italic; font-size:7px; }
+      .tn-cal .up .r .ic.court{ background: color-mix(in oklab, var(--neg) 14%, var(--card)); color:var(--neg); border:1px solid color-mix(in oklab, var(--neg) 30%, var(--rule)); }
+      .tn-cal .up .r .ic.dl{ background: color-mix(in oklab, var(--warn) 14%, var(--card)); color:var(--warn); border:1px solid color-mix(in oklab, var(--warn) 30%, var(--rule)); }
+      .tn-cal .up .r .ic.call{ background: color-mix(in oklab, var(--accent) 14%, var(--card)); color:var(--accent-deep); border:1px solid color-mix(in oklab, var(--accent) 30%, var(--rule)); }
+      .tn-cal .up .r .tt{ font-family:var(--serif); font-size:7.5px; line-height:1.15; }
+      .tn-cal .up .r .pi{ font-family:var(--mono); font-size:5.5px; letter-spacing:.06em; text-transform:uppercase; padding:1px 5px; border-radius:999px; background:var(--paper); border:1px solid var(--rule); color:var(--dim); justify-self:start; }
+      .tn-cal .up .r .pi.dr{ background: color-mix(in oklab, var(--accent) 10%, var(--card)); border-color: color-mix(in oklab, var(--accent) 30%, var(--rule)); color:var(--accent-deep); }
+      .tn-cal .up .r .pi.gap{ background: color-mix(in oklab, var(--neg) 10%, var(--card)); border-color: color-mix(in oklab, var(--neg) 30%, var(--rule)); color:var(--neg); }
+
+      /* Tasks thumbnail */
+      .tn-tasks{ display:flex; flex-direction:column; padding:14px; gap:6px; }
+      .tn-tasks .pick{ background: linear-gradient(180deg, color-mix(in oklab, var(--accent) 18%, var(--card)), color-mix(in oklab, var(--accent) 6%, var(--card))); border:1px solid color-mix(in oklab, var(--accent) 45%, var(--rule)); border-radius:var(--r-xs); padding:8px 10px; display:grid; grid-template-columns: 1fr 60px; gap:10px; align-items:center; }
+      .tn-tasks .pick .lab{ font-family:var(--mono); font-size:5.5px; letter-spacing:.12em; text-transform:uppercase; color:var(--accent-deep); margin-bottom:2px; }
+      .tn-tasks .pick .ti{ font-family:var(--serif); font-size:14px; line-height:1.1; letter-spacing:-.018em; }
+      .tn-tasks .pick .ti em{ color:var(--accent-deep); }
+      .tn-tasks .pick .l{ height:3px; background:var(--rule); border-radius:2px; margin-top:4px; }
+      .tn-tasks .pick .cd{ text-align:center; border-left:1px solid color-mix(in oklab, var(--accent) 35%, var(--rule)); padding-left:10px; }
+      .tn-tasks .pick .cd .v{ font-family:var(--serif); font-size:18px; line-height:1; letter-spacing:-.02em; color:var(--accent-deep); font-feature-settings:"tnum"; }
+      .tn-tasks .pick .cd .l{ font-family:var(--mono); font-size:5px; letter-spacing:.1em; text-transform:uppercase; color:var(--dim); margin-top:3px; background:none; height:auto; }
+      .tn-tasks .list{ background:var(--card); border:1px solid var(--rule); border-radius:var(--r-xs); flex:1; display:flex; flex-direction:column; }
+      .tn-tasks .list .r{ display:grid; grid-template-columns: 12px 1fr 50px 60px; gap:6px; padding:4px 8px; border-bottom:1px dotted var(--rule); align-items:start; }
+      .tn-tasks .list .r:last-child{ border-bottom:none; }
+      .tn-tasks .list .ck{ width:9px; height:9px; border-radius:2px; border:1px solid var(--ink-3); margin-top:1px; }
+      .tn-tasks .list .r.done .ck{ background:var(--ink); border-color:var(--ink); position:relative; }
+      .tn-tasks .list .r.done .ck::after{ content:"✓"; position:absolute; inset:0; display:grid; place-items:center; color:var(--accent); font-size:6px; }
+      .tn-tasks .list .r.on{ background: color-mix(in oklab, var(--accent) 7%, var(--card)); }
+      .tn-tasks .list .tt{ font-family:var(--serif); font-size:7.5px; line-height:1.2; }
+      .tn-tasks .list .tt em{ color:var(--accent-deep); }
+      .tn-tasks .list .r.done .tt{ color:var(--dim); text-decoration:line-through; text-decoration-color:var(--dim-2); }
+      .tn-tasks .list .dt{ font-family:var(--mono); font-size:6.5px; color:var(--ink-2); letter-spacing:.04em; text-transform:uppercase; }
+      .tn-tasks .list .r.urg .dt{ color:var(--neg); }
+      .tn-tasks .list .pi{ font-family:var(--mono); font-size:5.5px; letter-spacing:.06em; text-transform:uppercase; padding:1px 5px; border-radius:999px; background:var(--paper); border:1px solid var(--rule); color:var(--dim); justify-self:start; }
+      .tn-tasks .list .pi.st{ background: color-mix(in oklab, var(--accent) 10%, var(--card)); color:var(--accent-deep); border-color: color-mix(in oklab, var(--accent) 30%, var(--rule)); }
+    </style>
+
+    <a href="Conversations.html" class="screen-card">
+      <div class="thumb">
+        <div class="tn tn-conv">
+          <div class="list">
+            <div class="it on"><div class="who">B. Martinez</div><div class="pv">Settlement check came — when do I see my part?</div><div class="tg urg">urgent</div></div>
+            <div class="it"><div class="who">S. Chen</div><div class="pv">Mecklenburg, 3 kids, exchange Saturday.</div><div class="tg auto">autopilot</div></div>
+            <div class="it"><div class="who">D. Johnson</div><div class="pv">Filed and uploaded. Clerk confirmed.</div></div>
+            <div class="it"><div class="who">M. Park</div><div class="pv">Engagement looks good — add directive?</div></div>
+            <div class="it"><div class="who">R. Alvarez</div><div class="pv">Drafted asset disclosure response.</div><div class="tg auto">autopilot</div></div>
+          </div>
+          <div class="conv">
+            <div class="crumb">Matters · Martinez · Auto Injury</div>
+            <div class="h"><em>Bianca</em> wants to know when she sees her settlement.</div>
+            <div class="day">Today</div>
+            <div class="bub client">Settlement check came — when do I see my part?</div>
+            <div class="bub ai">The check cleared this morning. Hold runs through Mon Dec 1.</div>
+            <div class="staged">
+              <div class="lab">staged reply · awaits you</div>
+              <div class="ti">Tuesday Dec 2 disbursement</div>
+            </div>
+          </div>
+          <div class="drawer">
+            <div class="h"><em>Bianca</em></div>
+            <div class="st"><div class="l">net</div><div class="v">$8,840</div></div>
+            <div class="st"><div class="l">hold lifts</div><div class="v">Dec 1</div></div>
+            <div class="st"><div class="l">tone</div><div class="v" style="font-family:var(--sans);font-size:8px;font-style:italic;color:var(--accent-deep)">anxious</div></div>
+          </div>
+        </div>
+      </div>
+      <div class="meta">
+        <div class="ix">13 · Conversations</div>
+        <h3>The chat is the <em>inbox.</em></h3>
+        <p>Every client thread in one rail. Autopilot handles routine replies; money-adjacent or anxious tones escalate to you. Every AI draft sits as a staged reply you approve, edit, or rewrite before it sends.</p>
+        <div class="foot">
+          <span class="pill gold">new this round</span>
+          <span class="arrow">Open →</span>
+        </div>
+      </div>
+    </a>
+
+    <a href="Clients.html" class="screen-card">
+      <div class="thumb">
+        <div class="tn tn-clients">
+          <div class="ask"><div class="av"></div><div class="l"></div></div>
+          <div class="answer">
+            <div class="h">Three clients <em>overdue</em> for a check-in.</div>
+            <div class="l" style="width:80%"></div>
+            <div class="l" style="width:60%"></div>
+          </div>
+          <div class="dir">
+            <div class="r head"><div></div><div>Client</div><div>Matter</div><div>Retain.</div><div>Mood</div></div>
+            <div class="r on">
+              <div class="av urg"></div>
+              <div><div class="nm">B. Martinez</div><div class="mt">Settlement</div></div>
+              <div class="b ok"><i style="width:100%"></i></div>
+              <div></div>
+              <div class="pi anx">anxious</div>
+            </div>
+            <div class="r">
+              <div class="av"></div>
+              <div><div class="nm">D. Johnson</div><div class="mt">Estate · probate</div></div>
+              <div class="b warn"><i style="width:18%"></i></div>
+              <div></div>
+              <div class="pi frust">frustrated</div>
+            </div>
+            <div class="r">
+              <div class="av"></div>
+              <div><div class="nm">M. Park</div><div class="mt">Will revision</div></div>
+              <div class="b"><i style="width:0%"></i></div>
+              <div></div>
+              <div class="pi calm">calm</div>
+            </div>
+            <div class="r">
+              <div class="av"></div>
+              <div><div class="nm">R. Alvarez</div><div class="mt">Separation</div></div>
+              <div class="b ok"><i style="width:68%"></i></div>
+              <div></div>
+              <div class="pi calm">calm</div>
+            </div>
+            <div class="r">
+              <div class="av"></div>
+              <div><div class="nm">T. Vega</div><div class="mt">LLC · stale</div></div>
+              <div class="b warn"><i style="width:6%"></i></div>
+              <div></div>
+              <div class="pi">silent</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="meta">
+        <div class="ix">14 · Clients</div>
+        <h3>The directory <em>answers questions.</em></h3>
+        <p>"Who needs a check-in?" → AI summary up top, then the table reshapes around what you asked. Each row carries retainer health and a sentiment read drawn from the last five turns — so you spot brewing trouble before it lands in your inbox.</p>
+        <div class="foot">
+          <span class="pill gold">new this round</span>
+          <span class="arrow">Open →</span>
+        </div>
+      </div>
+    </a>
+
+    <a href="Calendar.html" class="screen-card">
+      <div class="thumb">
+        <div class="tn tn-cal">
+          <div class="h">What this week <em>wants from you.</em></div>
+          <div class="ai">
+            <div class="lab">Assistant</div>
+            <div class="t"><em>Friday 9am</em> — Johnson probate. Brief missing 2 exhibits.</div>
+          </div>
+          <div class="week">
+            <div class="d"><div class="nm">M</div><div class="n">23</div><div class="ev call">Call</div></div>
+            <div class="d"><div class="nm">T</div><div class="n">24</div></div>
+            <div class="d today"><div class="nm">W</div><div class="n">25</div><div class="ev call">Park</div></div>
+            <div class="d"><div class="nm">T</div><div class="n">26</div><div class="ev dl">File</div></div>
+            <div class="d"><div class="nm">F</div><div class="n">27</div><div class="ev court">Court</div></div>
+            <div class="d wknd"><div class="nm">S</div><div class="n">28</div></div>
+            <div class="d wknd"><div class="nm">S</div><div class="n">29</div></div>
+          </div>
+          <div class="up">
+            <div class="r urg">
+              <div class="dt">26</div>
+              <div class="ic dl">!</div>
+              <div class="tt">File Johnson brief — <em>2 exhibits missing</em></div>
+              <div class="pi gap">2 gaps</div>
+            </div>
+            <div class="r urg">
+              <div class="dt">27</div>
+              <div class="ic court">§</div>
+              <div class="tt">Johnson · probate hearing</div>
+              <div class="pi dr">3 of 5</div>
+            </div>
+            <div class="r">
+              <div class="dt">30</div>
+              <div class="ic dl">!</div>
+              <div class="tt">Alvarez · asset disclosure exchange</div>
+              <div class="pi">ready</div>
+            </div>
+            <div class="r">
+              <div class="dt">12/1</div>
+              <div class="ic call">✓</div>
+              <div class="tt">Martinez · settlement <em>hold lifts</em></div>
+              <div class="pi">automated</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="meta">
+        <div class="ix">15 · Calendar</div>
+        <h3>Deadlines that <em>know</em> what's missing.</h3>
+        <p>Week strip plus a 14-day list — court appearances, filing deadlines, calls, milestones. Every row carries a prep status the AI computed from the matter folder, so you see "3 of 5 ready" before you click in. Gaps show as staged actions, not red flags.</p>
+        <div class="foot">
+          <span class="pill gold">new this round</span>
+          <span class="arrow">Open →</span>
+        </div>
+      </div>
+    </a>
+
+    <a href="Tasks.html" class="screen-card">
+      <div class="thumb">
+        <div class="tn tn-tasks">
+          <div class="pick">
+            <div>
+              <div class="lab">If you do one thing today</div>
+              <div class="ti">Triage <em>Sarah Chen's</em> intake.</div>
+              <div class="l" style="width:80%"></div>
+              <div class="l" style="width:55%"></div>
+            </div>
+            <div class="cd">
+              <div class="v">2h 47m</div>
+              <div class="l">window</div>
+            </div>
+          </div>
+          <div class="list">
+            <div class="r on urg">
+              <div class="ck"></div>
+              <div class="tt">Triage <em>Sarah Chen</em></div>
+              <div class="dt">By noon</div>
+              <div class="pi st">eng. drafted</div>
+            </div>
+            <div class="r urg">
+              <div class="ck"></div>
+              <div class="tt">Reply to Bianca · settlement</div>
+              <div class="dt">Same day</div>
+              <div class="pi st">staged</div>
+            </div>
+            <div class="r">
+              <div class="ck"></div>
+              <div class="tt">Park · walk through directive</div>
+              <div class="dt">14:00</div>
+              <div class="pi">call</div>
+            </div>
+            <div class="r">
+              <div class="ck"></div>
+              <div class="tt">Approve Alvarez asset response</div>
+              <div class="dt">EOD</div>
+              <div class="pi st">staged</div>
+            </div>
+            <div class="r done">
+              <div class="ck"></div>
+              <div class="tt">Confirm filing receipt</div>
+              <div class="dt">Morning</div>
+              <div class="pi">done</div>
+            </div>
+            <div class="r done">
+              <div class="ck"></div>
+              <div class="tt">Review overnight intakes</div>
+              <div class="dt">7:02 am</div>
+              <div class="pi">done</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="meta">
+        <div class="ix">16 · Tasks</div>
+        <h3>One pick. Everything else can <em>wait.</em></h3>
+        <p>A granular to-do across the practice, prioritized by the assistant. The feature card up top is <em>the</em> thing — narrow window, high stakes, one decision. Everything else groups into today, this week, and the items the AI is handling for you. The chip on each row tells you what it has already prepared.</p>
+        <div class="foot">
+          <span class="pill gold">new this round</span>
+          <span class="arrow">Open →</span>
+        </div>
+      </div>
+    </a>
+
+    <!-- ============ ROUND 3 NEW SCREENS ============ -->
+    <style>
+      /* Engagement review (client-facing) thumbnail */
+      .tn-er{ display:flex; flex-direction:column; padding:14px; gap:6px; background: linear-gradient(180deg, color-mix(in oklab, var(--accent) 6%, var(--paper)), var(--paper)); }
+      .tn-er .greet{ display:flex; gap:6px; align-items:flex-start; padding-bottom:6px; border-bottom:1px solid var(--rule); }
+      .tn-er .greet .av{ width:14px; height:14px; border-radius:50%; background:var(--ink); color:var(--accent); font-family:var(--serif); font-style:italic; font-size:9px; display:grid; place-items:center; flex-shrink:0; }
+      .tn-er .greet .h{ font-family:var(--serif); font-size:10px; line-height:1.2; letter-spacing:-.012em; flex:1; }
+      .tn-er .greet .h em{ color:var(--accent); }
+      .tn-er .strip{ display:grid; grid-template-columns: repeat(3, 1fr); border:1px solid var(--rule); border-radius:var(--r-xs); background:var(--card); overflow:hidden; }
+      .tn-er .strip .c{ padding:3px 5px; border-right:1px solid var(--rule); }
+      .tn-er .strip .c:last-child{ border-right:none; }
+      .tn-er .strip .c .l{ font-family:var(--mono); font-size:5.5px; letter-spacing:.12em; text-transform:uppercase; color:var(--dim); }
+      .tn-er .strip .c .v{ font-family:var(--serif); font-size:8px; line-height:1; }
+      .tn-er .strip .c .v.pos{ color:var(--pos); }
+      .tn-er .letter{ background:#fff; border:1px solid #d3d6df; border-radius:var(--r-xs); padding:8px 10px; display:flex; flex-direction:column; gap:4px; box-shadow: 0 4px 14px -10px rgba(15,30,54,.3); color:#15140f; flex:1; }
+      .tn-er .letter .firm{ font-family:var(--serif); font-size:8px; color:#0f1e36; padding-bottom:3px; border-bottom:1px solid #d3d6df; }
+      .tn-er .letter .firm em{ color: oklch(0.55 0.12 78); }
+      .tn-er .letter .h2{ font-family:var(--serif); font-size:9px; line-height:1.1; color:#15140f; }
+      .tn-er .letter .h2 em{ color: oklch(0.55 0.12 78); }
+      .tn-er .letter .l{ height:2.5px; background:#e3e7ee; border-radius:2px; }
+      .tn-er .letter .fee{ background:#f6f3ea; border:1px solid #d3d6df; border-radius:2px; padding:4px 6px; display:flex; justify-content:space-between; }
+      .tn-er .letter .fee .lab{ font-family:var(--mono); font-size:5.5px; letter-spacing:.1em; text-transform:uppercase; color:#6b7790; }
+      .tn-er .letter .fee .v{ font-family:var(--serif); font-size:9px; }
+      .tn-er .ack{ background:var(--card); border:1px solid var(--rule); border-radius:var(--r-xs); padding:5px 8px; display:flex; flex-direction:column; gap:3px; }
+      .tn-er .ack .lab{ font-family:var(--mono); font-size:5.5px; letter-spacing:.12em; text-transform:uppercase; color:var(--dim); }
+      .tn-er .ack .row{ display:flex; gap:5px; align-items:center; }
+      .tn-er .ack .ck{ width:9px; height:9px; border-radius:2px; border:1px solid var(--ink-3); flex-shrink:0; }
+      .tn-er .ack .ck.on{ background:var(--ink); border-color:var(--ink); position:relative; }
+      .tn-er .ack .ck.on::after{ content:"✓"; position:absolute; inset:0; display:grid; place-items:center; color:var(--accent); font-size:6px; }
+      .tn-er .ack .row .l{ flex:1; height:2.5px; background:var(--rule); border-radius:2px; }
+      .tn-er .sig{ background:var(--card); border:1px solid var(--rule); border-radius:var(--r-xs); padding:6px 8px; display:flex; flex-direction:column; gap:4px; }
+      .tn-er .sig .lab{ font-family:var(--mono); font-size:5.5px; letter-spacing:.12em; text-transform:uppercase; color:var(--dim); }
+      .tn-er .sig .pad{ background:var(--paper); border:1px dashed var(--rule); border-radius:2px; padding:6px 8px; min-height:24px; display:grid; place-items:center; }
+      .tn-er .sig .pad .mark{ font-family:'Source Serif 4'; font-style:italic; font-size:14px; line-height:1; color:var(--ink); transform:rotate(-3deg); }
+      .tn-er .decide{ display:flex; gap:5px; justify-content:flex-end; }
+      .tn-er .decide .b{ font-family:var(--sans); font-size:7px; padding:3px 7px; border-radius:2px; border:1px solid var(--rule); background:var(--card); color:var(--ink-2); }
+      .tn-er .decide .b.p{ background:var(--ink); color:var(--paper); border-color:var(--ink); }
+
+      /* Intake builder thumbnail */
+      .tn-ib{ display:grid; grid-template-columns: 50px 1fr 90px; padding:14px; gap:6px; }
+      .tn-ib .rail{ background:var(--paper-2); border-radius:var(--r-xs); padding:8px 5px; display:flex; flex-direction:column; gap:4px; }
+      .tn-ib .rail .it{ height:4px; background:var(--rule); border-radius:2px; }
+      .tn-ib .rail .it.on{ background:var(--ink); height:7px; }
+      .tn-ib .main{ display:flex; flex-direction:column; gap:5px; padding:2px; }
+      .tn-ib .crumb{ font-family:var(--mono); font-size:5.5px; letter-spacing:.08em; text-transform:uppercase; color:var(--dim); }
+      .tn-ib .h{ font-family:var(--serif); font-size:13px; line-height:1.1; letter-spacing:-.015em; }
+      .tn-ib .h em{ color:var(--accent); }
+      .tn-ib .ai{ background: linear-gradient(180deg, color-mix(in oklab, var(--accent) 14%, var(--card)), var(--card)); border:1px solid color-mix(in oklab, var(--accent) 35%, var(--rule)); border-radius:var(--r-xs); padding:5px 7px; display:flex; gap:5px; align-items:center; }
+      .tn-ib .ai .av{ width:10px; height:10px; border-radius:50%; background:var(--ink); flex-shrink:0; }
+      .tn-ib .ai .l{ flex:1; height:3px; background:var(--rule-soft); border-radius:2px; }
+      .tn-ib .tabs{ display:flex; gap:8px; border-bottom:1px solid var(--rule); padding-bottom:2px; }
+      .tn-ib .tabs .t{ font-family:var(--sans); font-size:6.5px; color:var(--dim); }
+      .tn-ib .tabs .t.on{ color:var(--ink); border-bottom:1px solid var(--accent); padding-bottom:1px; }
+      .tn-ib .qs{ background:var(--card); border:1px solid var(--rule); border-radius:var(--r-xs); flex:1; display:flex; flex-direction:column; }
+      .tn-ib .qs .q{ display:grid; grid-template-columns: 16px 1fr 35px; gap:5px; padding:4px 6px; border-bottom:1px dotted var(--rule); align-items:center; }
+      .tn-ib .qs .q:last-child{ border-bottom:none; }
+      .tn-ib .qs .q.on{ background: color-mix(in oklab, var(--accent) 7%, var(--card)); }
+      .tn-ib .qs .q.sg{ background: linear-gradient(90deg, var(--accent-soft), transparent 80%); }
+      .tn-ib .qs .ix{ width:14px; height:14px; border-radius:50%; background:var(--paper-2); border:1px solid var(--rule); font-family:var(--mono); font-size:6px; display:grid; place-items:center; color:var(--ink-2); }
+      .tn-ib .qs .q.sg .ix{ background: color-mix(in oklab, var(--accent) 14%, var(--card)); color:var(--accent-deep); border-color: color-mix(in oklab, var(--accent) 35%, var(--rule)); }
+      .tn-ib .qs .tx{ font-family:var(--serif); font-size:7.5px; line-height:1.15; }
+      .tn-ib .qs .tx em{ color:var(--accent-deep); }
+      .tn-ib .qs .pi{ font-family:var(--mono); font-size:5.5px; padding:1px 4px; border-radius:999px; background:var(--paper); border:1px solid var(--rule); color:var(--dim); justify-self:start; }
+      .tn-ib .qs .pi.req{ background: color-mix(in oklab, var(--neg) 10%, var(--card)); color:var(--neg); border-color: color-mix(in oklab, var(--neg) 30%, var(--rule)); }
+      .tn-ib .qs .pi.ai{ background: color-mix(in oklab, var(--accent) 10%, var(--card)); color:var(--accent-deep); border-color: color-mix(in oklab, var(--accent) 30%, var(--rule)); }
+      .tn-ib .preview{ display:flex; flex-direction:column; gap:4px; }
+      .tn-ib .preview .lab{ font-family:var(--mono); font-size:5.5px; letter-spacing:.12em; text-transform:uppercase; color:var(--dim); display:inline-flex; align-items:center; gap:4px; }
+      .tn-ib .preview .lab::before{ content:""; width:4px; height:4px; border-radius:50%; background:var(--pos); }
+      .tn-ib .browser{ background:var(--card); border:1px solid var(--rule); border-radius:var(--r-xs); overflow:hidden; flex:1; display:flex; flex-direction:column; box-shadow: var(--shadow-1); }
+      .tn-ib .browser .chr{ padding:3px 5px; background:var(--paper-2); border-bottom:1px solid var(--rule); display:flex; gap:3px; align-items:center; }
+      .tn-ib .browser .chr i{ display:block; width:4px; height:4px; border-radius:50%; background:var(--dim-2); opacity:.4; }
+      .tn-ib .browser .chr .url{ flex:1; font-family:var(--mono); font-size:5px; color:var(--dim); padding:1px 4px; background:var(--card); border-radius:999px; border:1px solid var(--rule); }
+      .tn-ib .browser .convo{ padding:4px; display:flex; flex-direction:column; gap:3px; flex:1; }
+      .tn-ib .browser .bub{ font-size:5.5px; padding:3px 5px; border-radius:2px; max-width:80%; line-height:1.2; }
+      .tn-ib .browser .bub.ai{ align-self:flex-start; background: linear-gradient(180deg, color-mix(in oklab, var(--accent) 14%, var(--card)), var(--card)); border:1px solid color-mix(in oklab, var(--accent) 30%, var(--rule)); color:var(--ink); }
+      .tn-ib .browser .bub.cl{ align-self:flex-end; background:var(--ink); color:var(--paper); }
+
+      /* Engagement templates thumbnail — clean library list, no editor */
+      .tn-et{ display:flex; flex-direction:column; padding:14px; gap:6px; }
+      .tn-et .ah{ font-family:var(--mono); font-size:5.5px; letter-spacing:.12em; text-transform:uppercase; color:var(--dim); display:flex; align-items:baseline; gap:6px; padding: 2px 0; }
+      .tn-et .ah b{ font-family:var(--serif); font-size:9.5px; letter-spacing:-.005em; color:var(--ink); text-transform:none; font-weight:400; }
+      .tn-et .ah b em{ color:var(--accent); }
+      .tn-et .ah .add{ margin-left:auto; font-family:var(--mono); font-size:5px; color:var(--ink-2); border-bottom:1px dotted var(--dim-2); }
+      .tn-et .t{ background:var(--card); border:1px solid var(--rule); border-radius:var(--r-xs); padding:6px 8px; display:grid; grid-template-columns: 1fr 60px; gap:8px; align-items:start; }
+      .tn-et .t .row{ display:flex; align-items:baseline; gap:5px; flex-wrap:wrap; margin-bottom:3px; }
+      .tn-et .t .nm{ font-family:var(--serif); font-size:9px; line-height:1; }
+      .tn-et .t .nm em{ color:var(--accent-deep); }
+      .tn-et .t .tag{ font-family:var(--mono); font-size:5px; letter-spacing:.06em; text-transform:uppercase; padding:1px 4px; border-radius:999px; background:var(--paper); border:1px solid var(--rule); color:var(--dim); display:inline-flex; align-items:center; gap:3px; }
+      .tn-et .t .tag::before{ content:""; width:3px; height:3px; border-radius:50%; background:var(--dim-2); }
+      .tn-et .t .tag.live::before{ background:var(--pos); }
+      .tn-et .t .tag.live{ color:var(--pos); border-color: color-mix(in oklab, var(--pos) 25%, var(--rule)); }
+      .tn-et .t .tag.draft::before{ background:var(--warn); }
+      .tn-et .t .tag.draft{ color:var(--warn); border-color: color-mix(in oklab, var(--warn) 30%, var(--rule)); }
+      .tn-et .t .ls{ display:flex; flex-direction:column; gap:2px; margin-bottom:3px; }
+      .tn-et .t .ls .l{ height:2px; background:var(--rule); border-radius:2px; }
+      .tn-et .t .m{ font-family:var(--mono); font-size:5px; letter-spacing:.06em; text-transform:uppercase; color:var(--dim); }
+      .tn-et .t .fee{ text-align:right; display:flex; flex-direction:column; gap:2px; }
+      .tn-et .t .fee .mode{ font-family:var(--mono); font-size:5px; letter-spacing:.08em; text-transform:uppercase; color:var(--dim); }
+      .tn-et .t .fee .amt{ font-family:var(--serif); font-size:14px; line-height:1; letter-spacing:-.018em; color:var(--ink); font-feature-settings:"tnum"; }
+      .tn-et .t .fee .amt em{ color:var(--accent-deep); }
+      .tn-et .obs{ background: linear-gradient(90deg, var(--accent-soft), transparent 90%); border-left:2px solid var(--accent); padding:3px 6px; border-radius:0 var(--r-xs) var(--r-xs) 0; margin-top:1px; }
+      .tn-et .obs .lab{ font-family:var(--mono); font-size:5px; letter-spacing:.12em; text-transform:uppercase; color:var(--accent-deep); }
+      .tn-et .obs .t{ font-family:var(--serif); font-style:italic; font-size:6.5px; line-height:1.3; color:var(--ink); margin-top:1px; }
+      .tn-et .obs .t em{ color:var(--accent-deep); }
+    </style>
+
+    <a href="EngagementReview.html" class="screen-card">
+      <div class="thumb">
+        <div class="tn tn-er">
+          <div class="greet">
+            <div class="av">B</div>
+            <div class="h">Hi Bianca — <em>here's the agreement</em> Sarah wants to sign with you.</div>
+          </div>
+          <div class="strip">
+            <div class="c"><div class="l">matter</div><div class="v">Custody mod.</div></div>
+            <div class="c"><div class="l">fee</div><div class="v">$3,000 fixed</div></div>
+            <div class="c"><div class="l">status</div><div class="v pos">Awaiting</div></div>
+          </div>
+          <div class="letter">
+            <div class="firm">Law Offices of <em>Sarah Chen</em>, PLLC</div>
+            <div class="h2">Scope of <em>representation</em></div>
+            <div class="l" style="width:90%"></div>
+            <div class="l" style="width:75%"></div>
+            <div class="l" style="width:80%"></div>
+            <div class="fee">
+              <span class="lab">Total fixed-fee</span>
+              <span class="v">$3,215</span>
+            </div>
+          </div>
+          <div class="ack">
+            <div class="lab">Three acknowledgments</div>
+            <div class="row"><div class="ck on"></div><div class="l" style="width:70%"></div></div>
+            <div class="row"><div class="ck on"></div><div class="l" style="width:80%"></div></div>
+            <div class="row"><div class="ck"></div><div class="l" style="width:65%"></div></div>
+          </div>
+          <div class="sig">
+            <div class="lab">Sign here</div>
+            <div class="pad"><div class="mark">Bianca Martinez</div></div>
+          </div>
+          <div class="decide">
+            <div class="b">Decline</div>
+            <div class="b p">Accept &amp; engage ↗</div>
+          </div>
+        </div>
+      </div>
+      <div class="meta">
+        <div class="ix">17 · Engagement review</div>
+        <h3>The page <em>clients</em> sign on.</h3>
+        <p>Lightweight client-facing surface for review and acceptance. AI greeting summarizes what they're about to sign, the letter renders on white paper, three acknowledgments + a canvas signature pad, accept or decline. Signature is recorded with timestamp, IP, and device fingerprint for audit.</p>
+        <div class="foot">
+          <span class="pill gold">round 3</span>
+          <span class="arrow">Open →</span>
+        </div>
+      </div>
+    </a>
+
+    <a href="IntakeBuilder.html" class="screen-card">
+      <div class="thumb">
+        <div class="tn tn-ib">
+          <div class="rail">
+            <div class="it"></div>
+            <div class="it"></div>
+            <div class="it on"></div>
+            <div class="it"></div>
+            <div class="it"></div>
+            <div class="it"></div>
+            <div class="it"></div>
+          </div>
+          <div class="main">
+            <div class="crumb">Settings · Intelligence · Intake forms</div>
+            <div class="h">Custody <em>modification</em> intake</div>
+            <div class="ai"><div class="av"></div><div class="l"></div></div>
+            <div class="tabs">
+              <span class="t on">Questions</span>
+              <span class="t">Branching</span>
+              <span class="t">Payment</span>
+              <span class="t">Triage</span>
+            </div>
+            <div class="qs">
+              <div class="q sg">
+                <div class="ix">03</div>
+                <div class="tx">Does the other parent have <em>their own counsel?</em></div>
+                <div class="pi ai">staged</div>
+              </div>
+              <div class="q on">
+                <div class="ix">02</div>
+                <div class="tx">Is there a <em>court order</em> in place?</div>
+                <div class="pi req">req</div>
+              </div>
+              <div class="q">
+                <div class="ix">04</div>
+                <div class="tx">Which county issued the order?</div>
+                <div class="pi">jur</div>
+              </div>
+              <div class="q">
+                <div class="ix">05</div>
+                <div class="tx">When does this need to resolve?</div>
+                <div class="pi">urg</div>
+              </div>
+              <div class="q">
+                <div class="ix">08</div>
+                <div class="tx">Anyone in <em>immediate danger?</em></div>
+                <div class="pi req">safety</div>
+              </div>
+            </div>
+          </div>
+          <div class="preview">
+            <div class="lab">Live</div>
+            <div class="browser">
+              <div class="chr"><i></i><i></i><i></i><div class="url">blawby.com/p/…</div></div>
+              <div class="convo">
+                <div class="bub ai">In a sentence — what's going on?</div>
+                <div class="bub cl">my ex is refusing visitation</div>
+                <div class="bub ai">Is there a court order?</div>
+                <div class="bub cl">Yes</div>
+                <div class="bub ai">Does the other parent have counsel?</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="meta">
+        <div class="ix">18 · Intake builder</div>
+        <h3>Intakes you <em>describe,</em> not click together.</h3>
+        <p>Practice-side authoring. Tell the assistant what you want this intake to ask — it stages questions, branching, and payment logic that you approve before going live. Live widget preview on the right shows clients exactly what they'll see. Triage rules at the bottom translate intake answers to accept / refer / escalate.</p>
+        <div class="foot">
+          <span class="pill gold">round 3</span>
+          <span class="arrow">Open →</span>
+        </div>
+      </div>
+    </a>
+
+    <a href="EngagementTemplates.html" class="screen-card">
+      <div class="thumb">
+        <div class="tn tn-et">
+          <div class="ah"><b>Family <em>law</em></b> · 3 templates<span class="add">＋ add</span></div>
+          <div class="t">
+            <div>
+              <div class="row">
+                <div class="nm">Custody <em>modification</em></div>
+                <span class="tag live">live</span>
+              </div>
+              <div class="ls"><div class="l" style="width:88%"></div><div class="l" style="width:72%"></div></div>
+              <div class="m">14 placeholders · used 11×</div>
+            </div>
+            <div class="fee"><div class="mode">Fixed</div><div class="amt">$3,000</div></div>
+          </div>
+          <div class="t">
+            <div>
+              <div class="row">
+                <div class="nm">Original custody action</div>
+                <span class="tag live">live</span>
+              </div>
+              <div class="ls"><div class="l" style="width:80%"></div><div class="l" style="width:62%"></div></div>
+              <div class="m">17 placeholders · 6×</div>
+            </div>
+            <div class="fee"><div class="mode">Hourly</div><div class="amt">$280<span style="font-family:var(--mono);font-size:6px;letter-spacing:.06em;color:var(--dim);margin-left:1px">/hr</span></div></div>
+          </div>
+          <div class="ah" style="margin-top:2px"><b>Estate</b> · 2 templates<span class="add">＋ add</span></div>
+          <div class="t">
+            <div>
+              <div class="row">
+                <div class="nm">Will <em>revision</em></div>
+                <span class="tag live">live</span>
+              </div>
+              <div class="ls"><div class="l" style="width:78%"></div><div class="l" style="width:55%"></div></div>
+              <div class="m">10 placeholders · 3×</div>
+              <div class="obs">
+                <div class="lab">I noticed</div>
+                <div class="t">NC RPC 1.15A trust clause is <em>missing.</em></div>
+              </div>
+            </div>
+            <div class="fee"><div class="mode">Fixed</div><div class="amt">$800</div></div>
+          </div>
+          <div class="t">
+            <div>
+              <div class="row">
+                <div class="nm">LLC formation + filings</div>
+                <span class="tag draft">draft</span>
+              </div>
+              <div class="ls"><div class="l" style="width:70%"></div><div class="l" style="width:48%"></div></div>
+              <div class="m">9 placeholders · 1×</div>
+            </div>
+            <div class="fee"><div class="mode">Fixed</div><div class="amt">$1,400</div></div>
+          </div>
+        </div>
+      </div>
+      <div class="meta">
+        <div class="ix">19 · Engagement templates</div>
+        <h3>The library the assistant <em>drafts from.</em></h3>
+        <p>A clean list grouped by practice area and fee mode. Each card shows the gist, placeholder count, usage, and the last client it was sent to. Click any template to open it in the existing Engagement builder — this page is for finding the right one, not editing it.</p>
+        <div class="foot">
+          <span class="pill gold">round 3</span>
+          <span class="arrow">Open →</span>
+        </div>
+      </div>
+    </a>
+
+  </div>
+
+  <footer class="foot">
+    <div>
+      tokens.css · shared with marketing site<br>
+      <span style="color:var(--dim-2)">edit tokens to retheme everything</span>
+    </div>
+    <div style="text-align:right">
+      19 screens · 1 design system<br>
+      <span style="color:var(--dim-2)">tokens.css is the source of truth · 3 more added this round</span>
+    </div>
+  </footer>
+
+</div>
+
+</body>
+</html>

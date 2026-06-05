@@ -207,7 +207,7 @@ export const MatterExpensesPanel = ({
                 <div className="min-w-0 flex-1">
                   <div className="min-w-0">
                   <div className="flex flex-wrap items-center gap-2">
-                    <p className="text-sm font-semibold text-input-text">
+                    <p className="text-sm font-semibold text-ink">
                       {expense.description}
                     </p>
                     <span
@@ -219,7 +219,7 @@ export const MatterExpensesPanel = ({
                       {expense.billable ? 'Billable' : 'Not billable'}
                     </span>
                   </div>
-                  <div className="mt-1 flex flex-wrap items-center gap-x-2 text-xs leading-5 text-input-placeholder">
+                  <div className="mt-1 flex flex-wrap items-center gap-x-2 text-xs leading-5 text-dim-2">
                     <span className="whitespace-nowrap">
                       Date: <time dateTime={expense.date}>{formatExpenseDate(expense.date)}</time>
                     </span>
@@ -285,7 +285,7 @@ export const MatterExpensesPanel = ({
               <p className="mt-3 text-sm text-red-600 dark:text-red-400">{submitError}</p>
             )}
             {isSubmitting && (
-              <p className="mt-3 text-sm text-input-placeholder">Saving expense...</p>
+              <p className="mt-3 text-sm text-dim-2">Saving expense...</p>
             )}
           </DialogBody>
         </Dialog>
@@ -299,7 +299,7 @@ export const MatterExpensesPanel = ({
           contentClassName="max-w-xl"
         >
           <DialogBody className="space-y-4">
-            <p className="text-sm text-input-placeholder">
+            <p className="text-sm text-dim-2">
               Are you sure you want to delete this expense? This action cannot be undone.
             </p>
             {deleteError && (

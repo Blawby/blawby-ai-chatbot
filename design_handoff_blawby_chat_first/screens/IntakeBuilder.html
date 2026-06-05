@@ -1,0 +1,767 @@
+<!doctype html>
+<html lang="en" data-theme="">
+<head>
+<meta charset="utf-8" />
+<title>Blawby — Intake builder</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,opsz,wght@0,8..60,300..900;1,8..60,300..900&family=Geist:wght@300;400;500;600;700&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="tokens.css">
+<style>
+  body{ background-image: radial-gradient(rgba(15,30,54,0.025) 1px, transparent 1.2px); background-size: 3px 3px; background-attachment: fixed; }
+
+  /* ===== shell mirrors Settings.html ===== */
+  .shell{
+    display:grid; grid-template-columns: 260px 1fr;
+    min-height: 100vh; max-width: 1640px; margin: 0 auto;
+  }
+  .side{
+    border-right: 1px solid var(--rule);
+    padding: 22px 18px 16px;
+    display:flex; flex-direction:column; gap: 22px;
+    position: sticky; top: 0; height: 100vh;
+    background: color-mix(in oklab, var(--paper) 96%, var(--card));
+    overflow-y: auto;
+  }
+  .side::-webkit-scrollbar{ width: 0; }
+  .side .back{
+    font-family: var(--mono); font-size: 10.5px;
+    letter-spacing:.1em; text-transform: uppercase; color: var(--dim);
+    text-decoration: none; padding-bottom: 4px;
+  }
+  .side .back:hover{ color: var(--ink); }
+  .side h2{ font-family: var(--serif); font-weight: 400; font-size: 30px; line-height: 1; letter-spacing:-.012em; margin: 0 0 4px; }
+  .side .org{ font-family: var(--mono); font-size: 10.5px; letter-spacing:.06em; text-transform: uppercase; color: var(--dim); }
+  .nav-section{ display:flex; flex-direction:column; gap: 1px; }
+  .nav-section .lbl{ font-family: var(--mono); font-size: 9.5px; letter-spacing:.12em; text-transform: uppercase; color: var(--dim-2); padding: 4px 8px; }
+  .nav-item{
+    display:flex; align-items:center; gap: 10px;
+    padding: 7px 10px; border-radius: var(--r-xs);
+    font-size: 13px; color: var(--ink-2);
+    cursor: pointer; transition: all .12s;
+    text-decoration: none;
+  }
+  .nav-item:hover{ background: var(--rule-soft); color: var(--ink); }
+  .nav-item .ic{ font-size: 13px; color: var(--dim); width: 14px; text-align: center; }
+  .nav-item.on{ background: var(--accent-soft); color: var(--ink); }
+  .nav-item.on .ic{ color: var(--accent-deep); }
+  .nav-item .badge{ margin-left: auto; font-family: var(--mono); font-size: 10px; color: var(--dim); }
+
+  /* ===== main ===== */
+  .main{ padding: 36px 56px 80px; min-width: 0; }
+  .crumb{ font-family: var(--mono); font-size: 10.5px; letter-spacing:.14em; text-transform: uppercase; color: var(--dim); }
+  .crumb a{ color: var(--ink-2); border-bottom: 1px dotted var(--dim-2); }
+  .page-head{
+    display:flex; justify-content: space-between; align-items: flex-end;
+    padding-bottom: 16px; border-bottom: 1px solid var(--rule);
+    margin: 12px 0 24px;
+  }
+  .page-head .left h1{
+    font-family: var(--serif); font-weight: 400;
+    font-size: 46px; line-height: 1; letter-spacing:-.02em;
+    margin: 0 0 6px;
+  }
+  .page-head .left h1 em{ color: var(--accent); }
+  .page-head .left .desc{ font-size: 14px; color: var(--ink-2); max-width: 56ch; }
+  .page-head .right{ display:flex; gap: 8px; align-items: center; }
+
+  /* ===== AI authoring strip ===== */
+  .ai-author{
+    background: linear-gradient(180deg, color-mix(in oklab, var(--accent) 14%, var(--card)), color-mix(in oklab, var(--accent) 4%, var(--card)));
+    border: 1px solid color-mix(in oklab, var(--accent) 35%, var(--rule));
+    border-radius: var(--r-md);
+    padding: 18px 22px;
+    margin-bottom: 28px;
+    display:grid; grid-template-columns: 36px 1fr auto; gap: 16px; align-items: center;
+    box-shadow: var(--shadow-1);
+  }
+  .ai-author .av{ width: 32px; height: 32px; border-radius: 50%; background: var(--ink); color: var(--accent); font-family: var(--serif); font-style: italic; font-size: 16px; display: grid; place-items: center; flex-shrink: 0; }
+  .ai-author .body{ display:flex; flex-direction:column; gap: 4px; }
+  .ai-author .lab{ font-family: var(--mono); font-size: 10px; letter-spacing:.12em; text-transform: uppercase; color: var(--accent-deep); }
+  .ai-author .input{ font-size: 14.5px; color: var(--ink); outline: none; line-height: 1.45; }
+  .ai-author .input:empty::before{ content: attr(data-ph); color: var(--dim-2); }
+  .ai-author .acts{ display:flex; gap: 6px; flex-shrink: 0; }
+
+  /* ===== split ===== */
+  .split{
+    display:grid; grid-template-columns: 1fr 480px; gap: 32px;
+    align-items: start;
+  }
+
+  /* ===== editor col ===== */
+  .tabs{
+    display:flex; gap: 0;
+    border-bottom: 1px solid var(--rule);
+    margin-bottom: 18px;
+  }
+  .tabs .t{
+    font-family: var(--sans); font-size: 13px; font-weight: 500;
+    padding: 10px 18px; color: var(--dim);
+    cursor: pointer; border-bottom: 2px solid transparent;
+    margin-bottom: -1px;
+  }
+  .tabs .t:hover{ color: var(--ink-2); }
+  .tabs .t.on{ color: var(--ink); border-bottom-color: var(--accent); }
+  .tabs .t .n{ font-family: var(--mono); font-size: 10px; color: var(--dim); margin-left: 6px; }
+
+  .section-head{
+    display:flex; align-items: baseline; justify-content: space-between;
+    margin-bottom: 14px; margin-top: 28px;
+  }
+  .section-head:first-of-type{ margin-top: 0; }
+  .section-head h3{
+    font-family: var(--serif); font-weight: 400;
+    font-size: 22px; letter-spacing:-.008em; margin: 0;
+    display:flex; align-items: baseline; gap: 12px;
+  }
+  .section-head h3 em{ color: var(--accent); }
+  .section-head h3 .n{ font-family: var(--mono); font-size: 11px; letter-spacing:.08em; text-transform: uppercase; color: var(--dim); }
+  .section-head .acts{ display:flex; gap: 6px; }
+
+  /* questions list */
+  .questions{
+    background: var(--card); border: 1px solid var(--rule);
+    border-radius: var(--r-md); overflow: hidden;
+    margin-bottom: 24px;
+  }
+  .q{
+    display:grid;
+    grid-template-columns: 22px 32px 1fr 110px auto;
+    gap: 12px;
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--rule);
+    align-items: start;
+    cursor: pointer;
+    transition: background .12s;
+  }
+  .q:last-child{ border-bottom: none; }
+  .q:hover{ background: var(--rule-soft); }
+  .q.active{ background: color-mix(in oklab, var(--accent) 7%, var(--card)); }
+  .q .grip{
+    font-family: var(--mono); font-size: 14px;
+    color: var(--dim-2); padding-top: 2px;
+    cursor: grab;
+  }
+  .q .ix{
+    width: 26px; height: 26px; border-radius: 50%;
+    background: var(--paper-2); border: 1px solid var(--rule);
+    color: var(--ink-2); font-family: var(--mono); font-size: 11px;
+    display: grid; place-items: center; font-feature-settings: "tnum";
+  }
+  .q.ai-suggested .ix{ background: color-mix(in oklab, var(--accent) 12%, var(--card)); color: var(--accent-deep); border-color: color-mix(in oklab, var(--accent) 35%, var(--rule)); }
+  .q .body{ display:flex; flex-direction:column; gap: 4px; min-width: 0; }
+  .q .body .text{ font-family: var(--serif); font-size: 17px; line-height: 1.25; color: var(--ink); letter-spacing:-.005em; }
+  .q .body .text em{ color: var(--accent-deep); }
+  .q .body .meta{
+    font-family: var(--mono); font-size: 10.5px;
+    letter-spacing:.06em; color: var(--dim);
+    text-transform: uppercase;
+    display:flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  }
+  .q .body .meta .sep{ color: var(--dim-2); }
+  .q .body .meta .cond{ color: var(--accent-deep); }
+  .q .body .help{ font-size: 12.5px; color: var(--ink-2); margin-top: 2px; font-style: italic; }
+  .q .type{
+    font-family: var(--mono); font-size: 10px;
+    letter-spacing:.06em; text-transform: uppercase;
+    padding: 4px 9px; border-radius: var(--r-pill);
+    border: 1px solid var(--rule); background: var(--paper);
+    color: var(--dim); justify-self: end;
+    display:inline-flex; align-items: center; gap: 5px;
+    height: fit-content;
+  }
+  .q .type::before{ content:""; width: 5px; height: 5px; border-radius: 50%; background: var(--dim-2); }
+  .q .type.required::before{ background: var(--neg); }
+  .q .type.required{ color: var(--neg); border-color: color-mix(in oklab, var(--neg) 30%, var(--rule)); }
+  .q .type.ai-extract::before{ background: var(--accent); }
+  .q .type.ai-extract{ color: var(--accent-deep); border-color: color-mix(in oklab, var(--accent) 30%, var(--rule)); background: color-mix(in oklab, var(--accent) 10%, var(--card)); }
+
+  .q .row-acts{ display:flex; gap: 4px; }
+  .q .row-acts .ic{
+    width: 26px; height: 26px; border-radius: var(--r-xs);
+    background: transparent; border: 1px solid transparent;
+    display: grid; place-items: center; cursor: pointer;
+    color: var(--dim);
+  }
+  .q .row-acts .ic:hover{ background: var(--rule-soft); color: var(--ink); border-color: var(--rule); }
+
+  /* AI suggestion banner inside the list */
+  .ai-suggest-banner{
+    padding: 14px 20px;
+    background: linear-gradient(90deg, var(--accent-soft), transparent 80%);
+    border-bottom: 1px solid color-mix(in oklab, var(--accent) 30%, var(--rule));
+    display:flex; align-items: center; gap: 12px;
+  }
+  .ai-suggest-banner .lab{ font-family: var(--mono); font-size: 10px; letter-spacing:.14em; text-transform: uppercase; color: var(--accent-deep); }
+  .ai-suggest-banner .t{ font-family: var(--serif); font-style: italic; font-size: 14px; color: var(--ink); flex: 1; }
+  .ai-suggest-banner .acts{ display:flex; gap: 5px; }
+
+  /* add row */
+  .add-q{
+    padding: 14px 20px; text-align: center;
+    background: var(--paper); color: var(--dim);
+    font-family: var(--mono); font-size: 11.5px;
+    letter-spacing:.06em; text-transform: uppercase;
+    cursor: pointer; border-top: 1px dashed var(--rule);
+  }
+  .add-q:hover{ color: var(--ink); background: var(--rule-soft); }
+
+  /* settings cards (payment + branding + autopilot) */
+  .card-row{ display:grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .opt-card{
+    background: var(--card); border: 1px solid var(--rule);
+    border-radius: var(--r-md); padding: 18px 20px;
+  }
+  .opt-card .lab{ font-family: var(--mono); font-size: 10px; letter-spacing:.12em; text-transform: uppercase; color: var(--dim); margin-bottom: 6px; }
+  .opt-card h4{ font-family: var(--serif); font-weight: 400; font-size: 19px; line-height: 1.2; letter-spacing:-.005em; margin: 0 0 6px; }
+  .opt-card h4 em{ color: var(--accent); }
+  .opt-card .desc{ font-size: 12.5px; color: var(--ink-2); margin: 0 0 14px; line-height: 1.5; }
+  .opt-row{
+    display:flex; align-items: center; justify-content: space-between;
+    padding: 9px 0; border-top: 1px solid var(--rule);
+    font-size: 13px;
+  }
+  .opt-row:first-of-type{ border-top: none; }
+  .opt-row .k{ font-family: var(--mono); font-size: 10.5px; letter-spacing:.06em; text-transform: uppercase; color: var(--dim); }
+  .opt-row .v{ font-family: var(--sans); font-size: 13px; color: var(--ink); display:inline-flex; align-items: center; gap: 6px; }
+  .opt-row .v.amt{ font-family: var(--serif); font-size: 17px; font-feature-settings: "tnum"; letter-spacing:-.005em; }
+
+  /* triage rules row */
+  .rules{
+    background: var(--card); border: 1px solid var(--rule);
+    border-radius: var(--r-md); padding: 4px 20px;
+    margin-top: 14px;
+  }
+  .rule-row{
+    display:grid; grid-template-columns: 1fr auto; gap: 12px;
+    padding: 14px 0; border-bottom: 1px solid var(--rule);
+    align-items: start;
+  }
+  .rule-row:last-child{ border-bottom: none; }
+  .rule-row .text{ font-family: var(--serif); font-size: 15px; line-height: 1.4; color: var(--ink); }
+  .rule-row .text code{ font-family: var(--mono); font-size: 12.5px; padding: 1px 6px; background: var(--rule-soft); border-radius: 3px; color: var(--accent-deep); }
+  .rule-row .text em{ color: var(--accent-deep); font-style: italic; }
+  .rule-row .ac{ font-family: var(--mono); font-size: 9.5px; letter-spacing:.08em; text-transform: uppercase; color: var(--dim); padding: 3px 9px; border-radius: var(--r-pill); border: 1px solid var(--rule); background: var(--paper); display:inline-flex; align-items: center; gap: 5px; }
+  .rule-row .ac::before{ content:""; width: 5px; height: 5px; border-radius: 50%; background: var(--dim-2); }
+  .rule-row .ac.accept::before{ background: var(--pos); }
+  .rule-row .ac.accept{ color: var(--pos); border-color: color-mix(in oklab, var(--pos) 30%, var(--rule)); }
+  .rule-row .ac.refer::before{ background: var(--warn); }
+  .rule-row .ac.refer{ color: var(--warn); border-color: color-mix(in oklab, var(--warn) 30%, var(--rule)); }
+  .rule-row .ac.escalate::before{ background: var(--neg); }
+  .rule-row .ac.escalate{ color: var(--neg); border-color: color-mix(in oklab, var(--neg) 30%, var(--rule)); }
+
+  /* ===== preview col ===== */
+  .preview{
+    position: sticky; top: 24px;
+    display:flex; flex-direction:column; gap: 12px;
+  }
+  .preview-head{
+    display:flex; align-items: center; justify-content: space-between;
+    margin-bottom: 4px;
+  }
+  .preview-head .lab{ font-family: var(--mono); font-size: 10px; letter-spacing:.14em; text-transform: uppercase; color: var(--dim); display:inline-flex; align-items: center; gap: 6px; }
+  .preview-head .lab .live{ width: 6px; height: 6px; border-radius: 50%; background: var(--pos); }
+  .preview-head .modes{ display:flex; gap: 4px; }
+  .preview-head .modes .m{ font-family: var(--mono); font-size: 10px; letter-spacing:.06em; text-transform: uppercase; padding: 4px 8px; border-radius: var(--r-xs); border: 1px solid var(--rule); background: var(--card); color: var(--dim); cursor: pointer; }
+  .preview-head .modes .m.on{ background: var(--ink); color: var(--paper); border-color: var(--ink); }
+
+  .browser{
+    background: var(--card); border: 1px solid var(--rule);
+    border-radius: var(--r-md); overflow: hidden;
+    box-shadow: var(--shadow-2);
+  }
+  .browser .chrome{
+    padding: 10px 14px; background: var(--paper-2);
+    border-bottom: 1px solid var(--rule);
+    display:flex; align-items: center; gap: 8px;
+  }
+  .browser .chrome .dots{ display:flex; gap: 4px; }
+  .browser .chrome .dots i{ display:block; width: 8px; height: 8px; border-radius: 50%; background: var(--dim-2); opacity: .4; }
+  .browser .chrome .url{
+    flex: 1; font-family: var(--mono); font-size: 10.5px;
+    color: var(--dim); padding: 4px 10px;
+    background: var(--card); border: 1px solid var(--rule);
+    border-radius: var(--r-pill);
+    display:inline-flex; align-items: center; gap: 6px;
+  }
+  .browser .chrome .url::before{ content:"🔒"; font-size: 8px; opacity: .4; }
+
+  /* widget render */
+  .widget{ padding: 0; min-height: 540px; display:flex; flex-direction:column; }
+  .widget .head{
+    padding: 14px 16px; background: var(--paper-2);
+    border-bottom: 1px solid var(--rule);
+    display:flex; align-items: center; gap: 10px;
+  }
+  .widget .head .av{
+    width: 28px; height: 28px; border-radius: 50%;
+    background: var(--ink); color: var(--accent);
+    font-family: var(--serif); font-style: italic; font-size: 14px;
+    display: grid; place-items: center;
+  }
+  .widget .head .firm{ font-family: var(--serif); font-size: 14px; letter-spacing:-.005em; }
+  .widget .head .firm em{ color: var(--accent); }
+  .widget .head .trust{ margin-left: auto; font-family: var(--mono); font-size: 9px; letter-spacing:.1em; text-transform: uppercase; color: var(--dim); }
+
+  .widget .convo{ flex: 1; padding: 16px; display:flex; flex-direction:column; gap: 10px; }
+  .widget .bub{ font-size: 13px; line-height: 1.5; padding: 9px 13px; border-radius: var(--r-sm); max-width: 78%; }
+  .widget .bub.ai{
+    align-self: flex-start;
+    background: linear-gradient(180deg, color-mix(in oklab, var(--accent) 14%, var(--card)), var(--card));
+    border: 1px solid color-mix(in oklab, var(--accent) 30%, var(--rule));
+  }
+  .widget .bub.ai em{ color: var(--accent-deep); }
+  .widget .bub.ai.plain{ background: var(--card); border-color: var(--rule); }
+  .widget .bub.client{ align-self: flex-end; background: var(--ink); color: var(--paper); border: 1px solid var(--ink); }
+  .widget .quick{ display:flex; gap: 5px; flex-wrap: wrap; padding-left: 4px; }
+  .widget .quick i{
+    font-style: normal; font-size: 11.5px;
+    padding: 5px 11px; border-radius: var(--r-pill);
+    border: 1px solid var(--rule); background: var(--paper); color: var(--ink-2);
+  }
+  .widget .quick i.on{ background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+
+  .widget .pay{
+    margin: 6px 4px;
+    background: color-mix(in oklab, var(--accent) 12%, var(--card));
+    border: 1px solid color-mix(in oklab, var(--accent) 35%, var(--rule));
+    border-radius: var(--r-sm);
+    padding: 12px 14px;
+    display:grid; grid-template-columns: 1fr auto; gap: 12px; align-items: center;
+  }
+  .widget .pay .lab{ font-family: var(--mono); font-size: 9px; letter-spacing:.12em; text-transform: uppercase; color: var(--accent-deep); margin-bottom: 2px; }
+  .widget .pay .ti{ font-family: var(--serif); font-size: 13.5px; line-height: 1.2; }
+  .widget .pay .amt{ font-family: var(--serif); font-size: 20px; letter-spacing:-.012em; font-feature-settings: "tnum"; }
+
+  .widget .composer{
+    margin: 12px 16px 16px;
+    display:flex; align-items: center; gap: 8px;
+    background: var(--paper); border: 1px solid var(--rule);
+    border-radius: var(--r-pill); padding: 6px 6px 6px 14px;
+    font-size: 12px; color: var(--dim-2);
+  }
+  .widget .composer .send{
+    width: 26px; height: 26px; border-radius: 50%; background: var(--ink); color: var(--paper);
+    display:grid; place-items: center; font-size: 12px;
+  }
+
+  .preview-foot{
+    font-family: var(--mono); font-size: 10px;
+    letter-spacing:.08em; text-transform: uppercase; color: var(--dim);
+    display:flex; align-items: center; justify-content: space-between;
+    padding-top: 4px;
+  }
+  .preview-foot a{ color: var(--ink-2); border-bottom: 1px dotted var(--dim-2); cursor: pointer; }
+
+  @media (max-width: 1280px){
+    .split{ grid-template-columns: 1fr; }
+    .preview{ position: static; }
+  }
+  @media (max-width: 920px){
+    .shell{ grid-template-columns: 1fr; }
+    .side{ display: none; }
+    .main{ padding: 24px 22px 80px; }
+    .page-head h1{ font-size: 32px; }
+    .ai-author{ grid-template-columns: 1fr; }
+    .card-row{ grid-template-columns: 1fr; }
+    .q{ grid-template-columns: 22px 1fr; }
+    .q > :nth-child(2), .q > :nth-child(4), .q > :nth-child(5){ display: none; }
+  }
+</style>
+</head>
+<body>
+
+<div class="shell">
+
+  <!-- ============ SETTINGS NAV ============ -->
+  <aside class="side" data-screen-label="settings-nav">
+    <a href="Assistant.html" class="back">← back to assistant</a>
+    <div>
+      <h2>Settings</h2>
+      <div class="org">Law Offices of Sarah Chen · solo</div>
+    </div>
+
+    <div class="nav-section">
+      <div class="lbl">Practice</div>
+      <a class="nav-item" href="Settings.html"><span class="ic">⌂</span>Profile &amp; areas</a>
+      <a class="nav-item" href="Settings.html"><span class="ic">＋</span>Team <span class="badge">1</span></a>
+      <a class="nav-item" href="Settings.html"><span class="ic">⏳</span>Services &amp; pricing <span class="badge">5</span></a>
+    </div>
+
+    <div class="nav-section">
+      <div class="lbl">Money</div>
+      <a class="nav-item" href="Settings.html"><span class="ic">$</span>Subscription</a>
+      <a class="nav-item" href="Settings.html"><span class="ic">⇄</span>Stripe Connect</a>
+      <a class="nav-item" href="Trust.html"><span class="ic">▤</span>Trust accounting <span class="badge">IOLTA</span></a>
+    </div>
+
+    <div class="nav-section">
+      <div class="lbl">Intelligence</div>
+      <a class="nav-item" href="Settings.html"><span class="ic">✦</span>AI behavior</a>
+      <a class="nav-item on"><span class="ic">📥</span>Intake forms <span class="badge">3</span></a>
+      <a class="nav-item" href="EngagementTemplates.html"><span class="ic">⌥</span>Engagement templates</a>
+      <a class="nav-item" href="Settings.html"><span class="ic">▦</span>MCP &amp; API <span class="badge">beta</span></a>
+    </div>
+
+    <div class="nav-section">
+      <div class="lbl">Account</div>
+      <a class="nav-item" href="Settings.html"><span class="ic">◐</span>Appearance</a>
+      <a class="nav-item" href="Settings.html"><span class="ic">⌘</span>Notifications</a>
+      <a class="nav-item" href="Settings.html"><span class="ic">⎯</span>Audit log</a>
+    </div>
+  </aside>
+
+  <!-- ============ MAIN ============ -->
+  <main class="main" data-screen-label="intake-builder">
+
+    <div class="crumb"><a href="Settings.html">Settings</a> · Intelligence · <a>Intake forms</a> · Custody modification</div>
+
+    <header class="page-head">
+      <div class="left">
+        <h1>Custody <em>modification</em> intake</h1>
+        <div class="desc">Public widget at <span style="font-family:var(--mono);font-size:12.5px;color:var(--accent-deep)">blawby.com/p/sarah-chen/custody</span> · used <b style="color:var(--ink);font-weight:500">142×</b> in the last 30 days, <b style="color:var(--ink);font-weight:500">31%</b> converted to engagements.</div>
+      </div>
+      <div class="right">
+        <span class="pill live">live · v.7</span>
+        <button class="btn btn-ghost">Embed code</button>
+        <button class="btn btn-primary">Publish changes</button>
+      </div>
+    </header>
+
+    <!-- AI authoring strip -->
+    <div class="ai-author">
+      <div class="av">B</div>
+      <div class="body">
+        <div class="lab">Tell me what to add, remove, or rephrase</div>
+        <div class="input" contenteditable="true" data-ph="e.g. 'add a question about whether there's a court order in place' · 'tighten the urgency question' · 'don't charge a fee for DV cases'">Add a question about whether the other parent has counsel — only show it if they answer "yes" to "is there a court order"</div>
+      </div>
+      <div class="acts">
+        <button class="chip">Suggest improvements</button>
+        <button class="chip primary">Apply ↗</button>
+      </div>
+    </div>
+
+    <!-- TABS -->
+    <div class="tabs">
+      <span class="t on">Questions <span class="n">9</span></span>
+      <span class="t">Branching <span class="n">3 rules</span></span>
+      <span class="t">Payment</span>
+      <span class="t">Branding</span>
+      <span class="t">Triage rules <span class="n">4</span></span>
+      <span class="t">Audit</span>
+    </div>
+
+    <div class="split">
+
+      <!-- =========== EDITOR =========== -->
+      <div>
+
+        <div class="section-head">
+          <h3>Questions <em>·</em> <span class="n">9 visible · 2 AI-only</span></h3>
+          <div class="acts">
+            <button class="chip">Reorder</button>
+            <button class="chip">Import from template</button>
+          </div>
+        </div>
+
+        <div class="questions">
+
+          <!-- AI suggestion banner -->
+          <div class="ai-suggest-banner">
+            <div style="display:flex;align-items:center;gap:8px">
+              <div class="lab">I'd suggest</div>
+            </div>
+            <div class="t">Move the consult-fee question after we know jurisdiction — <em>22% drop-off</em> happens when we ask for money first.</div>
+            <div class="acts">
+              <button class="chip primary">Apply</button>
+              <button class="chip">Why?</button>
+              <button class="chip warn">Dismiss</button>
+            </div>
+          </div>
+
+          <!-- question 1 -->
+          <div class="q">
+            <span class="grip">⋮⋮</span>
+            <div class="ix">01</div>
+            <div class="body">
+              <div class="text">In a sentence — what's going on?</div>
+              <div class="meta">
+                <span>Free text</span><span class="sep">·</span><span>3 sentence max</span><span class="sep">·</span><span class="cond">always shown</span>
+              </div>
+              <div class="help">Plain English. Anything longer is fine — I'll structure it.</div>
+            </div>
+            <div class="type ai-extract">AI extracts</div>
+            <div class="row-acts">
+              <button class="ic" title="Conditional">⌥</button>
+              <button class="ic" title="Edit">✎</button>
+              <button class="ic" title="More">⋯</button>
+            </div>
+          </div>
+
+          <!-- question 2 -->
+          <div class="q active">
+            <span class="grip">⋮⋮</span>
+            <div class="ix">02</div>
+            <div class="body">
+              <div class="text">Is there a <em>court order</em> currently in place?</div>
+              <div class="meta">
+                <span>Yes · No · Not sure</span><span class="sep">·</span><span class="cond">branches to 3</span>
+              </div>
+              <div class="help">If "Yes", ask date and jurisdiction next. If "No", skip jurisdiction.</div>
+            </div>
+            <div class="type required">required</div>
+            <div class="row-acts">
+              <button class="ic" title="Conditional">⌥</button>
+              <button class="ic" title="Edit">✎</button>
+              <button class="ic" title="More">⋯</button>
+            </div>
+          </div>
+
+          <!-- question 3 — AI suggested, pending -->
+          <div class="q ai-suggested">
+            <span class="grip">⋮⋮</span>
+            <div class="ix">03</div>
+            <div class="body">
+              <div class="text">Does the other parent have <em>their own counsel?</em></div>
+              <div class="meta">
+                <span>Yes · No · Not sure</span><span class="sep">·</span><span class="cond">if Q02 = Yes</span><span class="sep">·</span><span style="color:var(--accent-deep)">staged by assistant</span>
+              </div>
+              <div class="help">Helps Sarah judge complexity and conflict risk before triage.</div>
+            </div>
+            <div class="type ai-extract">staged · approve</div>
+            <div class="row-acts">
+              <button class="ic" title="Keep">✓</button>
+              <button class="ic" title="Edit">✎</button>
+              <button class="ic" title="Discard">✕</button>
+            </div>
+          </div>
+
+          <!-- question 4 -->
+          <div class="q">
+            <span class="grip">⋮⋮</span>
+            <div class="ix">04</div>
+            <div class="body">
+              <div class="text">Which county or state issued the order?</div>
+              <div class="meta">
+                <span>Single select · auto-complete</span><span class="sep">·</span><span class="cond">if Q02 = Yes</span>
+              </div>
+            </div>
+            <div class="type">jurisdiction</div>
+            <div class="row-acts">
+              <button class="ic">⌥</button><button class="ic">✎</button><button class="ic">⋯</button>
+            </div>
+          </div>
+
+          <!-- question 5 -->
+          <div class="q">
+            <span class="grip">⋮⋮</span>
+            <div class="ix">05</div>
+            <div class="body">
+              <div class="text">When does this need to be resolved?</div>
+              <div class="meta">
+                <span>Single select</span><span class="sep">·</span><span>5 options</span><span class="sep">·</span><span class="cond">drives urgency score</span>
+              </div>
+              <div class="help">Tomorrow · This week · This month · Just exploring · I'm not sure</div>
+            </div>
+            <div class="type">urgency</div>
+            <div class="row-acts">
+              <button class="ic">⌥</button><button class="ic">✎</button><button class="ic">⋯</button>
+            </div>
+          </div>
+
+          <!-- question 6 -->
+          <div class="q">
+            <span class="grip">⋮⋮</span>
+            <div class="ix">06</div>
+            <div class="body">
+              <div class="text">Anything else you want Sarah to know upfront?</div>
+              <div class="meta">
+                <span>Free text · optional</span><span class="sep">·</span><span class="cond">always shown</span>
+              </div>
+            </div>
+            <div class="type ai-extract">AI extracts</div>
+            <div class="row-acts">
+              <button class="ic">⌥</button><button class="ic">✎</button><button class="ic">⋯</button>
+            </div>
+          </div>
+
+          <!-- question 7 — contact -->
+          <div class="q">
+            <span class="grip">⋮⋮</span>
+            <div class="ix">07</div>
+            <div class="body">
+              <div class="text">Best way to reach you</div>
+              <div class="meta">
+                <span>Email + phone</span><span class="sep">·</span><span>2 fields, both required</span>
+              </div>
+            </div>
+            <div class="type required">required</div>
+            <div class="row-acts">
+              <button class="ic">⌥</button><button class="ic">✎</button><button class="ic">⋯</button>
+            </div>
+          </div>
+
+          <!-- question 8 — DV check -->
+          <div class="q">
+            <span class="grip">⋮⋮</span>
+            <div class="ix">08</div>
+            <div class="body">
+              <div class="text">Is anyone in your household in <em>immediate danger?</em></div>
+              <div class="meta">
+                <span>Yes · No</span><span class="sep">·</span><span class="cond">always shown</span><span class="sep">·</span><span style="color:var(--neg)">waives consult fee + escalates</span>
+              </div>
+            </div>
+            <div class="type" style="color:var(--neg);border-color:color-mix(in oklab, var(--neg) 30%, var(--rule))">safety check</div>
+            <div class="row-acts">
+              <button class="ic">⌥</button><button class="ic">✎</button><button class="ic">⋯</button>
+            </div>
+          </div>
+
+          <!-- question 9 — consult -->
+          <div class="q">
+            <span class="grip">⋮⋮</span>
+            <div class="ix">09</div>
+            <div class="body">
+              <div class="text">Sarah offers a 30-minute paid consultation — <em>$150.</em> Want to book it?</div>
+              <div class="meta">
+                <span>Pay → schedule · Decline · Free 5-min first</span><span class="sep">·</span><span class="cond">skipped if safety = yes</span>
+              </div>
+            </div>
+            <div class="type">payment</div>
+            <div class="row-acts">
+              <button class="ic">⌥</button><button class="ic">✎</button><button class="ic">⋯</button>
+            </div>
+          </div>
+
+          <div class="add-q">＋ Add question  ·  or describe one in the chat above</div>
+        </div>
+
+        <!-- payment + branding -->
+        <div class="section-head">
+          <h3>Payment <em>&amp;</em> branding</h3>
+          <div class="acts">
+            <button class="chip">Preview emails</button>
+          </div>
+        </div>
+
+        <div class="card-row">
+          <div class="opt-card">
+            <div class="lab">Paid consultation</div>
+            <h4>$150 · 30 minutes</h4>
+            <p class="desc">Collected in-chat via Stripe Connect. Held in the operating account, not IOLTA, since it's earned on booking.</p>
+            <div class="opt-row"><span class="k">Amount</span><span class="v amt">$150.00</span></div>
+            <div class="opt-row"><span class="k">Refund window</span><span class="v">Up to 24h before</span></div>
+            <div class="opt-row"><span class="k">Platform fee</span><span class="v">1.337% · disclosed</span></div>
+            <div class="opt-row"><span class="k">Waive when</span><span class="v" style="color:var(--neg)">safety = yes</span></div>
+          </div>
+          <div class="opt-card">
+            <div class="lab">Branding</div>
+            <h4>Sarah's <em>intake assistant</em></h4>
+            <p class="desc">Public-facing name and palette. Stays out of staff surfaces — internal "Blawby" name is preserved everywhere.</p>
+            <div class="opt-row"><span class="k">Display name</span><span class="v">Sarah's intake assistant</span></div>
+            <div class="opt-row"><span class="k">Firm headline</span><span class="v">Law Offices of Sarah Chen</span></div>
+            <div class="opt-row"><span class="k">Accent color</span><span class="v"><i style="display:inline-block;width:14px;height:14px;background:var(--accent);border-radius:3px;vertical-align:middle"></i> gold (firm default)</span></div>
+            <div class="opt-row"><span class="k">Locale</span><span class="v">English + Spanish</span></div>
+          </div>
+        </div>
+
+        <!-- triage rules -->
+        <div class="section-head">
+          <h3>Triage <em>rules</em></h3>
+          <div class="acts">
+            <button class="chip">＋ Add rule</button>
+            <button class="chip">Test against last 50 intakes</button>
+          </div>
+        </div>
+
+        <div class="rules">
+          <div class="rule-row">
+            <div class="text">If <code>urgency = "tomorrow"</code> and <code>jurisdiction ∈ NC</code> — <em>auto-accept</em> and notify Sarah within 5 minutes.</div>
+            <span class="ac accept">auto-accept</span>
+          </div>
+          <div class="rule-row">
+            <div class="text">If <code>safety = "yes"</code> — <em>escalate immediately</em>, waive consult fee, share NC DV hotline before Sarah responds.</div>
+            <span class="ac escalate">escalate</span>
+          </div>
+          <div class="rule-row">
+            <div class="text">If <code>jurisdiction ∉ NC, SC</code> — politely refer out with the NC Bar referral link.</div>
+            <span class="ac refer">refer</span>
+          </div>
+          <div class="rule-row">
+            <div class="text">If <code>other_counsel = "yes"</code> and <code>matter_value</code> can't be estimated — flag as <em>conflict check required</em> before Sarah sees.</div>
+            <span class="ac escalate">flag</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- =========== PREVIEW =========== -->
+      <aside class="preview">
+        <div class="preview-head">
+          <div class="lab"><span class="live"></span>Live preview · updates as you edit</div>
+          <div class="modes">
+            <span class="m on">Mobile</span>
+            <span class="m">Desktop</span>
+            <span class="m">Embed</span>
+          </div>
+        </div>
+
+        <div class="browser">
+          <div class="chrome">
+            <div class="dots"><i></i><i></i><i></i></div>
+            <div class="url">blawby.com/p/sarah-chen/custody</div>
+          </div>
+          <div class="widget">
+            <div class="head">
+              <div class="av">B</div>
+              <div class="firm">Law Offices of <em>Sarah Chen</em></div>
+              <div class="trust">encrypted</div>
+            </div>
+
+            <div class="convo">
+              <div class="bub ai">Hi, I'm Sarah's intake assistant. In a sentence — what's going on?</div>
+              <div class="bub client">my ex is refusing visitation this saturday and i don't know what to do</div>
+              <div class="bub ai">That sounds stressful. <em>Is there a court order currently in place?</em></div>
+              <div class="quick">
+                <i class="on">Yes</i><i>No</i><i>Not sure</i>
+              </div>
+              <div class="bub ai plain">Got it. Does the other parent have <em>their own counsel?</em></div>
+              <div class="quick">
+                <i>Yes</i><i>No</i><i>Not sure</i>
+              </div>
+              <div class="bub ai">Which county or state issued the order?</div>
+              <div class="quick">
+                <i class="on">Mecklenburg, NC</i><i>Other NC county</i><i>Out of state</i>
+              </div>
+              <div class="bub ai">Sarah offers a 30-minute paid consult to walk through options. <em>Want to book it now?</em></div>
+
+              <div class="pay">
+                <div>
+                  <div class="lab">30-min consultation with Sarah</div>
+                  <div class="ti">Wed Nov 26 · 3:00 pm</div>
+                </div>
+                <div class="amt">$150</div>
+              </div>
+            </div>
+
+            <div class="composer">
+              <span>Reply to Sarah's assistant…</span>
+              <div style="flex:1"></div>
+              <div class="send">↑</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="preview-foot">
+          <span>v.7 draft · 2 staged changes</span>
+          <a>Open in new tab ↗</a>
+        </div>
+      </aside>
+
+    </div>
+
+  </main>
+
+</div>
+
+</body>
+</html>

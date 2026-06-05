@@ -8,6 +8,7 @@ import { X, Home, MessagesSquare, Info } from 'lucide-preact';
 import ChatContainer from '@/features/chat/components/ChatContainer';
 import InspectorPanel from '@/shared/ui/inspector/InspectorPanel';
 import WorkspaceHomeView from '@/features/chat/views/WorkspaceHomeView';
+import { IntakeFirmBar } from '@/features/intake/components/IntakeFirmBar';
 import { useToastContext } from '@/shared/contexts/ToastContext';
 import WidgetConversationListView from '@/features/chat/views/WidgetConversationListView';
 import { useConversations } from '@/shared/hooks/useConversations';
@@ -22,22 +23,21 @@ import { resolveConversationContactName, resolveConversationDisplayTitle } from 
 import { usePracticeDetails } from '@/shared/hooks/usePracticeDetails';
 import { practiceDetailsStore } from '@/shared/stores/practiceDetailsStore';
 import { useStore } from '@nanostores/preact';
-import { NavRail } from '@/shared/ui/nav/NavRail';
+import { LeftRail, type LeftRailItem } from '@/design-system/layout';
 import type { ConversationMetadata, ConversationMode } from '@/shared/types/conversation';
 import type { UIPracticeConfig } from '@/shared/hooks/usePracticeConfig';
 import DragDropOverlay from '@/shared/ui/DragDropOverlay';
 import { resolveStrengthStyle, resolveStrengthTier } from '@/shared/utils/intakeStrength';
-import { DetailHeader } from '@/shared/ui/layout/DetailHeader';
 import { resolveConsultationState } from '@/shared/utils/consultationState';
-import { MobileInspectorOverlay } from '@/shared/ui/inspector/MobileInspectorOverlay';
-import { initializeAccentColor } from '@/shared/utils/accentColors';
+import { isMessagesConversation } from '@/shared/utils/conversationSurface';
+import { FocusDrawer } from '@/design-system/layout';
 import { features } from '@/config/features';
 import { IntakeProvider } from '@/shared/contexts/IntakeContext';
 import type { FileAttachment } from '../../worker/types';
 import type { UploadingFile } from '@/shared/types/upload';
 import type { IntakeTemplate } from '@/shared/types/intake';
 import type { AuthSessionPayload } from '@/shared/types/user';
-import { DEFAULT_INTAKE_TEMPLATE } from '@/shared/constants/intakeTemplates';
+import { INTAKE_HARD_ERROR_MESSAGE } from '@/shared/constants/intakeErrors';
 
 // Widget mode never supports file uploads — stable references avoid ChatContainer re-renders.
 const EMPTY_FILE_ATTACHMENTS: FileAttachment[] = [];
@@ -67,7 +67,7 @@ interface WidgetAppProps {
   routeConversationId?: string;
   bootstrapConversationId?: string | null;
   bootstrapSession?: AuthSessionPayload;
-  /** Resolved intake template from bootstrap. Falls back to DEFAULT_INTAKE_TEMPLATE if absent. */
+  /** Resolved intake template from bootstrap. Absent means no published template exists for this practice. */
   intakeTemplate?: IntakeTemplate | null;
 }
 
@@ -79,12 +79,29 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
   bootstrapSession,
   intakeTemplate: intakeTemplateProp,
 }) => {
-  // Single navigation state (no 'disclaimer' step)
-  const [view, setView] = useState<'home' | 'list' | 'chat'>(routeConversationId ? 'chat' : 'home');
+  // Chat-first public intake: the public widget opens straight into the
+  // conversation surface (Intake.html / Mobile.html intake variant) instead
+  // of the card-grid home — the home view remains reachable via the
+  // bottom-rail Home button and via the chat header back button.
+  // routeConversationId still wins when present so deep-linked
+  // conversations behave as before. On mobile this also means the very
+  // first thing a visitor sees is the AI intro bubble, not a card grid.
+  //
+  // TODO(mobile-keyboard): soft-keyboard handling is wired downstream in
+  // ChatContainer via window.visualViewport (it shifts the sticky composer
+  // above the keyboard via `keyboardInsetPx`). Long-tail iOS Safari quirks
+  // around scroll-into-view of the last message on focus are non-trivial
+  // without a real device test pass — leaving in-situ until QA can verify
+  // on hardware. If issues surface, the fix lives in ChatContainer, not
+  // this file.
+  const [view, setView] = useState<'home' | 'list' | 'chat'>('chat');
   const [setupConversationId, setConversationId] = useState<string | null>(null);
   const [bootstrapIgnored, setBootstrapIgnored] = useState(false);
   const creatingConversationRef = useRef<Promise<string> | null>(null);
-  const [conversationMode, setConversationMode] = useState<ConversationMode | null>(null);
+  // Default to REQUEST_CONSULTATION so the chat surface mounts immediately
+  // (`canChat` requires either a conversation or a mode) and the AI starts the
+  // canonical intake flow on first turn.
+  const [conversationMode, setConversationMode] = useState<ConversationMode | null>('REQUEST_CONSULTATION');
   
   // Disclaimer & Mode tracking
   const [pendingMode, setPendingMode] = useState<ConversationMode | null>(null);
@@ -105,10 +122,6 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
     showErrorRef.current = (msg: string) => showToastError('Error', msg);
   }, [showToastError]);
 
-  useEffect(() => {
-    initializeAccentColor(practiceConfig.accentColor);
-  }, [practiceConfig.accentColor]);
-
   const currentUserId = bootstrapSession?.user?.id ?? null;
   // If there's no bootstrap user, default to anonymous=true. If a user exists,
   // prefer the explicit backend field (coerced to boolean) so a missing
@@ -120,7 +133,7 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
   const effectiveConversationId = routeConversationId ?? setupConversationId ?? (bootstrapIgnored ? null : bootstrapConversationId) ?? null;
 
   // Derive active template from prop on every render so updates propagate
-  const activeIntakeTemplate = intakeTemplateProp ?? DEFAULT_INTAKE_TEMPLATE;
+  const activeIntakeTemplate = intakeTemplateProp ?? null;
 
   const createConversationIfNeeded = useCallback(async () => {
     if (effectiveConversationId) return effectiveConversationId;
@@ -174,11 +187,16 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
     includeLatestMessage: true,
   });
 
+  const visibleConversations = useMemo(
+    () => conversations.filter(isMessagesConversation),
+    [conversations],
+  );
+
   const latestConversation = useMemo(() => {
-    if (!conversations) return null;
+    if (!visibleConversations) return null;
     // Pick the first conversation that actually has a message (not an empty prewarmed draft)
-    return conversations.find(c => Boolean(c.last_message_at || c.last_message_content || c.latest_message?.content)) || null;
-  }, [conversations]);
+    return visibleConversations.find(c => Boolean(c.last_message_at || c.last_message_content || c.latest_message?.content)) || null;
+  }, [visibleConversations]);
 
   const recentMessage = useMemo(() => {
     if (!latestConversation) return null;
@@ -199,7 +217,7 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
   // Previews for ConversationListView — read latest_message off each row.
   const previews = useMemo(() => {
     const map: Record<string, { content: string; role: string; createdAt: string }> = {};
-    conversations.forEach(c => {
+    visibleConversations.forEach(c => {
       map[c.id] = {
         content: c.latest_message?.content || c.last_message_content || c.user_info?.title || 'No messages yet',
         role: c.latest_message?.role || 'assistant',
@@ -207,11 +225,25 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
       };
     });
     return map;
-  }, [conversations]);
+  }, [visibleConversations]);
 
   const { t } = useTranslation('common');
 
-  const handleMessageError = useCallback((error: unknown, _context?: Record<string, unknown>) => {
+  // U8: hard-error state for intake AI failure. Tagged with the conversationId
+  // it belongs to so we never need a useEffect to "reset on conversation
+  // change" — the render-time conversationId comparison below produces the
+  // same behavior without crossing the "when X changes set Y" rule from
+  // AGENTS.md. setSseError is called from handleMessageError; nothing else
+  // mutates the state, and stale entries from prior conversations are simply
+  // ignored at render time.
+  const [sseError, setSseError] = useState<{
+    conversationId: string | null;
+    message: string;
+    failureReason: string | null;
+  } | null>(null);
+  const [clearInputCounter, setClearInputCounter] = useState(0);
+
+  const handleMessageError = useCallback((error: unknown, context?: Record<string, unknown>) => {
     let message: string;
     if (typeof error === 'string') {
       message = error;
@@ -221,8 +253,50 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
       message = t('weHitASnag.sendingMessage');
     }
     if (message.toLowerCase().includes('chat connection closed')) return;
+
+    if (context?.isHardError === true) {
+      // End-of-conversation marker, not a toast. Composer renders disabled
+      // + inline error. We capture the conversationId here so a subsequent
+      // navigation away renders the error gone without a reset effect.
+      const failureReason = typeof context.failureReason === 'string' ? context.failureReason : null;
+      const conversationId = typeof context.conversationId === 'string'
+        ? context.conversationId
+        : effectiveConversationId ?? null;
+      setSseError({ conversationId, message, failureReason });
+      setClearInputCounter((c) => c + 1);
+      return;
+    }
+
     showErrorRef.current?.(message || t('weHitASnag.sendingMessage'));
-  }, [t]);
+  }, [t, effectiveConversationId]);
+
+  // Derive the hard-error signal at render time from two sources:
+  //   1. SSE-triggered state from this session (only used when the
+  //      conversationId still matches the active conversation; otherwise the
+  //      sseError is from a prior conversation and renders as null).
+  //   2. The current conversation's `ai_failed_at` from the envelope, for
+  //      page-reload restoration where the SSE event is long gone.
+  // SSE wins when both are set — it's the more recent signal and may carry a
+  // richer failureReason than the timestamp-only envelope marker.
+  const activeConversationRecord = useMemo(
+    () => conversations.find((c) => c.id === effectiveConversationId) ?? null,
+    [conversations, effectiveConversationId],
+  );
+
+  const hardErrorFromSse =
+    sseError && sseError.conversationId === effectiveConversationId
+      ? { message: sseError.message, failureReason: sseError.failureReason }
+      : null;
+
+  const hardErrorFromConversation = useMemo(
+    () =>
+      activeConversationRecord?.ai_failed_at
+        ? { message: INTAKE_HARD_ERROR_MESSAGE, failureReason: null }
+        : null,
+    [activeConversationRecord?.ai_failed_at],
+  );
+
+  const hardError = hardErrorFromSse ?? hardErrorFromConversation;
 
   const handleConversationMetadataUpdated = useCallback((metadata: ConversationMetadata | null) => {
     if (metadata?.mode) setConversationMode(metadata.mode);
@@ -477,7 +551,7 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
       size="icon-sm"
       onClick={requestWidgetClose}
       aria-label="Close widget"
-      className="text-input-text/60 hover:text-input-text glass-card backdrop-blur-md border border-line-glass/20 shadow-lg"
+      className="text-ink/60 hover:text-ink card backdrop-blur-md border border-line-subtle shadow-lg"
     >
       <Icon icon={X} className="h-5 w-5" />
     </Button>
@@ -496,6 +570,43 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
     const relative = formatRelativeTime(new Date(lastTimestamp));
     return relative ? t('workspace.header.activeRelative', { time: relative }) : t('workspace.header.inactive');
   }, [filteredMessagesForHeader, isSocketReady, t]);
+
+  // Compose the firm-bar sub-line per Intake.html — practice area, jurisdiction,
+  // bar number (when available). Falls back gracefully when fields are absent;
+  // returns an empty string only when nothing useful is set, which IntakeFirmBar
+  // treats as "hide the line entirely".
+  const firmBarSubtitle = useMemo(() => {
+    const segments: string[] = [];
+    const servicesRaw = cachedPracticeDetails?.services;
+    if (Array.isArray(servicesRaw) && servicesRaw.length > 0) {
+      const names = servicesRaw
+        .map((s) => {
+          if (!s || typeof s !== 'object') return null;
+          const name = (s as Record<string, unknown>).name;
+          return typeof name === 'string' && name.trim() ? name.trim() : null;
+        })
+        .filter((n): n is string => Boolean(n));
+      if (names.length > 0) {
+        segments.push(names.length <= 2 ? names.join(', ') : `${names.slice(0, 2).join(', ')} +${names.length - 2}`);
+      }
+    }
+    const city = cachedPracticeDetails?.city?.trim();
+    const stateAbbr = cachedPracticeDetails?.state?.trim();
+    if (city || stateAbbr) {
+      segments.push([city, stateAbbr].filter(Boolean).join(', '));
+    }
+    const metadata = cachedPracticeDetails?.metadata;
+    const barRaw = metadata && typeof metadata === 'object'
+      ? (metadata as Record<string, unknown>).barNumber ?? (metadata as Record<string, unknown>).bar_number
+      : undefined;
+    const bar = typeof barRaw === 'string' && barRaw.trim() ? barRaw.trim() : null;
+    if (bar && stateAbbr) {
+      segments.push(`${stateAbbr} Bar #${bar}`);
+    } else if (bar) {
+      segments.push(`Bar #${bar}`);
+    }
+    return segments.join(' · ');
+  }, [cachedPracticeDetails]);
 
   const isReady = useMemo(() => currentUserId !== null && isSocketReady && messagesReady, [currentUserId, isSocketReady, messagesReady]);
 
@@ -550,12 +661,8 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
   }, [closeButton, conversationStrengthAction, isEmbedded]);
 
   useEffect(() => {
-    const isDark = true; // Handle dark mode state if needed
-    if (isDark) {
-      document.documentElement.classList.add('dark');
-    } else {
-      document.documentElement.classList.remove('dark');
-    }
+    // Widget shell is always rendered with the midnight (dark) theme.
+    document.documentElement.setAttribute('data-theme', 'midnight');
   }, []);
 
   const intakeProviderValue = useMemo(() => ({
@@ -629,7 +736,7 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
         )}
         {view === 'list' && (
           <WidgetConversationListView
-            conversations={conversations}
+            conversations={visibleConversations}
             previews={previews}
             practiceName={practiceConfig.name}
             isLoading={isConversationsLoading}
@@ -668,17 +775,39 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
                 onRequestReactions={requestMessageReactions}
                 isPublicWorkspace={true}
                 messagesReady={messagesReady}
+                disclaimerProps={
+                  widgetLegalDisclaimer && !isDisclaimerAccepted
+                    ? {
+                        text: widgetLegalDisclaimer,
+                        onAccept: handleAcceptDisclaimer,
+                        onClose: () => {
+                          // Session-only dismiss — the user can re-open by reloading.
+                          setIsDisclaimerAccepted(true);
+                          safeSetSessionItem(`blawby-widget-disclaimer-accepted:${practiceId}`, 'true');
+                        },
+                      }
+                    : undefined
+                }
                 headerContent={
-                  <DetailHeader
-                    title={practiceConfig.name ?? ''}
-                    subtitle={conversationHeaderActiveLabel}
-                    showBack={view === 'chat'}
-                    onBack={() => {
-                      setConversationMode(null);
-                      setView('home');
-                    }}
+                  <IntakeFirmBar
+                    practiceName={practiceConfig.name ?? ''}
+                    practiceLogo={practiceConfig.profileImage ?? null}
+                    subtitle={firmBarSubtitle || conversationHeaderActiveLabel}
+                    leadingAction={
+                      <Button
+                        type="button"
+                        variant="icon"
+                        size="icon-sm"
+                        onClick={() => {
+                          setConversationMode(null);
+                          setView('home');
+                        }}
+                        aria-label="Back to home"
+                      >
+                        <Icon icon={Home} className="h-5 w-5" />
+                      </Button>
+                    }
                     actions={widgetChatHeaderActions}
-                    className="workspace-conversation-header"
                   />
                 }
                 heightClassName="h-full"
@@ -717,10 +846,12 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
                 readReceiptsByUser={readReceiptsByUser}
                 currentUserId={bootstrapSession?.user?.id ?? null}
                 sendTypingState={sendTypingState}
+                hardError={hardError}
+                clearInput={clearInputCounter}
               />
 
               {isInspectorOpen && activeConversationId && (
-                <aside className="hidden w-80 shrink-0 lg:block lg:w-96 glass-panel overflow-visible shadow-glass ring-1 ring-line-glass/20">
+                <aside className="hidden w-80 shrink-0 lg:block lg:w-96 panel overflow-visible shadow-glass ring-1 ring-line-subtle">
                   <div className="h-full overflow-y-auto">
                     <InspectorPanel
                       entityType="conversation"
@@ -748,9 +879,10 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
             </div>
 
             {isInspectorOpen && activeConversationId && (
-              <MobileInspectorOverlay
+              <FocusDrawer
                 isOpen={true}
                 onClose={() => setIsInspectorOpen(false)}
+                showCloseButton={false}
               >
                 <InspectorPanel
                   entityType="conversation"
@@ -771,38 +903,39 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
                   }}
                   practiceDetails={cachedPracticeDetails}
                 />
-              </MobileInspectorOverlay>
+              </FocusDrawer>
             )}
           </>
         )}
-        
-        <NavRail
-          variant="bottom"
-          items={[
-            {
-              id: 'home',
-              label: t('nav.home'),
-              icon: Home,
-              href: '#home',
-              isAction: true,
-              isActive: view === 'home',
-              onClick: () => {
-                setConversationMode(null);
-                setView('home');
+
+        {view !== 'chat' && (
+          <LeftRail
+            variant="mobile"
+            items={[
+              {
+                id: 'home',
+                label: t('nav.home'),
+                icon: Home,
+                href: '#home',
+                isAction: true,
+                isActive: view === 'home',
+                onClick: () => {
+                  setConversationMode(null);
+                  setView('home');
+                }
+              },
+              {
+                id: 'list',
+                label: t('nav.messages'),
+                icon: MessagesSquare,
+                href: '#list',
+                isAction: true,
+                isActive: view === 'list',
+                onClick: () => setView('list')
               }
-            },
-            {
-              id: 'list',
-              label: t('nav.messages'),
-              icon: MessagesSquare,
-              href: '#list',
-              isAction: true,
-              isActive: view === 'list',
-              onClick: () => setView('list')
-            }
-          ]}
-          hidden={view === 'chat'}
-        />
+            ] as LeftRailItem[]}
+          />
+        )}
       </div>
       )}
     </>

@@ -1,9 +1,8 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'preact/hooks';
 import { Button } from '@/shared/ui/Button';
-import { Input, LogoUploadInput } from '@/shared/ui/input';
+import { Input, LogoUploadInput, EmailInput } from '@/shared/ui/input';
 import { Combobox } from '@/shared/ui/input/Combobox';
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from '@/shared/ui/dropdown';
-import { SectionDivider } from '@/shared/ui/layout/SectionDivider';
 import { Dialog } from '@/shared/ui/dialog';
 import ConfirmationDialog from '@/shared/components/ConfirmationDialog';
 import { useToastContext } from '@/shared/contexts/ToastContext';
@@ -33,6 +32,7 @@ import { EmailSettingsSection } from '@/features/settings/components/EmailSettin
 import { AccountPageSkeleton } from '@/features/settings/components/AccountPageSkeleton';
 import { SettingsDangerButton } from '@/features/settings/components/SettingsDangerButton';
 import { SettingsHelperText } from '@/features/settings/components/SettingsHelperText';
+import { SettingsCard } from '@/features/settings/components/SettingsCard';
 import { getPreferencesCategory, updatePreferencesCategory } from '@/shared/lib/preferencesApi';
 import type { AccountPreferences } from '@/shared/types/preferences';
 import { normalizePracticeRole } from '@/shared/utils/practiceRoles';
@@ -673,16 +673,16 @@ export const AccountPage = ({
   };
 
   const handleAddLinkedIn = () => {
-    showSuccess(
-      t('settings:account.links.linkedinToast.title'),
-      t('settings:account.links.linkedinToast.body')
+    showError(
+      t('settings:account.links.linkedInUnavailableToast.title'),
+      t('settings:account.links.linkedInUnavailableToast.body')
     );
   };
 
   const handleAddGitHub = () => {
-    showSuccess(
-      t('settings:account.links.githubToast.title'),
-      t('settings:account.links.githubToast.body')
+    showError(
+      t('settings:account.links.gitHubUnavailableToast.title'),
+      t('settings:account.links.gitHubUnavailableToast.body')
     );
   };
 
@@ -828,138 +828,145 @@ export const AccountPage = ({
     : undefined;
 
   return (
-    <div className={cn('space-y-6', className)}>
-      <SettingRow label={t('settings:account.nameLabel')}>
-        <div className="flex items-center gap-3">
-          <div className="w-10">
-            <LogoUploadInput
-              imageUrl={currentAvatarUrl}
-              name={displayName}
-              accept="image/*"
-              multiple={false}
-              buttonLabel="Change profile photo"
-              triggerMode="avatar"
-              size={36}
-              onChange={handleAvatarChange}
-              disabled={avatarUploading}
-              progress={avatarUploading ? avatarUploadProgress : null}
-            />
-          </div>
-          <span className="text-sm text-input-text">
-            {displayName}
-          </span>
-        </div>
-      </SettingRow>
-      <SectionDivider />
-      <button
-        type="button"
-        className="w-full text-left"
-        onClick={() => setShowEmailModal(true)}
-        aria-label="Manage email details"
+    <div className={cn('space-y-0', className)}>
+      <SettingSection
+        first
+        title="Profile"
+        description="Your personal identity and login details. These settings belong to you, not the whole practice."
       >
-        <SettingRow label={t('settings:account.email.title')} className="cursor-pointer">
-          <div className="flex items-center gap-2">
-            <span className="text-sm text-input-text">
-              {emailAddress}
-            </span>
-            <Icon icon={ChevronRight} className="w-5 h-5 text-input-placeholder" aria-hidden="true"  />
+        <SettingsCard className="max-w-[620px]">
+          <div className="flex items-start justify-between gap-4 max-sm:flex-col">
+            <div className="flex items-center gap-4">
+              <LogoUploadInput
+                imageUrl={currentAvatarUrl}
+                name={displayName}
+                accept="image/*"
+                multiple={false}
+                buttonLabel="Change profile photo"
+                triggerMode="avatar"
+                size={56}
+                onChange={handleAvatarChange}
+                disabled={avatarUploading}
+                progress={avatarUploading ? avatarUploadProgress : null}
+              />
+              <div className="min-w-0">
+                <div className="font-serif text-[28px] font-normal tracking-[-0.01em] text-ink">{displayName}</div>
+                <div className="mt-1 font-mono text-[11px] uppercase tracking-[0.08em] text-dim">User profile</div>
+              </div>
+            </div>
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => setShowEmailModal(true)}
+            >
+              Manage email
+            </Button>
           </div>
-        </SettingRow>
-      </button>
+          <div className="mt-5 border-t border-rule">
+            <SettingRow
+              label={t('settings:account.email.title')}
+              description={shouldGateEmailManagement ? t('settings:account.email.oauthGatingExplanation') : 'Change your login email and verification settings.'}
+              className="py-4"
+              controlClassName="min-w-[160px] justify-end"
+            >
+              <div className="flex items-center gap-2 text-sm text-ink">
+                <span>{emailAddress}</span>
+                <Icon icon={ChevronRight} className="h-4 w-4 text-dim-2" aria-hidden="true" />
+              </div>
+            </SettingRow>
+          </div>
+        </SettingsCard>
+      </SettingSection>
 
       {!isClientWorkspace && (
-        <>
-          <SectionDivider />
-
-          {/* Subscription Plan Section */}
-          <SettingRow
-            label={currentPlanLabel}
-            labelClassName="text-input-text font-semibold"
-            description={subscriptionDescription}
-          >
-            <div className="flex gap-2">
-              {hasSubscription ? (
-                currentPractice ? (
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button
-                        variant="secondary"
-                        size="sm"
-                        disabled={submitting}
-                        icon={ChevronDown} iconClassName="w-4 h-4"
-                        iconPosition="right"
-                      >
-                        {t('settings:account.plan.manage')}
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" className="min-w-[220px]">
-                      <DropdownMenuItem
-                        onSelect={() => {
-                          if (!currentPractice) return;
-                          if (!isOwner || !canManageBilling) {
-                            showError(
-                              t('common:error.title'),
-                              'Only the billing owner can cancel this subscription.'
-                            );
-                            return;
-                          }
-                          if (!origin) {
-                            showError(
-                              t('common:error.title'),
-                              'Unable to open billing portal. Please try again.'
-                            );
-                            return;
-                          }
-                          void openBillingPortal({
-                            practiceId: currentPractice.id,
-                            returnUrl: `${origin}${toSettingsPath('account')}?sync=1`
-                          });
-                        }}
-                      >
-                        <span className="flex items-center gap-2 whitespace-nowrap text-accent-error dark:text-accent-error-light">
-                          <Icon icon={X} className="h-4 w-4"  />
-                          {t('settings:account.plan.cancelSubscription')}
-                        </span>
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                ) : null
-              ) : (
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  onClick={() => navigateToPricing()}
-                >
-                  {t('settings:account.plan.upgrade')}
-                </Button>
+        <SettingSection
+          title="Plan & billing"
+          description="Subscription status, renewal timing, and billing actions for your workspace."
+        >
+          <SettingsCard className="max-w-[760px]">
+            <div className="flex items-start justify-between gap-4 border-b border-rule pb-5 max-sm:flex-col">
+              <div>
+                <div className="font-serif text-[26px] font-normal tracking-[-0.01em] text-ink">{currentPlanLabel}</div>
+                <p className="mt-1 text-[13.5px] leading-relaxed text-dim">
+                  {subscriptionDescription ?? 'You can manage renewals, cancellation, and payment details from here.'}
+                </p>
+              </div>
+              <div className="flex gap-2">
+                {hasSubscription ? (
+                  currentPractice ? (
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          disabled={submitting}
+                          icon={ChevronDown}
+                          iconClassName="w-4 h-4"
+                          iconPosition="right"
+                        >
+                          {t('settings:account.plan.manage')}
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" className="min-w-[220px]">
+                        <DropdownMenuItem
+                          onSelect={() => {
+                            if (!currentPractice) return;
+                            if (!isOwner || !canManageBilling) {
+                              showError(
+                                t('common:error.title'),
+                                'Only the billing owner can cancel this subscription.'
+                              );
+                              return;
+                            }
+                            if (!origin) {
+                              showError(
+                                t('common:error.title'),
+                                'Unable to open billing portal. Please try again.'
+                              );
+                              return;
+                            }
+                            void openBillingPortal({
+                              practiceId: currentPractice.id,
+                              returnUrl: `${origin}${toSettingsPath('account')}?sync=1`
+                            });
+                          }}
+                        >
+                          <span className="flex items-center gap-2 whitespace-nowrap text-neg dark:text-neg">
+                            <Icon icon={X} className="h-4 w-4" />
+                            {t('settings:account.plan.cancelSubscription')}
+                          </span>
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  ) : null
+                ) : (
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => navigateToPricing()}
+                  >
+                    {t('settings:account.plan.upgrade')}
+                  </Button>
+                )}
+              </div>
+            </div>
+            <div className="pt-5">
+              {hasSubscription && (
+                <p className="mb-3 text-sm font-semibold text-ink">{planHeading}</p>
+              )}
+              <PlanFeaturesList features={currentPlanFeatures} />
+              {subscriptionError && (
+                <SettingsHelperText className="mt-4 block text-neg">
+                  {subscriptionError}
+                </SettingsHelperText>
               )}
             </div>
-          </SettingRow>
-          {subscriptionError && (
-            <SettingsHelperText className="mt-2 text-accent-error">
-              {subscriptionError}
-            </SettingsHelperText>
-          )}
-
-          {/* Plan Features Section */}
-          <SettingRow
-            label=""
-            labelNode={
-              <div className="space-y-3">
-                {hasSubscription && (
-                  <p className="text-sm font-semibold text-input-text">
-                    {planHeading}
-                  </p>
-                )}
-                <PlanFeaturesList features={currentPlanFeatures} />
-              </div>
-            }
-          />
-
-          <SectionDivider />
+          </SettingsCard>
 
           <SettingRow
             label={t('settings:account.payments.sectionTitle')}
+            description="Open the billing portal for invoices, payment methods, and cancellation."
+            controlClassName="min-w-[160px] justify-end"
           >
             <Button
               variant="secondary"
@@ -983,15 +990,102 @@ export const AccountPage = ({
               {t('settings:account.payments.manage')}
             </Button>
           </SettingRow>
-        </>
+        </SettingSection>
       )}
 
-      <SectionDivider />
-
-          {/* Delete account Section */}
+      {showLinksSection && (
+        <SettingSection
+          title="Domains & links"
+          description="Choose the public domain tied to your account and connect external profiles when those integrations are enabled."
+        >
           <SettingRow
-            label={t('settings:account.delete.sectionTitle')}
+            label={t('settings:account.links.domainLabel')}
+            description="The selected domain is used as your primary public identity."
+            labelNode={
+              <div className="flex items-center gap-3">
+                <Icon icon={Globe} className="w-4 h-4 text-dim-2" />
+                <FormLabel>{t('settings:account.links.domainLabel')}</FormLabel>
+              </div>
+            }
           >
+            <Combobox
+              value={selectedDomain}
+              options={[
+                { value: DOMAIN_SELECT_VALUE, label: t('settings:account.links.selectOption') },
+                ...customDomainOptions,
+                { value: 'verify-new', label: `+ ${t('settings:account.links.verifyNew')}` }
+              ]}
+              onChange={handleDomainChange}
+              placeholder={t('settings:account.links.selectOption')}
+              className="min-w-[240px] border-0 bg-transparent px-3 py-1 hover:bg-paper/10 focus:ring-2 focus:ring-accent"
+              searchable={false}
+            />
+          </SettingRow>
+
+          <SettingRow
+            label="LinkedIn"
+            description="Show your LinkedIn profile as a connected identity."
+            labelNode={
+              <div className="flex items-center gap-3">
+                <div className="flex h-4 w-4 items-center justify-center rounded bg-paper">
+                  <span className="text-xs font-bold text-accent-ink">in</span>
+                </div>
+                <FormLabel>LinkedIn</FormLabel>
+              </div>
+            }
+          >
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={handleAddLinkedIn}
+              icon={Plus}
+              iconClassName="w-4 h-4"
+              iconPosition="right"
+            >
+              {t('settings:account.links.addButton')}
+            </Button>
+          </SettingRow>
+
+          <SettingRow
+            label="GitHub"
+            description="Show your GitHub profile as a connected identity."
+            labelNode={
+              <div className="flex items-center gap-3">
+                <div className="w-4 h-4">
+                  <svg viewBox="0 0 24 24" className="h-4 w-4 fill-current text-dim-2">
+                    <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
+                  </svg>
+                </div>
+                <FormLabel>GitHub</FormLabel>
+              </div>
+            }
+          >
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={handleAddGitHub}
+              icon={Plus}
+              iconClassName="w-4 h-4"
+              iconPosition="right"
+            >
+              {t('settings:account.links.addButton')}
+            </Button>
+          </SettingRow>
+        </SettingSection>
+      )}
+
+      <SettingSection
+        title={t('settings:account.delete.sectionTitle')}
+        description="Sign out or permanently remove your account. Account deletion is blocked while an owner subscription is still active."
+      >
+        <section className="rounded-[20px] border border-[color:color-mix(in_oklab,var(--neg)_30%,var(--rule))] bg-[color:color-mix(in_oklab,var(--neg)_6%,var(--card))] px-5 py-5 sm:px-6">
+          <div className="flex items-start justify-between gap-4 max-sm:flex-col">
+            <div>
+              <h3 className="font-serif text-2xl font-normal tracking-tight text-[var(--neg)]">Delete account</h3>
+              <p className="mt-1 max-w-[60ch] text-[13.5px] leading-relaxed text-ink-2">
+                Permanently remove your Blawby account and personal data. If you are the billing owner, cancel the active subscription before continuing.
+              </p>
+            </div>
             <SettingsDangerButton
               size="sm"
               onClick={handleDeleteAccount}
@@ -999,89 +1093,9 @@ export const AccountPage = ({
             >
               {t('settings:account.delete.button')}
             </SettingsDangerButton>
-          </SettingRow>
-
-      {showLinksSection && (
-        <>
-          <SectionDivider />
-          {/* Links Section */}
-          <SettingSection title={t('settings:account.links.title')}>
-            {/* Domain Selector */}
-            <SettingRow
-              label={t('settings:account.links.domainLabel')}
-              labelNode={
-                <div className="flex items-center gap-3">
-                  <Icon icon={Globe} className="w-5 h-5 text-input-placeholder"  />
-                  <FormLabel>{t('settings:account.links.domainLabel')}</FormLabel>
-                </div>
-              }
-            >
-              <Combobox
-                value={selectedDomain}
-                options={[
-                  { value: DOMAIN_SELECT_VALUE, label: t('settings:account.links.selectOption') },
-                  ...customDomainOptions,
-                  { value: 'verify-new', label: `+ ${t('settings:account.links.verifyNew')}` }
-                ]}
-                onChange={handleDomainChange}
-                placeholder={t('settings:account.links.selectOption')}
-                className="border-0 bg-transparent px-3 py-1 hover:bg-surface-workspace/10 focus:ring-2 focus:ring-accent-500"
-                searchable={false}
-              />
-            </SettingRow>
-
-            {/* LinkedIn */}
-            <SettingRow
-              label="LinkedIn"
-              labelNode={
-                <div className="flex items-center gap-3">
-                  <div className="w-4 h-4 bg-surface-app-frame rounded flex items-center justify-center">
-                    <span className="text-[rgb(var(--accent-foreground))] text-xs font-bold">in</span>
-                  </div>
-                  <FormLabel>LinkedIn</FormLabel>
-                </div>
-              }
-            >
-              <Button
-                variant="secondary"
-                size="sm"
-                onClick={handleAddLinkedIn}
-                icon={Plus} iconClassName="w-4 h-4"
-                iconPosition="right"
-              >
-                {t('settings:account.links.addButton')}
-              </Button>
-            </SettingRow>
-
-            {/* GitHub */}
-            <SettingRow
-              label="GitHub"
-              labelNode={
-                <div className="flex items-center gap-3">
-                  <div className="w-4 h-4">
-                    <svg viewBox="0 0 24 24" className="w-4 h-4 text-input-placeholder fill-current">
-                      <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
-                    </svg>
-                  </div>
-                  <FormLabel>GitHub</FormLabel>
-                </div>
-              }
-            >
-              <Button
-                variant="secondary"
-                size="sm"
-                onClick={handleAddGitHub}
-                icon={Plus} iconClassName="w-4 h-4"
-                iconPosition="right"
-              >
-                {t('settings:account.links.addButton')}
-              </Button>
-            </SettingRow>
-          </SettingSection>
-
-          <SectionDivider />
-        </>
-      )}
+          </div>
+        </section>
+      </SettingSection>
 
       {/* Delete Account Confirmation Dialog */}
       <ConfirmationDialog
@@ -1121,10 +1135,10 @@ export const AccountPage = ({
         {shouldGateEmailManagement ? (
           <div className="space-y-4">
             <div className="space-y-2">
-              <p className="text-lg font-semibold text-input-text">
+              <p className="text-lg font-semibold text-ink">
                 {t('settings:account.email.addPasswordFirst')}
               </p>
-              <p className="text-sm text-input-placeholder">
+              <p className="text-sm text-dim-2">
                 {t('settings:account.email.oauthGatingExplanation')}
               </p>
             </div>
@@ -1151,9 +1165,8 @@ export const AccountPage = ({
               feedbackLabel={t('settings:account.email.receiveFeedback')}
               showFeedbackToggle={showFeedbackToggle}
             />
-            <Input
+            <EmailInput
               id="account-email-change"
-              type="email"
               label="New email"
               value={newEmail}
               onChange={(value) => {
@@ -1162,6 +1175,7 @@ export const AccountPage = ({
               }}
               placeholder="Enter your new email address"
               error={emailChangeError ?? undefined}
+              showValidation
             />
             <FormActions
               className="justify-end"

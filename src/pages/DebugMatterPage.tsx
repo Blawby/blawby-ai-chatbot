@@ -301,19 +301,19 @@ export default function DebugMatterPage() {
   return (
     <main className="mx-auto max-w-[1400px] space-y-6 p-6">
       <header className="space-y-2">
-        <h1 className="text-2xl font-semibold text-input-text">Debug Matter Playground</h1>
-        <p className="text-sm text-input-placeholder">
+        <h1 className="text-2xl font-semibold text-ink">Debug Matter Playground</h1>
+        <p className="text-sm text-dim-2">
           Dev-only page for iterating on matter UI states without backend calls.
         </p>
       </header>
 
       <section className="grid gap-6 lg:grid-cols-[360px_minmax(0,1fr)]">
-        <aside className="glass-panel overflow-hidden">
-          <div className="flex items-center justify-between border-b border-line-glass/30 px-4 py-3">
-            <h2 className="text-sm font-semibold text-input-text">Matters</h2>
+        <aside className="panel overflow-hidden">
+          <div className="flex items-center justify-between border-b border-line-subtle px-4 py-3">
+            <h2 className="text-sm font-semibold text-ink">Matters</h2>
             <Button size="xs" onClick={() => setEditorState('create')}>New</Button>
           </div>
-          <ul className="divide-y divide-line-glass/20">
+          <ul className="divide-y divide-line-subtle">
             {matters.map((matter) => (
               <MatterListItem
                 key={matter.id}
@@ -356,7 +356,7 @@ export default function DebugMatterPage() {
                   className="px-0 py-0"
                 />
                 <nav
-                  className="flex items-end gap-0 border-b border-line-glass/20 px-5"
+                  className="flex items-end gap-0 border-b border-line-subtle px-5"
                   aria-label="Matter sections"
                 >
                   {detailTabs.map((tab) => {
@@ -370,11 +370,11 @@ export default function DebugMatterPage() {
                         role="tab"
                         className={[
                           'relative px-3 py-3 text-sm font-medium whitespace-nowrap',
-                          'transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-500 rounded-t-sm',
+                          'transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent rounded-t-sm',
                           'after:absolute after:bottom-0 after:left-0 after:right-0 after:h-0.5 after:rounded-full after:transition-all after:duration-150',
                           isActive
-                            ? 'text-input-text after:bg-accent-500'
-                            : 'text-input-placeholder hover:text-input-text after:bg-transparent hover:after:bg-line-glass/20'
+                            ? 'text-ink after:bg-accent'
+                            : 'text-dim-2 hover:text-ink after:bg-transparent hover:after:bg-line-glass/20'
                         ].join(' ')}
                       >
                         {tab.label}
@@ -394,9 +394,9 @@ export default function DebugMatterPage() {
 
               {activeTab === 'overview' ? (
                 <div className="space-y-4">
-                  <section className="glass-panel overflow-hidden">
-                    <div className="border-b border-line-glass/20 px-6 py-4">
-                      <h3 className="text-sm font-semibold text-input-text">Matter description</h3>
+                  <section className="panel overflow-hidden">
+                    <div className="border-b border-line-subtle px-6 py-4">
+                      <h3 className="text-sm font-semibold text-ink">Matter description</h3>
                     </div>
                     {isDescriptionEditing ? (
                       <div className="space-y-3 px-6 py-5">
@@ -420,7 +420,7 @@ export default function DebugMatterPage() {
                       </div>
                     ) : (
                       <div className="flex items-start justify-between gap-4 px-6 py-5">
-                        <p className="whitespace-pre-wrap text-sm leading-relaxed text-input-placeholder">
+                        <p className="whitespace-pre-wrap text-sm leading-relaxed text-dim-2">
                           {selectedDetail.description || 'No description yet.'}
                         </p>
                         <Button
@@ -453,13 +453,13 @@ export default function DebugMatterPage() {
               ) : null}
 
               {activeTab === 'messages' ? (
-                <section className="glass-panel p-6 text-sm text-input-placeholder">
+                <section className="panel p-6 text-sm text-dim-2">
                   Message thread preview placeholder for UI layout work.
                 </section>
               ) : null}
 
               {activeTab === 'activity' ? (
-                <section className="glass-panel p-6">
+                <section className="panel p-6">
                   <ActivityTimeline
                     items={activityItems}
                     showComposer

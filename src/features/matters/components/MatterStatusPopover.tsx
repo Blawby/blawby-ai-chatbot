@@ -124,7 +124,7 @@ export const MatterStatusPopover = ({ currentStatus, onSelect, disabled }: Matte
           'inline-flex items-center gap-2 rounded-full px-3 py-1.5',
           'text-sm font-medium ring-1 ring-inset',
           'transition-all duration-150',
-          'hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-ring',
+          'hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent',
           'disabled:opacity-50 disabled:cursor-not-allowed',
           colorClasses
         )}
@@ -145,8 +145,8 @@ export const MatterStatusPopover = ({ currentStatus, onSelect, disabled }: Matte
           onKeyDown={handleListboxKeyDown}
           className={cn(
             'absolute left-0 top-full z-50 mt-2 w-56',
-            'rounded-xl border border-line-subtle',
-            'bg-surface-overlay/95 backdrop-blur-2xl shadow-glass',
+            'rounded-r-md border border-line-subtle',
+            'bg-card/95 backdrop-blur-2xl shadow-glass',
             'py-1 overflow-y-auto max-h-72'
           )}
         >
@@ -171,14 +171,14 @@ export const MatterStatusPopover = ({ currentStatus, onSelect, disabled }: Matte
                   'w-full flex items-center gap-2.5 px-3 py-2 text-left text-sm transition-colors duration-100',
                   isSelected
                     ? cn(MATTER_STATUS_BADGE_CLASS[status], 'ring-1 ring-inset')
-                    : 'text-input-text hover:bg-surface-card-hover'
+                    : 'text-ink hover:bg-paper-2'
                 )}
               >
                 <Icon
                   icon={statusIcon}
                   className={cn(
                     'h-4 w-4 shrink-0',
-                    isSelected ? '' : 'text-input-placeholder'
+                    isSelected ? '' : 'text-dim-2'
                   )}
                 />
                 <span className="flex-1">{MATTER_STATUS_LABELS[status]}</span>

@@ -46,15 +46,15 @@ export const WorkspacePlaceholderState = ({
   className,
 }: WorkspacePlaceholderStateProps) => (
   <div className={cn('flex h-full items-center justify-center p-6', className)}>
-    <div className="glass-panel w-full max-w-lg rounded-[28px] border border-line-glass/25 px-8 py-8 text-center shadow-[0_24px_80px_rgba(0,0,0,0.18)] backdrop-blur-xl">
+    <div className="panel w-full max-w-lg rounded-[28px] border border-line-subtle px-8 py-8 text-center shadow-[0_24px_80px_rgba(0,0,0,0.18)] backdrop-blur-xl">
       {icon ? (
-        <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full border border-line-glass/30 bg-surface-utility/10">
-          <Icon icon={icon} className="h-6 w-6 text-input-placeholder" aria-hidden="true" />
+        <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full border border-line-subtle bg-paper-2/10">
+          <Icon icon={icon} className="h-6 w-6 text-dim-2" aria-hidden="true" />
         </div>
       ) : null}
-      <h3 className="mt-4 text-sm font-semibold text-input-text">{title}</h3>
-      <p className="mt-2 text-sm text-input-placeholder">{description}</p>
-      {caption ? <p className="mt-2 text-xs text-input-placeholder">{caption}</p> : null}
+      <h3 className="mt-4 text-sm font-semibold text-ink">{title}</h3>
+      <p className="mt-2 text-sm text-dim-2">{description}</p>
+      {caption ? <p className="mt-2 text-xs text-dim-2">{caption}</p> : null}
       {primaryAction || secondaryAction ? (
         <div className="mt-4 flex flex-wrap justify-center gap-2">
           {primaryAction ? renderActionButton(primaryAction) : null}

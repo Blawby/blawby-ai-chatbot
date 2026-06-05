@@ -122,18 +122,18 @@ export function EmbedCodeBlock({ practiceSlug, templateSlug }: EmbedCodeBlockPro
   return (
     <div className="space-y-5">
       <div className="space-y-2">
-        <p className="text-sm text-input-placeholder">
+        <p className="text-sm text-dim-2">
           Share the direct link or install the widget script on your site.
         </p>
-        <div className="glass-panel rounded-xl px-4 py-3">
+        <div className="panel rounded-r-md px-4 py-3">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div className="min-w-0">
-              <p className="text-xs font-medium uppercase tracking-widest text-input-placeholder">Public link</p>
+              <p className="text-xs font-medium uppercase tracking-widest text-dim-2">Public link</p>
               <a
                 href={publicUrl}
                 target="_blank"
                 rel="noreferrer"
-                className="mt-1 block truncate text-sm font-medium text-input-text underline decoration-line-glass/50 underline-offset-4 hover:decoration-input-text"
+                className="mt-1 block truncate text-sm font-medium text-ink underline decoration-line-glass/50 underline-offset-4 hover:decoration-input-text"
               >
                 {publicUrl}
               </a>
@@ -146,11 +146,11 @@ export function EmbedCodeBlock({ practiceSlug, templateSlug }: EmbedCodeBlockPro
       </div>
 
       <div className="space-y-3">
-        <p className="text-sm text-input-placeholder">
+        <p className="text-sm text-dim-2">
           Paste this script into your site&apos;s <code>&lt;head&gt;</code> or before <code>&lt;/body&gt;</code> to load this intake flow.
         </p>
         <div className="relative group">
-          <pre className="bg-elevation-2 overflow-x-auto rounded-xl border border-line-glass/30 p-4 pr-20 text-sm font-mono text-input-text">
+          <pre className="bg-elevation-2 overflow-x-auto rounded-r-md border border-line-subtle p-4 pr-20 text-sm font-mono text-ink">
             {snippet}
           </pre>
           <Button
@@ -171,12 +171,12 @@ export function EmbedCodeBlock({ practiceSlug, templateSlug }: EmbedCodeBlockPro
         description="Copy or inspect the embed snippet for this intake template."
       >
         <DialogBody>
-          <p className="mb-3 text-sm text-input-placeholder">Paste this script into your site&apos;s <code>&lt;head&gt;</code> or before <code>&lt;/body&gt;</code>.</p>
+          <p className="mb-3 text-sm text-dim-2">Paste this script into your site&apos;s <code>&lt;head&gt;</code> or before <code>&lt;/body&gt;</code>.</p>
           <textarea
             ref={textareaRef}
             readOnly
             value={snippet}
-            className="w-full resize-none rounded-md border border-line-glass/20 bg-surface-ground p-3 font-mono text-sm text-input-text"
+            className="w-full resize-none rounded-md border border-line-subtle bg-paper p-3 font-mono text-sm text-ink"
             rows={6}
             aria-label="Embed snippet"
           />
@@ -231,12 +231,12 @@ export function EmbedCodeDialog({ isOpen, onClose, practiceSlug, templateSlug }:
   return (
     <Dialog isOpen={isOpen} onClose={onClose} title="Embed code" description="Copy or inspect the embed snippet for this intake template.">
       <DialogBody>
-        <p className="mb-3 text-sm text-input-placeholder">Paste this script into your site&apos;s <code>&lt;head&gt;</code> or before <code>&lt;/body&gt;</code>.</p>
+        <p className="mb-3 text-sm text-dim-2">Paste this script into your site&apos;s <code>&lt;head&gt;</code> or before <code>&lt;/body&gt;</code>.</p>
         <textarea
           ref={textareaRef}
           readOnly
           value={snippet}
-          className="w-full resize-none rounded-md border border-line-glass/20 bg-surface-ground p-3 font-mono text-sm text-input-text"
+          className="w-full resize-none rounded-md border border-line-subtle bg-paper p-3 font-mono text-sm text-ink"
           rows={6}
           aria-label="Embed snippet"
         />

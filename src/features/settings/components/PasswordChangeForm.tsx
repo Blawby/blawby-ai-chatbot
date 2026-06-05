@@ -49,7 +49,7 @@ export const PasswordChangeForm = ({
   return (
     <div className={cn('mt-4 space-y-4', className)}>
       {error && (
-        <div className="text-sm text-accent-error dark:text-accent-error-light" role="alert">{error}</div>
+        <div className="text-sm text-neg dark:text-neg" role="alert">{error}</div>
       )}
       {showCurrentPassword && (
         <div>

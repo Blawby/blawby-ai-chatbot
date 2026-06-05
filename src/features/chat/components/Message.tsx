@@ -19,6 +19,7 @@ import { formatRelativeTime } from '@/features/matters/utils/formatRelativeTime'
 import { chatTypography } from '@/features/chat/styles/chatTypography';
 import type { ChatMessageAction } from '@/shared/types/conversation';
 import { features } from '@/config/features';
+import { ToolUseLine } from '@/design-system/patterns';
 
 interface MessageProps {
 	content: string;
@@ -91,6 +92,12 @@ interface MessageProps {
 	isStreaming?: boolean;
 	isLoading?: boolean;
 	toolMessage?: string;
+	toolProgress?: Array<{
+		toolUseId: string;
+		toolName: string;
+		label: string;
+		status: 'queued' | 'running' | 'completed' | 'failed' | 'cancelled';
+	}>;
 	id?: string;
 	practiceId?: string;
 	actions?: ChatMessageAction[];
@@ -119,6 +126,8 @@ interface MessageProps {
 	hideMessageActions?: boolean;
 	/** Other participants who have read this message (for own messages only). */
 	readReceipts?: readonly ReadReceiptReader[];
+	/** Accent-tinted assistant bubble for the intake intro (Intake.html .a-bub.first). */
+	isIntro?: boolean;
 	// Styling
 	className?: string;
 }
@@ -150,8 +159,9 @@ const Message: FunctionComponent<MessageProps> = memo(({
 	isStreaming = false,
 	isLoading,
 	toolMessage,
+	toolProgress,
 	id: _id,
-	practiceId: _practiceId,
+		practiceId,
 	className = '',
 	actions,
 	onActionReply,
@@ -160,6 +170,7 @@ const Message: FunctionComponent<MessageProps> = memo(({
 	isSystemEvent = false,
 	hideMessageActions = false,
 	readReceipts = [],
+	isIntro = false,
 }) => {
 	const handleReply = useCallback(() => {
 		if (!onReply) return;
@@ -181,7 +192,8 @@ const Message: FunctionComponent<MessageProps> = memo(({
 	}
 
 	const hasContent = Boolean(content);
-	const shouldShowIndicator = isLoading && !hasContent;
+	void isLoading;
+	void hasContent;
 	
 	const hasOnlyMedia = files.length > 0 && !content && files.every(file => 
 		file.type.startsWith('image/') || 
@@ -268,14 +280,14 @@ const Message: FunctionComponent<MessageProps> = memo(({
 					<button
 						type="button"
 												className={onReplyPreviewClick
-													? 'relative flex min-w-0 items-center gap-2 pl-7 text-left text-xs text-input-placeholder cursor-pointer transition hover:text-accent-foreground'
-													: 'relative flex min-w-0 items-center gap-2 pl-7 text-left text-xs text-input-placeholder cursor-default pointer-events-none'
+													? 'relative flex min-w-0 items-center gap-2 pl-7 text-left text-xs text-dim-2 cursor-pointer transition hover:text-accent'
+													: 'relative flex min-w-0 items-center gap-2 pl-7 text-left text-xs text-dim-2 cursor-default pointer-events-none'
 												}
 						onClick={onReplyPreviewClick}
 						disabled={!onReplyPreviewClick}
 						aria-label="Jump to replied message"
 					>
-						<span className="pointer-events-none absolute left-[-32px] top-1/2 h-[14px] w-[60px] -translate-y-1/2 rounded-tl-xl border-l-[2px] border-t border-line-utility" />
+						<span className="pointer-events-none absolute left-[-32px] top-1/2 h-[14px] w-[60px] -translate-y-1/2 rounded-tl-xl border-l-[2px] border-t border-line-subtle" />
 						{replyPreview.avatar && (
 							<MessageAvatar
 								src={replyPreview.avatar.src}
@@ -284,8 +296,8 @@ const Message: FunctionComponent<MessageProps> = memo(({
 								className="flex-shrink-0 mt-0.5 relative z-10"
 							/>
 						)}
-						<span className="font-semibold text-accent-foreground">{replyPreview.authorName}</span>
-						<span className="truncate text-input-placeholder">
+						<span className="font-semibold text-accent">{replyPreview.authorName}</span>
+						<span className="truncate text-dim-2">
 							{replyPreview.isMissing ? 'Original message unavailable' : replyPreview.content}
 						</span>
 					</button>
@@ -314,16 +326,35 @@ const Message: FunctionComponent<MessageProps> = memo(({
 						variant={variant}
 						size={size}
 						className={contentClassName}
+						isIntro={isIntro}
 					/>
 				)}
 				
-				{/* Loading Indicator */}
-				{shouldShowIndicator && (
-					<AIThinkingIndicator 
-						variant="thinking" 
+				{/* Loading / Tooling Progress Indicator
+				    - Live (isLoading): AIThinkingIndicator's per-tool status row is functional
+				      (shows queued/running/completed/failed icons per tool).
+				    - Completed with tools: render the quiet DS ToolUseLine instead — the
+				      "› used <tool_a> · <tool_b> · 142ms" line per design handoff. We
+				      dedupe by toolUseId (keeping latest status) to match the indicator's
+				      prior behavior. */}
+				{isLoading ? (
+					<AIThinkingIndicator
+						variant="thinking"
 						toolMessage={toolMessage}
+						toolProgress={toolProgress}
+						isCompleted={false}
+						className="mb-2"
 					/>
-				)}
+				) : (toolProgress && toolProgress.length > 0) ? (
+					<ToolUseLine
+						tools={Array.from(
+							new Map(
+								toolProgress.map((tool) => [tool.toolUseId || tool.toolName, tool.toolName]),
+							).values(),
+						)}
+						className="mb-2 mt-1"
+					/>
+				) : null}
 				
 				{/* Actions (matter canvas, forms, etc.) */}
 			<MessageActions
@@ -335,9 +366,10 @@ const Message: FunctionComponent<MessageProps> = memo(({
 					assistantRetry={assistantRetry}
 					authCta={authCta}
 					onAuthPromptRequest={onAuthPromptRequest}
-				actions={actions}
-				onActionReply={onActionReply}
-				onboardingProfile={onboardingProfile}
+					actions={actions}
+					onActionReply={onActionReply}
+					practiceId={practiceId}
+					onboardingProfile={onboardingProfile}
 				isStreaming={isStreaming}
 				isLast={isLast}
 			/>

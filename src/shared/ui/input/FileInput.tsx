@@ -89,7 +89,7 @@ export const FileInput = forwardRef<HTMLInputElement, FileInputProps>(({
 
 
   const variantClasses = {
-    default: 'border-input-border focus:ring-accent-500 focus:border-accent-500',
+    default: 'border-input-border focus:ring-accent focus:border-accent',
     error: 'border-red-300 focus:ring-red-500 focus:border-red-500',
     success: 'border-green-300 focus:ring-green-500 focus:border-green-500'
   };
@@ -147,7 +147,7 @@ export const FileInput = forwardRef<HTMLInputElement, FileInputProps>(({
   return (
     <div className="w-full">
       {displayLabel && (
-        <label htmlFor={inputId} className="block text-sm font-medium text-input-text mb-1">
+        <label htmlFor={inputId} className="block text-sm font-medium text-ink mb-1">
           {displayLabel}
           {required && <span className="text-red-500 ml-1">*</span>}
         </label>
@@ -159,9 +159,9 @@ export const FileInput = forwardRef<HTMLInputElement, FileInputProps>(({
         aria-label={displayLabel || "File upload area"}
         aria-disabled={disabled}
         className={cn(
-          'relative border-2 border-dashed rounded-xl transition-colors',
-          'hover:border-accent-400 dark:hover:border-accent-500',
-          isDragOver ? 'border-accent-500 bg-accent-50 dark:bg-accent-900/20' : 'border-input-border',
+          'relative border-2 border-dashed rounded-r-md transition-colors',
+          'hover:border-accent dark:hover:border-accent',
+          isDragOver ? 'border-accent bg-accent/10 dark:bg-accent-deep/20' : 'border-input-border',
           variantClasses[variant],
           disabled && 'opacity-50 cursor-not-allowed',
           className
@@ -186,7 +186,7 @@ export const FileInput = forwardRef<HTMLInputElement, FileInputProps>(({
         
         <div className="p-6 text-center">
           <svg
-            className="mx-auto h-12 w-12 text-input-placeholder"
+            className="mx-auto h-12 w-12 text-dim-2"
             stroke="currentColor"
             fill="none"
             viewBox="0 0 48 48"
@@ -200,14 +200,14 @@ export const FileInput = forwardRef<HTMLInputElement, FileInputProps>(({
           </svg>
           
           <div className="mt-4">
-            <p className="text-sm text-input-placeholder">
-              <span className="font-medium text-accent-600 dark:text-accent-400">
+            <p className="text-sm text-dim-2">
+              <span className="font-medium text-accent dark:text-accent">
                 Click to upload
               </span>
               {' '}or drag and drop
             </p>
             {accept && showAcceptText && (
-              <p className="text-xs text-input-placeholder mt-1">
+              <p className="text-xs text-dim-2 mt-1">
                 {accept}
               </p>
             )}
@@ -218,12 +218,12 @@ export const FileInput = forwardRef<HTMLInputElement, FileInputProps>(({
       {showFileList && files.length > 0 && (
         <div className="mt-3 space-y-2">
           {files.map((file, index) => (
-            <div key={index} className="glass-input flex items-center justify-between p-2 rounded">
+            <div key={index} className="field flex items-center justify-between p-2 rounded">
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-input-text truncate">
+                <p className="text-sm font-medium text-ink truncate">
                   {file.name}
                 </p>
-                <p className="text-xs text-input-placeholder">
+                <p className="text-xs text-dim-2">
                   {formatFileSize(file.size)}
                 </p>
               </div>
@@ -237,7 +237,7 @@ export const FileInput = forwardRef<HTMLInputElement, FileInputProps>(({
                 </button>
               )}
               {effectiveMaxFileSize && file.size > effectiveMaxFileSize && (
-                <span className="text-xs text-accent-error">
+                <span className="text-xs text-neg">
                   File too large (max {formatFileSize(effectiveMaxFileSize)})
                 </span>
               )}
@@ -245,7 +245,7 @@ export const FileInput = forwardRef<HTMLInputElement, FileInputProps>(({
           ))}
           
           {effectiveMaxTotalSize && totalSize > effectiveMaxTotalSize && (
-            <p className="text-xs text-accent-error">
+            <p className="text-xs text-neg">
               Total size exceeds {formatFileSize(effectiveMaxTotalSize)}
             </p>
           )}
@@ -253,7 +253,7 @@ export const FileInput = forwardRef<HTMLInputElement, FileInputProps>(({
       )}
       
       {displayDescription && (
-        <p id={descriptionId} className="text-xs text-input-placeholder mt-1">
+        <p id={descriptionId} className="text-xs text-dim-2 mt-1">
           {displayDescription}
         </p>
       )}

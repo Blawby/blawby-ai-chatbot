@@ -37,16 +37,20 @@ describe('submitContactForm', () => {
           ok: true,
           json: async () => ({
             success: true,
+            organization: { name: 'Acme Law', logo: 'logo.png' },
+            settings: { payment_link_enabled: true, consultation_fee: 76 },
             data: {
               organization: { name: 'Acme Law', logo: 'logo.png' },
-              settings: { paymentLinkEnabled: true, consultationFee: 75.6 }
+              settings: { payment_link_enabled: true, consultation_fee: 76 }
             }
           }),
           text: async () => JSON.stringify({
             success: true,
+            organization: { name: 'Acme Law', logo: 'logo.png' },
+            settings: { payment_link_enabled: true, consultation_fee: 76 },
             data: {
               organization: { name: 'Acme Law', logo: 'logo.png' },
-              settings: { paymentLinkEnabled: true, consultationFee: 75.6 }
+              settings: { payment_link_enabled: true, consultation_fee: 76 }
             }
           })
         });
@@ -121,16 +125,20 @@ describe('submitContactForm', () => {
           ok: true,
           json: async () => ({
             success: true,
+            organization: { name: 'Acme Law', logo: 'logo.png' },
+            settings: { payment_link_enabled: false, consultation_fee: 50 },
             data: {
               organization: { name: 'Acme Law', logo: 'logo.png' },
-              settings: { paymentLinkEnabled: false, consultationFee: 50 }
+              settings: { payment_link_enabled: false, consultation_fee: 50 }
             }
           }),
           text: async () => JSON.stringify({
             success: true,
+            organization: { name: 'Acme Law', logo: 'logo.png' },
+            settings: { payment_link_enabled: false, consultation_fee: 50 },
             data: {
               organization: { name: 'Acme Law', logo: 'logo.png' },
-              settings: { paymentLinkEnabled: false, consultationFee: 50 }
+              settings: { payment_link_enabled: false, consultation_fee: 50 }
             }
           })
         });

@@ -1,69 +1,72 @@
 import { User } from 'lucide-preact';
-/**
- * Avatar - Atom Component
- * Pure user avatar display with image/initials fallback.
- */
-
 import { useState, useEffect } from 'preact/hooks';
 
 import { Icon } from '@/shared/ui/Icon';
+import { cn } from '@/shared/utils/cn';
 import { sanitizeUserImageUrl } from '@/shared/utils/urlValidation';
 
+
+export type AvatarKind = 'ai' | 'user' | 'staff';
 
 interface AvatarProps {
   src?: string | null;
   name: string;
   size?: 'xs' | 'sm' | 'md' | 'lg' | 'xl';
   className?: string;
-  /** Override the inner circle background. Defaults to 'glass-input'.
-   *  Pass a solid Tailwind class (e.g. 'bg-surface-overlay') when
-   *  rendering inside StackedAvatars to prevent backdrop-blur bleed-through.
+  /**
+   * @deprecated DS .avatar uses --card via the class. Caller overrides via
+   * `className` are still respected (Tailwind utilities beat layer-components).
    */
   bgClassName?: string;
   status?: 'active' | 'inactive' | 'offline';
   /** Accessible label for status dot. Defaults to status value. */
   statusLabel?: string;
+  /**
+   * DS avatar kind controls fill + ink colors:
+   * - 'ai' (default): gold serif glyph on ink
+   * - 'user': paper sans initials on ink gradient
+   * - 'staff': accent-deep sans initials on accent-soft
+   */
+  kind?: AvatarKind;
 }
 
-export const Avatar = ({ src, name, size = 'md', className = '', bgClassName, status, statusLabel }: AvatarProps) => {
+export const Avatar = ({
+  src,
+  name,
+  size = 'md',
+  className = '',
+  status,
+  statusLabel,
+  kind = 'ai',
+}: AvatarProps) => {
   const [hasImgError, setHasImgError] = useState(false);
 
-  // Reset error state when src changes so new images can be attempted
   useEffect(() => {
     setHasImgError(false);
   }, [src]);
 
   const sizeClasses = {
-    xs: 'w-4 h-4',
-    sm: 'w-6 h-6',
-    md: 'w-9 h-9', // 36px to match original main look
-    lg: 'w-10 h-10',
-    xl: 'w-36 h-36'
+    xs: 'w-4 h-4 text-[10px]',
+    sm: 'w-6 h-6 text-xs',
+    md: '',
+    lg: 'w-10 h-10 text-base',
+    xl: 'w-36 h-36 text-6xl'
   } as const;
 
-  const textSizeClasses = {
-    xs: 'text-[10px]',
-    sm: 'text-xs',
-    md: 'text-sm',
-    lg: 'text-base',
-    xl: 'text-6xl'
-  } as const;
+  const kindClass = kind === 'user' ? 'user' : kind === 'staff' ? 'staff' : null;
 
   const getInitials = (fullName: string) => {
-    // Handle edge cases: trim input, check for valid string, return safe fallback
     if (typeof fullName !== 'string') {
       return '';
     }
-    
+
     const trimmedName = fullName.trim();
     if (!trimmedName) {
       return '';
     }
-    
-    // Split on whitespace and filter out empty segments to handle extra spaces
+
     const words = trimmedName.split(/\s+/).filter(word => word.length > 0);
-    
-    // Map each word to its first character, uppercase and slice to two characters
+
     return words
       .map(word => word.charAt(0))
       .join('')
@@ -75,9 +78,9 @@ export const Avatar = ({ src, name, size = 'md', className = '', bgClassName, st
   const initials = getInitials(name);
 
   const statusClasses = {
-    active: 'bg-emerald-500',
-    inactive: 'bg-amber-400',
-    offline: 'bg-input-placeholder ring-1 ring-white/80'
+    active: 'bg-pos',
+    inactive: 'bg-warn',
+    offline: 'bg-dim ring-1 ring-card'
   } as const;
 
   const statusSizeClasses = {
@@ -89,27 +92,29 @@ export const Avatar = ({ src, name, size = 'md', className = '', bgClassName, st
   } as const;
 
   return (
-    <div className={`${sizeClasses[size]} relative flex-shrink-0 rounded-full ${className}`}>
-      <div className={`${bgClassName ?? 'glass-input'} h-full w-full rounded-full text-input-text flex items-center justify-center overflow-hidden shadow-sm ring-1 ring-line-glass/10`}>
-        {sanitizedImageUrl && !hasImgError ? (
-          <img 
-            src={sanitizedImageUrl} 
-            alt={name} 
-            className="h-full w-full object-cover"
-            onError={() => setHasImgError(true)}
-          />
+    <div className={cn('avatar relative', kindClass, sizeClasses[size], className)}>
+      {sanitizedImageUrl && !hasImgError ? (
+        <img
+          src={sanitizedImageUrl}
+          alt={name}
+          className="h-full w-full object-cover rounded-full"
+          onError={() => setHasImgError(true)}
+        />
+      ) : (
+        initials ? (
+          <span>{initials}</span>
         ) : (
-          initials ? (
-            <span className={`font-medium text-input-text ${textSizeClasses[size]}`}>{initials}</span>
-          ) : (
-            <Icon icon={User} className="h-1/2 w-1/2 text-input-placeholder" />
-          )
-        )}
-      </div>
+          <Icon icon={User} className="h-1/2 w-1/2" />
+        )
+      )}
       {status && (
         <>
           <span
-            className={`absolute bottom-0 right-0 translate-x-1/4 translate-y-1/4 rounded-full ${statusClasses[status]} ${statusSizeClasses[size]}`}
+            className={cn(
+              'absolute bottom-0 right-0 translate-x-1/4 translate-y-1/4 rounded-full',
+              statusClasses[status],
+              statusSizeClasses[size]
+            )}
             aria-hidden="true"
           />
           <span className="sr-only">{statusLabel || status}</span>

@@ -30,7 +30,7 @@ export const UserProfileDisplay = ({
   const { session, isPending, error } = useSessionContext();
   const { showError } = useToastContext();
   const location = useLocation();
-  const { currentPractice, practices } = useWorkspaceResolver();
+  const { currentPractice } = useWorkspaceResolver();
   const [showDropdown, setShowDropdown] = useState(false);
   const [signOutError, setSignOutError] = useState<string | null>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -39,11 +39,9 @@ export const UserProfileDisplay = ({
   const routeMatch = location.path.match(/^\/(client|practice)\/([^/]+)/);
   const settingsBasePath = routeMatch
     ? getWorkspaceSettingsPath(routeMatch[1] as 'client' | 'practice', decodeURIComponent(routeMatch[2]))
-    : (() => {
-        const fallbackSlug = currentPractice?.slug ?? practices[0]?.slug ?? null;
-        if (!fallbackSlug) return null;
-        return getWorkspaceSettingsPath('client', fallbackSlug);
-      })();
+    : currentPractice?.slug
+      ? getWorkspaceSettingsPath('client', currentPractice.slug)
+      : null;
   const isOnSettingsRoute = Boolean(
     settingsBasePath &&
     (location.path === settingsBasePath || location.path.startsWith(`${settingsBasePath}/`))
@@ -144,8 +142,8 @@ export const UserProfileDisplay = ({
   if (loading) {
     return (
       <div className={`flex items-center ${isCollapsed ? 'justify-center py-2' : 'gap-3 px-3 py-2'}`}>
-        <div className="glass-input w-8 h-8 rounded-full animate-pulse" />
-        {!isCollapsed && <div className="glass-input w-20 h-4 rounded animate-pulse" />}
+        <div className="field w-8 h-8 rounded-full animate-pulse" />
+        {!isCollapsed && <div className="field w-20 h-4 rounded animate-pulse" />}
       </div>
     );
   }
@@ -164,7 +162,7 @@ export const UserProfileDisplay = ({
           />
           {!isCollapsed && (
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-[rgb(var(--accent-error))]">
+              <p className="text-sm font-medium text-neg">
                 Failed to load session
               </p>
               <p className="text-xs text-[rgb(var(--input-placeholder))]">
@@ -182,7 +180,7 @@ export const UserProfileDisplay = ({
       <div className="p-2 w-full">
         <button
           onClick={handleSignIn}
-          className={`flex items-center w-full rounded-xl text-left transition-colors text-[rgb(var(--input-foreground))] hover:bg-[rgb(var(--surface-utility))]/5 ${
+          className={`flex items-center w-full rounded-r-md text-left transition-colors text-[rgb(var(--input-foreground))] hover:bg-[rgb(var(--surface-utility))]/5 ${
             isCollapsed 
               ? 'justify-center py-2' 
               : 'gap-3 px-3 py-2'

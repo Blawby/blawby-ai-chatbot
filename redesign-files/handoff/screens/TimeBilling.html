@@ -1,0 +1,472 @@
+<!doctype html>
+<html lang="en" data-theme="">
+<head>
+<meta charset="utf-8" />
+<title>Blawby — Time &amp; Billing</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,opsz,wght@0,8..60,300..900;1,8..60,300..900&family=Geist:wght@300;400;500;600;700&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="tokens.css">
+<style>
+body{ background-image: radial-gradient(rgba(15,30,54,0.025) 1px, transparent 1.2px); background-size: 3px 3px; background-attachment: fixed; }
+.shell{ display: grid; grid-template-columns: 240px 1fr; min-height: 100vh; max-width: 1520px; margin: 0 auto; }
+
+/* rail */
+.rail{ border-right: 1px solid var(--rule); padding: 22px 16px; display: flex; flex-direction: column; gap: 18px; position: sticky; top: 0; height: 100vh; background: color-mix(in oklab, var(--paper) 96%, var(--card)); }
+.rail .meta{ font-family: var(--mono); font-size: 10px; letter-spacing: .06em; text-transform: uppercase; color: var(--dim); margin-top: -8px; padding-left: 30px; }
+.new-btn{ width: 100%; background: var(--ink); color: var(--paper); border: 1px solid var(--ink); border-radius: var(--r-xs); padding: 11px 14px; font-size: 13px; font-weight: 500; display: flex; align-items: center; justify-content: space-between; cursor: pointer; transition: all .18s; }
+.new-btn:hover{ background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+.new-btn kbd{ font-family: var(--mono); font-size: 10px; background: rgba(255,255,255,.12); color: var(--paper-2); padding: 2px 6px; border-radius: 3px; }
+.rail-section{ display: flex; flex-direction: column; gap: 2px; }
+.rail-label{ font-family: var(--mono); font-size: 9.5px; letter-spacing: .12em; text-transform: uppercase; color: var(--dim-2); padding: 0 8px 4px; }
+.rail-item{ display: flex; align-items: center; gap: 10px; padding: 7px 10px; border-radius: var(--r-xs); font-size: 13px; color: var(--ink-2); cursor: pointer; transition: background .12s; text-decoration: none; }
+.rail-item:hover{ background: var(--rule-soft); color: var(--ink); }
+.rail-item.on{ background: var(--ink); color: var(--accent); }
+.rail-item .dot{ width: 6px; height: 6px; border-radius: 50%; background: var(--dim-2); flex-shrink: 0; }
+.rail-item.on .dot{ background: var(--accent); }
+.rail-item .badge{ margin-left: auto; font-family: var(--mono); font-size: 10px; color: var(--dim); }
+.rail-item.on .badge{ color: var(--accent); }
+.user-chip{ margin-top: auto; display: flex; align-items: center; gap: 10px; padding: 9px 10px; border-radius: var(--r-xs); border: 1px solid var(--rule); background: var(--card); cursor: pointer; }
+.user-chip .who{ font-size: 12.5px; line-height: 1.2; }
+.user-chip .who small{ display: block; color: var(--dim); font-size: 10.5px; }
+
+/* main */
+.main{ padding: 32px 56px 80px; min-width: 0; max-width: 1240px; }
+.page-head{ display: flex; justify-content: space-between; align-items: flex-end; padding-bottom: 20px; border-bottom: 1px solid var(--rule); }
+.page-head .crumb{ font-family: var(--mono); font-size: 10px; letter-spacing: .14em; text-transform: uppercase; color: var(--dim); }
+.page-head h1{ font-family: var(--serif); font-weight: 400; font-size: 48px; line-height: 1; letter-spacing: -.02em; margin: 6px 0 0; }
+.page-head h1 em{ color: var(--accent); }
+.page-head .right{ display: flex; gap: 8px; align-items: flex-end; }
+
+/* report nav */
+.report-nav{ display: flex; gap: 0; margin-top: 20px; border-bottom: 1px solid var(--rule); }
+.report-nav a{
+  font-family: var(--mono); font-size: 10.5px; letter-spacing: .06em; text-transform: uppercase;
+  padding: 10px 16px 8px; color: var(--dim); cursor: pointer; border-bottom: 2px solid transparent;
+  transition: color .14s; text-decoration: none;
+}
+.report-nav a:hover{ color: var(--ink-2); }
+.report-nav a.on{ color: var(--ink); border-bottom-color: var(--ink); }
+
+/* kpi strip */
+.kpis{ display: grid; grid-template-columns: repeat(5, 1fr); gap: 14px; margin-top: 24px; }
+.kpi{ background: var(--card); border: 1px solid var(--rule); border-radius: var(--r-md); padding: 18px 20px; box-shadow: var(--shadow-1); display: flex; flex-direction: column; gap: 5px; }
+.kpi .lab{ font-family: var(--mono); font-size: 9px; letter-spacing: .1em; text-transform: uppercase; color: var(--dim); }
+.kpi .val{ font-family: var(--serif); font-size: 28px; line-height: 1; letter-spacing: -.015em; font-feature-settings: "tnum"; }
+.kpi .val small{ font-family: var(--mono); font-size: 10px; color: var(--dim); margin-left: 3px; }
+.kpi .delta{ font-family: var(--mono); font-size: 10px; letter-spacing: .04em; color: var(--ink-2); }
+.kpi .delta.pos{ color: var(--pos); }
+.kpi .delta.neg{ color: var(--neg); }
+
+/* ai take */
+.ai-take{
+  background: var(--card); border: 1px solid var(--rule); border-left: 2px solid var(--accent);
+  border-radius: 0 var(--r-md) var(--r-md) 0; padding: 16px 20px; margin: 24px 0;
+}
+.ai-take .lab{ font-family: var(--mono); font-size: 10px; letter-spacing: .12em; text-transform: uppercase; color: var(--accent-deep); }
+.ai-take .txt{ font-family: var(--serif); font-size: 16px; line-height: 1.5; color: var(--ink); margin-top: 5px; max-width: 64ch; }
+.ai-take .txt em{ color: var(--accent-deep); font-style: italic; }
+.ai-take .acts{ display: flex; gap: 6px; margin-top: 10px; flex-wrap: wrap; }
+
+/* grid layouts */
+.grid-2{ display: grid; grid-template-columns: 1fr 1fr; gap: 22px; }
+.grid-3{ display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 22px; }
+
+/* chart card */
+.chart-card{ background: var(--card); border: 1px solid var(--rule); border-radius: var(--r-md); padding: 22px 24px; box-shadow: var(--shadow-1); }
+.chart-card .head{ display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 14px; }
+.chart-card .head .l{ font-family: var(--mono); font-size: 10px; letter-spacing: .1em; text-transform: uppercase; color: var(--dim); }
+.chart-card .head .v{ font-family: var(--serif); font-size: 22px; font-feature-settings: "tnum"; letter-spacing: -.01em; }
+
+/* section */
+.section-head{ display: flex; justify-content: space-between; align-items: flex-end; margin: 28px 0 14px; padding-bottom: 10px; border-bottom: 1px solid var(--rule); }
+.section-head h3{ font-family: var(--serif); font-weight: 400; font-size: 26px; letter-spacing: -.012em; margin: 0; }
+.section-head h3 em{ color: var(--accent); }
+.section-head .label{ font-family: var(--mono); font-size: 10px; letter-spacing: .1em; text-transform: uppercase; color: var(--dim); }
+
+/* utilization bars */
+.util-row{ display: flex; flex-direction: column; gap: 14px; }
+.util-item{ display: flex; align-items: center; gap: 14px; }
+.util-item .info{ width: 160px; flex-shrink: 0; }
+.util-item .info .name{ font-size: 14px; font-weight: 400; }
+.util-item .info .sub{ font-family: var(--mono); font-size: 10px; color: var(--dim); letter-spacing: .04em; }
+.util-item .track{ flex: 1; height: 24px; background: var(--rule-soft); border-radius: var(--r-xs); position: relative; overflow: hidden; display: flex; }
+.util-item .track .billable{ background: var(--ink); height: 100%; transition: width .3s; }
+.util-item .track .nonbill{ background: var(--dim-2); height: 100%; transition: width .3s; }
+.util-item .pct{ width: 50px; text-align: right; font-family: var(--mono); font-size: 13px; font-feature-settings: "tnum"; flex-shrink: 0; }
+
+/* matter table */
+.tbl{ border: 1px solid var(--rule); border-radius: var(--r-md); overflow: hidden; background: var(--card); box-shadow: var(--shadow-1); }
+.tbl .r{
+  display: grid; grid-template-columns: 1.4fr 80px 80px 80px 90px 100px 90px;
+  gap: 12px; padding: 12px 22px; align-items: center;
+  border-bottom: 1px solid var(--rule); font-size: 13px;
+}
+.tbl .r:last-child{ border-bottom: none; }
+.tbl .r.head{
+  background: var(--paper-2); font-family: var(--mono); font-size: 9.5px;
+  letter-spacing: .08em; text-transform: uppercase; color: var(--dim); padding: 10px 22px;
+}
+.tbl .r .matter{ display: flex; flex-direction: column; gap: 1px; }
+.tbl .r .matter .name{ font-family: var(--serif); font-size: 14.5px; letter-spacing: -.005em; }
+.tbl .r .matter .client{ font-family: var(--mono); font-size: 10px; color: var(--dim); letter-spacing: .03em; }
+.tbl .r .num{ font-family: var(--mono); font-feature-settings: "tnum"; text-align: right; letter-spacing: -.01em; font-size: 13px; }
+.tbl .r .num.pos{ color: var(--pos); }
+.tbl .r .num.neg{ color: var(--neg); }
+.tbl .r .num.warn{ color: var(--warn); }
+.tbl .r .pct-bar{ display: flex; align-items: center; gap: 6px; }
+.tbl .r .pct-bar .track{ flex: 1; height: 6px; background: var(--rule-soft); border-radius: var(--r-pill); overflow: hidden; }
+.tbl .r .pct-bar .track i{ display: block; height: 100%; border-radius: var(--r-pill); }
+.tbl .r .pct-bar .v{ font-family: var(--mono); font-size: 11px; color: var(--ink-2); width: 32px; text-align: right; }
+
+/* daily breakdown */
+.day-grid{ display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; }
+.day-col{ display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.day-col .lbl{ font-family: var(--mono); font-size: 9px; letter-spacing: .08em; text-transform: uppercase; color: var(--dim); }
+.day-col .bar-v{ width: 100%; background: var(--rule-soft); border-radius: var(--r-xs); overflow: hidden; display: flex; flex-direction: column-reverse; height: 100px; }
+.day-col .bar-v .fill{ background: var(--ink); transition: height .3s; }
+.day-col .bar-v .fill.accent{ background: var(--accent); }
+.day-col .hrs{ font-family: var(--mono); font-size: 10px; color: var(--ink-2); font-feature-settings: "tnum"; }
+
+@media (max-width: 1100px){
+  .kpis{ grid-template-columns: repeat(3, 1fr); }
+  .grid-2, .grid-3{ grid-template-columns: 1fr; }
+  .tbl .r{ grid-template-columns: 1.2fr 70px 70px 70px 80px 90px; }
+  .tbl .r .hide-m{ display: none; }
+  .page-head{ flex-direction: column; align-items: flex-start; gap: 12px; }
+  .page-head h1{ font-size: 36px; }
+}
+@media (max-width: 980px){
+  .shell{ grid-template-columns: 1fr; }
+  .rail{ display: none; }
+  .main{ padding: 24px 22px 60px; }
+  .kpis{ grid-template-columns: repeat(2, 1fr); }
+  .tbl .r{ grid-template-columns: 1fr 70px 70px 80px; }
+  .day-grid{ grid-template-columns: repeat(5, 1fr); }
+  .day-grid .hide-wknd{ display: none; }
+}
+</style>
+</head>
+<body>
+
+<div class="shell">
+  <aside class="rail">
+    <a href="Assistant.html" class="brand-mark">
+      <span class="brand-mark-glyph">B</span>
+      <span class="brand-mark-word" style="font-family:var(--sans);font-weight:500">Blawby</span>
+    </a>
+    <div class="meta">Law Offices of Sarah Chen · solo</div>
+    <button class="new-btn"><span>＋  New conversation</span><kbd>⌘N</kbd></button>
+    <div class="rail-section">
+      <div class="rail-label">Workspace</div>
+      <a class="rail-item" href="Matters.html"><span class="dot"></span>Matters <span class="badge">4</span></a>
+      <a class="rail-item" href="Intakes.html"><span class="dot"></span>Intakes <span class="badge">3</span></a>
+      <a class="rail-item" href="Trust.html"><span class="dot"></span>Trust ledger</a>
+      <a class="rail-item" href="Invoices.html"><span class="dot"></span>Invoices</a>
+    </div>
+    <div class="rail-section">
+      <div class="rail-label">Reports</div>
+      <a class="rail-item" href="Reports.html"><span class="dot"></span>Monthly review</a>
+      <a class="rail-item" href="Receivables.html"><span class="dot"></span>Receivables</a>
+      <a class="rail-item on"><span class="dot"></span>Time &amp; billing</a>
+    </div>
+    <div class="rail-section">
+      <div class="rail-label">Other</div>
+      <a class="rail-item" href="Settings.html"><span class="dot"></span>Settings</a>
+    </div>
+    <div class="user-chip">
+      <div class="avatar user">SC</div>
+      <div class="who">Sarah Chen<small>sarah@chenlawoffice.com</small></div>
+    </div>
+  </aside>
+
+  <main class="main">
+    <header class="page-head">
+      <div>
+        <div class="crumb">Reports · Time &amp; billing</div>
+        <h1>Time &amp; <em>billing.</em></h1>
+      </div>
+      <div class="right">
+        <button class="btn btn-ghost btn-sm">Export CSV</button>
+        <button class="btn btn-ghost btn-sm">Download PDF</button>
+      </div>
+    </header>
+
+    <nav class="report-nav">
+      <a href="Reports.html">Overview</a>
+      <a href="Receivables.html">Receivables</a>
+      <a class="on">Time &amp; billing</a>
+    </nav>
+
+    <!-- KPI strip -->
+    <div class="kpis">
+      <div class="kpi">
+        <div class="lab">Hours logged</div>
+        <div class="val">92h</div>
+        <div class="delta">Nov 1–25</div>
+      </div>
+      <div class="kpi">
+        <div class="lab">Billable</div>
+        <div class="val">56h<small>61%</small></div>
+        <div class="delta pos">↑ 4 pts vs Oct</div>
+      </div>
+      <div class="kpi">
+        <div class="lab">Value of time</div>
+        <div class="val">$11,200</div>
+        <div class="delta">at blended $200/hr</div>
+      </div>
+      <div class="kpi">
+        <div class="lab">Realization rate</div>
+        <div class="val">82%</div>
+        <div class="delta pos">↑ 6% vs Oct · peers 76%</div>
+      </div>
+      <div class="kpi">
+        <div class="lab">Effective rate</div>
+        <div class="val">$164<small>/hr</small></div>
+        <div class="delta">$200 billed · $164 collected</div>
+      </div>
+    </div>
+
+    <!-- AI take -->
+    <div class="ai-take">
+      <div class="lab">I noticed</div>
+      <div class="txt">Your <em>realization rate jumped to 82%</em> — best in 6 months. Two things drove it: you stopped writing off small entries under $50, and your <em>fixed-fee estate matters are closing faster</em> than the time you'd have billed hourly. If you shifted one more matter to fixed-fee this quarter, I'd project <em>$2,400 more realized revenue</em>.</div>
+      <div class="acts">
+        <button class="chip primary">Show me fixed vs hourly comparison</button>
+        <button class="chip">Which matters should go fixed?</button>
+      </div>
+    </div>
+
+    <!-- This week -->
+    <div class="section-head">
+      <h3>This week · <em>daily breakdown</em></h3>
+      <span class="label">Nov 18–24 · 24.5h logged</span>
+    </div>
+
+    <div class="chart-card" style="margin-bottom: 28px">
+      <div class="day-grid">
+        <div class="day-col">
+          <div class="bar-v">
+            <div class="fill" style="height: 65%"></div>
+            <div class="fill accent" style="height: 15%"></div>
+          </div>
+          <div class="hrs">5.2h</div>
+          <div class="lbl">Mon</div>
+        </div>
+        <div class="day-col">
+          <div class="bar-v">
+            <div class="fill" style="height: 50%"></div>
+            <div class="fill accent" style="height: 20%"></div>
+          </div>
+          <div class="hrs">4.8h</div>
+          <div class="lbl">Tue</div>
+        </div>
+        <div class="day-col">
+          <div class="bar-v">
+            <div class="fill" style="height: 72%"></div>
+            <div class="fill accent" style="height: 10%"></div>
+          </div>
+          <div class="hrs">6.1h</div>
+          <div class="lbl">Wed</div>
+        </div>
+        <div class="day-col">
+          <div class="bar-v">
+            <div class="fill" style="height: 40%"></div>
+            <div class="fill accent" style="height: 25%"></div>
+          </div>
+          <div class="hrs">3.8h</div>
+          <div class="lbl">Thu</div>
+        </div>
+        <div class="day-col">
+          <div class="bar-v">
+            <div class="fill" style="height: 55%"></div>
+            <div class="fill accent" style="height: 12%"></div>
+          </div>
+          <div class="hrs">4.6h</div>
+          <div class="lbl">Fri</div>
+        </div>
+        <div class="day-col hide-wknd">
+          <div class="bar-v">
+            <div class="fill" style="height: 0%"></div>
+          </div>
+          <div class="hrs">0h</div>
+          <div class="lbl">Sat</div>
+        </div>
+        <div class="day-col hide-wknd">
+          <div class="bar-v">
+            <div class="fill" style="height: 0%"></div>
+          </div>
+          <div class="hrs">0h</div>
+          <div class="lbl">Sun</div>
+        </div>
+      </div>
+      <div style="display:flex;gap:16px;margin-top:12px;font-family:var(--mono);font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--dim)">
+        <span style="display:flex;align-items:center;gap:5px"><span style="width:10px;height:10px;background:var(--ink);border-radius:2px"></span> Billable</span>
+        <span style="display:flex;align-items:center;gap:5px"><span style="width:10px;height:10px;background:var(--accent);border-radius:2px"></span> Non-billable</span>
+      </div>
+    </div>
+
+    <!-- Utilization by person -->
+    <div class="section-head">
+      <h3>Utilization by <em>person</em></h3>
+      <span class="label">November · target 65%</span>
+    </div>
+
+    <div class="chart-card" style="margin-bottom: 28px">
+      <div class="util-row">
+        <div class="util-item">
+          <div class="info">
+            <div class="name">Sarah Chen</div>
+            <div class="sub">Partner · $200/hr</div>
+          </div>
+          <div class="track">
+            <div class="billable" style="width: 61%"></div>
+            <div class="nonbill" style="width: 14%"></div>
+          </div>
+          <div class="pct">61%</div>
+        </div>
+      </div>
+      <div style="display:flex;gap:16px;margin-top:14px;font-family:var(--mono);font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--dim)">
+        <span>56h billable · 13h non-billable · 23h unlogged</span>
+      </div>
+      <div style="margin-top:10px;font-size:13px;color:var(--ink-2);line-height:1.5">
+        Solo practice — all time entries attributed to Sarah Chen. When team members are added, their utilization will appear here as separate rows.
+      </div>
+    </div>
+
+    <!-- Matter breakdown -->
+    <div class="section-head">
+      <h3>Time by <em>matter</em></h3>
+      <span class="label">November · all matters</span>
+    </div>
+
+    <div class="tbl">
+      <div class="r head">
+        <div>Matter</div>
+        <div style="text-align:right">Hours</div>
+        <div style="text-align:right">Billed</div>
+        <div style="text-align:right" class="hide-m">Collected</div>
+        <div style="text-align:right">Rate</div>
+        <div>Realization</div>
+        <div style="text-align:right" class="hide-m">Unbilled</div>
+      </div>
+      <div class="r">
+        <div class="matter"><span class="name">Auto Injury</span><span class="client">B. Martinez · contingency</span></div>
+        <div class="num">18.5h</div>
+        <div class="num">$3,700</div>
+        <div class="num hide-m">$1,955</div>
+        <div class="num">$200</div>
+        <div class="pct-bar"><div class="track"><i style="width:53%;background:var(--warn)"></i></div><div class="v">53%</div></div>
+        <div class="num hide-m warn">$1,245</div>
+      </div>
+      <div class="r">
+        <div class="matter"><span class="name">Custody Modification</span><span class="client">S. Chen · retainer</span></div>
+        <div class="num">14.2h</div>
+        <div class="num">$2,840</div>
+        <div class="num hide-m">$2,840</div>
+        <div class="num">$200</div>
+        <div class="pct-bar"><div class="track"><i style="width:100%;background:var(--pos)"></i></div><div class="v">100%</div></div>
+        <div class="num hide-m pos">$0</div>
+      </div>
+      <div class="r">
+        <div class="matter"><span class="name">Estate Planning</span><span class="client">D. Johnson · fixed fee</span></div>
+        <div class="num">8.0h</div>
+        <div class="num">$3,600</div>
+        <div class="num hide-m">$1,800</div>
+        <div class="num" style="color:var(--pos)">$450</div>
+        <div class="pct-bar"><div class="track"><i style="width:50%;background:var(--accent)"></i></div><div class="v">50%</div></div>
+        <div class="num hide-m">$0</div>
+      </div>
+      <div class="r">
+        <div class="matter"><span class="name">Separation</span><span class="client">R. Alvarez · hourly</span></div>
+        <div class="num">9.8h</div>
+        <div class="num">$1,960</div>
+        <div class="num hide-m">$280</div>
+        <div class="num">$200</div>
+        <div class="pct-bar"><div class="track"><i style="width:14%;background:var(--neg)"></i></div><div class="v">14%</div></div>
+        <div class="num hide-m neg">$1,680</div>
+      </div>
+      <div class="r">
+        <div class="matter"><span class="name">Will Revision</span><span class="client">M. Park · fixed fee</span></div>
+        <div class="num">3.2h</div>
+        <div class="num">$1,200</div>
+        <div class="num hide-m">$0</div>
+        <div class="num" style="color:var(--pos)">$375</div>
+        <div class="pct-bar"><div class="track"><i style="width:0%"></i></div><div class="v">0%</div></div>
+        <div class="num hide-m warn">$1,200</div>
+      </div>
+      <div class="r">
+        <div class="matter"><span class="name">Lease Dispute</span><span class="client">T. Nguyen · hourly</span></div>
+        <div class="num">2.3h</div>
+        <div class="num">$460</div>
+        <div class="num hide-m">$0</div>
+        <div class="num">$200</div>
+        <div class="pct-bar"><div class="track"><i style="width:0%"></i></div><div class="v">0%</div></div>
+        <div class="num hide-m warn">$460</div>
+      </div>
+    </div>
+
+    <!-- Realization trend -->
+    <div class="section-head">
+      <h3>Realization <em>trend</em></h3>
+      <span class="label">6-month trailing</span>
+    </div>
+
+    <div class="grid-2">
+      <div class="chart-card">
+        <div class="head">
+          <div class="l">Realization rate</div>
+          <div class="v" style="color:var(--pos)">82%</div>
+        </div>
+        <svg width="100%" height="140" viewBox="0 0 400 140" preserveAspectRatio="none">
+          <line x1="0" y1="120" x2="400" y2="120" stroke="var(--rule)" stroke-width="1"/>
+          <line x1="0" y1="40" x2="400" y2="40" stroke="var(--rule)" stroke-width="1" stroke-dasharray="2 4"/>
+          <text x="0" y="35" font-family="Geist Mono" font-size="9" fill="var(--dim)">100%</text>
+          <text x="0" y="95" font-family="Geist Mono" font-size="9" fill="var(--dim)">50%</text>
+          <!-- your line -->
+          <defs><linearGradient id="rg" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="oklch(0.55 0.10 155)" stop-opacity=".25"/><stop offset="100%" stop-color="oklch(0.55 0.10 155)" stop-opacity="0"/></linearGradient></defs>
+          <path d="M30 82 L100 78 L170 85 L240 72 L310 68 L380 55 L380 120 L30 120 Z" fill="url(#rg)"/>
+          <path d="M30 82 L100 78 L170 85 L240 72 L310 68 L380 55" fill="none" stroke="var(--pos)" stroke-width="1.5"/>
+          <circle cx="380" cy="55" r="3" fill="var(--pos)" stroke="var(--card)" stroke-width="2"/>
+          <!-- peer line -->
+          <path d="M30 70 L100 69 L170 68 L240 68 L310 67 L380 66" fill="none" stroke="var(--dim-2)" stroke-width="1" stroke-dasharray="3 3"/>
+          <text x="385" y="68" font-family="Geist Mono" font-size="8" fill="var(--dim-2)">PEERS 76%</text>
+          <g font-family="Geist Mono" font-size="9" fill="var(--dim)" letter-spacing=".06em" text-anchor="middle">
+            <text x="30" y="135">JUN</text><text x="100" y="135">JUL</text><text x="170" y="135">AUG</text>
+            <text x="240" y="135">SEP</text><text x="310" y="135">OCT</text><text x="380" y="135" fill="var(--ink)">NOV</text>
+          </g>
+        </svg>
+      </div>
+
+      <div class="chart-card">
+        <div class="head">
+          <div class="l">Effective rate</div>
+          <div class="v">$164<small style="font-family:var(--mono);font-size:11px;color:var(--dim);margin-left:3px">/hr</small></div>
+        </div>
+        <svg width="100%" height="140" viewBox="0 0 400 140" preserveAspectRatio="none">
+          <line x1="0" y1="120" x2="400" y2="120" stroke="var(--rule)" stroke-width="1"/>
+          <line x1="0" y1="40" x2="400" y2="40" stroke="var(--rule)" stroke-width="1" stroke-dasharray="2 4"/>
+          <text x="0" y="35" font-family="Geist Mono" font-size="9" fill="var(--dim)">$200</text>
+          <text x="0" y="95" font-family="Geist Mono" font-size="9" fill="var(--dim)">$100</text>
+          <!-- bars -->
+          <g>
+            <rect x="15" y="74" width="32" height="46" fill="var(--paper-2)" stroke="var(--rule)" stroke-width="1"/>
+            <rect x="85" y="70" width="32" height="50" fill="var(--paper-2)" stroke="var(--rule)" stroke-width="1"/>
+            <rect x="155" y="76" width="32" height="44" fill="var(--paper-2)" stroke="var(--rule)" stroke-width="1"/>
+            <rect x="225" y="64" width="32" height="56" fill="var(--paper-2)" stroke="var(--rule)" stroke-width="1"/>
+            <rect x="295" y="60" width="32" height="60" fill="var(--paper-2)" stroke="var(--rule)" stroke-width="1"/>
+            <rect x="365" y="52" width="32" height="68" fill="var(--accent)" stroke="var(--accent-deep)" stroke-width="1"/>
+          </g>
+          <g font-family="Geist Mono" font-size="9" fill="var(--dim)" letter-spacing=".06em" text-anchor="middle">
+            <text x="30" y="135">JUN</text><text x="100" y="135">JUL</text><text x="170" y="135">AUG</text>
+            <text x="240" y="135">SEP</text><text x="310" y="135">OCT</text><text x="380" y="135" fill="var(--ink)">NOV</text>
+          </g>
+        </svg>
+      </div>
+    </div>
+
+  </main>
+</div>
+</body>
+</html>

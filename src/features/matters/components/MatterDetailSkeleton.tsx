@@ -45,9 +45,9 @@ export const MatterDetailSkeleton = () => (
       </div>
 
       {/* Segmented tab group placeholder */}
-      <div className="mt-5 inline-flex gap-1 rounded-2xl border border-line-subtle bg-surface-card-raised p-1">
+      <div className="mt-5 inline-flex gap-1 rounded-2xl border border-line-subtle bg-card p-1">
         {[0, 1, 2, 3, 4].map((i) => (
-          <div key={i} className="skeleton-bar h-9 w-9 rounded-xl" />
+          <div key={i} className="skeleton-bar h-9 w-9 rounded-r-md" />
         ))}
       </div>
 
@@ -68,7 +68,7 @@ export const MatterDetailSkeleton = () => (
 
     {/* Case details panel — header + 8 read-only field rows */}
     <section className="card mx-4 mt-4 rounded-2xl">
-      <div className="flex items-center justify-between border-b border-card-border px-6 py-4">
+      <div className="flex items-center justify-between border-b border-line-subtle px-6 py-4">
         <SkeletonLoader variant="text" height="h-3.5" width="w-24" rounded="rounded-md" />
         <div className="skeleton-bar h-px w-8 rounded" />
       </div>

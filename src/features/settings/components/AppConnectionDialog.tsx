@@ -39,7 +39,7 @@ export const AppConnectionDialog: FunctionComponent<AppConnectionDialogProps> = 
             href={app.privacyPolicy}
             target="_blank"
             rel="noopener noreferrer"
-            className="text-accent-600 hover:underline dark:text-accent-400"
+            className="text-accent hover:underline dark:text-accent"
           >
             {t(`${connectModalKey}.control.learnMore`)}
           </a>
@@ -58,7 +58,7 @@ export const AppConnectionDialog: FunctionComponent<AppConnectionDialogProps> = 
             href="https://blawby.com/help"
             target="_blank"
             rel="noopener noreferrer"
-            className="font-medium text-accent-600 hover:underline dark:text-accent-400"
+            className="font-medium text-accent hover:underline dark:text-accent"
           >
             {t(`${connectModalKey}.risk.learnMore`)}
           </a>

@@ -26,6 +26,8 @@ export interface EmailInputProps {
   errorKey?: string;
   namespace?: string;
   'data-testid'?: string;
+  onBlur?: (e: FocusEvent) => void;
+  onKeyDown?: (e: KeyboardEvent) => void;
 }
 
 export const EmailInput = forwardRef<HTMLInputElement, EmailInputProps>(({
@@ -48,7 +50,9 @@ export const EmailInput = forwardRef<HTMLInputElement, EmailInputProps>(({
   placeholderKey: _placeholderKey,
   errorKey: _errorKey,
   namespace: _namespace = 'common',
-  'data-testid': dataTestId
+  'data-testid': dataTestId,
+  onBlur,
+  onKeyDown
 }, ref) => {
   // Generate stable unique IDs for accessibility
   const generatedInputId = useUniqueId('email-input');
@@ -82,7 +86,10 @@ export const EmailInput = forwardRef<HTMLInputElement, EmailInputProps>(({
   };
 
   const isValidEmail = (email: string) => {
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    // Conservative but practical: ASCII local part, single @, host with a
+    // dot-separated TLD of at least two letters. Rejects `a@b.c`,
+    // `..@x.com`, `a@b..c`, and trailing/leading dots.
+    const emailRegex = /^(?!\.)(?!.*\.\.)[A-Za-z0-9._%+-]+(?<!\.)@[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)*\.[A-Za-z]{2,24}$/;
     return emailRegex.test(email);
   };
 
@@ -91,18 +98,18 @@ export const EmailInput = forwardRef<HTMLInputElement, EmailInputProps>(({
 
   const variantClasses = {
     default: '',
-    error: 'isError',
-    success: 'isSuccess'
+    error: 'is-error',
+    success: 'is-success'
   };
 
   const inputClasses = cn(
-    'w-full rounded-xl text-input-text placeholder:text-input-placeholder',
+    'w-full rounded-r-md text-ink placeholder:text-dim-2',
     'focus:outline-none transition-all duration-200',
-    'glass-input border-none',
+    'field border-none',
     sizeClasses[size],
     iconPaddingClasses[size],
     variantClasses[variant],
-    isInvalid && 'isError',
+    isInvalid && 'is-error',
     disabled && 'opacity-50 cursor-not-allowed',
     className
   );
@@ -124,7 +131,7 @@ export const EmailInput = forwardRef<HTMLInputElement, EmailInputProps>(({
   return (
     <div className="w-full">
       {displayLabel && (
-        <label htmlFor={inputId} className="block text-sm font-medium text-input-text mb-1">
+        <label htmlFor={inputId} className="block text-sm font-medium text-ink mb-1">
           {displayLabel}
           {required && <span className="text-red-500 ml-1">*</span>}
         </label>
@@ -132,7 +139,7 @@ export const EmailInput = forwardRef<HTMLInputElement, EmailInputProps>(({
       
       <div className="relative">
         <div className="absolute inset-y-0 left-0 z-10 flex items-center pl-3 pointer-events-none">
-          <Icon icon={Mail} className="w-4 h-4 text-input-placeholder"  />
+          <Icon icon={Mail} className="w-4 h-4 text-dim-2"  />
         </div>
         
         <input
@@ -140,6 +147,9 @@ export const EmailInput = forwardRef<HTMLInputElement, EmailInputProps>(({
           id={inputId}
           name={name}
           type="email"
+          autoComplete="email"
+          inputMode="email"
+          autoCapitalize="none"
           value={value}
           onInput={(e) => onChange?.((e.target as HTMLInputElement).value)}
           placeholder={displayPlaceholder}
@@ -150,33 +160,35 @@ export const EmailInput = forwardRef<HTMLInputElement, EmailInputProps>(({
           aria-describedby={ariaDescribedBy}
           className={inputClasses}
           data-testid={dataTestId}
+          onBlur={onBlur}
+          onKeyDown={onKeyDown}
         />
         
         {showValidationIcon && (
           <div className="absolute inset-y-0 right-0 z-10 flex items-center pr-3 pointer-events-none">
             {isEmailValid ? (
-              <Icon icon={Check} className="w-4 h-4 text-accent-success"  />
+              <Icon icon={Check} className="w-4 h-4 text-pos"  />
             ) : (
-              <Icon icon={X} className="w-4 h-4 text-accent-error"  />
+              <Icon icon={X} className="w-4 h-4 text-neg"  />
             )}
           </div>
         )}
       </div>
       
       {displayError && (
-        <p id={externalErrorId} className="text-xs text-accent-error mt-1" role="alert" aria-live="assertive">
+        <p id={externalErrorId} className="text-xs text-neg mt-1" role="alert" aria-live="assertive">
           {displayError}
         </p>
       )}
       
       {showValidation && value && !isEmailValid && !displayError && (
-        <p id={validationErrorId} className="text-xs text-accent-error mt-1">
+        <p id={validationErrorId} className="text-xs text-neg mt-1">
           Please enter a valid email address
         </p>
       )}
       
       {displayDescription && !displayError && (
-        <p id={descriptionId} className="text-xs text-input-placeholder mt-1">
+        <p id={descriptionId} className="text-xs text-dim-2 mt-1">
           {displayDescription}
         </p>
       )}

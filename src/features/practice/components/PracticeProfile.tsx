@@ -29,22 +29,22 @@ export default function PracticeProfile({
 					src={profileImage} 
 					name={name} 
 					size="lg" 
-					className="w-12 h-12 rounded-xl"
+					className="w-12 h-12 rounded-r-md"
 				/>
 			</div>
 
 			{/* Practice Name with Verified Badge */}
 			<div className="flex items-center justify-center gap-2 w-full">
-				<h3 className="text-base sm:text-lg font-semibold text-center m-0 text-input-text leading-tight truncate min-w-0" title={name}>{name}</h3>
+				<h3 className="text-base sm:text-lg font-semibold text-center m-0 text-ink leading-tight truncate min-w-0" title={name}>{name}</h3>
 				{showVerified && (
-					<Icon icon={BadgeCheck} decorative={false} className="w-4 h-4 sm:w-5 sm:h-5 text-accent-500 flex-shrink-0" aria-label={t('profile.verified')} title={t('profile.verified')}  />
+					<Icon icon={BadgeCheck} decorative={false} className="w-4 h-4 sm:w-5 sm:h-5 text-accent flex-shrink-0" aria-label={t('profile.verified')} title={t('profile.verified')}  />
 				)}
 			</div>
 
 			{/* Practice ID */}
 			{practiceSlug && (
 				<div className="text-center w-full">
-					<span className="text-sm font-medium text-accent-500 truncate block" title={t('profile.slug', { slug: practiceSlug })}>@{practiceSlug}</span>
+					<span className="text-sm font-medium text-accent truncate block" title={t('profile.slug', { slug: practiceSlug })}>@{practiceSlug}</span>
 				</div>
 			)}
 
@@ -54,7 +54,7 @@ export default function PracticeProfile({
 			{description && (
 				<div className="text-center">
 					<p
-						className="text-input-placeholder text-center leading-relaxed max-w-xs mx-auto line-clamp-3 text-sm"
+						className="text-dim-2 text-center leading-relaxed max-w-xs mx-auto line-clamp-3 text-sm"
 					>
 						{description}
 					</p>

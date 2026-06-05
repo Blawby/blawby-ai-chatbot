@@ -73,21 +73,26 @@ export const clientIntakeStatus = (intakeId: string): string =>
 export const clientIntakeInvite = (intakeId: string): string =>
 	`/api/practice-client-intakes/${encodeSegment(intakeId)}/invite`;
 
-
-export const intakeFilesPath = (intakeUuid: string): string =>
-	`/api/practice-client-intakes/${encodeSegment(intakeUuid)}/files`;
-
-export const intakeFilePresignPath = (intakeUuid: string): string =>
-	`${intakeFilesPath(intakeUuid)}/presign`;
-
-export const intakeFileConfirmPath = (intakeUuid: string, uploadId: string): string =>
-	`${intakeFilesPath(intakeUuid)}/${encodeSegment(uploadId)}/confirm`;
-
-export const intakeFileItemPath = (intakeUuid: string, fileId: string): string =>
-	`${intakeFilesPath(intakeUuid)}/${encodeSegment(fileId)}`;
+export const generateEngagement = '/api/ai/generate-engagement';
 
 export const uploadDownloadPath = (uploadId: string): string =>
 	`/api/uploads/${encodeSegment(uploadId)}/download`;
+
+export const uploadsPath = (): string => '/api/uploads';
+
+export const uploadPresignPath = (): string => `${uploadsPath()}/presign`;
+
+export const uploadItemPath = (uploadId: string): string =>
+	`${uploadsPath()}/${encodeSegment(uploadId)}`;
+
+export const uploadConfirmPath = (uploadId: string): string =>
+	`${uploadItemPath(uploadId)}/confirm`;
+
+export const intakeTemplatesPath = (practiceId: string): string =>
+	`/api/practice/${encodeSegment(practiceId)}/intake-templates`;
+
+export const intakeTemplatePath = (practiceId: string, templateId: string): string =>
+	`${intakeTemplatesPath(practiceId)}/${encodeSegment(templateId)}`;
 
 export const matterCollectionPath = (practiceId: string): string => `/api/matters/${encodeSegment(practiceId)}`;
 
@@ -269,11 +274,18 @@ export function getTrustedHosts(): string[] {
 /**
  * Centralized API endpoint helpers
  */
+export const practiceAssistantDecision = (
+	actionId: string,
+	decision: 'approve' | 'reject',
+): string =>
+	`/api/ai/practice-assistant/actions/${encodeSegment(actionId)}/${decision}`;
+
 export const urls = {
 	clientIntakes,
 	clientIntake,
 	clientIntakeStatus,
 	clientIntakeInvite,
+	practiceAssistantDecision,
 	invoices: (practiceId: string) => `/api/invoices/${encodeURIComponent(practiceId)}`,
 	invoice: (practiceId: string, invoiceId: string) => `/api/invoices/${encodeURIComponent(practiceId)}/${encodeURIComponent(invoiceId)}`,
 	createInvoice: (practiceId: string) => `/api/invoices/${encodeURIComponent(practiceId)}`,
@@ -323,10 +335,14 @@ export function getPublicFormOrigin(): string {
     if (typeof window !== 'undefined' && window.location?.origin) {
         return window.location.origin;
     }
-    if (import.meta.env.VITE_PUBLIC_FORM_ORIGIN) {
-        return import.meta.env.VITE_PUBLIC_FORM_ORIGIN;
-    }
-    return 'https://app.blawby.com';
+    const explicit =
+        import.meta.env.VITE_APP_BASE_URL ||
+        import.meta.env.VITE_PUBLIC_APP_URL ||
+        import.meta.env.VITE_APP_URL;
+    if (explicit) return explicit.replace(/\/+$/, '');
+    throw new Error(
+        'Public form origin could not be determined. Set VITE_APP_BASE_URL.'
+    );
 }
 
 const WIDGET_TOKEN_ALLOWLIST_PATTERNS: RegExp[] = [

@@ -80,13 +80,13 @@ export const LogoUploadInput = forwardRef<HTMLInputElement, LogoUploadInputProps
   return (
     <div className={cn('w-full', className)}>
       {label && (
-        <label htmlFor={inputId} className="block text-sm font-medium text-input-text">
+        <label htmlFor={inputId} className="block text-sm font-medium text-ink">
           {label}
           {required && <span className="ml-1 text-red-500">*</span>}
         </label>
       )}
       {description && (
-        <p className="mt-1 text-xs text-input-placeholder">
+        <p className="mt-1 text-xs text-dim-2">
           {description}
         </p>
       )}
@@ -116,7 +116,7 @@ export const LogoUploadInput = forwardRef<HTMLInputElement, LogoUploadInputProps
               cx={ringSize / 2}
               cy={ringSize / 2}
               r={ringRadius}
-              className="text-accent-500 transition-[stroke-dashoffset] duration-200 ease-out"
+              className="text-accent transition-[stroke-dashoffset] duration-200 ease-out"
               stroke="currentColor"
               strokeWidth="3"
               fill="transparent"
@@ -127,7 +127,7 @@ export const LogoUploadInput = forwardRef<HTMLInputElement, LogoUploadInputProps
           </svg>
         )}
         <div
-          className="absolute inset-1 overflow-hidden rounded-full glass-panel border-white/10"
+          className="absolute inset-1 overflow-hidden rounded-full panel border-white/10"
           style={{ width: size, height: size, left: 4, top: 4 }}
         >
         {hasImage ? (
@@ -137,8 +137,8 @@ export const LogoUploadInput = forwardRef<HTMLInputElement, LogoUploadInputProps
             className="h-full w-full object-cover"
           />
         ) : (
-          <div className="flex h-full w-full items-center justify-center bg-surface-utility/10">
-            <Icon icon={User} className="h-1/2 w-1/2 text-input-placeholder"  />
+          <div className="flex h-full w-full items-center justify-center bg-paper-2/10">
+            <Icon icon={User} className="h-1/2 w-1/2 text-dim-2"  />
           </div>
         )}
         </div>

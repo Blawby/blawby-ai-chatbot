@@ -50,7 +50,7 @@ export const SendNowModal: FunctionComponent<SendNowModalProps> = ({
     <Dialog isOpen={isOpen} onClose={onClose} title="Send report now">
       <DialogBody>
         <div className="flex flex-col gap-3">
-          <p className="text-sm text-input-placeholder">
+          <p className="text-sm text-dim-2">
             Generate this report now and store it under Deliveries. Optionally notify recipients.
           </p>
           <Input

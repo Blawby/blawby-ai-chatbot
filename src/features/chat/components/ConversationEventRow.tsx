@@ -10,9 +10,9 @@ const ConversationEventRow: FunctionComponent<ConversationEventRowProps> = ({
   className = '',
 }) => (
   <div className={`px-4 py-3 ${className}`.trim()}>
-    <div className="flex items-center gap-3 text-input-placeholder">
+    <div className="flex items-center gap-3 text-dim-2">
       <div className="h-px flex-1 bg-line-glass/30" />
-      <p className="max-w-full shrink text-center text-xs font-medium tracking-wide text-input-placeholder">
+      <p className="max-w-full shrink text-center text-xs font-medium tracking-wide text-dim-2">
         {content}
       </p>
       <div className="h-px flex-1 bg-line-glass/30" />

@@ -202,22 +202,22 @@ export const MatterNotesPanel = ({
                 <Avatar name={note.author.name} src={note.author.avatarUrl} size="sm" />
                 <div className="min-w-0">
                   <div className="flex flex-wrap items-center gap-2">
-                    <p className="text-sm font-semibold text-input-text">
+                    <p className="text-sm font-semibold text-ink">
                       {note.author.name}
                     </p>
                     {note.author.role && (
-                      <span className="input-surface rounded-full px-2 py-0.5 text-xs font-medium text-input-placeholder">
+                      <span className="field rounded-full px-2 py-0.5 text-xs font-medium text-dim-2">
                         {note.author.role}
                       </span>
                     )}
-                    <span className="text-xs text-input-placeholder">
+                    <span className="text-xs text-dim-2">
                       {formatNoteDate(note.updatedAt ?? note.createdAt)}
                     </span>
                     {note.updatedAt && (
-                      <span className="text-xs text-input-placeholder">(edited)</span>
+                      <span className="text-xs text-dim-2">(edited)</span>
                     )}
                   </div>
-                  <p className="mt-2 whitespace-pre-wrap text-sm text-input-text opacity-80 decoration-input-placeholder">
+                  <p className="mt-2 whitespace-pre-wrap text-sm text-ink opacity-80 decoration-input-placeholder">
                     {note.content}
                   </p>
                 </div>
@@ -283,7 +283,7 @@ export const MatterNotesPanel = ({
               <p className="mt-3 text-sm text-red-600 dark:text-red-400">{submitError}</p>
             )}
             {isSubmitting && (
-              <p className="mt-3 text-sm text-input-placeholder">Saving note...</p>
+              <p className="mt-3 text-sm text-dim-2">Saving note...</p>
             )}
           </DialogBody>
         </Dialog>
@@ -297,7 +297,7 @@ export const MatterNotesPanel = ({
           contentClassName="max-w-xl"
         >
           <DialogBody className="space-y-4">
-            <p className="text-sm text-input-text opacity-80">
+            <p className="text-sm text-ink opacity-80">
               Are you sure you want to delete this note? This action cannot be undone.
             </p>
             {deleteError && (

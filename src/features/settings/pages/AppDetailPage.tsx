@@ -3,10 +3,12 @@ import { ComponentChildren } from 'preact';
 import { App, mockConnectApp, mockDisconnectApp } from './appsData';
 import { AppConnectionDialog } from '@/features/settings/components/AppConnectionDialog';
 import { Button } from '@/shared/ui/Button';
-import { SectionDivider, EditorShell } from '@/shared/ui/layout';
+import { ChevronLeft } from 'lucide-preact';
+import { Icon } from '@/shared/ui/Icon';
 import { SettingRow } from '@/features/settings/components/SettingRow';
 import { SettingSection } from '@/features/settings/components/SettingSection';
 import { SettingsBadge } from '@/features/settings/components/SettingsBadge';
+import { SettingsCard } from '@/features/settings/components/SettingsCard';
 import { Input } from '@/shared/ui/input';
 import { MoreVertical, Globe, Puzzle, Settings } from 'lucide-preact';
 
@@ -14,7 +16,6 @@ import { useToastContext } from '@/shared/contexts/ToastContext';
 import { useTranslation } from '@/shared/i18n/hooks';
 import { formatDate } from '@/shared/utils/dateTime';
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from '@/shared/ui/dropdown';
-import { Icon } from '@/shared/ui/Icon';
 
 interface AppDetailPageProps {
   app: App;
@@ -85,19 +86,18 @@ export const AppDetailPage = ({ app, onBack, onUpdate }: AppDetailPageProps) => 
   };
 
   return (
-    <EditorShell
-      title={app.name}
-      showBack
-      onBack={onBack}
-      contentMaxWidth={null}
-    >
+    <div>
+      <button type="button" onClick={onBack} className="inline-flex items-center gap-1.5 font-mono text-[11px] uppercase tracking-widest text-dim hover:text-ink mb-6 transition-colors">
+        <Icon icon={ChevronLeft} className="h-3.5 w-3.5" />
+        Apps
+      </button>
       <div className="space-y-6">
-      <div className="pt-2 pb-6">
+      <SettingsCard className="max-w-[860px]">
         <SettingRow
           label={app.name}
           labelNode={(
             <div className="flex items-center gap-4">
-              <div className="glass-input w-16 h-16 rounded-full flex items-center justify-center border border-line-glass/30 overflow-hidden">
+              <div className="field w-16 h-16 rounded-full flex items-center justify-center border border-line-subtle overflow-hidden">
                 {app.logo ? (
                   <img
                     src={app.logo}
@@ -106,11 +106,11 @@ export const AppDetailPage = ({ app, onBack, onUpdate }: AppDetailPageProps) => 
                     loading="lazy"
                   />
                 ) : (
-                  <Icon icon={Puzzle} className="w-8 h-8 text-input-text/80" aria-hidden="true"  />
+                  <Icon icon={Puzzle} className="w-8 h-8 text-ink/80" aria-hidden="true"  />
                 )}
               </div>
               <div className="flex items-center gap-2">
-                <h2 className="text-2xl font-bold text-input-text">{app.name}</h2>
+                <h2 className="text-2xl font-bold text-ink">{app.name}</h2>
                 {isComingSoon && (
                   <SettingsBadge variant="warning">
                     {t('settings:apps.comingSoon')}
@@ -157,11 +157,10 @@ export const AppDetailPage = ({ app, onBack, onUpdate }: AppDetailPageProps) => 
             </DropdownMenu>
           </div>
         </SettingRow>
-      </div>
+      </SettingsCard>
 
-      <SectionDivider />
-      {/* Information */}
-      <SettingSection title={t('settings:apps.clio.information')} className="py-6">
+      <SettingSection first title={t('settings:apps.clio.information')} className="pt-0">
+        <SettingsCard className="max-w-[860px]">
           {app.connected && app.connectedAt && (
             <InfoRowSimple 
               label={t('settings:apps.clio.connectedOn')} 
@@ -177,7 +176,7 @@ export const AppDetailPage = ({ app, onBack, onUpdate }: AppDetailPageProps) => 
                 href={app.website}
                 target="_blank"
                 rel="noreferrer"
-                className="inline-flex items-center gap-1 text-accent-600 dark:text-accent-400"
+                className="inline-flex items-center gap-1 text-accent dark:text-accent"
               >
                 {app.website}
                 <Icon icon={Globe} className="w-4 h-4" aria-hidden="true"  />
@@ -191,32 +190,31 @@ export const AppDetailPage = ({ app, onBack, onUpdate }: AppDetailPageProps) => 
                 href={app.privacyPolicy}
                 target="_blank"
                 rel="noreferrer"
-                className="inline-flex items-center gap-1 text-accent-600 dark:text-accent-400"
+                className="inline-flex items-center gap-1 text-accent dark:text-accent"
               >
                 {app.privacyPolicy}
                 <Icon icon={Globe} className="w-4 h-4" aria-hidden="true"  />
               </a>
             }
           />
+        </SettingsCard>
       </SettingSection>
 
-      <SectionDivider />
-
-      {/* Actions */}
       {app.actions && app.actions.length > 0 && (
-        <SettingSection title={t('settings:apps.clio.actions')} className="py-6">
+        <SettingSection title={t('settings:apps.clio.actions')}>
+          <SettingsCard className="max-w-[860px]">
           <div className="space-y-6">
             {app.actions.map((action) => (
               <div key={action.name} className="space-y-2 w-full">
-                <code className="text-sm font-mono font-semibold text-input-text block w-full">
+                <code className="text-sm font-mono font-semibold text-ink block w-full">
                   {action.name}
                 </code>
                 {action.hasMetadata && (
-                  <span className="text-xs font-medium text-input-placeholder block w-full">
+                  <span className="text-xs font-medium text-dim-2 block w-full">
                     METADATA
                   </span>
                 )}
-                <p className="text-sm text-input-placeholder font-normal w-full">
+                <p className="text-sm text-dim-2 font-normal w-full">
                   {action.description}
                 </p>
                 {action.visibility && (
@@ -232,6 +230,7 @@ export const AppDetailPage = ({ app, onBack, onUpdate }: AppDetailPageProps) => 
               </div>
             ))}
           </div>
+          </SettingsCard>
         </SettingSection>
       )}
 
@@ -242,7 +241,7 @@ export const AppDetailPage = ({ app, onBack, onUpdate }: AppDetailPageProps) => 
         onConnect={handleConnect}
       />
     </div>
-    </EditorShell>
+    </div>
   );
 };
 
@@ -254,7 +253,7 @@ interface InfoRowSimpleProps {
 const InfoRowSimple = ({ label, value }: InfoRowSimpleProps) => {
   return (
     <SettingRow label={label}>
-      <span className="text-sm text-input-text text-right break-all">
+      <span className="text-sm text-ink text-right break-all">
         {value}
       </span>
     </SettingRow>

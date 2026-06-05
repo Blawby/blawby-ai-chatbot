@@ -1103,6 +1103,39 @@ export async function handleConversations(request: Request, env: Env): Promise<R
       { request }
     );
 
+    // Mark intake-mode-activated when the consultation transition indicates the
+    // slim-contact-form flow completed (or any intake-active state). Idempotent:
+    // markIntakeModeActivated only writes when the column is currently NULL, so
+    // repeated PATCHes do not move the timestamp.
+    // See U1 of docs/plans/2026-05-18-002-feat-strengthen-intake-ai-observability-plan.md.
+    const userInfo = (conversation.user_info ?? {}) as Record<string, unknown>;
+    const consultation = userInfo.consultation as Record<string, unknown> | undefined;
+    if (consultation && typeof consultation === 'object') {
+      const consultationStatus = typeof consultation.status === 'string' ? consultation.status : null;
+      const consultationMode = typeof consultation.mode === 'string' ? consultation.mode : null;
+      const intakeActivatable =
+        (consultationStatus === 'collecting_case' || consultationStatus === 'ready_to_submit') &&
+        consultationMode === 'REQUEST_CONSULTATION';
+      if (intakeActivatable && !conversation.intake_mode_activated_at) {
+        try {
+          await conversationService.markIntakeModeActivated(conversationId, practiceId);
+        } catch (error) {
+          // Don't swallow: if intake-mode activation persistence fails, the
+          // next /api/ai/chat turn would log mode_unresolved and route the
+          // user to QA mode — the bug class this whole initiative exists to
+          // eliminate. Propagate so the client sees the failure and can
+          // retry the PATCH (markIntakeModeActivated is idempotent — the
+          // IS NULL guard makes the retry safe).
+          Logger.warn('intake.mode.activation_failed', {
+            conversationId,
+            practiceId,
+            error: error instanceof Error ? error.message : String(error),
+          });
+          throw error;
+        }
+      }
+    }
+
     return createJsonResponse(conversation);
   }
 

@@ -3,6 +3,8 @@ import {
   Bell,
   Briefcase,
   Building2,
+  Calendar as CalendarIcon,
+  CheckSquare,
   Contact,
   CreditCard,
   FileText,
@@ -11,14 +13,18 @@ import {
   LifeBuoy,
   Map,
   MessageSquare,
+  Monitor,
   Palette,
   Puzzle,
   Shield,
+  Sparkles,
   TrendingUp,
   User,
   Users,
+  Wallet,
 } from 'lucide-preact';
 import { SettingsNavIcon } from '@/shared/ui/nav/SettingsNavIcon';
+import { features } from '@/config/features';
 import { CONTACTS_DIRECTORY_LABEL } from '@/shared/domain/contacts';
 import type { PracticeRole } from '@/shared/utils/practiceRoles';
 import { getPreferencesCategory } from '@/shared/lib/preferencesApi';
@@ -54,6 +60,9 @@ const prefetchClientMattersChunk = prefetchLazyChunk(
 const prefetchIntakesChunk = prefetchLazyChunk(
   () => import('@/features/intake/pages/IntakesPage')
 );
+const prefetchIntakeFormsChunk = prefetchLazyChunk(
+  () => import('@/features/intake/pages/IntakeTemplatesPage')
+);
 const prefetchPracticeInvoicesChunk = prefetchLazyChunk(
   () => import('@/features/invoices/pages/PracticeInvoicesPage')
 );
@@ -72,6 +81,18 @@ const prefetchPracticeFilesChunk = prefetchLazyChunk(
 const prefetchClientFilesChunk = prefetchLazyChunk(
   () => import('@/features/files/pages/ClientFilesPage')
 );
+const prefetchEngagementsChunk = prefetchLazyChunk(
+  () => import('@/features/engagements/pages/EngagementsPage')
+);
+const prefetchTrustChunk = prefetchLazyChunk(
+  () => import('@/features/trust/pages/PracticeTrustPage')
+);
+const prefetchTasksChunk = prefetchLazyChunk(
+  () => import('@/features/tasks/pages/PracticeTasksPage')
+);
+const prefetchCalendarChunk = prefetchLazyChunk(
+  () => import('@/features/calendar/pages/PracticeCalendarPage')
+);
 
 export type NavCtx = {
   practiceSlug: string;
@@ -79,7 +100,7 @@ export type NavCtx = {
   canAccessPractice: boolean;
 };
 
-export type WorkspaceSection = 'home' | 'conversations' | 'intakes' | 'engagements' | 'matters' | 'files' | 'invoices' | 'reports' | 'settings' | 'coverage';
+export type WorkspaceSection = 'home' | 'conversations' | 'intakes' | 'engagements' | 'matters' | 'files' | 'invoices' | 'reports' | 'settings' | 'coverage' | 'assistant' | 'trust' | 'tasks' | 'calendar';
 
 
 
@@ -136,37 +157,6 @@ export type NavConfig = {
   settingsChildren?: SidebarChild[];
 };
 
-export const MATTERS_FILTER_MAP: Record<string, string[]> = {
-  all: [],
-  new: ['first_contact', 'intake_pending', 'conflict_check', 'eligibility'],
-  active: ['consultation_scheduled', 'engagement_pending', 'active', 'pleadings_filed', 'discovery', 'mediation', 'pre_trial', 'trial'],
-  closing: ['order_entered', 'appeal_pending'],
-  closed: ['closed'],
-  declined: ['declined', 'conflicted', 'referred'],
-};
-
-export const CLIENT_MATTERS_FILTER_MAP: Record<string, string[]> = {
-  all: [],
-  active: MATTERS_FILTER_MAP.active,
-  closed: MATTERS_FILTER_MAP.closed,
-};
-
-export const PRACTICE_INVOICES_FILTER_MAP: Record<string, string[]> = {
-  all: [],
-  draft: ['draft'],
-  sent: ['sent'],
-  open: ['open'],
-  overdue: ['overdue'],
-  paid: ['paid'],
-  void: ['void'],
-};
-
-export const CLIENT_INVOICES_FILTER_MAP: Record<string, string[]> = {
-  all: [],
-  unpaid: ['open', 'overdue'],
-  paid: ['paid'],
-};
-
 export type ConversationAssignedToFilter = 'none' | null;
 
 export const PRACTICE_CONVERSATIONS_ASSIGNED_TO_MAP: Record<string, ConversationAssignedToFilter> = {
@@ -194,22 +184,52 @@ const buildPracticeRail = (basePath: string): NavRailItem[] => [
     matchHrefs: [basePath, `${basePath}/setup`],
   },
   {
+    id: 'assistant',
+    label: 'Assistant',
+    icon: Sparkles,
+    href: `${basePath}/assistant`,
+    matchHrefs: [`${basePath}/assistant`],
+  },
+  {
     id: 'matters',
     label: 'Matters',
     icon: Briefcase,
     href: `${basePath}/matters`,
-    // /engagements lives under Matters in the unified sidebar (per Pencil GtRGH).
-    matchHrefs: [`${basePath}/matters`, `${basePath}/engagements`],
-    expandable: true,
+    matchHrefs: [`${basePath}/matters`],
     prefetch: prefetchMattersChunk,
   },
   {
-    id: 'conversations',
-    label: 'Messages',
-    icon: MessageSquare,
-    href: `${basePath}/conversations`,
-    matchHrefs: [`${basePath}/conversations`],
+    id: 'tasks',
+    label: 'Tasks',
+    icon: CheckSquare,
+    href: `${basePath}/tasks`,
+    matchHrefs: [`${basePath}/tasks`],
+    prefetch: prefetchTasksChunk,
+  },
+  ...(features.enableCalendar ? [{
+    id: 'calendar',
+    label: 'Calendar',
+    icon: CalendarIcon,
+    href: `${basePath}/calendar`,
+    matchHrefs: [`${basePath}/calendar`],
+    prefetch: prefetchCalendarChunk,
+  }] : []),
+  {
+    id: 'engagements',
+    label: 'Engagements',
+    icon: FileText,
+    href: `${basePath}/engagements`,
+    matchHrefs: [`${basePath}/engagements`],
+    prefetch: prefetchEngagementsChunk,
+  },
+  {
+    id: 'intakes',
+    label: 'Intakes',
+    icon: Contact,
+    href: `${basePath}/intakes/responses`,
+    matchHrefs: [`${basePath}/intakes`],
     expandable: true,
+    prefetch: prefetchIntakesChunk,
   },
   {
     id: 'contacts',
@@ -220,13 +240,11 @@ const buildPracticeRail = (basePath: string): NavRailItem[] => [
     prefetch: prefetchPracticeContactsChunk,
   },
   {
-    id: 'intakes',
-    label: 'Intakes',
-    icon: Contact,
-    href: `${basePath}/intakes/responses`,
-    matchHrefs: [`${basePath}/intakes/responses`],
-    expandable: true,
-    prefetch: prefetchIntakesChunk,
+    id: 'conversations',
+    label: 'Messages',
+    icon: MessageSquare,
+    href: `${basePath}/conversations`,
+    matchHrefs: [`${basePath}/conversations`],
   },
   {
     id: 'files',
@@ -242,8 +260,15 @@ const buildPracticeRail = (basePath: string): NavRailItem[] => [
     icon: CreditCard,
     href: `${basePath}/invoices`,
     matchHrefs: [`${basePath}/invoices`],
-    expandable: true,
     prefetch: prefetchPracticeInvoicesChunk,
+  },
+  {
+    id: 'trust',
+    label: 'Trust',
+    icon: Wallet,
+    href: `${basePath}/trust`,
+    matchHrefs: [`${basePath}/trust`],
+    prefetch: prefetchTrustChunk,
   },
   {
     id: 'reports',
@@ -251,7 +276,6 @@ const buildPracticeRail = (basePath: string): NavRailItem[] => [
     icon: TrendingUp,
     href: `${basePath}/reports`,
     matchHrefs: [`${basePath}/reports`],
-    expandable: true,
     prefetch: prefetchReportsChunk,
   },
   {
@@ -274,7 +298,6 @@ const buildClientRail = (basePath: string): NavRailItem[] => [
     icon: Briefcase,
     href: `${basePath}/matters`,
     matchHrefs: [`${basePath}/matters`],
-    expandable: true,
     prefetch: prefetchClientMattersChunk,
   },
   {
@@ -283,7 +306,6 @@ const buildClientRail = (basePath: string): NavRailItem[] => [
     icon: MessageSquare,
     href: `${basePath}/conversations`,
     matchHrefs: [`${basePath}/conversations`],
-    expandable: true,
   },
   {
     id: 'intakes',
@@ -322,54 +344,6 @@ const buildClientRail = (basePath: string): NavRailItem[] => [
   },
 ];
 
-const buildConversationsSecondary = (basePath: string, workspace: 'practice' | 'client'): NavSection[] => {
-  if (workspace === 'practice') {
-    return [{
-      label: 'Messages',
-      items: [
-        { id: 'your-inbox', label: 'Your Messages', href: `${basePath}/conversations` },
-        { id: 'assigned-to-me', label: 'Assigned to me', href: `${basePath}/conversations` },
-        { id: 'mentions', label: 'Mentions', href: `${basePath}/conversations` },
-        { id: 'all', label: 'All', href: `${basePath}/conversations` },
-        { id: 'unassigned', label: 'Unassigned', href: `${basePath}/conversations` },
-      ],
-    }];
-  }
-  return [{
-    label: 'Messages',
-    items: [
-      { id: 'your-inbox', label: 'Your Messages', href: `${basePath}/conversations` },
-      { id: 'all', label: 'All', href: `${basePath}/conversations` },
-    ],
-  }];
-};
-
-const buildMattersSecondary = (basePath: string, workspace: 'practice' | 'client'): NavSection[] => {
-  if (workspace === 'practice') {
-    return [{
-      label: 'Stage',
-      items: [
-        // Engagements is a peer route but lives under Matters in the unified sidebar (Pencil GtRGH).
-        { id: 'engagements', label: 'Engagements', href: `${basePath}/engagements` },
-        { id: 'all', label: 'All', href: `${basePath}/matters` },
-        { id: 'new', label: 'New', href: `${basePath}/matters` },
-        { id: 'active', label: 'Active', href: `${basePath}/matters` },
-        { id: 'closing', label: 'Closing', href: `${basePath}/matters` },
-        { id: 'closed', label: 'Closed', href: `${basePath}/matters` },
-        { id: 'declined', label: 'Declined', href: `${basePath}/matters` },
-      ],
-    }];
-  }
-  return [{
-    label: 'Stage',
-    items: [
-      { id: 'all', label: 'All', href: `${basePath}/matters` },
-      { id: 'active', label: 'Active', href: `${basePath}/matters` },
-      { id: 'closed', label: 'Closed', href: `${basePath}/matters` },
-    ],
-  }];
-};
-
 const buildHomeSecondary = (basePath: string, workspace: 'practice' | 'client'): NavSection[] | undefined => {
   if (workspace !== 'practice') return undefined;
   return [{
@@ -387,6 +361,27 @@ const buildHomeSecondary = (basePath: string, workspace: 'practice' | 'client'):
           { id: 'contacts-archived', label: 'Archived', href: `${basePath}/contacts/archived` },
         ],
       },
+    ],
+  }];
+};
+
+const buildConversationsSecondary = (basePath: string, workspace: 'practice' | 'client'): NavSection[] => {
+  if (workspace === 'practice') {
+    return [{
+      label: 'Messages',
+      items: [
+        { id: 'all', label: 'All', href: `${basePath}/conversations` },
+        { id: 'your-inbox', label: 'Yours', href: `${basePath}/conversations` },
+        { id: 'unassigned', label: 'Unassigned', href: `${basePath}/conversations` },
+      ],
+    }];
+  }
+
+  return [{
+    label: 'Messages',
+    items: [
+      { id: 'all', label: 'All', href: `${basePath}/conversations` },
+      { id: 'your-inbox', label: 'Unread', href: `${basePath}/conversations` },
     ],
   }];
 };
@@ -409,60 +404,40 @@ const buildReportsSecondary = (basePath: string, workspace: 'practice' | 'client
   }];
 };
 
-const buildInvoicesSecondary = (basePath: string, workspace: 'practice' | 'client'): NavSection[] => {
-  if (workspace === 'practice') {
-    return [{
-      label: 'Status',
-      items: [
-        { id: 'all', label: 'All', href: `${basePath}/invoices` },
-        { id: 'draft', label: 'Draft', href: `${basePath}/invoices` },
-        { id: 'sent', label: 'Sent', href: `${basePath}/invoices` },
-        { id: 'open', label: 'Open', href: `${basePath}/invoices` },
-        { id: 'overdue', label: 'Overdue', href: `${basePath}/invoices` },
-        { id: 'paid', label: 'Paid', href: `${basePath}/invoices` },
-        { id: 'void', label: 'Void', href: `${basePath}/invoices` },
-      ],
-    }];
-  }
-  return [{
-    label: 'Status',
-    items: [
-      { id: 'all', label: 'All', href: `${basePath}/invoices` },
-      { id: 'unpaid', label: 'Unpaid', href: `${basePath}/invoices` },
-      { id: 'paid', label: 'Paid', href: `${basePath}/invoices` },
-    ],
-  }];
-};
-
 const buildSettingsSecondary = (basePath: string, canAccessPractice: boolean): NavSection[] => {
-  // Pencil GtRGH > settingsSubItems: PERSONAL / ACCOUNT / PRACTICE / SUPPORT
+  // Settings shell IA follows the redesign files: practice-first for practice
+  // workspaces, then intelligence, then account-level controls.
   const sections: NavSection[] = [
-    {
-      label: 'Personal',
-      items: [
-        { id: 'general', label: 'Appearance', href: `${basePath}/settings/general`, icon: Palette },
-        { id: 'notifications', label: 'Notifications', href: `${basePath}/settings/notifications`, icon: Bell },
-      ],
-    },
     {
       label: 'Account',
       items: [
         { id: 'security', label: 'Security', href: `${basePath}/settings/security`, icon: Shield },
+        { id: 'sessions', label: 'Sessions', href: `${basePath}/settings/sessions`, icon: Monitor },
+        { id: 'general', label: 'Appearance', href: `${basePath}/settings/general`, icon: Palette },
+        { id: 'notifications', label: 'Notifications', href: `${basePath}/settings/notifications`, icon: Bell },
+        { id: 'audit-log', label: 'Audit log', href: `${basePath}/settings/audit-log`, icon: FileText },
+        { id: 'export-data', label: 'Export data', href: `${basePath}/settings/export-data`, icon: Folder },
         { id: 'account', label: 'Profile', href: `${basePath}/settings/account`, icon: User },
       ],
     },
   ];
 
   if (canAccessPractice) {
-    sections.push({
+    sections.unshift({
       label: 'Practice',
       items: [
-        { id: 'practice', label: 'Practice', href: `${basePath}/settings/practice`, icon: Building2 },
-        { id: 'practice-payouts', label: 'Payouts', href: `${basePath}/settings/practice/payouts`, icon: CreditCard },
+        { id: 'practice', label: 'Profile & areas', href: `${basePath}/settings/practice`, icon: Building2 },
         { id: 'practice-team', label: 'Team', href: `${basePath}/settings/practice/team`, icon: Users },
+        { id: 'practice-payouts', label: 'Payouts & billing', href: `${basePath}/settings/practice/payouts`, icon: CreditCard },
+      ],
+    });
+    sections.splice(1, 0, {
+      label: 'Intelligence',
+      items: [
+        { id: 'intelligence', label: 'AI behavior', href: `${basePath}/settings/practice/intelligence`, icon: Sparkles },
+        { id: 'engagement-templates', label: 'Engagement templates', href: `${basePath}/settings/practice/engagement-templates`, icon: FileText },
         { id: 'coverage', label: 'Coverage', href: `${basePath}/coverage`, icon: Map },
-        { id: 'intake-forms', label: 'Intake Forms', href: `${basePath}/settings/intake-forms`, icon: FileText },
-        { id: 'apps', label: 'Apps', href: `${basePath}/settings/apps`, icon: Puzzle },
+        { id: 'apps', label: 'Apps & integrations', href: `${basePath}/settings/apps`, icon: Puzzle },
       ],
     });
   }
@@ -475,34 +450,56 @@ const buildSettingsSecondary = (basePath: string, canAccessPractice: boolean): N
   return sections;
 };
 
-const buildIntakesSecondary = (basePath: string): NavSection[] => [{
-  label: 'Responses',
-  items: [
-    { id: 'all', label: 'All responses', href: `${basePath}/intakes/responses` },
-    { id: 'pending_review', label: 'Pending', href: `${basePath}/intakes/responses` },
-    { id: 'accepted', label: 'Accepted', href: `${basePath}/intakes/responses` },
-    { id: 'declined', label: 'Declined', href: `${basePath}/intakes/responses` },
-  ],
-}];
+const buildIntakesSecondary = (basePath: string): NavSection[] => [
+  {
+    label: 'Intakes',
+    items: [
+      { id: 'responses', label: 'Responses', href: `${basePath}/intakes/responses`, icon: Contact },
+      {
+        id: 'forms',
+        label: 'Forms',
+        href: `${basePath}/intakes/forms`,
+        icon: FileText,
+        prefetch: prefetchIntakeFormsChunk,
+      },
+    ],
+  },
+];
+
+const buildTasksSecondary = (basePath: string): NavSection[] => [
+  {
+    label: 'Tasks',
+    items: [
+      { id: 'all-tasks', label: 'All tasks', href: `${basePath}/tasks`, icon: CheckSquare },
+    ],
+  },
+];
+
+const buildCalendarSecondary = (basePath: string): NavSection[] => [
+  {
+    label: 'Calendar',
+    items: [
+      { id: 'calendar', label: 'Calendar', href: `${basePath}/calendar`, icon: CalendarIcon },
+    ],
+  },
+];
 
 const buildSecondary = (basePath: string, section: WorkspaceSection, workspace: 'practice' | 'client', canAccessPractice: boolean): NavSection[] | undefined => {
   switch (section) {
     case 'conversations':
       return buildConversationsSecondary(basePath, workspace);
+    case 'tasks':
+      return workspace === 'practice' ? buildTasksSecondary(basePath) : undefined;
+    case 'calendar':
+      return workspace === 'practice' && features.enableCalendar ? buildCalendarSecondary(basePath) : undefined;
     case 'intakes':
       return workspace === 'practice' ? buildIntakesSecondary(basePath) : undefined;
-    case 'matters':
-      return buildMattersSecondary(basePath, workspace);
-    case 'invoices':
-      return buildInvoicesSecondary(basePath, workspace);
     case 'reports':
       return buildReportsSecondary(basePath, workspace);
     case 'settings':
       return buildSettingsSecondary(basePath, canAccessPractice);
     case 'home':
       return buildHomeSecondary(basePath, workspace);
-    case 'engagements':
-      return buildMattersSecondary(basePath, workspace);
     default:
       return undefined;
   }
@@ -582,8 +579,11 @@ const RAIL_ID_TO_SECTION: Record<string, WorkspaceSection> = {
   intakes: 'intakes',
   engagements: 'engagements',
   matters: 'matters',
+  tasks: 'tasks',
+  calendar: 'calendar',
   files: 'files',
   invoices: 'invoices',
+  trust: 'trust',
   reports: 'reports',
   settings: 'settings',
 };

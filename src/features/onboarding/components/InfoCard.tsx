@@ -47,7 +47,7 @@ export const InfoCard = ({
   };
 
   const variantClasses: Record<InfoCardVariant, string> = {
-    default: 'glass-panel text-input-text',
+    default: 'panel text-ink',
     blue: 'status-info',
     amber: 'status-warning',
     green: 'status-success',
@@ -56,7 +56,7 @@ export const InfoCard = ({
 
   return (
     <div className={cn(
-      'rounded-xl border',
+      'rounded-r-md border',
       variantClasses[variant],
       sizeClasses[size],
       className

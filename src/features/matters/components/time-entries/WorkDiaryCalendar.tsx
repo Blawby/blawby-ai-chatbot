@@ -74,10 +74,10 @@ export const WorkDiaryCalendar = ({ selectedWeekStart, onSelectWeek }: WorkDiary
 
   return (
     <div className="panel p-4">
-      <div className="text-sm font-semibold text-input-text text-center">{monthLabel}</div>
+      <div className="text-sm font-semibold text-ink text-center">{monthLabel}</div>
 
       <div
-        className="mt-4 grid gap-2 text-center text-[11px] font-medium text-input-placeholder justify-items-center"
+        className="mt-4 grid gap-2 text-center text-[11px] font-medium text-dim-2 justify-items-center"
         style={{ gridTemplateColumns: 'repeat(7, minmax(0, 1fr))' }}
       >
         {WEEKDAYS.map((day) => (
@@ -100,9 +100,9 @@ export const WorkDiaryCalendar = ({ selectedWeekStart, onSelectWeek }: WorkDiary
               onClick={() => onSelectWeek(day)}
               className={[
                 'h-9 w-9 rounded-full text-sm font-medium transition-colors',
-                isCurrentMonth ? 'text-input-text' : 'text-input-placeholder',
-                isSelectedWeek ? 'bg-surface-card-raised text-input-text' : 'hover:bg-surface-card-hover',
-                isToday ? 'ring-2 ring-accent-500' : 'ring-1 ring-transparent'
+                isCurrentMonth ? 'text-ink' : 'text-dim-2',
+                isSelectedWeek ? 'bg-card text-ink' : 'hover:bg-paper-2',
+                isToday ? 'ring-2 ring-accent' : 'ring-1 ring-transparent'
               ].join(' ')}
             >
               {day.getUTCDate()}

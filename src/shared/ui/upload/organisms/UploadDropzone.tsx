@@ -45,10 +45,10 @@ export const UploadDropzone = ({
       aria-label={label}
       aria-disabled={disabled}
       className={cn(
-        'rounded-xl border-2 border-dashed transition-colors',
+        'rounded-r-md border-2 border-dashed transition-colors',
         'relative flex min-h-[160px] items-center justify-center px-4 py-5',
-        isDragOver ? 'border-accent-500 bg-accent-500/10' : 'border-line-glass/25',
-        disabled ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer hover:border-line-glass/45',
+        isDragOver ? 'border-accent bg-accent/10' : 'border-line-subtle',
+        disabled ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer hover:border-line-subtle',
         className
       )}
       onClick={() => {
@@ -99,12 +99,12 @@ export const UploadDropzone = ({
         }}
       />
       <div className="flex w-full max-w-[520px] flex-col items-center justify-center text-center">
-        <Icon icon={Upload} className="mb-3 h-6 w-6 text-input-placeholder" />
-        <p className="text-sm font-medium text-input-text">{instructionText}</p>
-        <p className="mt-1 text-xs text-input-placeholder">{validationText}</p>
+        <Icon icon={Upload} className="mb-3 h-6 w-6 text-dim-2" />
+        <p className="text-sm font-medium text-ink">{instructionText}</p>
+        <p className="mt-1 text-xs text-dim-2">{validationText}</p>
       </div>
       {helperText ? (
-        <p className="mt-2 text-center text-xs text-input-placeholder">{helperText}</p>
+        <p className="mt-2 text-center text-xs text-dim-2">{helperText}</p>
       ) : null}
     </div>
   );

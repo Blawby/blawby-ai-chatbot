@@ -19,8 +19,8 @@ export const DetailRow = ({ label, value, emptyText = 'Not set', className }: De
   const empty = isEmpty(value);
   return (
     <div className={cn('flex items-center justify-between gap-3 text-sm', className)}>
-      <span className="text-input-placeholder">{label}</span>
-      <span className={cn('text-right', empty ? 'text-input-placeholder' : 'text-input-text')}>
+      <span className="text-dim-2">{label}</span>
+      <span className={cn('text-right', empty ? 'text-dim-2' : 'text-ink')}>
         {empty ? emptyText : value}
       </span>
     </div>

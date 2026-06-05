@@ -11,5 +11,7 @@ export { SettingsNotice } from './SettingsNotice';
 export { SettingsBadge } from './SettingsBadge';
 export { SettingsDangerButton } from './SettingsDangerButton';
 export { SettingsHelperText } from './SettingsHelperText';
+export { SettingsAIPreface } from './SettingsAIPreface';
+export type { SettingsAIPrefaceProps } from './SettingsAIPreface';
 export type { NotificationChannel, NotificationChannelSelectorProps } from './NotificationChannelSelector';
 export type { PlanFeature, PlanFeaturesListProps } from './PlanFeaturesList';

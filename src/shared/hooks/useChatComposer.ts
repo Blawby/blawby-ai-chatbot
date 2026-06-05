@@ -272,9 +272,8 @@ export const useChatComposer = ({
       throw new Error('Message cannot be empty.');
     }
 
-    const effectivePracticeId = (practiceIdRef.current ?? '').trim();
+    if (!practiceIdRef.current?.trim()) throw new Error('practiceId is required');
     const activeConversationId = conversationId?.trim() || await ensureConversationId();
-    if (!effectivePracticeId) throw new Error('practiceId is required');
     if (!activeConversationId) throw new Error('conversationId is required');
 
     const clientId = createClientId();
@@ -381,6 +380,33 @@ export const useChatComposer = ({
         appendStreamingToken(bubbleId, parsed.token);
         return;
       }
+      if (parsed.type === 'tool_progress' && parsed.progress && typeof parsed.progress === 'object') {
+        const item = parsed.progress as {
+          toolUseId: string;
+          toolName: string;
+          label: string;
+          status: 'queued' | 'running' | 'completed' | 'failed' | 'cancelled';
+        };
+        if (item.toolUseId && item.toolName) {
+          setMessages(prev => prev.map(msg => {
+            if (msg.id !== bubbleId) return msg;
+            const currentProgress = msg.toolProgress || [];
+            const idx = currentProgress.findIndex(p => p.toolUseId === item.toolUseId);
+            const nextProgress = [...currentProgress];
+            if (idx >= 0) {
+              nextProgress[idx] = item;
+            } else {
+              nextProgress.push(item);
+            }
+            return {
+              ...msg,
+              toolProgress: nextProgress,
+              toolMessage: item.label
+            } as ChatMessageUI;
+          }));
+        }
+        return;
+      }
       if (parsed.done === true) {
         const doneReply = typeof parsed.reply === 'string' ? parsed.reply : null;
         finalDoneReply = doneReply;
@@ -485,18 +511,25 @@ export const useChatComposer = ({
         return;
       }
       if (parsed.error === true) {
+        const code = typeof parsed.code === 'string' ? parsed.code : null;
+        const message = typeof parsed.message === 'string' && parsed.message.trim().length > 0
+          ? parsed.message
+          : 'AI request failed';
         console.error('[useChatComposer] AI stream error', {
-          code: typeof parsed.code === 'string' ? parsed.code : null,
-          message: typeof parsed.message === 'string' ? parsed.message : null,
+          code,
+          message,
           details: parsed.details && typeof parsed.details === 'object' ? parsed.details : null,
         });
         if (isMountedRef.current) {
           removeStreamingBubble(bubbleId);
-          onError?.(
-            typeof parsed.message === 'string' && parsed.message.trim().length > 0
-              ? parsed.message
-              : 'AI request failed'
-          );
+          // U8: pass the SSE error code in the onError context so consumers
+          // (WidgetApp) can distinguish hard failures ('ai_failed') from
+          // transient errors that should still surface as a toast.
+          onError?.(message, {
+            code,
+            isHardError: code === 'ai_failed',
+            failureReason: typeof parsed.failureReason === 'string' ? parsed.failureReason : null,
+          });
         }
         return;
       }
@@ -638,6 +671,7 @@ export const useChatComposer = ({
           effectiveMode === 'ASK_QUESTION' ||
           effectiveMode === 'REQUEST_CONSULTATION' ||
           effectiveMode === 'PRACTICE_ONBOARDING' ||
+          effectiveMode === 'PRACTICE_ASSISTANT' ||
           (effectiveMode === 'CONVERSATION' &&
             conversationMetadataRef.current?.intakeConversationState?.enrichmentMode === true)
         );
@@ -696,7 +730,7 @@ export const useChatComposer = ({
       if (!shouldUseAi || trimmedMessage.length === 0) return;
 
       const resolvedPracticeId = (practiceId ?? '').trim();
-      const resolvedPracticeSlug = (practiceSlug ?? '').trim();
+      const practiceSlugStr = (practiceSlug ?? '').trim();
       if (!resolvedPracticeId) return;
 
       // ── intent classification (first message only) ──────────────────────
@@ -774,7 +808,7 @@ export const useChatComposer = ({
             signal: abortController.signal,
             body: {
               conversationId: resolvedConversationId, practiceId: resolvedPracticeId,
-              ...(resolvedPracticeSlug ? { practiceSlug: resolvedPracticeSlug } : {}),
+              ...(practiceSlugStr ? { practiceSlug: practiceSlugStr } : {}),
               mode: effectiveMode, intakeSubmitted, messages: aiMessages,
               additionalContext: options?.additionalContext,
               sourceBubbleId: bubbleId,
@@ -804,7 +838,7 @@ export const useChatComposer = ({
                 conversationId,
                 resolvedConversationId,
                 practiceId: resolvedPracticeId,
-                practiceSlug: resolvedPracticeSlug || null,
+                practiceSlug: practiceSlugStr || null,
                 mode: effectiveMode,
                 intakeSubmitted,
               },

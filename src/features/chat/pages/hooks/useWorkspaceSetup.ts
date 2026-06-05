@@ -1,7 +1,6 @@
 import { useMemo, useRef, useState, useEffect, useCallback } from 'preact/hooks';
 import { apiClient, isHttpError, isAbortError } from '@/shared/lib/apiClient';
 import { SessionNotReadyError } from '@/shared/types/errors';
-import { usePracticeBillingData, type BillingWindow } from '@/features/practice-dashboard/hooks/usePracticeBillingData';
 import {
   createConnectedAccount,
   getOnboardingStatusPayload,
@@ -21,7 +20,7 @@ import { extractStripeStatusFromPayload } from '@/features/onboarding/utils';
 import type { StripeConnectStatus } from '@/features/onboarding/types';
 import { getValidatedStripeOnboardingUrl } from '@/shared/utils/stripeOnboarding';
 import { uploadPracticeLogo } from '@/shared/utils/practiceLogoUpload';
-import { normalizeAccentColor } from '@/shared/utils/accentColors';
+import { normalizeAccentColor } from '@/shared/utils/brandColor';
 import { buildPracticeProfilePayloads } from '@/shared/utils/practiceProfile';
 import type { Conversation } from '@/shared/types/conversation';
 import type { ComboboxOption } from '@/shared/ui/input';
@@ -39,7 +38,6 @@ type UseWorkspaceSetupInput = {
   refreshConversations: () => void;
   workspaceSection: string;
   session: { user?: { id?: string; email?: string } | null } | null;
-  mattersData: { isLoading: boolean; items: unknown[] };
   showError: (title: string, message?: string) => void;
   showSuccess: (title: string, message?: string) => void;
 };
@@ -57,7 +55,6 @@ export const useWorkspaceSetup = ({
   refreshConversations,
   workspaceSection,
   session,
-  mattersData,
   showError,
   showSuccess,
 }: UseWorkspaceSetupInput) => {
@@ -205,22 +202,8 @@ export const useWorkspaceSetup = ({
   const [logoUploadProgress, setLogoUploadProgress] = useState<number | null>(null);
   const [logoUploading, setLogoUploading] = useState(false);
   const [previewReloadKey, setPreviewReloadKey] = useState(0);
-  const [dashboardWindow, setDashboardWindow] = useState<BillingWindow>('7d');
 
   const workspacePracticeId = practiceId ?? currentPractice?.id ?? null;
-
-  const {
-    summaryStats,
-    recentActivity,
-    loading: practiceBillingLoading,
-    error: practiceBillingError,
-  } = usePracticeBillingData({
-    practiceId: isPracticeWorkspace ? (currentPractice?.id ?? practiceId ?? null) : null,
-    enabled: isPracticeWorkspace && view === 'home',
-    matterLimit: 25,
-    windowSize: dashboardWindow,
-    matters: !mattersData.isLoading ? (mattersData.items as Parameters<typeof usePracticeBillingData>[0]['matters']) : undefined,
-  });
 
   useEffect(() => {
     if (!currentPractice?.id) return;
@@ -545,13 +528,6 @@ export const useWorkspaceSetup = ({
     practiceMembers,
     conversationMemberOptions,
     matterAssigneeOptions,
-    // billing / dashboard
-    dashboardWindow,
-    setDashboardWindow,
-    summaryStats,
-    recentActivity,
-    practiceBillingLoading,
-    practiceBillingError,
     // logo
     logoUploading,
     logoUploadProgress,

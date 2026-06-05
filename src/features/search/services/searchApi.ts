@@ -1,5 +1,5 @@
 import { apiClient } from '@/shared/lib/apiClient';
-import type { SearchEnvelope, SearchPin, SearchSuggestion } from './searchTypes';
+import type { SearchEnvelope, SearchPin } from './searchTypes';
 
 type Envelope<T> = { success: boolean; data: T };
 
@@ -42,19 +42,6 @@ export async function removeSearchPin(
   await apiClient.delete<Envelope<{ ok: boolean }>>(
     `/api/search/${encodeURIComponent(practiceId)}/pins/${encodeURIComponent(pinId)}`,
   );
-}
-
-export async function fetchSearchSuggestions(
-  practiceId: string,
-  prefix: string,
-  options: { signal?: AbortSignal } = {},
-): Promise<SearchSuggestion[]> {
-  if (!prefix.trim()) return [];
-  const url = `/api/search/${encodeURIComponent(practiceId)}/suggest?q=${encodeURIComponent(prefix)}`;
-  const res = await apiClient.get<Envelope<{ suggestions: SearchSuggestion[] }>>(url, {
-    signal: options.signal,
-  });
-  return res.data.data.suggestions ?? [];
 }
 
 export async function recordSearchClick(

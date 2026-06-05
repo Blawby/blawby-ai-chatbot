@@ -1,0 +1,332 @@
+<!doctype html>
+<html lang="en" data-theme="">
+<head>
+<meta charset="utf-8" />
+<title>Blawby — Intake Forms</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,opsz,wght@0,8..60,300..900;1,8..60,300..900&family=Geist:wght@300;400;500;600;700&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="tokens.css">
+
+<style>
+  body{ background-image: radial-gradient(rgba(15,30,54,0.025) 1px, transparent 1.2px); background-size: 3px 3px; background-attachment: fixed; }
+  .shell{ display:grid; grid-template-columns: 280px 1fr; min-height: 100vh; max-width: 1440px; margin: 0 auto; }
+  .side{ border-right: 1px solid var(--rule); padding: 22px 16px; display:flex; flex-direction:column; gap: 14px; position: sticky; top: 0; height: 100vh; overflow-y: auto; background: color-mix(in oklab, var(--paper) 96%, var(--card)); }
+  .back{ display:inline-flex; align-items:center; gap: 6px; font-family: var(--mono); font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--dim); cursor: pointer; padding: 4px 8px; margin-left: -8px; text-decoration:none; }
+  .back:hover{ color: var(--ink); }
+  .side h2{ font-family: var(--serif); font-weight:400; font-size: 28px; margin: 4px 0 0; letter-spacing:-.012em; }
+  .side .org{ font-family:var(--mono); font-size:11px; color: var(--dim); letter-spacing: .04em; }
+  .nav-section{ display:flex; flex-direction:column; gap: 1px; margin-top: 6px; }
+  .nav-section .lbl{ font-family: var(--mono); font-size: 9.5px; letter-spacing: .12em; text-transform: uppercase; color: var(--dim-2); padding: 14px 10px 6px; }
+  .nav-item{ display:flex; align-items:center; gap: 10px; padding: 8px 10px; border-radius: var(--r-xs); font-size: 13.5px; color: var(--ink-2); cursor: pointer; transition: background .14s, color .14s; text-decoration: none; }
+  .nav-item:hover{ background: var(--rule-soft); color: var(--ink); }
+  .nav-item.on{ background: var(--ink); color: var(--accent); }
+  .nav-item .ic{ width:14px; height:14px; opacity:.7; flex-shrink:0; }
+  .nav-item.on .ic{ opacity: 1; }
+  .nav-item .badge{ margin-left: auto; font-family: var(--mono); font-size: 10px; color: var(--dim); }
+  .nav-item.on .badge{ color: var(--accent); }
+  .main{ padding: 36px 56px 80px; max-width: 920px; }
+  .crumb{ font-family: var(--mono); font-size: 10px; letter-spacing: .14em; text-transform: uppercase; color: var(--dim); margin-bottom: 6px; }
+  .main h1{ font-family: var(--serif); font-weight: 400; font-size: 48px; letter-spacing:-.02em; line-height: 1.05; margin: 0; }
+  .main h1 em{ color: var(--accent); }
+  .main > .lede{ margin: 12px 0 36px; }
+  section.group{ padding: 32px 0; border-top: 1px solid var(--rule); }
+  section.group:first-of-type{ border-top: none; padding-top: 0; }
+  section.group h3{ font-family: var(--serif); font-weight: 400; font-size: 24px; margin: 0 0 4px; letter-spacing:-.01em; }
+  section.group .gdesc{ font-size: 13.5px; color: var(--dim); margin: 0 0 24px; max-width: 60ch; }
+  .setting{ display:grid; grid-template-columns: 1fr auto; gap: 28px; align-items: center; padding: 18px 0; border-bottom: 1px solid var(--rule); }
+  .setting:last-child{ border-bottom: none; }
+  .setting .meta{ display:flex; flex-direction:column; gap:4px; }
+  .setting .meta .h{ font-size: 14px; font-weight: 500; color: var(--ink); }
+  .setting .meta .d{ font-size: 13px; color: var(--dim); max-width: 64ch; line-height: 1.5; }
+  .setting .meta .d code{ font-family: var(--mono); font-size: 11.5px; background: var(--rule-soft); padding: 1px 6px; border-radius: 3px; color: var(--ink-2); }
+  .setting .ctrl{ display:flex; align-items:center; gap: 8px; min-width: 200px; justify-content: flex-end; }
+
+  /* ===== stats row ===== */
+  .stats-row{ display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 28px; }
+  .stat-box{ background: var(--card); border: 1px solid var(--rule); border-radius: var(--r-md); padding: 16px; box-shadow: var(--shadow-1); }
+  .stat-box .sb-label{ font-family: var(--mono); font-size: 10px; letter-spacing: .1em; text-transform: uppercase; color: var(--dim); margin-bottom: 6px; }
+  .stat-box .sb-val{ font-family: var(--serif); font-size: 28px; font-weight: 400; letter-spacing: -.01em; }
+  .stat-box .sb-sub{ font-family: var(--mono); font-size: 11px; color: var(--dim); margin-top: 3px; }
+
+  /* ===== form cards ===== */
+  .form-card{
+    background: var(--card); border: 1px solid var(--rule); border-radius: var(--r-md);
+    padding: 22px; box-shadow: var(--shadow-1); margin-bottom: 12px;
+    display: grid; grid-template-columns: 1fr auto; gap: 22px; align-items: start;
+    cursor: pointer; transition: border-color .14s, box-shadow .14s, transform .12s;
+  }
+  .form-card:hover{ border-color: var(--ink); transform: translateY(-1px); box-shadow: var(--shadow-2); }
+  .form-card .fc-info{ display: flex; flex-direction: column; gap: 6px; }
+  .form-card .fc-top{ display: flex; align-items: center; gap: 10px; }
+  .form-card .fc-name{ font-size: 16px; font-weight: 500; color: var(--ink); }
+  .form-card .fc-status{ font-family: var(--mono); font-size: 10px; letter-spacing: .04em; text-transform: uppercase; padding: 3px 8px; border-radius: var(--r-pill); display: inline-flex; align-items: center; gap: 5px; }
+  .form-card .fc-status::before{ content:""; width: 5px; height: 5px; border-radius: 50%; }
+  .form-card .fc-status.live{ color: var(--pos); background: color-mix(in oklab, var(--pos) 10%, var(--card)); border: 1px solid color-mix(in oklab, var(--pos) 25%, var(--rule)); }
+  .form-card .fc-status.live::before{ background: var(--pos); }
+  .form-card .fc-status.draft{ color: var(--warn); background: color-mix(in oklab, var(--warn) 10%, var(--card)); border: 1px solid color-mix(in oklab, var(--warn) 25%, var(--rule)); }
+  .form-card .fc-status.draft::before{ background: var(--warn); }
+  .form-card .fc-status.archived{ color: var(--dim); background: var(--rule-soft); border: 1px solid var(--rule); }
+  .form-card .fc-status.archived::before{ background: var(--dim-2); }
+  .form-card .fc-desc{ font-size: 13.5px; color: var(--dim); line-height: 1.45; max-width: 56ch; }
+  .form-card .fc-url{ font-family: var(--mono); font-size: 11.5px; color: var(--accent-deep); }
+  .form-card .fc-stats{ display: flex; gap: 18px; margin-top: 4px; }
+  .form-card .fc-stats span{ font-family: var(--mono); font-size: 11px; color: var(--dim-2); letter-spacing: .02em; }
+  .form-card .fc-stats strong{ font-weight: 500; color: var(--ink-2); }
+  .form-card .fc-right{ display: flex; flex-direction: column; align-items: flex-end; gap: 8px; flex-shrink: 0; }
+  .form-card .fc-right .fc-questions{ font-family: var(--serif); font-size: 24px; font-weight: 400; letter-spacing: -.01em; text-align: right; }
+  .form-card .fc-right .fc-qlabel{ font-family: var(--mono); font-size: 10px; letter-spacing: .06em; text-transform: uppercase; color: var(--dim); }
+  .form-card .fc-actions{ display: flex; gap: 6px; margin-top: 6px; }
+
+  .add-form{
+    border: 1px dashed var(--rule); border-radius: var(--r-md);
+    padding: 26px; text-align: center; cursor: pointer;
+    color: var(--dim); transition: all .14s; margin-bottom: 12px;
+    display: flex; flex-direction: column; align-items: center; gap: 6px;
+  }
+  .add-form:hover{ border-color: var(--ink); color: var(--ink); }
+  .add-form .af-label{ font-size: 14px; }
+  .add-form .af-hint{ font-family: var(--mono); font-size: 11px; color: var(--dim-2); }
+
+  @media (max-width: 980px){ .shell{ grid-template-columns: 1fr; } .side{ display:none; } .main{ padding: 24px 22px; } .stats-row{ grid-template-columns: 1fr 1fr; } .form-card{ grid-template-columns: 1fr; } }
+  @media (max-width: 600px){ .stats-row{ grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+
+<div class="shell">
+
+    <aside class="side">
+    <a href="Assistant.html" class="back">← back to assistant</a>
+    <div><h2>Settings</h2><div class="org">Law Offices of Sarah Chen · solo</div></div>
+    <div class="nav-section"><div class="lbl">Practice</div>
+      <a href="Profile.html" class="nav-item"><span class="ic">⌂</span>Profile &amp; areas</a>
+      <a href="Team.html" class="nav-item"><span class="ic">＋</span>Team <span class="badge">1</span></a>
+      <a href="Services.html" class="nav-item"><span class="ic">⏳</span>Services &amp; pricing <span class="badge">5</span></a></div>
+    <div class="nav-section"><div class="lbl">Money</div>
+      <a href="Subscription.html" class="nav-item"><span class="ic">$</span>Subscription</a>
+      <a href="StripeConnect.html" class="nav-item"><span class="ic">⇄</span>Stripe Connect</a>
+      <a href="Trust.html" class="nav-item"><span class="ic">▤</span>Trust accounting <span class="badge">IOLTA</span></a></div>
+    <div class="nav-section"><div class="lbl">Intelligence</div>
+      <a href="Settings.html" class="nav-item"><span class="ic">✦</span>AI behavior</a>
+      <a href="IntakeForms.html" class="nav-item on"><span class="ic">📥</span>Intake forms <span class="badge">3</span></a>
+      <a href="EngagementTemplates.html" class="nav-item"><span class="ic">⌥</span>Engagement templates</a>
+      <a href="Apps.html" class="nav-item"><span class="ic">⬡</span>Apps &amp; integrations <span class="badge">1</span></a>
+      <a href="MCP.html" class="nav-item"><span class="ic">▦</span>MCP &amp; API <span class="badge">beta</span></a></div>
+    <div class="nav-section"><div class="lbl">Account</div>
+      <a href="Security.html" class="nav-item"><span class="ic">⚿</span>Security</a>
+      <a href="Sessions.html" class="nav-item"><span class="ic">◉</span>Sessions</a>
+      <a href="Appearance.html" class="nav-item"><span class="ic">◐</span>Appearance</a>
+      <a href="Notifications.html" class="nav-item"><span class="ic">⌘</span>Notifications</a>
+      <a href="AuditLog.html" class="nav-item"><span class="ic">⎯</span>Audit log</a>
+      <a href="ExportData.html" class="nav-item"><span class="ic">↧</span>Export data</a></div>
+  </aside>
+
+  <main class="main">
+    <div class="crumb">Settings · Intelligence</div>
+    <h1>Intake <em>forms.</em></h1>
+    <p class="lede">
+      Each form is a conversational intake widget you can embed on your site or share as a link. The assistant handles the conversation; you define the questions and triage rules.
+    </p>
+
+    <!-- Stats overview -->
+    <div class="stats-row">
+      <div class="stat-box">
+        <div class="sb-label">Total submissions</div>
+        <div class="sb-val">284</div>
+        <div class="sb-sub">last 30 days</div>
+      </div>
+      <div class="stat-box">
+        <div class="sb-label">Conversion rate</div>
+        <div class="sb-val">31%</div>
+        <div class="sb-sub">intake → engagement</div>
+      </div>
+      <div class="stat-box">
+        <div class="sb-label">Avg. completion</div>
+        <div class="sb-val">4:12</div>
+        <div class="sb-sub">minutes per intake</div>
+      </div>
+      <div class="stat-box">
+        <div class="sb-label">Active forms</div>
+        <div class="sb-val">2</div>
+        <div class="sb-sub">of 3 total</div>
+      </div>
+    </div>
+
+    <!-- Form cards -->
+    <section class="group" style="border:none;padding-top:0">
+      <h3>Your forms</h3>
+      <p class="gdesc">Click a form to open the builder — edit questions, branching, triage rules, and preview the live widget.</p>
+
+      <a href="IntakeBuilder.html" style="text-decoration:none;color:inherit">
+        <div class="form-card">
+          <div class="fc-info">
+            <div class="fc-top">
+              <span class="fc-name">Custody modification intake</span>
+              <span class="fc-status live">live · v7</span>
+            </div>
+            <div class="fc-desc">Conversational intake for custody modification matters. Includes DV safety check, jurisdiction routing, and paid consultation booking.</div>
+            <div class="fc-url">blawby.com/p/sarah-chen/custody</div>
+            <div class="fc-stats">
+              <span><strong>142</strong> submissions / 30d</span>
+              <span><strong>31%</strong> conversion</span>
+              <span><strong>3:48</strong> avg. time</span>
+              <span>Last: 2h ago</span>
+            </div>
+          </div>
+          <div class="fc-right">
+            <div class="fc-questions">9</div>
+            <div class="fc-qlabel">questions</div>
+            <div class="fc-actions">
+              <button class="btn btn-ghost btn-sm">Embed</button>
+              <button class="btn btn-ghost btn-sm">Edit →</button>
+            </div>
+          </div>
+        </div>
+      </a>
+
+      <div class="form-card">
+        <div class="fc-info">
+          <div class="fc-top">
+            <span class="fc-name">General family law intake</span>
+            <span class="fc-status live">live · v3</span>
+          </div>
+          <div class="fc-desc">Catch-all intake for family law matters that don't fit the custody form. Routes to the correct practice area based on the client's description.</div>
+          <div class="fc-url">blawby.com/p/sarah-chen/family</div>
+          <div class="fc-stats">
+            <span><strong>98</strong> submissions / 30d</span>
+            <span><strong>27%</strong> conversion</span>
+            <span><strong>5:20</strong> avg. time</span>
+            <span>Last: 6h ago</span>
+          </div>
+        </div>
+        <div class="fc-right">
+          <div class="fc-questions">7</div>
+          <div class="fc-qlabel">questions</div>
+          <div class="fc-actions">
+            <button class="btn btn-ghost btn-sm">Embed</button>
+            <button class="btn btn-ghost btn-sm">Edit →</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="form-card">
+        <div class="fc-info">
+          <div class="fc-top">
+            <span class="fc-name">Estate planning questionnaire</span>
+            <span class="fc-status draft">draft · v1</span>
+          </div>
+          <div class="fc-desc">Pre-consultation questionnaire for estate planning clients. Collects family structure, asset overview, and existing documents.</div>
+          <div class="fc-url" style="color:var(--dim)">Not published yet</div>
+          <div class="fc-stats">
+            <span><strong>0</strong> submissions</span>
+            <span>Created May 20, 2026</span>
+            <span>Last edited 3 days ago</span>
+          </div>
+        </div>
+        <div class="fc-right">
+          <div class="fc-questions">12</div>
+          <div class="fc-qlabel">questions</div>
+          <div class="fc-actions">
+            <button class="btn btn-ghost btn-sm">Preview</button>
+            <button class="btn btn-ghost btn-sm">Edit →</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="add-form">
+        <div class="af-label">＋ Create a new intake form</div>
+        <div class="af-hint">Start from scratch or tell the assistant what you need</div>
+      </div>
+    </section>
+
+    <!-- Global intake settings -->
+    <section class="group">
+      <h3>Global intake settings</h3>
+      <p class="gdesc">These apply to all intake forms unless overridden at the form level.</p>
+
+      <div class="setting">
+        <div class="meta">
+          <div class="h">Default consult fee</div>
+          <div class="d">Charged in-chat via Stripe unless the form overrides or a safety check waives it.</div>
+        </div>
+        <div class="ctrl"><input class="input" value="$150" style="width:100px;text-align:right" /></div>
+      </div>
+
+      <div class="setting">
+        <div class="meta">
+          <div class="h">AI auto-triage</div>
+          <div class="d">Let the assistant apply triage rules automatically. When off, all intakes land in your queue for manual review.</div>
+        </div>
+        <div class="ctrl"><span class="toggle on" data-toggle></span></div>
+      </div>
+
+      <div class="setting">
+        <div class="meta">
+          <div class="h">PII redaction</div>
+          <div class="d">SSNs, account numbers, and DOB patterns are auto-masked before reaching the model. Recommended for compliance.</div>
+        </div>
+        <div class="ctrl"><span class="toggle on" data-toggle></span></div>
+      </div>
+
+      <div class="setting">
+        <div class="meta">
+          <div class="h">Follow-up if abandoned</div>
+          <div class="d">If a client stops mid-intake, send a gentle follow-up email after <code>24 hours</code>. Respects unsubscribe.</div>
+        </div>
+        <div class="ctrl"><span class="toggle on" data-toggle></span></div>
+      </div>
+
+      <div class="setting">
+        <div class="meta">
+          <div class="h">Spanish language support</div>
+          <div class="d">The assistant detects Spanish and responds in kind. English transcripts are generated for your review.</div>
+        </div>
+        <div class="ctrl"><span class="toggle on" data-toggle></span></div>
+      </div>
+
+      <div class="setting">
+        <div class="meta">
+          <div class="h">Embed domain allowlist</div>
+          <div class="d">Restrict where your intake widgets can be embedded. Leave blank to allow any domain.</div>
+        </div>
+        <div class="ctrl"><input class="input" value="sarahchenlaw.com" style="width:220px" /></div>
+      </div>
+    </section>
+
+    <!-- Archived -->
+    <section class="group">
+      <h3>Archived forms</h3>
+      <p class="gdesc">Archived forms stop accepting submissions but their data is preserved.</p>
+
+      <div class="form-card" style="opacity:.6">
+        <div class="fc-info">
+          <div class="fc-top">
+            <span class="fc-name">Immigration pre-screen</span>
+            <span class="fc-status archived">archived</span>
+          </div>
+          <div class="fc-desc">Used during a brief period of immigration consultations. Archived when Sarah narrowed practice areas.</div>
+          <div class="fc-stats">
+            <span><strong>44</strong> total submissions</span>
+            <span>Archived Feb 2026</span>
+          </div>
+        </div>
+        <div class="fc-right">
+          <div class="fc-questions">6</div>
+          <div class="fc-qlabel">questions</div>
+          <div class="fc-actions">
+            <button class="btn btn-ghost btn-sm">Restore</button>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+</div>
+
+<script>
+  document.querySelectorAll('[data-toggle]').forEach(t=>{
+    t.addEventListener('click', ()=> t.classList.toggle('on'));
+  });
+</script>
+</body>
+</html>

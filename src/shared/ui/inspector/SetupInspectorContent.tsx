@@ -4,6 +4,7 @@ import type { PracticeDetails } from '@/shared/lib/apiClient';
 import type { BusinessOnboardingStatus } from '@/shared/hooks/usePracticeManagement';
 import type { SetupFieldsPayload, SetupServicePayload, SetupAddressPayload } from '@/shared/types/conversation';
 import { Combobox, Input, Textarea } from '@/shared/ui/input';
+import { EmailInput } from '@/shared/ui/input/EmailInput';
 import { STATE_OPTIONS } from '@/shared/ui/address/AddressFields';
 import { InfoRow, InspectorEditableRow, InspectorGroup } from './InspectorPrimitives';
 import { StripeCheckpointCard } from '@/features/practice-setup/components/StripeCheckpointCard';
@@ -172,7 +173,7 @@ export function SetupInspectorContent({
         </InspectorGroup>
         <InspectorGroup label={`Contact ${setupStatus?.contactComplete ? '· Complete' : '· Missing'}`}>
           <InspectorEditableRow label="Email" summary={values.businessEmail || 'Not set'} summaryMuted={!values.businessEmail} isOpen={activeEditor === 'businessEmail'} onToggle={isReadOnly ? undefined : () => openEditor('businessEmail', values.businessEmail)} disabled={isReadOnly}>
-            <Input value={draftValue ?? values.businessEmail} onChange={setDraftValue} placeholder="name@practice.com" type="email" className="w-full" disabled={isReadOnly} onBlur={() => { if (skipBlurRef.current) { skipBlurRef.current = false; return; } if (draftValue !== null) void commitDraft('businessEmail', draftValue, false); }} onKeyDown={(e) => { if (e.key === 'Enter') { skipBlurRef.current = true; void commitDraft('businessEmail', draftValue ?? values.businessEmail, true); } if (e.key === 'Escape') { skipBlurRef.current = true; setActiveEditor(null); } }} />
+            <EmailInput value={draftValue ?? values.businessEmail} onChange={setDraftValue} placeholder="name@practice.com" className="w-full" disabled={isReadOnly} onBlur={() => { if (skipBlurRef.current) { skipBlurRef.current = false; return; } if (draftValue !== null) void commitDraft('businessEmail', draftValue, false); }} onKeyDown={(e) => { if (e.key === 'Enter') { skipBlurRef.current = true; void commitDraft('businessEmail', draftValue ?? values.businessEmail, true); } if (e.key === 'Escape') { skipBlurRef.current = true; setActiveEditor(null); } }} />
           </InspectorEditableRow>
           <InspectorEditableRow label="Phone" summary={values.businessPhone || 'Not set'} summaryMuted={!values.businessPhone} isOpen={activeEditor === 'businessPhone'} onToggle={isReadOnly ? undefined : () => openEditor('businessPhone', values.businessPhone)} disabled={isReadOnly}>
             <Input value={draftValue ?? values.businessPhone} onChange={setDraftValue} placeholder="Business phone" type="tel" className="w-full" disabled={isReadOnly} onBlur={() => { if (skipBlurRef.current) { skipBlurRef.current = false; return; } if (draftValue !== null) void commitDraft('businessPhone', draftValue, false); }} onKeyDown={(e) => { if (e.key === 'Enter') { skipBlurRef.current = true; void commitDraft('businessPhone', draftValue ?? values.businessPhone, true); } if (e.key === 'Escape') { skipBlurRef.current = true; setActiveEditor(null); } }} />
@@ -186,7 +187,7 @@ export function SetupInspectorContent({
               <div className="flex justify-end">
                 <button
                   type="button"
-                  className="rounded-md bg-surface-panel/40 px-3 py-1.5 text-xs font-semibold text-input-text transition hover:bg-surface-panel/60 disabled:cursor-not-allowed disabled:opacity-50"
+                  className="rounded-md bg-paper-2/40 px-3 py-1.5 text-xs font-semibold text-ink transition hover:bg-paper-2/60 disabled:cursor-not-allowed disabled:opacity-50"
                   disabled={isReadOnly}
                   onClick={() => { void commitDraft('address', '', true); }}
                 >

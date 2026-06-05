@@ -1,6 +1,7 @@
 import { memo, useEffect, useMemo, useState } from 'preact/compat';
-import type { FunctionComponent } from 'preact';
+import type { ComponentChildren, FunctionComponent, VNode } from 'preact';
 import { LoadingSpinner } from '@/shared/ui/layout/LoadingSpinner';
+import { MatterChip } from '@/design-system/patterns';
 
 type UrlTransform = (url: string, key: string, node: unknown) => string;
 
@@ -76,6 +77,19 @@ const variantClasses = {
   detailed: 'text-base',
 } as const;
 
+// Extract plain text from react-markdown anchor children for MatterChip label
+// fallback (when the href carries a matter id but the link text is empty).
+const getNodeText = (node: ComponentChildren): string => {
+  if (node == null) return '';
+  if (typeof node === 'string' || typeof node === 'number') return String(node);
+  if (Array.isArray(node)) return node.map(getNodeText).join('');
+  const vnode = node as VNode;
+  if (vnode && typeof vnode === 'object' && 'props' in vnode) {
+    return getNodeText(vnode.props?.children);
+  }
+  return '';
+};
+
 const ChatMarkdown: FunctionComponent<ChatMarkdownProps> = memo(({
   text,
   className,
@@ -85,6 +99,33 @@ const ChatMarkdown: FunctionComponent<ChatMarkdownProps> = memo(({
 }) => {
   const { component: ReactMarkdown, remarkGfm, components: markdownComponents, defaultUrlTransform, error: markdownError } = useReactMarkdown();
   const sourceText = text ?? '';
+
+  // Wrap the shared markdownComponents with a chat-local anchor that recognizes
+  // `matter://` hrefs and renders them as DS MatterChip pills. All other link
+  // protocols (mention://, internal routes, external) fall through to the
+  // shared anchor handler unchanged.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const chatComponents = useMemo<any>(() => {
+    if (!markdownComponents) return null;
+    const sharedAnchor = markdownComponents.a;
+    if (!sharedAnchor) return markdownComponents;
+    return {
+      ...markdownComponents,
+      // react-markdown anchor props (href + children + extras passed through).
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      a(props: any) {
+        const href = typeof props?.href === 'string' ? props.href : undefined;
+        if (href && href.startsWith('matter://')) {
+          const rawLabel = getNodeText(props.children).trim();
+          const fallback = decodeURIComponent(href.slice('matter://'.length));
+          const label = rawLabel || fallback;
+          const urgent = href.includes('?urgent=1') || href.includes('&urgent=1');
+          return <MatterChip urgent={urgent} title={label}>{label}</MatterChip>;
+        }
+        return sharedAnchor(props);
+      },
+    };
+  }, [markdownComponents]);
 
   const classes = [
     'chat-markdown',
@@ -127,12 +168,16 @@ const ChatMarkdown: FunctionComponent<ChatMarkdownProps> = memo(({
     <div className={classes}>
       {markdownError ? (
         <div className="text-red-500 text-sm">Failed to load markdown: {markdownError}</div>
-      ) : ReactMarkdown && remarkGfm && markdownComponents ? (
+      ) : ReactMarkdown && remarkGfm && chatComponents ? (
         <ReactMarkdown
-          components={markdownComponents}
+          components={chatComponents}
           remarkPlugins={[remarkGfm]}
           urlTransform={(url: string, key: string, node: unknown) => {
-            if (url.startsWith('mention://')) return url;
+            // mention:// — user @mention pills (rendered by markdownComponents).
+            // matter:// — matter entity references (rendered as DS MatterChip).
+            // Both must bypass defaultUrlTransform's allow-list, which strips
+            // unknown protocols.
+            if (url.startsWith('mention://') || url.startsWith('matter://')) return url;
             return defaultUrlTransform ? defaultUrlTransform(url, key, node) : url;
           }}
         >

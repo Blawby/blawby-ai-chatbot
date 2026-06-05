@@ -1,16 +1,17 @@
 import { useState } from 'preact/hooks';
 /*
-  Invoice preview is intentionally rendered using explicit inline colors
-  to emulate a printable 'paper' preview. Disable the rule that enforces
-  system color tokens for this presentation-only component.
+  Invoice preview uses LetterPaper (DESIGN_SYSTEM §3.9), a print-safe
+  document shell that intentionally uses fixed hex values for color.
+  The avatar fallback below uses inline fixed hex values for the same
+  reason — the document must look identical regardless of app theme.
 */
-/* eslint-disable custom/no-hardcoded-colors -- Invoice preview uses explicit inline colors for print fidelity */
 import { formatCurrency } from '@/shared/utils/currencyFormatter';
 import { formatLongDate } from '@/shared/utils/dateFormatter';
 import { getMajorAmountValue } from '@/shared/utils/money';
 import type { InvoiceLineItem } from '@/features/matters/types/billing.types';
 import { normalizePublicFileUrl } from '@/shared/lib/apiClient';
 import { sanitizeUserImageUrl } from '@/shared/utils/urlValidation';
+import { LetterPaper, type LetterPaperFeeRow } from '@/design-system/patterns/LetterPaper';
 
 type InvoicePreviewProps = {
   title: string;
@@ -25,7 +26,7 @@ type InvoicePreviewProps = {
   clientName?: string | null;
   clientEmail?: string | null;
   billingIncrementMinutes?: number | null;
-  /** Notes to client shown below the amount hero */
+  /** Notes to client shown below the line items */
   notes?: string | null;
 };
 
@@ -43,8 +44,8 @@ const LogoAvatar = ({ src, name }: { src: string | null; name: string }) => {
   return (
     <div
       style={{
-        width: 56,
-        height: 56,
+        width: 48,
+        height: 48,
         borderRadius: '50%',
         background: '#f1f5f9',
         display: 'flex',
@@ -52,6 +53,7 @@ const LogoAvatar = ({ src, name }: { src: string | null; name: string }) => {
         justifyContent: 'center',
         flexShrink: 0,
         overflow: 'hidden',
+        marginBottom: 10,
       }}
     >
       {src && !error ? (
@@ -62,24 +64,13 @@ const LogoAvatar = ({ src, name }: { src: string | null; name: string }) => {
           style={{ width: '100%', height: '100%', objectFit: 'cover' }}
         />
       ) : (
-        <span style={{ fontSize: 18, fontWeight: 700, color: '#475569', letterSpacing: '-0.02em' }}>
+        <span style={{ fontSize: 16, fontWeight: 700, color: '#475569', letterSpacing: '-0.02em' }}>
           {initials}
         </span>
       )}
     </div>
   );
 };
-
-const MetaRow = ({ label, value }: { label: string; value: string }) => (
-  <div style={{ display: 'flex', gap: '0.75rem', fontSize: 13, lineHeight: '1.5' }}>
-    <span style={{ color: '#64748b', minWidth: 100, fontWeight: 500 }}>{label}</span>
-    <span style={{ color: '#0f172a', fontWeight: 600 }}>{value}</span>
-  </div>
-);
-
-const HR = () => (
-  <div style={{ borderTop: '1px solid #e2e8f0', margin: '1rem 0' }} />
-);
 
 export const InvoicePreview = ({
   title,
@@ -113,219 +104,89 @@ export const InvoicePreview = ({
   const rawLogoUrl = practiceLogoUrl ? normalizePublicFileUrl(practiceLogoUrl) : null;
   const logoUrl = rawLogoUrl ? sanitizeUserImageUrl(rawLogoUrl) : null;
 
-  const hasBillingBlock = Boolean(practiceName || clientName || practiceEmail || clientEmail);
+  const referenceLine = [title, referenceLabel].filter(Boolean).join(' · ');
+  const qtyDigits = billingIncrementMinutes && billingIncrementMinutes > 0 ? 2 : 1;
 
-  const root: preact.JSX.CSSProperties = {
-    fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif',
-    background: '#ffffff',
-    color: '#0f172a',
-    fontSize: 13,
-    lineHeight: '1.5',
-  };
+  const firmNode = (logoUrl || practiceName) ? (
+    <>
+      {(logoUrl || practiceName) && (
+        <LogoAvatar src={logoUrl} name={practiceName ?? 'Firm'} />
+      )}
+      {practiceName ? (
+        practiceName
+      ) : (
+        <LetterPaper.Placeholder>firm name</LetterPaper.Placeholder>
+      )}
+    </>
+  ) : null;
+
+  const addressNode = practiceEmail ? practiceEmail : null;
+
+  const feeRows: LetterPaperFeeRow[] = lineItems.length === 0
+    ? [{ label: 'No line items added yet', amount: formatCurrency(0) }]
+    : lineItems.map((item, index) => {
+        const qty = Number(item.quantity || 0).toFixed(qtyDigits);
+        const unit = formatCurrency(getMajorAmountValue(item.unit_price));
+        const description = item.description || `Line item ${index + 1}`;
+        return {
+          label: `${description} — ${qty} × ${unit}`,
+          amount: formatCurrency(getMajorAmountValue(item.line_total)),
+        };
+      });
 
   return (
-      <div className="w-full h-full flex items-start justify-center">
-        {/* Render centered "paper" inside the preview panel. The panel keeps its
-          background; the invoice itself is presented as a white sheet centered
-          with a subtle shadow and spacing to emulate Stripe's preview look. */}
-        <div className="w-full max-w-[760px] h-[min(720px,calc(100svh-12rem))] min-h-[560px] max-h-[720px] bg-white rounded-lg shadow-lg border border-slate-200" style={{ ...root }}>
-        <div className="relative flex h-full flex-col overflow-hidden">
-          {/* ── Scrollable body ── */}
-          <div className="flex-1 overflow-y-auto" style={{ padding: '2rem 2rem 3rem' }}>
-
-          {/* ── Header: "Invoice" title + logo ── */}
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1.5rem' }}>
-            <h1 style={{ fontSize: 28, fontWeight: 700, color: '#0f172a', margin: 0, letterSpacing: '-0.02em' }}>
-              Invoice
-            </h1>
-            {(logoUrl || practiceName) && (
-              <LogoAvatar src={logoUrl} name={practiceName ?? 'Firm'} />
+    <div className="w-full h-full overflow-y-auto py-4">
+      <LetterPaper
+        firm={firmNode}
+        address={addressNode}
+        title="Invoice"
+        date={issueDateFormatted ?? undefined}
+      >
+        {(invoiceNumber || dueDateFormatted) && (
+          <p>
+            {invoiceNumber ? (
+              <>Invoice number <strong>{invoiceNumber}</strong></>
+            ) : (
+              <>Invoice number <LetterPaper.Placeholder>assigned on send</LetterPaper.Placeholder></>
             )}
-          </div>
+            {dueDateFormatted && (
+              <> · Due <strong>{dueDateFormatted}</strong></>
+            )}
+          </p>
+        )}
 
-          {/* ── Invoice meta (number, dates) ── */}
-          <div style={{ marginBottom: '0.75rem' }}>
-            {invoiceNumber && <MetaRow label="Invoice number" value={invoiceNumber} />}
-            <MetaRow label="Date of issue" value={issueDateFormatted ?? '—'} />
-            {dueDateFormatted && <MetaRow label="Date due" value={dueDateFormatted} />}
-          </div>
-
-          <HR />
-
-          {/* ── From / Bill to ── */}
-          {hasBillingBlock && (
+        <h2>Billed to</h2>
+        <p>
+          {clientName ? (
+            <LetterPaper.Placeholder resolved>{clientName}</LetterPaper.Placeholder>
+          ) : (
+            <LetterPaper.Placeholder>client name</LetterPaper.Placeholder>
+          )}
+          {clientEmail && (
             <>
-              <div style={{ display: 'flex', gap: '2rem', marginBottom: '0.75rem' }}>
-                {(practiceName || practiceEmail) && (
-                  <div style={{ flex: 1 }}>
-                    {practiceName && (
-                      <p style={{ fontSize: 13, fontWeight: 600, color: '#0f172a', margin: '0 0 4px' }}>
-                        {practiceName}
-                      </p>
-                    )}
-                    {practiceEmail && (
-                      <p style={{ fontSize: 13, color: '#64748b', margin: 0 }}>
-                        {practiceEmail}
-                      </p>
-                    )}
-                  </div>
-                )}
-                {(clientName || clientEmail) && (
-                  <div style={{ flex: 1 }}>
-                    <p style={{ fontSize: 13, fontWeight: 600, color: '#0f172a', margin: '0 0 4px' }}>
-                      Bill to
-                    </p>
-                    {clientName && (
-                      <p style={{ fontSize: 13, color: '#0f172a', margin: '0 0 4px' }}>
-                        {clientName}
-                      </p>
-                    )}
-                    {clientEmail && (
-                      <p style={{ fontSize: 13, color: '#64748b', margin: 0 }}>
-                        {clientEmail}
-                      </p>
-                    )}
-                  </div>
-                )}
-              </div>
-              <HR />
+              <br />
+              {clientEmail}
             </>
           )}
+        </p>
 
-          {/* ── Amount hero ── */}
-          <div style={{ marginBottom: '1.5rem' }}>
-            <p style={{ fontSize: 24, fontWeight: 700, color: '#0f172a', margin: '0 0 8px', letterSpacing: '-0.02em' }}>
-              {totalFormatted} USD{dueDateFormatted ? ` due ${dueDateFormatted}` : ''}
-            </p>
-            {(title || referenceLabel) && (
-              <p style={{ fontSize: 12, color: '#64748b', margin: '0 0 8px' }}>
-                {[title, referenceLabel].filter(Boolean).join(' · ')}
-              </p>
-            )}
-            {/* Pay online — visual only until invoice is sent */}
-            <span
-              className="text-accent-500"
-              style={{ fontSize: 13, fontWeight: 500, cursor: 'default', display: 'inline-block', marginBottom: notes ? '0.75rem' : 0 }}
-            >
-              Pay online
-            </span>
-            {notes && (
-              <p style={{ fontSize: 13, color: '#475569', margin: '0.5rem 0 0', whiteSpace: 'pre-wrap' }}>
-                {notes}
-              </p>
-            )}
-          </div>
+        {referenceLine && (
+          <>
+            <h2>Matter</h2>
+            <p>{referenceLine}</p>
+          </>
+        )}
 
-          {/* ── Line items ── */}
-          <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '1rem' }}>
-            <thead>
-              <tr style={{ borderBottom: '1px solid #e2e8f0' }}>
-                <th style={{ textAlign: 'left', padding: '0.75rem 0.75rem 0.75rem 0', fontSize: 12, fontWeight: 600, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                  Description
-                </th>
-                <th style={{ textAlign: 'right', padding: '0.75rem 0.75rem', fontSize: 12, fontWeight: 600, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em', width: 48 }}>
-                  Qty
-                </th>
-                <th style={{ textAlign: 'right', padding: '0.75rem 0.75rem', fontSize: 12, fontWeight: 600, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em', width: 88 }}>
-                  Unit price
-                </th>
-                <th style={{ textAlign: 'right', padding: '0.75rem 0 0.75rem 0.75rem', fontSize: 12, fontWeight: 600, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em', width: 88 }}>
-                  Amount
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {lineItems.length === 0 ? (
-                <tr>
-                  <td colSpan={4} style={{ padding: '1.5rem 0', fontSize: 13, color: '#64748b', textAlign: 'center', borderBottom: '1px solid #f1f5f9' }}>
-                    No line items added yet
-                  </td>
-                </tr>
-              ) : (
-                lineItems.map((item, index) => (
-                  <tr key={item.id} style={{ borderBottom: '1px solid #f1f5f9' }}>
-                    <td style={{ padding: '0.75rem 0.75rem 0.75rem 0', fontSize: 13, color: '#0f172a', verticalAlign: 'top' }}>
-                      {item.description || `Line item ${index + 1}`}
-                    </td>
-                    <td style={{ padding: '0.75rem 0.75rem', textAlign: 'right', fontSize: 13, color: '#0f172a', verticalAlign: 'top' }}>
-                      {Number(item.quantity || 0).toFixed(
-                        billingIncrementMinutes && billingIncrementMinutes > 0 ? 2 : 1
-                      )}
-                    </td>
-                    <td style={{ padding: '0.75rem 0.75rem', textAlign: 'right', fontSize: 13, color: '#0f172a', verticalAlign: 'top' }}>
-                      {formatCurrency(getMajorAmountValue(item.unit_price))}
-                    </td>
-                    <td style={{ padding: '0.75rem 0 0.75rem 0.75rem', textAlign: 'right', fontSize: 13, color: '#0f172a', verticalAlign: 'top' }}>
-                      {formatCurrency(getMajorAmountValue(item.line_total))}
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
+        <LetterPaper.Fee
+          head="Services rendered"
+          rows={feeRows}
+          total={{ label: 'Total due', amount: `${totalFormatted} USD` }}
+        />
 
-          {/* ── Totals block (right-aligned, Stripe style) ── */}
-          <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-            <table style={{ borderCollapse: 'collapse', minWidth: 240 }}>
-              <tbody>
-                <tr>
-                  <td style={{ padding: '0.5rem 1.5rem 0.5rem 0', fontSize: 13, color: '#64748b', borderBottom: '1px solid #e2e8f0' }}>
-                    Subtotal
-                  </td>
-                  <td style={{ padding: '0.5rem 0', textAlign: 'right', fontSize: 13, color: '#0f172a', borderBottom: '1px solid #e2e8f0' }}>
-                    {totalFormatted}
-                  </td>
-                </tr>
-                <tr>
-                  <td style={{ padding: '0.5rem 1.5rem 0.5rem 0', fontSize: 13, color: '#64748b', borderBottom: '1px solid #e2e8f0' }}>
-                    Total
-                  </td>
-                  <td style={{ padding: '0.5rem 0', textAlign: 'right', fontSize: 13, color: '#0f172a', borderBottom: '1px solid #e2e8f0' }}>
-                    {totalFormatted}
-                  </td>
-                </tr>
-                <tr>
-                  <td style={{ padding: '0.75rem 1.5rem 0 0', fontSize: 13, fontWeight: 700, color: '#0f172a' }}>
-                    Amount due
-                  </td>
-                  <td style={{ padding: '0.75rem 0 0', textAlign: 'right', fontSize: 13, fontWeight: 700, color: '#0f172a' }}>
-                    {totalFormatted} USD
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        </div>
-
-        {/* ── Footer ── */}
-        <div
-          style={{
-            position: 'absolute',
-            bottom: 0,
-            left: 0,
-            right: 0,
-            borderTop: '1px solid #e2e8f0',
-            padding: '0.75rem 2rem',
-            background: '#ffffff',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '0.5rem',
-          }}
-        >
-          <span style={{ fontSize: 11, color: '#64748b', fontWeight: 500 }}>
-            {invoiceNumber ?? 'DRAFT'}
-          </span>
-          {dueDateFormatted && (
-            <>
-              <span style={{ fontSize: 11, color: '#cbd5e1' }}>·</span>
-              <span style={{ fontSize: 11, color: '#64748b', fontWeight: 500 }}>
-                {totalFormatted} USD due {dueDateFormatted}
-              </span>
-            </>
-          )}
-        </div>
-        </div>
-      </div>
+        {notes && (
+          <p style={{ whiteSpace: 'pre-wrap' }}>{notes}</p>
+        )}
+      </LetterPaper>
     </div>
   );
 };

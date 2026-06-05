@@ -333,6 +333,14 @@
         "title": "GitHub",
         "body": "Redirecting to GitHub…"
       },
+      "linkedInUnavailableToast": {
+        "title": "LinkedIn is not available yet",
+        "body": "This connect flow has not been implemented in Blawby yet."
+      },
+      "gitHubUnavailableToast": {
+        "title": "GitHub is not available yet",
+        "body": "This connect flow has not been implemented in Blawby yet."
+      },
       "verifiedToast": {
         "title": "Domain verified",
         "body": "Domain {{domain}} is verified."

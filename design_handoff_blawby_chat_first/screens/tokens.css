@@ -1,0 +1,309 @@
+/* =========================================================
+   Blawby — design tokens (shared by app + marketing + intake)
+   pulled from Blawby Marketing/Blawby Homepage.html
+   ========================================================= */
+
+:root {
+  /* navy + gold — light (default) */
+  --paper:        #f6f3ea;
+  --paper-2:      #ece6d3;
+  --paper-edge:   #d3d6df;
+  --card:         #ffffff;
+  --ink:          #0f1e36;
+  --ink-2:        #2a3b5a;
+  --ink-3:        #4a5a78;
+  --dim:          #6b7790;
+  --dim-2:        #9aa1b3;
+  --rule:         #d3d6df;
+  --rule-soft:    rgba(15,30,54,0.08);
+
+  --accent:        oklch(0.72 0.13 82);          /* gold */
+  --accent-soft:   oklch(0.72 0.13 82 / 0.14);
+  --accent-deep:   oklch(0.55 0.12 78);
+  --accent-ink:    #2a2200;                       /* readable on gold */
+
+  --pos:          oklch(0.55 0.10 155);
+  --warn:         oklch(0.68 0.13 60);
+  --neg:          oklch(0.55 0.16 28);
+
+  /* type */
+  --serif: "Source Serif 4", "Source Serif Pro", Georgia, serif;
+  --sans:  "Geist", ui-sans-serif, system-ui, sans-serif;
+  --mono:  "Geist Mono", ui-monospace, "SF Mono", monospace;
+
+  /* scale */
+  --container: 1280px;
+  --gutter:    56px;
+
+  /* radii — marketing site uses sharp 2px on buttons; cards a touch softer */
+  --r-xs: 2px;
+  --r-sm: 4px;
+  --r-md: 8px;
+  --r-lg: 14px;
+  --r-pill: 999px;
+
+  /* elevation */
+  --shadow-1: 0 1px 0 rgba(255,255,255,0.6) inset, 0 1px 2px rgba(15,30,54,0.04);
+  --shadow-2: 0 1px 0 rgba(255,255,255,0.6) inset, 0 8px 24px -16px rgba(15,30,54,0.22);
+  --shadow-3: 0 1px 0 rgba(255,255,255,0.6) inset, 0 18px 48px -28px rgba(15,30,54,0.4);
+}
+
+/* navy paper, cream ink */
+html[data-theme="dark"] {
+  --paper:     #0c1830;
+  --paper-2:   #142142;
+  --paper-edge:#1d2c4f;
+  --card:      #0f1d39;
+  --ink:       #f1ecdc;
+  --ink-2:     #c9c4b3;
+  --ink-3:     #a09b8a;
+  --dim:       #7a8198;
+  --dim-2:     #59607a;
+  --rule:      #1d2c4f;
+  --rule-soft: rgba(241,236,220,0.06);
+  --accent:        oklch(0.78 0.13 82);
+  --accent-soft:   oklch(0.78 0.13 82 / 0.16);
+  --accent-deep:   oklch(0.66 0.13 80);
+  --accent-ink:    #2a2200;
+}
+html[data-theme="midnight"] {
+  --paper:     #050c1c;
+  --paper-2:   #0c142a;
+  --paper-edge:#15203b;
+  --card:      #0a1226;
+  --ink:       #ede7d3;
+  --ink-2:     #c3bda7;
+  --ink-3:     #8f8a78;
+  --dim:       #6e7488;
+  --rule:      #15203b;
+  --accent:        oklch(0.80 0.14 84);
+  --accent-soft:   oklch(0.80 0.14 84 / 0.16);
+  --accent-deep:   oklch(0.66 0.13 80);
+}
+html[data-theme="parchment"] {
+  --paper:     #f0eadb;
+  --paper-2:   #e2dabf;
+  --paper-edge:#cdc9b8;
+  --card:      #fbf6e7;
+  --ink:       #0a1a30;
+  --ink-2:     #28385a;
+  --dim:       #6c7286;
+  --rule:      #cdc9b8;
+  --accent:        oklch(0.66 0.13 82);
+  --accent-soft:   oklch(0.66 0.13 82 / 0.14);
+  --accent-deep:   oklch(0.52 0.11 78);
+}
+
+/* =========================================================
+   base
+   ========================================================= */
+*       { box-sizing: border-box; }
+html,body{ margin:0; padding:0; }
+body {
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--sans);
+  font-feature-settings: "ss01", "cv11";
+  font-size: 16px;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+::selection { background: var(--accent); color: var(--accent-ink); }
+a { color: inherit; text-decoration: none; }
+em { font-style: italic; color: var(--accent-deep); }
+html[data-theme="dark"] em,
+html[data-theme="midnight"] em { color: var(--accent); }
+ul { list-style: none; padding: 0; margin: 0; }
+button { font: inherit; color: inherit; }
+
+/* =========================================================
+   primitives
+   ========================================================= */
+.container { max-width: var(--container); margin: 0 auto; padding: 0 var(--gutter); }
+@media (max-width: 1100px) { :root { --gutter: 40px; } }
+@media (max-width: 720px)  { :root { --gutter: 22px; } }
+
+.display { font-family: var(--serif); font-weight: 400; letter-spacing: -0.012em; line-height: 1.05; text-wrap: balance; }
+.serif   { font-family: var(--serif); font-weight: 400; }
+.mono {
+  font-family: var(--mono); font-weight: 400; font-size: 11px;
+  letter-spacing: 0.04em; color: var(--dim);
+}
+.small-caps { text-transform: uppercase; letter-spacing: 0.08em; }
+.dim { color: var(--dim); }
+.lede { font-size: 18px; line-height: 1.5; color: var(--ink-2); text-wrap: pretty; max-width: 56ch; }
+
+/* labels */
+.label {
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--dim);
+}
+
+/* buttons — sharp 2px radius matches marketing site */
+.btn {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 10px 18px;
+  font-size: 14px; line-height: 1; font-weight: 500;
+  border-radius: var(--r-xs);
+  border: 1px solid transparent;
+  transition: all 0.18s ease;
+  font-family: var(--sans);
+  cursor: pointer;
+}
+.btn-primary { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+.btn-primary:hover { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+.btn-ghost   { background: transparent; color: var(--ink); border-color: var(--rule); }
+.btn-ghost:hover { border-color: var(--ink); }
+.btn-accent  { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+.btn-accent:hover { background: var(--accent-deep); border-color: var(--accent-deep); color: var(--paper); }
+.btn-lg { padding: 16px 26px; font-size: 15px; }
+.btn-sm { padding: 6px 12px; font-size: 12.5px; }
+
+/* compact "action chip" used inside cards / drawer */
+.chip {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 5px 10px;
+  font-size: 12.5px; line-height: 1;
+  border: 1px solid var(--rule);
+  background: var(--card);
+  color: var(--ink-2);
+  border-radius: var(--r-xs);
+  cursor: pointer;
+  transition: background .14s, transform .12s, border-color .14s;
+}
+.chip:hover { background: var(--paper-2); transform: translateY(-1px); }
+.chip.primary { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+.chip.primary:hover { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+.chip.accent { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+.chip.warn { color: var(--neg); border-color: color-mix(in oklab, var(--neg) 30%, var(--rule)); }
+
+/* pill */
+.pill {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-family: var(--mono);
+  font-size: 10.5px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  padding: 3px 8px;
+  border: 1px solid var(--rule);
+  border-radius: var(--r-pill);
+  color: var(--dim);
+  background: var(--paper);
+}
+.pill.dot::before {
+  content: ""; width: 6px; height: 6px; border-radius: 50%;
+  background: var(--dim-2);
+}
+.pill.live::before  { background: var(--pos); }
+.pill.warn::before  { background: var(--warn); }
+.pill.urgent::before{ background: var(--neg); }
+.pill.gold::before  { background: var(--accent); }
+
+/* card */
+.card {
+  background: var(--card);
+  border: 1px solid var(--rule);
+  border-radius: var(--r-md);
+  padding: 18px;
+  box-shadow: var(--shadow-1);
+}
+.card-hd {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+/* hairline list */
+.hair-list > * + * {
+  border-top: 1px solid var(--rule);
+  padding-top: 10px;
+  margin-top: 10px;
+}
+
+/* form */
+.field { display: flex; flex-direction: column; gap: 6px; }
+.field > label {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--dim);
+}
+.input, .textarea, .select {
+  font-family: var(--sans);
+  font-size: 14px;
+  color: var(--ink);
+  background: var(--card);
+  border: 1px solid var(--rule);
+  border-radius: var(--r-xs);
+  padding: 11px 12px;
+  outline: none;
+  transition: border-color .14s, box-shadow .14s;
+  width: 100%;
+}
+.input:focus, .textarea:focus, .select:focus {
+  border-color: var(--ink);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+.textarea { resize: vertical; min-height: 84px; line-height: 1.5; }
+.help { font-size: 12px; color: var(--dim); }
+
+/* toggle */
+.toggle {
+  position: relative; display: inline-block;
+  width: 36px; height: 20px;
+  background: var(--rule); border-radius: var(--r-pill);
+  transition: background .18s; cursor: pointer; flex-shrink: 0;
+}
+.toggle::after {
+  content: ""; position: absolute;
+  top: 2px; left: 2px; width: 16px; height: 16px;
+  background: var(--card); border-radius: 50%;
+  transition: transform .18s; box-shadow: 0 1px 2px rgba(0,0,0,.15);
+}
+.toggle.on { background: var(--accent); }
+.toggle.on::after { transform: translateX(16px); }
+
+/* divider */
+.rule  { height: 1px; background: var(--rule); border: 0; }
+.rule-v{ width: 1px; background: var(--rule); align-self: stretch; }
+
+/* progress */
+.bar { height: 4px; background: var(--rule-soft); border-radius: var(--r-pill); overflow: hidden; }
+.bar > i { display: block; height: 100%; background: var(--accent); }
+.bar.warn > i { background: var(--neg); }
+.bar.ok > i { background: var(--pos); }
+
+/* avatar */
+.avatar {
+  display: inline-grid; place-items: center;
+  width: 28px; height: 28px;
+  border-radius: 50%;
+  background: var(--ink); color: var(--accent);
+  font-family: var(--serif); font-style: italic; font-size: 14px;
+  flex-shrink: 0;
+}
+.avatar.lg { width: 40px; height: 40px; font-size: 18px; }
+.avatar.user {
+  background: linear-gradient(135deg, var(--ink-2), var(--ink));
+  color: var(--paper); font-family: var(--sans); font-style: normal; font-weight: 600; font-size: 11px;
+}
+
+/* brand mark */
+.brand-mark { display: inline-flex; align-items: baseline; gap: 8px; }
+.brand-mark-glyph {
+  font-family: var(--serif); font-style: italic;
+  font-size: 22px; line-height: 1; color: var(--accent);
+  transform: translateY(2px);
+}
+.brand-mark-word { font-size: 20px; letter-spacing: -0.01em; }
+
+/* paper grain — adds quiet texture to large surfaces */
+.grain {
+  background-image:
+    radial-gradient(rgba(15,30,54,0.025) 1px, transparent 1.2px);
+  background-size: 3px 3px;
+}

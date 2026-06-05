@@ -1,9 +1,5 @@
 import type { FunctionComponent } from 'preact';
 import WorkspaceHomeView from '@/features/chat/views/WorkspaceHomeView';
-import { RecentActivityTable } from '@/features/practice-dashboard/components/RecentActivityTable';
-import { RecentIntakesGrid } from '@/features/practice-dashboard/components/RecentIntakesGrid';
-import { DashboardHero } from '@/features/practice-dashboard/components/DashboardHero';
-import type { BillingWindow } from '@/features/practice-dashboard/hooks/usePracticeBillingData';
 import { ClientDashboard } from '@/features/client-dashboard/ClientDashboard';
 
 type RecentMessage = {
@@ -25,17 +21,6 @@ type WorkspaceHomeSectionProps = {
   onOpenRecentMessage: () => void;
   onSendMessage: () => void;
   onRequestConsultation: () => void;
-  dashboardWindow: BillingWindow;
-  summaryStats: Parameters<typeof DashboardHero>[0]['stats'];
-  practiceBillingLoading: boolean;
-  practiceBillingError: string | null;
-  recentActivity: Parameters<typeof RecentActivityTable>[0]['days'];
-  recentIntakes: Parameters<typeof RecentIntakesGrid>[0]['intakes'];
-  onDashboardWindowChange: (value: BillingWindow) => void;
-  onCreateInvoice: () => void;
-  onOpenInvoice: (invoiceId: string) => void;
-  onViewAllIntakes: () => void;
-  onViewIntake: (intakeId: string) => void;
 };
 
 export const WorkspaceHomeSection: FunctionComponent<WorkspaceHomeSectionProps> = ({
@@ -49,17 +34,6 @@ export const WorkspaceHomeSection: FunctionComponent<WorkspaceHomeSectionProps> 
   onOpenRecentMessage,
   onSendMessage,
   onRequestConsultation,
-  dashboardWindow,
-  summaryStats,
-  practiceBillingLoading,
-  practiceBillingError,
-  recentActivity,
-  recentIntakes,
-  onDashboardWindowChange,
-  onCreateInvoice,
-  onOpenInvoice,
-  onViewAllIntakes,
-  onViewIntake,
 }) => {
   if (workspace === 'client') {
     return (
@@ -70,39 +44,6 @@ export const WorkspaceHomeSection: FunctionComponent<WorkspaceHomeSectionProps> 
         practiceLogo={practiceLogo}
         onSendMessage={onSendMessage}
       />
-    );
-  }
-  if (workspace === 'practice') {
-    return (
-      <div className="flex h-full min-h-0 flex-1 flex-col gap-5">
-        <DashboardHero
-          windowSize={dashboardWindow}
-          stats={summaryStats}
-          loading={practiceBillingLoading}
-          onWindowChange={onDashboardWindowChange}
-          onCreateInvoice={onCreateInvoice}
-        />
-        {practiceBillingError ? (
-          <div className="border-b border-line-glass/30" role="alert">
-            <div className="mx-auto max-w-7xl px-4 py-3 text-sm text-input-text sm:px-6 lg:px-8">
-              {practiceBillingError}
-            </div>
-          </div>
-        ) : null}
-        <RecentActivityTable
-          days={recentActivity}
-          loading={practiceBillingLoading}
-          error={null}
-          onOpenInvoice={(entry) => onOpenInvoice(entry.invoiceId)}
-        />
-        <RecentIntakesGrid
-          intakes={recentIntakes}
-          loading={practiceBillingLoading}
-          error={null}
-          onViewAll={onViewAllIntakes}
-          onViewIntake={onViewIntake}
-        />
-      </div>
     );
   }
 

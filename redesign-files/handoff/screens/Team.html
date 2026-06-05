@@ -1,0 +1,185 @@
+<!doctype html>
+<html lang="en" data-theme="">
+<head>
+<meta charset="utf-8" />
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,opsz,wght@0,8..60,300..900;1,8..60,300..900&family=Geist:wght@300;400;500;600;700&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="tokens.css">
+<title>Blawby — Team</title>
+
+<style>
+  body{ background-image: radial-gradient(rgba(15,30,54,0.025) 1px, transparent 1.2px); background-size: 3px 3px; background-attachment: fixed; }
+  .shell{ display:grid; grid-template-columns: 280px 1fr; min-height: 100vh; max-width: 1440px; margin: 0 auto; }
+  .side{
+    border-right: 1px solid var(--rule); padding: 22px 16px;
+    display:flex; flex-direction:column; gap: 14px;
+    position: sticky; top: 0; height: 100vh; overflow-y: auto;
+    background: color-mix(in oklab, var(--paper) 96%, var(--card));
+  }
+  .back{ display:inline-flex; align-items:center; gap: 6px; font-family: var(--mono); font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--dim); cursor: pointer; padding: 4px 8px; margin-left: -8px; text-decoration:none; }
+  .back:hover{ color: var(--ink); }
+  .side h2{ font-family: var(--serif); font-weight:400; font-size: 28px; margin: 4px 0 0; letter-spacing:-.012em; }
+  .side .org{ font-family:var(--mono); font-size:11px; color: var(--dim); letter-spacing: .04em; }
+  .nav-section{ display:flex; flex-direction:column; gap: 1px; margin-top: 6px; }
+  .nav-section .lbl{ font-family: var(--mono); font-size: 9.5px; letter-spacing: .12em; text-transform: uppercase; color: var(--dim-2); padding: 14px 10px 6px; }
+  .nav-item{ display:flex; align-items:center; gap: 10px; padding: 8px 10px; border-radius: var(--r-xs); font-size: 13.5px; color: var(--ink-2); cursor: pointer; transition: background .14s, color .14s; text-decoration: none; }
+  .nav-item:hover{ background: var(--rule-soft); color: var(--ink); }
+  .nav-item.on{ background: var(--ink); color: var(--accent); }
+  .nav-item .ic{ width:14px; height:14px; opacity:.7; flex-shrink:0; }
+  .nav-item.on .ic{ opacity: 1; }
+  .nav-item .badge{ margin-left: auto; font-family: var(--mono); font-size: 10px; color: var(--dim); }
+  .nav-item.on .badge{ color: var(--accent); }
+  .main{ padding: 36px 56px 80px; max-width: 920px; }
+  .crumb{ font-family: var(--mono); font-size: 10px; letter-spacing: .14em; text-transform: uppercase; color: var(--dim); margin-bottom: 6px; }
+  .main h1{ font-family: var(--serif); font-weight: 400; font-size: 48px; letter-spacing:-.02em; line-height: 1.05; margin: 0; }
+  .main h1 em{ color: var(--accent); }
+  .main > .lede{ margin: 12px 0 36px; }
+  section.group{ padding: 32px 0; border-top: 1px solid var(--rule); }
+  section.group:first-of-type{ border-top: none; padding-top: 0; }
+  section.group h3{ font-family: var(--serif); font-weight: 400; font-size: 24px; margin: 0 0 4px; letter-spacing:-.01em; }
+  section.group .gdesc{ font-size: 13.5px; color: var(--dim); margin: 0 0 24px; max-width: 60ch; }
+  .setting{ display:grid; grid-template-columns: 1fr auto; gap: 28px; align-items: center; padding: 18px 0; border-bottom: 1px solid var(--rule); }
+  .setting:last-child{ border-bottom: none; }
+  .setting .meta{ display:flex; flex-direction:column; gap:4px; }
+  .setting .meta .h{ font-size: 14px; font-weight: 500; color: var(--ink); }
+  .setting .meta .d{ font-size: 13px; color: var(--dim); max-width: 64ch; line-height: 1.5; }
+  .setting .meta .d code{ font-family: var(--mono); font-size: 11.5px; background: var(--rule-soft); padding: 1px 6px; border-radius: 3px; color: var(--ink-2); }
+  .setting .ctrl{ display:flex; align-items:center; gap: 8px; min-width: 200px; justify-content: flex-end; }
+  .setting .ctrl .input, .setting .ctrl .select{ width: 220px; }
+  .danger{ margin-top: 32px; padding: 22px; border: 1px solid color-mix(in oklab, var(--neg) 30%, var(--rule)); border-radius: var(--r-md); background: color-mix(in oklab, var(--neg) 6%, var(--card)); }
+  .danger h3{ color: var(--neg); }
+  .danger .gdesc{ color: var(--ink-2); }
+  @media (max-width: 980px){ .shell{ grid-template-columns: 1fr; } .side{ display:none; } .main{ padding: 24px 22px; } }
+</style>
+<style>
+  .team-grid{ display:flex; flex-direction:column; gap:10px; }
+  .team-row{ display:grid; grid-template-columns: 40px 1fr 120px 100px auto; gap: 16px; align-items:center; padding: 14px 16px; background: var(--card); border: 1px solid var(--rule); border-radius: var(--r-md); box-shadow: var(--shadow-1); }
+  .team-row .av{ width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center; font-weight: 600; font-size: 14px; flex-shrink: 0; }
+  .team-row .who .n{ font-size: 14px; font-weight: 500; color: var(--ink); }
+  .team-row .who .e{ font-size: 12px; color: var(--dim); font-family: var(--mono); margin-top: 1px; }
+  .team-row .role-tag{ font-family: var(--mono); font-size: 10.5px; letter-spacing: .06em; text-transform: uppercase; color: var(--dim); }
+  .team-row .status-dot{ display: inline-flex; align-items: center; gap: 5px; font-family: var(--mono); font-size: 10px; letter-spacing: .04em; text-transform: uppercase; }
+  .team-row .status-dot::before{ content:""; width:6px; height:6px; border-radius:50%; }
+  .team-row .status-dot.active::before{ background: var(--pos); }
+  .team-row .status-dot.active{ color: var(--pos); }
+  .team-row .status-dot.pending::before{ background: var(--warn); }
+  .team-row .status-dot.pending{ color: var(--warn); }
+  .invite-form{ background: var(--card); border: 1px solid var(--rule); border-radius: var(--r-md); padding: 22px; box-shadow: var(--shadow-1); margin-top: 14px; }
+  .invite-form h4{ font-family: var(--serif); font-weight: 400; font-size: 18px; margin: 0 0 4px; }
+  .invite-form .desc{ font-size: 13px; color: var(--dim); margin: 0 0 18px; }
+  .invite-row{ display: flex; gap: 12px; align-items: flex-end; }
+  .invite-row .field{ flex: 1; }
+  .perm-grid{ display: grid; grid-template-columns: 1fr auto; gap: 18px; align-items: center; padding: 14px 0; border-bottom: 1px solid var(--rule); }
+  .perm-grid:last-child{ border-bottom: none; }
+  .perm-grid .p-name{ font-size: 14px; font-weight: 500; color: var(--ink); }
+  .perm-grid .p-desc{ font-size: 13px; color: var(--dim); line-height: 1.4; }
+  @media (max-width: 720px){ .team-row{ grid-template-columns: 40px 1fr auto; } .team-row .role-tag, .team-row .status-dot{ display:none; } }
+</style>
+</head>
+<body>
+<div class="shell">
+    <aside class="side">
+    <a href="Assistant.html" class="back">← back to assistant</a>
+    <div><h2>Settings</h2><div class="org">Law Offices of Sarah Chen · solo</div></div>
+    <div class="nav-section"><div class="lbl">Practice</div>
+      <a href="Profile.html" class="nav-item"><span class="ic">⌂</span>Profile &amp; areas</a>
+      <a href="Team.html" class="nav-item on"><span class="ic">＋</span>Team <span class="badge">1</span></a>
+      <a href="Services.html" class="nav-item"><span class="ic">⏳</span>Services &amp; pricing <span class="badge">5</span></a></div>
+    <div class="nav-section"><div class="lbl">Money</div>
+      <a href="Subscription.html" class="nav-item"><span class="ic">$</span>Subscription</a>
+      <a href="StripeConnect.html" class="nav-item"><span class="ic">⇄</span>Stripe Connect</a>
+      <a href="Trust.html" class="nav-item"><span class="ic">▤</span>Trust accounting <span class="badge">IOLTA</span></a></div>
+    <div class="nav-section"><div class="lbl">Intelligence</div>
+      <a href="Settings.html" class="nav-item"><span class="ic">✦</span>AI behavior</a>
+      <a href="IntakeForms.html" class="nav-item"><span class="ic">📥</span>Intake forms <span class="badge">3</span></a>
+      <a href="EngagementTemplates.html" class="nav-item"><span class="ic">⌥</span>Engagement templates</a>
+      <a href="Apps.html" class="nav-item"><span class="ic">⬡</span>Apps &amp; integrations <span class="badge">1</span></a>
+      <a href="MCP.html" class="nav-item"><span class="ic">▦</span>MCP &amp; API <span class="badge">beta</span></a></div>
+    <div class="nav-section"><div class="lbl">Account</div>
+      <a href="Security.html" class="nav-item"><span class="ic">⚿</span>Security</a>
+      <a href="Sessions.html" class="nav-item"><span class="ic">◉</span>Sessions</a>
+      <a href="Appearance.html" class="nav-item"><span class="ic">◐</span>Appearance</a>
+      <a href="Notifications.html" class="nav-item"><span class="ic">⌘</span>Notifications</a>
+      <a href="AuditLog.html" class="nav-item"><span class="ic">⎯</span>Audit log</a>
+      <a href="ExportData.html" class="nav-item"><span class="ic">↧</span>Export data</a></div>
+  </aside>
+  <main class="main">
+    <div class="crumb">Settings · Practice</div>
+    <h1>Your <em>team.</em></h1>
+    <p class="lede">Manage who has access to your workspace. Each seat includes full assistant access with their own conversation history.</p>
+
+    <section class="group" style="border:none;padding-top:0">
+      <h3>Members</h3>
+      <p class="gdesc">Active members and pending invitations.</p>
+
+      <div class="team-grid">
+        <div class="team-row">
+          <div class="av" style="background: var(--ink); color: var(--accent); font-family: var(--serif); font-style: italic;">S</div>
+          <div class="who">
+            <div class="n">Sarah Chen</div>
+            <div class="e">sarah@sarahchenlaw.com</div>
+          </div>
+          <div class="role-tag">owner</div>
+          <div class="status-dot active">active</div>
+          <button class="btn btn-ghost btn-sm" disabled style="opacity:.4">You</button>
+        </div>
+      </div>
+    </section>
+
+    <section class="group">
+      <h3>Invite a team member</h3>
+      <p class="gdesc">New members receive their own login and assistant thread. You control what they can see and do.</p>
+
+      <div class="invite-form">
+        <h4>Send invitation</h4>
+        <p class="desc">They'll receive an email with a link to join your workspace.</p>
+        <div class="invite-row">
+          <div class="field"><label>Email address</label><input class="input" placeholder="paralegal@sarahchenlaw.com" /></div>
+          <div class="field" style="max-width:160px"><label>Role</label><select class="select"><option>Attorney</option><option>Paralegal</option><option>Admin</option><option>Read-only</option></select></div>
+          <button class="btn btn-primary" style="margin-bottom:1px">Invite →</button>
+        </div>
+      </div>
+    </section>
+
+    <section class="group">
+      <h3>Role permissions</h3>
+      <p class="gdesc">What each role can access. Custom roles coming soon.</p>
+
+      <div class="perm-grid">
+        <div><div class="p-name">Attorney</div><div class="p-desc">Full access to matters, billing, and trust. Can approve staged actions.</div></div>
+        <span class="pill">all permissions</span>
+      </div>
+      <div class="perm-grid">
+        <div><div class="p-name">Paralegal</div><div class="p-desc">Read/write matters and intakes. Cannot access billing or trust ledger.</div></div>
+        <span class="pill">limited</span>
+      </div>
+      <div class="perm-grid">
+        <div><div class="p-name">Admin</div><div class="p-desc">Manage settings, billing, and team. Cannot view matter details or trust.</div></div>
+        <span class="pill">admin only</span>
+      </div>
+      <div class="perm-grid">
+        <div><div class="p-name">Read-only</div><div class="p-desc">View matters and reports. Cannot create, edit, or approve anything.</div></div>
+        <span class="pill">view only</span>
+      </div>
+    </section>
+
+    <section class="group">
+      <h3>Seat usage</h3>
+      <p class="gdesc">Your plan includes 3 seats. You're using 1.</p>
+      <div style="margin-top: 8px">
+        <div style="display:flex;justify-content:space-between;margin-bottom:6px">
+          <span style="font-size:13px;color:var(--ink-2)">1 of 3 seats used</span>
+          <span style="font-family:var(--mono);font-size:11px;color:var(--dim)">2 remaining</span>
+        </div>
+        <div class="bar" style="height:6px"><i style="width:33%"></i></div>
+      </div>
+    </section>
+  </main>
+</div>
+<script>
+  document.querySelectorAll('[data-toggle]').forEach(t=>{
+    t.addEventListener('click', ()=> t.classList.toggle('on'));
+  });
+</script>
+</body></html>

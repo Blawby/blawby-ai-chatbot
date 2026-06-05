@@ -54,16 +54,16 @@ export interface ChatContainerProps {
   onOpenSidebar?: () => void;
   practiceId?: string;
   // File handling props
-  previewFiles: FileAttachment[];
-  uploadingFiles: UploadingFile[];
-  removePreviewFile: (index: number) => void;
-  clearPreviewFiles: () => void;
-  handleFileSelect: (files: File[]) => Promise<unknown>;
-  handleCameraCapture: (file: File) => Promise<void>;
-  cancelUpload: (fileId: string) => void;
-  handleMediaCapture: (blob: Blob, type: 'audio' | 'video') => void;
-  isRecording: boolean;
-  setIsRecording: (v: boolean) => void;
+  previewFiles?: FileAttachment[];
+  uploadingFiles?: UploadingFile[];
+  removePreviewFile?: (index: number) => void;
+  clearPreviewFiles?: () => void;
+  handleFileSelect?: (files: File[]) => Promise<unknown>;
+  handleCameraCapture?: (file: File) => Promise<void>;
+  cancelUpload?: (fileId: string) => void;
+  handleMediaCapture?: (blob: Blob, type: 'audio' | 'video') => void;
+  isRecording?: boolean;
+  setIsRecording?: (v: boolean) => void;
   isReadyToUpload?: boolean;
   isAnonymousUser?: boolean;
   canChat?: boolean;
@@ -99,6 +99,14 @@ export interface ChatContainerProps {
   currentUserId?: string | null;
   /** Send typing.start (true) / typing.stop (false) on the active WS. */
   sendTypingState?: (isTyping: boolean) => void;
+  /**
+   * U8: when set, the composer renders a permanent disabled state with the
+   * `message` as an inline error above the textarea. Distinct from the
+   * transient toast-error path — `hardError` marks end-of-conversation
+   * after an intake AI failure (worker emits this via the SSE stream with
+   * `code: 'ai_failed'`; see U6).
+   */
+  hardError?: { message: string; failureReason?: string | null } | null;
 }
 
 const ChatContainer: FunctionComponent<ChatContainerProps> = ({
@@ -120,16 +128,16 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
   practiceId,
   onToggleReaction,
   onRequestReactions,
-  previewFiles,
-  uploadingFiles,
-  removePreviewFile,
-  clearPreviewFiles,
-  handleFileSelect,
-  handleCameraCapture,
-  cancelUpload,
-  handleMediaCapture,
-  isRecording,
-  setIsRecording,
+  previewFiles = [],
+  uploadingFiles = [],
+  removePreviewFile = () => {},
+  clearPreviewFiles = () => {},
+  handleFileSelect = async () => {},
+  handleCameraCapture = async () => {},
+  cancelUpload = () => {},
+  handleMediaCapture = () => {},
+  isRecording = false,
+  setIsRecording = () => {},
   isReadyToUpload,
   clearInput,
   canChat = true,
@@ -153,6 +161,7 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
   readReceiptsByUser,
   currentUserId,
   sendTypingState,
+  hardError,
 }) => {
   const intakeContext = useIntakeContext();
   const [inputValue, setInputValue] = useState('');
@@ -160,6 +169,7 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
   const [replyTarget, setReplyTarget] = useState<ReplyTarget | null>(null);
   const composerDockRef = useRef<HTMLDivElement>(null);
   const [composerInsetPx, setComposerInsetPx] = useState(104);
+  const [keyboardInsetPx, setKeyboardInsetPx] = useState(0);
   const isChatInputLocked = (!isReady && !!conversationId) || (isPublicWorkspace && intakeContext.intakeStatus?.step === 'contact_form_slim');
 
   // Track whether the chat connection has ever been ready *for the current
@@ -268,6 +278,21 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
     const fallback = window.setInterval(updateInset, 200);
     return () => window.clearInterval(fallback);
   }, [hideComposer]);
+
+  // Shift the sticky composer above the iOS virtual keyboard using visualViewport.
+  useEffect(() => {
+    const vp = window.visualViewport;
+    if (!vp) return;
+    const update = () => {
+      setKeyboardInsetPx(Math.max(0, window.innerHeight - vp.height - vp.offsetTop));
+    };
+    vp.addEventListener('resize', update);
+    vp.addEventListener('scroll', update);
+    return () => {
+      vp.removeEventListener('resize', update);
+      vp.removeEventListener('scroll', update);
+    };
+  }, []);
 
   // Return focus to chat input when slim form is dismissed
   const prevShouldShowSlimFormRef = useRef(shouldShowSlimForm);
@@ -550,10 +575,14 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
 
           </div>
 
-          <div ref={composerDockRef} className="sticky bottom-0 z-[1000] w-full">
+          <div
+            ref={composerDockRef}
+            className="sticky bottom-0 z-[1000] w-full pb-[env(safe-area-inset-bottom)]"
+            style={keyboardInsetPx > 0 ? { bottom: keyboardInsetPx } : undefined}
+          >
             {isReconnecting ? (
               <div
-                className="mx-auto flex w-full max-w-3xl items-center gap-2 px-4 py-2 text-xs text-input-placeholder"
+                className="mx-auto flex w-full max-w-3xl items-center gap-2 px-4 py-2 text-xs text-dim-2"
                 role="status"
                 aria-live="polite"
               >
@@ -606,12 +635,13 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
                   isSessionReady={isReady || (!conversationId && !!canChat)}
                   isSocketReady={isReady || (!conversationId && !!canChat)}
                   intakeStatus={isPublicWorkspace ? composerIntakeStatus : undefined}
-                  disabled={isChatInputLocked}
+                  disabled={isChatInputLocked || Boolean(hardError)}
                   replyTo={replyTarget}
                   onCancelReply={handleCancelReply}
                   mentionCandidates={mentionCandidates}
                   hideAttachmentControls={!features.enableFileAttachments}
                   isPublicWorkspace={isPublicWorkspace}
+                  hardError={hardError ?? null}
                 />
             )}
           </div>

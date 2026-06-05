@@ -31,7 +31,7 @@ export const ChatDockedAction: FunctionComponent<ChatDockedActionProps> = ({
   return (
     <div
       className={cn(
-        'ui-surface-enter mx-2 mb-4 overflow-hidden shadow-glass glass-card p-6 text-input-text border-none',
+        'ui-surface-enter mx-2 mb-4 overflow-hidden shadow-glass card p-6 text-ink border-none',
         containerClassName
       )}
     >
@@ -39,12 +39,12 @@ export const ChatDockedAction: FunctionComponent<ChatDockedActionProps> = ({
         <div className="mb-4 flex items-start justify-between gap-4">
           <div className="flex-1 min-w-0">
             {title && (
-              <h3 className="truncate text-lg font-bold leading-tight text-input-text">
+              <h3 className="truncate text-lg font-bold leading-tight text-ink">
                 {title}
               </h3>
             )}
             {description && (
-              <p className="mt-1 text-sm text-input-placeholder">
+              <p className="mt-1 text-sm text-dim-2">
                 {description}
               </p>
             )}
@@ -55,7 +55,7 @@ export const ChatDockedAction: FunctionComponent<ChatDockedActionProps> = ({
               size="icon-sm"
               onClick={onClose}
               aria-label="Dismiss"
-              className="shrink-0 text-input-placeholder hover:bg-surface-hover hover:text-input-text"
+              className="shrink-0 text-dim-2 hover:bg-paper-2 hover:text-ink"
             >
               <Icon icon={X} className="h-5 w-5" />
             </Button>

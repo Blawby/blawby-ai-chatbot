@@ -86,7 +86,7 @@ export const ColumnEditor = ({
                 />
               ))
             ) : (
-              <p className="px-2 py-1.5 text-xs text-input-placeholder">
+              <p className="px-2 py-1.5 text-xs text-dim-2">
                 No additional columns active
               </p>
             )}
@@ -117,7 +117,7 @@ const ColumnSection = ({
   children: ComponentChildren;
 }) => (
   <div className="pb-2 last:pb-1">
-    <h3 className="px-2 pb-1 pt-2 text-[11px] font-semibold uppercase tracking-wide text-input-placeholder">
+    <h3 className="px-2 pb-1 pt-2 text-[11px] font-semibold uppercase tracking-wide text-dim-2">
       {title}
     </h3>
     <div className="flex flex-col">{children}</div>
@@ -125,7 +125,7 @@ const ColumnSection = ({
 );
 
 const FixedColumnRow = ({ label }: { label: string }) => (
-  <div className="px-2 py-1.5 text-sm text-input-text">{label}</div>
+  <div className="px-2 py-1.5 text-sm text-ink">{label}</div>
 );
 
 const ToggleColumnRow = ({
@@ -144,9 +144,9 @@ const ToggleColumnRow = ({
     onClick={onToggle}
     className={cn(
       'flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm transition-colors',
-      'hover:bg-surface-utility/10',
-      'focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-500/50',
-      checked ? 'text-input-text' : 'text-input-placeholder',
+      'hover:bg-paper-2/10',
+      'focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/50',
+      checked ? 'text-ink' : 'text-dim-2',
     )}
   >
     <span
@@ -154,7 +154,7 @@ const ToggleColumnRow = ({
       className={cn(
         'inline-flex h-4 w-4 shrink-0 items-center justify-center rounded border transition-colors',
         checked
-          ? 'border-accent-500 bg-accent-500 text-accent-foreground'
+          ? 'border-accent bg-accent text-accent-ink'
           : 'border-input-border bg-input-bg',
       )}
     >

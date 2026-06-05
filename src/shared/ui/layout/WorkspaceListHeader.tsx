@@ -53,7 +53,7 @@ export const WorkspaceListHeader = ({
       </Button>
       ) : null}
       {title ? (
-        <div className={cn('workspace-header__identity', centerTitle && 'absolute left-1/2 -translate-x-1/2 text-center', 'text-input-text')}>
+        <div className={cn('workspace-header__identity', centerTitle && 'absolute left-1/2 -translate-x-1/2 text-center', 'text-ink')}>
           {title}
         </div>
       ) : null}

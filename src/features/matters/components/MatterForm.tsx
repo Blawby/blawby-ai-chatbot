@@ -145,7 +145,7 @@ const buildInitialState = (mode: MatterFormMode, initialValues?: Partial<MatterF
 });
 
 const buildLeadingIcon = (icon: ComponentChildren) => (
-  <div className="w-6 h-6 rounded-full border border-dashed border-line-subtle flex items-center justify-center text-input-placeholder">
+  <div className="w-6 h-6 rounded-full border border-dashed border-line-subtle flex items-center justify-center text-dim-2">
     {icon}
   </div>
 );
@@ -178,10 +178,10 @@ const MatterMilestoneForm = ({
 
   return (
     <div className="border-t border-line-subtle pt-6 space-y-4">
-      <h4 className="text-lg font-medium text-input-text">Enter project milestones</h4>
+      <h4 className="text-lg font-medium text-ink">Enter project milestones</h4>
 
       {milestones.length > 0 && (
-        <ol className="list-decimal pl-4 space-y-2 text-sm text-input-text">
+        <ol className="list-decimal pl-4 space-y-2 text-sm text-ink">
           {milestones.map((milestone, index) => (
             <li
               key={`${milestone.description}-${index}`}
@@ -191,7 +191,7 @@ const MatterMilestoneForm = ({
               <span className="text-left sm:text-right tabular-nums">
                 {milestone.amount ? `$${milestone.amount.toFixed(2)}` : '$0.00'}
               </span>
-              <span className="text-left sm:text-right tabular-nums text-input-placeholder">
+              <span className="text-left sm:text-right tabular-nums text-dim-2">
                 {milestone.dueDate ? formatDateOnlyUtc(milestone.dueDate) : ''}
               </span>
             </li>
@@ -216,7 +216,7 @@ const MatterMilestoneForm = ({
               enforceMaxLength="hard"
               placeholder="Enter a description of your deliverable"
             />
-            <p className="mt-1 text-sm text-input-placeholder">
+            <p className="mt-1 text-sm text-dim-2">
               {draft.description.length}/100
             </p>
           </div>
@@ -389,7 +389,7 @@ const MatterFormInner = ({
       }}
     >
         {unwrapped ? null : (
-          <h2 className="text-xl font-semibold text-input-text">{modalTitle}</h2>
+          <h2 className="text-xl font-semibold text-ink">{modalTitle}</h2>
         )}
 
         <Input
@@ -441,7 +441,7 @@ const MatterFormInner = ({
               (close) => (
                 <button
                   type="button"
-                  className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-accent-utility hover:bg-surface-card-hover"
+                  className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-accent hover:bg-paper-2"
                   onMouseDown={(e) => e.preventDefault()}
                   onClick={() => {
                     close();
@@ -467,7 +467,7 @@ const MatterFormInner = ({
         </div>
 
         <div className="space-y-4">
-          <h3 className="text-lg font-medium text-input-text">Matter specifics</h3>
+          <h3 className="text-lg font-medium text-ink">Matter specifics</h3>
           <FormGrid>
             <Input
               label="Case number"
@@ -561,7 +561,7 @@ const MatterFormInner = ({
         </div>
 
         <div className="border-t border-line-subtle pt-6 space-y-4">
-          <h3 className="text-lg font-medium text-input-text">Attorney assignments</h3>
+          <h3 className="text-lg font-medium text-ink">Attorney assignments</h3>
           <FormGrid>
             <Combobox
               label="Responsible attorney"
@@ -691,7 +691,7 @@ const MatterFormInner = ({
                 max={100}
                 step={0.1}
                 inputMode="decimal"
-                icon={<span className="text-xs font-semibold text-input-placeholder">%</span>}
+                icon={<span className="text-xs font-semibold text-dim-2">%</span>}
                 iconPosition="right"
               />
             </div>
@@ -702,13 +702,13 @@ const MatterFormInner = ({
           <p className="text-sm text-red-400">{submitError}</p>
         ) : null}
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <p className="flex items-center gap-2 text-xs text-input-placeholder">
-            <Icon icon={ShieldCheck} className="h-4 w-4 text-input-placeholder"  />
+          <p className="flex items-center gap-2 text-xs text-dim-2">
+            <Icon icon={ShieldCheck} className="h-4 w-4 text-dim-2"  />
             <span>
               Payments are built for securing IOLTA compliance.{' '}
               <a
                 href="https://blawby.com/compliance/iolta-compliance"
-                className="font-medium underline text-accent-500 hover:text-accent-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-500"
+                className="font-medium underline text-accent hover:text-accent-deep focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
                 target="_blank"
                 rel="noopener noreferrer"
               >

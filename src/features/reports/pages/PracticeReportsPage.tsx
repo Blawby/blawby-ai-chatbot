@@ -36,7 +36,7 @@ export const PracticeReportsPage: FunctionComponent<PracticeReportsPageProps> = 
   practiceSlug,
 }) => {
   if (reportType === ALL_REPORTS_HUB_ID) {
-    return <AllReportsHub practiceSlug={practiceSlug} />;
+    return <AllReportsHub practiceId={practiceId} practiceSlug={practiceSlug} />;
   }
   if (reportType === DELIVERIES_SECTION_ID) {
     return deliveryId

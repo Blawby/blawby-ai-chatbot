@@ -9,7 +9,7 @@ import {
 import type { ChatMessageAction } from '../../src/shared/types/conversation';
 import { createSubmitAction } from '../../src/shared/utils/chatActions';
 import type { IntakeFieldDefinition, IntakeTemplate } from '../../src/shared/types/intake.js';
-import { STANDARD_FIELD_KEYS, DEFAULT_INTAKE_TEMPLATE } from '../../src/shared/constants/intakeTemplates.js';
+import { STANDARD_FIELD_KEYS, STANDARD_FIELD_DEFINITIONS } from '../../src/shared/constants/intakeTemplates.js';
 import {
   resolveNextField,
   isFieldCollected,
@@ -45,7 +45,7 @@ const US_STATE_NAME_TO_CODE: Record<string, string> = {
  * IntakeTemplate fields. Falls back to the default template if fields are empty.
  */
 export function buildSaveCaseDetailsTool(fields: IntakeFieldDefinition[]) {
-  const activeFields = fields.length > 0 ? fields : DEFAULT_INTAKE_TEMPLATE.fields;
+  const activeFields = fields.length > 0 ? fields : STANDARD_FIELD_DEFINITIONS;
   const properties: Record<string, object> = {};
 
   for (const field of activeFields) {
@@ -103,14 +103,14 @@ export function buildSaveCaseDetailsTool(fields: IntakeFieldDefinition[]) {
 }
 
 /** Convenience constant: the default tool schema using the default template. */
-export const SAVE_CASE_DETAILS_TOOL = buildSaveCaseDetailsTool(DEFAULT_INTAKE_TEMPLATE.fields);
+export const SAVE_CASE_DETAILS_TOOL = buildSaveCaseDetailsTool(STANDARD_FIELD_DEFINITIONS);
 
 /**
  * Generates the field instruction block injected into the system prompt.
  * Incorporates Phase 2 (promptHint) and Phase 3 (validationHint, condition).
  */
 export function buildFieldInstructions(fields: IntakeFieldDefinition[]): string {
-  const activeFields = fields.length > 0 ? fields : DEFAULT_INTAKE_TEMPLATE.fields;
+  const activeFields = fields.length > 0 ? fields : STANDARD_FIELD_DEFINITIONS;
   return activeFields.map((f) => {
     const req = f.required ? '(required)' : '(optional)';
     const questionText = f.isStandard ? (f.previewQuestion?.trim() || f.label) : f.label;
@@ -205,7 +205,7 @@ export function buildIntakeTools(fields: IntakeFieldDefinition[]) {
 }
 
 /** Default tools using the default template. */
-export const INTAKE_TOOLS = buildIntakeTools(DEFAULT_INTAKE_TEMPLATE.fields);
+export const INTAKE_TOOLS = buildIntakeTools(STANDARD_FIELD_DEFINITIONS);
 
 // ---------------------------------------------------------------------------
 // Tool result types
@@ -319,7 +319,7 @@ export const handleSaveCaseDetails = (
   const templatePaymentConfigured = typeof submissionGate.templateConsultationFee === 'number';
   const consultationFee = templatePaymentConfigured
     ? submissionGate.templateConsultationFee
-    : readFiniteNumberField(submissionGate.details, ['consultationFee', 'consultation_fee']);
+    : readFiniteNumberField(submissionGate.details, ['consultation_fee']);
   const actions = deriveNextActions(merged, submissionGate, consultationFee, postSaveNextEnrichmentField);
   if (actions.length > 0) {
     patch.ctaShown = true;
@@ -576,13 +576,8 @@ When the user answers, call save_case_details with the answered field. If the us
 If the answer is unclear or invalid, ask exactly ONE clarifying follow-up.
 Never ask about any other field this turn.`;
   })() : isEnrichmentMode
-    ? `All enrichment questions have been answered. Thank the user and confirm their case is as strong as possible. The submit action is available.`
-    : `All required information has been collected.${userNamingInstruction}
-${storedIntakeState ? `Warmly acknowledge what you have:` : ''}
-${intakeContext ? intakeContext : ''}
-
-Ask if they are ready to submit, or if they would like to add more detail to strengthen their case.
-Do NOT ask any more intake questions.`;
+    ? `All enrichment questions have been answered.${userNamingInstruction} Thank the client and let them know their information is as complete as possible. Tell them you are ready to submit for review whenever they are.`
+    : buildConfirmationPrompt(intakeContext, userNamingInstruction);
 
   // --- Tool usage rules (always included) ---
   const toolRules = `Tool usage rules:
@@ -621,6 +616,41 @@ ${consultationFeeNote}
 ${contextBlock ? `\n${contextBlock}` : ''}`.trim();
 };
 
+
+/**
+ * Builds the system prompt block for the confirmation turn — the moment
+ * after all required fields are collected but before the client submits.
+ *
+ * The AI is told to synthesize everything into a natural paragraph (not a
+ * bullet list), surface anything it can infer from the description that the
+ * client didn't explicitly say, and end with an open question giving the
+ * client a chance to correct or add anything. This turn is the highest-yield
+ * moment for catching errors and capturing volunteered facts.
+ */
+function buildConfirmationPrompt(intakeContext: string, userNamingInstruction: string): string {
+  const contextSection = intakeContext
+    ? `Here is what has been collected — use this to write your synthesis:\n${intakeContext}`
+    : '';
+
+  return `You have finished collecting the required intake information.${userNamingInstruction}
+
+Your job this turn is to:
+1. Write a warm, natural 2–4 sentence summary of the client's situation — NOT a bullet list. Write it the way a knowledgeable friend would recap what they heard. Mention the key facts: what the matter is about, where they are, who is involved, and any urgency or deadlines. Do not repeat field labels or use legal jargon.
+2. End with exactly this question (or a close natural variation): "Does that capture your situation? Is there anything important I missed, or anything you'd like to add before we send this over?"
+
+If the client confirms ("yes", "looks right", "that's correct", "go ahead") → call submit_intake immediately.
+If the client corrects something or provides new information → call save_case_details with the correction, acknowledge it in one sentence, present the updated summary, and ask for confirmation again.
+If the client volunteers additional facts → call save_case_details if any are structured fields, then incorporate the new detail into your summary and re-confirm.
+
+Rules for your summary:
+- Plain English only — no field keys, no bullet points, no labels
+- Sound like you genuinely understood their situation
+- Omit any field that was not filled in
+- Keep the summary under 80 words
+- One open-ended closing question only — do not list options or ask multiple questions
+
+${contextSection}`.trim();
+}
 
 function buildIntakeContextSummary(
   state: Record<string, unknown> | null,
@@ -891,10 +921,6 @@ const normalizePracticeDetailsForAi = (details: Record<string, unknown> | null):
     const next = normalizeMoney(normalized.consultation_fee);
     if (next !== undefined) normalized.consultation_fee = next;
   }
-  if ('consultationFee' in normalized) {
-    const next = normalizeMoney(normalized.consultationFee);
-    if (next !== undefined) normalized.consultationFee = next;
-  }
   return normalized;
 };
 
@@ -915,18 +941,18 @@ const buildCompactPracticeContextForPrompt = (
     }
   };
 
-  copyIfPresent('practiceName', ['practice_name', 'practiceName', 'name']);
+  copyIfPresent('practiceName', ['name']);
   copyIfPresent('description', ['description', 'about', 'summary']);
-  copyIfPresent('businessPhone', ['businessPhone', 'business_phone', 'contactPhone', 'contact_phone']);
-  copyIfPresent('businessEmail', ['businessEmail', 'business_email', 'email']);
+  copyIfPresent('businessPhone', ['business_phone']);
+  copyIfPresent('businessEmail', ['business_email', 'email']);
   copyIfPresent('website', ['website']);
-  copyIfPresent('consultationFee', ['consultationFee', 'consultation_fee']);
+  copyIfPresent('consultationFee', ['consultation_fee']);
 
   if (Array.isArray(normalized.services)) {
     compact.services = normalizeServicesForPrompt(normalized);
   }
 
-  const rawServiceStates = normalized.service_states ?? normalized.serviceStates;
+  const rawServiceStates = normalized.service_states;
   if (Array.isArray(rawServiceStates)) {
     const states = rawServiceStates
       .filter((state): state is string => typeof state === 'string' && state.trim().length > 0)
@@ -943,8 +969,8 @@ const buildPracticeContactErrorReply = (
   practiceName: string,
   details: Record<string, unknown> | null,
 ): string => {
-  const phone = readAnyString(details, ['businessPhone', 'business_phone', 'contactPhone', 'contact_phone']);
-  const email = readAnyString(details, ['businessEmail', 'business_email', 'email']);
+  const phone = readAnyString(details, ['business_phone']);
+  const email = readAnyString(details, ['business_email', 'email']);
   const website = readAnyString(details, ['website']);
   const lines = [
     `We hit an internal error while continuing your consultation with ${practiceName}.`,

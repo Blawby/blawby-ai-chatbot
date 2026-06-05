@@ -59,7 +59,7 @@ const CopyButton = ({ text }: { text: string }) => {
     <button
       type="button"
       onClick={handleCopy}
-      className="absolute top-2 right-2 inline-flex items-center gap-1 rounded-md border border-[rgb(var(--surface-utility))]/10 bg-[rgb(var(--surface-app-frame))]/60 px-2 py-1 text-[11px] font-medium text-input-text opacity-0 transition focus-visible:opacity-100 group-hover:opacity-100"
+      className="absolute top-2 right-2 inline-flex items-center gap-1 rounded-md border border-[rgb(var(--surface-utility))]/10 bg-[rgb(var(--surface-app-frame))]/60 px-2 py-1 text-[11px] font-medium text-ink opacity-0 transition focus-visible:opacity-100 group-hover:opacity-100"
       aria-label="Copy code snippet"
     >
       {copied ? (
@@ -82,7 +82,7 @@ export const markdownComponents: Components = {
 
   table({ children, ...props }) {
     return (
-      <div className="overflow-x-auto my-4 rounded-xl" style={{ boxShadow: 'var(--glass-rim-subtle)' }}>
+      <div className="overflow-x-auto my-4 rounded-r-md" style={{ boxShadow: 'var(--glass-rim-subtle)' }}>
         <table className="min-w-full text-sm border-collapse" {...props}>
           {children}
         </table>
@@ -129,13 +129,13 @@ export const markdownComponents: Components = {
     const isBlock = typeof className === 'string' && className.includes('language-');
     if (isBlock) {
       return (
-        <code className="block font-mono text-sm leading-relaxed text-[rgb(var(--accent-100))]" {...props}>
+        <code className="block font-mono text-sm leading-relaxed text-accent" {...props}>
           {children}
         </code>
       );
     }
     return (
-      <code className="px-1.5 py-0.5 rounded font-mono text-[0.85em] bg-[rgb(var(--surface-utility))]/10 text-[rgb(var(--accent-300))]" {...props}>
+      <code className="px-1.5 py-0.5 rounded font-mono text-[0.85em] bg-[rgb(var(--surface-utility))]/10 text-accent" {...props}>
         {children}
       </code>
     );
@@ -147,7 +147,7 @@ export const markdownComponents: Components = {
       <div className="group relative my-3 max-w-full min-w-0">
         {copyableText ? <CopyButton text={copyableText} /> : null}
         <pre
-          className="max-w-full min-w-0 overflow-x-auto rounded-xl p-4 bg-[rgb(var(--surface-app-frame))]/40 backdrop-blur-sm text-[rgb(var(--input-foreground))] text-sm leading-relaxed"
+          className="max-w-full min-w-0 overflow-x-auto rounded-r-md p-4 bg-[rgb(var(--surface-app-frame))]/40 backdrop-blur-sm text-[rgb(var(--input-foreground))] text-sm leading-relaxed"
           style={{ boxShadow: 'var(--glass-rim-subtle)' }}
           {...props}
         >
@@ -159,7 +159,7 @@ export const markdownComponents: Components = {
 
   blockquote({ children, ...props }) {
     return (
-      <blockquote className="pl-4 border-l-2 border-[rgb(var(--accent-500))]/40 text-[rgb(var(--input-placeholder))] italic my-3" {...props}>
+      <blockquote className="pl-4 border-l-2 border-accent/40 text-[rgb(var(--input-placeholder))] italic my-3" {...props}>
         {children}
       </blockquote>
     );
@@ -184,7 +184,7 @@ function MarkdownAnchor({ href, children, ...props }: MarkdownAnchorProps) {
   const isMention = Boolean(hrefValue?.startsWith('mention://'));
   const isExternal = Boolean(hrefValue && (hrefValue.startsWith('http') || hrefValue.startsWith('//')));
   const isInternalRoute = Boolean(hrefValue && hrefValue.startsWith('/') && !hrefValue.startsWith('//'));
-  const linkClassName = 'text-accent-500 hover:text-accent-400 underline underline-offset-2 transition-colors duration-150';
+  const linkClassName = 'text-accent hover:text-accent-deep underline underline-offset-2 transition-colors duration-150';
 
   if (isMention) {
     let cleanLabel = linkText.trim();
@@ -195,7 +195,7 @@ function MarkdownAnchor({ href, children, ...props }: MarkdownAnchorProps) {
       cleanLabel = `@${cleanLabel}`;
     }
 
-    const pillClass = 'mention-token nav-item-active text-[rgb(var(--accent-foreground))] inline-flex items-center rounded-full px-2 py-0 text-[0.85em] font-semibold leading-relaxed no-underline mx-0.5 ring-1 ring-accent-400/25 whitespace-nowrap align-baseline';
+    const pillClass = 'mention-token nav-item-active text-accent-ink inline-flex items-center rounded-full px-2 py-0 text-[0.85em] font-semibold leading-relaxed no-underline mx-0.5 ring-1 ring-accent/25 whitespace-nowrap align-baseline';
 
     return (
       <span className={pillClass} title={cleanLabel}>

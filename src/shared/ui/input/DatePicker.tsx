@@ -107,15 +107,15 @@ export const DatePicker = forwardRef<HTMLInputElement, DatePickerProps>(({
   };
 
   const variantClasses = {
-    default: 'focus:ring-2 ring-inset focus:ring-accent-500/30',
+    default: 'focus:ring-2 ring-inset focus:ring-accent/30',
     error: 'ring-2 ring-inset ring-red-500/40 focus:ring-red-500/60',
     success: 'ring-2 ring-inset ring-green-500/40'
   };
 
   const inputClasses = cn(
-    'w-full min-h-[44px] rounded-xl text-input-text placeholder:text-input-placeholder',
+    'w-full min-h-[44px] rounded-r-md text-ink placeholder:text-dim-2',
     'focus:outline-none transition-all duration-200',
-    'appearance-none glass-input border-none',
+    'appearance-none field border-none',
     sizeClasses[size],
     variantClasses[variant],
     disabled && 'opacity-50 cursor-not-allowed',
@@ -125,7 +125,7 @@ export const DatePicker = forwardRef<HTMLInputElement, DatePickerProps>(({
   return (
     <div className="w-full">
       {displayLabel && (
-        <label htmlFor={inputId} className="block text-sm font-medium text-input-text mb-1">
+        <label htmlFor={inputId} className="block text-sm font-medium text-ink mb-1">
           {displayLabel}
           {required && <span className="text-red-500 ml-1">*</span>}
         </label>
@@ -169,7 +169,7 @@ export const DatePicker = forwardRef<HTMLInputElement, DatePickerProps>(({
       )}
       
       {displayDescription && !_displayError && (
-        <p id={descriptionId} className="text-xs text-input-placeholder mt-1">
+        <p id={descriptionId} className="text-xs text-dim-2 mt-1">
           {displayDescription}
         </p>
       )}

@@ -38,16 +38,16 @@ interface MatterSummaryCardsProps {
 const summaryItemBase = 'min-w-0 flex flex-col gap-1';
 const gridBase = 'grid grid-cols-1 gap-x-4 gap-y-5 @lg:grid-cols-2 @3xl:grid-cols-4 @3xl:gap-x-6';
 const wrapperBase = 'card relative overflow-hidden rounded-[20px] @container p-5 sm:p-7';
-const labelClass = 'text-[10px] font-semibold uppercase tracking-[0.14em] text-input-placeholder';
-const kpiValueClass = 'font-display text-[28px] font-bold leading-none tracking-tight tabular-nums text-input-text';
-const denseValueClass = 'font-display text-[24px] font-bold leading-none tracking-tight tabular-nums text-input-text';
-const iconSquareClass = 'inline-flex h-7 w-7 items-center justify-center rounded-lg border border-card-border bg-surface-card-raised text-accent-utility';
+const labelClass = 'text-[10px] font-semibold uppercase tracking-[0.14em] text-dim-2';
+const kpiValueClass = 'font-serif text-[28px] font-bold leading-none tracking-tight tabular-nums text-ink';
+const denseValueClass = 'font-serif text-[24px] font-bold leading-none tracking-tight tabular-nums text-ink';
+const iconSquareClass = 'inline-flex h-7 w-7 items-center justify-center rounded-lg border border-card-border bg-card text-accent';
 const revealClass = 'motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-bottom-1 motion-safe:duration-300';
 
 const Halo = () => (
   <div
     aria-hidden="true"
-    className="pointer-events-none absolute -right-16 -top-16 h-48 w-48 rounded-full bg-[radial-gradient(circle_at_center,rgb(var(--accent-500)/0.035),transparent_70%)] blur-2xl"
+    className="pointer-events-none absolute -right-16 -top-16 h-48 w-48 rounded-full bg-[radial-gradient(circle_at_center,rgb(var(--accent-rgb)/0.035),transparent_70%)] blur-2xl"
   />
 );
 
@@ -172,7 +172,7 @@ export const MatterSummaryCards = ({
                   </div>
                   <p className={cn('mt-3 break-words', isFirst ? kpiValueClass : denseValueClass)}>{card.value}</p>
                   {card.helper ? (
-                    <p className="mt-1 text-xs leading-snug text-input-placeholder/80">{card.helper}</p>
+                    <p className="mt-1 text-xs leading-snug text-dim-2/80">{card.helper}</p>
                   ) : null}
                 </div>
               );
@@ -182,7 +182,7 @@ export const MatterSummaryCards = ({
                 size="xs"
                 onClick={() => onCreateInvoice?.()}
                 disabled={!onCreateInvoice}
-                className="w-full justify-center font-display font-semibold tracking-wide"
+                className="w-full justify-center font-serif font-semibold tracking-wide"
               >
                 Invoice
               </Button>
@@ -191,12 +191,12 @@ export const MatterSummaryCards = ({
                   <button
                     type="button"
                     onClick={() => onViewTimesheet()}
-                    className="text-xs font-semibold text-accent-500 transition-colors hover:text-accent-600"
+                    className="text-xs font-semibold text-accent transition-colors hover:text-accent-deep"
                   >
                     View timesheet
                   </button>
                 ) : (
-                  <span className="text-xs font-medium text-input-placeholder/60">View timesheet</span>
+                  <span className="text-xs font-medium text-dim-2/60">View timesheet</span>
                 )}
               </div>
             </div>
@@ -220,25 +220,25 @@ export const MatterSummaryCards = ({
               <p className={cn(labelClass, 'leading-tight')}>Billable time this week</p>
             </div>
             <p className={cn('mt-3 break-words', kpiValueClass)}>{billableDisplay}</p>
-            <p className="mt-1.5 text-xs leading-snug text-input-placeholder/80">
+            <p className="mt-1.5 text-xs leading-snug text-dim-2/80">
               Based on recorded billable entries this week.
             </p>
             {onLearnMore ? (
               <button
                 type="button"
-                className="mt-1 self-start text-xs font-semibold text-accent-500 transition-colors hover:text-accent-600"
+                className="mt-1 self-start text-xs font-semibold text-accent transition-colors hover:text-accent-deep"
                 onClick={onLearnMore}
               >
                 Learn more
               </button>
             ) : (
-              <span className="mt-1 text-xs font-medium text-input-placeholder/60">
+              <span className="mt-1 text-xs font-medium text-dim-2/60">
                 Learn more (coming soon)
               </span>
             )}
           </div>
           <div
-            className={cn(summaryItemBase, '@3xl:border-l @3xl:border-card-border @3xl:pl-6', revealClass)}
+            className={cn(summaryItemBase, '@3xl:border-l @3xl:border-line-subtle @3xl:pl-6', revealClass)}
             style={{ animationDelay: '60ms' }}
           >
             <div className="flex items-center gap-2">
@@ -248,17 +248,17 @@ export const MatterSummaryCards = ({
               <p className={cn(labelClass, 'leading-tight')}>{billingTypeLabel}</p>
             </div>
             {Array.isArray(billingRateLines) ? (
-              <div className="mt-3 space-y-1 font-display text-base font-semibold leading-snug tabular-nums text-input-text">
+              <div className="mt-3 space-y-1 font-serif text-base font-semibold leading-snug tabular-nums text-ink">
                 {billingRateLines.map((line) => (
                   <p key={line}>{line}</p>
                 ))}
               </div>
             ) : (
-              <p className="mt-3 font-display text-lg font-semibold leading-snug tabular-nums text-input-text">{billingRateLines}</p>
+              <p className="mt-3 font-serif text-lg font-semibold leading-snug tabular-nums text-ink">{billingRateLines}</p>
             )}
           </div>
           <div
-            className={cn(summaryItemBase, '@3xl:border-l @3xl:border-card-border @3xl:pl-6', revealClass)}
+            className={cn(summaryItemBase, '@3xl:border-l @3xl:border-line-subtle @3xl:pl-6', revealClass)}
             style={{ animationDelay: '120ms' }}
           >
             <div className="flex items-center gap-2">
@@ -268,14 +268,14 @@ export const MatterSummaryCards = ({
               <p className={cn(labelClass, 'leading-tight')}>This week&apos;s tracked</p>
             </div>
             <p className={cn('mt-3 break-words', kpiValueClass)}>{totalDisplay}</p>
-            <p className="mt-1.5 text-xs leading-snug text-input-placeholder/80">Across all logged entries this week</p>
+            <p className="mt-1.5 text-xs leading-snug text-dim-2/80">Across all logged entries this week</p>
           </div>
           <div className="col-span-1 flex flex-col items-stretch gap-2 self-center @lg:col-span-2 @lg:items-center @3xl:col-span-1 @3xl:items-end">
             <Button
               size="md"
               onClick={() => onCreateInvoice?.()}
               disabled={!onCreateInvoice}
-              className="justify-center rounded-full px-8 font-display font-semibold tracking-wide shadow-sm"
+              className="justify-center rounded-full px-8 font-serif font-semibold tracking-wide shadow-sm"
             >
               Invoice
             </Button>
@@ -284,12 +284,12 @@ export const MatterSummaryCards = ({
                 <button
                   type="button"
                   onClick={() => onViewTimesheet()}
-                  className="text-sm font-semibold text-accent-500 transition-colors hover:text-accent-600"
+                  className="text-sm font-semibold text-accent transition-colors hover:text-accent-deep"
                 >
                   View timesheet
                 </button>
               ) : (
-                <span className="text-sm font-medium text-input-placeholder/60">View timesheet</span>
+                <span className="text-sm font-medium text-dim-2/60">View timesheet</span>
               )}
             </div>
           </div>
@@ -317,7 +317,7 @@ export const MatterSummaryCards = ({
               <p className={cn(labelClass, 'leading-tight')}>{card.label}</p>
               <p className={cn('mt-2 break-words', denseValueClass)}>{card.value}</p>
               {card.helper ? (
-                <p className="mt-1 text-xs leading-snug text-input-placeholder/80">{card.helper}</p>
+                <p className="mt-1 text-xs leading-snug text-dim-2/80">{card.helper}</p>
               ) : null}
             </div>
           ))}

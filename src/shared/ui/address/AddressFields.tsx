@@ -191,7 +191,7 @@ export const AddressFields = forwardRef<HTMLDivElement, AddressFieldsProps>(
         {/* ── Street address + autocomplete ─────────────────────────── */}
         <div>
           {label && (
-            <label htmlFor={streetInputId} className="mb-1 block text-sm font-medium text-input-text">
+            <label htmlFor={streetInputId} className="mb-1 block text-sm font-medium text-ink">
               {label}
             </label>
           )}
@@ -211,7 +211,7 @@ export const AddressFields = forwardRef<HTMLDivElement, AddressFieldsProps>(
               size={size}
               className={cn(
                 fieldCn('address'),
-                streetAddressProps?.isOpen && 'ring-2 ring-accent-500/50'
+                streetAddressProps?.isOpen && 'ring-2 ring-accent/50'
               )}
               autoComplete="off"
               role="combobox"
@@ -245,9 +245,9 @@ export const AddressFields = forwardRef<HTMLDivElement, AddressFieldsProps>(
               aria-label="Address suggestions"
               data-testid="autocomplete-dropdown"
               className={cn(
-                'absolute z-50 mt-1 w-full overflow-y-auto rounded-xl',
+                'absolute z-50 mt-1 w-full overflow-y-auto rounded-r-md',
                 'max-h-60 border border-white/10',
-                'bg-surface-overlay/95 backdrop-blur-2xl shadow-glass',
+                'bg-card/95 backdrop-blur-2xl shadow-glass',
               )}
             >
               {streetAddressProps.suggestions.length > 0 ? (
@@ -278,8 +278,8 @@ export const AddressFields = forwardRef<HTMLDivElement, AddressFieldsProps>(
                           className={cn(
                             'w-full px-3 py-2 text-left text-sm transition-colors duration-150',
                             isActive
-                              ? 'bg-accent-500/15 text-accent-400'
-                              : 'text-input-text hover:bg-surface-utility/10'
+                              ? 'bg-accent/15 text-accent'
+                              : 'text-ink hover:bg-paper-2/10'
                           )}
                         >
                           {s.formatted}
@@ -289,7 +289,7 @@ export const AddressFields = forwardRef<HTMLDivElement, AddressFieldsProps>(
                   })}
                 </ul>
               ) : (
-                <p className="px-3 py-2 text-sm text-input-placeholder">
+                <p className="px-3 py-2 text-sm text-dim-2">
                   No suggestions found.
                 </p>
               )}

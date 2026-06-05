@@ -52,8 +52,8 @@ export {
 } from '../../../worker/types/wire/invoice';
 
 // ── Upload ────────────────────────────────────────────────────────────────
-export type { BackendUploadRecord } from '../../../worker/types/wire/upload';
-export { BackendUploadRecordSchema } from '../../../worker/types/wire/upload';
+export type { BackendUploadRecord, BackendUploadsListResponse } from '../../../worker/types/wire/upload';
+export { BackendUploadRecordSchema, BackendUploadsListResponseSchema } from '../../../worker/types/wire/upload';
 
 // ── Auth ──────────────────────────────────────────────────────────────────
 export type { BackendSession } from '../../../worker/types/wire/auth';
@@ -63,6 +63,9 @@ export { BackendSessionSchema } from '../../../worker/types/wire/auth';
 export type {
   BackendIntakeCreatePayload,
   BackendIntakeCreateResponse,
+  BackendIntakeTemplate,
+  BackendIntakeTemplateField,
+  BackendIntakeTemplatePublic,
 } from '../../../worker/types/wire/intake';
 export {
   BackendIntakeCreatePayloadSchema,
@@ -119,14 +122,24 @@ export { BackendSidebarCountsSchema } from '../../../worker/types/wire/sidebarCo
 
 // ── Activity ──────────────────────────────────────────────────────────────
 export type {
-  BackendActivityEvent,
-  BackendActivityActorType,
-  BackendActivityEventType,
+  BackendActivityLog,
   BackendActivityListResponse,
 } from '../../../worker/types/wire/activity';
 export {
-  BackendActivityEventSchema,
-  BackendActivityActorTypeSchema,
-  BackendActivityEventTypeSchema,
+  BackendActivityLogSchema,
   BackendActivityListResponseSchema,
 } from '../../../worker/types/wire/activity';
+
+// ── Practice Assistant ────────────────────────────────────────────────────
+export type {
+  PracticeAssistantSource,
+  PracticeAssistantProgress,
+  PracticeAssistantActionStatus,
+  PracticeAssistantActionSummary,
+} from '../../../worker/types/wire/practiceAssistant';
+export {
+  PracticeAssistantSourceSchema,
+  PracticeAssistantProgressSchema,
+  PracticeAssistantActionStatusSchema,
+  PracticeAssistantActionSummarySchema,
+} from '../../../worker/types/wire/practiceAssistant';

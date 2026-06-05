@@ -64,13 +64,13 @@ const DocumentChecklist: FunctionComponent<DocumentChecklistProps> = ({
   const getStatusIcon = (status: DocumentItem['status'], required: boolean) => {
     switch (status) {
       case 'uploaded':
-        return <Icon icon={CheckCircle2} className="w-5 h-5 text-accent-success"  />;
+        return <Icon icon={CheckCircle2} className="w-5 h-5 text-pos"  />;
       case 'pending':
         return <Icon icon={AlertTriangle} className="w-5 h-5 text-yellow-500"  />;
       case 'missing':
         return required ?
-          <Icon icon={AlertTriangle} className="w-5 h-5 text-accent-error"  /> :
-          <Icon icon={File} className="w-5 h-5 text-input-placeholder"  />;
+          <Icon icon={AlertTriangle} className="w-5 h-5 text-neg"  /> :
+          <Icon icon={File} className="w-5 h-5 text-dim-2"  />;
     }
   };
 
@@ -91,20 +91,20 @@ const DocumentChecklist: FunctionComponent<DocumentChecklistProps> = ({
   const canComplete = requiredCompleted === requiredCount;
 
   return (
-    <div className="glass-card p-6 max-w-2xl">
+    <div className="card p-6 max-w-2xl">
       {/* Header */}
       <div className="mb-6">
-        <h3 className="text-lg font-semibold text-input-text mb-2">
+        <h3 className="text-lg font-semibold text-ink mb-2">
           Document Checklist for {matterType}
         </h3>
-        <p className="text-sm text-input-placeholder">
+        <p className="text-sm text-dim-2">
           Please upload the documents listed below. Required documents are marked with a red icon.
         </p>
         <div className="mt-3 flex items-center gap-4 text-xs font-medium">
-          <span className="text-input-placeholder">
+          <span className="text-dim-2">
             Progress: {completedCount}/{documents.length}
           </span>
-          <span className="text-accent-500">
+          <span className="text-accent">
             Required: {requiredCompleted}/{requiredCount}
           </span>
         </div>
@@ -115,10 +115,10 @@ const DocumentChecklist: FunctionComponent<DocumentChecklistProps> = ({
         {documents.map((doc) => (
           <div
             key={doc.id}
-            className={`border rounded-xl p-4 transition-all duration-300 ${
+            className={`border rounded-r-md p-4 transition-all duration-300 ${
               dragOverId === doc.id 
-                ? 'border-accent-500 bg-accent-500/10 scale-[1.02]' 
-                : 'border-line-glass/10 bg-surface-utility/5'
+                ? 'border-accent bg-accent/10 scale-[1.02]' 
+                : 'border-line-subtle bg-paper-2/5'
             }`}
             onDrop={(e) => handleDrop(doc.id, e)}
             onDragOver={(e) => handleDragOver(doc.id, e)}
@@ -131,11 +131,11 @@ const DocumentChecklist: FunctionComponent<DocumentChecklistProps> = ({
               {getStatusIcon(doc.status, doc.required)}
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 mb-1">
-                  <h4 className="font-medium text-input-text">
+                  <h4 className="font-medium text-ink">
                     {doc.name}
                   </h4>
                   {doc.required && (
-                    <span className="text-xs bg-accent-error/10 dark:bg-accent-error/30 text-accent-error-foreground dark:text-accent-error-light px-2 py-1 rounded">
+                    <span className="text-xs bg-neg/10 dark:bg-neg/30 text-neg px-2 py-1 rounded">
                       Required
                     </span>
                   )}
@@ -144,13 +144,13 @@ const DocumentChecklist: FunctionComponent<DocumentChecklistProps> = ({
                       ? 'bg-emerald-500/10 text-emerald-400'
                       : doc.status === 'pending'
                       ? 'bg-amber-500/10 text-amber-400'
-                      : 'bg-surface-utility/5 text-input-placeholder'
+                      : 'bg-paper-2/5 text-dim-2'
                   }`}>
                     {getStatusText(doc.status, doc.required)}
                   </span>
                 </div>
                 {doc.description && (
-                  <p className="text-sm text-input-placeholder mb-3">
+                  <p className="text-sm text-dim-2 mb-3">
                     {doc.description}
                   </p>
                 )}
@@ -173,7 +173,7 @@ const DocumentChecklist: FunctionComponent<DocumentChecklistProps> = ({
                         Choose Document
                       </Button>
                     </label>
-                    <span className="text-xs text-input-placeholder">
+                    <span className="text-xs text-dim-2">
                       or drag and drop
                     </span>
                   </div>
@@ -183,7 +183,7 @@ const DocumentChecklist: FunctionComponent<DocumentChecklistProps> = ({
                 {doc.status === 'uploaded' && doc.file && (
                   <div className="flex items-center gap-2 mt-2">
                     <Icon icon={File} className="w-4 h-4 text-emerald-400"  />
-                    <span className="text-sm text-input-text">
+                    <span className="text-sm text-ink">
                       {doc.file.name}
                     </span>
                     <Button
@@ -209,11 +209,11 @@ const DocumentChecklist: FunctionComponent<DocumentChecklistProps> = ({
       </div>
 
       {/* Actions */}
-      <div className="flex items-center justify-between pt-4 border-t border-line-default">
+      <div className="flex items-center justify-between pt-4 border-t border-line-subtle">
         <Button
           variant="ghost"
           onClick={onSkip}
-          className="text-input-placeholder"
+          className="text-dim-2"
         >
           Skip for now
         </Button>

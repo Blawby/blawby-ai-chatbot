@@ -61,7 +61,7 @@ Rule:
 
 `active_organization_id` is **the currently-selected org pointer for this session**, set by `authClient.organization.setActive({ organizationId })`. It is `null` whenever no one has called `setActive` for the current session (fresh login, cookie rotation between deploys, multi-org user with none active, post-Stripe webhook race) — independent of whether the user has any practice memberships. Do not read this field as proof of subscription, plan tier, or "user has a workspace". For those questions, derive from practice-membership presence (`practices.length > 0` via `useWorkspaceResolver().hasPracticeMembership`).
 
-See [docs/solutions/conventions/better-auth-active-organization-id-pointer-2026-05-15.md](../solutions/conventions/better-auth-active-organization-id-pointer-2026-05-15.md) for the full convention, the legitimate `null` states, and the recovery shape (`useEnsureActiveOrganization`) that bootstraps an active org for users who have memberships but no active selection on the session.
+See [docs/solutions/conventions/better-auth-active-organization-id-pointer-2026-05-15.md](../solutions/conventions/better-auth-active-organization-id-pointer-2026-05-15.md) for the full convention. The frontend must not bootstrap a missing active org by choosing an arbitrary membership. Route-scoped code may set the active org for the route being entered; route-unscoped code should fail visibly when the backend session contract cannot identify the current workspace.
 
 ## Frontend Auth Boundary
 
@@ -117,7 +117,7 @@ Behavior:
 1. Frontend calls `/api/widget/bootstrap?slug=...`.
 2. Worker attempts to resolve existing session (`/api/auth/get-session`); if absent, it performs anonymous sign-in (`/api/auth/sign-in/anonymous`).
 3. Worker returns bootstrap payload with canonical `session` envelope (`{ user, session }`) and widget auth tokens.
-4. Frontend stores widget token state, then calls `getSession()` to sync Better Auth client state, then dispatches `auth:session-updated`.
+4. Frontend stores widget token state and passes the bootstrap session directly into `WidgetApp`; it does not manually refresh or mutate Better Auth client session state.
 
 Contract expectations:
 - Widget bootstrap session is typed as `AuthSessionPayload`.

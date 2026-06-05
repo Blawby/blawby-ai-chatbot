@@ -1,7 +1,7 @@
 import type { ComponentChildren, FunctionComponent } from 'preact';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { Page } from '@/shared/ui/layout/Page';
-import { SegmentedToggle } from '@/shared/ui/input';
+import { Seg } from '@/design-system/patterns';
 import { cn } from '@/shared/utils/cn';
 import { ProgressRing } from '@/shared/ui/ProgressRing';
 import InspectorPanel from '@/shared/ui/inspector/InspectorPanel';
@@ -9,7 +9,7 @@ import { ContactForm } from '@/features/intake/components/ContactForm';
 import ChatContainer from '@/features/chat/components/ChatContainer';
 import { useTranslation } from '@/shared/i18n/hooks';
 import { features } from '@/config/features';
-import { initializeAccentColor, normalizeAccentColor } from '@/shared/utils/accentColors';
+import { normalizeAccentColor } from '@/shared/utils/brandColor';
 import { calculatePracticeSetupProgress } from '@/features/practice-setup/utils/progress';
 import type { PracticeSetupStatus } from '@/features/practice-setup/utils/status';
 import type { Practice } from '@/shared/hooks/usePracticeManagement';
@@ -155,10 +155,6 @@ export const WorkspaceSetupSection: FunctionComponent<WorkspaceSetupSectionProps
       accentColor: normalizeAccentColor(fields.accentColor ?? practice?.accentColor ?? '#D4AF37'),
     });
   }, [onBasicsDraftChange, practice?.accentColor, practice?.name, practice?.slug]);
-
-  useEffect(() => {
-    if (extracted.accentColor) initializeAccentColor(extracted.accentColor);
-  }, [extracted.accentColor]);
 
   const derivedProgress = useMemo(() => {
     const name = (extracted.name ?? practice?.name ?? '').trim();
@@ -371,15 +367,15 @@ export const WorkspaceSetupSection: FunctionComponent<WorkspaceSetupSectionProps
       <div className="relative flex w-full flex-col bg-transparent lg:min-h-0 lg:flex-1 lg:basis-1/2 lg:overflow-hidden">
         <div className="relative z-10 flex min-h-0 flex-1 flex-col lg:overflow-y-auto">
           <Page className="w-full flex-1">
-            <div className="flex h-full min-h-0 flex-col gap-6 text-input-text">
+            <div className="flex h-full min-h-0 flex-col gap-6 text-ink">
               <header className="space-y-2">
-                <p className="text-[10px] font-bold uppercase tracking-[0.45em] text-input-placeholder">
+                <p className="text-[10px] font-bold uppercase tracking-[0.45em] text-dim-2">
                   {setupStatus.needsSetup ? "Let's get started" : 'Practice setup'}
                 </p>
                 <h2 className="text-3xl font-bold tracking-tight">
                   {setupStatus.needsSetup ? 'Almost ready to go' : 'All set'}
                 </h2>
-                {statusText ? <p className="text-xs text-input-placeholder">{statusText}</p> : null}
+                {statusText ? <p className="text-xs text-dim-2">{statusText}</p> : null}
               </header>
 
               <div className="min-h-[500px] lg:min-h-0 lg:flex-1">
@@ -443,10 +439,10 @@ export const WorkspaceSetupSection: FunctionComponent<WorkspaceSetupSectionProps
           </Page>
         </div>
       </div>
-      <div className="relative flex w-full flex-col items-center gap-5 border-t border-line-glass/30 bg-transparent px-4 py-6 lg:min-h-0 lg:flex-1 lg:basis-1/2 lg:border-t-0 lg:border-l lg:border-l-line-glass/30">
+      <div className="relative flex w-full flex-col items-center gap-5 border-t border-line-subtle bg-transparent px-4 py-6 lg:min-h-0 lg:flex-1 lg:basis-1/2 lg:border-t-0 lg:border-l lg:border-l-line-glass/30">
         <div className="relative flex w-full flex-col items-center gap-5">
           <div className="flex flex-col items-center gap-2">
-            <div className="text-xs font-semibold uppercase tracking-[0.35em] text-input-placeholder">
+            <div className="text-xs font-semibold uppercase tracking-[0.35em] text-dim-2">
               {showSidebarPreview ? t('preview.publicPreview', { defaultValue: 'Public preview' }) : t('preview.setupProgress', { defaultValue: 'Setup progress' })}
             </div>
             {!showSidebarPreview ? (
@@ -456,7 +452,7 @@ export const WorkspaceSetupSection: FunctionComponent<WorkspaceSetupSectionProps
             ) : null}
           </div>
           {showSidebarPreview ? (
-            <SegmentedToggle<PreviewTab>
+            <Seg<PreviewTab>
               className="w-full max-w-[360px]"
               value={previewTab}
               options={previewTabOptions.map((option) => ({ value: option.id, label: option.label }))}
@@ -464,7 +460,7 @@ export const WorkspaceSetupSection: FunctionComponent<WorkspaceSetupSectionProps
               ariaLabel={t('preview.tabsLabel', { defaultValue: 'Public preview tabs' })}
             />
           ) : null}
-          <div className={cn('relative aspect-[9/19.5] w-full max-w-[360px] overflow-hidden', showSidebarPreview ? 'glass-card shadow-glass' : 'glass-panel')}>
+          <div className={cn('relative aspect-[9/19.5] w-full max-w-[360px] overflow-hidden', showSidebarPreview ? 'card shadow-glass' : 'panel')}>
             {showSidebarPreview ? previewContent : (
               <InspectorPanel
                 entityType="conversation"
@@ -485,7 +481,7 @@ export const WorkspaceSetupSection: FunctionComponent<WorkspaceSetupSectionProps
                 showCloseButton={false}
               />
             )}
-            {showSidebarPreview ? <div className="pointer-events-none absolute inset-0 rounded-3xl ring-1 ring-line-glass/10" aria-hidden="true" /> : null}
+            {showSidebarPreview ? <div className="pointer-events-none absolute inset-0 rounded-3xl ring-1 ring-line-subtle" aria-hidden="true" /> : null}
           </div>
         </div>
       </div>

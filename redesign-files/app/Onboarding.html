@@ -1,0 +1,389 @@
+<!doctype html>
+<html lang="en" data-theme="">
+<head>
+<meta charset="utf-8" />
+<title>Blawby — Welcome</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,opsz,wght@0,8..60,300..900;1,8..60,300..900&family=Geist:wght@300;400;500;600;700&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="tokens.css">
+<style>
+  body{
+    background:
+      radial-gradient(ellipse 1200px 800px at 80% -10%, color-mix(in oklab, var(--accent) 18%, transparent), transparent 60%),
+      radial-gradient(rgba(15,30,54,0.025) 1px, transparent 1.2px) 0 0 / 3px 3px,
+      var(--paper);
+    background-attachment: fixed;
+  }
+
+  .shell{
+    display:grid;
+    grid-template-columns: 340px 1fr;
+    min-height:100vh;
+    max-width:1440px;
+    margin:0 auto;
+  }
+
+  /* ===== left: progress ===== */
+  .progress{
+    padding: 36px 32px 32px;
+    border-right: 1px solid var(--rule);
+    display:flex; flex-direction:column; gap: 36px;
+    background: color-mix(in oklab, var(--paper) 96%, var(--card));
+  }
+  .progress .brand-mark-word{ font-family:var(--sans); font-weight:500; }
+  .progress .tagline{
+    font-family: var(--serif);
+    font-size: 26px; line-height: 1.15; letter-spacing:-.012em;
+    color: var(--ink);
+    max-width: 22ch; text-wrap: balance;
+  }
+  .progress .tagline em{ color: var(--accent); }
+
+  .steps{ display:flex; flex-direction:column; gap: 4px; }
+  .step{
+    display:grid; grid-template-columns: 24px 1fr; gap: 14px;
+    padding: 14px 12px; border-radius: var(--r-xs);
+    cursor: pointer;
+    position: relative;
+  }
+  .step:not(:last-child)::after{
+    content:""; position:absolute;
+    left: 23px; top: 38px; bottom: -2px; width: 1px;
+    background: var(--rule);
+  }
+  .step.done:not(:last-child)::after{ background: var(--ink); }
+  .step .ix{
+    width:24px; height:24px; border-radius:50%;
+    background: var(--card); border:1px solid var(--rule);
+    display:grid; place-items:center;
+    font-family: var(--mono); font-size:11px; color: var(--dim);
+    z-index:1;
+  }
+  .step.done .ix{ background: var(--ink); border-color: var(--ink); color: var(--accent); }
+  .step.now .ix{ background: var(--accent); border-color: var(--accent); color: var(--accent-ink); box-shadow: 0 0 0 4px var(--accent-soft); }
+  .step .body{ display:flex; flex-direction:column; gap: 2px; }
+  .step .body .h{ font-size: 14px; font-weight: 500; color: var(--ink); }
+  .step.now .body .h{ color: var(--ink); }
+  .step .body .d{ font-size: 12px; color: var(--dim); }
+  .step.done .body .h{ color: var(--ink-2); text-decoration: line-through; text-decoration-color: var(--dim-2); }
+
+  .progress .footer{ margin-top: auto; font-family:var(--mono); font-size:11px; color: var(--dim); display:flex; gap:14px; }
+  .progress .footer a{ color: var(--ink-2); border-bottom: 1px dotted var(--dim-2); }
+
+  /* ===== right: stage ===== */
+  .stage{ padding: 60px 80px 60px; max-width: 940px; display:flex; flex-direction:column; gap: 36px; }
+  .stage .crumbs{ font-family:var(--mono); font-size:10px; letter-spacing:.14em; text-transform:uppercase; color: var(--dim); }
+  .stage h1{
+    font-family: var(--serif); font-weight: 400;
+    font-size: 64px; line-height: 1; letter-spacing: -.025em;
+    margin: 0;
+    max-width: 18ch; text-wrap: balance;
+  }
+  .stage h1 em{ color: var(--accent); }
+  .stage .lede{
+    font-size: 18px; line-height: 1.55; color: var(--ink-2);
+    max-width: 56ch; margin: 0;
+  }
+  .stage .lede em { color: var(--accent-deep); }
+
+  /* ----- assistant chat moment ----- */
+  .ai-row{
+    display:grid; grid-template-columns: 40px 1fr;
+    gap: 16px; align-items: start;
+  }
+  .ai-row .avatar.lg{ box-shadow: 0 0 0 6px var(--paper); }
+  .ai-bub{
+    background: var(--card);
+    border:1px solid var(--rule);
+    border-radius: var(--r-md);
+    padding: 18px 20px;
+    box-shadow: var(--shadow-2);
+    max-width: 64ch;
+  }
+  .ai-bub p{ margin: 0 0 10px; color: var(--ink); font-size:15px; line-height:1.55; }
+  .ai-bub p:last-child{ margin: 0; }
+  .ai-bub p em{ color: var(--accent-deep); font-style: italic; }
+  .ai-bub .meta{
+    font-family:var(--mono); font-size:10px; letter-spacing:.1em; text-transform:uppercase;
+    color: var(--dim); margin-bottom: 10px;
+    display:flex; align-items:center; gap: 8px;
+  }
+  .ai-bub .meta .verify{ color: var(--pos); display:inline-flex; align-items:center; gap:4px; }
+  .ai-bub .meta .verify::before{ content:""; width:5px; height:5px; border-radius:50%; background: var(--pos); }
+
+  /* ----- form card ----- */
+  .form-card{
+    background: var(--card);
+    border:1px solid var(--rule);
+    border-radius: var(--r-md);
+    padding: 28px;
+    display:flex; flex-direction:column; gap: 18px;
+    box-shadow: var(--shadow-2);
+  }
+  .form-card h2{
+    font-family: var(--serif); font-weight: 400; font-size: 28px;
+    line-height: 1.15; letter-spacing:-.01em; margin: 0;
+  }
+  .form-grid{ display:grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .form-grid .col-span-2{ grid-column: 1 / span 2; }
+
+  /* ----- service template picker ----- */
+  .templates{
+    display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px;
+  }
+  .template{
+    background: var(--card);
+    border:1px solid var(--rule); border-radius: var(--r-md);
+    padding: 14px 16px;
+    display:flex; flex-direction:column; gap: 6px;
+    cursor: pointer;
+    transition: border-color .14s, transform .14s, box-shadow .14s;
+    position: relative;
+  }
+  .template:hover{ border-color: var(--ink-3); transform: translateY(-1px); box-shadow: var(--shadow-1); }
+  .template.on{
+    border-color: var(--accent);
+    box-shadow: 0 0 0 1px var(--accent), var(--shadow-1);
+    background: color-mix(in oklab, var(--accent) 8%, var(--card));
+  }
+  .template .check{
+    position:absolute; top: 10px; right: 10px;
+    width: 18px; height: 18px; border-radius: 50%;
+    border: 1px solid var(--rule);
+    background: var(--card);
+    display:grid; place-items:center;
+    font-size: 11px; color: transparent;
+  }
+  .template.on .check{ background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+  .template .h{ font-family: var(--serif); font-size: 19px; line-height: 1.2; padding-right: 26px; letter-spacing:-.01em; }
+  .template .fee{ font-family: var(--mono); font-size: 11px; color: var(--dim); letter-spacing: .04em; text-transform: uppercase; }
+  .template .ai{
+    font-size: 12.5px; color: var(--ink-2); margin-top: 4px; line-height:1.45;
+  }
+  .template .ai-tag{
+    display:inline-flex; align-items:center; gap:4px;
+    font-family: var(--mono); font-size:9.5px; letter-spacing:.1em; text-transform:uppercase;
+    color: var(--accent-deep);
+    margin-top: 6px;
+  }
+  .template .ai-tag::before{ content:""; width:5px; height:5px; border-radius:50%; background: var(--accent); }
+
+  /* ----- footer nav ----- */
+  .stage-foot{
+    margin-top: auto;
+    display:flex; align-items:center; justify-content:space-between;
+    padding-top: 24px; border-top: 1px solid var(--rule);
+  }
+  .skip{
+    font-family: var(--mono); font-size: 11px; letter-spacing:.08em; text-transform:uppercase;
+    color: var(--dim); border:none; background:transparent; cursor:pointer;
+    border-bottom: 1px dotted var(--dim-2); padding: 4px 0;
+  }
+  .stage-foot .right{ display:flex; gap:10px; }
+
+  /* stripe row */
+  .stripe-row{
+    display:flex; align-items:center; gap: 18px;
+    padding: 16px 18px;
+    background: var(--card);
+    border:1px solid var(--rule); border-radius: var(--r-md);
+  }
+  .stripe-logo{
+    width: 38px; height: 38px; border-radius: var(--r-xs);
+    background: #635BFF; color: white;
+    display:grid; place-items:center; font-weight:700;
+    font-family: var(--sans); font-size: 18px; flex-shrink: 0;
+  }
+  .stripe-row .what{ flex: 1; }
+  .stripe-row .what h4{ font-family:var(--serif); font-weight:400; font-size:18px; margin:0; line-height:1.2; }
+  .stripe-row .what p{ margin: 4px 0 0; font-size: 13px; color: var(--dim); max-width: 50ch; }
+
+  /* tiny stat strip */
+  .preview-card{
+    background: var(--card); border: 1px solid var(--rule); border-radius: var(--r-md);
+    padding: 18px 20px;
+    display:grid; grid-template-columns: repeat(3, 1fr); gap: 18px;
+  }
+  .preview-card .cell{ display:flex; flex-direction:column; gap:4px; }
+  .preview-card .cell .lab{ font-family:var(--mono); font-size:10px; letter-spacing:.1em; text-transform:uppercase; color: var(--dim); }
+  .preview-card .cell .val{ font-family: var(--serif); font-size: 26px; line-height:1; letter-spacing:-.01em; }
+
+  @media (max-width: 980px){
+    .shell{ grid-template-columns: 1fr; }
+    .progress{ display:none; }
+    .stage{ padding: 40px 24px; }
+    .stage h1{ font-size: 44px; }
+    .form-grid, .templates{ grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<div class="shell">
+
+  <!-- ====== progress ====== -->
+  <aside class="progress">
+    <div>
+      <div class="brand-mark">
+        <span class="brand-mark-glyph">B</span>
+        <span class="brand-mark-word">Blawby</span>
+      </div>
+      <div class="tagline" style="margin-top: 28px">
+        Let's get your practice <em>running itself</em>.
+      </div>
+    </div>
+
+    <div class="steps">
+      <div class="step done">
+        <div class="ix">✓</div>
+        <div class="body">
+          <div class="h">Create your account</div>
+          <div class="d">sarah@lawofficesc.com</div>
+        </div>
+      </div>
+      <div class="step done">
+        <div class="ix">✓</div>
+        <div class="body">
+          <div class="h">Plan · $40 / month</div>
+          <div class="d">+ 1.337% on collected payments</div>
+        </div>
+      </div>
+      <div class="step now">
+        <div class="ix">3</div>
+        <div class="body">
+          <div class="h">Tell us about your practice</div>
+          <div class="d">2 minutes · the AI uses this to ground every answer</div>
+        </div>
+      </div>
+      <div class="step">
+        <div class="ix">4</div>
+        <div class="body">
+          <div class="h">Connect Stripe</div>
+          <div class="d">IOLTA-compatible payouts</div>
+        </div>
+      </div>
+      <div class="step">
+        <div class="ix">5</div>
+        <div class="body">
+          <div class="h">Pick your service templates</div>
+          <div class="d">we'll suggest based on your bar &amp; jurisdiction</div>
+        </div>
+      </div>
+      <div class="step">
+        <div class="ix">6</div>
+        <div class="body">
+          <div class="h">Share your intake link</div>
+          <div class="d">or embed it on your site</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="footer">
+      <a>Save &amp; continue later</a>
+      <span style="margin-left:auto;color:var(--dim-2)">3 of 6</span>
+    </div>
+  </aside>
+
+  <!-- ====== stage ====== -->
+  <main class="stage">
+
+    <div class="crumbs">Step 3 of 6 · About your practice</div>
+
+    <div>
+      <h1>So, what kind of <em>work</em> do you do?</h1>
+      <p class="lede" style="margin-top: 18px">
+        We'll use this to tune your intake form, pre-fill engagement templates, and ground every assistant answer in <em>your</em> practice — not a generic legal LLM.
+      </p>
+    </div>
+
+    <!-- AI moment -->
+    <div class="ai-row">
+      <div class="avatar lg">B</div>
+      <div class="ai-bub">
+        <div class="meta">Practice assistant <span class="verify">private to you</span></div>
+        <p>I see you signed up from <b>Charlotte, NC</b> and your firm name is <b>Law Offices of Sarah Chen</b>. Based on solo practitioners in your area, I'd guess you handle <em>family law</em> with some <em>civil litigation</em> on the side — am I close?</p>
+        <p style="color: var(--dim); font-size: 13px; margin-top: 14px">Edit the form below and I'll keep my mouth shut. Or tell me what's wrong and I'll re-suggest.</p>
+      </div>
+    </div>
+
+    <!-- form -->
+    <div class="form-card">
+      <h2>Practice profile</h2>
+      <div class="form-grid">
+        <div class="field">
+          <label>Firm name</label>
+          <input class="input" value="Law Offices of Sarah Chen" />
+        </div>
+        <div class="field">
+          <label>Public URL slug</label>
+          <input class="input" value="blawby.com/p/sarah-chen-law" />
+          <span class="help">This is where your intake widget lives.</span>
+        </div>
+        <div class="field">
+          <label>Primary jurisdiction</label>
+          <select class="select">
+            <option>NC · North Carolina</option>
+            <option>SC · South Carolina</option>
+            <option>GA · Georgia</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Bar number</label>
+          <input class="input" placeholder="e.g. NC 45382" />
+        </div>
+        <div class="field col-span-2">
+          <label>Practice areas <span style="text-transform:none;color:var(--dim-2);font-family:var(--sans);font-size:11px;letter-spacing:0">— pick up to 3 the assistant should weight first</span></label>
+          <div style="display:flex;flex-wrap:wrap;gap:6px">
+            <span class="chip accent">Family law</span>
+            <span class="chip accent">Civil litigation</span>
+            <span class="chip">Estate planning</span>
+            <span class="chip">Personal injury</span>
+            <span class="chip">Small business</span>
+            <span class="chip">Real estate</span>
+            <span class="chip">Employment</span>
+            <span class="chip">Immigration</span>
+            <span class="chip">Criminal defense</span>
+            <span class="chip" style="border-style:dashed;color:var(--dim)">＋ custom</span>
+          </div>
+        </div>
+        <div class="field col-span-2">
+          <label>What should the AI know that's <em>weird</em> about your practice?</label>
+          <textarea class="textarea" placeholder="e.g. I don't take criminal cases. I work on sliding scale for domestic violence intakes. I'm out of office every Friday."></textarea>
+          <span class="help">Free text — this becomes the assistant's system prompt for your org. Edit any time in Settings.</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- preview -->
+    <div class="preview-card">
+      <div class="cell">
+        <div class="lab">Suggested intake form</div>
+        <div class="val">14 fields</div>
+        <div class="help">tuned for family + civil</div>
+      </div>
+      <div class="cell">
+        <div class="lab">Engagement templates</div>
+        <div class="val">5 drafts</div>
+        <div class="help">hourly · contingency · flat · retainer · pro bono</div>
+      </div>
+      <div class="cell">
+        <div class="lab">Suggested retainer range</div>
+        <div class="val">$2k–$5k</div>
+        <div class="help">based on Mecklenburg County peer data</div>
+      </div>
+    </div>
+
+    <div class="stage-foot">
+      <button class="skip">Skip — I'll set this up later</button>
+      <div class="right">
+        <button class="btn btn-ghost">Back</button>
+        <button class="btn btn-primary">Continue → Connect Stripe</button>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+</body>
+</html>

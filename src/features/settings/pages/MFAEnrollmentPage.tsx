@@ -199,7 +199,7 @@ export const MFAEnrollmentPage = ({
               <div className="flex items-start">
                 <div className="flex-shrink-0">
                   <svg
-                    className="h-5 w-5 text-accent-error-light"
+                    className="h-5 w-5 text-neg"
                     viewBox="0 0 20 20"
                     fill="currentColor"
                     aria-hidden="true"
@@ -215,7 +215,7 @@ export const MFAEnrollmentPage = ({
                   <h3 className="text-sm font-medium">
                     {t('settings:mfa.errors.configurationError.title')}
                   </h3>
-                  <div className="mt-2 text-sm text-accent-error-foreground dark:text-accent-error-light">
+                  <div className="mt-2 text-sm text-neg">
                     <p>{t('settings:mfa.errors.configurationError.body')}</p>
                   </div>
                 </div>
@@ -225,24 +225,24 @@ export const MFAEnrollmentPage = ({
 
           {/* Instructions */}
           <div className="space-y-2">
-            <p className="text-sm text-input-placeholder">
+            <p className="text-sm text-dim-2">
               {t('settings:mfa.instructions')}
             </p>
           </div>
 
           {/* QR Code */}
           <div className="flex justify-center">
-            <div className="glass-panel p-4 rounded-xl">
+            <div className="panel p-4 rounded-r-md">
               {/* Mock QR Code - in real app, you'd use a QR code library */}
-              <div className="w-48 h-48 bg-surface-base rounded flex items-center justify-center">
+              <div className="w-48 h-48 bg-paper rounded flex items-center justify-center">
                 <div className="text-center">
-                  <div className="w-32 h-32 bg-surface-app-frame dark:bg-surface-workspace rounded grid grid-cols-8 gap-1 p-2">
+                  <div className="w-32 h-32 bg-paper dark:bg-paper rounded grid grid-cols-8 gap-1 p-2">
                     {/* Mock QR pattern - stable pattern that doesn't flicker */}
                     {qrPattern.map((isWhite, i) => (
                       <div
                         key={i}
                         className={`w-full h-full rounded-sm ${
-                          isWhite ? 'bg-surface-workspace dark:bg-surface-app-frame' : 'bg-surface-app-frame dark:bg-surface-workspace'
+                          isWhite ? 'bg-paper dark:bg-paper' : 'bg-paper dark:bg-paper'
                         }`}
                       />
                     ))}
@@ -272,7 +272,7 @@ export const MFAEnrollmentPage = ({
               <SectionDivider className="w-full" />
             </div>
             <div className="relative flex justify-center text-sm">
-              <span className="px-2 bg-surface-base text-input-placeholder">
+              <span className="px-2 bg-paper text-dim-2">
                 {t('settings:mfa.then')}
               </span>
             </div>
@@ -324,7 +324,7 @@ export const MFAEnrollmentPage = ({
               >
                 {t('settings:mfa.footer.terms')}
               </Button>
-              <span className="text-input-placeholder">|</span>
+              <span className="text-dim-2">|</span>
               <Button
                 variant="link"
                 size="sm"
