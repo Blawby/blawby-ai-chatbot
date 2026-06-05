@@ -2,8 +2,9 @@ import { useState } from 'preact/hooks';
 /*
   Invoice preview uses LetterPaper (DESIGN_SYSTEM §3.9), a print-safe
   document shell that intentionally uses fixed hex values for color.
-  The avatar fallback below uses inline fixed hex values for the same
-  reason — the document must look identical regardless of app theme.
+  The avatar fallback below uses the `--dim` CSS token from
+  src/design-system/tokens.css, so its initials remain theme-aware even
+  inside LetterPaper.
 */
 import { formatCurrency } from '@/shared/utils/currencyFormatter';
 import { formatLongDate } from '@/shared/utils/dateFormatter';
