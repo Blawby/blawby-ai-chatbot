@@ -7,6 +7,7 @@ import AuthForm from '@/shared/components/AuthForm';
 import { useTranslation } from '@/shared/i18n/hooks';
 import { useNavigation } from '@/shared/utils/navigation';
 import { SetupShell } from '@/shared/ui/layout/SetupShell';
+import { getSession } from '@/shared/lib/authClient';
 
 interface AuthPageProps {
   mode?: 'signin' | 'signup';
@@ -72,9 +73,27 @@ const AuthPage = ({ mode = 'signin', onSuccess }: AuthPageProps) => {
   }, []);
 
   const handleAuthSuccess = async () => {
+    // Force the Better Auth session store to refetch BEFORE we navigate.
+    // Without this, RootRoute / AppShell observe a stale "no session" via
+    // useSession() on the new route and bounce the user right back to /auth
+    // (src/index.tsx RootRoute: `if (!session?.user) navigate('/auth', true)`).
+    // The reactive hook doesn't auto-refetch fast enough on the cookie change
+    // from the sign-up/sign-in response.
+    try {
+      await getSession();
+    } catch {
+      // If the refresh fails, we still navigate — the next render will retry.
+    }
     if (onSuccess) {
       await onSuccess();
+      return;
     }
+    // No onSuccess prop (the default /auth route mount): navigate to the safe
+    // redirect target (or '/') so AppShell's onboarding/home routing takes over.
+    // Without this, the user sits on /auth indefinitely after signup because
+    // AppShell skips the onboarding redirect when location.path starts with
+    // /auth (src/index.tsx).
+    navigate(callbackURL, true);
   };
 
   const handleBackToHome = () => {

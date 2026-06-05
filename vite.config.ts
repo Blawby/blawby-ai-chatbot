@@ -341,7 +341,10 @@ export default defineConfig(({ mode }: ConfigEnv) => {
 			host: true,
 			port: 5137,      // Matches your current setup
 			strictPort: true, // Fail if port is busy (tunnel expects this exact port)
-			allowedHosts: ['local.blawby.com'], // Allow the public tunnel domain
+			// Each developer's cloudflared tunnel uses a different hostname.
+			// VITE_TUNNEL_HOST (in .env) selects which one HMR connects to; both
+			// are allowed so either developer's tunnel routes through Vite.
+			allowedHosts: ['local.blawby.com', 'dev.blawby.com'],
 			watch: {
 				ignored: [
 					'**/.tmp/**',
@@ -355,7 +358,7 @@ export default defineConfig(({ mode }: ConfigEnv) => {
 			},
 			hmr: {
 				protocol: 'wss',
-				host: 'local.blawby.com',
+				host: env.VITE_TUNNEL_HOST || 'dev.blawby.com',
 				clientPort: 443
 			},
 			proxy: {
