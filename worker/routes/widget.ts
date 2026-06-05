@@ -55,10 +55,14 @@ export async function handleWidgetBootstrap(request: Request, env: Env): Promise
 
   // Define headers for upstream calls
   const incomingCookie = request.headers.get('Cookie');
+  // Forward Origin so Better Auth CSRF check doesn't fire when a cookie is present.
+  // Browsers omit Origin on same-origin GETs, so fall back to the worker request's origin.
+  const incomingOrigin = request.headers.get('Origin') || new URL(request.url).origin;
   const headers = new Headers();
   if (incomingCookie) {
     headers.set('Cookie', incomingCookie);
   }
+  headers.set('Origin', incomingOrigin);
 
   const upstreamHeaders: Record<string, string> = {};
   headers.forEach((value, key) => {
