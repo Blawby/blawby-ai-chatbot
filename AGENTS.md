@@ -1,33 +1,127 @@
-Run lint/TS checks only when the user explicitly says we are preparing to commit; do not run lint/TS after each chat message or intermediate change. Before creating a commit request, run lint/TS and resolve issues.
-Don’t use useEffect for React-internal logic (derived state, data transforms, “when X changes set Y”, or user events). Use it only for external synchronization (DOM/Browser APIs, subscriptions, timers, fetch with cleanup).
-System boundaries and sources of truth:
-Frontend (Cloudflare Pages): Preact app in src/ built by Vite. Use src/config/urls.ts for API routing rules and env variable behavior.
-Worker API (Cloudflare Workers): Handles edge-local features and proxying:
-- **Chat & Real-time**: Conversations (D1/Durable Objects), AI interactions, WebSockets, and Matter Progress tracking.
-- **Media & Files**: R2 storage proxying, PDF extraction, and document analysis.
-- **Proxying & Bridges**: Routes like auth, subscriptions, core practice management, and intakes are proxied to the remote backend (see `worker/index.ts` and `worker/routes/authProxy.ts`).
-*Always check `worker/index.ts` and `worker/routes/*.ts` to confirm if a route is handled locally or proxied.*
-Local browser verification:
-- For auth, signup, practice workspace, reports, and any feature that depends on backend proxying, run the backend API and the frontend/Worker stack together. From a checkout where this repo and the backend repo are siblings, start the backend in one terminal:
-```bash
-cd ../blawby-backend
-pnpm install
-pnpm run dev
+# CLAUDE.md
+
+**Never merge without explicit human approval.** Do not run `git merge`, `gh pr merge`, or any equivalent that combines branches — including fast-forward merges and merges into your own working branch — unless the human has approved that specific merge in this conversation. Approval of one merge is not approval of the next. Rebases, cherry-picks, and pushes that would land merged history are covered by this rule.
+
+When an internal API returns errors, nulls, or malformed data, fix the API contract/source of truth first; do not add frontend fallbacks, guards, or workaround logic unless the API behavior is intentionally nullable and documented.
+
+Behavioral guidelines to reduce common LLM coding mistakes. Merge with project-specific instructions as needed.
+
+**Tradeoff:** These guidelines bias toward caution over speed. For trivial tasks, use judgment.
+
+## 1. Think Before Coding
+
+**Don't assume. Don't hide confusion. Surface tradeoffs.**
+
+Before implementing:
+
+- State your assumptions explicitly. If uncertain, ask.
+- If multiple interpretations exist, present them - don't pick silently.
+- If a simpler approach exists, say so. Push back when warranted.
+- If something is unclear, stop. Name what's confusing. Ask.
+
+## 2. Simplicity First
+
+**Minimum code that solves the problem. Nothing speculative.**
+
+- No features beyond what was asked.
+- No abstractions for single-use code.
+- No "flexibility" or "configurability" that wasn't requested.
+- No error handling for impossible scenarios.
+- If you write 200 lines and it could be 50, rewrite it.
+
+Ask yourself: "Would a senior engineer say this is overcomplicated?" If yes, simplify.
+
+## 3. Surgical Changes
+
+**Touch only what you must. Clean up only your own mess.**
+
+When editing existing code:
+
+- Don't "improve" adjacent code, comments, or formatting.
+- Don't refactor things that aren't broken.
+- Match existing style, even if you'd do it differently.
+- If you notice unrelated dead code, mention it - don't delete it.
+
+When your changes create orphans:
+
+- Remove imports/variables/functions that YOUR changes made unused.
+- Don't remove pre-existing dead code unless asked.
+
+The test: Every changed line should trace directly to the user's request.
+
+## 4. Goal-Driven Execution
+
+**Define success criteria. Loop until verified.**
+
+Transform tasks into verifiable goals:
+
+- "Add validation" → "Write tests for invalid inputs, then make them pass"
+- "Fix the bug" → "Write a test that reproduces it, then make it pass"
+- "Refactor X" → "Ensure tests pass before and after"
+
+For multi-step tasks, state a brief plan:
+
 ```
-- In this repo, start the frontend, Worker, and `local.blawby.com` tunnel in another terminal:
+1. [Step] → verify: [check]
+2. [Step] → verify: [check]
+3. [Step] → verify: [check]
+```
+
+Strong success criteria let you loop independently. Weak criteria ("make it work") require constant clarification.
+
+## 5. Local Browser Verification
+
+Always verify browser/auth/signup flows through `https://local.blawby.com`, not raw Vite or Wrangler localhost URLs. Auth cookies, Worker proxying, and app routing all depend on the same origin/path shape as real deployments.
+
+Always use the staging backend — auth, preferences, and API calls all proxy to `https://staging-api.blawby.com`.
+
 ```bash
 npm install
 npm run dev:full
 ```
-- Open `https://local.blawby.com`. Do not verify auth/signup flows on raw Vite or Wrangler localhost URLs, because those bypass the same host/proxy/cookie path the app depends on.
-- To use a local backend, run `npm run dev:full:local` (not `dev:full`). This passes `--var BACKEND_API_URL:http://127.0.0.1:3000` to Wrangler, overriding the staging URL in `[env.dev.vars]`. Setting `BACKEND_API_URL` in `worker/.dev.vars` alone does NOT work — `[env.dev.vars]` takes precedence when using `--env dev`.
-- If a Worker feature adds a new D1 table, apply its migration locally before testing the flow:
-```bash
-npx wrangler d1 execute DB --local --config worker/wrangler.toml --env dev --file worker/migrations/<migration-file>.sql
+
+Open `https://local.blawby.com`. Done.
+
+#### Wrangler auth — if `dev:full` fails to start the worker
+
+If you see:
+
+```text
+✘ [ERROR] A request to the Cloudflare API (/accounts/<id>/workers/subdomain/edge-preview) failed.
+  notes: Authentication error [code: 10000]
 ```
-- If a new Worker-owned API prefix is added, make sure `vite.config.ts` includes that prefix in `workerEndpoints`; otherwise local browser requests will fall through to the backend proxy and may 404.
-Browser automation:
-- Use browser-agent via the local npm package:
+
+…the worker is dying because wrangler's stored OAuth token (`~/.config/.wrangler/config/default.toml` on macOS/Linux, `%APPDATA%/xdg.config/.wrangler/config/default.toml` on Windows) doesn't have the right scopes for the AI binding's remote-proxy session, and wrangler prefers the OAuth token over `CLOUDFLARE_API_TOKEN` in `worker/.dev.vars`. `.dev.vars` is loaded into the worker _runtime_, not consumed by the wrangler _CLI_.
+
+Workaround — export the API token in your shell so wrangler picks it up:
+
+```bash
+export CLOUDFLARE_API_TOKEN=<value-from-worker/.dev.vars>
+npm run dev:full
+```
+
+PowerShell:
+
+```powershell
+$env:CLOUDFLARE_API_TOKEN = "<value-from-worker/.dev.vars>"
+npm run dev:full
+```
+
+You can verify a token has the right scope with:
+
+```bash
+curl -s "https://api.cloudflare.com/client/v4/accounts/<account-id>/workers/subdomain/edge-preview" \
+  -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN"
+```
+
+A correct response returns `{ "result": { "exchange_url": ..., "token": ... } }`. A 403 here means the token's permissions are wrong — generate a new one with "Workers Scripts:Edit" scope.
+
+If a feature adds a new Worker-owned `/api/*` prefix, add it to `workerEndpoints` in `vite.config.ts`; otherwise Vite may proxy that path to the backend fallback and produce misleading local 404s.
+
+## 6. Browser-Agent And Playwright
+
+Use browser-agent for exploratory smoke tests:
+
 ```bash
 npx agent-browser open https://local.blawby.com/auth
 npx agent-browser wait --load networkidle
@@ -36,39 +130,18 @@ npx agent-browser fill @e1 "user@example.com"
 npx agent-browser fill @e2 "password"
 npx agent-browser click @e3
 ```
-- Re-run `npx agent-browser snapshot -i` after navigation or modal changes, because element refs are refreshed after the page changes.
-- Prefer browser-agent for exploratory smoke tests and debugging. Use Playwright for repeatable suites:
+
+After navigation, modal open/close, or dynamic content updates, run `npx agent-browser snapshot -i` again before using element refs. Refs like `@e1` are only valid for the latest snapshot.
+
+Use Playwright for repeatable test suites:
+
 ```bash
 npm run test:e2e
 npm run test:e2e:auth
 ```
-- Playwright auth tests read E2E credentials from environment variables or `tests/e2e/fixtures/e2e-credentials.json`. Do not hardcode contributor-specific absolute paths in tests or docs.
-Remote backend API (staging/production): Use `https://staging-api.blawby.com/llms.txt` for the schema and source of truth.
-- Handles core relational data: Auth, full practice management, client-intakes (management/status), matters, subscriptions/payments, user preferences, and user details.
-*If an endpoint's logic is not explicitly defined in the worker's source code, it's a remote backend concern. Check `llms.txt` for the remote API contract.*
-Routing rules:
-Cloudflare Pages `public/_redirects` must include:
-```text
-/api/*              /api/:splat        200
-/__better-auth__/*  /__better-auth__/:splat 200
-/*                  /index.html        200
-```
-No internal <a href="/..."> for in-app routes. Use preact-iso Link or location.route()/navigate().
-Only use hard navigations for cross-origin URLs, Stripe checkout, or external auth redirects.
-When an internal API returns errors, nulls, or malformed data, fix the API contract/source of truth first; do not add frontend fallbacks, guards, or workaround logic unless the API behavior is intentionally nullable and documented.
-Avoid manual path parsing in MainApp; prefer Router routes for /practice/* and /client/*.
-Keep Workbox/PWA navigation denylist for /api/*; index.html fallback only for document navigations.
-Greenfield app: no backward-compat/legacy support. Do not add other fallbacks or shims. Frontend + Worker proxy must speak directly to the Railway backend; surface backend errors rather than masking them.
-Fail fast: do not add fallback paths, silent catches, default substitutions, or retry-on-unknown-error logic unless explicitly requested by the user; propagate backend/runtime errors verbatim.
-For accent-colored surfaces (`bg-accent-*` / accent overlays), never hardcode foreground text colors (`text-white`, `text-gray-*`, `text-input-text`); use `text-[rgb(var(--accent-foreground))]` so contrast stays WCAG-safe across dynamic accent themes.
-Never write .md files unless requested by the user.
-Before creating any new component, hook, or utility, search for an existing one that serves the same purpose. Extend existing abstractions rather than creating parallel ones. Canonical systems that must not be duplicated:
-- Conversation state: `useIntakeFlow` / `useSetupFlow` (patch/apply via conversation metadata)
-- Inspector UI: `InspectorPanel` + mode branch (add a branch, never a parallel panel)
-- Pre-send enrichment: `usePreSendEnrichment`
-- Conversation list filtering: `ConversationListView` / `WidgetConversationListView`
-If you create something that parallels an existing system, explain why in a comment at the top of the file.
 
-At the end of every feature branch, before flagging work as complete, audit for: orphaned files with no imports, props threaded through but not consumed, and new abstractions that duplicate existing ones. Report findings before closing the branch.
+Playwright auth setup reads E2E credentials from environment variables or `tests/e2e/fixtures/e2e-credentials.json`. Keep docs and tests path-agnostic: do not use machine-specific absolute paths for this repo or the backend repo.
 
-`docs/solutions/` — documented solutions and conventions from past problems (bugs, best practices, design patterns, workflow patterns), organized by category with YAML frontmatter (`module`, `tags`, `problem_type`, `component`). Relevant when implementing or debugging in documented areas.
+---
+
+**These guidelines are working if:** fewer unnecessary changes in diffs, fewer rewrites due to overcomplication, and clarifying questions come before implementation rather than after mistakes.

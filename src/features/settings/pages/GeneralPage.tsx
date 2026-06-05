@@ -7,6 +7,8 @@ import { SettingSelect } from '@/features/settings/components/SettingSelect';
 import { SettingSection } from '@/features/settings/components/SettingSection';
 import { SettingRow } from '@/features/settings/components/SettingRow';
 import { Switch } from '@/shared/ui/input/Switch';
+import type { ComboboxOption } from '@/shared/ui/input/Combobox';
+import { Combobox } from '@/shared/ui/input/Combobox';
 import { LoadingBlock } from '@/shared/ui/layout/LoadingBlock';
 import { SettingsCard } from '@/features/settings/components/SettingsCard';
 import { getPreferencesCategory, preferencesApi } from '@/shared/lib/preferencesApi';
@@ -161,6 +163,24 @@ export const GeneralPage = () => {
     ...SUPPORTED_LOCALES.map(locale => ({ value: locale, label: t(`common:language.${locale}`) })),
   ]), [t]);
 
+  const sidebarStateOptions = useMemo<ComboboxOption[]>(() => ([
+    { value: 'expanded', label: 'Expanded' },
+    { value: 'collapsed', label: 'Collapsed' },
+    { value: 'remember', label: 'Remember last' },
+  ]), []);
+
+  const dateFormatOptions = useMemo<ComboboxOption[]>(() => ([
+    { value: 'MMM D, YYYY', label: 'MMM D, YYYY' },
+    { value: 'MM/DD/YYYY', label: 'MM/DD/YYYY' },
+    { value: 'DD/MM/YYYY', label: 'DD/MM/YYYY' },
+    { value: 'YYYY-MM-DD', label: 'YYYY-MM-DD' },
+  ]), []);
+
+  const timeFormatOptions = useMemo<ComboboxOption[]>(() => ([
+    { value: '12h', label: '12-hour' },
+    { value: '24h', label: '24-hour' },
+  ]), []);
+
   const handleLocaleChange = useCallback(async (value: string) => {
     try {
       if (value === 'auto-detect') await setLocale(detectBestLocale());
@@ -205,7 +225,7 @@ export const GeneralPage = () => {
       options.push({ value: timezone, label: timezone });
     }
     return options;
-  }, [timezone]);
+  }, [timezone]) as ComboboxOption[];
 
   if (isLoading) return <LoadingBlock />;
 
@@ -226,12 +246,17 @@ export const GeneralPage = () => {
       <SettingSection title="Sidebar" description="Control sidebar behavior in the main app.">
         <SettingsCard className="max-w-[820px]">
           <SettingRow label="Default sidebar state" description="Whether the sidebar is expanded or collapsed when you open Blawby.">
-            <select className="select" value={sidebarDefault} style={{ width: 160 }}
-              onChange={(e) => { setSidebarDefaultState((e.target as HTMLSelectElement).value); try { localStorage.setItem(SIDEBAR_STATE_KEY, (e.target as HTMLSelectElement).value); } catch { /* ignore */ } }}>
-              <option value="expanded">Expanded</option>
-              <option value="collapsed">Collapsed</option>
-              <option value="remember">Remember last</option>
-            </select>
+            <Combobox
+              value={sidebarDefault}
+              options={sidebarStateOptions}
+              onChange={(value) => {
+                setSidebarDefaultState(value);
+                try { localStorage.setItem(SIDEBAR_STATE_KEY, value); } catch { /* ignore */ }
+              }}
+              className="w-[160px]"
+              clearable={false}
+              searchable={false}
+            />
           </SettingRow>
           <SettingRow label="Show matter count badges" description="Display count badges next to navigation items.">
             <Switch value={showBadges} onChange={(v) => { setShowBadgesState(v); try { localStorage.setItem(SHOW_BADGES_KEY, String(v)); } catch { /* ignore */ } }} />
@@ -243,26 +268,37 @@ export const GeneralPage = () => {
       <SettingSection title="Date &amp; time" description="How dates and times are displayed throughout the app.">
         <SettingsCard className="max-w-[820px]">
           <SettingRow label="Date format" description="Used in tables, invoices, and the calendar.">
-            <select className="select" value={dateFormat} style={{ width: 180 }}
-              onChange={(e) => { setDateFormatState((e.target as HTMLSelectElement).value); void save({ date_format: (e.target as HTMLSelectElement).value }); }}>
-              <option value="MMM D, YYYY">MMM D, YYYY</option>
-              <option value="MM/DD/YYYY">MM/DD/YYYY</option>
-              <option value="DD/MM/YYYY">DD/MM/YYYY</option>
-              <option value="YYYY-MM-DD">YYYY-MM-DD</option>
-            </select>
+            <Combobox
+              value={dateFormat}
+              options={dateFormatOptions}
+              onChange={(value) => { setDateFormatState(value); void save({ date_format: value }); }}
+              className="w-[180px]"
+              clearable={false}
+              searchable={false}
+            />
           </SettingRow>
           <SettingRow label="Time format">
-            <select className="select" value={timeFormat} style={{ width: 140 }}
-              onChange={(e) => { setTimeFormatState((e.target as HTMLSelectElement).value as '12h' | '24h'); void save({ time_format: (e.target as HTMLSelectElement).value as '12h' | '24h' }); }}>
-              <option value="12h">12-hour</option>
-              <option value="24h">24-hour</option>
-            </select>
+            <Combobox
+              value={timeFormat}
+              options={timeFormatOptions}
+              onChange={(value) => {
+                setTimeFormatState(value as '12h' | '24h');
+                void save({ time_format: value as '12h' | '24h' });
+              }}
+              className="w-[140px]"
+              clearable={false}
+              searchable={false}
+            />
           </SettingRow>
           <SettingRow label="Timezone">
-            <select className="select" value={timezone} style={{ width: 220 }}
-              onChange={(e) => { setTimezoneState((e.target as HTMLSelectElement).value); void save({ timezone: (e.target as HTMLSelectElement).value }); }}>
-              {timezoneOptions.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-            </select>
+            <Combobox
+              value={timezone}
+              options={timezoneOptions}
+              onChange={(value) => { setTimezoneState(value); void save({ timezone: value }); }}
+              className="w-[220px]"
+              clearable={false}
+              searchable={false}
+            />
           </SettingRow>
         </SettingsCard>
       </SettingSection>

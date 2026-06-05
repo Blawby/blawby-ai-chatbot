@@ -93,25 +93,16 @@ export const SidebarProfileMenu: FunctionComponent<SidebarProfileMenuProps> = ({
   }, [isOpen]);
 
   useLayoutEffect(() => {
-    if (!isOpen) return;
+    if (!isOpen || !collapsed) return;
     const updatePosition = () => {
       const trigger = containerRef.current;
       if (!trigger) return;
       const rect = trigger.getBoundingClientRect();
-      if (collapsed) {
-        setFixedStyle({
-          position: 'fixed',
-          left: `${rect.right + 12}px`,
-          bottom: `${window.innerHeight - rect.bottom}px`,
-        });
-      } else {
-        setFixedStyle({
-          position: 'fixed',
-          left: `${rect.left}px`,
-          right: `${window.innerWidth - rect.right}px`,
-          bottom: `${window.innerHeight - rect.top + 8}px`,
-        });
-      }
+      setFixedStyle({
+        position: 'fixed',
+        left: `${rect.right + 12}px`,
+        bottom: `${window.innerHeight - rect.bottom}px`,
+      });
     };
     updatePosition();
     window.addEventListener('resize', updatePosition);
@@ -144,9 +135,9 @@ export const SidebarProfileMenu: FunctionComponent<SidebarProfileMenuProps> = ({
           className={
             collapsed
               ? 'z-50 w-60 rounded-r-md border border-paper-edge bg-paper p-1 shadow-[0_8px_24px_rgba(0,0,0,0.4)]'
-              : 'z-50 rounded-md border border-paper-edge bg-paper p-1 shadow-[0_-4px_24px_rgba(0,0,0,0.4)]'
+              : 'absolute bottom-full left-0 right-0 mb-2 z-50 rounded-md border border-paper-edge bg-paper p-1 shadow-[0_-4px_24px_rgba(0,0,0,0.4)]'
           }
-          style={fixedStyle}
+          style={collapsed ? fixedStyle : undefined}
         >
           <div className="flex items-center gap-2.5 px-2 py-2.5">
             <Avatar src={user.image ?? null} name={user.name} size="md" />

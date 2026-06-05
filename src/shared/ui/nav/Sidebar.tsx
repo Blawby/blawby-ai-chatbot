@@ -133,6 +133,8 @@ export interface SidebarOrgProps {
   subtitle?: string;
   /** Pre-rendered logo (Pencil GtRGH: 28×28 cornerRadius 6, accent fill, white initial). */
   logo?: ComponentChildren;
+  /** Optional right-side adornment for the org trigger, e.g. a chevron. */
+  trailing?: ComponentChildren;
   /** Clicking the org name area (e.g. open org switcher). */
   onClick?: () => void;
   /** Renders a 28×28 collapse button with a panel-left icon. */
@@ -140,7 +142,7 @@ export interface SidebarOrgProps {
   className?: string;
 }
 
-const SidebarOrg: FunctionComponent<SidebarOrgProps> = ({ name, subtitle, logo, onClick, onCollapseClick, className }) => {
+const SidebarOrg: FunctionComponent<SidebarOrgProps> = ({ name, subtitle, logo, trailing, onClick, onCollapseClick, className }) => {
   const ctx = useContext(SidebarContext);
   const toggleCollapsed = onCollapseClick ?? ctx.onToggleCollapsed;
 
@@ -172,9 +174,10 @@ const SidebarOrg: FunctionComponent<SidebarOrgProps> = ({ name, subtitle, logo, 
         <button
           type="button"
           onClick={onClick}
-          className="flex min-w-0 flex-1 items-center rounded-md text-left transition-colors hover:bg-[rgb(var(--sidebar-hover-bg))] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50"
+          className="flex min-w-0 flex-1 items-center justify-between gap-2 rounded-md text-left transition-colors hover:bg-[rgb(var(--sidebar-hover-bg))] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50"
         >
           {left}
+          {trailing ? <span className="shrink-0 text-[rgb(var(--sidebar-text-secondary))]">{trailing}</span> : null}
         </button>
       ) : (
         left
