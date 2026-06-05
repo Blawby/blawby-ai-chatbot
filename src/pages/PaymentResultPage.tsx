@@ -48,7 +48,7 @@ const OUTCOMES: Record<PaymentOutcome, OutcomeConfig> = {
   },
   unknown: {
     Icon: Clock,
-    iconColor: 'text-slate-400',
+    iconColor: 'text-dim',
     headline: 'Verifying your payment…',
     body: 'Please wait a moment while we confirm your payment status.',
     badge: 'Checking status',

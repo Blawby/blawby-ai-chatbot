@@ -366,7 +366,7 @@ export const MatterTasksPanel = ({
           contentClassName="max-w-xl"
         >
           <DialogBody className="space-y-4">
-            <p className="text-sm text-ink opacity-80">
+            <p className="text-sm text-ink-2">
               Are you sure you want to delete this task? This action cannot be undone.
             </p>
             {requestError ? <p className="text-sm text-red-600 dark:text-red-400">{requestError}</p> : null}

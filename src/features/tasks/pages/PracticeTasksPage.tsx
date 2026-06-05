@@ -277,7 +277,7 @@ export const PracticeTasksPage = ({
             contentClassName="max-w-xl"
           >
             <DialogBody className="space-y-3">
-              <p className="text-sm text-ink opacity-80">
+              <p className="text-sm text-ink-2">
                 Delete <span className="font-semibold text-ink">{deleteTarget.name}</span>?
                 This action cannot be undone.
               </p>
