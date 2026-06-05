@@ -455,6 +455,7 @@ const AuthForm = ({
                 onClick={handleToggleMode}
                 disabled={loading || disableActions}
                 className="text-accent hover:text-accent-deep"
+                data-testid={resolvedMode === 'signup' ? 'auth-toggle-signin' : 'auth-toggle-signup'}
               >
                 {resolvedMode === 'signup' 
                   ? t('signup.hasAccount', { signInLink: t('signup.signInLink') })

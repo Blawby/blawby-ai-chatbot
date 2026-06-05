@@ -8,6 +8,7 @@ const PUBLIC_WIDGET_SPECS = [
   /.*widget-embed\.spec\.ts/,
   /.*widget-performance\.spec\.ts/,
   /.*responsive-public\.spec\.ts/,
+  /.*practice-member-registration\.spec\.ts/,
   // responsive-screenshots.spec.ts requires seeded owner auth state and is
   // matched only by playwright.auth.config.ts (run via test:e2e:screenshots).
 ];
