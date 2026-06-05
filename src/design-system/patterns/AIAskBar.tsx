@@ -1,8 +1,9 @@
-import { useState, useCallback, useRef } from 'preact/hooks';
+import { useState, useCallback } from 'preact/hooks';
 import type { JSX } from 'preact';
 import { Mic, ArrowUp } from 'lucide-preact';
 import { Icon } from '@/shared/ui/Icon';
 import { cn } from '@/shared/utils/cn';
+import { Composer } from './Composer';
 
 export interface AIAskBarContextChip {
   id: string;
@@ -25,7 +26,7 @@ export interface AIAskBarProps {
 
 const DEFAULT_DISCLAIMER = (
   <span>
-    <kbd>⌘</kbd> <kbd>↵</kbd> send · <kbd>⌘</kbd> <kbd>K</kbd> search · <kbd>⌘</kbd> <kbd>/</kbd> commands · Blawby never writes to your records without your approval.
+    <kbd>Enter</kbd> send · <kbd>Shift</kbd> <kbd>Enter</kbd> newline · Blawby never writes to your records without your approval.
   </span>
 );
 
@@ -41,7 +42,6 @@ export function AIAskBar({
   className,
 }: AIAskBarProps) {
   const [value, setValue] = useState('');
-  const inputRef = useRef<HTMLInputElement>(null);
 
   const submit = useCallback(
     (query: string) => {
@@ -59,7 +59,13 @@ export function AIAskBar({
     submit(value);
   };
 
-  const handleKeyDown: JSX.KeyboardEventHandler<HTMLInputElement> = (event) => {
+  const handleKeyDown: JSX.KeyboardEventHandler<HTMLTextAreaElement> = (event) => {
+    if ((event.metaKey || event.ctrlKey) && event.key === 'Enter') {
+      event.preventDefault();
+      submit(value);
+      return;
+    }
+
     if (event.key === 'Enter' && !event.shiftKey) {
       event.preventDefault();
       submit(value);
@@ -73,81 +79,58 @@ export function AIAskBar({
       role="search"
       aria-label="Ask the assistant"
     >
-      {suggestions && suggestions.length > 0 && (
-        <div className="ai-ask-bar-suggestions">
-          {suggestions.map((suggestion) => (
-            <button
-              key={suggestion}
-              type="button"
-              className="ai-ask-bar-suggestion"
-              onClick={() => submit(suggestion)}
-            >
-              {suggestion}
-            </button>
-          ))}
-        </div>
-      )}
-
-      {/* Full-width input */}
-      <input
-        ref={inputRef}
-        type="text"
-        className="ai-ask-bar-input"
+      <Composer
         placeholder={placeholder}
         value={value}
-        onInput={(event) => setValue((event.target as HTMLInputElement).value)}
+        inputMode="single-line"
+        onInput={(event) => setValue((event.currentTarget as HTMLTextAreaElement).value)}
         onKeyDown={handleKeyDown}
-        aria-label="Ask the assistant"
-      />
-
-      {/* Bottom action row */}
-      <div className="ai-ask-bar-row">
-        {contextChips && contextChips.map((chip) => (
-          <span key={chip.id} className="ai-ask-bar-ctx">
-            {chip.label}
-            {chip.onRemove && (
+        inputAriaLabel="Ask the assistant"
+        beforeInput={suggestions && suggestions.length > 0 ? (
+          <div className="composer-suggestions">
+            {suggestions.map((suggestion) => (
               <button
+                key={suggestion}
                 type="button"
-                onClick={chip.onRemove}
-                aria-label={`Remove ${chip.label}`}
-                style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, color: 'inherit', lineHeight: 1 }}
+                className="composer-suggestion"
+                onClick={() => submit(suggestion)}
               >
-                ×
+                {suggestion}
+              </button>
+            ))}
+          </div>
+        ) : null}
+        contextChips={contextChips}
+        actions={
+          <>
+            {onAddContext && (
+              <button type="button" className="composer-ctx-add" onClick={onAddContext}>
+                + add context
               </button>
             )}
-          </span>
-        ))}
-        {onAddContext && (
-          <button type="button" className="ai-ask-bar-ctx-add" onClick={onAddContext}>
-            ＋ add context
-          </button>
-        )}
-        <div className="ai-ask-bar-spacer" />
-        {onVoice && (
-          <button
-            type="button"
-            className="ai-ask-bar-icon"
-            onClick={onVoice}
-            aria-label="Voice input"
-          >
-            <Icon icon={Mic} className="h-3.5 w-3.5" />
-          </button>
-        )}
-        <button
-          type="submit"
-          className="ai-ask-bar-send"
-          aria-label="Send"
-          disabled={!value.trim()}
-        >
-          <Icon icon={ArrowUp} className="h-4 w-4" />
-        </button>
-      </div>
-
-      {disclaimer !== null && (
-        <div className="ai-ask-bar-disclaimer">
-          {disclaimer ?? DEFAULT_DISCLAIMER}
-        </div>
-      )}
+            <div className="composer-spacer" />
+            {onVoice && (
+              <button
+                type="button"
+                className="composer-icon-button"
+                onClick={onVoice}
+                aria-label="Voice input"
+              >
+                <Icon icon={Mic} className="h-3.5 w-3.5" />
+              </button>
+            )}
+            <button
+              type="submit"
+              className="composer-send-button"
+              aria-label="Send"
+              disabled={!value.trim()}
+            >
+              <Icon icon={ArrowUp} className="h-4 w-4" />
+            </button>
+          </>
+        }
+        hint={disclaimer !== null ? (disclaimer ?? DEFAULT_DISCLAIMER) : null}
+      />
     </form>
   );
 

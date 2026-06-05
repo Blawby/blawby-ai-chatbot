@@ -21,10 +21,10 @@ export interface UseWorkspaceAutoNavigationOptions {
   hasAutoNavigatedRef: MutableRef<boolean>;
 
   conversationsPath: string;
+  assistantPath: string;
   navigate: (path: string) => void;
   withWidgetQuery: (path: string) => string;
   handleSelectConversation: (conversationId: string) => void;
-  onCreateAssistantConversation: (() => void) | null;
   setActiveConversationMissingNotification: (msg: string | null) => void;
   activeConversationMissingNotification: string | null;
   showError: (title: string, message?: string) => void;
@@ -48,10 +48,10 @@ export function useWorkspaceAutoNavigation(
     navigationInitiatedRef,
     hasAutoNavigatedRef,
     conversationsPath,
+    assistantPath,
     navigate,
     withWidgetQuery,
     handleSelectConversation,
-    onCreateAssistantConversation,
     setActiveConversationMissingNotification,
     activeConversationMissingNotification,
     showError,
@@ -149,46 +149,48 @@ export function useWorkspaceAutoNavigation(
     navigationInitiatedRef,
   ]);
 
-  // Assistant workspace root should always resolve to a concrete thread.
+  // Assistant workspace root intentionally stays on the landing surface until
+  // the user opens or creates a thread. We only validate an explicitly-routed
+  // assistant conversation here; we do not auto-create one on /assistant.
   useEffect(() => {
     if (!isPracticeWorkspace || workspaceSection !== 'assistant' || view !== 'assistant') return;
-    if (resolvedConversationsLoading) return;
-    if (navigationInitiatedRef.current) return;
+    if (!activeConversationId || resolvedConversationsLoading) return;
+    if (!isInitialConversationCheckRef.current) return;
 
     const assistantConversations = filteredConversations
       .slice()
       .sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime());
 
-    if (activeConversationId) {
-      const hasActiveAssistantConversation = assistantConversations.some((conversation) => conversation.id === activeConversationId);
-      if (hasActiveAssistantConversation) {
-        isInitialConversationCheckRef.current = false;
-        return;
-      }
-    }
-
-    const mostRecentAssistantConversationId = assistantConversations[0]?.id;
-    navigationInitiatedRef.current = true;
-    hasAutoNavigatedRef.current = true;
-    isInitialConversationCheckRef.current = false;
-
-    if (mostRecentAssistantConversationId) {
-      handleSelectConversation(mostRecentAssistantConversationId);
+    const hasActiveAssistantConversation = assistantConversations.some((conversation) => conversation.id === activeConversationId);
+    if (hasActiveAssistantConversation) {
+      isInitialConversationCheckRef.current = false;
       return;
     }
 
-    onCreateAssistantConversation?.();
+    const mostRecentAssistantConversationId = assistantConversations[0]?.id;
+    if (!mostRecentAssistantConversationId) {
+      navigate(withWidgetQuery(assistantPath));
+      isInitialConversationCheckRef.current = false;
+      return;
+    }
+
+    navigationInitiatedRef.current = true;
+    hasAutoNavigatedRef.current = true;
+    isInitialConversationCheckRef.current = false;
+    handleSelectConversation(mostRecentAssistantConversationId);
   }, [
     activeConversationId,
+    assistantPath,
     filteredConversations,
     handleSelectConversation,
     hasAutoNavigatedRef,
     isInitialConversationCheckRef,
     isPracticeWorkspace,
+    navigate,
     navigationInitiatedRef,
-    onCreateAssistantConversation,
     resolvedConversationsLoading,
     view,
+    withWidgetQuery,
     workspaceSection,
   ]);
 

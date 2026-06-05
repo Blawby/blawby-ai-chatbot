@@ -37,7 +37,8 @@ export const resolveConversationContactName = (value: ConversationLike): string 
 export const resolveConversationDisplayTitle = (
   value: ConversationLike,
   fallback: string,
-  practiceSetupTitle = 'Practice setup'
+  practiceSetupTitle = 'Practice setup',
+  practiceAssistantTitle = 'Practice Assistant'
 ): string => {
   const metadata = getMetadata(value);
   if (!metadata) return fallback;
@@ -45,6 +46,16 @@ export const resolveConversationDisplayTitle = (
   if (metadata.mode === 'PRACTICE_ONBOARDING') {
     const onboardingTitle = trimString(metadata.title);
     return onboardingTitle || practiceSetupTitle;
+  }
+
+  if (metadata.mode === 'PRACTICE_ASSISTANT') {
+    const assistantTitle = trimString(metadata.title);
+    if (assistantTitle) return assistantTitle;
+
+    const contactName = resolveConversationContactName(metadata);
+    if (contactName) return contactName;
+
+    return practiceAssistantTitle;
   }
 
   const title = trimString(metadata.title);
