@@ -173,17 +173,17 @@ const EngagementLetter: FunctionComponent<{
   // (Engagement letter · Ref · Date) sits on the right of the letterhead.
   const docMeta = (
     <>
-      <div className="font-medium text-[10.5px] uppercase tracking-[0.06em] text-[#15140f]">
+      <div className="font-medium text-[10.5px] uppercase tracking-[0.06em] text-ink">
         Engagement letter
       </div>
-      <div className="mt-1 font-mono text-[10.5px] uppercase tracking-[0.06em] text-[#6b7790]">
+      <div className="mt-1 font-mono text-[10.5px] uppercase tracking-[0.06em] text-dim">
         Ref · {engagement.id.slice(0, 12).toUpperCase()}
       </div>
-      <div className="font-mono text-[10.5px] uppercase tracking-[0.06em] text-[#6b7790]">
+      <div className="font-mono text-[10.5px] uppercase tracking-[0.06em] text-dim">
         Date · {dateLine}
       </div>
       {firmAddress.length > 0 && (
-        <div className="mt-3 font-mono text-[10.5px] uppercase leading-[1.55] tracking-[0.06em] text-[#6b7790]">
+        <div className="mt-3 font-mono text-[10.5px] uppercase leading-[1.55] tracking-[0.06em] text-dim">
           {firmAddress.map((line, i) => (
             <div key={i}>{line}</div>
           ))}
@@ -271,7 +271,7 @@ const EngagementLetter: FunctionComponent<{
         style={{
           marginTop: 36,
           paddingTop: 22,
-          borderTop: '1px solid #d3d6df',
+          borderTop: '1px solid var(--rule)',
           display: 'grid',
           gridTemplateColumns: '1fr 1fr',
           gap: 48,
@@ -285,7 +285,7 @@ const EngagementLetter: FunctionComponent<{
               fontSize: 10.5,
               letterSpacing: '0.12em',
               textTransform: 'uppercase',
-              color: '#6b7790',
+              color: 'var(--dim)',
               marginBottom: 24,
             }}
           >
@@ -296,10 +296,10 @@ const EngagementLetter: FunctionComponent<{
               fontFamily: 'var(--serif)',
               fontSize: 22,
               fontStyle: 'italic',
-              color: '#0f1e36',
+              color: 'var(--ink)',
               lineHeight: 1,
               paddingBottom: 6,
-              borderBottom: '1px solid #15140f',
+              borderBottom: '1px solid var(--ink)',
               minHeight: 32,
             }}
           >
@@ -311,7 +311,7 @@ const EngagementLetter: FunctionComponent<{
               fontSize: 10,
               letterSpacing: '0.06em',
               textTransform: 'uppercase',
-              color: '#6b7790',
+              color: 'var(--dim)',
               marginTop: 8,
             }}
           >
@@ -325,7 +325,7 @@ const EngagementLetter: FunctionComponent<{
               fontSize: 10.5,
               letterSpacing: '0.12em',
               textTransform: 'uppercase',
-              color: '#6b7790',
+              color: 'var(--dim)',
               marginBottom: 24,
             }}
           >
@@ -336,9 +336,9 @@ const EngagementLetter: FunctionComponent<{
               fontFamily: 'var(--serif)',
               fontSize: 14,
               fontStyle: 'italic',
-              color: '#b4b9c2',
+              color: 'var(--dim-2)',
               paddingBottom: 4,
-              borderBottom: '1px solid #15140f',
+              borderBottom: '1px solid var(--ink)',
               minHeight: 32,
             }}
           >
@@ -350,7 +350,7 @@ const EngagementLetter: FunctionComponent<{
               fontSize: 10,
               letterSpacing: '0.06em',
               textTransform: 'uppercase',
-              color: '#6b7790',
+              color: 'var(--dim)',
               marginTop: 8,
             }}
           >

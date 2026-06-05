@@ -295,13 +295,12 @@ const AuthForm = ({
         )}
 
         {showGoogleSignIn && (
-          <div className="relative mb-6">
-            <div className="absolute inset-0 flex items-center">
-              <div className="w-full border-t border-line-subtle" />
-            </div>
-            <div className="relative flex justify-center text-sm">
-              <span className="px-2 bg-[rgb(var(--surface-overlay))] text-dim-2 font-medium">{t('common.orContinueWithEmail')}</span>
-            </div>
+          <div className="mb-6 flex items-center gap-3 text-sm">
+            <div className="h-px flex-1 bg-rule" aria-hidden="true" />
+            <span className="shrink-0 text-dim-2 font-medium">
+              {t('common.orContinueWithEmail')}
+            </span>
+            <div className="h-px flex-1 bg-rule" aria-hidden="true" />
           </div>
         )}
 

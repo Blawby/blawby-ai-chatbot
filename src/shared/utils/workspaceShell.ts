@@ -53,7 +53,7 @@ const normalizeDecodedSegment = (value: string) => {
 export const getWorkspaceSection = (view: WorkspaceView): WorkspaceSection => {
   if (view === 'list' || view === 'conversation') return 'conversations';
   if (view === 'invoiceDetail') return 'invoices';
-  if (view === 'setup' || view === 'contacts') return 'home';
+  if (view === 'setup') return 'home';
   if (view === 'intakeDetail') return 'intakes';
   // Coverage lives under Settings in the sidebar; route stays at /coverage but the
   // rail/active state belongs to Settings so its dropdown auto-expands.
@@ -217,7 +217,9 @@ export const getWorkspaceDefaultSecondaryFilter = ({
     return 'all';
   }
   if (workspaceSection === 'home' && isPracticeWorkspace) {
-    if (view !== 'contacts') return 'overview';
+    return 'overview';
+  }
+  if (workspaceSection === 'contacts' && isPracticeWorkspace) {
     if (contactsRouteKind === 'archived') return 'contacts-archived';
     if (contactsRouteKind === 'team') return 'contacts-team';
     if (contactsRouteKind === 'clients') return 'contacts-clients';
@@ -259,7 +261,9 @@ export const getWorkspaceActiveSecondaryFilter = ({
     return secondaryFilterBySection[workspaceSection] ?? defaultSecondaryFilterId;
   }
   if (workspaceSection === 'home' && isPracticeWorkspace) {
-    if (view !== 'contacts') return 'overview';
+    return 'overview';
+  }
+  if (workspaceSection === 'contacts' && isPracticeWorkspace) {
     if (contactsRouteKind === 'archived') return 'contacts-archived';
     if (contactsRouteKind === 'team') return 'contacts-team';
     if (contactsRouteKind === 'clients') return 'contacts-clients';
@@ -302,7 +306,10 @@ export const shouldShowWorkspaceMobileMenuButton = ({
   if (workspaceSection === 'intakes') return view === 'intakes';
   if (workspaceSection === 'matters') return false;
   if (workspaceSection === 'home') {
-    return isPracticeWorkspace && (view === 'home' || (view === 'contacts' && !selectedContactIdFromPath));
+    return isPracticeWorkspace && view === 'home';
+  }
+  if (workspaceSection === 'contacts') {
+    return isPracticeWorkspace && !selectedContactIdFromPath;
   }
   if (workspaceSection === 'invoices') return false;
   if (workspaceSection === 'reports') return true;

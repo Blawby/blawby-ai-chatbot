@@ -542,7 +542,7 @@ export function Combobox({
           <Icon icon={X} className="h-4 w-4"  />
         </button>
       ) : (
-        <span className="flex-shrink-0 text-dim-2 pointer-events-none">
+        <span className="mr-0.5 flex-shrink-0 text-dim-2 pointer-events-none">
           {searchable
             ? <Icon icon={ChevronsUpDown} className="h-4 w-4"  />
             : <Icon icon={ChevronDown} className={cn('h-4 w-4 transition-transform', isOpen && 'rotate-180')}  />
@@ -580,9 +580,8 @@ export function Combobox({
           onClick={() => (isOpen ? close() : open())}
           onKeyDown={handleKeyDown}
           className={cn(
-            'field relative flex w-full gap-2 rounded-r-md px-3 py-2.5 transition-all duration-200',
+            'field relative flex w-full flex-row items-center gap-2 rounded-r-md pl-3 pr-4 py-2.5 transition-all duration-200',
             isOpen && 'is-open',
-            'items-center',
             !disabled && 'cursor-pointer'
           )}
         >

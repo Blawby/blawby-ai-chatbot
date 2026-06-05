@@ -320,7 +320,7 @@ export const AddressExperienceForm = ({
   return (
     <div className={containerClasses} data-testid="address-experience-form">
       {message && (
-        <div className="mb-4 text-ink dark:text-ink/80">
+        <div className="mb-4 text-ink">
           {message}
         </div>
       )}

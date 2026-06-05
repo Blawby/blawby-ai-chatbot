@@ -184,7 +184,7 @@ export default function ConfirmationDialog({
                         {successMessage.title}
                       </p>
                     )}
-                    <p className="text-sm opacity-90">
+                    <p className="text-sm">
                       {successMessage.body}
                     </p>
                   </div>

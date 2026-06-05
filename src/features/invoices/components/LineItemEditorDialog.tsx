@@ -126,7 +126,7 @@ export const LineItemEditorDialog = ({
         <Button onClick={handleSave} disabled={!canSave}>
           <span className="inline-flex items-center gap-2">
             Save
-            <span className="hidden items-center gap-0.5 text-xs opacity-80 sm:inline-flex">
+            <span className="hidden items-center gap-0.5 text-xs sm:inline-flex">
               <Kbd>⌘</Kbd>
               <Kbd>↵</Kbd>
             </span>

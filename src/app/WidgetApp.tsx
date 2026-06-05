@@ -551,7 +551,7 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
       size="icon-sm"
       onClick={requestWidgetClose}
       aria-label="Close widget"
-      className="text-ink/60 hover:text-ink card backdrop-blur-md border border-line-subtle shadow-lg"
+      className="text-dim hover:text-ink card backdrop-blur-md border border-line-subtle shadow-lg"
     >
       <Icon icon={X} className="h-5 w-5" />
     </Button>

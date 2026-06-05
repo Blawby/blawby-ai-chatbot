@@ -58,8 +58,9 @@ From `design_handoff_blawby_chat_first/DESIGN_SYSTEM.md §0`:
 | 7c — InvoicePreview ↔ LetterPaper wiring + print test | — | **deferred** | Wiring InvoicePreview into LetterPaper requires understanding the current InvoicePreview surface + line-item rendering pipeline. Best done with the consuming surface refactor (Invoice detail rebuild against `design_handoff_blawby_chat_first/screens/Invoices.html`) rather than a forced swap here. Migration doc keeps this as a Commit 7 deliverable; primitives are ready when the consumer is. |
 | 7d — Seg sweep (SegmentedToggle's 13 callers) | — | **deferred — Commit 8** | The new `Seg` is intentionally simpler than the current `SegmentedToggle` (no animated thumb). Not every call site wants the simpler look — some rely on the thumb animation as visual feedback. Moves into Commit 8 feature sweep where each caller can be inspected and the right primitive chosen per surface. |
 | 8 — Feature sweep | — | ✅ **complete across PRs #654–#660** | See `docs/design-system-commit-8-audit.md` for the ladder. PR #660 consolidated the final 4 slices (8.1e dead accents, 8.2b 4 DataTable conversions, 8.4c/d .input-surface → .field rename, 8.5 a11y motion guards) into one landing. |
+| 9 — Token-only color enforcement (issue #672) | — | 🚧 in branch `fix/ds-token-only-colors` | Enforces zero non-token color references on text/bg/border. Replaced `text-ink/N` opacity shortcuts (→ solid `text-ink`/`text-dim`/`text-dim-2` per mapping table), `text-ink opacity-N` on text (→ `text-ink-2`/removed), raw Tailwind palette classes (`text-slate-400`, `text-gray-800` → `text-dim`/`text-ink-2`), stale `#6b7790` hex (→ `text-dim` / `var(--dim)`), and `ClientEngagementReviewPage`'s inline-style hex (`#0f1e36`, `#6b7790`, `#b4b9c2`, `#d3d6df`, `#15140f` → `var(--ink)`/`var(--dim)`/`var(--dim-2)`/`var(--rule)`). 18 files, 58 line changes. All 4 grep gates from the issue return zero (excluding documented exceptions: `DebugStylesPage.tsx`, `matterStatusStyles.ts`, `.letter-paper`). |
 
-PR series: #644 (foundation, merged) → #645 (Commit 4 + 5a + 5b, merged) → #646 (5c.1–5c.4, merged) → #647 (5d.1–5d.3, merged) → #648 (5d.4a + 5d.4b, merged) → #649 (5d.5, merged) → #650 (5e.2/3/4, merged) → #651 (5e.5 + 5e.1 + 5e.7, merged) → #652 (6a + 6b chat-pattern scaffolding, merged) → #653 (7a + 7b data-display scaffolding, merged) → #654 (Commit 8 audit doc, merged) → #655 (8.4a card-surface delete, merged) → #656 (8.1a text-input-* sweep, merged) → #657 (8.1b/c/d rounded-xl + font-display + bg-accent-N + bg-surface-* sweep, merged) → #658 (8.2a FilesList + DeliveriesListView, merged) → #659 (8.3 SegmentedToggle → Seg, merged) → **#660 (this PR — 8.1e + 8.2b + 8.4b/c/d + 8.5 consolidated; closes Commit 8).** Still deferred: 6c, 7c (land with consuming-screen rebuilds).
+PR series: #644 (foundation, merged) → #645 (Commit 4 + 5a + 5b, merged) → #646 (5c.1–5c.4, merged) → #647 (5d.1–5d.3, merged) → #648 (5d.4a + 5d.4b, merged) → #649 (5d.5, merged) → #650 (5e.2/3/4, merged) → #651 (5e.5 + 5e.1 + 5e.7, merged) → #652 (6a + 6b chat-pattern scaffolding, merged) → #653 (7a + 7b data-display scaffolding, merged) → #654 (Commit 8 audit doc, merged) → #655 (8.4a card-surface delete, merged) → #656 (8.1a text-input-* sweep, merged) → #657 (8.1b/c/d rounded-xl + font-display + bg-accent-N + bg-surface-* sweep, merged) → #658 (8.2a FilesList + DeliveriesListView, merged) → #659 (8.3 SegmentedToggle → Seg, merged) → #660 (8.1e + 8.2b + 8.4b/c/d + 8.5 consolidated; closed Commit 8) → **Commit 9 (this branch — token-only enforcement; closes issue #672).** Still deferred: 6c, 7c (land with consuming-screen rebuilds).
 
 ---
 
@@ -394,3 +395,56 @@ Open `design_handoff_blawby_chat_first/screens/Conversations.html` for the canon
 4. `5e.7` — Delete legacy nav files + 4 test files + dead CSS
 
 Realistic time estimate: 2-3 hours for WorkspacePage alone, plus ~1 hour for the remaining three combined.
+
+---
+
+## Commit 9 — Token-only color enforcement (issue #672, branch `fix/ds-token-only-colors`)
+
+Enforces the canonical token vocabulary across every text/bg/border reference in `src/**/*.{tsx,ts}`. Closes the long-standing gap between "the system defines tokens" and "every component uses them" — when tokens change for accessibility, theming, or rebrand, **one edit to `tokens.css` propagates everywhere**.
+
+### Mapping table applied
+
+| Pattern | Replaced with |
+|---|---|
+| `text-ink/90`, `text-ink/80` | `text-ink` |
+| `text-ink/70`, `text-ink/60` | `text-dim` |
+| `text-ink/50`, `text-ink/40` | `text-dim-2` |
+| `text-ink opacity-80` | `text-ink-2` |
+| `text-ink opacity-70`, `text-ink opacity-60` | `text-dim` |
+| `opacity-80`/`opacity-90` on `<p>`/`<span>` (text mute) | removed (or `text-dim` when mute intent kept) |
+| `text-gray-*`, `text-slate-*`, `text-zinc-*` (raw palette on text) | `text-dim` / `text-ink-2` |
+| `bg-gray-100 text-gray-800` (provenance-badge fallback) | `bg-paper-2 text-ink-2 border-rule` |
+| `text-[#6b7790]` (stale `--dim` hex) | `text-dim` |
+| `color: '#6b7790'` (inline style) | `color: 'var(--dim)'` |
+| `color: '#0f1e36'` (inline style) | `color: 'var(--ink)'` |
+| `color: '#b4b9c2'` (inline placeholder) | `color: 'var(--dim-2)'` |
+| `borderTop: '1px solid #d3d6df'` | `borderTop: '1px solid var(--rule)'` |
+| `borderBottom: '1px solid #15140f'` | `borderBottom: '1px solid var(--ink)'` |
+
+### Files touched (18)
+
+CommandPalette (14 swaps), AdminIntakeInspectorPage (11 swaps + provenance-badge fallback), ClientEngagementReviewPage (8 inline-style + Tailwind hex), MatterNotesPanel, MatterTasksPanel, PracticeTasksPage, MediaContent, LineItemEditorDialog, IntakeDetailPage, ClientIntakeStatusPage, MessageComposer, AppDetailPage, ConfirmationDialog, AddressExperienceForm, WidgetApp, PaymentResultPage, InvoicePreview, markdownComponents (class reorder so grep doesn't false-positive on `text-ink opacity-0` animation).
+
+### Documented exceptions (left alone per issue)
+
+- `src/design-system/tokens.css` — token definitions themselves
+- `src/pages/DebugStylesPage.tsx` — intentional demo of opacity styles
+- `.letter-paper` CSS styles — print-rendering colors (intentional fixed hex)
+- `src/features/matters/utils/matterStatusStyles.ts` — semantic-specific status hex; left until a token equivalent exists
+
+### Verification gates (all green)
+
+```bash
+# All four return zero hits outside the documented exceptions
+grep -rn "text-ink/[0-9]" src --include="*.tsx" --include="*.ts" | grep -v "disabled:\|hover:\|focus:\|accent-ink\|placeholder:"
+grep -rn "text-ink opacity-\|text-sm opacity-\|text-xs opacity-\|text-base opacity-" src --include="*.tsx"
+grep -rn "text-gray-\|text-slate-\|text-zinc-\|text-neutral-\|text-stone-" src --include="*.tsx" --include="*.ts"
+grep -rn "text-\[#\|color:.*'#\|color:.*\"#" src --include="*.tsx" --include="*.ts"
+```
+
+- ✅ `npm run build` — passes, 0 TS errors
+- ✅ Visual smoke test (light + dark via `data-theme="dark"` on html) — auth page + CommandPalette (most-edited file, ~14 swaps) render correctly with proper hierarchy in both themes
+
+### Standing rule going forward
+
+**No opacity fractions on text.** `text-ink/N` and `opacity-N` on text containers create semi-transparent blends that vary by background, fail contrast in dark mode, and don't respond to theme changes. Always pick the right semantic token: `text-ink` (primary) → `text-ink-2` → `text-ink-3` → `text-dim` → `text-dim-2` (muted readable). Same for backgrounds (`bg-paper`/`bg-paper-2`/`bg-card`) and borders (`border-rule`). When a status/semantic color is needed, use `text-pos`/`text-warn`/`text-neg`/`text-accent` — never raw Tailwind palette.

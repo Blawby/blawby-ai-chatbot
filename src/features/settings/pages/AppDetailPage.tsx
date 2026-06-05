@@ -106,7 +106,7 @@ export const AppDetailPage = ({ app, onBack, onUpdate }: AppDetailPageProps) => 
                     loading="lazy"
                   />
                 ) : (
-                  <Icon icon={Puzzle} className="w-8 h-8 text-ink/80" aria-hidden="true"  />
+                  <Icon icon={Puzzle} className="w-8 h-8 text-ink" aria-hidden="true"  />
                 )}
               </div>
               <div className="flex items-center gap-2">
