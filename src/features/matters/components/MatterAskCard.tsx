@@ -2,6 +2,7 @@ import { useCallback, useState } from 'preact/hooks';
 import type { JSX } from 'preact';
 import { ArrowUp } from 'lucide-preact';
 
+import { Composer } from '@/design-system/patterns';
 import { Icon } from '@/shared/ui/Icon';
 
 export interface MatterAskCardProps {
@@ -57,7 +58,13 @@ export const MatterAskCard = ({
     submit(value);
   };
 
-  const handleKeyDown: JSX.KeyboardEventHandler<HTMLInputElement> = (event) => {
+  const handleKeyDown: JSX.KeyboardEventHandler<HTMLTextAreaElement> = (event) => {
+    if ((event.metaKey || event.ctrlKey) && event.key === 'Enter') {
+      event.preventDefault();
+      submit(value);
+      return;
+    }
+
     if (event.key === 'Enter' && !event.shiftKey) {
       event.preventDefault();
       submit(value);
@@ -87,35 +94,28 @@ export const MatterAskCard = ({
       </div>
 
       <form onSubmit={handleSubmit} className="mt-3 flex flex-col gap-3" role="search">
-        <div
-          className="flex items-center gap-2 rounded-[var(--r-xs)] border px-3 py-2"
-          style={{
-            // Inset input surface — slightly lighter than the ink card so the
-            // input reads as a tappable field. Authored as inline style so we
-            // don't burn a one-off Tailwind alpha token; the ink card has no
-            // dark-on-dark surface variants in tokens.css today.
-            borderColor: 'color-mix(in oklab, var(--paper) 15%, transparent)',
-            backgroundColor: 'color-mix(in oklab, var(--paper) 8%, transparent)'
-          }}
-        >
-          <input
-            type="text"
-            value={value}
-            onInput={(event) => setValue((event.target as HTMLInputElement).value)}
-            onKeyDown={handleKeyDown}
-            placeholder={placeholder}
-            aria-label="Ask the assistant about this matter"
-            className="flex-1 min-w-0 bg-transparent text-[13.5px] text-[color:var(--paper)] placeholder:text-[color-mix(in_oklab,var(--paper)_50%,transparent)] focus:outline-none"
-          />
-          <button
-            type="submit"
-            disabled={!value.trim()}
-            aria-label="Send"
-            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[color:var(--accent)] text-[color:var(--accent-ink)] transition-opacity disabled:opacity-40"
-          >
-            <Icon icon={ArrowUp} className="h-4 w-4" />
-          </button>
-        </div>
+        <Composer
+          className="composer--inverse"
+          placeholder={placeholder}
+          value={value}
+          inputMode="single-line"
+          onInput={(event) => setValue((event.currentTarget as HTMLTextAreaElement).value)}
+          onKeyDown={handleKeyDown}
+          inputAriaLabel="Ask the assistant about this matter"
+          actions={(
+            <>
+              <div className="composer-spacer" />
+              <button
+                type="submit"
+                disabled={!value.trim()}
+                aria-label="Send"
+                className="composer-send-button"
+              >
+                <Icon icon={ArrowUp} className="h-4 w-4" />
+              </button>
+            </>
+          )}
+        />
 
         {suggestions.length > 0 ? (
           <ul className="flex flex-col gap-1">

@@ -27,15 +27,26 @@ export interface ComposerProps {
   placeholder?: string;
   /** Controlled input value. */
   value?: string;
+  /** Single-line visual mode still uses a textarea so keyboard behavior stays consistent. */
+  inputMode?: 'single-line' | 'multiline';
   onInput?: JSX.GenericEventHandler<HTMLTextAreaElement>;
   onKeyDown?: JSX.KeyboardEventHandler<HTMLTextAreaElement>;
-  inputRef?: (el: HTMLTextAreaElement | null) => void;
+  inputRef?: JSX.Ref<HTMLTextAreaElement>;
   inputAriaLabel?: string;
+  inputDisabled?: boolean;
+  inputProps?: JSX.HTMLAttributes<HTMLTextAreaElement>;
+  inputSlot?: ComponentChildren;
+  beforeInput?: ComponentChildren;
+  afterInput?: ComponentChildren;
 
   /** Optional row of action buttons (voice, attach, send). */
   actions?: ComponentChildren;
   /** Mono hint line beneath the input — keyboard shortcuts + trust copy. */
   hint?: ComponentChildren;
+  wrapClassName?: string;
+  inputClassName?: string;
+  rowClassName?: string;
+  hintClassName?: string;
 
   /** When true, wraps in `.composer-wrap` for sticky bottom positioning. */
   sticky?: boolean;
@@ -59,15 +70,27 @@ export function Composer({
   contextChips,
   placeholder,
   value,
+  inputMode = 'single-line',
   onInput,
   onKeyDown,
   inputRef,
   inputAriaLabel = 'Message',
+  inputDisabled,
+  inputProps,
+  inputSlot,
+  beforeInput,
+  afterInput,
   actions,
   hint,
+  wrapClassName,
+  inputClassName,
+  rowClassName,
+  hintClassName,
   sticky = false,
   className
 }: ComposerProps) {
+  const inputPropsClassName = typeof inputProps?.className === 'string' ? inputProps.className : undefined;
+  const { className: _ignoredInputPropsClassName, ...resolvedInputProps } = inputProps ?? {};
   const card = (
     <div className={cn('composer', className)}>
       {tabs && tabs.length > 0 && (
@@ -91,19 +114,32 @@ export function Composer({
         </div>
       )}
 
-      <textarea
-        ref={inputRef}
-        className="composer-input"
-        placeholder={placeholder}
-        value={value}
-        onInput={onInput}
-        onKeyDown={onKeyDown}
-        aria-label={inputAriaLabel}
-        rows={1}
-      />
+      {beforeInput}
+
+      {inputSlot ?? (
+        <textarea
+          ref={inputRef}
+          className={cn(
+            'composer-input',
+            inputMode === 'single-line' ? 'composer-input--single-line' : 'composer-input--multiline',
+            inputClassName,
+            inputPropsClassName
+          )}
+          placeholder={placeholder}
+          value={value}
+          onInput={onInput}
+          onKeyDown={onKeyDown}
+          aria-label={inputAriaLabel}
+          disabled={inputDisabled}
+          rows={1}
+          {...resolvedInputProps}
+        />
+      )}
+
+      {afterInput}
 
       {(contextChips && contextChips.length > 0) || actions ? (
-        <div className="composer-row">
+        <div className={cn('composer-row', rowClassName)}>
           {contextChips?.map((chip) => (
             <Fragment key={chip.id}>
               <span className="composer-ctx">
@@ -125,9 +161,9 @@ export function Composer({
         </div>
       ) : null}
 
-      {hint && <div className="composer-hint">{hint}</div>}
+      {hint && <div className={cn('composer-hint', hintClassName)}>{hint}</div>}
     </div>
   );
 
-  return sticky ? <div className="composer-wrap">{card}</div> : card;
+  return sticky ? <div className={cn('composer-wrap', wrapClassName)}>{card}</div> : card;
 }

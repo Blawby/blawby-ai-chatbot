@@ -88,6 +88,12 @@ interface FeatureFlags {
     enableAccountLinks: boolean;
 
     /**
+     * Enable practice calendar workspace
+     * When false, calendar navigation and routes stay hidden
+     */
+    enableCalendar: boolean;
+
+    /**
      * Enable multi-factor authentication settings UI and enrollment flow
      * When false, MFA controls and routes stay hidden from settings
      */
@@ -125,6 +131,7 @@ const baseFeatureConfig: FeatureFlags = {
     enableLeadQualification: true, // Enable lead qualification flow - AI asks questions before contact form
     enableMultiplePractices: true, // Enable multiple practices feature
     enableAccountLinks: false, // Hide account links until the settings flow is ready
+    enableCalendar: false, // Hide calendar until the backend/data pipeline is ready end-to-end
     enableMfa: false, // Hide MFA until the backend/auth flow is ready end-to-end
 
     enablePlusTier: false, // Hide Plus plan by default (not available at launch)

@@ -1,6 +1,7 @@
 import type { RefObject } from 'preact';
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'preact/hooks';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useState } from 'preact/hooks';
 import { Button } from '@/shared/ui/Button';
+import { Composer } from '@/design-system/patterns/Composer';
 import FileMenu from '@/features/media/components/FileMenu';
 import MediaControls from '@/features/media/components/MediaControls';
 import { FileDisplay } from '@/shared/ui/upload/organisms/FileDisplay';
@@ -12,6 +13,7 @@ import { FileAttachment } from '../../../../worker/types';
 import type { UploadingFile } from '@/shared/types/upload';
 import { Trans, useTranslation } from '@/shared/i18n/hooks';
 import type { ReplyTarget } from '@/features/chat/types';
+import { cn } from '@/shared/utils/cn';
 
 interface MessageComposerProps {
   inputValue: string;
@@ -92,17 +94,12 @@ const MessageComposer = ({
   hardError = null,
 }: MessageComposerProps) => {
   const { t } = useTranslation('common');
-  const [isInputExpanded, setIsInputExpanded] = useState(false);
-  const [isTextareaScrollable, setIsTextareaScrollable] = useState(false);
-  const [showScrollFade, setShowScrollFade] = useState(false);
-  const [isInputFocused, setIsInputFocused] = useState(false);
   const [isCompactViewport, setIsCompactViewport] = useState(false);
   const [mentionMenuOpen, setMentionMenuOpen] = useState(false);
   const [mentionQuery, setMentionQuery] = useState('');
   const [mentionStartIndex, setMentionStartIndex] = useState<number | null>(null);
   const [mentionFocusIndex, setMentionFocusIndex] = useState(0);
   const [selectedMentionUserIds, setSelectedMentionUserIds] = useState<string[]>([]);
-  const highlighterRef = useRef<HTMLDivElement>(null);
   const getSanitizedMentionIds = useCallback(() =>
     selectedMentionUserIds.filter(id => {
       const candidate = mentionCandidates.find(c => c.userId === id);
@@ -192,10 +189,6 @@ const MessageComposer = ({
 
     element.style.height = `${nextHeight}px`;
     element.style.overflowY = canScroll ? 'auto' : 'hidden';
-
-    setIsInputExpanded(nextHeight > MIN_TEXTAREA_HEIGHT + 8);
-    setIsTextareaScrollable(canScroll);
-    setShowScrollFade(canScroll && element.scrollTop > 0);
   }, [maxTextareaHeight]);
 
   const handleInput = (e: Event & { currentTarget: HTMLTextAreaElement }) => {
@@ -204,22 +197,6 @@ const MessageComposer = ({
     resizeTextarea(element);
     const caretIndex = element.selectionStart ?? element.value.length;
     refreshMentionMenu(element.value, caretIndex);
-    
-    // Sync scroll to highlighter
-    if (highlighterRef.current) {
-      highlighterRef.current.scrollTop = element.scrollTop;
-    }
-  };
-
-  const handleTextareaScroll = (e: Event & { currentTarget: HTMLTextAreaElement }) => {
-    if (highlighterRef.current) {
-      highlighterRef.current.scrollTop = e.currentTarget.scrollTop;
-    }
-    if (!isTextareaScrollable) {
-      setShowScrollFade(false);
-      return;
-    }
-    setShowScrollFade(e.currentTarget.scrollTop > 0);
   };
 
   const handleSubmit = () => {
@@ -233,9 +210,6 @@ const MessageComposer = ({
       el.style.height = '';
       el.style.overflowY = 'hidden';
     }
-    setIsInputExpanded(false);
-    setIsTextareaScrollable(false);
-    setShowScrollFade(false);
     setSelectedMentionUserIds([]);
     closeMentionMenu();
   };
@@ -270,39 +244,6 @@ const MessageComposer = ({
     });
   }, [closeMentionMenu, filteredMentionCandidates, inputValue, mentionStartIndex, resizeTextarea, setInputValue, textareaRef]);
 
-  const highlightedContent = useMemo(() => {
-    if (!inputValue) return null;
-    
-    const candidates = mentionCandidates?.map((candidate) => getMentionLabel(candidate)).filter(Boolean) ?? [];
-    if (candidates.length === 0) {
-      return <span className="text-transparent">{inputValue}</span>;
-    }
-
-    const escapedLabels = candidates.map(l => l.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
-    const regex = new RegExp(`(^|\\s)(@(?:${escapedLabels.join('|')}))(?=\\s|$)`, 'g');
-    
-    const parts = [];
-    let lastIndex = 0;
-    let match;
-    
-    while ((match = regex.exec(inputValue)) !== null) {
-      const prefix = match[1];
-      const mention = match[2];
-      const index = match.index + prefix.length;
-      
-      parts.push(<span key={`text-${index}`} className="text-transparent">{inputValue.slice(lastIndex, index)}</span>);
-      parts.push(
-        <span key={`mention-${index}`} className="nav-item-active rounded-[6px] px-0.5 ring-1 ring-accent/25 text-transparent">
-          {mention}
-        </span>
-      );
-      lastIndex = index + mention.length;
-    }
-    parts.push(<span key={`final-${lastIndex}`} className="text-transparent">{inputValue.slice(lastIndex)}</span>);
-    
-    return parts;
-  }, [inputValue, mentionCandidates]);
-
   useLayoutEffect(() => {
     const el = textareaRef.current;
     if (!el) return;
@@ -318,8 +259,6 @@ const MessageComposer = ({
   // Authenticated client/practice workspaces keep the attachment menu.
   const canShowAttachmentMenu = !hideAttachmentControls && !isPublicWorkspace && !isRecording && !isComposerDisabled && Boolean(isReadyToUpload);
   const canShowAudioRecording = features.enableAudioRecording && !isPublicWorkspace && !isComposerDisabled;
-
-  const textareaClasses = "w-full min-h-8 py-2 m-0 text-sm sm:text-base leading-[1.45] text-ink bg-transparent border-none resize-none outline-none overflow-hidden box-border placeholder:text-dim-2 transition-all duration-200";
 
   return (
     <div className="px-4 pt-3 pb-3 bg-transparent rounded-none border-0 h-auto flex flex-col w-full">
@@ -342,196 +281,178 @@ const MessageComposer = ({
           </div>
         )}
         <div className="message-composer-container">
-          {replyTo && (
-            <div className="flex items-center justify-between gap-3 rounded-t-2xl bg-paper-2/40 dark:bg-paper-2/20 px-4 py-1.5 text-sm text-ink -mx-2 -mt-1">
-              <div className="flex min-w-0 items-center gap-2">
-                <span className="text-ink/70">
-                  <Trans
-                    i18nKey="chat.replyingTo"
-                    values={{ name: replyTo.authorName }}
-                    components={{
-                      name: <span className="truncate font-semibold text-accent" />
-                    }}
-                  />
-                </span>
-              </div>
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                className="h-6 w-6 rounded-full"
-                aria-label="Cancel reply"
-                onClick={() => onCancelReply?.()}
-                icon={X} iconClassName="h-4 w-4"
-              />
-            </div>
-          )}
-          {(uploadingFiles.length > 0 || previewFiles.length > 0) && (
-            <div
-              className={`message-composer-preview-container ${shouldWrapAttachments ? 'flex-wrap max-h-[104px] overflow-y-auto pr-1' : 'overflow-x-auto'}`}
-              role="list"
-              aria-label="File attachments"
-            >
-              {uploadingFiles.slice().reverse().map(file => (
-                <FileUploadStatus
-                  key={file.id}
-                  file={file}
-                  onCancel={() => cancelUpload(file.id)}
-                  className="shadow-none border-0 ring-0"
-                />
-              ))}
-              
-              {previewFiles.slice().reverse().map((file, index) => (
-                <FileDisplay
-                  key={file.url || `${file.name}-${index}`}
-                  file={file}
-                  status="preview"
-                  onRemove={() => removePreviewFile(previewFiles.length - 1 - index)}
-                  className="shadow-none border-0 ring-0"
-                />
-              ))}
-            </div>
-          )}
+          <Composer
+            beforeInput={
+              <>
+                {replyTo && (
+                  <div className="composer-thread-reply">
+                    <div className="flex min-w-0 items-center gap-2">
+                      <span className="text-ink/70">
+                        <Trans
+                          i18nKey="chat.replyingTo"
+                          values={{ name: replyTo.authorName }}
+                          components={{
+                            name: <span className="truncate font-semibold text-accent" />
+                          }}
+                        />
+                      </span>
+                    </div>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="h-6 w-6 rounded-full"
+                      aria-label="Cancel reply"
+                      onClick={() => onCancelReply?.()}
+                      icon={X} iconClassName="h-4 w-4"
+                    />
+                  </div>
+                )}
+                {(uploadingFiles.length > 0 || previewFiles.length > 0) && (
+                  <div
+                    className={cn(
+                      'message-composer-preview-container',
+                      shouldWrapAttachments ? 'flex-wrap max-h-[104px] overflow-y-auto pr-1' : 'overflow-x-auto'
+                    )}
+                    role="list"
+                    aria-label="File attachments"
+                  >
+                    {uploadingFiles.slice().reverse().map(file => (
+                      <FileUploadStatus
+                        key={file.id}
+                        file={file}
+                        onCancel={() => cancelUpload(file.id)}
+                        className="shadow-none border-0 ring-0"
+                      />
+                    ))}
 
-            {/* Single rounded pill. + (FileMenu) sits at the
-              left edge inside the pill, then the textarea, then the voice-memo
-              mic, then the send button. The grid CSS class is intentionally
-              dropped here in favor of inline flex so the icons live inside the
-              pill rather than beside it. */}
-          <div className="w-full">
-            <div className={`min-w-0 relative flex w-full items-end gap-1 field min-h-12 ${isInputExpanded ? 'rounded-2xl py-2 px-2' : 'rounded-full py-1 px-2'} ${isInputFocused ? 'ring-2 ring-accent/40 border-accent/40' : ''}`}>
-              {canShowAttachmentMenu && (
-                <div className="flex-shrink-0 self-end">
+                    {previewFiles.slice().reverse().map((file, index) => (
+                      <FileDisplay
+                        key={file.url || `${file.name}-${index}`}
+                        file={file}
+                        status="preview"
+                        onRemove={() => removePreviewFile(previewFiles.length - 1 - index)}
+                        className="shadow-none border-0 ring-0"
+                      />
+                    ))}
+                  </div>
+                )}
+              </>
+            }
+            value={inputValue}
+            inputMode="single-line"
+            onInput={handleInput}
+            onKeyDown={(event) => {
+              if (mentionMenuOpen && filteredMentionCandidates.length > 0) {
+                if (event.key === 'ArrowDown') {
+                  event.preventDefault();
+                  setMentionFocusIndex((prev) => (prev + 1) % filteredMentionCandidates.length);
+                  return;
+                }
+                if (event.key === 'ArrowUp') {
+                  event.preventDefault();
+                  setMentionFocusIndex((prev) => (prev - 1 + filteredMentionCandidates.length) % filteredMentionCandidates.length);
+                  return;
+                }
+                if (event.key === 'Enter' || event.key === 'Tab') {
+                  event.preventDefault();
+                  handleMentionSelect(mentionFocusIndex);
+                  return;
+                }
+                if (event.key === 'Escape') {
+                  event.preventDefault();
+                  closeMentionMenu();
+                  return;
+                }
+              }
+
+              onKeyDown(event, getSanitizedMentionIds());
+            }}
+            inputRef={textareaRef}
+            inputAriaLabel="Message input"
+            inputDisabled={isComposerDisabled}
+            inputClassName="message-composer-input"
+            inputProps={{
+              'data-testid': 'message-input',
+              onClick: (event) => {
+                const element = event.currentTarget as HTMLTextAreaElement;
+                const caretIndex = element.selectionStart ?? element.value.length;
+                refreshMentionMenu(element.value, caretIndex);
+              },
+              onBlur: () => {
+                setTimeout(() => closeMentionMenu(), 80);
+              },
+              'aria-controls': mentionMenuOpen ? 'mention-listbox' : undefined,
+              'aria-activedescendant': mentionMenuOpen ? `mention-option-${mentionFocusIndex}` : undefined,
+            }}
+            afterInput={mentionMenuOpen && filteredMentionCandidates.length > 0 ? (
+              <div
+                id="mention-listbox"
+                role="listbox"
+                className="composer-thread-mention-menu"
+              >
+                <div className="max-h-56 overflow-y-auto py-1">
+                  {filteredMentionCandidates.map((candidate, index) => (
+                    <button
+                      key={candidate.userId}
+                      id={`mention-option-${index}`}
+                      role="option"
+                      aria-selected={index === mentionFocusIndex}
+                      type="button"
+                      onMouseDown={(event) => event.preventDefault()}
+                      onClick={() => handleMentionSelect(index)}
+                      className={cn(
+                        'composer-thread-mention-option',
+                        index === mentionFocusIndex
+                          ? 'composer-thread-mention-option--active'
+                          : undefined
+                      )}
+                    >
+                      <span className="truncate">{candidate.name}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ) : null}
+            actions={
+              <>
+                {canShowAttachmentMenu && (
                   <FileMenu
                     onFileSelect={handleFileSelect}
                     onCameraCapture={handleCameraCapture}
                     isReadyToUpload
                   />
-                </div>
-              )}
-              {showScrollFade && (
-                <div
-                  className={`pointer-events-none absolute top-2 h-4 bg-gradient-to-b from-surface-app-frame/60 dark:from-black/20 to-transparent z-10
-                    ${canShowAttachmentMenu ? (canShowAudioRecording && !isRecording ? 'right-20 left-12' : 'right-12 left-12') : (canShowAudioRecording && !isRecording ? 'right-20 left-2' : 'right-12 left-2')}
-                  `}
-                />
-              )}
-              <div className="relative flex-1 min-w-0 self-stretch flex items-center px-1">
-                <div 
-                  ref={highlighterRef}
-                  className={`${textareaClasses} pointer-events-none absolute inset-0 overflow-hidden whitespace-pre-wrap break-words border-none select-none`}
-                  aria-hidden="true"
-                  style={{ color: 'transparent' }}
-                >
-                  {highlightedContent}
-                </div>
-                <textarea
-                  ref={textareaRef}
-                  data-testid="message-input"
-                  className={`${textareaClasses} relative z-0`}
-                  placeholder={t('forms.placeholders.message')}
-                  rows={1}
-                  value={inputValue}
-                  onInput={handleInput}
-                  onScroll={handleTextareaScroll}
-                  onClick={(event) => {
-                    const element = event.currentTarget;
-                    const caretIndex = element.selectionStart ?? element.value.length;
-                    refreshMentionMenu(element.value, caretIndex);
-                  }}
-                  onFocus={() => setIsInputFocused(true)}
-                  onBlur={() => {
-                    setIsInputFocused(false);
-                    setTimeout(() => closeMentionMenu(), 80);
-                  }}
-                  onKeyDown={(event) => {
-                    if (mentionMenuOpen && filteredMentionCandidates.length > 0) {
-                      if (event.key === 'ArrowDown') {
-                        event.preventDefault();
-                        setMentionFocusIndex((prev) => (prev + 1) % filteredMentionCandidates.length);
-                        return;
-                      }
-                      if (event.key === 'ArrowUp') {
-                        event.preventDefault();
-                        setMentionFocusIndex((prev) => (prev - 1 + filteredMentionCandidates.length) % filteredMentionCandidates.length);
-                        return;
-                      }
-                      if (event.key === 'Enter' || event.key === 'Tab') {
-                        event.preventDefault();
-                        handleMentionSelect(mentionFocusIndex);
-                        return;
-                      }
-                      if (event.key === 'Escape') {
-                        event.preventDefault();
-                        closeMentionMenu();
-                        return;
-                      }
-                    }
-                    
-                    onKeyDown(event, getSanitizedMentionIds());
-                  }}
-                  aria-label="Message input"
-                  aria-controls={mentionMenuOpen ? "mention-listbox" : undefined}
-                  aria-activedescendant={mentionMenuOpen ? `mention-option-${mentionFocusIndex}` : undefined}
-                  disabled={isComposerDisabled}
-                  style={{ background: 'transparent' }}
-                />
-              </div>
-              {mentionMenuOpen && filteredMentionCandidates.length > 0 ? (
-                <div 
-                  id="mention-listbox"
-                  role="listbox"
-                  className="absolute bottom-full left-2 right-2 z-40 mb-2 overflow-hidden rounded-r-md border border-line-subtle bg-paper dark:bg-card/95 shadow-glass backdrop-blur-2xl"
-                >
-                  <div className="max-h-56 overflow-y-auto py-1">
-                    {filteredMentionCandidates.map((candidate, index) => (
-                      <button
-                        key={candidate.userId}
-                        id={`mention-option-${index}`}
-                        role="option"
-                        aria-selected={index === mentionFocusIndex}
-                        type="button"
-                        onMouseDown={(event) => event.preventDefault()}
-                        onClick={() => handleMentionSelect(index)}
-                        className={`flex w-full items-center justify-between px-3 py-2 text-left text-sm transition-colors ${
-                          index === mentionFocusIndex
-                            ? 'bg-accent/15 text-accent-ink'
-                            : 'text-ink hover:bg-paper-2/40'
-                        }`}
-                      >
-                        <span className="truncate">{candidate.name}</span>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              ) : null}
-              {canShowAudioRecording ? (
-                <div className="flex-shrink-0 self-end">
+                )}
+                {canShowAudioRecording ? (
                   <MediaControls onMediaCapture={handleMediaCapture} onRecordingStateChange={setIsRecording} />
-                </div>
-              ) : null}
-              {!isRecording ? (
-                <Button
-                  type="submit"
-                  variant={inputValue.trim() || previewFiles.length > 0 ? 'primary' : 'secondary'}
-                  size="sm"
-                  disabled={sendDisabled}
-                  aria-label={
-                    isSessionReady === false
-                      ? 'Send message (waiting for secure session)'
-                      : isSocketReady === false
-                        ? 'Send message (connecting to chat)'
-                        : (!inputValue.trim() && previewFiles.length === 0
-                          ? 'Send message (disabled)'
-                          : 'Send message')}
-                  className={`w-8 h-8 p-0 rounded-full shrink-0 ${isInputExpanded ? 'self-end' : 'self-center'} transition ${isInputFocused && !sendDisabled ? 'ring-2 ring-accent/50 shadow-[0_0_0_2px_rgba(255,196,0,0.15)]' : ''}`}
-                  icon={ArrowUp} iconClassName="w-3.5 h-3.5"
-                  data-testid="message-send-button"
-                />
-              ) : null}
-            </div>
-          </div>
-
+                ) : null}
+                <div className="composer-spacer" />
+                {!isRecording ? (
+                  <button
+                    type="submit"
+                    disabled={sendDisabled}
+                    aria-label={
+                      isSessionReady === false
+                        ? 'Send message (waiting for secure session)'
+                        : isSocketReady === false
+                          ? 'Send message (connecting to chat)'
+                          : (!inputValue.trim() && previewFiles.length === 0
+                            ? 'Send message (disabled)'
+                            : 'Send message')}
+                    className="composer-send-button"
+                    data-testid="message-send-button"
+                  >
+                    <ArrowUp className="h-3.5 w-3.5" aria-hidden="true" />
+                  </button>
+                ) : null}
+              </>
+            }
+            hint={
+              <span>
+                <kbd>Enter</kbd> send · <kbd>Shift</kbd> <kbd>Enter</kbd> newline · Blawby never writes to your records without your approval.
+              </span>
+            }
+          />
         </div>
 
       </form>
