@@ -9,6 +9,7 @@ import {
   parseQuery,
   type SearchScope,
 } from '../utils/parseQuery';
+import { highlightText } from '../utils/highlightText';
 import type {
   SearchEnvelope,
   SearchResultItem,
@@ -192,6 +193,7 @@ export function CommandPalette({
             envelope={envelope}
             activeIndex={activeIndex}
             onSelect={selectResult}
+            terms={parsed.terms}
           />
         ) : recents.length > 0 ? (
           <RecentsList recents={recents} onPick={(q) => setQueryAndReset(q)} />
@@ -223,10 +225,12 @@ function ResultGroups({
   envelope,
   activeIndex,
   onSelect,
+  terms,
 }: {
   envelope: SearchEnvelope;
   activeIndex: number;
   onSelect: (item: SearchResultItem, rank: number) => void;
+  terms: string;
 }) {
   let rank = 0;
   return (
@@ -248,6 +252,7 @@ function ResultGroups({
                 onClick={() => onSelect(item, itemRank)}
                 className={cn(
                   'w-full flex items-start gap-3 px-3 py-2 rounded-lg text-left transition-colors',
+                  '[&_mark]:bg-accent/25 [&_mark]:text-inherit [&_mark]:rounded-sm [&_mark]:px-0.5',
                   active
                     ? 'bg-paper-2'
                     : 'hover:bg-paper-2/60',
@@ -257,7 +262,7 @@ function ResultGroups({
                 <Icon size={16} className="mt-0.5 shrink-0 text-ink/60" aria-hidden="true" />
                 <div className="min-w-0 flex-1">
                   <div className="text-sm font-medium truncate text-ink">
-                    {item.title}
+                    {highlightText(item.title, terms)}
                     {item.archived ? (
                       <span className="ml-2 text-[10px] uppercase text-ink/50">
                         archived
@@ -265,7 +270,9 @@ function ResultGroups({
                     ) : null}
                   </div>
                   {item.subtitle ? (
-                    <div className="text-xs text-ink/60 truncate">{item.subtitle}</div>
+                    <div className="text-xs text-ink/60 truncate">
+                      {highlightText(item.subtitle, terms)}
+                    </div>
                   ) : null}
                   {item.snippet ? (
                     <div

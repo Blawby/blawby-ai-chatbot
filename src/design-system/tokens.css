@@ -64,6 +64,21 @@
   --warn-rgb:     201 137 30;
   --neg-rgb:      189  68 40;
 
+  /* ---- Sidebar (rail) ----
+     Aliased onto the theme palette so each data-theme below inherits
+     these automatically through CSS variable resolution. Active state
+     uses the inverse paper/ink pair so the selected row reads as a
+     high-contrast pill against the rail surface; the `before:bg-accent`
+     stripe and `[&_svg]:text-accent` icon supply the brand cue on top. */
+  --sidebar-bg:             var(--paper-2-rgb);
+  --sidebar-text:           var(--ink-rgb);
+  --sidebar-text-secondary: var(--ink-3-rgb);
+  --sidebar-hover-bg:       var(--paper-edge-rgb);
+  --sidebar-active-bg:      var(--ink-rgb);
+  --sidebar-active-text:    var(--paper-rgb);
+  --sidebar-border:         var(--rule-rgb);
+  --sidebar-badge-bg:       var(--neg-rgb);
+
   /* ---- Type ---- */
   --serif: "Source Serif 4", "Source Serif Pro", Georgia, serif;
   --sans:  "Geist", ui-sans-serif, system-ui, -apple-system, sans-serif;
