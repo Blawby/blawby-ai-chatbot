@@ -6,6 +6,7 @@ import { Icon } from '@/shared/ui/Icon';
 import { isImageFile, getFileTypeConfig } from '@/shared/utils/fileTypeUtils';
 import { triggerDownload, openFile } from '@/shared/utils/fileDownload';
 import { formatRelativeTime } from '@/features/matters/utils/formatRelativeTime';
+import { formatFileSize } from '@/shared/utils/mediaAggregation';
 import { useNavigation } from '@/shared/utils/navigation';
 import { useToastContext } from '@/shared/contexts/ToastContext';
 import { folderForFile, type OrgFile } from '@/features/files/utils/fileCategory';
@@ -20,19 +21,6 @@ interface FilesInspectorPanelProps {
   scope: 'practice' | 'client';
   onClose: () => void;
 }
-
-const formatBytes = (bytes: number): string => {
-  if (!Number.isFinite(bytes) || bytes < 0) return '—';
-  if (bytes === 0) return '0 B';
-  const units = ['B', 'KB', 'MB', 'GB'];
-  let value = bytes;
-  let i = 0;
-  while (value >= 1024 && i < units.length - 1) {
-    value /= 1024;
-    i += 1;
-  }
-  return `${value < 10 && i > 0 ? value.toFixed(1) : Math.round(value)} ${units[i]}`;
-};
 
 const associationHref = (
   file: OrgFile,
@@ -87,9 +75,9 @@ export const FilesInspectorPanel = ({ file, practiceSlug, scope, onClose }: File
   return (
     <aside
       aria-label="File details"
-      className="flex h-full w-full flex-col overflow-hidden rounded-2xl border border-line-subtle bg-card"
+      className="flex h-full w-full flex-col overflow-hidden rounded-r-lg border border-rule bg-paper"
     >
-      <header className="flex items-center justify-between border-b border-line-subtle px-4 py-3">
+      <header className="flex items-center justify-between border-b border-rule px-4 py-3">
         <h2 className="text-sm font-semibold text-ink">Details</h2>
         <button
           type="button"
@@ -102,13 +90,13 @@ export const FilesInspectorPanel = ({ file, practiceSlug, scope, onClose }: File
       </header>
 
       <div className="flex-1 space-y-5 overflow-y-auto px-4 py-5">
-        <div className="flex aspect-[4/3] w-full items-center justify-center overflow-hidden rounded-r-md bg-paper-2">
+        <div className="flex aspect-[4/3] w-full items-center justify-center overflow-hidden rounded-r-lg bg-paper-2">
           {isImage && previewUrl ? (
             <img src={previewUrl} alt={file.fileName} className="h-full w-full object-contain" />
           ) : isImage && previewLoading ? (
             <div className="h-full w-full animate-pulse bg-paper-2" />
           ) : (
-            <div className={`flex h-20 w-20 items-center justify-center rounded-2xl ${fileType.color}`}>
+            <div className={`flex h-20 w-20 items-center justify-center rounded-lg ${fileType.color}`}>
               <Icon icon={fileType.icon} className="h-10 w-10 text-ink" />
             </div>
           )}
@@ -117,7 +105,7 @@ export const FilesInspectorPanel = ({ file, practiceSlug, scope, onClose }: File
         <div>
           <h3 className="break-words text-base font-semibold text-ink">{file.fileName}</h3>
           <p className="mt-1 text-xs text-dim-2">
-            {fileType.label} · {formatBytes(file.fileSize)}
+            {fileType.label} · {formatFileSize(file.fileSize)}
           </p>
         </div>
 
@@ -153,7 +141,7 @@ export const FilesInspectorPanel = ({ file, practiceSlug, scope, onClose }: File
         </dl>
       </div>
 
-      <footer className="flex gap-2 border-t border-line-subtle px-4 py-3">
+      <footer className="flex gap-2 border-t border-rule px-4 py-3">
         <Button
           variant="secondary"
           size="sm"

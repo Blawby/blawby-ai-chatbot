@@ -24,6 +24,7 @@ import {
   Wallet,
 } from 'lucide-preact';
 import { SettingsNavIcon } from '@/shared/ui/nav/SettingsNavIcon';
+import { features } from '@/config/features';
 import { CONTACTS_DIRECTORY_LABEL } from '@/shared/domain/contacts';
 import type { PracticeRole } from '@/shared/utils/practiceRoles';
 import { getPreferencesCategory } from '@/shared/lib/preferencesApi';
@@ -205,14 +206,14 @@ const buildPracticeRail = (basePath: string): NavRailItem[] => [
     matchHrefs: [`${basePath}/tasks`],
     prefetch: prefetchTasksChunk,
   },
-  {
+  ...(features.enableCalendar ? [{
     id: 'calendar',
     label: 'Calendar',
     icon: CalendarIcon,
     href: `${basePath}/calendar`,
     matchHrefs: [`${basePath}/calendar`],
     prefetch: prefetchCalendarChunk,
-  },
+  }] : []),
   {
     id: 'engagements',
     label: 'Engagements',
@@ -465,10 +466,32 @@ const buildIntakesSecondary = (basePath: string): NavSection[] => [
   },
 ];
 
+const buildTasksSecondary = (basePath: string): NavSection[] => [
+  {
+    label: 'Tasks',
+    items: [
+      { id: 'all-tasks', label: 'All tasks', href: `${basePath}/tasks`, icon: CheckSquare },
+    ],
+  },
+];
+
+const buildCalendarSecondary = (basePath: string): NavSection[] => [
+  {
+    label: 'Calendar',
+    items: [
+      { id: 'calendar', label: 'Calendar', href: `${basePath}/calendar`, icon: CalendarIcon },
+    ],
+  },
+];
+
 const buildSecondary = (basePath: string, section: WorkspaceSection, workspace: 'practice' | 'client', canAccessPractice: boolean): NavSection[] | undefined => {
   switch (section) {
     case 'conversations':
       return buildConversationsSecondary(basePath, workspace);
+    case 'tasks':
+      return workspace === 'practice' ? buildTasksSecondary(basePath) : undefined;
+    case 'calendar':
+      return workspace === 'practice' && features.enableCalendar ? buildCalendarSecondary(basePath) : undefined;
     case 'intakes':
       return workspace === 'practice' ? buildIntakesSecondary(basePath) : undefined;
     case 'reports':

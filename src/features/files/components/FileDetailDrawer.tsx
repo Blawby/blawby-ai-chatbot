@@ -9,6 +9,7 @@ import { useMobileDetection } from '@/shared/hooks/useMobileDetection';
 import { useToastContext } from '@/shared/contexts/ToastContext';
 import { isImageFile, getFileTypeConfig } from '@/shared/utils/fileTypeUtils';
 import { formatRelativeTime } from '@/features/matters/utils/formatRelativeTime';
+import { formatFileSize } from '@/shared/utils/mediaAggregation';
 import { triggerDownload, openFile } from '@/shared/utils/fileDownload';
 import { folderForFile, type OrgFile } from '@/features/files/utils/fileCategory';
 import {
@@ -22,19 +23,6 @@ interface FileDetailDrawerProps {
   onClose: () => void;
 }
 
-const formatBytes = (bytes: number): string => {
-  if (!Number.isFinite(bytes) || bytes < 0) return '—';
-  if (bytes === 0) return '0 B';
-  const units = ['B', 'KB', 'MB', 'GB'];
-  let value = bytes;
-  let i = 0;
-  while (value >= 1024 && i < units.length - 1) {
-    value /= 1024;
-    i += 1;
-  }
-  return `${value < 10 && i > 0 ? value.toFixed(1) : Math.round(value)} ${units[i]}`;
-};
-
 const FileDetailContent = ({ file }: { file: OrgFile }) => {
   const fileType = getFileTypeConfig(file.fileName, file.mimeType);
   const association = folderForFile(file);
@@ -47,13 +35,13 @@ const FileDetailContent = ({ file }: { file: OrgFile }) => {
 
   return (
     <div className="space-y-5">
-      <div className="flex aspect-[4/3] w-full items-center justify-center overflow-hidden rounded-2xl bg-paper-2">
+      <div className="flex aspect-[4/3] w-full items-center justify-center overflow-hidden rounded-r-lg bg-paper-2">
         {isImage && previewUrl ? (
           <img src={previewUrl} alt={file.fileName} className="h-full w-full object-contain" />
         ) : isImage && previewLoading ? (
           <div className="h-full w-full animate-pulse bg-paper-2" />
         ) : (
-          <div className={`flex h-20 w-20 items-center justify-center rounded-2xl ${fileType.color}`}>
+          <div className={`flex h-20 w-20 items-center justify-center rounded-r-lg ${fileType.color}`}>
             <Icon icon={fileType.icon} className="h-10 w-10 text-ink" />
           </div>
         )}
@@ -61,7 +49,7 @@ const FileDetailContent = ({ file }: { file: OrgFile }) => {
 
       <div>
         <h2 className="break-words text-base font-semibold text-ink">{file.fileName}</h2>
-        <p className="mt-1 text-xs text-dim-2">{fileType.label} · {formatBytes(file.fileSize)}</p>
+        <p className="mt-1 text-xs text-dim-2">{fileType.label} · {formatFileSize(file.fileSize)}</p>
       </div>
 
       <dl className="space-y-3 text-sm">
@@ -142,7 +130,7 @@ export const FileDetailDrawer = ({ file, isOpen, onClose }: FileDetailDrawerProp
           <div className="flex-1 overflow-y-auto px-4 py-6">
             <FileDetailContent file={file} />
           </div>
-          <div className="border-t border-line-subtle px-4 py-3">
+          <div className="border-t border-rule px-4 py-3">
             <Actions file={file} onClose={onClose} />
           </div>
         </div>

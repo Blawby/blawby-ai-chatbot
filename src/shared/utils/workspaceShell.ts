@@ -297,6 +297,8 @@ export const shouldShowWorkspaceMobileMenuButton = ({
   if (!isMobileLayout || !hasSecondaryNav) return false;
   if (workspaceSection === 'assistant') return isPracticeWorkspace && view === 'assistant';
   if (workspaceSection === 'conversations') return view === 'list' || view === 'conversation';
+  if (workspaceSection === 'tasks') return isPracticeWorkspace && view === 'tasks';
+  if (workspaceSection === 'calendar') return isPracticeWorkspace && view === 'calendar';
   if (workspaceSection === 'intakes') return view === 'intakes';
   if (workspaceSection === 'matters') return false;
   if (workspaceSection === 'home') {

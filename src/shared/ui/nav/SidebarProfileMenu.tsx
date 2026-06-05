@@ -93,16 +93,25 @@ export const SidebarProfileMenu: FunctionComponent<SidebarProfileMenuProps> = ({
   }, [isOpen]);
 
   useLayoutEffect(() => {
-    if (!isOpen || !collapsed) return;
+    if (!isOpen) return;
     const updatePosition = () => {
       const trigger = containerRef.current;
       if (!trigger) return;
       const rect = trigger.getBoundingClientRect();
-      setFixedStyle({
-        position: 'fixed',
-        left: `${rect.right + 12}px`,
-        bottom: `${window.innerHeight - rect.bottom}px`,
-      });
+      if (collapsed) {
+        setFixedStyle({
+          position: 'fixed',
+          left: `${rect.right + 12}px`,
+          bottom: `${window.innerHeight - rect.bottom}px`,
+        });
+      } else {
+        setFixedStyle({
+          position: 'fixed',
+          left: `${rect.left}px`,
+          right: `${window.innerWidth - rect.right}px`,
+          bottom: `${window.innerHeight - rect.top + 8}px`,
+        });
+      }
     };
     updatePosition();
     window.addEventListener('resize', updatePosition);
@@ -134,17 +143,17 @@ export const SidebarProfileMenu: FunctionComponent<SidebarProfileMenuProps> = ({
           aria-label="Profile menu"
           className={
             collapsed
-              ? 'z-50 w-60 rounded-r-md border p-1 shadow-[0_8px_24px_rgba(0,0,0,0.4)] bg-[rgb(var(--sidebar-menu-bg))] border-[rgb(var(--sidebar-menu-border))]'
-              : 'absolute bottom-full left-0 right-0 z-50 mb-2 rounded-r-md border p-1 shadow-[0_-4px_24px_rgba(0,0,0,0.4)] bg-[rgb(var(--sidebar-menu-bg))] border-[rgb(var(--sidebar-menu-border))]'
+              ? 'z-50 w-60 rounded-r-md border border-paper-edge bg-paper p-1 shadow-[0_8px_24px_rgba(0,0,0,0.4)]'
+              : 'z-50 rounded-md border border-paper-edge bg-paper p-1 shadow-[0_-4px_24px_rgba(0,0,0,0.4)]'
           }
-          style={collapsed ? fixedStyle : undefined}
+          style={fixedStyle}
         >
           <div className="flex items-center gap-2.5 px-2 py-2.5">
             <Avatar src={user.image ?? null} name={user.name} size="md" />
             <div className="flex min-w-0 flex-col">
-              <span className="truncate text-[13px] font-medium text-[rgb(var(--sidebar-text))]">{user.name}</span>
+              <span className="truncate text-[13px] font-medium text-ink">{user.name}</span>
               {user.email ? (
-                <span className="truncate text-[11px] text-[rgb(var(--sidebar-section-label))]">{user.email}</span>
+                <span className="truncate text-[11px] text-dim">{user.email}</span>
               ) : null}
             </div>
           </div>
@@ -177,13 +186,13 @@ const ThemeSelector: FunctionComponent<{
   onChange: (next: ThemeChoice) => void;
 }> = ({ value, onChange }) => (
   <div className="px-2 py-1.5">
-    <p className="mb-1.5 px-1 text-[10px] font-semibold uppercase tracking-wider text-[rgb(var(--sidebar-section-label))]">
+    <p className="mb-1.5 px-1 text-[10px] font-semibold uppercase tracking-wider text-dim">
       Theme
     </p>
     <div
       role="radiogroup"
       aria-label="Theme"
-      className="flex items-center gap-1 rounded-md bg-[rgb(var(--sidebar-hover-bg))]/40 p-1"
+      className="flex items-center gap-1 rounded-md bg-paper-2/60 p-1"
     >
       {THEME_OPTIONS.map((option) => {
         const active = option.value === value;
@@ -197,12 +206,11 @@ const ThemeSelector: FunctionComponent<{
             className={cn(
               'flex flex-1 items-center justify-center gap-1.5 rounded px-2 py-1.5 text-[12px] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50',
               active
-                ? 'bg-[rgb(var(--sidebar-menu-bg))] text-[rgb(var(--sidebar-text))] shadow-sm'
-                : 'text-[rgb(var(--sidebar-text-secondary))] hover:text-[rgb(var(--sidebar-text))]',
+                ? 'bg-paper text-ink shadow-sm'
+                : 'text-ink-3 hover:text-ink',
             )}
           >
             <Icon icon={option.icon} className="h-3.5 w-3.5" aria-hidden />
-            <span>{option.label}</span>
           </button>
         );
       })}
@@ -212,7 +220,7 @@ const ThemeSelector: FunctionComponent<{
 
 const Separator: FunctionComponent = () => (
   <div className="my-1 px-1">
-    <div className="h-px bg-[rgb(var(--sidebar-divider))]" />
+    <div className="h-px bg-rule" />
   </div>
 );
 
@@ -232,7 +240,7 @@ const ProfileMenuItem: FunctionComponent<{
         'group flex h-9 w-full items-center gap-2 rounded-md px-2 text-left text-[13px] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50',
         isDanger
           ? 'text-red-400 hover:bg-red-500/10 hover:text-red-300'
-          : 'text-[rgb(var(--sidebar-text))] hover:bg-[rgb(var(--sidebar-hover-bg))]',
+          : 'text-ink hover:bg-paper-2',
       )}
     >
       <Icon
@@ -241,7 +249,7 @@ const ProfileMenuItem: FunctionComponent<{
           'h-4 w-4',
           isDanger
             ? 'text-red-400 group-hover:text-red-300'
-            : 'text-[rgb(var(--sidebar-text-secondary))]',
+            : 'text-ink-3',
         )}
       />
       <span>{label}</span>
