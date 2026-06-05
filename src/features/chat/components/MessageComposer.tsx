@@ -345,7 +345,7 @@ const MessageComposer = ({
           {replyTo && (
             <div className="flex items-center justify-between gap-3 rounded-t-2xl bg-paper-2/40 dark:bg-paper-2/20 px-4 py-1.5 text-sm text-ink -mx-2 -mt-1">
               <div className="flex min-w-0 items-center gap-2">
-                <span className="text-ink/70">
+                <span className="text-dim">
                   <Trans
                     i18nKey="chat.replyingTo"
                     values={{ name: replyTo.authorName }}

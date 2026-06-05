@@ -1066,7 +1066,7 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
     <Card>
       <div className="space-y-1">
         <SectionLabel>Client&apos;s own words</SectionLabel>
-        <p className="whitespace-pre-wrap text-sm leading-relaxed text-ink/90">{description}</p>
+        <p className="whitespace-pre-wrap text-sm leading-relaxed text-ink">{description}</p>
       </div>
     </Card>
   ) : null;
@@ -1246,7 +1246,7 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
         <div className="rounded-lg bg-accent/10 p-2 text-accent">
           <Icon icon={Sparkles} className="h-4 w-4" />
         </div>
-        <p className="text-xs leading-relaxed text-ink/90">
+        <p className="text-xs leading-relaxed text-ink">
           Blawby can ask the client for missing legal details and add them to this thread.
         </p>
       </div>
@@ -1267,7 +1267,7 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
   const notesCard = (intake.triage_reason && intake.triage_reason.trim().length > 0) ? (
     <Card className="p-4">
       <SectionLabel className="mb-2">Notes</SectionLabel>
-      <p className="text-xs leading-relaxed text-ink/90 whitespace-pre-wrap">
+      <p className="text-xs leading-relaxed text-ink whitespace-pre-wrap">
         {intake.triage_reason}
       </p>
     </Card>

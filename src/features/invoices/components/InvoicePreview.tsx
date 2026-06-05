@@ -64,7 +64,7 @@ const LogoAvatar = ({ src, name }: { src: string | null; name: string }) => {
           style={{ width: '100%', height: '100%', objectFit: 'cover' }}
         />
       ) : (
-        <span style={{ fontSize: 16, fontWeight: 700, color: '#475569', letterSpacing: '-0.02em' }}>
+        <span style={{ fontSize: 16, fontWeight: 700, color: 'var(--dim)', letterSpacing: '-0.02em' }}>
           {initials}
         </span>
       )}
