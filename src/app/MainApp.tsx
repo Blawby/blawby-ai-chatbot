@@ -36,6 +36,7 @@ const PracticeInvoiceDetailPage = lazy(() => import('@/features/invoices/pages/P
 const ClientInvoicesPage = lazy(() => import('@/features/invoices/pages/ClientInvoicesPage').then(m => ({ default: m.ClientInvoicesPage })));
 const ClientInvoiceDetailPage = lazy(() => import('@/features/invoices/pages/ClientInvoiceDetailPage').then(m => ({ default: m.ClientInvoiceDetailPage })));
 const PracticeReportsPage = lazy(() => import('@/features/reports/pages/PracticeReportsPage').then(m => ({ default: m.PracticeReportsPage })));
+const PracticeTasksPage = lazy(() => import('@/features/tasks/pages/PracticeTasksPage').then(m => ({ default: m.PracticeTasksPage })));
 const IntakesPage = lazy(() => import('@/features/intake/pages/IntakesPage').then(m => ({ default: m.IntakesPage })));
 const ClientIntakesView = lazy(() => import('@/features/intake/pages/ClientIntakesView').then(m => ({ default: m.ClientIntakesView })));
 const EngagementsPage = lazy(() => import('@/features/engagements/pages/EngagementsPage').then(m => ({ default: m.EngagementsPage })));
@@ -53,6 +54,7 @@ import {
   resolveConversationDisplayTitle,
   resolveConversationPresence,
 } from '@/shared/utils/conversationDisplay';
+import { isAssistantConversation } from '@/shared/utils/conversationSurface';
 import { DetailHeader } from '@/shared/ui/layout/DetailHeader';
 import { LazyRouteBoundary } from '@/shared/ui/layout/LazyRouteBoundary';
 import { features } from '@/config/features';
@@ -545,16 +547,20 @@ export function MainApp({
     return resolveConversationPresence(lastTimestamp ?? null, isSocketReady);
   }, [filteredMessagesForHeader, isSocketReady]);
   const conversationHeaderActiveLabel = conversationHeaderPresence.label;
-  const conversationContactName = useMemo(() => (
-    resolveConversationContactName(conversationMetadata ?? null)
-  ), [conversationMetadata]);
+  const conversationContactName = useMemo(() => {
+    if (isAssistantConversation(conversationMetadata ?? null)) {
+      return resolveConversationDisplayTitle(conversationMetadata ?? null, 'Practice Assistant');
+    }
+    return resolveConversationContactName(conversationMetadata ?? null);
+  }, [conversationMetadata]);
   // Conversation header always shows the contact name (the person being
   // chatted with). No fallback to metadata.title or the practice name —
   // those leak case-internal labels into the header. If the contact is
   // unknown, render a generic placeholder rather than a misleading fallback.
   const conversationCaseTitle = useMemo(() => (
-    conversationContactName?.trim() || 'Conversation'
-  ), [conversationContactName]);
+    conversationContactName?.trim()
+      || (isAssistantConversation(conversationMetadata ?? null) ? 'Practice Assistant' : 'Conversation')
+  ), [conversationContactName, conversationMetadata]);
 
   // On desktop practice/client surfaces the inspector panel is open by default,
   // so the 3-dot inspector toggle in the conversation header would be redundant
@@ -776,24 +782,16 @@ export function MainApp({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isChatReady, activeConversationId, conversationMetadata?.mode]);
   const shouldShowChatPlaceholder = workspace !== 'public' && !activeConversationId;
-  const isAssistantWorkspace = isPracticeWorkspace && workspaceView === 'assistant';
-  const isAssistantRootRoute = isAssistantWorkspace && !normalizedRouteConversationId;
 
   // ── chat panel ─────────────────────────────────────────────────────────────
   const chatPanel = chatContent ?? (
     <div className="relative flex min-h-0 flex-1 flex-col">
-      {shouldShowChatPlaceholder || isAssistantRootRoute ? (
-        isAssistantWorkspace ? (
-          <div className="flex flex-1 items-center justify-center text-sm text-dim-2">
-            Opening assistant thread...
-          </div>
-        ) : (
-          <div className="flex-1 flex items-center justify-center text-sm text-dim-2">
-            {isPracticeWorkspace
-              ? 'Select a conversation to view the thread.'
-              : 'Open a practice link to start chatting.'}
-          </div>
-        )
+      {shouldShowChatPlaceholder ? (
+        <div className="flex-1 flex items-center justify-center text-sm text-dim-2">
+          {isPracticeWorkspace
+            ? 'Select a conversation to view the thread.'
+            : 'Open a practice link to start chatting.'}
+        </div>
       ) : (
         <div className="flex-1 min-h-0">
           <ChatContainer
@@ -1139,6 +1137,19 @@ export function MainApp({
                 conversationsBasePath={conversationsBasePath}
                 practiceName={resolvedPracticeName}
                 practiceLogo={resolvedPracticeLogo}
+              />
+            </LazyRouteBoundary>
+            )
+            : undefined
+      }
+      tasksView={
+        isPracticeWorkspace
+          ? () => (
+            <LazyRouteBoundary>
+              <PracticeTasksPage
+                practiceId={practiceId}
+                basePath={`/practice/${resolvedPracticeSlug ?? ''}`}
+                onNavigate={(path: string) => navigate(path)}
               />
             </LazyRouteBoundary>
           )

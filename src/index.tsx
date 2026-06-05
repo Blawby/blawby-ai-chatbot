@@ -15,6 +15,7 @@ import { usePracticeConfig } from '@/shared/hooks/usePracticeConfig';
 import type { UIPracticeConfig } from '@/shared/hooks/usePracticeConfig';
 import { handleError as _handleError } from '@/shared/utils/errorHandler';
 import { useWorkspaceResolver } from '@/shared/hooks/useWorkspaceResolver';
+import { features } from '@/config/features';
 import {
   getWorkspaceHomePath,
 } from '@/shared/utils/workspace';
@@ -50,7 +51,6 @@ const AuthPage = lazy(() => import('@/pages/AuthPage'));
 const AcceptInvitationPage = lazy(() => import('@/pages/AcceptInvitationPage'));
 const ClientHomePage = lazy(() => import('@/pages/ClientHomePage'));
 const PracticeTrustPage = lazy(() => import('@/features/trust/pages/PracticeTrustPage'));
-const PracticeTasksPage = lazy(() => import('@/features/tasks/pages/PracticeTasksPage'));
 const PracticeCalendarPage = lazy(() => import('@/features/calendar/pages/PracticeCalendarPage'));
 const OnboardingPage = lazy(() => import('@/pages/OnboardingPage'));
 const PricingPage = lazy(() => import('@/pages/PricingPage'));
@@ -522,7 +522,7 @@ function AppShell() {
           <Route path="/practice/:practiceSlug/matters" component={PracticeAppRoute} workspaceView="matters" />
           <Route path="/practice/:practiceSlug/matters/*" component={PracticeAppRoute} workspaceView="matters" />
           <Route path="/practice/:practiceSlug/tasks" component={PracticeAppRoute} workspaceView="tasks" />
-          <Route path="/practice/:practiceSlug/calendar" component={PracticeAppRoute} workspaceView="calendar" />
+          {features.enableCalendar ? <Route path="/practice/:practiceSlug/calendar" component={PracticeAppRoute} workspaceView="calendar" /> : null}
           <Route path="/practice/:practiceSlug/trust" component={PracticeAppRoute} workspaceView="trust" />
           <Route path="/practice/:practiceSlug/intakes/responses" component={PracticeAppRoute} workspaceView="intakes" />
           <Route path="/practice/:practiceSlug/intakes/responses/:intakeId" component={PracticeAppRoute} workspaceView="intakes" />
@@ -965,16 +965,8 @@ function PracticeAppRoute({
     );
   }
 
-  if (workspaceView === 'tasks') {
-    return (
-      <Suspense fallback={<LoadingScreen />}>
-        <PracticeTasksPage
-          practiceId={resolvedPracticeId}
-          basePath={`/practice/${normalizedPracticeSlug ?? ''}`}
-          onNavigate={(path: string) => location.route(path)}
-        />
-      </Suspense>
-    );
+  if (workspaceView === 'calendar' && !features.enableCalendar) {
+    return <App404 />;
   }
 
   if (workspaceView === 'calendar') {

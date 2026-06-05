@@ -71,6 +71,7 @@ import {
   updateMatterTimeEntry
 } from '@/features/matters/services/mattersApi';
 import { useBillingData } from '@/features/matters/hooks/useBillingData';
+import { usePracticeBillingData } from '@/features/practice-dashboard/hooks/usePracticeBillingData';
 import type { Invoice, InvoiceLineItem } from '@/features/matters/types/billing.types';
 import { createPendingInvoiceDraftContext } from '@/features/invoices/utils/invoiceDraftContext';
 import { getPracticeIntake } from '@/features/intake/api/intakesApi';
@@ -1501,6 +1502,8 @@ export const PracticeMattersPage = ({
       billingType: typeof m.billing_type === 'string' ? m.billing_type : null,
       caseNumber: typeof m.case_number === 'string' ? m.case_number : null,
       openDate: typeof m.open_date === 'string' ? m.open_date : null,
+      retainerBalance: typeof m.retainer_balance === 'number' ? m.retainer_balance : null,
+      retainerCap: typeof m.retainer_cap === 'number' ? m.retainer_cap : null,
     };
   }), [matters, clientNameById, serviceNameById]);
 
@@ -1526,6 +1529,13 @@ export const PracticeMattersPage = ({
     () => selectedMatterId ? matterSummaries.find((m) => m.id === selectedMatterId) ?? null : null,
     [matterSummaries, selectedMatterId]
   );
+  const { summaryStats: practiceBillingStats } = usePracticeBillingData({
+    practiceId: activePracticeId,
+    enabled: Boolean(activePracticeId),
+    matterLimit: 50,
+    windowSize: '7d',
+    matters,
+  });
   const resolvedSelectedMatter = selectedMatterDetail ?? selectedMatterSummary;
   const clientOptionById = useMemo(
     () => new Map(clientOptions.map((client) => [client.id, client])),
@@ -2330,13 +2340,11 @@ export const PracticeMattersPage = ({
     return true;
   });
 
-  // Stat strip cells — derived from existing list data only. Per-row event
-  // counts and per-matter retainer percentages live in the matter detail
-  // and would require N+1 fan-out, so they render "—" today.
-  // TODO(backend): expose aggregate stats endpoint
-  //   (/api/practice/:id/matters/stats) for open-retainer total, weekly event
-  //   counts, and upcoming court dates so we can show the canonical
-  //   "Open retainer / Open events / Court this week" cells.
+  // Header summary — mirror the redesign's hero layout while staying grounded
+  // in live data we actually have today. Retainer totals come from the list
+  // payload, unbilled comes from the shared practice-billing aggregate hook,
+  // and the second line uses matter counts until a dedicated matter-stats
+  // endpoint exists for event/court rollups.
   const openMattersCount = sortedMatterEntries.filter((e) => {
     const cat = matterStatusCategory(e.summary.status);
     return cat === 'active' || cat === 'closing' || cat === 'new';
@@ -2345,12 +2353,13 @@ export const PracticeMattersPage = ({
     deriveRiskSignal(e.urgency, e.summary.updatedAt, now) === 'urgent'
   ).length;
   const totalMatters = sortedMatterEntries.length;
-
-  const statCells = [
-    { label: 'Open matters', value: formatCount(openMattersCount) },
-    { label: 'At risk', value: formatCount(atRiskCount), extraWarn: atRiskCount > 0 },
-    { label: 'Total', value: formatCount(totalMatters) },
-  ];
+  const openRetainerTotal = sortedMatterEntries.reduce((sum, entry) => {
+    const cat = matterStatusCategory(entry.summary.status);
+    if (cat !== 'active' && cat !== 'closing' && cat !== 'new') return sum;
+    return sum + ((entry.retainerBalance ?? 0) / 100);
+  }, 0);
+  const unbilledSummaryStat = practiceBillingStats.find((stat) => stat.id === 'unbilled') ?? null;
+  const totalUnbilled = unbilledSummaryStat ? getMajorAmountValue(unbilledSummaryStat.value) : 0;
 
   const showEmpty = !showLoading && !mattersError && sortedMatterEntries.length === 0;
   const showFilteredEmpty =
@@ -2362,8 +2371,7 @@ export const PracticeMattersPage = ({
     return 'No matters match these filters.';
   })();
 
-  const practiceName = practiceDetails?.name?.trim() || 'Workspace';
-  const crumb = `Workspace · ${practiceName}`;
+  const crumb = `Workspace · ${formatCount(openMattersCount)} active`;
 
   const handleAskSubmit = (query: string) => {
     // TODO(backend): wire to /api/practice/:id/matters/ask once the natural-
@@ -2382,8 +2390,8 @@ export const PracticeMattersPage = ({
 
   // Mobile reflow strategy:
   // - H1: 32px on mobile, 44px from sm+
-  // - StatStrip: hidden < sm (reclaimed for actions row)
-  // - Header actions: wrap onto own row on mobile so H1 stays full-width
+  // - Hero stats stack under the title on mobile, align right on desktop
+  // - Toolbar actions stay with filters/view controls (matches redesign)
   // - Filter chip row: dialog ("Filters" button) on mobile, inline pills sm+
   // - Page padding: tighter (px-4) on mobile, 24px sm+
   // - Table row: 2 cols (title + status pill) below md, 6 cols at md+
@@ -2405,8 +2413,8 @@ export const PracticeMattersPage = ({
 
       <div className="mx-auto w-full max-w-[1280px] px-4 pb-12 pt-6 sm:px-6 sm:pt-7">
         {/* ── PAGE HEADER ROW ──────────────────────────────────────────── */}
-        <header className="flex flex-wrap items-end justify-between gap-3 border-b border-line-subtle pb-5 sm:gap-4">
-          <div className="min-w-0 w-full sm:w-auto">
+        <header className="flex flex-col gap-4 border-b border-line-subtle pb-5 md:flex-row md:items-end md:justify-between">
+          <div className="min-w-0">
             <div className="font-mono text-[10px] uppercase tracking-[0.14em] text-dim">
               {crumb}
             </div>
@@ -2414,32 +2422,21 @@ export const PracticeMattersPage = ({
               Matters
             </h1>
           </div>
-          <div className="flex w-full items-end justify-between gap-3 sm:w-auto sm:gap-4">
-            <StatStrip cells={statCells} className="hidden sm:flex" />
-            <div className="flex flex-1 items-center gap-2 sm:flex-initial">
-              <Button
-                size="sm"
-                variant="ghost"
-                icon={Download}
-                onClick={handleExport}
-                disabled={!activePracticeId || totalMatters === 0}
-                className="min-h-[44px] flex-1 sm:flex-initial sm:min-h-0"
-              >
-                Export
-              </Button>
-              <Button
-                size="sm"
-                variant="primary"
-                icon={Plus}
-                onClick={handleNewMatter}
-                disabled={!activePracticeId}
-                className="min-h-[44px] flex-1 sm:flex-initial sm:min-h-0"
-              >
-                New matter
-                <kbd className="ml-2 hidden rounded border border-line-utility bg-paper-2 px-1.5 py-0.5 text-[10px] font-medium text-dim-2 md:inline">
-                  N
-                </kbd>
-              </Button>
+          <div className="font-mono text-[10.5px] uppercase tracking-[0.08em] text-dim md:text-right">
+            <span className="block">Open</span>
+            <div className="mt-1 leading-[1.7]">
+              <span className="font-sans text-[13px] font-medium tracking-normal text-ink">{formatCurrency(openRetainerTotal)}</span>{' '}
+              in retainer
+              {' · '}
+              <span className="font-sans text-[13px] font-medium tracking-normal text-ink">{formatCurrency(totalUnbilled)}</span>{' '}
+              unbilled
+            </div>
+            <div className="leading-[1.7]">
+              <span className="font-sans text-[13px] font-medium tracking-normal text-ink">{formatCount(atRiskCount)}</span>{' '}
+              at risk
+              {' · '}
+              <span className="font-sans text-[13px] font-medium tracking-normal text-ink">{formatCount(totalMatters)}</span>{' '}
+              total
             </div>
           </div>
         </header>
@@ -2556,6 +2553,29 @@ export const PracticeMattersPage = ({
               ariaLabel="Switch matter view"
             />
           </div>
+          <Button
+            size="sm"
+            variant="ghost"
+            icon={Download}
+            onClick={handleExport}
+            disabled={!activePracticeId || totalMatters === 0}
+            className="min-h-[44px] sm:min-h-0"
+          >
+            Export
+          </Button>
+          <Button
+            size="sm"
+            variant="primary"
+            icon={Plus}
+            onClick={handleNewMatter}
+            disabled={!activePracticeId}
+            className="min-h-[44px] sm:min-h-0"
+          >
+            New matter
+            <kbd className="ml-2 hidden rounded border border-line-utility bg-paper-2 px-1.5 py-0.5 text-[10px] font-medium text-dim-2 md:inline">
+              N
+            </kbd>
+          </Button>
         </div>
 
         {/* ── MAIN VIEW ─────────────────────────────────────────────────── */}
@@ -2695,6 +2715,8 @@ type MatterRow = {
   billingType: string | null;
   caseNumber: string | null;
   openDate: string | null;
+  retainerBalance: number | null;
+  retainerCap: number | null;
 };
 
 const daysSince = (iso: string | null, now: number): number | null => {
@@ -2753,9 +2775,9 @@ function MattersTable({
           const billingLabel = billingTypeLabel(row.billingType);
           const opened = daysSince(row.openDate ?? summary.createdAt, now);
           const urgentTint = signal === 'urgent';
-          // TODO(backend): expose per-matter retainer balance + cap from the
-          // engagement / trust ledger so we can render a real progress bar.
-          const retainerPct: number | null = null;
+          const retainerPct = row.retainerBalance != null && row.retainerCap != null && row.retainerCap > 0
+            ? Math.max(0, Math.min(100, Math.round((row.retainerBalance / row.retainerCap) * 100)))
+            : null;
 
           return (
             <li key={summary.id}>

@@ -68,9 +68,7 @@ Strong success criteria let you loop independently. Weak criteria ("make it work
 
 Always verify browser/auth/signup flows through `https://local.blawby.com`, not raw Vite or Wrangler localhost URLs. Auth cookies, Worker proxying, and app routing all depend on the same origin/path shape as real deployments.
 
-### Mode A — Staging backend (default, no local backend needed)
-
-Most frontend contributors use this. Auth, preferences, and API calls all go to the staging backend.
+Always use the staging backend — auth, preferences, and API calls all proxy to `https://staging-api.blawby.com`.
 
 ```bash
 npm install
@@ -112,50 +110,6 @@ curl -s "https://api.cloudflare.com/client/v4/accounts/<account-id>/workers/subd
 ```
 
 A correct response returns `{ "result": { "exchange_url": ..., "token": ... } }`. A 403 here means the token's permissions are wrong — generate a new one with "Workers Scripts:Edit" scope.
-
-### Mode B — Local backend
-
-Use this when your change touches the backend, or you need to test the full stack locally.
-
-Recommended layout:
-
-```text
-your-workspace/
-  blawby-ai-chatbot/   ← this repo
-  blawby-backend/      ← backend repo
-```
-
-**Terminal 1** — backend API:
-
-```bash
-cd ../blawby-backend
-pnpm install
-pnpm run dev
-```
-
-**Terminal 2** — event worker (required — without this, new-user preferences are never initialized and onboarding always fails):
-
-```bash
-cd ../blawby-backend
-pnpm run event-worker:dev
-```
-
-**Terminal 3** — frontend + Worker pointing at local backend:
-
-```bash
-npm install
-npm run dev:full:local
-```
-
-Open `https://local.blawby.com`.
-
-> **Why `dev:full:local`?** The default `dev:full` uses `dev:worker`, which reads `BACKEND_API_URL` from `[env.dev.vars]` in `wrangler.toml` (staging). `dev:full:local` uses `dev:worker:local`, which passes `--var BACKEND_API_URL:http://127.0.0.1:3000` to override it. `.dev.vars` alone does not override `[env.dev.vars]`.
-
-If a Worker feature adds a D1 table, apply the migration locally before browser testing:
-
-```bash
-npx wrangler d1 execute DB --local --config worker/wrangler.toml --env dev --file worker/migrations/<migration-file>.sql
-```
 
 If a feature adds a new Worker-owned `/api/*` prefix, add it to `workerEndpoints` in `vite.config.ts`; otherwise Vite may proxy that path to the backend fallback and produce misleading local 404s.
 

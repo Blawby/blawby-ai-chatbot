@@ -71,7 +71,7 @@ export const FilesPageView = ({ practiceId, practiceSlug, scope, userId = null }
   if (error) {
     return (
       <Page className="h-full">
-        <div className="status-error flex items-center justify-between gap-3 rounded-2xl px-4 py-3 text-sm">
+        <div className="flex items-center justify-between gap-3 rounded-r-lg border border-neg/20 bg-neg/10 px-4 py-3 text-sm text-neg">
           <span className="min-w-0 flex-1 truncate">{error}</span>
           <Button variant="ghost" size="sm" onClick={() => { void refetch(); }}>
             Retry
@@ -86,7 +86,7 @@ export const FilesPageView = ({ practiceId, practiceSlug, scope, userId = null }
   return (
     <Page className="h-full">
       <div className="flex h-full gap-6">
-        <div className="min-w-0 flex-1 space-y-6">
+        <div className="@container min-w-0 flex-1 space-y-6">
           <CollectionToolbar
             actions={headerActions}
             filters={

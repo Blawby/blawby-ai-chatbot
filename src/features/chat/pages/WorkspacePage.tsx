@@ -113,7 +113,7 @@ const getRailItemMatchScore = (currentPath: string, item: LeftRailItem): number 
   return bestScore;
 };
 
-const SECTION_SIDEBAR_WORKSPACE_SECTIONS = new Set(['settings', 'reports', 'conversations', 'assistant'] as const);
+const SECTION_SIDEBAR_WORKSPACE_SECTIONS = new Set(['settings', 'reports', 'conversations', 'assistant', 'tasks', 'calendar'] as const);
 
 interface WorkspacePageProps {
   view: WorkspaceView;
@@ -166,6 +166,7 @@ interface WorkspacePageProps {
   reportsView?: ComponentChildren | ((title: string, reportType: string, deliveryId: string | null) => ComponentChildren);
   intakesView?: ComponentChildren | (() => ComponentChildren);
   engagementsView?: ComponentChildren | (() => ComponentChildren);
+  tasksView?: ComponentChildren | (() => ComponentChildren);
   filesView?: ComponentChildren;
   primaryCreateAction?: WorkspacePrimaryCreateAction | null;
   mockConversations?: Conversation[] | null;
@@ -248,6 +249,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
   engagementsView,
   reportsView,
   filesView,
+  tasksView,
   primaryCreateAction = null,
   mockConversations = null,
   mockConversationPreviews = null,
@@ -499,18 +501,10 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
     navigationInitiatedRef,
     hasAutoNavigatedRef,
     conversationsPath,
+    assistantPath: `${normalizedBase}/assistant`,
     navigate,
     withWidgetQuery,
     handleSelectConversation,
-    onCreateAssistantConversation: workspaceSection === 'assistant'
-      ? () => {
-        void handleStartConversation('PRACTICE_ASSISTANT', {
-          forceNew: true,
-          additionalParticipantUserIds: [],
-          additionalMetadata: { source: 'practice_assistant', mode: 'PRACTICE_ASSISTANT' },
-        });
-      }
-      : null,
     setActiveConversationMissingNotification,
     activeConversationMissingNotification,
     showError,
@@ -1175,6 +1169,44 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
     setIsMobileRailMenuOpen(false);
     handleMessagesCreate();
   }, [handleMessagesCreate]);
+  const renderThreadRootState = (
+    message: string,
+    actionLabel: string | null,
+    onAction: (() => void) | null,
+  ) => (
+    <div className="flex flex-1 items-center justify-center px-6 py-10">
+      <div className="flex max-w-md flex-col items-center text-center">
+        <p className="text-sm text-dim-2">
+          {message}
+        </p>
+        {actionLabel && onAction ? (
+          <Button
+            type="button"
+            variant="secondary"
+            size="sm"
+            onClick={onAction}
+            className="mt-4"
+          >
+            {actionLabel}
+          </Button>
+        ) : null}
+      </div>
+    </div>
+  );
+  const assistantRootContent = workspaceSection === 'assistant' && !activeConversationId && !draftView
+    ? renderThreadRootState(
+      'Select an assistant thread from the sidebar to open the thread.',
+      isPracticeWorkspace ? 'New assistant thread' : null,
+      isPracticeWorkspace ? handleAssistantCreate : null,
+    )
+    : null;
+  const conversationsRootContent = workspaceSection === 'conversations' && !activeConversationId && !draftView
+    ? renderThreadRootState(
+      'Select a conversation from the sidebar to open the thread.',
+      isPracticeWorkspace ? 'New message' : null,
+      isPracticeWorkspace ? handleMessagesCreate : null,
+    )
+    : null;
   const buildThreadRailItems = useCallback((
     conversations: Conversation[],
     section: ThreadSidebarSection,
@@ -1274,6 +1306,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
   const reportsReportType = activeSecondaryFilter ?? 'all-reports';
   const reportsDeliveryId = reportsReportType === 'deliveries' ? routeReportDeliveryId ?? null : null;
   const reportsContent = resolveViewContent(reportsView, [reportsTitle, reportsReportType, reportsDeliveryId] as const);
+  const tasksContent = resolveViewContent(tasksView, [] as const);
   const filesContent = resolveViewContent(filesView, [] as const);
   const settingsContent = practiceSlug ? (
     <SettingsContent
@@ -1324,14 +1357,16 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
       case 'home':
         return homeContent;
       case 'list':
-        return layoutMode === 'desktop'
+        return conversationsRootContent ?? (layoutMode === 'desktop'
           ? (draftView ?? desktopMessagesListContent)
-          : chatContent;
+          : chatContent);
       case 'intakes':
       case 'intakeDetail':
         return intakesContent;
       case 'engagements':
         return engagementsContent;
+      case 'tasks':
+        return tasksContent;
       case 'matters':
         return mattersContent;
       case 'contacts':
@@ -1348,6 +1383,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
       case 'coverage':
         return coverageContent;
       case 'assistant':
+        return assistantRootContent ?? chatContent;
       case 'conversation':
       default:
         return chatContent;
@@ -1357,7 +1393,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
     if (view === 'list' || view === 'conversation' || view === 'assistant') {
       return { kind: 'conversation-shell' };
     }
-    if (view === 'intakes' || view === 'intakeDetail' || view === 'engagements') {
+    if (view === 'intakes' || view === 'intakeDetail' || view === 'engagements' || view === 'tasks') {
       return { kind: 'full-page', overflow: 'hidden' };
     }
     if (view === 'matters') {
@@ -1498,7 +1534,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
       || workspaceSection === 'conversations'
       || workspaceSection === 'assistant')
     && currentSectionRailItem
-    && SECTION_SIDEBAR_WORKSPACE_SECTIONS.has(workspaceSection as 'settings' | 'reports' | 'conversations' | 'assistant')
+    && SECTION_SIDEBAR_WORKSPACE_SECTIONS.has(workspaceSection as 'settings' | 'reports' | 'conversations' | 'assistant' | 'tasks' | 'calendar')
   );
   const staticSectionSidebarSections = useMemo(() => (
     (navConfig.secondary ?? []).map((section, index) => ({
