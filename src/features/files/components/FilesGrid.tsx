@@ -10,7 +10,7 @@ interface FilesGridProps {
   onFileClick?: (file: OrgFile) => void;
 }
 
-const FILE_GRID_CLASS = 'grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5';
+const FILE_GRID_CLASS = 'grid grid-cols-1 gap-3 @sm:grid-cols-2 @md:grid-cols-3 @lg:grid-cols-4 @xl:grid-cols-5';
 
 export const FilesGrid = ({
   files,
@@ -22,7 +22,7 @@ export const FilesGrid = ({
     return (
       <div className={FILE_GRID_CLASS}>
         {Array.from({ length: 8 }).map((_, idx) => (
-          <SkeletonLoader key={`file-skel-${idx}`} className="aspect-[4/3] rounded-2xl" />
+          <SkeletonLoader key={`file-skel-${idx}`} className="aspect-[4/3] rounded-lg" />
         ))}
       </div>
     );

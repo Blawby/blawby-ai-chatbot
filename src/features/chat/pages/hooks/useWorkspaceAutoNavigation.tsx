@@ -21,6 +21,7 @@ export interface UseWorkspaceAutoNavigationOptions {
   hasAutoNavigatedRef: MutableRef<boolean>;
 
   conversationsPath: string;
+  assistantPath: string;
   navigate: (path: string) => void;
   withWidgetQuery: (path: string) => string;
   handleSelectConversation: (conversationId: string) => void;
@@ -47,6 +48,7 @@ export function useWorkspaceAutoNavigation(
     navigationInitiatedRef,
     hasAutoNavigatedRef,
     conversationsPath,
+    assistantPath,
     navigate,
     withWidgetQuery,
     handleSelectConversation,
@@ -167,6 +169,7 @@ export function useWorkspaceAutoNavigation(
 
     const mostRecentAssistantConversationId = assistantConversations[0]?.id;
     if (!mostRecentAssistantConversationId) {
+      navigate(withWidgetQuery(assistantPath));
       isInitialConversationCheckRef.current = false;
       return;
     }
@@ -177,14 +180,17 @@ export function useWorkspaceAutoNavigation(
     handleSelectConversation(mostRecentAssistantConversationId);
   }, [
     activeConversationId,
+    assistantPath,
     filteredConversations,
     handleSelectConversation,
     hasAutoNavigatedRef,
     isInitialConversationCheckRef,
     isPracticeWorkspace,
+    navigate,
     navigationInitiatedRef,
     resolvedConversationsLoading,
     view,
+    withWidgetQuery,
     workspaceSection,
   ]);
 

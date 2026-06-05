@@ -31,7 +31,7 @@ export const FilesList = ({
       const association = folderForFile(file);
       const sourceLabel = association.kind === 'loose' ? 'Loose file' : association.label;
       return (
-        <div className="flex w-full items-center gap-4 px-4 py-3 hover:bg-paper-2/10">
+        <div className="flex w-full items-center gap-4 px-4 py-3 hover:bg-paper-2">
           <div className="flex min-w-0 flex-1 items-center gap-3">
             <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-paper-2 text-dim-2">
               <Icon icon={fileType.icon} className="h-4 w-4" />

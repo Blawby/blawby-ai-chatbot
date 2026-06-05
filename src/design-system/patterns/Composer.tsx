@@ -118,6 +118,7 @@ export function Composer({
 
       {inputSlot ?? (
         <textarea
+          {...resolvedInputProps}
           ref={inputRef}
           className={cn(
             'composer-input',
@@ -132,7 +133,6 @@ export function Composer({
           aria-label={inputAriaLabel}
           disabled={inputDisabled}
           rows={1}
-          {...resolvedInputProps}
         />
       )}
 

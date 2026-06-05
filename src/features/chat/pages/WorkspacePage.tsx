@@ -501,6 +501,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
     navigationInitiatedRef,
     hasAutoNavigatedRef,
     conversationsPath,
+    assistantPath: `${normalizedBase}/assistant`,
     navigate,
     withWidgetQuery,
     handleSelectConversation,
