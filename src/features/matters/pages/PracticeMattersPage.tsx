@@ -5,7 +5,7 @@ import { Page } from '@/shared/ui/layout/Page';
 import { WorkspacePlaceholderState } from '@/shared/ui/layout/WorkspacePlaceholderState';
 import { Button } from '@/shared/ui/Button';
 import { CurrencyInput, Input } from '@/shared/ui/input';
-import { Seg, StatStrip, AIAskBar, AIAnswerCard, type StatStripCell } from '@/design-system/patterns';
+import { Seg, AIAskBar, AIAnswerCard, type StatStripCell } from '@/design-system/patterns';
 import { Bar, Pill, SignalPill, type SignalPillSignal, type PillTone } from '@/design-system/primitives';
 import { type TimelineItem, type TimelinePerson } from '@/shared/ui/activity/ActivityTimeline';
 import { Dialog, DialogBody } from '@/shared/ui/dialog';

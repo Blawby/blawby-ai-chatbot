@@ -10,6 +10,7 @@ import { validateWire } from '../utils/validateWire.js';
 import { PracticeSchema, ConversationConfigPermissiveSchema } from '../types/wire/practice.js';
 import {
   BackendIntakeConvertResponseSchema,
+  BackendPracticeTemplatesResponseSchema,
 } from '../types/wire/intake.js';
 import { canAssignTeamMemberToMatter, isTeamRole, type PracticeTeamResponse } from '../../src/shared/types/team.js';
 
@@ -66,6 +67,7 @@ export class RemoteApiService {
       method?: string;
       body?: string;
       forwardAuthCookie?: boolean;
+      headers?: Record<string, string>;
     }
   ): Promise<Response> {
     const baseUrl = this.getRemoteApiUrl(env);
@@ -75,6 +77,12 @@ export class RemoteApiService {
     const headers = new Headers({
       'Content-Type': 'application/json',
     });
+
+    if (options?.headers) {
+      for (const [key, value] of Object.entries(options.headers)) {
+        headers.set(key, value);
+      }
+    }
 
     // Forward session cookies when available unless explicitly disabled.
     if (options?.forwardAuthCookie !== false) {
@@ -318,6 +326,34 @@ export class RemoteApiService {
       `/api/practice-client-intakes/${encodeURIComponent(slug)}/intake`,
       request,
       { forwardAuthCookie: false }
+    );
+  }
+
+  /**
+   * Fetch all intake templates for a practice using the worker's service token.
+   */
+  static async getPracticeTemplates(
+    env: Env,
+    practiceId: string,
+  ): Promise<{ templates: import('../types/wire/intake').BackendIntakeTemplate[] }> {
+    if (!env.MCP_BACKEND_TOKEN) {
+      throw HttpErrors.internalServerError('Missing MCP_BACKEND_TOKEN to fetch templates');
+    }
+    const response = await this.fetchFromRemoteApi(env, `/api/practice/${encodeURIComponent(practiceId)}/intake-templates`, undefined, {
+      forwardAuthCookie: false,
+      headers: {
+        Authorization: `Bearer ${env.MCP_BACKEND_TOKEN}`
+      }
+    });
+    const json = await response.json().catch(() => null);
+    if (!json) {
+      throw HttpErrors.badGateway('Invalid intake templates response from remote API');
+    }
+    return validateWire(
+      BackendPracticeTemplatesResponseSchema,
+      json,
+      'getPracticeTemplates',
+      { strict: false },
     );
   }
 

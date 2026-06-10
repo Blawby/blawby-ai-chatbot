@@ -54,6 +54,7 @@ import {
   buildCompactPracticeContextForPrompt,
   executeIntakeTool,
   resolveNextField,
+  computeCompletenessScore,
   type IntakeSubmissionGate,
   type ToolResult,
 } from './aiChatIntake.js';
@@ -653,7 +654,6 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
       city: storedIntakeState.city ?? null,
       state: storedIntakeState.state ?? null,
       description: storedIntakeState.description ? '[present]' : null,
-      enrichmentMode: storedIntakeState.enrichmentMode ?? null,
       stateSource: consultation?.case ? 'consultation.case' : 'intakeConversationState',
     } : null,
   });
@@ -826,15 +826,16 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
   }
 
   const flatState = (storedIntakeState ?? {}) as Record<string, unknown>;
-  const isEnrichmentMode = flatState.enrichmentMode === true;
 
-  // Resolve what the AI should ask about this turn (deterministic, no AI involved)
-  const nextField = isEnrichmentMode
-    ? null
-    : resolveNextField(activeTemplate, flatState, 'required');
-  const nextEnrichmentField = isEnrichmentMode
-    ? resolveNextField(activeTemplate, flatState, 'enrichment')
-    : null;
+  // Resolve the single next field across ALL phases — required fields come first
+  // (they appear earlier in the template fields array), then enrichment fields.
+  // The AI is told exactly what to ask this turn; it never decides on its own.
+  const nextField = resolveNextField(activeTemplate, flatState, 'required')
+    ?? resolveNextField(activeTemplate, flatState, 'enrichment');
+
+  // Compute the completeness score from the current state so the prompt can
+  // tell the AI how close the intake is to complete.
+  const completenessScore = computeCompletenessScore(activeTemplate, flatState);
 
   // Submission gate uses the orchestration layer when a template is active
   const templateRequiredFields = templateFields.length > 0
@@ -854,9 +855,7 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
     requiredFields: templateRequiredFields,
     activeTemplate,
     // Template fee takes precedence over practice-level details fee.
-    // Mirrors the precedence in resolveTemplatePaymentConfig / deriveCaseSavedAcknowledgment.
     templateConsultationFee: templatePaymentConfig.hasConfig ? templatePaymentConfig.consultationFee : null,
-    nextEnrichmentField,
   };
 
   const requestPayload: Record<string, unknown> = {
@@ -869,7 +868,7 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
   let systemPrompt: string;
 
   if (isIntakeMode) {
-    // Surgical single-field prompt — the AI is told exactly what to ask this turn
+    // Adaptive prompt — the AI knows the next field and the completeness score
     systemPrompt = [
       buildIntakeSystemPrompt(
         servicesForPrompt,
@@ -877,7 +876,8 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
         storedIntakeState,
         userName,
         nextField,
-        nextEnrichmentField,
+        completenessScore,
+        templateFields,
       ),
       `PRACTICE_CONTEXT: ${JSON.stringify(aiPromptContext)}`,
       body.additionalContext ? `SEARCH_CONTEXT: ${body.additionalContext}` : null,
@@ -1461,21 +1461,15 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
           const consultationFee = templatePaymentConfig.hasConfig
             ? templatePaymentConfig.consultationFee
             : readFiniteNumberField(details, ['consultation_fee']);
-          const nextRequiredFieldAfterPatch = mergedIntakeState
-            ? resolveNextField(activeTemplate, mergedIntakeState as Record<string, unknown>, 'required')
-            : null;
-          // Recompute nextEnrichmentField from POST-merge state so the synthetic
+          // Recompute nextField and score from POST-merge state so the synthetic
           // reply doesn't re-ask the field that save_case_details just answered.
-          // intakeSubmissionGate.nextEnrichmentField was computed pre-merge and
-          // is stale the moment a field is answered — see comments in
-          // aiChatIntake.ts (around the resolveCaseDetailsForReadyToSubmit helper)
-          // for the same rationale that drives the post-merge recompute there.
-          const mergedIsEnrichmentMode = Boolean(
-            mergedIntakeState && (mergedIntakeState as Record<string, unknown>).enrichmentMode === true,
-          );
-          const nextEnrichmentFieldAfterPatch = mergedIsEnrichmentMode && mergedIntakeState
-            ? resolveNextField(activeTemplate, mergedIntakeState as Record<string, unknown>, 'enrichment')
+          const mergedState = mergedIntakeState as Record<string, unknown> | null;
+          const nextFieldAfterPatch = mergedState
+            ? (resolveNextField(activeTemplate, mergedState, 'required') ?? resolveNextField(activeTemplate, mergedState, 'enrichment'))
             : null;
+          const scoreAfterPatch = mergedState
+            ? computeCompletenessScore(activeTemplate, mergedState)
+            : 0;
           syntheticReply = deriveCaseSavedAcknowledgment(
             finalToolResult,
             intakeSubmissionGate,
@@ -1483,8 +1477,8 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
             servicesForPrompt,
             consultationFee,
             userName,
-            nextRequiredFieldAfterPatch,
-            nextEnrichmentFieldAfterPatch,
+            nextFieldAfterPatch,
+            scoreAfterPatch,
           );
           if (!syntheticReply && typeof finalToolResult.message === 'string' && finalToolResult.message.trim()) {
             syntheticReply = finalToolResult.message.trim();

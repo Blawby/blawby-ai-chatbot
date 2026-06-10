@@ -671,9 +671,7 @@ export const useChatComposer = ({
           effectiveMode === 'ASK_QUESTION' ||
           effectiveMode === 'REQUEST_CONSULTATION' ||
           effectiveMode === 'PRACTICE_ONBOARDING' ||
-          effectiveMode === 'PRACTICE_ASSISTANT' ||
-          (effectiveMode === 'CONVERSATION' &&
-            conversationMetadataRef.current?.intakeConversationState?.enrichmentMode === true)
+          effectiveMode === 'PRACTICE_ASSISTANT'
         );
       const shouldClassifyIntent = effectiveMode === 'ASK_QUESTION';
       const preSendMessages = [...messagesRef.current];

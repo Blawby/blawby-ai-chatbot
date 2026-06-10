@@ -16,6 +16,8 @@ export interface WidgetBootstrapData {
   widgetQueryAuthTokenExpiresAt?: string | null;
   /** Resolved IntakeTemplate for this widget boot (honours ?template= param) */
   intakeTemplate?: IntakeTemplate | null;
+  /** Service UUID from ?service=<uuid> embed param — pre-seeds practiceServiceUuid so conditions evaluate from turn 1 */
+  preSelectedServiceUuid?: string | null;
 }
 
 export function useWidgetBootstrap(slug: string, isWidget: boolean) {

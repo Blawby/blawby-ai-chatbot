@@ -31,7 +31,6 @@ import {
 import type { ConversationMessage } from '@/shared/types/conversation';
 import { useMessageHandling } from '@/shared/hooks/useMessageHandling';
 import { usePracticeDetails } from '@/shared/hooks/usePracticeDetails';
-import { applyConsultationPatchToMetadata } from '@/shared/utils/consultationState';
 import { formatRelativeTime } from '@/features/matters/utils/formatRelativeTime';
 import { resolvePracticeServiceLabel } from '@/features/matters/utils/matterUtils';
 import { resolveIntakeTitle } from '@/features/intake/utils/intakeTitle';
@@ -358,7 +357,6 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
 
   const {
     conversationMetadata,
-    updateConversationMetadata: updateConversationMetadataPatch,
     intakeConversationState,
   } = useMessageHandling({
     practiceId: practiceId ?? undefined,
@@ -721,15 +719,7 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
     const targetPracticeId = intake?.organization_id;
     if (!conversationId || !targetPracticeId || gatherDetailsSubmitting) return;
 
-    const currentCase = intakeConversationState;
-    const nextMetadata = applyConsultationPatchToMetadata(
-      conversationMetadata,
-      { case: { ...(currentCase ?? {}), enrichmentMode: true } },
-      { mirrorLegacyFields: true },
-    );
-
-    const templateFields = (activeTemplate?.fields ?? STANDARD_FIELD_DEFINITIONS)
-      .filter((f) => f.phase === 'enrichment');
+    const templateFields = (activeTemplate?.fields ?? STANDARD_FIELD_DEFINITIONS);
     const intakeStateRecord = intakeConversationState as unknown as Record<string, unknown> | null;
     const nextMissingField = templateFields.find(
       (f) => !resolveFieldValue(f, intakeStateRecord, intake),
@@ -740,7 +730,6 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
 
     setGatherDetailsSubmitting(true);
     try {
-      await updateConversationMetadataPatch(nextMetadata, conversationId);
       const message = await postSystemMessage(conversationId, targetPracticeId, {
         clientId: 'system-intake-gather-details',
         content: prompt,
@@ -748,7 +737,6 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
           source: 'ai',
           systemMessageKey: 'intake_gather_details',
           intakeUuid: intakeId,
-          enrichmentMode: true,
         },
       });
       if (message) {
@@ -774,14 +762,12 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
     }
   }, [
     activeTemplate,
-    conversationMetadata,
     gatherDetailsSubmitting,
     intake,
     intakeConversationState,
     intakeId,
     showError,
     showSuccess,
-    updateConversationMetadataPatch,
   ]);
 
   const handleGenerateEngagement = useCallback(async (template: EngagementLetterTemplate) => {

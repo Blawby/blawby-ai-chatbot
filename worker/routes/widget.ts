@@ -19,6 +19,13 @@ const asNonEmptyString = (value: unknown): string | null => (
     : null
 );
 
+const isValidCondition = (value: unknown): value is NonNullable<IntakeTemplate['fields'][number]['condition']> => {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
+  const candidate = value as Record<string, unknown>;
+  return typeof candidate.dependsOn === 'string'
+    && ['string', 'boolean', 'number'].includes(typeof candidate.value);
+};
+
 const normalizeCrossSiteWidgetCookie = (cookie: string, request: Request): string => {
   const protocol = new URL(request.url).protocol;
   // Secure cookies are ignored on http://localhost in dev; keep upstream cookie
@@ -273,6 +280,24 @@ export async function handleWidgetBootstrap(request: Request, env: Env): Promise
     throw HttpErrors.badGateway('Unable to resolve practice id from practice details');
   }
 
+  const requestedTemplateSlug = asNonEmptyString(url.searchParams.get('template'));
+  if (requestedTemplateSlug && env.MCP_BACKEND_TOKEN) {
+    try {
+      const templateRes = await RemoteApiService.getPracticeTemplates(env, practiceId);
+      const matchedTemplate = templateRes.templates?.find((t) => t.slug === requestedTemplateSlug);
+      if (matchedTemplate) {
+        intakeData.intake_template = matchedTemplate;
+      } else {
+        Logger.warn('[Bootstrap] Requested template not found, falling back to default', { requestedTemplateSlug });
+      }
+    } catch (err) {
+      Logger.warn('[Bootstrap] Failed to fetch custom template, falling back to default', { 
+        requestedTemplateSlug, 
+        error: err instanceof Error ? err.message : String(err) 
+      });
+    }
+  }
+
   // 4. Bootstrap an anon-safe active conversation so the widget can skip the extra
   // client-side get-or-create round-trip after bootstrap.
   let conversationId: string | null = null;
@@ -344,6 +369,10 @@ export async function handleWidgetBootstrap(request: Request, env: Env): Promise
   }
 
   // Normalise backend shape → app IntakeTemplate (same logic as intakeTemplatesApi.ts edge)
+  // ?service=<uuid> from the widget embed URL — pre-seeds practiceServiceUuid so
+  // the AI skips asking for it on turn 1 and field conditions evaluate correctly.
+  const preSelectedServiceUuid = asNonEmptyString(url.searchParams.get('service'));
+
   const intakeTemplate: IntakeTemplate = {
     id: rawIntakeTemplate.id,
     slug: rawIntakeTemplate.slug,
@@ -357,18 +386,26 @@ export async function handleWidgetBootstrap(request: Request, env: Env): Promise
     fields: (rawIntakeTemplate.fields ?? [])
       .slice()
       .sort((a, b) => a.order_index - b.order_index)
-      .map((f) => ({
-        key: f.key,
-        label: f.label,
-        type: (f.field_type === 'textarea' || f.field_type === 'email' || f.field_type === 'phone'
-          ? 'text'
-          : f.field_type === 'multiselect' ? 'select' : f.field_type) as IntakeTemplate['fields'][number]['type'],
-        required: f.required,
-        phase: f.phase,
-        isStandard: f.is_standard,
-        promptHint: f.prompt_hint ?? undefined,
-        options: f.options ? f.options.map((o) => o.value) : undefined,
-      })),
+      .map((f) => {
+        const rules = f.validation_rules && typeof f.validation_rules === 'object' && !Array.isArray(f.validation_rules)
+          ? f.validation_rules as Record<string, unknown>
+          : {};
+        return {
+          key: f.key,
+          label: f.label,
+          type: (f.field_type === 'textarea' || f.field_type === 'email' || f.field_type === 'phone'
+            ? 'text'
+            : f.field_type === 'multiselect' ? 'select' : f.field_type) as IntakeTemplate['fields'][number]['type'],
+          required: f.required,
+          phase: f.phase,
+          isStandard: f.is_standard,
+          promptHint: f.prompt_hint ?? undefined,
+          validationHint: f.help_text ?? undefined,
+          options: f.options ? f.options.map((o) => o.value) : undefined,
+          condition: isValidCondition(rules.condition) ? rules.condition : undefined,
+          completenessWeight: typeof rules.completeness_weight === 'number' ? rules.completeness_weight : undefined,
+        };
+      }),
   };
 
   // Ensure the three structurally-locked required fields are always present.
@@ -393,6 +430,7 @@ export async function handleWidgetBootstrap(request: Request, env: Env): Promise
     widgetQueryAuthToken: widgetQueryAuth?.token ?? null,
     widgetQueryAuthTokenExpiresAt: widgetQueryAuth?.expiresAt ?? null,
     intakeTemplate,
+    preSelectedServiceUuid,
   };
 
   const responseHeaders = new Headers({

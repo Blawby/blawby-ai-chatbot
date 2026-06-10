@@ -309,16 +309,6 @@ export function MainApp({
     if (isPaymentAuthPromptOpen) setIsPaymentAuthPromptOpen(false);
   }, [isPaymentAuthPromptOpen]);
 
-  const handleStrengthenCase = useCallback(async () => {
-    try {
-      // Clear ctaShown so the submit button disappears during enrichment.
-      await applyIntakeFields({ enrichmentMode: true, ctaShown: false });
-      await sendMessage('I want to provide more details to strengthen my case.', []);
-    } catch (err) {
-      console.error('Failed to start strengthen case flow', err);
-    }
-  }, [applyIntakeFields, sendMessage]);
-
   // ── conversation mode selection ────────────────────────────────────────────
   const handleModeSelection = useCallback(async (
     nextMode: ConversationMode,
@@ -1205,7 +1195,7 @@ export function MainApp({
     onIntakeCtaResponse: handleIntakeCtaResponse,
     onSubmitNow: handleConfirmSubmit,
     onBuildBrief: handleBuildBrief,
-    onStrengthenCase: handleStrengthenCase,
+    onStrengthenCase: undefined,
     slimContactDraft,
     onSlimFormContinue: handleSlimFormContinue,
     onSlimFormDismiss: handleSlimFormDismiss,

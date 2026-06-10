@@ -1,5 +1,5 @@
 import { describe, test, expect, vi, beforeEach } from 'vitest';
-import { handleSaveCaseDetails } from '../../../worker/routes/aiChatIntake';
+import { handleSaveCaseDetails, type IntakeSubmissionGate } from '../../../worker/routes/aiChatIntake';
 
 describe('save_case_details tool', () => {
   beforeEach(() => {
@@ -204,5 +204,132 @@ describe('save_case_details tool', () => {
     expect(result.success).toBe(true);
     expect(result.intakeFields?.opposingParty).toBe('New Opponent');
     expect(result.intakeFields?.description).toBeUndefined(); // Should not re-send what we already have if not in args
+  });
+
+  test('should reject invalid custom select and date values from the AI tool payload', () => {
+    const args = {
+      description: 'Case description',
+      city: 'Durham',
+      state: 'NC',
+      injurySeverity: 'Critical',
+      hearingDateCustom: 'next month',
+    };
+
+    const submissionGate: IntakeSubmissionGate = {
+      paymentRequiredBeforeSubmit: false,
+      paymentCompleted: false,
+      activeTemplate: {
+        slug: 'test-template',
+        name: 'Test Template',
+        fields: [
+          {
+            key: 'description',
+            label: 'Description',
+            type: 'text',
+            required: true,
+            phase: 'required',
+            isStandard: true,
+          },
+          {
+            key: 'city',
+            label: 'City',
+            type: 'text',
+            required: true,
+            phase: 'required',
+            isStandard: true,
+          },
+          {
+            key: 'state',
+            label: 'State',
+            type: 'text',
+            required: true,
+            phase: 'required',
+            isStandard: true,
+          },
+          {
+            key: 'injurySeverity',
+            label: 'Injury severity',
+            type: 'select',
+            required: false,
+            phase: 'enrichment',
+            isStandard: false,
+            options: ['Minor', 'Moderate', 'Severe'],
+          },
+          {
+            key: 'hearingDateCustom',
+            label: 'Hearing date',
+            type: 'date',
+            required: false,
+            phase: 'enrichment',
+            isStandard: false,
+          },
+        ],
+      },
+    };
+    const result = handleSaveCaseDetails(args, null, submissionGate);
+
+    expect(result.success).toBe(true);
+    const customFields = result.intakeFields?.customFields as Record<string, unknown> | undefined;
+    expect(customFields?.injurySeverity).toBeUndefined();
+    expect(customFields?.hearingDateCustom).toBeUndefined();
+  });
+
+  test('should normalize valid custom multiselect values into a comma-separated string', () => {
+    const args = {
+      description: 'Case description',
+      city: 'Durham',
+      state: 'NC',
+      evidenceTypes: 'Photos, Emails, Photos',
+    };
+
+    const submissionGate: IntakeSubmissionGate = {
+      paymentRequiredBeforeSubmit: false,
+      paymentCompleted: false,
+      activeTemplate: {
+        slug: 'test-template',
+        name: 'Test Template',
+        fields: [
+          {
+            key: 'description',
+            label: 'Description',
+            type: 'text',
+            required: true,
+            phase: 'required',
+            isStandard: true,
+          },
+          {
+            key: 'city',
+            label: 'City',
+            type: 'text',
+            required: true,
+            phase: 'required',
+            isStandard: true,
+          },
+          {
+            key: 'state',
+            label: 'State',
+            type: 'text',
+            required: true,
+            phase: 'required',
+            isStandard: true,
+          },
+          {
+            key: 'evidenceTypes',
+            label: 'Evidence types',
+            type: 'select',
+            backendFieldType: 'multiselect',
+            required: false,
+            phase: 'enrichment',
+            isStandard: false,
+            options: ['Photos', 'Emails', 'Contracts'],
+          },
+        ],
+      },
+    };
+    const result = handleSaveCaseDetails(args, null, submissionGate);
+
+    expect(result.success).toBe(true);
+    const customFields = result.intakeFields?.customFields as Record<string, unknown> | undefined;
+    expect(customFields?.evidenceTypes).toBe('Photos, Emails');
   });
 });
