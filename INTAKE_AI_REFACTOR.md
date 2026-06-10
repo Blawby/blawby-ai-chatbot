@@ -35,6 +35,11 @@ Branch: `refactor/conversational-intake` → PR to `staging`
 | **promptHint on all standard fields** | Every field has a natural-language AI instruction for how to ask it, when to skip it, and what to extract |
 | **householdSize excluded from score** | `completenessWeight: 0` — never drives CTA; promptHint instructs AI to only ask when clearly relevant |
 | **Form builder** | "AI instruction" label (was "Helper text"), 500-char limit — practices can write `promptHint` for custom fields |
+| **Answer type selector** | Functional dropdown (Text / Yes-No / Date / Number / Choose one) for custom fields — was a disabled stub |
+| **Options editor** | Inline add/remove for `select` type custom fields |
+| **Validation hint** | Editable per field (stored as `help_text`); type-aware placeholder guides practices |
+| **Skip logic** | "Only ask when" picker on enrichment fields — `dependsOn` + value stored in `validation_rules` |
+| **Completeness weight** | 0–25 slider on custom fields — stored in `validation_rules.completeness_weight` |
 | **Types cleaned** | `enrichmentMode` removed from `IntakeConversationState`, `IntakeFieldsPayload`, `PERSISTED_INTAKE_FIELD_KEYS`, `consultationState`, `useChatComposer` |
 | **E2E tests updated** | Removed strengthen-case test; new test: score-threshold CTA + "Strengthen" button must not appear |
 
@@ -43,6 +48,7 @@ Branch: `refactor/conversational-intake` → PR to `staging`
 - **Multi-field extraction in practice**: The prompt instructs it, but we have not run the E2E suite against the new prompt to confirm the AI consistently extracts multiple fields from a single rich answer. Run `npm run test:e2e` and check the SSE payload attachments for `intakeFields` breadth.
 - **householdSize skipping**: The promptHint says "only ask when relevant" but this is AI-discretion only — the worker does not structurally exclude it. Needs a real conversation test with a business dispute to verify the AI skips it.
 - **Synthesis turn quality**: Score ≥ 75 triggers the synthesis system prompt, but we have not manually verified the AI produces a natural case summary + invite-to-submit rather than a mechanical list.
+- **condition / completenessWeight persistence**: Both are serialised into `validation_rules` JSON in the save payload and read back via `normalizeField`. Whether the staging-api backend accepts and round-trips `validation_rules` in PUT requests needs verification — if the backend ignores it, fields work in-session but don't persist after reload.
 
 ---
 
@@ -69,33 +75,19 @@ Branch: `refactor/conversational-intake` → PR to `staging`
 }
 ```
 
-### 2. `validationHint` populated for all standard fields
+### 2. `validationHint` wired end-to-end ✅ done (form builder)
 
-**Problem:** `validationHint` exists in the type but is empty for every field. The AI has no programmatic guidance on what a valid answer looks like, so it can accept "soon" as a date, or accept "medium" for an urgency select.
+Practices can now write a validation hint per custom field in the form builder — stored as `help_text`, read back in `normalizeField` as `validationHint`. The field editor placeholder adapts to the selected answer type (e.g. "e.g. Any date format — AI converts to ISO" for date fields).
 
-**Solution:** Populate `validationHint` for every field in `STANDARD_FIELD_DEFINITIONS` and include it in the system prompt's field instruction block. For `select` fields this means listing accepted values. For `date` this means requiring ISO format or a parseable date.
+**Still needed:** Populate `validationHint` for all standard fields in `STANDARD_FIELD_DEFINITIONS` and include it in the `buildIntakeSystemPrompt` field instruction block so the AI knows what a valid answer looks like for each standard field.
 
-**Files to change:**
-- `src/shared/constants/intakeTemplates.ts` — add `validationHint` to each field
-- `worker/routes/aiChatIntake.ts` — include `validationHint` in the field instruction block of `buildIntakeSystemPrompt`
+### 3. `condition` (skip logic) editable in form builder ✅ done
 
-### 3. `condition` (skip logic) editable in form builder
+`FieldCondition` is now editable in the inspector panel for enrichment fields — a "Only ask when" picker lets a practice choose a dependency field and type the expected value. Serialised to `validation_rules` JSON on save.
 
-**Problem:** `FieldCondition` (`{ dependsOn: string, value: scalar }`) exists in the type and is consumed by `isFieldConditionMet` in the worker, but there is no UI in the form builder to set it. Practices cannot create "only ask X if Y is answered with Z" rules.
+### 4. `completenessWeight` tunable per field by practices ✅ done
 
-**Solution:** Add a skip logic editor panel in `IntakeTemplatesPage` for each field in the enrichment section. The UI should let a practice pick a dependency field and a value from a dropdown.
-
-**Files to change:**
-- `src/features/intake/pages/IntakeTemplatesPage.tsx` — add condition editor to field editor panel
-
-### 4. `completenessWeight` tunable per field by practices
-
-**Problem:** Weight is hardcoded for standard fields and defaults to 5 for custom fields. A practice that has a mandatory custom question (e.g. "What type of visa do you hold?" for an immigration firm) can't signal that it's high-weight.
-
-**Solution:** Expose `completenessWeight` as an editable number (0–25) in the form builder's field editor panel. Standard fields show their default; custom fields default to 5.
-
-**Files to change:**
-- `src/features/intake/pages/IntakeTemplatesPage.tsx` — add weight slider/input to field editor
+A 0–25 slider is now in the inspector panel for custom fields. Serialised to `validation_rules.completeness_weight` on save. Standard fields show their locked weight (read-only).
 
 ### 5. Type-safe AI behavior per field type
 
