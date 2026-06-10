@@ -52,11 +52,14 @@ export function buildSaveCaseDetailsTool(fields: IntakeFieldDefinition[]) {
   const properties: Record<string, object> = {};
 
   for (const field of activeFields) {
+    const isMultiSelect = field.backendFieldType === 'multiselect';
     if (field.type === 'select' && Array.isArray(field.options) && field.options.length > 0) {
       properties[field.key] = {
         type: 'string',
-        enum: field.options,
-        description: field.label,
+        ...(isMultiSelect ? {} : { enum: field.options }),
+        description: isMultiSelect
+          ? `${field.label}. Use only the listed option text. If multiple options apply, join the exact option labels with commas.`
+          : field.label,
       };
     } else if (field.type === 'boolean') {
       properties[field.key] = {
@@ -105,6 +108,91 @@ export function buildSaveCaseDetailsTool(fields: IntakeFieldDefinition[]) {
   } as const;
 }
 
+const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+const getFieldValueTypeInstruction = (field: IntakeFieldDefinition): string => {
+  const fieldType = field.backendFieldType === 'multiselect' ? 'multiselect' : field.type;
+
+  if ((fieldType === 'select' || fieldType === 'multiselect') && Array.isArray(field.options) && field.options.length > 0) {
+    if (fieldType === 'multiselect') {
+      return `This field allows multiple selections. Only accept values exactly matching these options: [${field.options.join(', ')}]. Do not make up values. If multiple options apply, keep only exact option labels and save them as a comma-separated string in the order mentioned. Use ask_user_question when you need to present the choices.`;
+    }
+    return `Only accept values exactly matching these options: [${field.options.join(', ')}]. Do not make up values. If the client answers loosely, clarify which exact option matches. Use ask_user_question when you present the choices.`;
+  }
+
+  if (fieldType === 'date') {
+    return 'Format this value strictly as YYYY-MM-DD. Ask the user to clarify if they give an ambiguous date or only a partial timeframe.';
+  }
+
+  if (fieldType === 'boolean') {
+    return 'Resolve this to strictly true or false. If the client is unclear, ask a yes/no clarifying question.';
+  }
+
+  if (fieldType === 'number') {
+    return 'Extract the numerical value only. If they give a range or vague estimate, ask for one best numeric estimate.';
+  }
+
+  return '';
+};
+
+const normalizeMultiselectValue = (value: string, options: string[]): string | null => {
+  const rawParts = value
+    .split(',')
+    .map((part) => part.trim())
+    .filter(Boolean);
+  if (rawParts.length === 0) return null;
+
+  const normalizedParts: string[] = [];
+  for (const part of rawParts) {
+    if (!options.includes(part)) return null;
+    if (!normalizedParts.includes(part)) normalizedParts.push(part);
+  }
+
+  return normalizedParts.length > 0 ? normalizedParts.join(', ') : null;
+};
+
+const validateCustomFieldValue = (
+  field: IntakeFieldDefinition | undefined,
+  value: unknown,
+): string | boolean | number | null => {
+  if (!field) {
+    if (typeof value === 'string' && value.trim()) return value.trim();
+    if (typeof value === 'boolean') return value;
+    if (typeof value === 'number' && Number.isFinite(value)) return value;
+    return null;
+  }
+
+  const fieldType = field.backendFieldType === 'multiselect' ? 'multiselect' : field.type;
+
+  if (fieldType === 'select') {
+    if (typeof value !== 'string' || !Array.isArray(field.options)) return null;
+    const trimmed = value.trim();
+    return field.options.includes(trimmed) ? trimmed : null;
+  }
+
+  if (fieldType === 'multiselect') {
+    if (typeof value !== 'string' || !Array.isArray(field.options)) return null;
+    return normalizeMultiselectValue(value, field.options);
+  }
+
+  if (fieldType === 'date') {
+    if (typeof value !== 'string') return null;
+    const trimmed = value.trim();
+    return ISO_DATE_RE.test(trimmed) ? trimmed : null;
+  }
+
+  if (fieldType === 'boolean') {
+    return typeof value === 'boolean' ? value : null;
+  }
+
+  if (fieldType === 'number') {
+    return typeof value === 'number' && Number.isFinite(value) ? value : null;
+  }
+
+  if (typeof value === 'string' && value.trim()) return value.trim();
+  return null;
+};
+
 /** Convenience constant: the default tool schema using the default template. */
 export const SAVE_CASE_DETAILS_TOOL = buildSaveCaseDetailsTool(STANDARD_FIELD_DEFINITIONS);
 
@@ -121,11 +209,12 @@ export function buildFieldInstructions(fields: IntakeFieldDefinition[]): string 
       f.type === 'select' && Array.isArray(f.options) && f.options.length > 0
         ? ` Options: ${f.options.join(', ')}.`
         : '';
+    const typeRule = getFieldValueTypeInstruction(f);
     const validation = f.validationHint ? ` Valid answer: ${f.validationHint}` : '';
     const cond = f.condition
       ? ` Only ask if ${f.condition.dependsOn} is "${f.condition.value}".`
       : '';
-    return `- ${questionText} ${req}${opts}${validation}${cond}`;
+    return `- ${questionText} ${req}${opts}${typeRule ? ` ${typeRule}` : ''}${validation}${cond}`;
   }).join('\n');
 }
 
@@ -239,6 +328,9 @@ export const handleSaveCaseDetails = (
 ): ToolResult => {
   const patch: Record<string, unknown> = {};
   const customFieldsPatch: Record<string, string | boolean | number> = {};
+  const templateFieldByKey = new Map(
+    (submissionGate.activeTemplate?.fields ?? []).map((field) => [field.key, field]),
+  );
 
   const description = typeof args.description === 'string' ? args.description.trim().slice(0, 300) : (typeof storedIntakeState?.description === 'string' ? (storedIntakeState.description as string) : '');
   const city = typeof args.city === 'string' ? args.city.trim() : (typeof storedIntakeState?.city === 'string' ? (storedIntakeState.city as string) : '');
@@ -276,12 +368,13 @@ export const handleSaveCaseDetails = (
       }
     } else {
       // Non-standard field — goes into customFields
-      if (typeof value === 'string' && value.trim()) {
-        customFieldsPatch[key] = value.trim();
-      } else if (typeof value === 'boolean') {
-        customFieldsPatch[key] = value;
-      } else if (typeof value === 'number' && Number.isFinite(value)) {
-        customFieldsPatch[key] = value;
+      const normalized = validateCustomFieldValue(templateFieldByKey.get(key), value);
+      if (typeof normalized === 'string' && normalized.trim()) {
+        customFieldsPatch[key] = normalized.trim();
+      } else if (typeof normalized === 'boolean') {
+        customFieldsPatch[key] = normalized;
+      } else if (typeof normalized === 'number' && Number.isFinite(normalized)) {
+        customFieldsPatch[key] = normalized;
       }
     }
   }
@@ -526,15 +619,7 @@ If they confirm or say nothing to add → call submit_intake.
 If they add something new → call save_case_details and acknowledge it warmly.`;
     }
 
-    const typeHint = nextField.type === 'select' && nextField.options?.length
-      ? `Only accept values exactly matching these options: [${nextField.options.join(', ')}]. Do not make up values.`
-      : nextField.type === 'date'
-        ? 'Format this value strictly as YYYY-MM-DD. Ask the user to clarify if they give an ambiguous date.'
-        : nextField.type === 'boolean'
-          ? 'Resolve this to strictly true or false.'
-          : nextField.type === 'number'
-            ? 'Extract the numerical value only.'
-            : '';
+    const typeHint = getFieldValueTypeInstruction(nextField);
 
     const hint = nextField.promptHint
       ?? `Ask about "${nextField.label}" naturally in one sentence.`;

@@ -38,6 +38,11 @@ test.describe('Public intake form templates', () => {
   test('public widget honors custom template bootstrap data in public mode', async ({
     browser,
   }, testInfo) => {
+    // This spec intentionally stubs only the custom-template bootstrap response.
+    // The staging backend create endpoint currently 500s even for minimal
+    // docs-compliant template payloads, so we cannot yet create/publish a real
+    // template as test setup. Once backend create is fixed, replace this stub
+    // with a true create+publish+open-public-link flow.
     const practiceSlug = normalizePracticeSlug(DEFAULT_PRACTICE_SLUG);
     const uniqueId = randomUUID().slice(0, 8);
     const customTemplateSlug = `e2e-custom-template-${uniqueId}`;
