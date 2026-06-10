@@ -57,7 +57,6 @@ const PERSISTED_INTAKE_FIELD_KEYS = [
   'hasDocuments',
   'householdSize',
   'ctaShown',
-  'enrichmentMode',
 ] as const satisfies ReadonlyArray<keyof IntakeConversationState & keyof IntakeFieldsPayload>;
 
 type PersistedIntakeFieldKey = (typeof PERSISTED_INTAKE_FIELD_KEYS)[number];
@@ -550,7 +549,9 @@ export function useIntakeFlow({
         : undefined;
       const templateHasPaymentConfig = Boolean(
         storedTemplate &&
-        (typeof storedTemplate.paymentLinkEnabled === 'boolean' || typeof storedTemplate.consultationFee === 'number')
+        storedTemplate.paymentLinkEnabled === true &&
+        typeof storedTemplate.consultationFee === 'number' &&
+        storedTemplate.consultationFee > 0
       );
       if (templateHasPaymentConfig) {
         consultationFee = typeof storedTemplate?.consultationFee === 'number' ? storedTemplate.consultationFee : 0;

@@ -355,18 +355,6 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
     setIsPaymentAuthPromptOpen(false);
   }, []);
 
-  const _handleStrengthenCase = useCallback(async () => {
-    try {
-      // Clear ctaShown so the submit button disappears during enrichment.
-      // Without this, ctaShown: true persists from the required-fields-complete
-      // state and the UI keeps showing submit even while collecting optional fields.
-      await applyIntakeFields({ enrichmentMode: true, ctaShown: false });
-      await sendMessage('I want to provide more details to strengthen my case.', []);
-    } catch (err) {
-      console.error('Failed to start strengthen case flow', err);
-    }
-  }, [applyIntakeFields, sendMessage]);
-
   // System Messages
   const { persistSystemMessage: _persistSystemMessage } = useConversationSystemMessages({
     conversationId: activeConversationId ?? undefined,
@@ -671,7 +659,7 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
     onIntakeCtaResponse: _handleIntakeCtaResponse,
     onSubmitNow: _handleConfirmSubmit,
     onBuildBrief: _handleBuildBrief,
-    onStrengthenCase: _handleStrengthenCase,
+    onStrengthenCase: undefined,
     slimContactDraft,
     onSlimFormContinue: _handleSlimFormContinue,
     onSlimFormDismiss: undefined,
@@ -682,7 +670,6 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
     _handleIntakeCtaResponse,
     _handleConfirmSubmit,
     _handleBuildBrief,
-    _handleStrengthenCase,
     slimContactDraft,
     _handleSlimFormContinue
   ]);

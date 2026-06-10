@@ -1617,17 +1617,17 @@ function TemplateEditor({
               disabled={isSaving}
             />
           </ConfigField>
-          <ConfigField label="Helper text" charCount={{ value: selectedFieldContext.field.promptHint ?? '', max: 120 }}>
+          <ConfigField label="AI instruction" charCount={{ value: selectedFieldContext.field.promptHint ?? '', max: 500 }}>
             <Input
               type="text"
               value={selectedFieldContext.field.promptHint ?? ''}
-              maxLength={120}
+              maxLength={500}
               onChange={(value) => updateFieldHint(
                 selectedFieldContext.field.key,
                 selectedFieldContext.phase,
                 value,
               )}
-              placeholder="Describe how the AI should ask this question"
+              placeholder="How should the AI ask this question? Include what makes a valid answer and what to skip if already answered."
               disabled={isSaving}
             />
           </ConfigField>
