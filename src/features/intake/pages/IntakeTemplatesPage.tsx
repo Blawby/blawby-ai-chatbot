@@ -44,7 +44,7 @@ import {
 import { fromMinorUnits, toMinorUnitsValue } from '@/shared/utils/money';
 import { getOnboardingStatusPayload } from '@/shared/lib/apiClient';
 import { STANDARD_FIELD_DEFINITIONS } from '@/shared/constants/intakeTemplates';
-import type { FieldPhase, IntakeFieldDefinition, IntakeTemplate } from '@/shared/types/intake';
+import type { FieldCondition, FieldPhase, IntakeFieldDefinition, IntakeTemplate } from '@/shared/types/intake';
 import { EmbedCodeDialog, getPublicFormUrl, copyTextToClipboard } from '@/features/intake/components/EmbedCodeBlock';
 import { Pill } from '@/design-system/primitives';
 import { IntakeAnalyticsStrip } from '@/features/intake/components/IntakeAnalyticsStrip';
@@ -824,6 +824,11 @@ function TemplateEditor({
     });
   };
 
+  const allFields = useMemo(
+    () => [...state.requiredFields, ...state.enrichmentFields],
+    [state.requiredFields, state.enrichmentFields],
+  );
+
   const updateFieldLabel = (key: string, phase: FieldPhase, value: string) => {
     updateField(key, phase, (field) => {
       if (field.isStandard) {
@@ -1600,72 +1605,219 @@ function TemplateEditor({
     if (selectedFieldContext) {
       const isLocked = LOCKED_REQUIRED_KEYS.has(selectedFieldContext.field.key);
       const isStandard = selectedFieldContext.field.isStandard;
+      const { key, phase } = selectedFieldContext;
+      const field = selectedFieldContext.field;
+      const fieldType = field.type ?? 'text';
+      const condition = field.condition ?? null;
+
+      const FIELD_TYPE_LABELS: Record<IntakeFieldDefinition['type'], string> = {
+        text: 'Free text',
+        boolean: 'Yes / No',
+        date: 'Date',
+        number: 'Number',
+        select: 'Choose one',
+      };
+
       return (
         <div className="flex flex-col gap-4 p-4">
-          <ConfigField label="Question label" charCount={{ value: selectedFieldContext.field.label, max: 120 }}>
+          <ConfigField label="Question label" charCount={{ value: field.label, max: 120 }}>
             <Input
               type="text"
-              value={selectedFieldContext.field.label}
+              value={field.label}
               maxLength={120}
-              onChange={(value) => updateFieldLabel(
-                selectedFieldContext.field.key,
-                selectedFieldContext.phase,
-                value,
-              )}
-              onBlur={() => finalizeFieldLabel(selectedFieldContext.field.key, selectedFieldContext.phase)}
+              onChange={(value) => updateFieldLabel(key, phase, value)}
+              onBlur={() => finalizeFieldLabel(key, phase)}
               placeholder="What is your legal situation?"
               disabled={isSaving}
             />
           </ConfigField>
-          <ConfigField label="AI instruction" charCount={{ value: selectedFieldContext.field.promptHint ?? '', max: 500 }}>
+
+          <ConfigField label="AI instruction" charCount={{ value: field.promptHint ?? '', max: 500 }}>
             <Input
               type="text"
-              value={selectedFieldContext.field.promptHint ?? ''}
+              value={field.promptHint ?? ''}
               maxLength={500}
-              onChange={(value) => updateFieldHint(
-                selectedFieldContext.field.key,
-                selectedFieldContext.phase,
-                value,
-              )}
-              placeholder="How should the AI ask this question? Include what makes a valid answer and what to skip if already answered."
+              onChange={(value) => updateFieldHint(key, phase, value)}
+              placeholder="How should the AI ask this? What's a valid answer? What to skip if already known?"
               disabled={isSaving}
             />
           </ConfigField>
+
           {!isStandard ? (
-            <ConfigField label="Placeholder" charCount={{ value: selectedFieldContext.field.previewQuestion ?? '', max: 120 }}>
+            <ConfigField label="Placeholder" charCount={{ value: field.previewQuestion ?? '', max: 120 }}>
               <Input
                 type="text"
-                value={selectedFieldContext.field.previewQuestion ?? ''}
+                value={field.previewQuestion ?? ''}
                 maxLength={120}
-                onChange={(value) => updateField(
-                  selectedFieldContext.field.key,
-                  selectedFieldContext.phase,
-                  (field) => ({ ...field, previewQuestion: value }),
-                )}
+                onChange={(value) => updateField(key, phase, (f) => ({ ...f, previewQuestion: value }))}
                 placeholder="e.g. Divorce, contract dispute..."
                 disabled={isSaving}
               />
             </ConfigField>
           ) : null}
+
           <ConfigField label="Answer type">
-            <button
-              type="button"
-              disabled
-              className="flex items-center justify-between rounded-lg border border-line-subtle bg-card px-3 py-2 text-left text-sm text-ink"
-            >
-              <span>Free text</span>
-              <ChevronDown className="h-4 w-4 text-dim-2" />
-            </button>
+            {isStandard ? (
+              <div className="flex items-center justify-between rounded-lg border border-line-subtle bg-card px-3 py-2 text-sm text-ink opacity-60">
+                <span>{FIELD_TYPE_LABELS[fieldType] ?? 'Free text'}</span>
+                <Lock className="h-3.5 w-3.5 text-dim-2" />
+              </div>
+            ) : (
+              <select
+                value={fieldType}
+                disabled={isSaving}
+                onChange={(e) => {
+                  const next = (e.target as HTMLSelectElement).value as IntakeFieldDefinition['type'];
+                  updateField(key, phase, (f) => ({
+                    ...f,
+                    type: next,
+                    options: next === 'select' ? (f.options ?? ['Option 1', 'Option 2']) : undefined,
+                  }));
+                }}
+                className="w-full rounded-lg border border-line-subtle bg-card px-3 py-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-primary/40"
+              >
+                <option value="text">Free text</option>
+                <option value="boolean">Yes / No</option>
+                <option value="date">Date</option>
+                <option value="number">Number</option>
+                <option value="select">Choose one</option>
+              </select>
+            )}
           </ConfigField>
+
+          {!isStandard && fieldType === 'select' ? (
+            <ConfigField label="Options">
+              <div className="flex flex-col gap-1.5">
+                {(field.options ?? []).map((opt, idx) => (
+                  <div key={idx} className="flex items-center gap-2">
+                    <Input
+                      type="text"
+                      value={opt}
+                      maxLength={80}
+                      onChange={(value) => updateField(key, phase, (f) => {
+                        const opts = [...(f.options ?? [])];
+                        opts[idx] = value;
+                        return { ...f, options: opts };
+                      })}
+                      placeholder={`Option ${idx + 1}`}
+                      disabled={isSaving}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => updateField(key, phase, (f) => ({
+                        ...f,
+                        options: (f.options ?? []).filter((_, i) => i !== idx),
+                      }))}
+                      disabled={isSaving || (field.options ?? []).length <= 1}
+                      className="shrink-0 rounded p-1 text-dim-2 hover:text-danger disabled:opacity-40"
+                      aria-label="Remove option"
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                ))}
+                <button
+                  type="button"
+                  onClick={() => updateField(key, phase, (f) => ({
+                    ...f,
+                    options: [...(f.options ?? []), ''],
+                  }))}
+                  disabled={isSaving}
+                  className="flex items-center gap-1.5 rounded-lg border border-dashed border-line-subtle px-3 py-1.5 text-sm text-dim-2 hover:border-primary hover:text-primary disabled:opacity-40"
+                >
+                  <Plus className="h-3.5 w-3.5" />
+                  Add option
+                </button>
+              </div>
+            </ConfigField>
+          ) : null}
+
+          <ConfigField label="Valid answer looks like" charCount={{ value: field.validationHint ?? '', max: 200 }}>
+            <Input
+              type="text"
+              value={field.validationHint ?? ''}
+              maxLength={200}
+              onChange={(value) => updateField(key, phase, (f) => ({ ...f, validationHint: value || undefined }))}
+              placeholder={
+                fieldType === 'boolean' ? 'e.g. Yes or No' :
+                fieldType === 'date' ? 'e.g. Any date format — AI converts to ISO' :
+                fieldType === 'number' ? 'e.g. Whole number' :
+                fieldType === 'select' ? 'e.g. One of the listed options' :
+                'e.g. A sentence describing the situation'
+              }
+              disabled={isSaving}
+            />
+          </ConfigField>
+
+          {phase === 'enrichment' ? (
+            <ConfigField label="Only ask when">
+              <div className="flex flex-col gap-2">
+                <select
+                  value={condition?.dependsOn ?? ''}
+                  disabled={isSaving}
+                  onChange={(e) => {
+                    const dependsOn = (e.target as HTMLSelectElement).value;
+                    updateField(key, phase, (f) => ({
+                      ...f,
+                      condition: dependsOn
+                        ? ({ dependsOn, value: (f.condition?.dependsOn === dependsOn ? f.condition.value : '') } as FieldCondition)
+                        : undefined,
+                    }));
+                  }}
+                  className="w-full rounded-lg border border-line-subtle bg-card px-3 py-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-primary/40"
+                >
+                  <option value="">Always ask</option>
+                  {allFields
+                    .filter((f) => f.key !== key)
+                    .map((f) => (
+                      <option key={f.key} value={f.key}>{f.label || f.key}</option>
+                    ))}
+                </select>
+                {condition?.dependsOn ? (
+                  <Input
+                    type="text"
+                    value={typeof condition.value === 'string' ? condition.value : String(condition.value)}
+                    onChange={(value) => updateField(key, phase, (f) => ({
+                      ...f,
+                      condition: f.condition ? { ...f.condition, value } : undefined,
+                    }))}
+                    placeholder="equals this value..."
+                    disabled={isSaving}
+                  />
+                ) : null}
+              </div>
+            </ConfigField>
+          ) : null}
+
+          {!isStandard ? (
+            <ConfigField label="Completeness weight (0–25)">
+              <div className="flex items-center gap-3">
+                <input
+                  type="range"
+                  min={0}
+                  max={25}
+                  step={1}
+                  value={field.completenessWeight ?? 5}
+                  disabled={isSaving}
+                  onInput={(e) => updateField(key, phase, (f) => ({
+                    ...f,
+                    completenessWeight: Number((e.target as HTMLInputElement).value),
+                  }))}
+                  className="flex-1"
+                />
+                <span className="w-6 text-right text-sm font-medium text-ink">
+                  {field.completenessWeight ?? 5}
+                </span>
+              </div>
+              <p className="text-[11px] text-dim-2">How much this field contributes to the submit CTA appearing (higher = more important)</p>
+            </ConfigField>
+          ) : null}
+
           <Switch
             label="Required"
             description="Clients must answer this question"
-            value={selectedFieldContext.phase === 'required'}
-            onChange={(checked) => changeFieldPhase(
-              selectedFieldContext.field.key,
-              selectedFieldContext.phase,
-              checked ? 'required' : 'enrichment',
-            )}
+            value={phase === 'required'}
+            onChange={(checked) => changeFieldPhase(key, phase, checked ? 'required' : 'enrichment')}
             disabled={isLocked || isSaving}
           />
           {!isLocked ? (
@@ -1675,7 +1827,7 @@ function TemplateEditor({
                 type="button"
                 variant="danger"
                 icon={Trash2}
-                onClick={() => removeField(selectedFieldContext.field.key, selectedFieldContext.phase)}
+                onClick={() => removeField(key, phase)}
                 disabled={isSaving}
                 className="w-full justify-center"
               >
@@ -2322,17 +2474,24 @@ export default function IntakeTemplatesPage({
 
   /** Convert app EditorState fields back to the backend field input shape. */
   const toFieldInputs = useCallback((template: IntakeTemplate): IntakeTemplateFieldInput[] =>
-    template.fields.map((f, idx) => ({
-      key: f.key,
-      label: f.label,
-      field_type: (f.type === 'select' ? 'select' : f.type === 'date' ? 'date' : f.type === 'boolean' ? 'boolean' : f.type === 'number' ? 'number' : 'text') as IntakeTemplateFieldInput['field_type'],
-      phase: f.phase ?? (f.required ? 'required' : 'enrichment'),
-      required: f.required,
-      order_index: idx,
-      prompt_hint: f.promptHint,
-      is_standard: f.isStandard,
-      options: Array.isArray(f.options) ? f.options.map((o) => ({ value: o, label: o })) : undefined,
-    })), []);
+    template.fields.map((f, idx) => {
+      const validationRules: Record<string, unknown> = {};
+      if (f.condition) validationRules.condition = f.condition;
+      if (typeof f.completenessWeight === 'number') validationRules.completeness_weight = f.completenessWeight;
+      return {
+        key: f.key,
+        label: f.label,
+        field_type: (f.type === 'select' ? 'select' : f.type === 'date' ? 'date' : f.type === 'boolean' ? 'boolean' : f.type === 'number' ? 'number' : 'text') as IntakeTemplateFieldInput['field_type'],
+        phase: f.phase ?? (f.required ? 'required' : 'enrichment'),
+        required: f.required,
+        order_index: idx,
+        prompt_hint: f.promptHint,
+        help_text: f.validationHint,
+        is_standard: f.isStandard,
+        options: Array.isArray(f.options) ? f.options.map((o) => ({ value: o, label: o })) : undefined,
+        validation_rules: Object.keys(validationRules).length > 0 ? validationRules : undefined,
+      };
+    }), []);
 
   const handleSaveDraft = async (template: IntakeTemplate) => {
     if (!resolvedPracticeId) return;

@@ -55,7 +55,6 @@ import {
   executeIntakeTool,
   resolveNextField,
   computeCompletenessScore,
-  COMPLETENESS_THRESHOLD_SHOW_CTA,
   type IntakeSubmissionGate,
   type ToolResult,
 } from './aiChatIntake.js';
@@ -655,7 +654,6 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
       city: storedIntakeState.city ?? null,
       state: storedIntakeState.state ?? null,
       description: storedIntakeState.description ? '[present]' : null,
-      enrichmentMode: storedIntakeState.enrichmentMode ?? null,
       stateSource: consultation?.case ? 'consultation.case' : 'intakeConversationState',
     } : null,
   });
