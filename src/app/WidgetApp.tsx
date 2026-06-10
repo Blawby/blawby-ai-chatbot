@@ -836,6 +836,7 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
                 isLoadingMoreMessages={isLoadingMoreMessages}
                 onLoadMoreMessages={loadMoreMessages}
                 showAuthPrompt={shouldShowAuthPrompt}
+                authPromptCallbackUrl={window.location.origin}
                 onAuthPromptRequest={isAnonymous ? handlePaymentAuthRequest : undefined}
                 onAuthPromptClose={handleAuthPromptClose}
                 onAuthPromptSuccess={handleAuthPromptSuccess}
