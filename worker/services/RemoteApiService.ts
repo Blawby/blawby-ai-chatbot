@@ -66,6 +66,7 @@ export class RemoteApiService {
       method?: string;
       body?: string;
       forwardAuthCookie?: boolean;
+      headers?: Record<string, string>;
     }
   ): Promise<Response> {
     const baseUrl = this.getRemoteApiUrl(env);
@@ -75,6 +76,12 @@ export class RemoteApiService {
     const headers = new Headers({
       'Content-Type': 'application/json',
     });
+
+    if (options?.headers) {
+      for (const [key, value] of Object.entries(options.headers)) {
+        headers.set(key, value);
+      }
+    }
 
     // Forward session cookies when available unless explicitly disabled.
     if (options?.forwardAuthCookie !== false) {
@@ -319,6 +326,25 @@ export class RemoteApiService {
       request,
       { forwardAuthCookie: false }
     );
+  }
+
+  /**
+   * Fetch all intake templates for a practice using the worker's service token.
+   */
+  static async getPracticeTemplates(
+    env: Env,
+    practiceId: string,
+  ): Promise<{ templates: import('../types/wire/intake').BackendIntakeTemplate[] }> {
+    if (!env.MCP_BACKEND_TOKEN) {
+      throw HttpErrors.internalServerError('Missing MCP_BACKEND_TOKEN to fetch templates');
+    }
+    const response = await this.fetchFromRemoteApi(env, `/api/practice/${encodeURIComponent(practiceId)}/intake-templates`, undefined, {
+      forwardAuthCookie: false,
+      headers: {
+        Authorization: `Bearer ${env.MCP_BACKEND_TOKEN}`
+      }
+    });
+    return response.json() as Promise<{ templates: import('../types/wire/intake').BackendIntakeTemplate[] }>;
   }
 
   /**

@@ -69,6 +69,8 @@ interface WidgetAppProps {
   bootstrapSession?: AuthSessionPayload;
   /** Resolved intake template from bootstrap. Absent means no published template exists for this practice. */
   intakeTemplate?: IntakeTemplate | null;
+  /** Service UUID from ?service= embed param — pre-seeds practiceServiceUuid in conversation state so conditions evaluate correctly from turn 1. */
+  preSelectedServiceUuid?: string | null;
 }
 
 export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
@@ -78,6 +80,7 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
   bootstrapConversationId,
   bootstrapSession,
   intakeTemplate: intakeTemplateProp,
+  preSelectedServiceUuid,
 }) => {
   // Chat-first public intake: the public widget opens straight into the
   // conversation surface (Intake.html / Mobile.html intake variant) instead
@@ -149,7 +152,14 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
           status: 'draft',
           // Embed the resolved template so the worker can read it back on
           // every subsequent AI turn without a separate lookup.
-          extraMetadata: { intakeTemplate: activeIntakeTemplate },
+          // Pre-seed practiceServiceUuid if the embed specifies ?service=<uuid>
+          // so field conditions evaluate correctly from turn 1.
+          extraMetadata: {
+            intakeTemplate: activeIntakeTemplate,
+            ...(preSelectedServiceUuid
+              ? { intakeConversationState: { practiceServiceUuid: preSelectedServiceUuid } }
+              : {}),
+          },
         });
         locallyCreatedConversationIds.current.add(newId);
         setBootstrapIgnored(true);
@@ -167,7 +177,7 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
 
     creatingConversationRef.current = createPromise;
     return createPromise;
-  }, [effectiveConversationId, practiceId, setConversationId, activeIntakeTemplate]);
+  }, [effectiveConversationId, practiceId, setConversationId, activeIntakeTemplate, preSelectedServiceUuid]);
 
   const { details: practiceDetails } = usePracticeDetails(practiceId, practiceConfig.slug);
   

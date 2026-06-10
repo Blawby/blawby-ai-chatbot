@@ -31,15 +31,19 @@ Branch: `refactor/conversational-intake` → PR to `staging`
 | **Unified prompt** | `buildIntakeSystemPrompt(nextField, completenessScore)` — single prompt, no `isEnrichmentMode` binary |
 | **Extract-first instruction** | Prompt explicitly instructs AI to call `save_case_details` with everything volunteered before asking the next question |
 | **Strengthen removed** | `strengthen_case` action, `enrichmentMode` state, fake message injection, `_handleStrengthenCase`, and the Strengthen button are gone from every layer |
-| **Field weights** | Every `STANDARD_FIELD_DEFINITION` has `completenessWeight` (description=25, urgency=12, opposingParty=12, desiredOutcome=12, courtDate=10, city=8, practiceServiceUuid=8, hasDocuments=6, householdSize=0) |
+| **Field weights** | Every `STANDARD_FIELD_DEFINITION` has `completenessWeight` (description=25, urgency=12, opposingParty=12, desiredOutcome=12, courtDate=10, city=8, state=7, practiceServiceUuid=8, hasDocuments=6, householdSize=0) |
 | **promptHint on all standard fields** | Every field has a natural-language AI instruction for how to ask it, when to skip it, and what to extract |
 | **householdSize excluded from score** | `completenessWeight: 0` — never drives CTA; promptHint instructs AI to only ask when clearly relevant |
 | **Form builder** | "AI instruction" label (was "Helper text"), 500-char limit — practices can write `promptHint` for custom fields |
-| **Answer type selector** | Functional dropdown (Text / Yes-No / Date / Number / Choose one) for custom fields — was a disabled stub |
+| **Answer type selector** | Functional dropdown (Text / Yes-No / Date / Number / Choose one / Email / Phone / Choose multiple) with backend types natively preserved |
 | **Options editor** | Inline add/remove for `select` type custom fields |
 | **Validation hint** | Editable per field (stored as `help_text`); type-aware placeholder guides practices |
-| **Skip logic** | "Only ask when" picker on enrichment fields — `dependsOn` + value stored in `validation_rules` |
-| **Completeness weight** | 0–25 slider on custom fields — stored in `validation_rules.completeness_weight` |
+| **condition (skip logic)** | `FieldCondition` is editable in the inspector ("Only ask when" picker) and serialized to `validation_rules` JSON |
+| **completenessWeight** | 0–25 slider for custom fields serialized to `validation_rules.completeness_weight` |
+| **Backend sync** | Fixed API normalizer to handle correct backend response shape `{ template: ... }` / `{ templates: ... }` |
+| **AI prompt accuracy** | Custom fields are resolved by `label` instead of raw backend `key` in the AI `buildIntakeContextSummary` block |
+| **Custom template bootstrap** | Widget bootstrap now honors `?template=<slug>` and, using `MCP_BACKEND_TOKEN`, fetches that published template from the admin templates API so public custom forms can route without backend changes |
+| **Public link + embed flow** | Publishing a template opens `EmbedCodeDialog` immediately with the direct public URL (`/public/{slug}?template={templateSlug}`) and widget embed snippet ready to copy |
 | **Types cleaned** | `enrichmentMode` removed from `IntakeConversationState`, `IntakeFieldsPayload`, `PERSISTED_INTAKE_FIELD_KEYS`, `consultationState`, `useChatComposer` |
 | **E2E tests updated** | Removed strengthen-case test; new test: score-threshold CTA + "Strengthen" button must not appear |
 
@@ -54,55 +58,53 @@ Branch: `refactor/conversational-intake` → PR to `staging`
 
 ## What Still Needs to Be Done
 
-### 1. Case-type-aware field selection (worker-level, not AI-discretion)
+### 1. Custom template routing + field metadata bootstrap ✅ done in worker/frontend
 
-**Problem:** `resolveNextField` iterates all fields by phase and skips collected ones — no case-type filtering. `householdSize` won't be asked (weight=0, AI discretion via promptHint) but this is a workaround. Fields like `hasDocuments` or `courtDate` may be irrelevant for some case types too.
+**What's implemented:**
+- Widget bootstrap reads `?template=<slug>` from the public URL and, when `MCP_BACKEND_TOKEN` is available, fetches the matching published template from `GET /api/practice/{practiceId}/intake-templates`
+- This avoids backend changes on the public intake endpoint while still returning the full template payload, including `validation_rules` that the public endpoint currently drops
+- `useWidgetBootstrap` forwards the `?template=` query param to the worker bootstrap endpoint
+- The builder now surfaces the public link/share flow immediately after publish via `EmbedCodeDialog`
+- `getPublicFormUrl` generates direct links in the form `/public/{practiceSlug}?template={templateSlug}`
 
-**Solution:** Add `relevantFor?: string[]` to `IntakeFieldDefinition` — a list of practice service keys or case-type slugs for which this field applies. `resolveNextField` filters out fields whose `relevantFor` doesn't include the detected case type. If `relevantFor` is absent, the field applies universally.
+**Why this matters:**
+- Custom published intake forms can now be shared directly without forcing the backend public endpoint to support template selection first
+- The worker gets the template's full `validation_rules`, including `condition` and `completeness_weight`, so the widget can use the same source of truth the builder saved
 
-**Files to change:**
-- `src/shared/types/intake.ts` — add `relevantFor?: string[]` to `IntakeFieldDefinition`
-- `src/shared/constants/intakeTemplates.ts` — add `relevantFor` to each field that isn't universal
-- `src/shared/utils/intakeOrchestration.ts` — update `resolveNextField` to filter by `relevantFor` vs. detected case type
-- `worker/routes/aiChat.ts` — pass detected case type (from `practiceServiceUuid` or AI extraction) into `resolveNextField`
+### 2. Service-aware field conditions ✅ foundation done
 
-**Example:**
-```typescript
-{
-  key: 'householdSize',
-  relevantFor: ['family_law', 'housing', 'immigration', 'legal_aid'],
-  // ...
-}
-```
+**What's implemented:**
+- Form builder condition editor shows a service name picker (not UUID text input) when `dependsOn === 'practiceServiceUuid'` — values stored as UUIDs, displayed as names from `currentPractice.services`
+- Widget bootstrap reads `?service=<uuid>` from the embed URL → included as `preSelectedServiceUuid` in bootstrap response
+- `WidgetApp` seeds `intakeConversationState.practiceServiceUuid` when creating a conversation — so `resolveNextField` evaluates field conditions correctly from turn 1 without waiting for the AI to detect the service
+- `BackendIntakeTemplatePublic` now includes `validation_rules` (was omitted) — custom field conditions and completeness weights now reach the widget bootstrap
+- Widget bootstrap normalizer now reads `validation_rules` and `help_text` from template fields
 
-### 2. `validationHint` wired end-to-end ✅ done (form builder)
+**Remaining (needs backend work only if we want backend-native routing):**
+- The public intake API (`GET /api/practice-client-intakes/{slug}/intake`) still always returns the single default published template. If we want backend-native service/template routing instead of the worker override, that endpoint needs to support template selection.
+
+### 3. `validationHint` wired end-to-end ✅ done (form builder)
 
 Practices can now write a validation hint per custom field in the form builder — stored as `help_text`, read back in `normalizeField` as `validationHint`. The field editor placeholder adapts to the selected answer type (e.g. "e.g. Any date format — AI converts to ISO" for date fields).
 
 **Still needed:** Populate `validationHint` for all standard fields in `STANDARD_FIELD_DEFINITIONS` and include it in the `buildIntakeSystemPrompt` field instruction block so the AI knows what a valid answer looks like for each standard field.
 
-### 3. `condition` (skip logic) editable in form builder ✅ done
 
-`FieldCondition` is now editable in the inspector panel for enrichment fields — a "Only ask when" picker lets a practice choose a dependency field and type the expected value. Serialised to `validation_rules` JSON on save.
 
-### 4. `completenessWeight` tunable per field by practices ✅ done
-
-A 0–25 slider is now in the inspector panel for custom fields. Serialised to `validation_rules.completeness_weight` on save. Standard fields show their locked weight (read-only).
-
-### 5. Type-safe AI behavior per field type
+### 4. Type-safe AI behavior per field type
 
 **Problem:** A `boolean` field can currently be asked as free text if the AI misinterprets the promptHint. A `date` field can accept "sometime next month." A `select` field may not surface its options clearly.
 
 **Solution:** In `buildIntakeSystemPrompt`, add type-specific behavior rules per field type alongside the field's `promptHint`:
 - `boolean` → "This is a yes/no question. Accept any affirmative/negative phrasing and save true or false."
-- `select` → "Accepted values: [options]. Map the client's phrasing to the closest option."
+- `select` / `multiselect` → "Accepted values: [options]. Map the client's phrasing to the closest option."
 - `date` → "Accept any date format and convert to ISO 8601 (YYYY-MM-DD). If they say 'not yet' or 'no', save null."
 - `number` → "Accept any numeric phrasing and save as an integer."
 
 **Files to change:**
 - `worker/routes/aiChatIntake.ts` — add type-aware instruction block in `buildIntakeSystemPrompt`
 
-### 6. Blawby-verified starter templates
+### 5. Blawby-verified starter templates
 
 **Problem:** No curated starting points for common practice types. Practices currently start from an empty field list or the default template.
 

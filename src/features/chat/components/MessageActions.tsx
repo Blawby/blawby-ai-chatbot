@@ -138,8 +138,8 @@ export const MessageActions: FunctionComponent<MessageActionsProps> = ({
 			case 'build_brief':
 				return Boolean(resolvedOnBuildBrief);
 			case 'practice_assistant_decision':
-					return Boolean(practiceId) && !resolvedPracticeAssistantActionIds.has(action.actionId);
-			}
+				return Boolean(action.actionId) && Boolean(practiceId) && !resolvedPracticeAssistantActionIds.has(action.actionId!);
+		}
 		});
 	const decisionActions = renderableActions.filter((a) => a.type === 'practice_assistant_decision');
 	const standardActions = renderableActions.filter((a) => a.type !== 'practice_assistant_decision');

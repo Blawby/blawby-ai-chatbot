@@ -877,6 +877,7 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
         userName,
         nextField,
         completenessScore,
+        templateFields,
       ),
       `PRACTICE_CONTEXT: ${JSON.stringify(aiPromptContext)}`,
       body.additionalContext ? `SEARCH_CONTEXT: ${body.additionalContext}` : null,

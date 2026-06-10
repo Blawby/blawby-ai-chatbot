@@ -152,7 +152,7 @@ export type BackendIntakeTemplatePublic = {
   legal_disclaimer: string | null;
   payment_link_enabled: boolean;
   consultation_fee: number | null;
-  fields: Array<Omit<BackendIntakeTemplateField, 'template_id' | 'validation_rules' | 'created_at' | 'updated_at'>>;
+  fields: Array<Omit<BackendIntakeTemplateField, 'template_id' | 'created_at' | 'updated_at'>>;
 };
 
 /**

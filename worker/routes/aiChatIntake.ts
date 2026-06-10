@@ -483,6 +483,8 @@ export const buildIntakeSystemPrompt = (
   nextField?: IntakeFieldDefinition | null,
   /** 0–100 completeness score computed by the worker from field weights */
   completenessScore?: number,
+  /** Full list of template fields to map keys to labels */
+  templateFields?: IntakeFieldDefinition[],
 ): string => {
   const score = completenessScore ?? 0;
   const cappedServices = services.slice(0, MAX_SERVICES_IN_CONVERSATION_PROMPT);
@@ -493,7 +495,7 @@ export const buildIntakeSystemPrompt = (
   const practiceName = typeof practiceContext?.practiceName === 'string'
     ? practiceContext.practiceName.trim()
     : 'this law firm';
-  const intakeContext = buildIntakeContextSummary(storedIntakeState, services);
+  const intakeContext = buildIntakeContextSummary(storedIntakeState, services, templateFields);
   const firstName = userName ? getFirstName(userName) : null;
   const userSalutationSnippet = firstName ? `The client's first name is ${firstName}. ` : '';
   const userNamingInstruction = firstName ? ` Address them as ${firstName}.` : '';
@@ -525,13 +527,13 @@ If they add something new → call save_case_details and acknowledge it warmly.`
     }
 
     const typeHint = nextField.type === 'select' && nextField.options?.length
-      ? `Valid options: ${nextField.options.join(', ')}.`
+      ? `Only accept values exactly matching these options: [${nextField.options.join(', ')}]. Do not make up values.`
       : nextField.type === 'date'
-        ? 'Accept any date format; convert to YYYY-MM-DD when saving.'
+        ? 'Format this value strictly as YYYY-MM-DD. Ask the user to clarify if they give an ambiguous date.'
         : nextField.type === 'boolean'
-          ? 'Expect a yes/no answer.'
+          ? 'Resolve this to strictly true or false.'
           : nextField.type === 'number'
-            ? 'Expect a numeric answer.'
+            ? 'Extract the numerical value only.'
             : '';
 
     const hint = nextField.promptHint
@@ -620,6 +622,7 @@ ${contextSection}`.trim();
 function buildIntakeContextSummary(
   state: Record<string, unknown> | null,
   services: IntakePromptService[],
+  templateFields?: IntakeFieldDefinition[],
 ): string {
   if (!state) return '';
   const serviceNameByUuid = new Map(services.map((s) => [s.uuid, s.name]));
@@ -644,13 +647,15 @@ function buildIntakeContextSummary(
   // Include any custom (non-standard) field values so the model sees them in context.
   const customFields = state.customFields;
   if (customFields && typeof customFields === 'object' && !Array.isArray(customFields)) {
+    const fieldLabelByKey = new Map(templateFields?.map((f) => [f.key, f.label]) ?? []);
     for (const [key, value] of Object.entries(customFields as Record<string, unknown>)) {
+      const label = fieldLabelByKey.get(key) ?? key;
       if (typeof value === 'string' && value.trim()) {
-        lines.push(`${key}: ${value.trim()}`);
+        lines.push(`${label}: ${value.trim()}`);
       } else if (typeof value === 'boolean') {
-        lines.push(`${key}: ${value}`);
+        lines.push(`${label}: ${value}`);
       } else if (typeof value === 'number' && Number.isFinite(value)) {
-        lines.push(`${key}: ${String(value)}`);
+        lines.push(`${label}: ${String(value)}`);
       }
     }
   }

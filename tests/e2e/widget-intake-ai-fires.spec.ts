@@ -90,7 +90,8 @@ test.describe('Public widget intake — AI fires (U11)', () => {
     // And the scripted "we haven't published our hours" string from the
     // deleted regex branch should NOT appear in the rendered messages — the
     // AI's response will be varied phrasing, not that templated sentence.
-    const chatBody = anonPage.locator('[data-testid="chat-message"]');
-    await expect(chatBody).not.toContainText(/we haven['']t published our hours/i, { timeout: 30_000 });
+    const latestReply = anonPage.locator('[data-testid="ai-message"], [data-testid="system-message"]').last();
+    await expect(latestReply).toBeVisible({ timeout: 30_000 });
+    await expect(latestReply).not.toContainText(/we haven['']t published our hours/i, { timeout: 30_000 });
   });
 });

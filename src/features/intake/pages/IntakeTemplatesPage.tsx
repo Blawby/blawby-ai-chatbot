@@ -684,6 +684,7 @@ function TemplateEditor({
   const [slugError, setSlugError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [isPublishing, setIsPublishing] = useState(false);
+  const [showEmbedModal, setShowEmbedModal] = useState(false);
   const [stripeStatus, setStripeStatus] = useState<StripeConnectStatus | null>(null);
   const [isStripeLoading, setIsStripeLoading] = useState(false);
   const [selectedItemId, setSelectedItemId] = useState<BuilderSelectionId>('contact');
@@ -770,10 +771,12 @@ function TemplateEditor({
   }, [applyEditorState]);
 
   const moveEnrichmentField = useCallback((fromIndex: number, toIndex: number) => {
-    applyEditorState((prev) => ({
-      ...prev,
-      enrichmentFields: moveItem(prev.enrichmentFields, fromIndex, toIndex),
-    }));
+    applyEditorState((prev) => {
+      return {
+        ...prev,
+        enrichmentFields: moveItem(prev.enrichmentFields, fromIndex, toIndex),
+      };
+    });
   }, [applyEditorState]);
 
 
@@ -1069,6 +1072,7 @@ function TemplateEditor({
       setHasSavedDraft(false);
       setDiscardPending(false);
       showSuccess('Published', `"${template.name}" is live.`);
+      setShowEmbedModal(true);
     } catch {
       // Parent handler surfaces the API/source-of-truth error.
     } finally {
@@ -1605,18 +1609,24 @@ function TemplateEditor({
     if (selectedFieldContext) {
       const isLocked = LOCKED_REQUIRED_KEYS.has(selectedFieldContext.field.key);
       const isStandard = selectedFieldContext.field.isStandard;
-      const { key, phase } = selectedFieldContext;
-      const field = selectedFieldContext.field;
+      const { field, phase } = selectedFieldContext;
+      const key = field.key;
       const fieldType = field.type ?? 'text';
       const condition = field.condition ?? null;
 
-      const FIELD_TYPE_LABELS: Record<IntakeFieldDefinition['type'], string> = {
-        text: 'Free text',
+      const FIELD_TYPE_LABELS: Record<string, string> = {
+        text: 'Free text (short)',
+        textarea: 'Free text (paragraph)',
+        email: 'Email address',
+        phone: 'Phone number',
         boolean: 'Yes / No',
         date: 'Date',
         number: 'Number',
         select: 'Choose one',
+        multiselect: 'Choose multiple',
       };
+
+      const currentDropdownValue = field.backendFieldType ?? fieldType;
 
       return (
         <div className="flex flex-col gap-4 p-4">
@@ -1659,28 +1669,35 @@ function TemplateEditor({
           <ConfigField label="Answer type">
             {isStandard ? (
               <div className="flex items-center justify-between rounded-lg border border-line-subtle bg-card px-3 py-2 text-sm text-ink opacity-60">
-                <span>{FIELD_TYPE_LABELS[fieldType] ?? 'Free text'}</span>
+                <span>{FIELD_TYPE_LABELS[currentDropdownValue] ?? 'Free text'}</span>
                 <Lock className="h-3.5 w-3.5 text-dim-2" />
               </div>
             ) : (
               <select
-                value={fieldType}
+                value={currentDropdownValue}
                 disabled={isSaving}
                 onChange={(e) => {
-                  const next = (e.target as HTMLSelectElement).value as IntakeFieldDefinition['type'];
+                  const next = (e.target as HTMLSelectElement).value;
+                  const isSelect = next === 'select' || next === 'multiselect';
+                  const baseType = (next === 'textarea' || next === 'email' || next === 'phone' ? 'text' : next === 'multiselect' ? 'select' : next) as IntakeFieldDefinition['type'];
                   updateField(key, phase, (f) => ({
                     ...f,
-                    type: next,
-                    options: next === 'select' ? (f.options ?? ['Option 1', 'Option 2']) : undefined,
+                    type: baseType,
+                    backendFieldType: next,
+                    options: isSelect ? (f.options ?? ['Option 1', 'Option 2']) : undefined,
                   }));
                 }}
                 className="w-full rounded-lg border border-line-subtle bg-card px-3 py-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-primary/40"
               >
-                <option value="text">Free text</option>
+                <option value="text">Free text (short)</option>
+                <option value="textarea">Free text (paragraph)</option>
+                <option value="email">Email address</option>
+                <option value="phone">Phone number</option>
                 <option value="boolean">Yes / No</option>
                 <option value="date">Date</option>
                 <option value="number">Number</option>
                 <option value="select">Choose one</option>
+                <option value="multiselect">Choose multiple</option>
               </select>
             )}
           </ConfigField>
@@ -1773,7 +1790,25 @@ function TemplateEditor({
                       <option key={f.key} value={f.key}>{f.label || f.key}</option>
                     ))}
                 </select>
-                {condition?.dependsOn ? (
+                {condition?.dependsOn === 'practiceServiceUuid' && practiceServices.length > 0 ? (
+                  <select
+                    value={typeof condition.value === 'string' ? condition.value : ''}
+                    disabled={isSaving}
+                    onChange={(e) => {
+                      const value = (e.target as HTMLSelectElement).value;
+                      updateField(key, phase, (f) => ({
+                        ...f,
+                        condition: f.condition ? { ...f.condition, value } : undefined,
+                      }));
+                    }}
+                    className="w-full rounded-lg border border-line-subtle bg-card px-3 py-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-primary/40"
+                  >
+                    <option value="">Select a practice area...</option>
+                    {practiceServices.map((svc) => (
+                      <option key={svc.uuid} value={svc.uuid}>{svc.name}</option>
+                    ))}
+                  </select>
+                ) : condition?.dependsOn ? (
                   <Input
                     type="text"
                     value={typeof condition.value === 'string' ? condition.value : String(condition.value)}
@@ -2146,7 +2181,16 @@ function TemplateEditor({
           {formStructure}
         </div>
       </div>
-    );
+      {showEmbedModal ? (
+        <EmbedCodeDialog
+          isOpen
+          onClose={() => setShowEmbedModal(false)}
+          practiceSlug={practiceSlug}
+          templateSlug={state.slug}
+        />
+      ) : null}
+    </>
+  );
   }
 
   // ── Desktop 3-panel layout ──────────────────────────────────────────────
@@ -2165,6 +2209,14 @@ function TemplateEditor({
       actions={headerActions}
     >
       {editorContent}
+      {showEmbedModal ? (
+        <EmbedCodeDialog
+          isOpen
+          onClose={() => setShowEmbedModal(false)}
+          practiceSlug={practiceSlug}
+          templateSlug={state.slug}
+        />
+      ) : null}
     </EditorShell>
   );
 }
@@ -2415,6 +2467,14 @@ export default function IntakeTemplatesPage({
   const { navigate } = useNavigation();
   const [isSaving, setIsSaving] = useState(false);
 
+  // Derive {name, uuid} pairs from practice services for the condition value picker.
+  const practiceServices = useMemo(() => (currentPractice?.services ?? []).flatMap((svc) => {
+    const name = typeof svc.name === 'string' ? svc.name.trim() : typeof svc.title === 'string' ? (svc.title as string).trim() : null;
+    const uuid = typeof svc.id === 'string' ? (svc.id as string).trim() : null;
+    if (!name || !uuid) return [];
+    return [{ name, uuid }];
+  }), [currentPractice?.services]);
+
   // Load templates from backend — the only source of truth
   const [allTemplates, setAllTemplates] = useState<IntakeTemplate[]>([]);
   const [templatesLoading, setTemplatesLoading] = useState(true);
@@ -2481,7 +2541,7 @@ export default function IntakeTemplatesPage({
       return {
         key: f.key,
         label: f.label,
-        field_type: (f.type === 'select' ? 'select' : f.type === 'date' ? 'date' : f.type === 'boolean' ? 'boolean' : f.type === 'number' ? 'number' : 'text') as IntakeTemplateFieldInput['field_type'],
+        field_type: (f.backendFieldType || (f.type === 'select' ? 'select' : f.type === 'date' ? 'date' : f.type === 'boolean' ? 'boolean' : f.type === 'number' ? 'number' : 'text')) as IntakeTemplateFieldInput['field_type'],
         phase: f.phase ?? (f.required ? 'required' : 'enrichment'),
         required: f.required,
         order_index: idx,

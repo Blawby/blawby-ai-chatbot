@@ -136,6 +136,7 @@ export const PublicWorkspaceRoute: FunctionComponent<PublicWorkspaceRouteProps> 
       bootstrapConversationId={data.conversationId}
       bootstrapSession={data.session}
       intakeTemplate={data.intakeTemplate ?? null}
+      preSelectedServiceUuid={data.preSelectedServiceUuid ?? null}
     />
   );
 
