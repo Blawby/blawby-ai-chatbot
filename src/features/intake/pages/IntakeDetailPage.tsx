@@ -357,7 +357,6 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
 
   const {
     conversationMetadata,
-    updateConversationMetadata: updateConversationMetadataPatch,
     intakeConversationState,
   } = useMessageHandling({
     practiceId: practiceId ?? undefined,
@@ -763,14 +762,12 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
     }
   }, [
     activeTemplate,
-    conversationMetadata,
     gatherDetailsSubmitting,
     intake,
     intakeConversationState,
     intakeId,
     showError,
     showSuccess,
-    updateConversationMetadataPatch,
   ]);
 
   const handleGenerateEngagement = useCallback(async (template: EngagementLetterTemplate) => {

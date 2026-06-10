@@ -10,6 +10,7 @@ import { validateWire } from '../utils/validateWire.js';
 import { PracticeSchema, ConversationConfigPermissiveSchema } from '../types/wire/practice.js';
 import {
   BackendIntakeConvertResponseSchema,
+  BackendPracticeTemplatesResponseSchema,
 } from '../types/wire/intake.js';
 import { canAssignTeamMemberToMatter, isTeamRole, type PracticeTeamResponse } from '../../src/shared/types/team.js';
 
@@ -344,7 +345,16 @@ export class RemoteApiService {
         Authorization: `Bearer ${env.MCP_BACKEND_TOKEN}`
       }
     });
-    return response.json() as Promise<{ templates: import('../types/wire/intake').BackendIntakeTemplate[] }>;
+    const json = await response.json().catch(() => null);
+    if (!json) {
+      throw HttpErrors.badGateway('Invalid intake templates response from remote API');
+    }
+    return validateWire(
+      BackendPracticeTemplatesResponseSchema,
+      json,
+      'getPracticeTemplates',
+      { strict: false },
+    );
   }
 
   /**

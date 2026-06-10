@@ -21,6 +21,13 @@ type FieldValidationRules = {
 };
 
 function parseValidationRules(raw: unknown): FieldValidationRules {
+  if (typeof raw === 'string') {
+    try {
+      return parseValidationRules(JSON.parse(raw));
+    } catch {
+      return {};
+    }
+  }
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return {};
   return raw as FieldValidationRules;
 }

@@ -1,5 +1,5 @@
 import { describe, test, expect, vi, beforeEach } from 'vitest';
-import { handleSaveCaseDetails } from '../../../worker/routes/aiChatIntake';
+import { handleSaveCaseDetails, type IntakeSubmissionGate } from '../../../worker/routes/aiChatIntake';
 
 describe('save_case_details tool', () => {
   beforeEach(() => {
@@ -215,7 +215,7 @@ describe('save_case_details tool', () => {
       hearingDateCustom: 'next month',
     };
 
-    const submissionGate = {
+    const submissionGate: IntakeSubmissionGate = {
       paymentRequiredBeforeSubmit: false,
       paymentCompleted: false,
       activeTemplate: {
@@ -282,7 +282,7 @@ describe('save_case_details tool', () => {
       evidenceTypes: 'Photos, Emails, Photos',
     };
 
-    const submissionGate = {
+    const submissionGate: IntakeSubmissionGate = {
       paymentRequiredBeforeSubmit: false,
       paymentCompleted: false,
       activeTemplate: {

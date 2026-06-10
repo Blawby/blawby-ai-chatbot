@@ -635,6 +635,7 @@ type TemplateEditorProps = {
   hasSavedDraft?: boolean;
   existingTemplates: IntakeTemplate[];
   practiceSlug: string;
+  practiceServices: Array<{ name: string; uuid: string }>;
   practiceOrganizationId?: string | null;
   practiceBusinessEmail?: string | null;
   defaultIntroMessage: string;
@@ -656,6 +657,7 @@ function TemplateEditor({
   hasSavedDraft: initialHasSavedDraft = false,
   existingTemplates,
   practiceSlug,
+  practiceServices,
   practiceOrganizationId = null,
   practiceBusinessEmail = null,
   defaultIntroMessage,
@@ -1784,8 +1786,9 @@ function TemplateEditor({
                   className="w-full rounded-lg border border-line-subtle bg-card px-3 py-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-primary/40"
                 >
                   <option value="">Always ask</option>
+                  <option value="practiceServiceUuid">Practice service</option>
                   {allFields
-                    .filter((f) => f.key !== key)
+                    .filter((f) => f.key !== key && f.key !== 'practiceServiceUuid')
                     .map((f) => (
                       <option key={f.key} value={f.key}>{f.label || f.key}</option>
                     ))}
@@ -2117,80 +2120,81 @@ function TemplateEditor({
     }
 
     return (
-      <div className="flex h-full flex-col">
-        <header className="flex items-center gap-2 border-b border-line-subtle px-3 py-3">
-          <Button
-            type="button"
-            variant="icon"
-            size="icon-sm"
-            icon={X}
-            aria-label="Close"
-            onClick={onCancel}
-          />
-          <h1 className="flex-1 text-center text-sm font-semibold text-ink">Question Builder</h1>
-          <span className="w-8" aria-hidden="true" />
-        </header>
-        <div className="flex items-center justify-center gap-2 border-b border-line-subtle px-3 py-2">
-          <Pill tone={!hasChanges && !hasSavedDraft ? 'live' : 'dim'} className="mr-auto">
-            v.{headerVersionNumber}
-          </Pill>
-          <Button
-            type="button"
-            variant="secondary"
-            size="sm"
-            icon={Eye}
-            onClick={() => setMobileView('preview')}
-            disabled={isSaving}
-          >
-            Preview
-          </Button>
-          <Button
-            type="button"
-            size="sm"
-            variant="secondary"
-            onClick={() => void handleSaveDraft()}
-            disabled={isSaving || isPublishing || !hasChanges}
-          >
-            {isSaving ? 'Saving...' : 'Save draft'}
-          </Button>
-          <Button
-            type="button"
-            size="sm"
-            onClick={() => void handlePublish()}
-            disabled={publishDisabled}
-          >
-            {isPublishing ? 'Publishing...' : 'Publish'}
-          </Button>
-        </div>
-        <div className="min-h-0 flex-1 overflow-y-auto p-3">
-          {/*
-            Mobile pre-roll: analytics + authoring strip render above the
-            accordion sections so the chat-first authoring loop is the
-            first thing the practice owner sees, before they dive into
-            individual question rows. The strip itself collapses to a
-            single "Talk to assistant" button on narrow viewports.
-          */}
-          <div className="mb-4 flex flex-col gap-3">
-            <IntakeAnalyticsStrip usesLast30Days={null} conversionPercent={null} />
-            <IntakeAuthoringStrip
-              instruction={authoringInstruction}
-              onInstructionChange={setAuthoringInstruction}
-              disabled={isSaving || isPublishing}
+      <>
+        <div className="flex h-full flex-col">
+          <header className="flex items-center gap-2 border-b border-line-subtle px-3 py-3">
+            <Button
+              type="button"
+              variant="icon"
+              size="icon-sm"
+              icon={X}
+              aria-label="Close"
+              onClick={onCancel}
             />
+            <h1 className="flex-1 text-center text-sm font-semibold text-ink">Question Builder</h1>
+            <span className="w-8" aria-hidden="true" />
+          </header>
+          <div className="flex items-center justify-center gap-2 border-b border-line-subtle px-3 py-2">
+            <Pill tone={!hasChanges && !hasSavedDraft ? 'live' : 'dim'} className="mr-auto">
+              v.{headerVersionNumber}
+            </Pill>
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              icon={Eye}
+              onClick={() => setMobileView('preview')}
+              disabled={isSaving}
+            >
+              Preview
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant="secondary"
+              onClick={() => void handleSaveDraft()}
+              disabled={isSaving || isPublishing || !hasChanges}
+            >
+              {isSaving ? 'Saving...' : 'Save draft'}
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              onClick={() => void handlePublish()}
+              disabled={publishDisabled}
+            >
+              {isPublishing ? 'Publishing...' : 'Publish'}
+            </Button>
           </div>
-          {formStructure}
+          <div className="min-h-0 flex-1 overflow-y-auto p-3">
+            {/*
+              Mobile pre-roll: analytics + authoring strip render above the
+              accordion sections so the chat-first authoring loop is the
+              first thing the practice owner sees, before they dive into
+              individual question rows. The strip itself collapses to a
+              single "Talk to assistant" button on narrow viewports.
+            */}
+            <div className="mb-4 flex flex-col gap-3">
+              <IntakeAnalyticsStrip usesLast30Days={null} conversionPercent={null} />
+              <IntakeAuthoringStrip
+                instruction={authoringInstruction}
+                onInstructionChange={setAuthoringInstruction}
+                disabled={isSaving || isPublishing}
+              />
+            </div>
+            {formStructure}
+          </div>
         </div>
-      </div>
-      {showEmbedModal ? (
-        <EmbedCodeDialog
-          isOpen
-          onClose={() => setShowEmbedModal(false)}
-          practiceSlug={practiceSlug}
-          templateSlug={state.slug}
-        />
-      ) : null}
-    </>
-  );
+        {showEmbedModal ? (
+          <EmbedCodeDialog
+            isOpen
+            onClose={() => setShowEmbedModal(false)}
+            practiceSlug={practiceSlug}
+            templateSlug={state.slug}
+          />
+        ) : null}
+      </>
+    );
   }
 
   // ── Desktop 3-panel layout ──────────────────────────────────────────────
@@ -2681,6 +2685,7 @@ export default function IntakeTemplatesPage({
         hasSavedDraft={editTarget?.status === 'draft'}
         existingTemplates={customTemplates}
         practiceSlug={currentPractice.slug ?? ''}
+        practiceServices={practiceServices}
         practiceOrganizationId={currentPractice.betterAuthOrgId ?? currentPractice.id}
         practiceBusinessEmail={currentPractice.businessEmail ?? null}
         defaultIntroMessage={(currentPractice.config?.introMessage as string | undefined) ?? ''}

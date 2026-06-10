@@ -1,4 +1,4 @@
-import type { ComponentChildren, JSX } from 'preact';
+import type { ComponentChildren, JSX, Ref } from 'preact';
 import { Fragment } from 'preact';
 import { cn } from '@/shared/utils/cn';
 
@@ -31,10 +31,12 @@ export interface ComposerProps {
   inputMode?: 'single-line' | 'multiline';
   onInput?: JSX.GenericEventHandler<HTMLTextAreaElement>;
   onKeyDown?: JSX.KeyboardEventHandler<HTMLTextAreaElement>;
-  inputRef?: JSX.Ref<HTMLTextAreaElement>;
+  inputRef?: Ref<HTMLTextAreaElement>;
   inputAriaLabel?: string;
   inputDisabled?: boolean;
-  inputProps?: JSX.HTMLAttributes<HTMLTextAreaElement>;
+  inputProps?: JSX.HTMLAttributes<HTMLTextAreaElement> & {
+    'data-testid'?: string;
+  };
   inputSlot?: ComponentChildren;
   beforeInput?: ComponentChildren;
   afterInput?: ComponentChildren;

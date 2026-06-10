@@ -19,7 +19,6 @@ import {
   COMPLETENESS_THRESHOLD_SHOW_CTA,
   COMPLETENESS_THRESHOLD_SUGGEST_SUBMIT,
 } from '../../src/shared/utils/intakeOrchestration.js';
-import { Logger } from '../utils/logger.js';
 
 const MAX_SERVICES_IN_PROMPT = 20;
 const MAX_SERVICES_IN_CONVERSATION_PROMPT = 8;

@@ -11,7 +11,7 @@ import { ArrowUp, X } from 'lucide-preact';
 import { features } from '@/config/features';
 import { FileAttachment } from '../../../../worker/types';
 import type { UploadingFile } from '@/shared/types/upload';
-import { Trans, useTranslation } from '@/shared/i18n/hooks';
+import { Trans } from '@/shared/i18n/hooks';
 import type { ReplyTarget } from '@/features/chat/types';
 import { cn } from '@/shared/utils/cn';
 
@@ -93,7 +93,6 @@ const MessageComposer = ({
   mentionCandidates = [],
   hardError = null,
 }: MessageComposerProps) => {
-  const { t } = useTranslation('common');
   const [isCompactViewport, setIsCompactViewport] = useState(false);
   const [mentionMenuOpen, setMentionMenuOpen] = useState(false);
   const [mentionQuery, setMentionQuery] = useState('');

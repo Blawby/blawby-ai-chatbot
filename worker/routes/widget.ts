@@ -19,6 +19,13 @@ const asNonEmptyString = (value: unknown): string | null => (
     : null
 );
 
+const isValidCondition = (value: unknown): value is NonNullable<IntakeTemplate['fields'][number]['condition']> => {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
+  const candidate = value as Record<string, unknown>;
+  return typeof candidate.dependsOn === 'string'
+    && ['string', 'boolean', 'number'].includes(typeof candidate.value);
+};
+
 const normalizeCrossSiteWidgetCookie = (cookie: string, request: Request): string => {
   const protocol = new URL(request.url).protocol;
   // Secure cookies are ignored on http://localhost in dev; keep upstream cookie
@@ -395,7 +402,7 @@ export async function handleWidgetBootstrap(request: Request, env: Env): Promise
           promptHint: f.prompt_hint ?? undefined,
           validationHint: f.help_text ?? undefined,
           options: f.options ? f.options.map((o) => o.value) : undefined,
-          condition: rules.condition as IntakeTemplate['fields'][number]['condition'] ?? undefined,
+          condition: isValidCondition(rules.condition) ? rules.condition : undefined,
           completenessWeight: typeof rules.completeness_weight === 'number' ? rules.completeness_weight : undefined,
         };
       }),
