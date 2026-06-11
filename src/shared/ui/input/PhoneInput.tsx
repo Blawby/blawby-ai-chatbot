@@ -1,5 +1,11 @@
-import { forwardRef, useCallback, useState, useEffect, useMemo, useRef } from 'preact/compat';
-import { Phone, ChevronDown, Check, X, Search } from 'lucide-preact';
+import {
+  forwardRef,
+  useCallback,
+  useState,
+  useMemo,
+  useRef,
+} from "preact/compat";
+import { Phone, ChevronDown, Check, X } from "lucide-preact";
 import {
   AsYouType,
   getCountries,
@@ -7,38 +13,34 @@ import {
   parsePhoneNumberFromString,
   isValidPhoneNumber,
   type CountryCode,
-} from 'libphonenumber-js/min';
+} from "libphonenumber-js/min";
 
-import { Icon } from '@/shared/ui/Icon';
-import { cn } from '@/shared/utils/cn';
-import { useUniqueId } from '@/shared/hooks/useUniqueId';
+import { Icon } from "@/shared/ui/Icon";
+import { cn } from "@/shared/utils/cn";
+import { useUniqueId } from "@/shared/hooks/useUniqueId";
 
 interface CountryEntry {
   iso: CountryCode;
   name: string;
   callingCode: string;
-  emoji: string;
 }
 
-const REGIONAL_INDICATOR_OFFSET = 127397;
-const isoToFlagEmoji = (iso: string): string =>
-  iso.replace(/./g, (ch) => String.fromCodePoint(REGIONAL_INDICATOR_OFFSET + ch.charCodeAt(0)));
-
 const regionNames =
-  typeof Intl !== 'undefined' && typeof Intl.DisplayNames === 'function'
-    ? new Intl.DisplayNames(['en'], { type: 'region' })
+  typeof Intl !== "undefined" && typeof Intl.DisplayNames === "function"
+    ? new Intl.DisplayNames(["en"], { type: "region" })
     : null;
 
 let cachedCountries: CountryEntry[] | null = null;
 const getCountryList = (): CountryEntry[] => {
   if (cachedCountries) return cachedCountries;
   cachedCountries = getCountries()
-    .map((iso): CountryEntry => ({
-      iso,
-      name: regionNames?.of(iso) ?? iso,
-      callingCode: getCountryCallingCode(iso),
-      emoji: isoToFlagEmoji(iso),
-    }))
+    .map(
+      (iso): CountryEntry => ({
+        iso,
+        name: regionNames?.of(iso) ?? iso,
+        callingCode: getCountryCallingCode(iso),
+      }),
+    )
     .sort((a, b) => a.name.localeCompare(b.name));
   return cachedCountries;
 };
@@ -46,36 +48,41 @@ const getCountryList = (): CountryEntry[] => {
 // When a calling code maps to multiple countries (e.g. +1 → US, CA, JM…), pick
 // the most common default so the picker doesn't surprise users.
 const callingCodeDefaults: Record<string, CountryCode> = {
-  '1': 'US',
-  '7': 'RU',
-  '44': 'GB',
-  '47': 'NO',
-  '358': 'FI',
-  '590': 'GP',
-  '599': 'CW',
+  "1": "US",
+  "7": "RU",
+  "44": "GB",
+  "47": "NO",
+  "358": "FI",
+  "590": "GP",
+  "599": "CW",
 };
 
-const isIsoCode = (value: string): value is CountryCode => /^[A-Z]{2}$/.test(value);
+const isIsoCode = (value: string): value is CountryCode =>
+  /^[A-Z]{2}$/.test(value);
 
 const resolveIsoFromProp = (input?: string): CountryCode => {
-  if (!input) return 'US';
+  if (!input) return "US";
   if (isIsoCode(input)) return input;
-  if (input.startsWith('+')) {
-    const digits = input.slice(1).replace(/\D/g, '');
-    if (digits && callingCodeDefaults[digits]) return callingCodeDefaults[digits];
+  if (input.startsWith("+")) {
+    const digits = input.slice(1).replace(/\D/g, "");
+    if (digits && callingCodeDefaults[digits])
+      return callingCodeDefaults[digits];
     if (digits) {
       const match = getCountryList().find((c) => c.callingCode === digits);
       if (match) return match.iso;
     }
   }
-  return 'US';
+  return "US";
 };
 
-const detectIsoFromValue = (value: string, fallback: CountryCode): CountryCode => {
+const detectIsoFromValue = (
+  value: string,
+  fallback: CountryCode,
+): CountryCode => {
   if (!value) return fallback;
   const parsed = parsePhoneNumberFromString(value);
   if (parsed?.country) return parsed.country;
-  if (value.trimStart().startsWith('+')) {
+  if (value.trimStart().startsWith("+")) {
     const trimmed = value.trimStart().slice(1);
     const digitMatch = trimmed.match(/^(\d{1,4})/);
     if (digitMatch) {
@@ -92,18 +99,18 @@ const detectIsoFromValue = (value: string, fallback: CountryCode): CountryCode =
 };
 
 const extractNationalPart = (value: string, iso: CountryCode): string => {
-  if (!value) return '';
+  if (!value) return "";
   const parsed = parsePhoneNumberFromString(value, iso);
   if (parsed) return parsed.formatNational();
   const trimmed = value.trimStart();
-  if (trimmed.startsWith('+')) {
-    return trimmed.slice(1).replace(/^\d{1,4}\s*/, '');
+  if (trimmed.startsWith("+")) {
+    return trimmed.slice(1).replace(/^\d{1,4}\s*/, "");
   }
   return value;
 };
 
 const formatNationalDisplay = (raw: string, iso: CountryCode): string => {
-  if (!raw) return '';
+  if (!raw) return "";
   return new AsYouType(iso).input(raw);
 };
 
@@ -113,7 +120,7 @@ const buildEmittedValue = (
   withCountryCode: boolean,
 ): string => {
   const trimmed = national.trim();
-  if (!trimmed) return '';
+  if (!trimmed) return "";
   if (!withCountryCode) return trimmed;
   return `+${getCountryCallingCode(iso)} ${trimmed}`;
 };
@@ -127,8 +134,8 @@ export interface PhoneInputProps {
   disabled?: boolean;
   required?: boolean;
   className?: string;
-  size?: 'sm' | 'md' | 'lg';
-  variant?: 'default' | 'error' | 'success';
+  size?: "sm" | "md" | "lg";
+  variant?: "default" | "error" | "success";
   label?: string;
   description?: string;
   error?: string;
@@ -150,417 +157,340 @@ export interface PhoneInputProps {
   placeholderKey?: string;
   errorKey?: string;
   namespace?: string;
-  'data-testid'?: string;
+  "data-testid"?: string;
 }
 
-export const PhoneInput = forwardRef<HTMLInputElement, PhoneInputProps>(({
-  value = '',
-  onChange,
-  placeholder,
-  disabled = false,
-  required = false,
-  className = '',
-  size = 'md',
-  variant = 'default',
-  label,
-  description,
-  error,
-  countryCode,
-  onCountryChange,
-  showCountryCode = true,
-  format: _format = true,
-  showValidation = false,
-  labelKey: _labelKey,
-  descriptionKey: _descriptionKey,
-  placeholderKey: _placeholderKey,
-  errorKey: _errorKey,
-  namespace: _namespace = 'common',
-  id,
-  name,
-  'data-testid': dataTestId,
-}, ref) => {
-  const countries = useMemo(() => getCountryList(), []);
-  const propIso = useMemo(() => resolveIsoFromProp(countryCode), [countryCode]);
-  const detectedIso = useMemo(() => detectIsoFromValue(value, propIso), [value, propIso]);
-  const [manualIso, setManualIso] = useState<CountryCode | null>(null);
-  const selectedIso = manualIso ?? detectedIso;
-
-  const currentCountry = useMemo(
-    () => countries.find((c) => c.iso === selectedIso) ?? countries.find((c) => c.iso === 'US') ?? countries[0],
-    [countries, selectedIso],
-  );
-
-  const nationalPart = useMemo(
-    () => extractNationalPart(value, selectedIso),
-    [value, selectedIso],
-  );
-  const displayValue = useMemo(
-    () => formatNationalDisplay(nationalPart, selectedIso),
-    [nationalPart, selectedIso],
-  );
-
-  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
-  const [filterText, setFilterText] = useState('');
-  const [focusedIndex, setFocusedIndex] = useState(-1);
-  const dropdownRef = useRef<HTMLDivElement>(null);
-  const buttonRef = useRef<HTMLButtonElement>(null);
-  const searchInputRef = useRef<HTMLInputElement>(null);
-  const listRef = useRef<HTMLDivElement>(null);
-
-  const filteredCountries = useMemo(() => {
-    const term = filterText.trim().toLowerCase();
-    if (!term) return countries;
-    return countries.filter(
-      (c) =>
-        c.name.toLowerCase().includes(term) ||
-        c.iso.toLowerCase().includes(term) ||
-        c.callingCode.startsWith(term.replace(/^\+/, '')),
+export const PhoneInput = forwardRef<HTMLInputElement, PhoneInputProps>(
+  (
+    {
+      value = "",
+      onChange,
+      placeholder,
+      disabled = false,
+      required = false,
+      className = "",
+      size = "md",
+      variant = "default",
+      label,
+      description,
+      error,
+      countryCode,
+      onCountryChange,
+      showCountryCode = true,
+      format: _format = true,
+      showValidation = false,
+      labelKey: _labelKey,
+      descriptionKey: _descriptionKey,
+      placeholderKey: _placeholderKey,
+      errorKey: _errorKey,
+      namespace: _namespace = "common",
+      id,
+      name,
+      "data-testid": dataTestId,
+    },
+    ref,
+  ) => {
+    const inputElementRef = useRef<HTMLInputElement>(null);
+    const countries = useMemo(() => getCountryList(), []);
+    const propIso = useMemo(
+      () => resolveIsoFromProp(countryCode),
+      [countryCode],
     );
-  }, [countries, filterText]);
+    const detectedIso = useMemo(
+      () => detectIsoFromValue(value, propIso),
+      [value, propIso],
+    );
+    const [manualIso, setManualIso] = useState<CountryCode | null>(null);
+    const selectedIso = manualIso ?? detectedIso;
 
-  useEffect(() => {
-    if (!isDropdownOpen) return;
-    const handleClickOutside = (event: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
-        setIsDropdownOpen(false);
-        setFilterText('');
-        setFocusedIndex(-1);
-      }
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [isDropdownOpen]);
+    const currentCountry = useMemo(
+      () =>
+        countries.find((c) => c.iso === selectedIso) ??
+        countries.find((c) => c.iso === "US") ??
+        countries[0],
+      [countries, selectedIso],
+    );
 
-  useEffect(() => {
-    if (isDropdownOpen) {
-      // Focus the search input on the next tick so the dropdown has mounted.
-      const handle = window.setTimeout(() => searchInputRef.current?.focus(), 0);
-      return () => window.clearTimeout(handle);
-    }
-    return undefined;
-  }, [isDropdownOpen]);
+    const nationalPart = useMemo(
+      () => extractNationalPart(value, selectedIso),
+      [value, selectedIso],
+    );
+    const displayValue = useMemo(
+      () => formatNationalDisplay(nationalPart, selectedIso),
+      [nationalPart, selectedIso],
+    );
 
-  useEffect(() => {
-    if (focusedIndex < 0) return;
-    const item = listRef.current?.children[focusedIndex] as HTMLElement | undefined;
-    item?.scrollIntoView({ block: 'nearest' });
-  }, [focusedIndex]);
+    const handleCountryChange = useCallback(
+      (event: Event) => {
+        const target = event.target as HTMLSelectElement;
+        const nextIso = target.value as CountryCode;
+        setManualIso(nextIso);
+        onCountryChange?.(nextIso);
+        const nextValue = buildEmittedValue(
+          nationalPart,
+          nextIso,
+          showCountryCode,
+        );
+        onChange?.(nextValue);
+      },
+      [nationalPart, onChange, onCountryChange, showCountryCode],
+    );
 
-  const selectCountry = useCallback(
-    (country: CountryEntry) => {
-      setManualIso(country.iso);
-      setIsDropdownOpen(false);
-      setFilterText('');
-      setFocusedIndex(-1);
-      onCountryChange?.(country.iso);
-      const nextValue = buildEmittedValue(nationalPart, country.iso, showCountryCode);
-      onChange?.(nextValue);
-      buttonRef.current?.focus();
-    },
-    [nationalPart, onChange, onCountryChange, showCountryCode],
-  );
+    const handleInput = useCallback(
+      (event: Event) => {
+        const target = event.target as HTMLInputElement;
+        const rawValue = target.value;
+        const startsWithPlus = rawValue.trimStart().startsWith("+");
 
-  const handleSearchKeyDown = useCallback(
-    (event: KeyboardEvent) => {
-      switch (event.key) {
-        case 'Escape':
-          event.preventDefault();
-          setIsDropdownOpen(false);
-          setFilterText('');
-          setFocusedIndex(-1);
-          buttonRef.current?.focus();
-          break;
-        case 'ArrowDown':
-          event.preventDefault();
-          setFocusedIndex((prev) =>
-            filteredCountries.length === 0 ? -1 : (prev + 1) % filteredCountries.length,
-          );
-          break;
-        case 'ArrowUp':
-          event.preventDefault();
-          setFocusedIndex((prev) =>
-            filteredCountries.length === 0
-              ? -1
-              : prev <= 0
-              ? filteredCountries.length - 1
-              : prev - 1,
-          );
-          break;
-        case 'Enter': {
-          event.preventDefault();
-          const target = filteredCountries[focusedIndex] ?? filteredCountries[0];
-          if (target) selectCountry(target);
-          break;
+        const nextIso = startsWithPlus
+          ? detectIsoFromValue(rawValue, selectedIso)
+          : selectedIso;
+        if (startsWithPlus && manualIso !== null) {
+          setManualIso(null);
         }
-        default:
-          break;
+
+        const nextNational = startsWithPlus
+          ? extractNationalPart(rawValue, nextIso)
+          : rawValue;
+        const nextValue = showCountryCode
+          ? buildEmittedValue(nextNational, nextIso, true)
+          : formatNationalDisplay(rawValue, nextIso);
+        onChange?.(nextValue);
+      },
+      [manualIso, onChange, selectedIso, showCountryCode],
+    );
+
+    const generatedId = useUniqueId("phone-input");
+    const baseId = id || generatedId;
+    const inputId = baseId;
+    const descriptionId = `${baseId}-description`;
+    const errorId = `${baseId}-error`;
+    const validationErrorId = `${baseId}-validation-error`;
+
+    const controlHeightClasses = {
+      sm: "h-8",
+      md: "h-10",
+      lg: "h-12",
+    } as const;
+
+    const selectClasses = {
+      sm: "w-[5.25rem] text-xs pl-2 pr-5",
+      md: "w-[5.75rem] text-sm pl-3 pr-6",
+      lg: "w-[6.25rem] text-base pl-3 pr-7",
+    } as const;
+
+    const inputSizeClasses = {
+      sm: "px-2 py-1 text-sm",
+      md: "px-3 py-1.5 text-sm",
+      lg: "px-4 py-2 text-base",
+    } as const;
+
+    const iconPaddingClasses = {
+      sm: "pl-8",
+      md: "pl-10",
+      lg: "pl-12",
+    } as const;
+
+    const rightIconPaddingClasses = {
+      sm: "pr-8",
+      md: "pr-10",
+      lg: "pr-12",
+    } as const;
+
+    const variantClasses = {
+      default: "",
+      error: "is-error",
+      success: "is-success",
+    } as const;
+
+    const trimmedValue = (value ?? "").trim();
+    const validationIsValid = useMemo(() => {
+      if (!trimmedValue) return null;
+      try {
+        return isValidPhoneNumber(trimmedValue, selectedIso);
+      } catch {
+        return false;
       }
-    },
-    [filteredCountries, focusedIndex, selectCountry],
-  );
+    }, [trimmedValue, selectedIso]);
+    const showInvalidValidation =
+      showValidation && trimmedValue.length > 0 && validationIsValid === false;
+    const isInvalid = Boolean(error) || showInvalidValidation;
 
-  const handleTriggerKeyDown = useCallback((event: KeyboardEvent) => {
-    if (event.key === 'Enter' || event.key === ' ' || event.key === 'ArrowDown') {
-      event.preventDefault();
-      setFilterText('');
-      setFocusedIndex(0);
-      setIsDropdownOpen(true);
-    }
-  }, []);
+    const inputClasses = cn(
+      "w-full h-full rounded-none border-0 bg-transparent text-ink placeholder:text-dim-2",
+      "focus:outline-none transition-all duration-200",
+      inputSizeClasses[size],
+      showCountryCode ? null : iconPaddingClasses[size],
+      showValidation && trimmedValue.length > 0
+        ? rightIconPaddingClasses[size]
+        : null,
+      "disabled:cursor-not-allowed",
+    );
 
-  const handleInput = useCallback(
-    (event: Event) => {
-      const target = event.target as HTMLInputElement;
-      const rawValue = target.value;
-      const startsWithPlus = rawValue.trimStart().startsWith('+');
+    const controlClasses = cn(
+      "flex flex-nowrap items-stretch w-full overflow-hidden border focus-within:ring-2 ring-inset focus-within:ring-accent/30",
+      controlHeightClasses[size],
+      variantClasses[variant],
+      isInvalid && "is-error",
+      disabled && "opacity-50 cursor-not-allowed",
+      className,
+    );
 
-      const nextIso = startsWithPlus ? detectIsoFromValue(rawValue, selectedIso) : selectedIso;
-      if (startsWithPlus && manualIso !== null) {
-        setManualIso(null);
-      }
+    const placeholderForDisplay = useMemo(() => {
+      if (!placeholder) return placeholder;
+      if (!showCountryCode) return placeholder;
+      const stripped = placeholder.replace(/^\s*\+\d{1,4}\s*/, "");
+      return stripped || placeholder;
+    }, [placeholder, showCountryCode]);
 
-      const nextNational = startsWithPlus ? extractNationalPart(rawValue, nextIso) : rawValue;
-      const nextValue = showCountryCode
-        ? buildEmittedValue(nextNational, nextIso, true)
-        : formatNationalDisplay(rawValue, nextIso);
-      onChange?.(nextValue);
-    },
-    [manualIso, onChange, selectedIso, showCountryCode],
-  );
+    const setInputRef = useCallback(
+      (node: HTMLInputElement | null) => {
+        inputElementRef.current = node;
+        if (typeof ref === "function") {
+          ref(node);
+        } else if (ref) {
+          (ref as { current: HTMLInputElement | null }).current = node;
+        }
+      },
+      [ref],
+    );
 
-  const generatedId = useUniqueId('phone-input');
-  const baseId = id || generatedId;
-  const inputId = baseId;
-  const descriptionId = `${baseId}-description`;
-  const errorId = `${baseId}-error`;
-  const validationErrorId = `${baseId}-validation-error`;
+    return (
+      <div className="w-full">
+        {label && (
+          <label htmlFor={inputId} className="label mb-1.5 block">
+            {label}
+            {required && (
+              <span className="text-neg ml-1" aria-hidden="true">
+                *
+              </span>
+            )}
+          </label>
+        )}
 
-  const sizeClasses = {
-    sm: 'px-2 py-1 text-sm h-8',
-    md: 'px-3 py-2 text-sm h-10',
-    lg: 'px-4 py-3 text-base h-12',
-  } as const;
-
-  const iconPaddingClasses = {
-    sm: 'pl-8',
-    md: 'pl-10',
-    lg: 'pl-12',
-  } as const;
-
-  const rightIconPaddingClasses = {
-    sm: 'pr-8',
-    md: 'pr-10',
-    lg: 'pr-12',
-  } as const;
-
-  const variantClasses = {
-    default: 'focus:ring-2 ring-inset focus:ring-accent/30',
-    error: 'ring-2 ring-inset ring-red-500/40 focus:ring-red-500/60',
-    success: 'ring-2 ring-inset ring-green-500/40',
-  } as const;
-
-  const trimmedValue = (value ?? '').trim();
-  const validationIsValid = useMemo(() => {
-    if (!trimmedValue) return null;
-    try {
-      return isValidPhoneNumber(trimmedValue, selectedIso);
-    } catch {
-      return false;
-    }
-  }, [trimmedValue, selectedIso]);
-  const showInvalidValidation = showValidation && trimmedValue.length > 0 && validationIsValid === false;
-  const isInvalid = Boolean(error) || showInvalidValidation;
-
-  const inputClasses = cn(
-    'w-full rounded-r-md text-ink placeholder:text-dim-2',
-    'focus:outline-none transition-all duration-200',
-    'field border-none',
-    sizeClasses[size],
-    showCountryCode ? null : iconPaddingClasses[size],
-    showValidation && trimmedValue.length > 0 ? rightIconPaddingClasses[size] : null,
-    variantClasses[variant],
-    isInvalid && variant === 'default' && 'is-error',
-    disabled && 'opacity-50 cursor-not-allowed',
-    className,
-  );
-
-  const placeholderForDisplay = useMemo(() => {
-    if (!placeholder) return placeholder;
-    if (!showCountryCode) return placeholder;
-    const stripped = placeholder.replace(/^\s*\+\d{1,4}\s*/, '');
-    return stripped || placeholder;
-  }, [placeholder, showCountryCode]);
-
-  return (
-    <div className="w-full">
-      {label && (
-        <label htmlFor={inputId} className="block text-sm font-medium text-ink mb-1">
-          {label}
-          {required && <span className="text-red-500 ml-1">*</span>}
-        </label>
-      )}
-
-      <div className="flex items-stretch">
-        {showCountryCode && (
-          <div className="relative" ref={dropdownRef}>
-            <button
-              ref={buttonRef}
-              type="button"
-              onClick={() => {
-                setFilterText('');
-                setFocusedIndex(0);
-                setIsDropdownOpen((open) => !open);
+        <div
+          className={controlClasses}
+          style={{
+            background: "var(--card)",
+            borderColor: "var(--rule)",
+            borderRadius: "var(--r-xs)",
+          }}
+        >
+          {showCountryCode && (
+            <div
+              className="grid shrink-0 grid-cols-1 border-r"
+              style={{
+                borderRightColor:
+                  "color-mix(in oklab, var(--rule) 58%, transparent)",
               }}
-              onKeyDown={handleTriggerKeyDown}
-              disabled={disabled}
-              aria-expanded={isDropdownOpen}
-              aria-haspopup="listbox"
-              aria-label={`Select country. Current: ${currentCountry.name} (+${currentCountry.callingCode})`}
-              className={cn(
-                'inline-flex items-center rounded-l-xl rounded-r-none text-ink hover:bg-paper-2/40 focus:outline-none focus:ring-2 ring-inset focus:ring-accent transition-colors field border-r border-line-subtle',
-                sizeClasses[size],
-                disabled && 'opacity-50 cursor-not-allowed',
-              )}
             >
-              <span className="text-base mr-1" aria-hidden="true">{currentCountry.emoji}</span>
-              <span className="text-sm">+{currentCountry.callingCode}</span>
-              <ChevronDown className="w-3 h-3 ml-1 shrink-0" aria-hidden="true" />
-            </button>
-
-            {isDropdownOpen && (
-              <div
-                className="absolute z-10 panel border border-line-subtle rounded-r-md shadow-glass w-64 top-full left-0 mt-1"
-                role="dialog"
+              <select
+                name={`${name ?? inputId}-country`}
+                aria-label="Country"
+                value={currentCountry.iso}
+                onChange={handleCountryChange}
+                disabled={disabled}
+                className={cn(
+                  "col-start-1 row-start-1 h-full appearance-none rounded-none bg-transparent text-ink whitespace-nowrap focus:outline-none",
+                  selectClasses[size],
+                  disabled && "opacity-50 cursor-not-allowed",
+                )}
               >
-                <div className="p-2 border-b border-line-subtle">
-                  <div className="relative">
-                    <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-4 h-4 text-dim-2" aria-hidden="true" />
-                    <input
-                      ref={searchInputRef}
-                      type="text"
-                      value={filterText}
-                      onInput={(e) => {
-                        setFilterText((e.target as HTMLInputElement).value);
-                        setFocusedIndex(0);
-                      }}
-                      onKeyDown={handleSearchKeyDown}
-                      placeholder="Search country or code"
-                      aria-label="Search country"
-                      className="w-full pl-7 pr-2 py-1 text-sm rounded-md field border-none focus:outline-none focus:ring-2 ring-inset focus:ring-accent/30"
-                    />
-                  </div>
-                </div>
-                <div
-                  ref={listRef}
-                  role="listbox"
-                  aria-label="Country selection"
-                  tabIndex={-1}
-                  aria-activedescendant={
-                    focusedIndex >= 0 && filteredCountries[focusedIndex]
-                      ? `${baseId}-country-${filteredCountries[focusedIndex].iso}`
+                {countries.map((country) => (
+                  <option key={country.iso} value={country.iso}>
+                    {country.iso} +{country.callingCode}
+                  </option>
+                ))}
+              </select>
+              <ChevronDown
+                className="pointer-events-none col-start-1 row-start-1 mr-1.5 self-center justify-self-end w-3 h-3 text-dim-2"
+                aria-hidden="true"
+              />
+            </div>
+          )}
+
+          <div
+            className="relative flex-1 min-w-0"
+            onMouseDown={(event) => {
+              if (event.target === event.currentTarget) {
+                event.preventDefault();
+                inputElementRef.current?.focus();
+              }
+            }}
+          >
+            {!showCountryCode ? (
+              <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
+                <Phone
+                  className="w-4 h-4 text-dim-2 shrink-0"
+                  aria-hidden="true"
+                />
+              </div>
+            ) : null}
+
+            <input
+              ref={setInputRef}
+              id={inputId}
+              name={name}
+              type="tel"
+              autoComplete="tel"
+              value={displayValue}
+              onInput={handleInput}
+              placeholder={placeholderForDisplay}
+              disabled={disabled}
+              required={required}
+              aria-required={required}
+              aria-invalid={isInvalid ? "true" : undefined}
+              aria-describedby={
+                error
+                  ? errorId
+                  : showInvalidValidation
+                    ? validationErrorId
+                    : description
+                      ? descriptionId
                       : undefined
-                  }
-                  className="max-h-64 overflow-y-auto py-1 text-sm"
-                >
-                  {filteredCountries.length === 0 ? (
-                    <div className="px-3 py-2 text-sm text-dim-2">No matches</div>
-                  ) : (
-                    filteredCountries.map((country, index) => (
-                      <button
-                        key={country.iso}
-                        id={`${baseId}-country-${country.iso}`}
-                        type="button"
-                        role="option"
-                        aria-selected={country.iso === selectedIso}
-                        onClick={() => selectCountry(country)}
-                        onMouseEnter={() => setFocusedIndex(index)}
-                        className={cn(
-                          'inline-flex w-full px-3 py-2 text-sm text-ink hover:bg-paper-2/40 focus:outline-none',
-                          index === focusedIndex && 'bg-paper-2/60',
-                          country.iso === selectedIso && 'font-medium',
-                        )}
-                        tabIndex={-1}
-                      >
-                        <span className="inline-flex items-center gap-2 w-full">
-                          <span className="text-base" aria-hidden="true">{country.emoji}</span>
-                          <span className="flex-1 text-left truncate">{country.name}</span>
-                          <span className="text-dim-2">+{country.callingCode}</span>
-                        </span>
-                      </button>
-                    ))
-                  )}
-                </div>
+              }
+              data-testid={dataTestId}
+              className={cn(inputClasses, "cursor-text leading-normal")}
+            />
+
+            {showValidation && trimmedValue.length > 0 && (
+              <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
+                {validationIsValid ? (
+                  <Icon icon={Check} className="w-4 h-4 text-pos" />
+                ) : (
+                  <Icon icon={X} className="w-4 h-4 text-neg" />
+                )}
               </div>
             )}
           </div>
+        </div>
+
+        {error && (
+          <p
+            id={errorId}
+            className="text-xs text-red-600 dark:text-red-400 mt-1"
+            role="alert"
+            aria-live="assertive"
+          >
+            {error}
+          </p>
         )}
 
-        <div className="relative flex-1">
-          {!showCountryCode ? (
-            <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
-              <Phone className="w-4 h-4 text-dim-2 shrink-0" aria-hidden="true" />
-            </div>
-          ) : null}
+        {showInvalidValidation && !error && (
+          <p
+            id={validationErrorId}
+            className="text-xs text-red-600 dark:text-red-400 mt-1"
+          >
+            Please enter a valid phone number for {currentCountry.name}
+          </p>
+        )}
 
-          <input
-            ref={ref}
-            id={inputId}
-            name={name}
-            type="tel"
-            autoComplete="tel"
-            value={displayValue}
-            onInput={handleInput}
-            placeholder={placeholderForDisplay}
-            disabled={disabled}
-            required={required}
-            aria-required={required}
-            aria-invalid={isInvalid ? 'true' : undefined}
-            aria-describedby={
-              error
-                ? errorId
-                : showInvalidValidation
-                ? validationErrorId
-                : description
-                ? descriptionId
-                : undefined
-            }
-            data-testid={dataTestId}
-            className={cn(
-              inputClasses,
-              showCountryCode ? 'rounded-l-none border-l-0' : 'rounded-r-md',
-              'rounded-r-xl',
-            )}
-          />
-
-          {showValidation && trimmedValue.length > 0 && (
-            <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
-              {validationIsValid ? (
-                <Icon icon={Check} className="w-4 h-4 text-pos" />
-              ) : (
-                <Icon icon={X} className="w-4 h-4 text-neg" />
-              )}
-            </div>
-          )}
-        </div>
+        {description && !error && !showInvalidValidation && (
+          <p id={descriptionId} className="text-xs text-dim-2 mt-1">
+            {description}
+          </p>
+        )}
       </div>
-
-      {error && (
-        <p id={errorId} className="text-xs text-red-600 dark:text-red-400 mt-1" role="alert" aria-live="assertive">
-          {error}
-        </p>
-      )}
-
-      {showInvalidValidation && !error && (
-        <p id={validationErrorId} className="text-xs text-red-600 dark:text-red-400 mt-1">
-          Please enter a valid phone number for {currentCountry.name}
-        </p>
-      )}
-
-      {description && !error && !showInvalidValidation && (
-        <p id={descriptionId} className="text-xs text-dim-2 mt-1">
-          {description}
-        </p>
-      )}
-    </div>
-  );
-});
+    );
+  },
+);

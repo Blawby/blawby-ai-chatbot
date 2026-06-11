@@ -1,9 +1,9 @@
-import { forwardRef } from 'preact/compat';
-import { Mail, Check, X } from 'lucide-preact';
+import { forwardRef } from "preact/compat";
+import { Mail, Check, X } from "lucide-preact";
 
-import { Icon } from '@/shared/ui/Icon';
-import { cn } from '@/shared/utils/cn';
-import { useUniqueId } from '@/shared/hooks/useUniqueId';
+import { Icon } from "@/shared/ui/Icon";
+import { cn } from "@/shared/utils/cn";
+import { useUniqueId } from "@/shared/hooks/useUniqueId";
 
 export interface EmailInputProps {
   id?: string;
@@ -14,8 +14,8 @@ export interface EmailInputProps {
   disabled?: boolean;
   required?: boolean;
   className?: string;
-  size?: 'sm' | 'md' | 'lg';
-  variant?: 'default' | 'error' | 'success';
+  size?: "sm" | "md" | "lg";
+  variant?: "default" | "error" | "success";
   label?: string;
   description?: string;
   error?: string;
@@ -25,173 +25,189 @@ export interface EmailInputProps {
   placeholderKey?: string;
   errorKey?: string;
   namespace?: string;
-  'data-testid'?: string;
+  "data-testid"?: string;
   onBlur?: (e: FocusEvent) => void;
   onKeyDown?: (e: KeyboardEvent) => void;
 }
 
-export const EmailInput = forwardRef<HTMLInputElement, EmailInputProps>(({
-  id,
-  name,
-  value = '',
-  onChange,
-  placeholder,
-  disabled = false,
-  required = false,
-  className = '',
-  size = 'md',
-  variant = 'default',
-  label,
-  description,
-  error,
-  showValidation = false,
-  labelKey: _labelKey,
-  descriptionKey: _descriptionKey,
-  placeholderKey: _placeholderKey,
-  errorKey: _errorKey,
-  namespace: _namespace = 'common',
-  'data-testid': dataTestId,
-  onBlur,
-  onKeyDown
-}, ref) => {
-  // Generate stable unique IDs for accessibility
-  const generatedInputId = useUniqueId('email-input');
-  const inputId = id || generatedInputId;
-  const descriptionId = useUniqueId('email-description');
-  const validationErrorId = useUniqueId('email-validation-error');
-  const externalErrorId = useUniqueId('email-external-error');
+export const EmailInput = forwardRef<HTMLInputElement, EmailInputProps>(
+  (
+    {
+      id,
+      name,
+      value = "",
+      onChange,
+      placeholder,
+      disabled = false,
+      required = false,
+      className = "",
+      size = "md",
+      variant = "default",
+      label,
+      description,
+      error,
+      showValidation = false,
+      labelKey: _labelKey,
+      descriptionKey: _descriptionKey,
+      placeholderKey: _placeholderKey,
+      errorKey: _errorKey,
+      namespace: _namespace = "common",
+      "data-testid": dataTestId,
+      onBlur,
+      onKeyDown,
+    },
+    ref,
+  ) => {
+    // Generate stable unique IDs for accessibility
+    const generatedInputId = useUniqueId("email-input");
+    const inputId = id || generatedInputId;
+    const descriptionId = useUniqueId("email-description");
+    const validationErrorId = useUniqueId("email-validation-error");
+    const externalErrorId = useUniqueId("email-external-error");
 
-  // TODO: Add i18n support when useTranslation hook is available
-  // const { t } = useTranslation(namespace);
-  // const displayLabel = labelKey ? t(labelKey) : label;
-  // const displayDescription = descriptionKey ? t(descriptionKey) : description;
-  // const displayPlaceholder = placeholderKey ? t(placeholderKey) : placeholder;
-  // const displayError = errorKey ? t(errorKey) : error;
-  
-  const displayLabel = label;
-  const displayDescription = description;
-  const displayPlaceholder = placeholder;
-  const displayError = error;
+    // TODO: Add i18n support when useTranslation hook is available
+    // const { t } = useTranslation(namespace);
+    // const displayLabel = labelKey ? t(labelKey) : label;
+    // const displayDescription = descriptionKey ? t(descriptionKey) : description;
+    // const displayPlaceholder = placeholderKey ? t(placeholderKey) : placeholder;
+    // const displayError = errorKey ? t(errorKey) : error;
 
-  const sizeClasses = {
-    sm: 'px-2 py-1 text-sm',
-    md: 'px-3 py-2.5 text-sm',
-    lg: 'px-4 py-3 text-base'
-  };
+    const displayLabel = label;
+    const displayDescription = description;
+    const displayPlaceholder = placeholder;
+    const displayError = error;
 
-  const iconPaddingClasses = {
-    sm: 'pl-8',
-    md: 'pl-10',
-    lg: 'pl-12'
-  };
+    const sizeClasses = {
+      sm: "px-2 py-1 text-xs",
+      md: "",
+      lg: "px-4 py-3 text-base",
+    };
 
-  const isValidEmail = (email: string) => {
-    // Conservative but practical: ASCII local part, single @, host with a
-    // dot-separated TLD of at least two letters. Rejects `a@b.c`,
-    // `..@x.com`, `a@b..c`, and trailing/leading dots.
-    const emailRegex = /^(?!\.)(?!.*\.\.)[A-Za-z0-9._%+-]+(?<!\.)@[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)*\.[A-Za-z]{2,24}$/;
-    return emailRegex.test(email);
-  };
+    const iconPaddingClasses = {
+      sm: "pl-8",
+      md: "pl-10",
+      lg: "pl-12",
+    };
 
-  const isEmailValid = value ? isValidEmail(value) : false;
-  const isInvalid = displayError || (showValidation && value && !isEmailValid);
+    const isValidEmail = (email: string) => {
+      // Conservative but practical: ASCII local part, single @, host with a
+      // dot-separated TLD of at least two letters. Rejects `a@b.c`,
+      // `..@x.com`, `a@b..c`, and trailing/leading dots.
+      const emailRegex =
+        /^(?!\.)(?!.*\.\.)[A-Za-z0-9._%+-]+(?<!\.)@[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)*\.[A-Za-z]{2,24}$/;
+      return emailRegex.test(email);
+    };
 
-  const variantClasses = {
-    default: '',
-    error: 'is-error',
-    success: 'is-success'
-  };
+    const isEmailValid = value ? isValidEmail(value) : false;
+    const isInvalid =
+      displayError || (showValidation && value && !isEmailValid);
 
-  const inputClasses = cn(
-    'w-full rounded-r-md text-ink placeholder:text-dim-2',
-    'focus:outline-none transition-all duration-200',
-    'field border-none',
-    sizeClasses[size],
-    iconPaddingClasses[size],
-    variantClasses[variant],
-    isInvalid && 'is-error',
-    disabled && 'opacity-50 cursor-not-allowed',
-    className
-  );
+    const variantClasses = {
+      default: "",
+      error: "is-error",
+      success: "is-success",
+    };
 
-  const showValidationIcon = showValidation && (value?.length ?? 0) > 0;
+    const inputClasses = cn(
+      "input",
+      "transition-all duration-200",
+      sizeClasses[size],
+      iconPaddingClasses[size],
+      variantClasses[variant],
+      isInvalid && "is-error",
+      disabled && "opacity-50 cursor-not-allowed",
+      className,
+    );
 
-  // Build aria-describedby attribute
-  const describedByIds = [];
-  if (displayDescription && !displayError) {
-    describedByIds.push(descriptionId);
-  }
-  if (displayError) {
-    describedByIds.push(externalErrorId);
-  } else if (showValidation && value && !isEmailValid) {
-    describedByIds.push(validationErrorId);
-  }
-  const ariaDescribedBy = describedByIds.length > 0 ? describedByIds.join(' ') : undefined;
+    const showValidationIcon = showValidation && (value?.length ?? 0) > 0;
 
-  return (
-    <div className="w-full">
-      {displayLabel && (
-        <label htmlFor={inputId} className="block text-sm font-medium text-ink mb-1">
-          {displayLabel}
-          {required && <span className="text-red-500 ml-1">*</span>}
-        </label>
-      )}
-      
-      <div className="relative">
-        <div className="absolute inset-y-0 left-0 z-10 flex items-center pl-3 pointer-events-none">
-          <Icon icon={Mail} className="w-4 h-4 text-dim-2"  />
-        </div>
-        
-        <input
-          ref={ref}
-          id={inputId}
-          name={name}
-          type="email"
-          autoComplete="email"
-          inputMode="email"
-          autoCapitalize="none"
-          value={value}
-          onInput={(e) => onChange?.((e.target as HTMLInputElement).value)}
-          placeholder={displayPlaceholder}
-          disabled={disabled}
-          required={required}
-          aria-invalid={isInvalid ? 'true' : 'false'}
-          aria-required={required}
-          aria-describedby={ariaDescribedBy}
-          className={inputClasses}
-          data-testid={dataTestId}
-          onBlur={onBlur}
-          onKeyDown={onKeyDown}
-        />
-        
-        {showValidationIcon && (
-          <div className="absolute inset-y-0 right-0 z-10 flex items-center pr-3 pointer-events-none">
-            {isEmailValid ? (
-              <Icon icon={Check} className="w-4 h-4 text-pos"  />
-            ) : (
-              <Icon icon={X} className="w-4 h-4 text-neg"  />
+    // Build aria-describedby attribute
+    const describedByIds = [];
+    if (displayDescription && !displayError) {
+      describedByIds.push(descriptionId);
+    }
+    if (displayError) {
+      describedByIds.push(externalErrorId);
+    } else if (showValidation && value && !isEmailValid) {
+      describedByIds.push(validationErrorId);
+    }
+    const ariaDescribedBy =
+      describedByIds.length > 0 ? describedByIds.join(" ") : undefined;
+
+    return (
+      <div className="w-full">
+        {displayLabel && (
+          <label htmlFor={inputId} className="label mb-1.5 block">
+            {displayLabel}
+            {required && (
+              <span className="text-neg ml-1" aria-hidden="true">
+                *
+              </span>
             )}
+          </label>
+        )}
+
+        <div className="relative">
+          <div className="absolute inset-y-0 left-0 z-10 flex items-center pl-3 pointer-events-none">
+            <Icon icon={Mail} className="w-4 h-4 text-dim-2" />
           </div>
+
+          <input
+            ref={ref}
+            id={inputId}
+            name={name}
+            type="email"
+            autoComplete="email"
+            inputMode="email"
+            autoCapitalize="none"
+            value={value}
+            onInput={(e) => onChange?.((e.target as HTMLInputElement).value)}
+            placeholder={displayPlaceholder}
+            disabled={disabled}
+            required={required}
+            aria-invalid={isInvalid ? "true" : "false"}
+            aria-required={required}
+            aria-describedby={ariaDescribedBy}
+            className={inputClasses}
+            data-testid={dataTestId}
+            onBlur={onBlur}
+            onKeyDown={onKeyDown}
+          />
+
+          {showValidationIcon && (
+            <div className="absolute inset-y-0 right-0 z-10 flex items-center pr-3 pointer-events-none">
+              {isEmailValid ? (
+                <Icon icon={Check} className="w-4 h-4 text-pos" />
+              ) : (
+                <Icon icon={X} className="w-4 h-4 text-neg" />
+              )}
+            </div>
+          )}
+        </div>
+
+        {displayError && (
+          <p
+            id={externalErrorId}
+            className="text-xs text-neg mt-1"
+            role="alert"
+            aria-live="assertive"
+          >
+            {displayError}
+          </p>
+        )}
+
+        {showValidation && value && !isEmailValid && !displayError && (
+          <p id={validationErrorId} className="text-xs text-neg mt-1">
+            Please enter a valid email address
+          </p>
+        )}
+
+        {displayDescription && !displayError && (
+          <p id={descriptionId} className="text-xs text-dim-2 mt-1">
+            {displayDescription}
+          </p>
         )}
       </div>
-      
-      {displayError && (
-        <p id={externalErrorId} className="text-xs text-neg mt-1" role="alert" aria-live="assertive">
-          {displayError}
-        </p>
-      )}
-      
-      {showValidation && value && !isEmailValid && !displayError && (
-        <p id={validationErrorId} className="text-xs text-neg mt-1">
-          Please enter a valid email address
-        </p>
-      )}
-      
-      {displayDescription && !displayError && (
-        <p id={descriptionId} className="text-xs text-dim-2 mt-1">
-          {displayDescription}
-        </p>
-      )}
-    </div>
-  );
-});
+    );
+  },
+);

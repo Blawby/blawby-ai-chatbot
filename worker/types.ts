@@ -173,8 +173,8 @@ export interface Env {
   // MCP_BACKEND_AUDIENCE — canonical resource URL for the
   //   /.well-known/oauth-protected-resource document and JWT `aud` enforcement.
   //   If unset, derived from the request URL (local dev).
-  // MCP_BACKEND_TOKEN — service token the Worker sends when calling backend
-  //   REST endpoints from MCP tool handlers.
+  // MCP_BACKEND_TOKEN — referenced by MCP tool handlers; pending replacement
+  //   with proper OAuth once the backend wires that auth path.
   // WORKER_EVENT_SECRET — secret backend sends in `x-worker-secret` header
   //   on the /api/mcp/internal/events ingest route.
   MCP_BACKEND_AUDIENCE?: string;
