@@ -43,6 +43,13 @@ test.describe('Public intake form templates', () => {
     browser,
     ownerPage,
   }, testInfo) => {
+    // API integration test — no browser-specific behavior. Skip non-chromium
+    // projects to avoid parallel rate-limit collisions on the template create endpoint.
+    if (testInfo.project.name !== 'chromium') {
+      test.skip(true, 'API integration test — runs in chromium project only');
+      return;
+    }
+
     const e2eConfig = loadE2EConfig();
     if (!e2eConfig || !existsSync(AUTH_STATE_PATHS.owner)) {
       test.skip(true, 'E2E credentials or owner auth state not present — run npm run test:e2e:auth first');
