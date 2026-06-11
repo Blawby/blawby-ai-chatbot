@@ -8,10 +8,7 @@ import { redactSensitiveFields } from '../utils/redactResponse.js';
 import { policyTtlMs } from '../utils/cachePolicy.js';
 import { validateWire } from '../utils/validateWire.js';
 import { PracticeSchema, ConversationConfigPermissiveSchema } from '../types/wire/practice.js';
-import {
-  BackendIntakeConvertResponseSchema,
-  BackendPracticeTemplatesResponseSchema,
-} from '../types/wire/intake.js';
+import { BackendIntakeConvertResponseSchema } from '../types/wire/intake.js';
 import { canAssignTeamMemberToMatter, isTeamRole, type PracticeTeamResponse } from '../../src/shared/types/team.js';
 
 /**
@@ -319,42 +316,12 @@ export class RemoteApiService {
   static async getPublicPracticeIntakeSettings(
     env: Env,
     slug: string,
-    request?: Request
+    request?: Request,
+    templateSlug?: string,
   ): Promise<Response> {
-    return this.fetchFromRemoteApi(
-      env,
-      `/api/practice-client-intakes/${encodeURIComponent(slug)}/intake`,
-      request,
-      { forwardAuthCookie: false }
-    );
-  }
-
-  /**
-   * Fetch all intake templates for a practice using the worker's service token.
-   */
-  static async getPracticeTemplates(
-    env: Env,
-    practiceId: string,
-  ): Promise<{ templates: import('../types/wire/intake').BackendIntakeTemplate[] }> {
-    if (!env.MCP_BACKEND_TOKEN) {
-      throw HttpErrors.internalServerError('Missing MCP_BACKEND_TOKEN to fetch templates');
-    }
-    const response = await this.fetchFromRemoteApi(env, `/api/practice/${encodeURIComponent(practiceId)}/intake-templates`, undefined, {
-      forwardAuthCookie: false,
-      headers: {
-        Authorization: `Bearer ${env.MCP_BACKEND_TOKEN}`
-      }
-    });
-    const json = await response.json().catch(() => null);
-    if (!json) {
-      throw HttpErrors.badGateway('Invalid intake templates response from remote API');
-    }
-    return validateWire(
-      BackendPracticeTemplatesResponseSchema,
-      json,
-      'getPracticeTemplates',
-      { strict: false },
-    );
+    const base = `/api/practice-client-intakes/${encodeURIComponent(slug)}/intake`;
+    const path = templateSlug ? `${base}?template_slug=${encodeURIComponent(templateSlug)}` : base;
+    return this.fetchFromRemoteApi(env, path, request, { forwardAuthCookie: false });
   }
 
   /**

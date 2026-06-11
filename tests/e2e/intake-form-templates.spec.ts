@@ -1,6 +1,10 @@
+import { existsSync } from 'fs';
 import { randomUUID } from 'crypto';
-import { expect, test } from './fixtures.public';
-import { buildWidgetUrl } from './helpers/widgetComposer';
+import { expect, test } from './fixtures.auth';
+import { buildWidgetUrl, prepareWidgetComposer } from './helpers/widgetComposer';
+import { loadE2EConfig } from './helpers/e2eConfig';
+import { AUTH_STATE_PATHS } from './helpers/authState';
+import { fetchJsonViaPage } from './helpers/http';
 
 const DEFAULT_PRACTICE_SLUG =
   process.env.E2E_WIDGET_SLUG ?? process.env.E2E_PRACTICE_SLUG ?? 'demo-owner-local';
@@ -35,211 +39,342 @@ const stringifyForRegex = (value: string): string =>
 test.describe('Public intake form templates', () => {
   test.describe.configure({ timeout: 240000 });
 
-  test('public widget honors custom template bootstrap data in public mode', async ({
+  test('public widget resolves real custom template from backend', async ({
     browser,
+    ownerPage,
   }, testInfo) => {
-    // This spec intentionally stubs only the custom-template bootstrap response.
-    // The staging backend create endpoint currently 500s even for minimal
-    // docs-compliant template payloads, so we cannot yet create/publish a real
-    // template as test setup. Once backend create is fixed, replace this stub
-    // with a true create+publish+open-public-link flow.
+    // API integration test — no browser-specific behavior. Skip non-chromium
+    // projects to avoid parallel rate-limit collisions on the template create endpoint.
+    if (testInfo.project.name !== 'chromium') {
+      test.skip(true, 'API integration test — runs in chromium project only');
+      return;
+    }
+
+    const e2eConfig = loadE2EConfig();
+    if (!e2eConfig || !existsSync(AUTH_STATE_PATHS.owner)) {
+      test.skip(true, 'E2E credentials or owner auth state not present — run npm run test:e2e:auth first');
+      return;
+    }
+
+    const { practice, owner } = e2eConfig;
     const practiceSlug = normalizePracticeSlug(DEFAULT_PRACTICE_SLUG);
     const uniqueId = randomUUID().slice(0, 8);
-    const customTemplateSlug = `e2e-custom-template-${uniqueId}`;
+    const templateSlug = `e2e-live-${uniqueId}`;
+    let createdTemplateId: string | null = null;
 
-    const customIntakeTemplate: JsonRecord = {
-      id: `e2e-template-${uniqueId}`,
-      slug: customTemplateSlug,
-      name: `E2E Custom Template ${uniqueId}`,
-      is_default: false,
-      isDefault: false,
-      introMessage: 'Tell us what happened and answer the custom intake questions.',
-      legalDisclaimer: 'This chat collects details for attorney review.',
-      paymentLinkEnabled: false,
+    // Navigate to a stable authenticated page so the browser context has the right origin
+    // and the React app is settled before we make fetch calls.
+    await ownerPage.goto('/', { waitUntil: 'domcontentloaded' });
+    try {
+      await ownerPage.waitForLoadState('networkidle', { timeout: 10000 });
+    } catch {
+      // networkidle can hang on complex apps; domcontentloaded is sufficient
+    }
+
+    // Bail early if the session is invalid — would mean the auth global setup needs to re-run.
+    if (ownerPage.url().includes('/auth')) {
+      test.skip(true, 'Owner session expired — run npm run test:e2e:auth to refresh');
+      return;
+    }
+
+    const templatePayload = {
+      slug: templateSlug,
+      name: `E2E Live Template ${uniqueId}`,
+      status: 'published',
       fields: [
         {
           key: 'description',
           label: 'Case description',
-          type: 'text',
-          required: true,
+          field_type: 'text',
           phase: 'required',
-          isStandard: true,
-          promptHint: 'Ask for a concise summary of the legal issue.',
+          required: true,
+          order_index: 0,
+          is_standard: true,
+          prompt_hint: 'Ask for a concise summary of the legal issue.',
         },
         {
           key: 'city',
           label: 'City',
-          type: 'text',
-          required: true,
+          field_type: 'text',
           phase: 'required',
-          isStandard: true,
-          promptHint: 'Ask for the city where the issue happened.',
+          required: true,
+          order_index: 1,
+          is_standard: true,
+          prompt_hint: 'Ask for the city where the issue happened.',
         },
         {
           key: 'state',
           label: 'State',
-          type: 'text',
-          required: true,
+          field_type: 'text',
           phase: 'required',
-          isStandard: true,
-          promptHint: 'Ask for the state or jurisdiction.',
+          required: true,
+          order_index: 2,
+          is_standard: true,
+          prompt_hint: 'Ask for the state or jurisdiction.',
         },
         {
           key: `urgencyLevel${uniqueId}`,
           label: 'How urgent is this issue?',
-          type: 'select',
-          required: true,
+          field_type: 'select',
           phase: 'required',
-          isStandard: false,
-          validationHint: 'Choose exactly one of: Low, Medium, High',
-          promptHint: 'Only accept one of the provided urgency options.',
-          options: ['Low', 'Medium', 'High'],
+          required: true,
+          order_index: 3,
+          is_standard: false,
+          help_text: 'Choose exactly one of: Low, Medium, High',
+          prompt_hint: 'Only accept one of the provided urgency options.',
+          options: [
+            { value: 'Low', label: 'Low' },
+            { value: 'Medium', label: 'Medium' },
+            { value: 'High', label: 'High' },
+          ],
         },
         {
           key: `hearingDate${uniqueId}`,
           label: 'What is the next court or hearing date?',
-          type: 'date',
-          required: false,
+          field_type: 'date',
           phase: 'enrichment',
-          isStandard: false,
-          validationHint: 'Use YYYY-MM-DD',
-          promptHint: 'Ask for the next court date only if one exists.',
+          required: false,
+          order_index: 4,
+          is_standard: false,
+          help_text: 'Use YYYY-MM-DD',
+          prompt_hint: 'Ask for the next court date only if one exists.',
         },
         {
           key: `hasPaperwork${uniqueId}`,
           label: 'Do you already have paperwork or evidence?',
-          type: 'boolean',
-          required: false,
+          field_type: 'boolean',
           phase: 'enrichment',
-          isStandard: false,
-          validationHint: 'Answer yes or no',
-          promptHint: 'Resolve this to a yes/no answer.',
+          required: false,
+          order_index: 5,
+          is_standard: false,
+          help_text: 'Answer yes or no',
+          prompt_hint: 'Resolve this to a yes/no answer.',
         },
         {
           key: `estimatedLoss${uniqueId}`,
           label: 'Estimated dollars at stake',
-          type: 'number',
-          required: false,
+          field_type: 'number',
           phase: 'enrichment',
-          isStandard: false,
-          validationHint: 'Numbers only',
-          promptHint: 'Extract the approximate dollar amount as a number.',
+          required: false,
+          order_index: 6,
+          is_standard: false,
+          help_text: 'Numbers only',
+          prompt_hint: 'Extract the approximate dollar amount as a number.',
         },
       ],
     };
 
-    const customContext = await browser.newContext({
-      baseURL: testInfo.project.use.baseURL as string,
-      storageState: { cookies: [], origins: [] },
-      extraHTTPHeaders: { Cookie: '' },
-    });
-    const customPage = await customContext.newPage();
-    const conversationCreatePayloads: JsonRecord[] = [];
-    customPage.on('request', (request) => {
-      if (request.method() !== 'POST') return;
-      if (!/\/api\/conversations(?:\?|$)/.test(request.url())) return;
-      const payload = request.postDataJSON();
-      const record = asRecord(payload);
-      if (record) conversationCreatePayloads.push(record);
-    });
+    // Diagnostic: check session state before attempting template create.
+    const sessionResult = await fetchJsonViaPage(ownerPage, '/api/auth/get-session');
+    const sessionData = sessionResult.data as Record<string, unknown> | undefined;
+    const activeOrgId = (sessionData?.session as Record<string, unknown> | undefined)?.activeOrganizationId;
+    console.log('[e2e] session.activeOrganizationId before template create:', activeOrgId ?? 'null/undefined');
 
-    await customPage.route(`**/api/widget/bootstrap**template=${customTemplateSlug}**`, async (route) => {
-      const response = await route.fetch();
-      const payload = await response.json() as JsonRecord;
-      await route.fulfill({
-        status: response.status(),
-        contentType: 'application/json',
-        body: JSON.stringify({
-          ...payload,
-          intakeTemplate: customIntakeTemplate,
-        }),
-      });
-    });
+    // If no active org in the session, set it now via the org list.
+    if (!activeOrgId) {
+      const orgListResult = await fetchJsonViaPage(ownerPage, '/api/auth/organization/list');
+      const orgs = Array.isArray(orgListResult.data)
+        ? orgListResult.data as Array<Record<string, unknown>>
+        : Array.isArray((orgListResult.data as Record<string, unknown>)?.organizations)
+          ? (orgListResult.data as Record<string, unknown>).organizations as Array<Record<string, unknown>>
+          : [];
+      const firstOrgId = typeof orgs[0]?.id === 'string' ? orgs[0].id : null;
+      console.log('[e2e] org list:', JSON.stringify(orgs.map((o) => ({ id: o.id, name: o.name }))));
+      if (firstOrgId) {
+        const setActiveResult = await fetchJsonViaPage(ownerPage, '/api/auth/organization/set-active', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ organizationId: firstOrgId }),
+        });
+        console.log('[e2e] set-active-org result:', setActiveResult.status, JSON.stringify(setActiveResult.data ?? setActiveResult.error));
+      } else {
+        console.warn('[e2e] No organizations found for owner — template create will likely fail');
+      }
+    }
 
-    await customPage.route('**/api/ai/chat', async (route) => {
-      await route.fulfill({
-        status: 200,
-        contentType: 'text/event-stream',
-        body: `data: ${JSON.stringify({
-          done: true,
-          message: 'Thanks, I saved those details and will ask the next intake question.',
-          intakeFields: {
-            description: 'A contract dispute',
-            city: 'Raleigh',
-            state: 'NC',
-          },
-        })}\n\n`,
-      });
-    });
+    console.log('[e2e] template create payload fields count:', templatePayload.fields.length);
 
     try {
-      await customPage.goto(
-        `${buildWidgetUrl(practiceSlug)}&template=${encodeURIComponent(customTemplateSlug)}`,
-        { waitUntil: 'domcontentloaded' },
+      // Create and publish the template via browser fetch — cookies are sent from the owner page.
+      // Retry once on 429 (backend rate limit).
+      let createResult = await fetchJsonViaPage(
+        ownerPage,
+        `/api/practice/${practice.id}/intake-templates`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(templatePayload),
+        },
       );
 
-      const customTemplate = asRecord(customIntakeTemplate);
-      const customFields = Array.isArray(customTemplate?.fields)
-        ? customTemplate!.fields.map((field) => asRecord(field)).filter(Boolean) as JsonRecord[]
-        : [];
+      if (createResult.status === 429) {
+        await new Promise((resolve) => setTimeout(resolve, 3000));
+        createResult = await fetchJsonViaPage(
+          ownerPage,
+          `/api/practice/${practice.id}/intake-templates`,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(templatePayload),
+          },
+        );
+      }
 
-      expect(
-        customFields.some((field) => field.key === `urgencyLevel${uniqueId}` && field.type === 'select'),
-        `Custom bootstrap should include the select field: ${JSON.stringify(customTemplate)}`,
-      ).toBe(true);
-      expect(
-        customFields.some((field) => field.key === `hearingDate${uniqueId}` && field.type === 'date'),
-        `Custom bootstrap should include the date field: ${JSON.stringify(customTemplate)}`,
-      ).toBe(true);
-      expect(
-        customFields.some((field) => field.key === `hasPaperwork${uniqueId}` && field.type === 'boolean'),
-        `Custom bootstrap should include the boolean field: ${JSON.stringify(customTemplate)}`,
-      ).toBe(true);
-      expect(
-        customFields.some((field) => field.key === `estimatedLoss${uniqueId}` && field.type === 'number'),
-        `Custom bootstrap should include the number field: ${JSON.stringify(customTemplate)}`,
-      ).toBe(true);
+      console.log('[e2e] template create response:', createResult.status, JSON.stringify(createResult.data ?? createResult.error));
 
-      const urgencyField = customFields.find((field) => field.key === `urgencyLevel${uniqueId}`) ?? null;
-      expect(urgencyField?.validationHint).toBe('Choose exactly one of: Low, Medium, High');
-      expect(urgencyField?.options).toEqual(['Low', 'Medium', 'High']);
+      if (createResult.status < 200 || createResult.status >= 300) {
+        throw new Error(`Template create failed: ${createResult.status} ${JSON.stringify(createResult.error ?? createResult.data)}`);
+      }
 
-      await customPage.locator(
-        'input[placeholder*="full name" i], input[name="name"], label:has-text("Name") + input',
-      ).first().fill(`Public Template ${uniqueId}`);
-      await customPage.locator('input[type="email"]').first().fill(`public-template-${uniqueId}@test-blawby.com`);
-      await customPage.locator('input[type="tel"]').first().fill('5555551212');
-      await customPage.getByRole('button', { name: /continue/i }).first().click();
+      const templateRecord = asRecord(createResult.data?.template) ?? asRecord(asRecord(createResult.data)?.template);
+      createdTemplateId = typeof templateRecord?.id === 'string' ? templateRecord.id : null;
+      expect(createdTemplateId, `Expected template.id in create response: ${JSON.stringify(createResult.data)}`).toBeTruthy();
 
-      await expect
-        .poll(
-          () => conversationCreatePayloads.length,
-          { timeout: 15_000, message: 'Expected a conversation create request carrying intake template metadata.' },
-        )
-        .toBeGreaterThan(0);
-
-      const createPayload = conversationCreatePayloads[conversationCreatePayloads.length - 1];
-      const metadata = asRecord(createPayload.metadata);
-      const embeddedTemplate = asRecord(metadata?.intakeTemplate);
-
-      await testInfo.attach('public-custom-template-create-payload.json', {
-        body: JSON.stringify(createPayload, null, 2),
+      await testInfo.attach('created-template.json', {
+        body: JSON.stringify(createResult.data, null, 2),
         contentType: 'application/json',
       });
 
-      expect(embeddedTemplate?.slug).toBe(customTemplateSlug);
-      expect(
-        Array.isArray(embeddedTemplate?.fields)
-          && embeddedTemplate.fields.some((field) => asRecord(field)?.key === `urgencyLevel${uniqueId}`),
-        `Conversation metadata should carry the custom template: ${JSON.stringify(embeddedTemplate)}`,
-      ).toBe(true);
+      // Open the public widget with ?template={slug} in a fresh anonymous context.
+      // The worker passes template_slug to the public intake settings endpoint — no auth token needed.
+      const customContext = await browser.newContext({
+        baseURL: testInfo.project.use.baseURL as string,
+        storageState: { cookies: [], origins: [] },
+        extraHTTPHeaders: { Cookie: '' },
+      });
+      const customPage = await customContext.newPage();
+      const conversationCreatePayloads: JsonRecord[] = [];
+      let bootstrapPayload: JsonRecord | null = null;
 
-      await expect(customPage).toHaveURL(
-        new RegExp(`\\/public\\/${stringifyForRegex(practiceSlug)}\\?v=widget&template=${stringifyForRegex(customTemplateSlug)}$`),
-      );
+      customPage.on('request', (req) => {
+        if (req.method() !== 'POST') return;
+        if (!/\/api\/conversations(?:\?|$)/.test(req.url())) return;
+        const payload = req.postDataJSON();
+        const record = asRecord(payload);
+        if (record) conversationCreatePayloads.push(record);
+      });
+
+      // Capture the live bootstrap response so we can assert the real template was resolved.
+      customPage.on('response', (res) => {
+        if (!res.url().includes('/api/widget/bootstrap')) return;
+        void res.json().then((data) => {
+          bootstrapPayload = asRecord(data);
+        }).catch(async (error: unknown) => {
+          const responseText = await res.text().catch(() => '');
+          console.error('[bootstrap] Failed to parse widget bootstrap response', {
+            url: res.url(),
+            error,
+            responseText,
+          });
+        });
+      });
+
+      // Keep the AI chat response stubbed — deterministic and fast.
+      await customPage.route('**/api/ai/chat', async (route) => {
+        await route.fulfill({
+          status: 200,
+          contentType: 'text/event-stream',
+          body: `data: ${JSON.stringify({
+            done: true,
+            message: 'Thanks, I saved those details and will ask the next intake question.',
+            intakeFields: {
+              description: 'A contract dispute',
+              city: 'Raleigh',
+              state: 'NC',
+            },
+          })}\n\n`,
+        });
+      });
+
+      try {
+        await customPage.goto(
+          `${buildWidgetUrl(practiceSlug)}&template=${encodeURIComponent(templateSlug)}`,
+          { waitUntil: 'domcontentloaded' },
+        );
+
+        // prepareWidgetComposer handles the full flow: slim form → disclaimer → CTA.
+        // Returns once the message composer is enabled (conversation exists).
+        await prepareWidgetComposer(customPage, 'E2E Test Client', owner.email);
+
+        await expect
+          .poll(
+            () => conversationCreatePayloads.length,
+            { timeout: 15_000, message: 'Expected a conversation create request carrying intake template metadata.' },
+          )
+          .toBeGreaterThan(0);
+
+        const createPayload = conversationCreatePayloads[conversationCreatePayloads.length - 1];
+        const metadata = asRecord(createPayload.metadata);
+        const embeddedTemplate = asRecord(metadata?.intakeTemplate);
+
+        await testInfo.attach('bootstrap-payload.json', {
+          body: JSON.stringify(bootstrapPayload, null, 2),
+          contentType: 'application/json',
+        });
+        await testInfo.attach('conversation-create-payload.json', {
+          body: JSON.stringify(createPayload, null, 2),
+          contentType: 'application/json',
+        });
+
+        // Bootstrap resolved the real slug — not the practice default.
+        const bootstrapTemplate = asRecord(bootstrapPayload?.intakeTemplate);
+        expect(
+          bootstrapTemplate?.slug,
+          `Bootstrap should return the real template slug, got: ${JSON.stringify(bootstrapPayload)}`,
+        ).toBe(templateSlug);
+
+        // Conversation create embeds the correct template.
+        expect(
+          embeddedTemplate?.slug,
+          `Embedded template slug mismatch: ${JSON.stringify(embeddedTemplate)}`,
+        ).toBe(templateSlug);
+
+        // All structured field types survive the bootstrap normalizer.
+        expect(
+          embeddedTemplate && Array.isArray(embeddedTemplate.fields),
+          `Expected embeddedTemplate.fields to be an array: ${JSON.stringify(embeddedTemplate)}`,
+        ).toBe(true);
+
+        const fields = (embeddedTemplate.fields as unknown[]).map(asRecord).filter(Boolean) as JsonRecord[];
+
+        expect(
+          fields.some((f) => f.key === `urgencyLevel${uniqueId}` && f.type === 'select'),
+          `Custom select field missing from embedded template: ${JSON.stringify(fields)}`,
+        ).toBe(true);
+        expect(
+          fields.some((f) => f.key === `hearingDate${uniqueId}` && f.type === 'date'),
+          'Date field missing from embedded template',
+        ).toBe(true);
+        expect(
+          fields.some((f) => f.key === `hasPaperwork${uniqueId}` && f.type === 'boolean'),
+          'Boolean field missing from embedded template',
+        ).toBe(true);
+        expect(
+          fields.some((f) => f.key === `estimatedLoss${uniqueId}` && f.type === 'number'),
+          'Number field missing from embedded template',
+        ).toBe(true);
+
+        const urgencyField = fields.find((f) => f.key === `urgencyLevel${uniqueId}`) ?? null;
+        expect(urgencyField?.validationHint).toBe('Choose exactly one of: Low, Medium, High');
+        expect(urgencyField?.options).toEqual(['Low', 'Medium', 'High']);
+
+        await expect(customPage).toHaveURL(
+          new RegExp(`\\/public\\/${stringifyForRegex(practiceSlug)}\\?v=widget&template=${stringifyForRegex(templateSlug)}$`),
+        );
+      } finally {
+        await customPage.close();
+        await customContext.close();
+      }
     } finally {
-      await customPage.close();
-      await customContext.close();
+      if (createdTemplateId) {
+        await fetchJsonViaPage(
+          ownerPage,
+          `/api/practice/${practice.id}/intake-templates/${createdTemplateId}`,
+          { method: 'DELETE' },
+        ).catch((err: unknown) => {
+          console.warn(`[cleanup] Failed to delete test template ${createdTemplateId}: ${err}`);
+        });
+      }
     }
   });
 });

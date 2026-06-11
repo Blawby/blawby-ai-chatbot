@@ -1,11 +1,11 @@
-import { FunctionComponent } from 'preact';
-import { useTranslation } from '@/shared/i18n/hooks';
-import { Send } from 'lucide-preact';
+import { FunctionComponent } from "preact";
+import { useTranslation } from "@/shared/i18n/hooks";
+import { Send } from "lucide-preact";
 
-import { Icon } from '@/shared/ui/Icon';
-import { Avatar } from '@/shared/ui/profile/atoms/Avatar';
-import { Button } from '@/shared/ui/Button';
-import { chatTypography } from '@/features/chat/styles/chatTypography';
+import { Icon } from "@/shared/ui/Icon";
+import { Avatar } from "@/shared/ui/profile/atoms/Avatar";
+import { Button } from "@/shared/ui/Button";
+import { chatTypography } from "@/features/chat/styles/chatTypography";
 
 interface WorkspaceHomeViewProps {
   practiceName?: string | null;
@@ -39,21 +39,19 @@ const WorkspaceHomeView: FunctionComponent<WorkspaceHomeViewProps> = ({
   showConsultationCard = true,
 }) => {
   const { t } = useTranslation();
-  const resolvedName = typeof practiceName === 'string'
-    ? practiceName.trim()
-    : '';
-  const resolvedConsultationTitle = consultationTitle ?? t('workspace.home.consultation.title');
-  const resolvedConsultationDescription = consultationDescription ?? t('workspace.home.consultation.description');
-  const resolvedConsultationCta = consultationCta ?? t('chat.requestConsultation');
+  const resolvedName =
+    typeof practiceName === "string" ? practiceName.trim() : "";
+  const resolvedConsultationTitle =
+    consultationTitle ?? t("workspace.home.consultation.title");
+  const resolvedConsultationDescription =
+    consultationDescription ?? t("workspace.home.consultation.description");
+  const resolvedConsultationCta =
+    consultationCta ?? t("chat.requestConsultation");
   const canSendMessage = Boolean(onSendMessage);
   const canRequestConsultation = Boolean(onRequestConsultation);
   const canOpenRecentMessage = Boolean(onOpenRecentMessage);
   const poweredByLink = (
-    <a
-      href="https://blawby.com"
-      target="_blank"
-      rel="noopener noreferrer"
-    >
+    <a href="https://blawby.com" target="_blank" rel="noopener noreferrer">
       Blawby
     </a>
   );
@@ -68,12 +66,21 @@ const WorkspaceHomeView: FunctionComponent<WorkspaceHomeViewProps> = ({
             size="lg"
             className="ring-2 ring-[rgb(var(--line-glass)/0.24)]"
           />
-          <div className="text-lg font-semibold tracking-wide text-ink">{resolvedName}</div>
+          <div className="text-lg font-semibold tracking-wide text-ink">
+            {resolvedName}
+          </div>
         </div>
 
         <div className="mt-20 mb-8 space-y-1 text-3xl font-semibold leading-tight">
-          <div className="animate-float-in">{t('workspace.home.greeting')}</div>
-          <div className="animate-float-in [animation-delay:120ms]">{t('workspace.home.helpPrompt')}</div>
+          <div className="animate-float-in inline-flex items-center gap-2">
+            <span>{t("workspace.home.greeting")}</span>
+            <span role="img" aria-label="waving hand">
+              👋
+            </span>
+          </div>
+          <div className="animate-float-in [animation-delay:120ms]">
+            {t("workspace.home.helpPrompt")}
+          </div>
         </div>
       </section>
 
@@ -84,10 +91,10 @@ const WorkspaceHomeView: FunctionComponent<WorkspaceHomeViewProps> = ({
             onClick={onOpenRecentMessage}
             disabled={!canOpenRecentMessage}
             className="card px-5 py-5 text-left transition-all duration-300 hover:scale-[1.01] hover:bg-paper-2/40 dark:hover:bg-paper-2/10 hover:shadow-glass active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-70"
-            aria-label={t('workspace.home.recentMessage')}
+            aria-label={t("workspace.home.recentMessage")}
           >
             <div className="text-xs font-semibold uppercase tracking-wide text-dim-2">
-              {t('workspace.home.recentMessage')}
+              {t("workspace.home.recentMessage")}
             </div>
             <div className="mt-3 flex items-center gap-3">
               <Avatar
@@ -98,7 +105,9 @@ const WorkspaceHomeView: FunctionComponent<WorkspaceHomeViewProps> = ({
               />
               <div className="min-w-0 flex-1">
                 <div className="flex items-center justify-between gap-3">
-                  <span className={`truncate ${chatTypography.previewName}`}>{recentMessage.senderLabel}</span>
+                  <span className={`truncate ${chatTypography.previewName}`}>
+                    {recentMessage.senderLabel}
+                  </span>
                   {recentMessage.timestampLabel && (
                     <span className={chatTypography.headerTime}>
                       {recentMessage.timestampLabel}
@@ -118,20 +127,24 @@ const WorkspaceHomeView: FunctionComponent<WorkspaceHomeViewProps> = ({
           onClick={onSendMessage}
           disabled={!canSendMessage}
           className="card flex w-full items-center justify-between px-6 py-5 text-left text-ink transition-all duration-300 hover:scale-[1.01] hover:bg-paper-2/40 dark:hover:bg-paper-2/10 hover:shadow-glass active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-70"
-          aria-label={t('workspace.home.sendMessage')}
+          aria-label={t("workspace.home.sendMessage")}
         >
-          <span className="text-lg font-bold tracking-tight">{t('workspace.home.sendMessage')}</span>
+          <span className="text-lg font-bold tracking-tight">
+            {t("workspace.home.sendMessage")}
+          </span>
           <span
             className="inline-flex items-center justify-center w-10 h-10 rounded-full bg-accent text-accent-ink pointer-events-none transition-all duration-300"
             aria-hidden="true"
           >
-            <Icon icon={Send} className="h-5 w-5" aria-hidden="true"  />
+            <Icon icon={Send} className="h-5 w-5" aria-hidden="true" />
           </span>
         </button>
 
         {showConsultationCard && (
           <div className="card px-5 py-6">
-            <h3 className="text-base font-semibold text-ink">{resolvedConsultationTitle}</h3>
+            <h3 className="text-base font-semibold text-ink">
+              {resolvedConsultationTitle}
+            </h3>
             <p className="mt-2 text-sm text-dim-2">
               {resolvedConsultationDescription}
             </p>
@@ -148,7 +161,7 @@ const WorkspaceHomeView: FunctionComponent<WorkspaceHomeViewProps> = ({
               </Button>
             </div>
             <div className="mt-4 text-center text-xs font-medium text-dim-2">
-              {t('workspace.home.poweredBy')} {poweredByLink}
+              {t("workspace.home.poweredBy")} {poweredByLink}
             </div>
           </div>
         )}
