@@ -679,6 +679,79 @@ const consumeAnthropicStream = async (
     failClosedReason: undefined as string | undefined,
   };
 
+  const processAnthropicEvent = (event: Record<string, unknown>): void => {
+    const type = event.type as string | undefined;
+
+    if (type === 'content_block_start') {
+      const index = event.index as number;
+      const block = event.content_block as Record<string, unknown> | undefined;
+      if (!block) return;
+      if (block.type === 'text') {
+        blocks.set(index, { type: 'text', args: '' });
+      } else if (block.type === 'tool_use') {
+        blocks.set(index, { type: 'tool_use', name: block.name as string, args: '' });
+        diagnostics.namedToolFragmentCount += 1;
+      }
+      return;
+    }
+
+    if (type === 'content_block_delta') {
+      const index = event.index as number;
+      const delta = event.delta as Record<string, unknown> | undefined;
+      if (!delta) return;
+      const block = blocks.get(index);
+      if (!block) return;
+
+      if (delta.type === 'text_delta' && typeof delta.text === 'string') {
+        const nextReply = localReply + delta.text;
+        const contentLooksLikeToolLeak = looksLikeToolLeak(nextReply);
+
+        localReply = nextReply;
+        diagnostics.contentChunkCount += 1;
+
+        if (contentLooksLikeToolLeak) {
+          blockedByPotentialToolLeak = true;
+          streamStalled = true;
+          diagnostics.failClosedReason = 'potential_tool_leak';
+        }
+
+        if (emitTokens && !blockedByPotentialToolLeak) {
+          write({ token: delta.text });
+          localEmittedToken = true;
+        }
+      } else if (delta.type === 'input_json_delta' && typeof delta.partial_json === 'string') {
+        block.args += delta.partial_json;
+        diagnostics.deltaToolCallChunkCount += 1;
+      }
+      return;
+    }
+
+    if (type === 'message_delta') {
+      const delta = event.delta as Record<string, unknown> | undefined;
+      if (delta?.stop_reason && typeof delta.stop_reason === 'string') {
+        diagnostics.finishReasons.push(delta.stop_reason);
+      }
+    }
+  };
+
+  const processAnthropicLine = (line: string): void => {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith('event:')) return;
+    if (!trimmed.startsWith('data: ')) return;
+
+    diagnostics.chunkCount += 1;
+    let event: Record<string, unknown>;
+    try {
+      event = JSON.parse(trimmed.slice(6));
+      diagnostics.parsedChunkCount += 1;
+    } catch {
+      diagnostics.malformedChunkCount += 1;
+      return;
+    }
+
+    processAnthropicEvent(event);
+  };
+
   while (true) {
     let timeoutTimer: ReturnType<typeof setTimeout> | null = null;
     const result = await Promise.race([
@@ -705,71 +778,13 @@ const consumeAnthropicStream = async (
     buffer = lines.pop() ?? '';
 
     for (const line of lines) {
-      const trimmed = line.trim();
-      if (!trimmed || trimmed.startsWith('event:')) continue;
-      if (!trimmed.startsWith('data: ')) continue;
+      processAnthropicLine(line);
+    }
+  }
 
-      diagnostics.chunkCount += 1;
-      let event: Record<string, unknown>;
-      try {
-        event = JSON.parse(trimmed.slice(6));
-        diagnostics.parsedChunkCount += 1;
-      } catch {
-        diagnostics.malformedChunkCount += 1;
-        continue;
-      }
-
-      const type = event.type as string | undefined;
-
-      if (type === 'content_block_start') {
-        const index = event.index as number;
-        const block = event.content_block as Record<string, unknown> | undefined;
-        if (!block) continue;
-        if (block.type === 'text') {
-          blocks.set(index, { type: 'text', args: '' });
-        } else if (block.type === 'tool_use') {
-          blocks.set(index, { type: 'tool_use', name: block.name as string, args: '' });
-          diagnostics.namedToolFragmentCount += 1;
-        }
-        continue;
-      }
-
-      if (type === 'content_block_delta') {
-        const index = event.index as number;
-        const delta = event.delta as Record<string, unknown> | undefined;
-        if (!delta) continue;
-        const block = blocks.get(index);
-        if (!block) continue;
-
-        if (delta.type === 'text_delta' && typeof delta.text === 'string') {
-          localReply += delta.text;
-          diagnostics.contentChunkCount += 1;
-
-          const contentLooksLikeToolLeak = looksLikeToolLeak(delta.text);
-          if (contentLooksLikeToolLeak) {
-            blockedByPotentialToolLeak = true;
-            streamStalled = true;
-            diagnostics.failClosedReason = 'potential_tool_leak';
-          }
-
-          if (emitTokens && !blockedByPotentialToolLeak) {
-            write({ token: delta.text });
-            localEmittedToken = true;
-          }
-        } else if (delta.type === 'input_json_delta' && typeof delta.partial_json === 'string') {
-          block.args += delta.partial_json;
-          diagnostics.deltaToolCallChunkCount += 1;
-        }
-        continue;
-      }
-
-      if (type === 'message_delta') {
-        const delta = event.delta as Record<string, unknown> | undefined;
-        if (delta?.stop_reason && typeof delta.stop_reason === 'string') {
-          diagnostics.finishReasons.push(delta.stop_reason);
-        }
-        continue;
-      }
+  if (buffer.trim()) {
+    for (const line of buffer.split('\n')) {
+      processAnthropicLine(line);
     }
   }
 

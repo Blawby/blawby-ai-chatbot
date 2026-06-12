@@ -638,10 +638,11 @@ If they add something new → call save_case_details and acknowledge it warmly.`
     const hint = nextField.promptHint
       ?? `Ask about "${nextField.label}" naturally in one sentence.`;
 
-    return `Your goals this turn:
-1. Read the client's full message. Extract and save EVERY structured detail they volunteer — even fields you haven't asked about yet — using save_case_details. Do this before asking anything.
-2. Then ask the ONE priority question below. Use the guidance to phrase it naturally. Ask only one question per turn.
-3. If their answer is unclear or invalid, ask exactly ONE clarifying follow-up.
+    return `Your response this turn must do TWO things together in a single reply:
+1. Write a warm conversational message: acknowledge what the client shared, then ask the ONE priority question below.
+2. Call save_case_details to record EVERY structured detail from their message — even fields you haven't asked about yet.
+
+Always write your conversational text first, then include the save_case_details call.
 
 Priority question this turn:
   Field: ${nextField.label} (key: ${nextField.key})${typeHint ? `\n  ${typeHint}` : ''}

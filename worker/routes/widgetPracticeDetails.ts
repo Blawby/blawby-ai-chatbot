@@ -1,6 +1,5 @@
 import { Env } from '../types.js';
 import { HttpErrors } from '../errorHandler.js';
-import { RemoteApiService } from '../services/RemoteApiService.js';
 
 export async function handleWidgetPracticeDetails(request: Request, env: Env): Promise<Response> {
   if (request.method !== 'GET') {
@@ -25,7 +24,6 @@ export async function handleWidgetPracticeDetails(request: Request, env: Env): P
     throw HttpErrors.badRequest('Invalid slug encoding');
   }
 
-  await RemoteApiService.getPublicPracticeDetails(env, decodedSlug, request);
   return new Response(JSON.stringify({}), {
     status: 200,
     headers: {

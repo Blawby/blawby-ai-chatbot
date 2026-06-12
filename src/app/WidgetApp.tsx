@@ -82,7 +82,8 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
   intakeTemplate: intakeTemplateProp,
   preSelectedServiceUuid,
 }) => {
-  // Deep-linked conversations open straight to chat; otherwise start on the home screen.
+  // Only URL deep-links auto-open chat. Bootstrap/effective conversation IDs
+  // provide context/session continuity but do not switch the initial UI view.
   const [view, setView] = useState<'home' | 'list' | 'chat'>(routeConversationId ? 'chat' : 'home');
   const [setupConversationId, setConversationId] = useState<string | null>(null);
   const [bootstrapIgnored, setBootstrapIgnored] = useState(false);

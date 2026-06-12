@@ -918,23 +918,18 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
     systemPrompt = [
       nonIntakeSystemPrompt,
       `PRACTICE_CONTEXT: ${JSON.stringify(aiPromptContext)}`,
+      ...(body.additionalContext
+        ? [`SEARCH_CONTEXT: ${body.additionalContext}`]
+        : []),
     ].join('\n\n');
 
     if (isAnthropicModel) {
       requestPayload.system = systemPrompt;
-      requestPayload.messages = [
-        ...(body.additionalContext
-          ? [{ role: 'user' as const, content: `SEARCH_CONTEXT: ${body.additionalContext}` }]
-          : []),
-        ...body.messages.map((message) => ({ role: message.role, content: message.content })),
-      ];
+      requestPayload.messages = body.messages.map((message) => ({ role: message.role, content: message.content }));
       requestPayload.max_tokens = 4096;
     } else {
       requestPayload.messages = [
         { role: 'system', content: systemPrompt },
-        ...(body.additionalContext
-          ? [{ role: 'system' as const, content: `SEARCH_CONTEXT: ${body.additionalContext}` }]
-          : []),
         ...body.messages.map((message) => ({ role: message.role, content: message.content })),
       ];
     }
@@ -1333,6 +1328,29 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
         conversationTTFTMs,
         conversationTotalResponseMs,
       });
+
+      if (streamResult.diagnostics.failClosedReason) {
+        Logger.warn('AI stream closed by safety guard', {
+          conversationId: body.conversationId,
+          model,
+          failClosedReason: streamResult.diagnostics.failClosedReason,
+          diagnostics: streamResult.diagnostics,
+        });
+
+        if (isIntakeMode) {
+          await handleAiFailure(streamResult.diagnostics.failClosedReason);
+          return;
+        }
+
+        write({
+          error: true,
+          code: 'ai_stream_fail_closed',
+          message: 'AI response blocked by safety guard',
+          failureReason: streamResult.diagnostics.failClosedReason,
+          diagnostics: streamResult.diagnostics,
+        });
+        return;
+      }
 
       accumulatedReply = streamResult.reply;
       emittedAnyToken = streamResult.emittedToken;
