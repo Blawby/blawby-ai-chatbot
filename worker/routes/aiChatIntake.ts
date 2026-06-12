@@ -411,7 +411,7 @@ export const handleSaveCaseDetails = (
   const consultationFee = templatePaymentConfigured
     ? submissionGate.templateConsultationFee
     : readFiniteNumberField(submissionGate.details, ['consultation_fee']);
-  const actions = deriveNextActions(merged, submissionGate, consultationFee, completenessScore);
+  const actions = deriveNextActions(merged, submissionGate, consultationFee);
   if (actions.length > 0) {
     patch.ctaShown = true;
   }
@@ -537,12 +537,10 @@ const deriveNextActions = (
   mergedState: Record<string, unknown> | null,
   submissionGate: IntakeSubmissionGate,
   consultationFee?: number | null,
-  completenessScore?: number,
 ): ChatMessageAction[] => {
   if (!mergedState) return [];
-
-  const score = completenessScore ?? 0;
-  if (score < COMPLETENESS_THRESHOLD_SHOW_CTA) return [];
+  if (!submissionGate.activeTemplate) return [];
+  if (!isIntakeCompleteForTemplate(submissionGate.activeTemplate, mergedState)) return [];
 
   const formattedFee = typeof consultationFee === 'number' && consultationFee > 0 ? formatCurrency(consultationFee / 100) : null;
   const payLabel = formattedFee ? `Pay ${formattedFee}` : 'Pay and submit';
@@ -652,7 +650,7 @@ Priority question this turn:
   // --- Tool usage rules ---
   const toolRules = `Tool usage rules:
 - Call save_case_details immediately whenever the client provides any structured information — on every turn, not just when asked. Include every field they mentioned.
-- Call request_payment when all required case details are gathered AND the practice requires payment.
+- Call request_payment when all required case details are gathered AND the practice requires payment. Do not offer to submit until payment is complete.
 - Call submit_intake only when the client explicitly says they are ready to submit.
 - Use ask_user_question for fixed-choice questions (yes/no, state selection, option lists).
 - Never call a tool without also writing a conversational response.`;
@@ -660,6 +658,8 @@ Priority question this turn:
   // --- Conversation rules ---
   const convRules = `Conversation rules:
 - Be warm and human — like a knowledgeable friend, not a form
+- Keep responses short: one sentence acknowledging what the client said, then one question. Never more than 2 sentences per turn.
+- Do not re-summarize what was just said. Do not list multiple things. One thought, one question.
 - Never give legal advice
 - Never ask for contact info (name, email, phone) — already collected
 - Never output raw JSON, field keys, or tool names in your reply text
@@ -993,13 +993,27 @@ const buildCompactPracticeContextForPrompt = (
     compact.services = normalizeServicesForPrompt(normalized);
   }
 
-  const rawServiceStates = normalized.service_states;
-  if (Array.isArray(rawServiceStates)) {
-    const states = rawServiceStates
-      .filter((state): state is string => typeof state === 'string' && state.trim().length > 0)
-      .map((state) => state.trim().toUpperCase());
-    if (states.length > 0) {
-      compact.licensedJurisdictions = `${states.join(', ')} (US)`;
+  const rawSupportedStates = normalized.supported_states;
+  if (Array.isArray(rawSupportedStates)) {
+    const parts: string[] = [];
+    for (const entry of rawSupportedStates) {
+      if (typeof entry !== 'object' || entry === null) continue;
+      const country = typeof (entry as Record<string, unknown>).country === 'string'
+        ? ((entry as Record<string, unknown>).country as string).trim().toUpperCase()
+        : null;
+      if (!country) continue;
+      const states = (entry as Record<string, unknown>).states;
+      if (Array.isArray(states) && states.length > 0) {
+        const codes = states
+          .filter((s): s is string => typeof s === 'string' && s.trim().length > 0)
+          .map((s) => s.trim().toUpperCase());
+        if (codes.length > 0) parts.push(`${codes.join(', ')} (${country})`);
+      } else {
+        parts.push(country);
+      }
+    }
+    if (parts.length > 0) {
+      compact.licensedJurisdictions = parts.join('; ');
     }
   }
 
