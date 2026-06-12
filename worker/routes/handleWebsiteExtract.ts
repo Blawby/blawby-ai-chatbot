@@ -40,7 +40,6 @@ export interface ExtractedPracticeFields {
     country?:    string;
   };
   services?: Array<{ name: string; description?: string }>;
-  accentColor?:  string; // hex, if brand color is detectable
 }
 
 // ── HTML → plain text (no DOM parser in Workers) ──────────────────────────────

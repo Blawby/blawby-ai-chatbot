@@ -105,7 +105,6 @@ export interface SetupFieldsPayload {
   name?: string;
   slug?: string;
   description?: string;
-  accentColor?: string;
   website?: string;
   businessEmail?: string;
   businessPhone?: string;

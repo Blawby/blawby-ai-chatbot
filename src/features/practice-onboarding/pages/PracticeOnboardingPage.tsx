@@ -18,7 +18,6 @@ import type { Practice } from '@/shared/hooks/usePracticeManagement';
 import type { PracticeDetails } from '@/shared/lib/apiClient';
 import type { FileAttachment, ChatMessageUI } from '../../../../worker/types';
 import { useOnboardingState } from '../hooks/useOnboardingState';
-import { normalizeAccentColor } from '@/shared/utils/brandColor';
 
 export interface PracticeOnboardingPageProps {
   status: PracticeSetupStatus;
@@ -27,7 +26,6 @@ export interface PracticeOnboardingPageProps {
   onSaveBasics?: (values: {
     name: string;
     slug: string;
-    accentColor: string;
   }) => Promise<void>;
   onSaveContact?: (values: {
     website: string;
@@ -118,7 +116,6 @@ const PracticeOnboardingPage: FunctionComponent<PracticeOnboardingPageProps> = (
   const handleSaveBasics = useCallback(async (values: {
     name: string;
     slug: string;
-    accentColor: string;
   }) => {
     if (!onSaveBasics) return;
     try {
@@ -157,11 +154,9 @@ const PracticeOnboardingPage: FunctionComponent<PracticeOnboardingPageProps> = (
     try {
       if (onSaveBasics && !basicsSaved) {
         try {
-          const accentColor = normalizeAccentColor(details?.accentColor || practice?.accentColor) ?? '#D4AF37';
           await onSaveBasics({
             name: practice?.name ?? '',
             slug: practice?.slug ?? '',
-            accentColor
           });
           setBasicsSaved(true);
         } catch (e) {

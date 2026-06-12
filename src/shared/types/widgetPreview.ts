@@ -15,7 +15,6 @@ export type WidgetPreviewService = {
 export type WidgetPreviewConfig = {
   name?: string;
   profileImage?: string | null;
-  accentColor?: string;
   introMessage?: string | null;
   legalDisclaimer?: string | null;
   consultationFee?: MinorAmount | null;

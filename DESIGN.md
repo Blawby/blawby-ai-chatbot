@@ -112,14 +112,14 @@ This system explicitly rejects four aesthetics, in order of risk:
 
 ## 2. Colors
 
-A two-layer palette: a fixed neutral structure that defines the room, plus a single tenant-controlled accent that defines the practice. The two layers are independent on purpose.
+A fixed neutral structure defines the room, with a single gold accent used sparingly across the product.
 
 ### Primary
 
-The accent is **per-practice, runtime-themed** via `src/shared/utils/accentColors.ts`. Eight named presets ship out of the box (grey, gold, blue, green, yellow, pink, orange, purple), and practices can supply arbitrary hex — the system auto-derives an 11-step ramp (50–950) by mixing the base hex toward white (lighter shades) and black (darker shades). Text-on-accent foreground is computed at runtime against WCAG contrast.
+The accent is fixed gold. It is not tenant-configurable and should not be runtime-themed.
 
-- **Practice Accent** (`var(--accent-500)` — runtime per tenant): Primary CTAs, focus rings, link text, active nav indicator, hover-state fills at 8–28% alpha. Used on **≤15% of any given screen.** The accent is a stamp, not a backdrop.
-- **Default Accent: Gold** (#D4AF37): What unconfigured practices and unauthenticated surfaces see. **This default is on the anti-reference list** (see Don'ts). Treated as legacy.
+- **Product Accent** (`var(--accent)`): Primary CTAs, focus rings, link text, active nav indicator, hover-state fills at 8–28% alpha. Used on **≤15% of any given screen.** The accent is a stamp, not a backdrop.
+- **Accent Color: Gold** (`#D4AF37`): The single approved accent across all surfaces.
 
 ### Neutral
 

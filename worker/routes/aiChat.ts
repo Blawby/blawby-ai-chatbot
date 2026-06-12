@@ -15,7 +15,7 @@ import {
   type PartialCollectedFields,
   type PartialSlimContactInput,
 } from '../services/PartialIntakeSubmissionService.js';
-import { createWorkersAiClient } from '../utils/workersAiClient.js';
+import { createWorkersAiClient, resolveWorkersAiModel } from '../utils/workersAiClient.js';
 import { fetchPracticeDetailsWithCache } from '../utils/practiceDetailsCache.js';
 import { Logger } from '../utils/logger.js';
 import { resolveConsultationState } from '../../src/shared/utils/consultationState';
@@ -34,6 +34,7 @@ import {
   HARD_ERROR_MESSAGE,
   createSseResponse,
   consumeAiStream,
+  consumeAnthropicStream,
   normalizeKeys,
   createAiDebugError,
   isRecord,
@@ -47,7 +48,7 @@ import {
   INTAKE_TOOLS,
   buildIntakeTools,
   buildIntakeSystemPrompt,
-  deriveCaseSavedAcknowledgment,
+  toAnthropicTools,
   mergeIntakeState,
   normalizeServicesForPrompt,
   shouldRequireDisclaimer,
@@ -777,7 +778,8 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
 
   const aiPromptContext = buildCompactPracticeContextForPrompt(details);
   const aiClient = createWorkersAiClient(env);
-  const model = DEFAULT_AI_MODEL;
+  const model = resolveWorkersAiModel(env, DEFAULT_AI_MODEL);
+  const isAnthropicModel = model.startsWith('claude-');
 
   const servicesForPrompt = normalizeServicesForPrompt(details);
   const onboardingPromptProfile = isOnboardingMode
@@ -883,15 +885,25 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
       body.additionalContext ? `SEARCH_CONTEXT: ${body.additionalContext}` : null,
     ].filter(Boolean).join('\n\n');
 
-    requestPayload.messages = [
-      { role: 'system', content: systemPrompt },
-      ...body.messages.map((m) => ({ role: m.role, content: m.content })),
-    ];
-    requestPayload.tools = templateFields.length > 0
+    const intakeTools = templateFields.length > 0
       ? buildIntakeTools(templateFields)
       : INTAKE_TOOLS;
-    requestPayload.parallel_tool_calls = false;
-    requestPayload.temperature = 0.5;
+
+    if (isAnthropicModel) {
+      requestPayload.system = systemPrompt;
+      requestPayload.messages = body.messages.map((m) => ({ role: m.role, content: m.content }));
+      requestPayload.tools = toAnthropicTools(intakeTools as Parameters<typeof toAnthropicTools>[0]);
+      requestPayload.max_tokens = 8192;
+      requestPayload.temperature = 0.5;
+    } else {
+      requestPayload.messages = [
+        { role: 'system', content: systemPrompt },
+        ...body.messages.map((m) => ({ role: m.role, content: m.content })),
+      ];
+      requestPayload.tools = intakeTools;
+      requestPayload.parallel_tool_calls = false;
+      requestPayload.temperature = 0.5;
+    }
   } else if (!isIntakeMode) {
     const nonIntakeSystemPrompt = isOnboardingMode
       ? buildOnboardingSystemPrompt(onboardingPromptProfile)
@@ -908,25 +920,42 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
       `PRACTICE_CONTEXT: ${JSON.stringify(aiPromptContext)}`,
     ].join('\n\n');
 
-    requestPayload.messages = [
-      { role: 'system', content: systemPrompt },
-      ...(body.additionalContext
-        ? [{ role: 'system' as const, content: `SEARCH_CONTEXT: ${body.additionalContext}` }]
-        : []),
-      ...body.messages.map((message) => ({ role: message.role, content: message.content })),
-    ];
+    if (isAnthropicModel) {
+      requestPayload.system = systemPrompt;
+      requestPayload.messages = [
+        ...(body.additionalContext
+          ? [{ role: 'user' as const, content: `SEARCH_CONTEXT: ${body.additionalContext}` }]
+          : []),
+        ...body.messages.map((message) => ({ role: message.role, content: message.content })),
+      ];
+      requestPayload.max_tokens = 4096;
+    } else {
+      requestPayload.messages = [
+        { role: 'system', content: systemPrompt },
+        ...(body.additionalContext
+          ? [{ role: 'system' as const, content: `SEARCH_CONTEXT: ${body.additionalContext}` }]
+          : []),
+        ...body.messages.map((message) => ({ role: message.role, content: message.content })),
+      ];
+    }
   } else {
     // This should not happen, but TypeScript needs it
     systemPrompt = 'You are an assistant.';
   }
 
   if (isOnboardingMode) {
-    requestPayload.tools = [ONBOARDING_TOOL];
-    requestPayload.tool_choice = {
-      type: 'function',
-      function: { name: 'update_practice_fields' },
-    };
-    requestPayload.parallel_tool_calls = false;
+    if (isAnthropicModel) {
+      requestPayload.tools = toAnthropicTools([ONBOARDING_TOOL] as Parameters<typeof toAnthropicTools>[0]);
+      requestPayload.tool_choice = { type: 'tool', name: 'update_practice_fields' };
+      requestPayload.max_tokens = requestPayload.max_tokens ?? 4096;
+    } else {
+      requestPayload.tools = [ONBOARDING_TOOL];
+      requestPayload.tool_choice = {
+        type: 'function',
+        function: { name: 'update_practice_fields' },
+      };
+      requestPayload.parallel_tool_calls = false;
+    }
   }
 
   const { response: sseResponse, write, close } = createSseResponse();
@@ -1280,13 +1309,13 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
       const aigStep = aiResponse.headers.get('cf-aig-step');
 
       // Stream tokens live to the user — intake mode now streams directly
-      const streamResult = await consumeAiStream(
-        aiResponse, 
-        true, 
-        streamWrite, 
+      const streamResult = await (isAnthropicModel ? consumeAnthropicStream : consumeAiStream)(
+        aiResponse,
+        true,
+        streamWrite,
         body.conversationId,
         requestId,
-        sendSseDebug
+        sendSseDebug,
       );
       const conversationTotalResponseMs = Date.now() - conversationRequestStartedAt;
       const latencyMs = Date.now() - startedAt;
@@ -1441,62 +1470,10 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
         (shouldRequireDisclaimer(body.messages) || CONSULTATION_CTA_REGEX.test(accumulatedReply));
       const includeActionsInMetadata = Boolean(actions && actions.length > 0);
       
-      // Detect tool-only behavior and normalize successful intake tool turns.
       const wasToolOnly = accumulatedReply.trim().length === 0 && streamResult.toolCalls.length > 0;
-      const shouldUseToolReply = isIntakeMode && finalToolResult?.success === true;
-      const normalizationReasons: string[] = [];
-      let syntheticReply = '';
-
-      if (wasToolOnly) {
-        normalizationReasons.push('tool_only_completion');
-      }
-
-      if (shouldUseToolReply) {
-        if (!wasToolOnly && accumulatedReply.trim()) {
-          normalizationReasons.push('tool_completion_replaced_model_text');
-        }
-        if (isIntakeMode && lastQuestionResult?.success && typeof lastQuestionResult.message === 'string' && lastQuestionResult.message.trim()) {
-          syntheticReply = lastQuestionResult.message.trim();
-        } else if (isIntakeMode && finalToolResult?.success && patchToMerge) {
-          const consultationFee = templatePaymentConfig.hasConfig
-            ? templatePaymentConfig.consultationFee
-            : readFiniteNumberField(details, ['consultation_fee']);
-          // Recompute nextField and score from POST-merge state so the synthetic
-          // reply doesn't re-ask the field that save_case_details just answered.
-          const mergedState = mergedIntakeState as Record<string, unknown> | null;
-          const nextFieldAfterPatch = mergedState
-            ? (resolveNextField(activeTemplate, mergedState, 'required') ?? resolveNextField(activeTemplate, mergedState, 'enrichment'))
-            : null;
-          const scoreAfterPatch = mergedState
-            ? computeCompletenessScore(activeTemplate, mergedState)
-            : 0;
-          syntheticReply = deriveCaseSavedAcknowledgment(
-            finalToolResult,
-            intakeSubmissionGate,
-            mergedIntakeState,
-            servicesForPrompt,
-            consultationFee,
-            userName,
-            nextFieldAfterPatch,
-            scoreAfterPatch,
-          );
-          if (!syntheticReply && typeof finalToolResult.message === 'string' && finalToolResult.message.trim()) {
-            syntheticReply = finalToolResult.message.trim();
-          }
-        } else if (typeof finalToolResult.message === 'string' && finalToolResult.message.trim()) {
-          syntheticReply = finalToolResult.message.trim();
-        }
-      }
-      
-      sendSseDebug('debug_normalization', {
-        requestId,
-        reasons: normalizationReasons,
-        syntheticReply: syntheticReply || accumulatedReply,
-        wasToolOnly,
-      });
 
       // Store message BEFORE emitting done — client acts on fields immediately
-      const finalReply = syntheticReply || accumulatedReply;
+      const finalReply = accumulatedReply;
       let persistedMessageId: string | null = null;
       let messagePersisted = false;
       
@@ -1519,7 +1496,7 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
             ...(shouldPromptConsultation
               ? { modeSelector: { showAskQuestion: false, showRequestConsultation: true, source: 'ai' } }
               : {}),
-            ...(wasToolOnly || normalizationReasons.length > 0 ? { wasToolOnly, normalizationReasons } : {}),
+            ...(wasToolOnly ? { wasToolOnly } : {}),
           },
           recipientUserId: authContext.user.id,
           skipPracticeValidation: shouldSkipPracticeValidation,
@@ -1532,7 +1509,7 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
           conversationId: body.conversationId,
           messageId: storedMessage.id,
           role: 'assistant',
-          kind: syntheticReply ? 'synthetic' : 'original',
+          kind: 'original',
           wasToolOnly,
         });
 
@@ -1629,7 +1606,6 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
         const turnModelResponse: Record<string, unknown> = {
           reply: finalReply,
           accumulatedReply,
-          syntheticReply,
           emittedAnyToken,
           streamStalled: streamResult.streamStalled,
           replyLength: streamResult.reply.length,

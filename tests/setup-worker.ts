@@ -75,7 +75,6 @@ beforeAll(async () => {
         address_country_encrypted TEXT,
         preferred_contact_method TEXT,
         theme TEXT DEFAULT 'system',
-        accent_color TEXT DEFAULT 'default',
         font_size TEXT DEFAULT 'medium',
         language TEXT DEFAULT 'en',
         spoken_language TEXT DEFAULT 'en',

@@ -25,7 +25,7 @@ From `design_handoff_blawby_chat_first/DESIGN_SYSTEM.md §0`:
 |---|---|---|---|
 | 1 — Foundation | `b03558c4` | ✅ merged | Tokens, fonts, Tailwind config, `src/index.css` surgical rewrite, glass aliases removed |
 | 2 — Theme mechanism | `e5f409b0` | ✅ merged | `.dark` class → `data-theme` attribute (7 sites + boot script + DebugDialogsPage) |
-| 3 — accentColors removal | `6876d6ed` | ✅ merged | `brandColor.ts` (pure validator), 9 importers updated, AudioRecordingUI uses `--accent-rgb` |
+| 3 — legacy color removal | `6876d6ed` | ✅ merged | Validator cleanup, importer updates, AudioRecordingUI uses `--accent-rgb` |
 | 4a — DS primitives (additive) | `a01d5a2a` | ✅ merged | `src/design-system/primitives/` — Label, Pill, Chip, Bar, Card + matching CSS |
 | 4b — DS CSS rewrites | `95dd97c7` | ✅ merged | `.btn-*` to 2px DS spec; `.card-*` / `.input-surface` / `.status-*` rewritten to valid DS tokens; deleted `.btn-inverted` |
 | 4c — Primitive refactors + sweep | `c6212140` | ✅ merged | Button (new `accent` variant) / Input / Textarea / Switch / Alert / Avatar (`kind` prop) / Dialog; swept 5 StatusBadge callers → `<Pill>` |

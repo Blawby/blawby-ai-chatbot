@@ -298,6 +298,21 @@ export function buildIntakeTools(fields: IntakeFieldDefinition[]) {
 /** Default tools using the default template. */
 export const INTAKE_TOOLS = buildIntakeTools(STANDARD_FIELD_DEFINITIONS);
 
+/**
+ * Converts OpenAI-format tool definitions to Anthropic format.
+ * OpenAI wraps tools in { type: 'function', function: { name, description, parameters } }.
+ * Anthropic uses { name, description, input_schema } at the top level.
+ */
+export function toAnthropicTools(
+  tools: ReadonlyArray<{ type: string; function: { name: string; description?: string; parameters: unknown } }>,
+): Array<{ name: string; description?: string; input_schema: unknown }> {
+  return tools.map((t) => ({
+    name: t.function.name,
+    ...(t.function.description ? { description: t.function.description } : {}),
+    input_schema: t.function.parameters,
+  }));
+}
+
 // ---------------------------------------------------------------------------
 // Tool result types
 // ---------------------------------------------------------------------------

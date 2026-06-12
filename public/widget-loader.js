@@ -15,7 +15,7 @@
  *   practiceSlug  – (required) Your practice slug
  *   baseUrl       – Override the Blawby app URL (default: https://ai.blawby.com)
  *   position      – 'bottom-right' (default) | 'bottom-left'
- *   primaryColor  – Optional launcher color override; if omitted, uses practice accent_color from /api/widget/practice-details/:slug
+ *   primaryColor  – Optional launcher color override; if omitted, uses the default launcher color
  *   launcherSize  – Size in pixels of the circular button (default: 56)
  *   zIndex        – CSS z-index for the widget layer      (default: 2147483647)
  *   label         – Accessible label for the launcher     (default: 'Chat with us')
@@ -358,35 +358,13 @@
     return true;
   }
 
-  function loadPracticeAccentColor() {
+  function initializePrimaryColor() {
     if (configuredPrimaryColor) {
       applyPrimaryColor(configuredPrimaryColor, 'config');
       return;
     }
 
     applyPrimaryColor(DEFAULT_PRIMARY_COLOR, 'default');
-
-    var detailsUrl = cfg.baseUrl + '/api/widget/practice-details/' + encodeURIComponent(cfg.practiceSlug);
-    fetch(detailsUrl)
-      .then(function (response) {
-        if (!response.ok) {
-          throw new Error('Failed to load practice details: ' + response.status + ' ' + response.statusText);
-        }
-        return response.json();
-      })
-      .then(function (practiceDetails) {
-        var accentColor = null;
-        if (practiceDetails && typeof practiceDetails.accentColor === 'string') {
-          accentColor = practiceDetails.accentColor;
-        } else if (practiceDetails && typeof practiceDetails.accent_color === 'string') {
-          accentColor = practiceDetails.accent_color;
-        }
-        if (!accentColor) return;
-        applyPrimaryColor(accentColor, 'practice_accent');
-      })
-      .catch(function (error) {
-        console.warn('[BlawbyWidget] Failed to resolve practice accent color', error);
-      });
   }
 
   function setOpen(next) {
@@ -600,6 +578,6 @@
   } else {
     setTimeout(function () { ensureIframeLoaded(); }, 2000);
   }
-  loadPracticeAccentColor();
+  initializePrimaryColor();
 
 })(window, document);

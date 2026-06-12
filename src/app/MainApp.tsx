@@ -133,7 +133,7 @@ export function MainApp({
   const { session, isPending: sessionIsPending, isAnonymous } = useSessionContext();
   const { activeMemberRole } = useMemberRoleContext();
 
-  // ── practice details (accent color) ───────────────────────────────────────
+  // ── practice details ───────────────────────────────────────────────────────
   // For the public workspace, prefer practiceConfig.id (UUID) as the store key.
   // usePracticeConfig already seeds practiceDetailsStore under both the slug AND
   const practiceDetailsId = practiceConfig.id || practiceId || null;

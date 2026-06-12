@@ -122,12 +122,6 @@ export const onboardingSchemas = {
 export const settingsSchemas = {
   general: z.object({
     theme: z.enum(['light', 'dark', 'system']),
-    accentColor: z.preprocess((val) => {
-      // Data migration for legacy values
-      if (val === 'default') return 'gold';
-      if (val === 'red') return 'orange';
-      return val;
-    }, z.enum(['gold', 'blue', 'green', 'yellow', 'pink', 'orange', 'purple'])),
     language: z.string(),
     spokenLanguage: z.string(),
   }),
