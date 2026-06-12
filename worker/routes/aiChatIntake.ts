@@ -7,7 +7,7 @@ import {
   isIntakeSubmittable as isSharedIntakeSubmittable,
 } from '../../src/shared/utils/consultationState';
 import type { ChatMessageAction } from '../../src/shared/types/conversation';
-import { createSubmitAction } from '../../src/shared/utils/chatActions';
+import { createSubmitAction, createBuildBriefAction } from '../../src/shared/utils/chatActions';
 import type { IntakeFieldDefinition, IntakeTemplate } from '../../src/shared/types/intake.js';
 import { STANDARD_FIELD_KEYS, STANDARD_FIELD_DEFINITIONS } from '../../src/shared/constants/intakeTemplates.js';
 import {
@@ -546,7 +546,14 @@ const deriveNextActions = (
   const payLabel = formattedFee ? `Pay ${formattedFee}` : 'Pay and submit';
   const needsPayment = submissionGate.paymentRequiredBeforeSubmit && !submissionGate.paymentCompleted;
 
-  return [createSubmitAction(needsPayment ? payLabel : 'Submit request')];
+  if (needsPayment) {
+    return [createSubmitAction(payLabel)];
+  }
+
+  return [
+    createSubmitAction('Submit request'),
+    createBuildBriefAction('Strengthen my brief'),
+  ];
 };
 
 // deriveFieldQuickReplies removed — not currently used. Reintroduce
@@ -584,140 +591,62 @@ export const buildIntakeSystemPrompt = (
   practiceContext: Record<string, unknown> | null,
   storedIntakeState: Record<string, unknown> | null,
   userName?: string | null,
-  /** Next uncollected field across ALL phases (required + enrichment combined), or null when all done */
   nextField?: IntakeFieldDefinition | null,
-  /** 0–100 completeness score computed by the worker from field weights */
   completenessScore?: number,
-  /** Full list of template fields to map keys to labels */
   templateFields?: IntakeFieldDefinition[],
+  requiredComplete?: boolean,
 ): string => {
-  const score = completenessScore ?? 0;
-  const cappedServices = services.slice(0, MAX_SERVICES_IN_CONVERSATION_PROMPT);
-  const serviceList = cappedServices.length > 0
-    ? cappedServices.map((s) => `- ${s.name} (practice_service_uuid: ${s.uuid})`).join('\n')
-    : '- General legal matters';
-
   const practiceName = typeof practiceContext?.practiceName === 'string'
     ? practiceContext.practiceName.trim()
     : 'this law firm';
-  const intakeContext = buildIntakeContextSummary(storedIntakeState, services, templateFields);
   const firstName = userName ? getFirstName(userName) : null;
-  const userSalutationSnippet = firstName ? `The client's first name is ${firstName}. ` : '';
-  const userNamingInstruction = firstName ? ` Address them as ${firstName}.` : '';
+  const clientName = firstName ?? 'the client';
 
-  const licensedJurisdictions = typeof practiceContext?.licensedJurisdictions === 'string' && practiceContext.licensedJurisdictions.trim()
-    ? practiceContext.licensedJurisdictions.trim()
-    : '';
-  const licensedStatesSnippet = licensedJurisdictions
-    ? `\nThis firm is licensed in: ${licensedJurisdictions}.`
-    : '';
+  const isSynthesisReady = requiredComplete === true && nextField == null;
 
-  // --- Determine conversation phase ---
-  const isSynthesisReady = !nextField && score >= COMPLETENESS_THRESHOLD_SUGGEST_SUBMIT;
+  if (isSynthesisReady) {
+    const contextBlock = buildIntakeContextSummary(storedIntakeState, services, templateFields);
+    return `You are collecting intake information for ${practiceName}.
 
-  // --- Priority field instruction block ---
-  const fieldBlock = (() => {
-    if (isSynthesisReady) {
-      return buildSynthesisPrompt(intakeContext, userNamingInstruction);
-    }
+${clientName}'s required information is complete.${contextBlock ? `\n\nCollected:\n${contextBlock}` : ''}
 
-    if (!nextField) {
-      // All fields collected but below the synthesis score — invite free-form addition
-      return `You have gathered the essential information for this intake.${userNamingInstruction}
+Write a warm 2-3 sentence summary of what ${clientName} shared. End with: "Ready to submit, or would you like to add anything first?"
 
-In one or two sentences, let the client know their case is ready to submit whenever they are. Invite them to add anything else that feels important — a deadline, a document, an important detail — before it goes over. Keep it light; don't list options.
+If they say yes/ready → call submit_intake.
+If they share more info → call save_case_details, then ask the closing question again.
+No legal advice. No new questions.`.trim();
+  }
 
-If they confirm or say nothing to add → call submit_intake.
-If they add something new → call save_case_details and acknowledge it warmly.`;
-    }
+  if (nextField) {
+    const allRequired = (templateFields ?? []).filter((f) => f.required || f.phase === 'required');
+    const uncollected = allRequired.filter((f) => !isFieldCollected(f, (storedIntakeState ?? {}) as Record<string, unknown>));
+    const queue = uncollected.slice(0, 3);
+    if (queue.length === 0) queue.push(nextField);
 
-    const typeHint = getFieldValueTypeInstruction(nextField);
+    const questionLines = queue.map((f, i) => {
+      const q = f.previewQuestion?.trim() ?? f.promptHint?.trim() ?? `What is your ${f.label.toLowerCase()}?`;
+      return `${i + 1}. ${q}`;
+    }).join('\n');
 
-    const hint = nextField.promptHint
-      ?? `Ask about "${nextField.label}" naturally in one sentence.`;
+    const contextBlock = buildIntakeContextSummary(storedIntakeState, services, templateFields);
+    const collectedBlock = contextBlock ? `\nCollected so far:\n${contextBlock}\n` : '';
 
-    return `Your response this turn must do TWO things together in a single reply:
-1. Write a warm conversational message: acknowledge what the client shared, then ask the ONE priority question below.
-2. Call save_case_details to record EVERY structured detail from their message — even fields you haven't asked about yet.
+    return `You are collecting intake information for ${practiceName}.
+${collectedBlock}
+Every response must have two parts — always, no exceptions:
+Part 1 (text): In one sentence, react to what ${clientName} said using "you/your" — no "thank you", no "perfect", no filler, never repeat their words back verbatim. Then ask the first question below that their message hasn't already answered. If ALL questions below are already answered, skip the question and instead write one warm sentence (e.g. "I'm sorry you've been dealing with this" or "That sounds really stressful") followed by: "Ready to submit, or would you like to add anything first?" — no extra questions, no legal opinions, stop there.
+Part 2 (tool): Call save_case_details with everything ${clientName} shared.
 
-Always write your conversational text first, then include the save_case_details call.
+Questions (ask the first unanswered one):
+${questionLines}
 
-Priority question this turn:
-  Field: ${nextField.label} (key: ${nextField.key})${typeHint ? `\n  ${typeHint}` : ''}
-  How to ask: ${hint}${userNamingInstruction ? `\n  ${userNamingInstruction.trim()}` : ''}`;
-  })();
+No analysis, no legal opinions, no other questions.`.trim();
+  }
 
-  // --- Tool usage rules ---
-  const toolRules = `Tool usage rules:
-- Call save_case_details immediately whenever the client provides any structured information — on every turn, not just when asked. Include every field they mentioned.
-- Call request_payment when all required case details are gathered AND the practice requires payment. Do not offer to submit until payment is complete.
-- Call submit_intake only when the client explicitly says they are ready to submit.
-- Use ask_user_question for fixed-choice questions (yes/no, state selection, option lists).
-- Never call a tool without also writing a conversational response.`;
-
-  // --- Conversation rules ---
-  const convRules = `Conversation rules:
-- Be warm and human — like a knowledgeable friend, not a form
-- Keep responses short: one sentence acknowledging what the client said, then one question. Never more than 2 sentences per turn.
-- Do not re-summarize what was just said. Do not list multiple things. One thought, one question.
-- Never give legal advice
-- Never ask for contact info (name, email, phone) — already collected
-- Never output raw JSON, field keys, or tool names in your reply text
-- Extract multiple fields from a single answer whenever possible — do not ask separately for things the client already said${licensedJurisdictions ? `\n- Licensed jurisdiction guidance: If the matter involves a location outside (${licensedJurisdictions}), acknowledge warmly without hard rejection — frame as a fit question for the attorney.` : ''}`;
-
-  const consultationFeeNote = `- If a consultation fee is required: Mention the fee softly as the next step. Max 2 sentences.
-- If no fee is required: Let the client know they can submit whenever ready.`;
-
-  const contextBlock = intakeContext
-    ? `What has been collected so far:\n${intakeContext}`
-    : '';
-
-  return `${userSalutationSnippet}You are a warm, helpful legal intake assistant for ${practiceName}.${licensedStatesSnippet}
-
-This firm handles the following practice areas:
-${serviceList}
-
-${fieldBlock}
-
-${toolRules}
-
-${convRules}
-
-${consultationFeeNote}
-${contextBlock ? `\n${contextBlock}` : ''}`.trim();
+  return `You are collecting intake information for ${practiceName}. Tell ${clientName} their information looks complete — one sentence. Call submit_intake if they confirm.`;
 };
 
 
-/**
- * Builds the synthesis prompt — fired when the completeness score reaches
- * COMPLETENESS_THRESHOLD_SUGGEST_SUBMIT and all fields are collected.
- *
- * The AI synthesizes what it heard into a natural paragraph, surfaces anything
- * inferable from the description, and asks one open question before submitting.
- * This is the highest-yield moment for catching errors and capturing extra facts.
- */
-function buildSynthesisPrompt(intakeContext: string, userNamingInstruction: string): string {
-  const contextSection = intakeContext
-    ? `Here is what has been collected — use this to write your synthesis:\n${intakeContext}`
-    : '';
-
-  return `You have gathered a thorough picture of this client's situation.${userNamingInstruction}
-
-Your job this turn is to:
-1. Write a warm, natural 2–4 sentence summary of what you've heard — NOT a bullet list. Write it the way a knowledgeable friend would recap the conversation. Cover what the matter is about, where they are, who is involved, the urgency, and what they're hoping for. Plain English only — no field labels, no legal jargon.
-2. End with one open question: "Does that capture your situation? Anything important I missed, or anything you'd like to add before we send this over?"
-
-If the client confirms → call submit_intake immediately.
-If the client corrects something → call save_case_details, acknowledge the correction in one sentence, present the updated summary, and ask for confirmation again.
-If the client volunteers new details → call save_case_details, incorporate them, re-summarize, and confirm.
-
-Rules:
-- Under 80 words for the summary
-- One closing question only — do not list choices or ask multiple things
-- Sound like you genuinely understood them, not like you are reading from a form
-
-${contextSection}`.trim();
-}
 
 function buildIntakeContextSummary(
   state: Record<string, unknown> | null,

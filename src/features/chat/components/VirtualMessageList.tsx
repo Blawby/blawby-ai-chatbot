@@ -555,6 +555,9 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
             messageActions.push(
                 createSubmitAction(intakeStatus?.paymentRequired ? 'Continue' : 'Submit request')
             );
+            if (!hasBuildBriefAction(messageActions)) {
+                messageActions.push(createBuildBriefAction('Strengthen my brief'));
+            }
         }
 
         return messageActions;

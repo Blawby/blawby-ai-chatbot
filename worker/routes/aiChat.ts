@@ -56,6 +56,7 @@ import {
   executeIntakeTool,
   resolveNextField,
   computeCompletenessScore,
+  isIntakeCompleteForTemplate,
   type IntakeSubmissionGate,
   type ToolResult,
 } from './aiChatIntake.js';
@@ -839,6 +840,9 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
   // tell the AI how close the intake is to complete.
   const completenessScore = computeCompletenessScore(activeTemplate, flatState);
 
+  // True when all required fields are collected — shifts AI into summary+choice mode.
+  const requiredComplete = isIntakeCompleteForTemplate(activeTemplate, flatState);
+
   // Submission gate uses the orchestration layer when a template is active
   const templateRequiredFields = templateFields.length > 0
     ? templateFields.filter((f) => f.required || f.phase === 'required')
@@ -870,20 +874,23 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
   let systemPrompt: string;
 
   if (isIntakeMode) {
-    // Adaptive prompt — the AI knows the next field and the completeness score
-    systemPrompt = [
-      buildIntakeSystemPrompt(
-        servicesForPrompt,
-        aiPromptContext,
-        storedIntakeState,
-        userName,
-        nextField,
-        completenessScore,
-        templateFields,
-      ),
-      `PRACTICE_CONTEXT: ${JSON.stringify(aiPromptContext)}`,
-      body.additionalContext ? `SEARCH_CONTEXT: ${body.additionalContext}` : null,
-    ].filter(Boolean).join('\n\n');
+    // Adaptive prompt — the AI knows the next field and the completeness score.
+    // Only pass the practice name into the context: contact info, fees, services,
+    // and jurisdiction are intentionally excluded so the AI doesn't hallucinate
+    // them into responses. Submission and payment are handled by tools, not text.
+    const intakePracticeContext = aiPromptContext
+      ? { practiceName: aiPromptContext['practiceName'] ?? null }
+      : null;
+    systemPrompt = buildIntakeSystemPrompt(
+      servicesForPrompt,
+      intakePracticeContext,
+      storedIntakeState,
+      userName,
+      nextField,
+      completenessScore,
+      templateFields,
+      requiredComplete,
+    );
 
     const intakeTools = templateFields.length > 0
       ? buildIntakeTools(templateFields)
@@ -1132,7 +1139,7 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
       if (isIntakeMode || isOnboardingMode) {
         const toolNames = Array.isArray(requestPayload.tools)
           ? requestPayload.tools
-              .map((tool) => (tool as { function?: { name?: string } }).function?.name ?? null)
+              .map((tool) => { const t = tool as { name?: string; function?: { name?: string } }; return t.name ?? t.function?.name ?? null; })
               .filter((name): name is string => Boolean(name))
           : [];
         Logger.info('AI tool request summary', {
@@ -1483,11 +1490,36 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
         ? mergeIntakeState(storedIntakeState, patchToMerge)
         : null;
 
+      // Worker-side guardrails — run after every intake tool turn.
+      if (isIntakeMode && mergedIntakeState) {
+        const allRequiredDone = isIntakeCompleteForTemplate(activeTemplate, mergedIntakeState);
+
+        if (!allRequiredDone) {
+          // AI acknowledged but forgot to ask the next question — append it.
+          if (!accumulatedReply.includes('?')) {
+            const nextRequired = resolveNextField(activeTemplate, mergedIntakeState, 'required');
+            if (nextRequired) {
+              const q = nextRequired.previewQuestion?.trim()
+                ?? `What is your ${nextRequired.label.toLowerCase()}?`;
+              const suffix = accumulatedReply.trim() ? ' ' + q : q;
+              accumulatedReply += suffix;
+              write({ token: suffix });
+            }
+          }
+        } else if (!accumulatedReply.trim()) {
+          // All required fields just collected but AI returned no text (tool-only).
+          // Inject a brief closing line so the conversation doesn't go silent.
+          const closing = "Got it — I have everything I need. Feel free to submit whenever you're ready.";
+          accumulatedReply = closing;
+          write({ token: closing });
+        }
+      }
+
       const shouldPromptConsultation =
         !hasSlimContactDraft &&
         (shouldRequireDisclaimer(body.messages) || CONSULTATION_CTA_REGEX.test(accumulatedReply));
       const includeActionsInMetadata = Boolean(actions && actions.length > 0);
-      
+
       const wasToolOnly = accumulatedReply.trim().length === 0 && streamResult.toolCalls.length > 0;
 
       // Store message BEFORE emitting done — client acts on fields immediately
@@ -1615,7 +1647,7 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
           systemPromptLength: systemPrompt.length,
           toolNames: Array.isArray(requestPayload.tools)
             ? requestPayload.tools
-                .map((tool) => (tool as { function?: { name?: string } }).function?.name ?? null)
+                .map((tool) => { const t = tool as { name?: string; function?: { name?: string } }; return t.name ?? t.function?.name ?? null; })
                 .filter((name): name is string => Boolean(name))
             : [],
           messageCount: body.messages.length,

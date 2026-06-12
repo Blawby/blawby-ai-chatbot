@@ -380,7 +380,7 @@ test.describe('Public widget intake flow', () => {
 
     await expect(messageInput).toBeEnabled({ timeout: 45000 });
     const bodyLocator = anonPage.locator('body');
-    const submitNowButton = anonPage.getByRole('button', { name: /submit request/i });
+    const submitNowButton = anonPage.getByRole('button', { name: /submit request/i }).first();
     const paymentContinueButton = anonPage
       .locator('button:visible')
       .filter({ hasText: /(pay|continue)/i })
@@ -1200,7 +1200,7 @@ test.describe('Public widget intake flow', () => {
       expect(done1 && done1.intakeFields, 'Expected intakeFields in Turn 1 response.').toBeDefined();
       expect(done1 && done1.intakeFields && done1.intakeFields.description, 'Expected extracted description in Turn 1 fields.').toBeTruthy();
 
-      const submitNowButton = anonPage.getByRole('button', { name: /submit request/i });
+      const submitNowButton = anonPage.getByRole('button', { name: /submit request/i }).first();
       const paymentButton = anonPage.locator('button:visible').filter({ hasText: /^(continue|continue\s+to\s+payment|pay\s*(?:&|and)\s*submit)$/i }).first();
 
       const { reply: reply2, donePayload: done2 } = await sendAndAwait('Raleigh, NC');
@@ -1481,7 +1481,7 @@ test.describe('Public widget intake flow', () => {
 
     const aiLocator = anonPage.locator('[data-testid="ai-message"], [data-testid="system-message"]');
     const streamingLocator = anonPage.locator('[id^="message-streaming-"]');
-    const submitNowButton = anonPage.getByRole('button', { name: /submit request/i });
+    const submitNowButton = anonPage.getByRole('button', { name: /submit request/i }).first();
     const terminalActionButton = anonPage.locator('button:visible').filter({ hasText: /(pay|continue|submit request)/i }).first();
     let latestDonePayload: DonePayload | null = null;
 

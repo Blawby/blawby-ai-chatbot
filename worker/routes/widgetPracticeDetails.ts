@@ -1,5 +1,6 @@
 import { Env } from '../types.js';
 import { HttpErrors } from '../errorHandler.js';
+import { RemoteApiService } from '../services/RemoteApiService.js';
 
 export async function handleWidgetPracticeDetails(request: Request, env: Env): Promise<Response> {
   if (request.method !== 'GET') {
@@ -24,11 +25,37 @@ export async function handleWidgetPracticeDetails(request: Request, env: Env): P
     throw HttpErrors.badRequest('Invalid slug encoding');
   }
 
-  return new Response(JSON.stringify({}), {
-    status: 200,
-    headers: {
-      'Content-Type': 'application/json',
-      'Cache-Control': 'public, max-age=300',
-    }
+  const response = await RemoteApiService.getPublicPracticeDetails(env, decodedSlug, request);
+  const rawText = await response.text();
+
+  const normalizedHeaders = new Headers(response.headers);
+  normalizedHeaders.delete('content-encoding');
+  normalizedHeaders.delete('content-length');
+  if (response.ok) {
+    normalizedHeaders.set('Cache-Control', 'public, max-age=300');
+  }
+
+  let payload: Record<string, unknown> | null = null;
+  try {
+    payload = JSON.parse(rawText) as Record<string, unknown>;
+  } catch {
+    return new Response(rawText, {
+      status: response.status,
+      headers: normalizedHeaders,
+    });
+  }
+
+  if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
+    return new Response(rawText, {
+      status: response.status,
+      headers: normalizedHeaders,
+    });
+  }
+
+  normalizedHeaders.set('content-type', 'application/json');
+
+  return new Response(JSON.stringify(payload), {
+    status: response.status,
+    headers: normalizedHeaders,
   });
 }

@@ -141,41 +141,79 @@ This is frequently misunderstood. Here is the actual sequence:
 
 ---
 
+## Target Flow (What We're Building Toward)
+
+The Elementor Site Planner is a good reference model. Full intended flow for our intake:
+
+```
+1. Claude asks required fields one at a time (short responses — 2 sentences max)
+2. All required fields done →
+     IF payment required: Claude mentions the fee and triggers payment flow
+     THEN: Claude summarizes what it collected + asks_user_question:
+       "Yes, submit my case" → triggers submit
+       "Not yet, add more" → continues with optional/enrichment fields
+3. During enrichment: persistent "Submit now" chip appears above the chat input
+   (escape hatch for users who don't want to answer more questions)
+4. After enrichment: Claude offers the same Yes/Not yet choice again
+```
+
+**Suggested answer chips** (two behaviors, Elementor pattern):
+- Fixed-choice fields (`type: 'select'`, yes/no, binary) → **send immediately** on click
+- Open-ended hints/suggestions → **fill the text input**, user edits then sends
+
+**AI response length**: Responses must be short. One acknowledgment sentence + one question.
+No lists, no preambles, no re-summarizing what was just said. This is a prompt constraint in
+`buildIntakeSystemPrompt` (`convRules` block in `aiChatIntake.ts`).
+
+This is the correct target for our intake. The current implementation diverges from this in
+five ways (issues 1–5 below).
+
+---
+
 ## Open Issues
 
-### 1. "Submit Request" button appears while Claude is still asking questions
+### 1. Two thresholds and a persistent CTA button — should be one inline confirmation
 
-**Root cause**: There are two thresholds:
+**Fixed (partial)**: `deriveNextActions` now gates on `isIntakeCompleteForTemplate` instead
+of `COMPLETENESS_THRESHOLD_SHOW_CTA = 50`. The submit chip now appears only after all
+required fields are done — not at an arbitrary score.
 
-| Constant | Value | Effect |
-|----------|-------|--------|
-| `COMPLETENESS_THRESHOLD_SHOW_CTA` | 50 | Submit button becomes visible in the UI |
-| `COMPLETENESS_THRESHOLD_SUGGEST_SUBMIT` | 75 | Claude switches to synthesis/wrap-up mode |
+**Still to do**: The `COMPLETENESS_THRESHOLD_SUGGEST_SUBMIT = 75` synthesis-mode prompt is
+still score-based and lives separately from the required-field gate. Ideally Claude's inline
+"Yes, submit / Not yet" prompt fires at the same moment the chip appears, both keyed off
+required-field completion. The synthesis prompt in `buildSynthesisPrompt` and the `fieldBlock`
+branching logic in `buildIntakeSystemPrompt` should be audited and aligned with this trigger.
 
-The gap (50–74) means: submit button is visible AND Claude is still collecting enrichment fields.
-This is intentional by design — the CTA is an opt-out escape hatch — but it looks wrong in
-practice because it gives the impression the intake is complete when it isn't.
+### 2. AI responses are too verbose
 
-**Question for product**: Should the button appear only when Claude has finished asking? If so,
-raise `COMPLETENESS_THRESHOLD_SHOW_CTA` to 75 (same as `SUGGEST_SUBMIT`). Or is the 50-threshold
-intentional to let impatient users submit early?
+**Fixed**: Added to `convRules` in `buildIntakeSystemPrompt`:
+```
+- Keep responses short: one sentence acknowledging what the client said, then one question. Never more than 2 sentences per turn.
+- Do not re-summarize what was just said. Do not list multiple things. One thought, one question.
+```
 
-The constants are in `src/shared/utils/intakeOrchestration.ts:165–171`.
+Verify in a live session that Claude actually honors this. Prompt constraints alone are not
+guaranteed — if it regresses, consider a post-processing trim on the reply before streaming.
 
-### 2. Does Claude honor required vs optional field ordering?
+### 3. Payment gate — when and how it fires
 
-The intake template defines fields with `required: true/false`. The orchestration in
-`aiChatIntake.ts` calls `buildNextField(templateFields, storedState)` which picks the next
-uncollected field. Field ordering within required vs optional phases needs verification:
+**Fixed**: Added to `toolRules` in `buildIntakeSystemPrompt`:
+```
+- Do not offer to submit until payment is complete.
+```
 
-- Are all required fields asked before optional/enrichment fields?
-- Is there a clear phase boundary or does Claude mix them?
+Verify: after all required fields, Claude should call `request_payment` before offering
+"Yes, submit". The backend gate at `isIntakeSubmittable` already enforces this — the fix
+closes the prompt gap.
 
-Look at `buildNextField` (not visible in current read window) to confirm the ordering logic.
-If required fields and optional fields are mixed in one pass, that could explain why the submit
-button appears before required fields are done.
+### 5. Required vs optional field ordering — verified correct
 
-### 3. `service_states` vs `supported_states` — why two fields?
+`resolveNextField` in `intakeOrchestration.ts` iterates `template.fields` filtered by phase,
+and `aiChat.ts` calls `resolveNextField(…, 'required')` first, then falls through to
+`'enrichment'`. Required fields are guaranteed to be exhausted before enrichment starts.
+No code change needed.
+
+### 6. `service_states` vs `supported_states` — why two fields?
 
 The practice API returns both:
 ```json
@@ -199,12 +237,11 @@ field from the backend. Verify with the backend team whether `supported_states` 
 name and `service_states` is the current authoritative field, or vice versa. If `supported_states`
 is ever non-null it would silently be ignored.
 
-### 4. `toolNames: []` in AI tool request log (low priority)
+### 7. `toolNames: []` in AI tool request log
 
-When Anthropic is used, the log line `AI tool request summary` always shows `toolNames: []`.
-Root cause: the logging code extracts tool names using `.function?.name` (OpenAI format), but
-Anthropic tools use `.name` directly at the top level. This is a logging bug only — no
-functional impact. Fix by updating the name extraction in the summary log.
+**Fixed**: Both log sites in `aiChat.ts` now extract `t.name ?? t.function?.name` so the
+Anthropic format (`{ name, input_schema }`) is handled alongside the OpenAI format
+(`{ function: { name } }`).
 
 ---
 
