@@ -28,17 +28,25 @@ export async function handleWidgetPracticeDetails(request: Request, env: Env): P
   const response = await RemoteApiService.getPublicPracticeDetails(env, decodedSlug, request);
   const rawText = await response.text();
 
-  const normalizedHeaders = new Headers(response.headers);
-  normalizedHeaders.delete('content-encoding');
-  normalizedHeaders.delete('content-length');
+  const normalizedHeaders = new Headers();
+  const allowedHeaderNames = ['content-type', 'content-language', 'etag'];
+  for (const headerName of allowedHeaderNames) {
+    const headerValue = response.headers.get(headerName);
+    if (headerValue) {
+      normalizedHeaders.set(headerName, headerValue);
+    }
+  }
   if (response.ok) {
     normalizedHeaders.set('Cache-Control', 'public, max-age=300');
+  } else {
+    normalizedHeaders.set('Cache-Control', 'no-store');
   }
 
   let payload: Record<string, unknown> | null = null;
   try {
     payload = JSON.parse(rawText) as Record<string, unknown>;
   } catch {
+    normalizedHeaders.set('Cache-Control', 'no-store');
     return new Response(rawText, {
       status: response.status,
       headers: normalizedHeaders,
@@ -46,6 +54,7 @@ export async function handleWidgetPracticeDetails(request: Request, env: Env): P
   }
 
   if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
+    normalizedHeaders.set('Cache-Control', 'no-store');
     return new Response(rawText, {
       status: response.status,
       headers: normalizedHeaders,

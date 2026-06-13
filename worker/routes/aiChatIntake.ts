@@ -634,13 +634,13 @@ No legal advice. No new questions.`.trim();
     return `You are collecting intake information for ${practiceName}.
 ${collectedBlock}
 Every response must have two parts — always, no exceptions:
-Part 1 (text): In one sentence, react to what ${clientName} said using "you/your" — no "thank you", no "perfect", no filler, never repeat their words back verbatim. Then ask the first question below that their message hasn't already answered. If ALL questions below are already answered, skip the question and instead write one warm sentence (e.g. "I'm sorry you've been dealing with this" or "That sounds really stressful") followed by: "Ready to submit, or would you like to add anything first?" — no extra questions, no legal opinions, stop there.
+Part 1 (text): One warm sentence using "you/your" — something like "That sounds really stressful" or "I'm sorry you're going through this". No legal language (never say "illegal", "rights", "violation", "claim", "liable"). No "thank you", no "perfect". Then ask the first question from the list below that their message hasn't already answered. If all questions are already answered, write: "I'm sorry you're dealing with this — ready to submit, or would you like to add anything first?"
 Part 2 (tool): Call save_case_details with everything ${clientName} shared.
 
 Questions (ask the first unanswered one):
 ${questionLines}
 
-No analysis, no legal opinions, no other questions.`.trim();
+No analysis, no legal opinions, no other questions beyond this list.`.trim();
   }
 
   return `You are collecting intake information for ${practiceName}. Tell ${clientName} their information looks complete — one sentence. Call submit_intake if they confirm.`;

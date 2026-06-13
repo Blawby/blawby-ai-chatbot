@@ -626,7 +626,7 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
                   <button
                     type="button"
                     aria-label="Submit request from composer"
-                    onClick={() => void intakeContext.onSubmitNow?.()}
+                    onClick={() => void handleConfirmSubmitAction()}
                     className="flex w-full items-center gap-3 border-t border-[color:var(--rule)] bg-[color:var(--card)] px-4 py-3 text-left transition-colors hover:bg-[color:var(--paper)]"
                   >
                     <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[color:var(--accent)]">

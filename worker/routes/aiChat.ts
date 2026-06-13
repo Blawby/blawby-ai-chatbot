@@ -1354,7 +1354,6 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
           code: 'ai_stream_fail_closed',
           message: 'AI response blocked by safety guard',
           failureReason: streamResult.diagnostics.failClosedReason,
-          diagnostics: streamResult.diagnostics,
         });
         return;
       }
@@ -1504,6 +1503,7 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
               const suffix = accumulatedReply.trim() ? ' ' + q : q;
               accumulatedReply += suffix;
               write({ token: suffix });
+              emittedAnyToken = true;
             }
           }
         } else if (!accumulatedReply.trim()) {
@@ -1512,6 +1512,7 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
           const closing = "Got it — I have everything I need. Feel free to submit whenever you're ready.";
           accumulatedReply = closing;
           write({ token: closing });
+          emittedAnyToken = true;
         }
       }
 

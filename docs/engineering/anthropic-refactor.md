@@ -41,7 +41,7 @@ at the top level, not OpenAI's `{ type: 'function', function: { name, descriptio
 Also changed the `fieldBlock` prompt instruction (the part injected per turn telling Claude which
 field to collect). The old phrasing was:
 
-```
+```text
 1. Extract and save details using save_case_details. Do this BEFORE asking anything.
 2. Then ask the ONE priority question below.
 ```
@@ -49,7 +49,7 @@ field to collect). The old phrasing was:
 This caused Claude to call the tool and then stop (Anthropic `stop_reason: tool_use` terminates
 the stream — no text comes after). The fix inverts the order:
 
-```
+```text
 Your response this turn must do TWO things together in a single reply:
 1. Write a warm conversational message: acknowledge what the client shared, then ask the
    ONE priority question below.
@@ -91,7 +91,7 @@ const streamResult = await (isAnthropicModel ? consumeAnthropicStream : consumeA
 ### 5. `worker/.dev.vars` and `worker/types.ts`
 
 `.dev.vars`:
-```
+```ini
 AI_MODEL=claude-haiku-4-5-20251001
 AI_GATEWAY_SLUG=blawby-ai
 ```
@@ -104,7 +104,7 @@ AI_GATEWAY_SLUG=blawby-ai
 
 After both fixes, wrangler logs confirm:
 
-```
+```text
 model: 'claude-haiku-4-5-20251001'
 emittedToken: true
 toolCallCount: 1
@@ -126,7 +126,7 @@ This is frequently misunderstood. Here is the actual sequence:
 
 2. **Frontend welcome message** — `useIntakeFlow.ts:374` posts a hardcoded template string to
    `/api/conversations/{id}/system-messages` in ~15ms. This is NOT an AI response:
-   ```
+   ```text
    "Thanks, [firstName]! I've got your contact info. Can you tell me a bit about your
    legal situation? Just describe what's going on in your own words..."
    ```
@@ -145,7 +145,7 @@ This is frequently misunderstood. Here is the actual sequence:
 
 The Elementor Site Planner is a good reference model. Full intended flow for our intake:
 
-```
+```text
 1. Claude asks required fields one at a time (short responses — 2 sentences max)
 2. All required fields done →
      IF payment required: Claude mentions the fee and triggers payment flow
@@ -187,7 +187,7 @@ branching logic in `buildIntakeSystemPrompt` should be audited and aligned with 
 ### 2. AI responses are too verbose
 
 **Fixed**: Added to `convRules` in `buildIntakeSystemPrompt`:
-```
+```text
 - Keep responses short: one sentence acknowledging what the client said, then one question. Never more than 2 sentences per turn.
 - Do not re-summarize what was just said. Do not list multiple things. One thought, one question.
 ```
@@ -198,7 +198,7 @@ guaranteed — if it regresses, consider a post-processing trim on the reply bef
 ### 3. Payment gate — when and how it fires
 
 **Fixed**: Added to `toolRules` in `buildIntakeSystemPrompt`:
-```
+```text
 - Do not offer to submit until payment is complete.
 ```
 
@@ -266,7 +266,7 @@ For a clean intake test, use a matter in **Alabama** so no jurisdiction friction
 
 ### Example test scenario
 
-```
+```text
 Name: Alex Carter
 Email: alex@example.com
 Phone: 205-555-0100
