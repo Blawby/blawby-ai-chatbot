@@ -1,32 +1,10 @@
 import type { Env } from '../types.js';
 
-/**
- * Shared chat-completion client for the Worker.
- *
- * Calls the Cloudflare **Workers AI** OpenAI-compatible REST endpoint:
- *
- *   https://api.cloudflare.com/client/v4/accounts/{account_id}/ai/v1/chat/completions
- *
- * Notes on what this endpoint accepts:
- *  - Models MUST be Workers AI model IDs (e.g. `@cf/zai-org/glm-4.7-flash`).
- *    Provider names (`gpt-4o`, `gpt-4o-mini`) and AI Gateway dynamic routes
- *    (`dynamic/blawby-chat-failover`) are NOT valid here and fail with
- *    Cloudflare error 2002.
- *  - Auth is `Authorization: Bearer ${CF_AIG_TOKEN}`. Despite the legacy
- *    `CF_AIG_` ("AI Gateway") prefix, this is a Cloudflare API token with
- *    Workers AI access — the Worker does not route through AI Gateway.
- *
- * This is the single routing abstraction for chat completions. It is separate
- * from direct `env.AI.run(...)` calls, which are used for embeddings
- * (`worker/services/SearchVectorService.ts`) and reranking
- * (`worker/routes/search.ts`) and intentionally bypass this client.
- */
-
 type Fetcher = typeof fetch;
 
 type WorkersAiClientEnv = Pick<
   Env,
-  'CLOUDFLARE_ACCOUNT_ID' | 'CF_AIG_TOKEN'
+  'CLOUDFLARE_ACCOUNT_ID' | 'CF_AIG_TOKEN' | 'AI_GATEWAY_SLUG'
 >;
 
 interface WorkersAiClientOptions {
@@ -50,12 +28,15 @@ const getWorkersAiBaseUrl = (env: WorkersAiClientEnv): string => {
   const missing = getMissingEnvVars([
     ['CLOUDFLARE_ACCOUNT_ID', env.CLOUDFLARE_ACCOUNT_ID]
   ]);
-
   if (missing.length > 0) {
     throw new Error(`Missing required environment variables: ${missing.join(', ')}`);
   }
-
   return `https://api.cloudflare.com/client/v4/accounts/${env.CLOUDFLARE_ACCOUNT_ID}/ai/v1`;
+};
+
+const getGatewayUrl = (env: WorkersAiClientEnv, provider: string, path: string): string => {
+  const slug = env.AI_GATEWAY_SLUG ?? 'blawby-ai';
+  return `https://gateway.ai.cloudflare.com/v1/${env.CLOUDFLARE_ACCOUNT_ID}/${slug}/${provider}${path}`;
 };
 
 export const createWorkersAiClient = (env: WorkersAiClientEnv, options: WorkersAiClientOptions = {}): WorkersAiClient => {
@@ -76,6 +57,35 @@ export const createWorkersAiClient = (env: WorkersAiClientEnv, options: WorkersA
       signal?: AbortSignal,
       requestOptions?: { headers?: Record<string, string> }
     ) => {
+      const model = typeof payload.model === 'string' ? payload.model : '';
+
+      if (model.startsWith('claude-')) {
+        return fetcher(getGatewayUrl(env, 'anthropic', '/v1/messages'), {
+          method: 'POST',
+          headers: {
+            ...(requestOptions?.headers ?? {}),
+            'Content-Type': 'application/json',
+            'cf-aig-authorization': `Bearer ${env.CF_AIG_TOKEN}`,
+            'anthropic-version': '2023-06-01',
+          },
+          body: JSON.stringify(payload),
+          signal,
+        });
+      }
+
+      if (!model.startsWith('@cf/')) {
+        return fetcher(getGatewayUrl(env, 'openai', '/chat/completions'), {
+          method: 'POST',
+          headers: {
+            ...(requestOptions?.headers ?? {}),
+            'Content-Type': 'application/json',
+            'cf-aig-authorization': `Bearer ${env.CF_AIG_TOKEN}`,
+          },
+          body: JSON.stringify(payload),
+          signal,
+        });
+      }
+
       return fetcher(chatCompletionsUrl, {
         method: 'POST',
         headers: {
@@ -95,8 +105,7 @@ export const resolveWorkersAiModel = (
   fallbackModel: string,
 ): string => {
   const configured = env.AI_MODEL?.trim();
-  if (!configured) return fallbackModel;
-  return configured.startsWith('@cf/') ? configured : fallbackModel;
+  return configured || fallbackModel;
 };
 
 export type { WorkersAiClient, WorkersAiClientEnv };

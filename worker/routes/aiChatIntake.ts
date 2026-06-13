@@ -7,7 +7,7 @@ import {
   isIntakeSubmittable as isSharedIntakeSubmittable,
 } from '../../src/shared/utils/consultationState';
 import type { ChatMessageAction } from '../../src/shared/types/conversation';
-import { createSubmitAction } from '../../src/shared/utils/chatActions';
+import { createSubmitAction, createBuildBriefAction } from '../../src/shared/utils/chatActions';
 import type { IntakeFieldDefinition, IntakeTemplate } from '../../src/shared/types/intake.js';
 import { STANDARD_FIELD_KEYS, STANDARD_FIELD_DEFINITIONS } from '../../src/shared/constants/intakeTemplates.js';
 import {
@@ -298,6 +298,21 @@ export function buildIntakeTools(fields: IntakeFieldDefinition[]) {
 /** Default tools using the default template. */
 export const INTAKE_TOOLS = buildIntakeTools(STANDARD_FIELD_DEFINITIONS);
 
+/**
+ * Converts OpenAI-format tool definitions to Anthropic format.
+ * OpenAI wraps tools in { type: 'function', function: { name, description, parameters } }.
+ * Anthropic uses { name, description, input_schema } at the top level.
+ */
+export function toAnthropicTools(
+  tools: ReadonlyArray<{ type: string; function: { name: string; description?: string; parameters: unknown } }>,
+): Array<{ name: string; description?: string; input_schema: unknown }> {
+  return tools.map((t) => ({
+    name: t.function.name,
+    ...(t.function.description ? { description: t.function.description } : {}),
+    input_schema: t.function.parameters,
+  }));
+}
+
 // ---------------------------------------------------------------------------
 // Tool result types
 // ---------------------------------------------------------------------------
@@ -396,7 +411,7 @@ export const handleSaveCaseDetails = (
   const consultationFee = templatePaymentConfigured
     ? submissionGate.templateConsultationFee
     : readFiniteNumberField(submissionGate.details, ['consultation_fee']);
-  const actions = deriveNextActions(merged, submissionGate, consultationFee, completenessScore);
+  const actions = deriveNextActions(merged, submissionGate, consultationFee);
   if (actions.length > 0) {
     patch.ctaShown = true;
   }
@@ -522,18 +537,23 @@ const deriveNextActions = (
   mergedState: Record<string, unknown> | null,
   submissionGate: IntakeSubmissionGate,
   consultationFee?: number | null,
-  completenessScore?: number,
 ): ChatMessageAction[] => {
   if (!mergedState) return [];
-
-  const score = completenessScore ?? 0;
-  if (score < COMPLETENESS_THRESHOLD_SHOW_CTA) return [];
+  if (!submissionGate.activeTemplate) return [];
+  if (!isIntakeCompleteForTemplate(submissionGate.activeTemplate, mergedState)) return [];
 
   const formattedFee = typeof consultationFee === 'number' && consultationFee > 0 ? formatCurrency(consultationFee / 100) : null;
   const payLabel = formattedFee ? `Pay ${formattedFee}` : 'Pay and submit';
   const needsPayment = submissionGate.paymentRequiredBeforeSubmit && !submissionGate.paymentCompleted;
 
-  return [createSubmitAction(needsPayment ? payLabel : 'Submit request')];
+  if (needsPayment) {
+    return [createSubmitAction(payLabel)];
+  }
+
+  return [
+    createSubmitAction('Submit request'),
+    createBuildBriefAction('Strengthen my brief'),
+  ];
 };
 
 // deriveFieldQuickReplies removed — not currently used. Reintroduce
@@ -571,137 +591,62 @@ export const buildIntakeSystemPrompt = (
   practiceContext: Record<string, unknown> | null,
   storedIntakeState: Record<string, unknown> | null,
   userName?: string | null,
-  /** Next uncollected field across ALL phases (required + enrichment combined), or null when all done */
   nextField?: IntakeFieldDefinition | null,
-  /** 0–100 completeness score computed by the worker from field weights */
   completenessScore?: number,
-  /** Full list of template fields to map keys to labels */
   templateFields?: IntakeFieldDefinition[],
+  requiredComplete?: boolean,
 ): string => {
-  const score = completenessScore ?? 0;
-  const cappedServices = services.slice(0, MAX_SERVICES_IN_CONVERSATION_PROMPT);
-  const serviceList = cappedServices.length > 0
-    ? cappedServices.map((s) => `- ${s.name} (practice_service_uuid: ${s.uuid})`).join('\n')
-    : '- General legal matters';
-
   const practiceName = typeof practiceContext?.practiceName === 'string'
     ? practiceContext.practiceName.trim()
     : 'this law firm';
-  const intakeContext = buildIntakeContextSummary(storedIntakeState, services, templateFields);
   const firstName = userName ? getFirstName(userName) : null;
-  const userSalutationSnippet = firstName ? `The client's first name is ${firstName}. ` : '';
-  const userNamingInstruction = firstName ? ` Address them as ${firstName}.` : '';
+  const clientName = firstName ?? 'the client';
 
-  const licensedJurisdictions = typeof practiceContext?.licensedJurisdictions === 'string' && practiceContext.licensedJurisdictions.trim()
-    ? practiceContext.licensedJurisdictions.trim()
-    : '';
-  const licensedStatesSnippet = licensedJurisdictions
-    ? `\nThis firm is licensed in: ${licensedJurisdictions}.`
-    : '';
+  const isSynthesisReady = requiredComplete === true && nextField == null;
 
-  // --- Determine conversation phase ---
-  const isSynthesisReady = !nextField && score >= COMPLETENESS_THRESHOLD_SUGGEST_SUBMIT;
+  if (isSynthesisReady) {
+    const contextBlock = buildIntakeContextSummary(storedIntakeState, services, templateFields);
+    return `You are collecting intake information for ${practiceName}.
 
-  // --- Priority field instruction block ---
-  const fieldBlock = (() => {
-    if (isSynthesisReady) {
-      return buildSynthesisPrompt(intakeContext, userNamingInstruction);
-    }
+${clientName}'s required information is complete.${contextBlock ? `\n\nCollected:\n${contextBlock}` : ''}
 
-    if (!nextField) {
-      // All fields collected but below the synthesis score — invite free-form addition
-      return `You have gathered the essential information for this intake.${userNamingInstruction}
+Write a warm 2-3 sentence summary of what ${clientName} shared. End with: "Ready to submit, or would you like to add anything first?"
 
-In one or two sentences, let the client know their case is ready to submit whenever they are. Invite them to add anything else that feels important — a deadline, a document, an important detail — before it goes over. Keep it light; don't list options.
+If they say yes/ready → call submit_intake.
+If they share more info → call save_case_details, then ask the closing question again.
+No legal advice. No new questions.`.trim();
+  }
 
-If they confirm or say nothing to add → call submit_intake.
-If they add something new → call save_case_details and acknowledge it warmly.`;
-    }
+  if (nextField) {
+    const allRequired = (templateFields ?? []).filter((f) => f.required || f.phase === 'required');
+    const uncollected = allRequired.filter((f) => !isFieldCollected(f, (storedIntakeState ?? {}) as Record<string, unknown>));
+    const queue = uncollected.slice(0, 3);
+    if (queue.length === 0) queue.push(nextField);
 
-    const typeHint = getFieldValueTypeInstruction(nextField);
+    const questionLines = queue.map((f, i) => {
+      const q = f.previewQuestion?.trim() ?? f.promptHint?.trim() ?? `What is your ${f.label.toLowerCase()}?`;
+      return `${i + 1}. ${q}`;
+    }).join('\n');
 
-    const hint = nextField.promptHint
-      ?? `Ask about "${nextField.label}" naturally in one sentence.`;
+    const contextBlock = buildIntakeContextSummary(storedIntakeState, services, templateFields);
+    const collectedBlock = contextBlock ? `\nCollected so far:\n${contextBlock}\n` : '';
 
-    return `Your goals this turn:
-1. Read the client's full message. Extract and save EVERY structured detail they volunteer — even fields you haven't asked about yet — using save_case_details. Do this before asking anything.
-2. Then ask the ONE priority question below. Use the guidance to phrase it naturally. Ask only one question per turn.
-3. If their answer is unclear or invalid, ask exactly ONE clarifying follow-up.
+    return `You are collecting intake information for ${practiceName}.
+${collectedBlock}
+Every response must have two parts — always, no exceptions:
+Part 1 (text): One warm sentence using "you/your" — something like "That sounds really stressful" or "I'm sorry you're going through this". No legal language (never say "illegal", "rights", "violation", "claim", "liable"). No "thank you", no "perfect". Then ask the first question from the list below that their message hasn't already answered. If all questions are already answered, write: "I'm sorry you're dealing with this — ready to submit, or would you like to add anything first?"
+Part 2 (tool): Call save_case_details with everything ${clientName} shared.
 
-Priority question this turn:
-  Field: ${nextField.label} (key: ${nextField.key})${typeHint ? `\n  ${typeHint}` : ''}
-  How to ask: ${hint}${userNamingInstruction ? `\n  ${userNamingInstruction.trim()}` : ''}`;
-  })();
+Questions (ask the first unanswered one):
+${questionLines}
 
-  // --- Tool usage rules ---
-  const toolRules = `Tool usage rules:
-- Call save_case_details immediately whenever the client provides any structured information — on every turn, not just when asked. Include every field they mentioned.
-- Call request_payment when all required case details are gathered AND the practice requires payment.
-- Call submit_intake only when the client explicitly says they are ready to submit.
-- Use ask_user_question for fixed-choice questions (yes/no, state selection, option lists).
-- Never call a tool without also writing a conversational response.`;
+No analysis, no legal opinions, no other questions beyond this list.`.trim();
+  }
 
-  // --- Conversation rules ---
-  const convRules = `Conversation rules:
-- Be warm and human — like a knowledgeable friend, not a form
-- Never give legal advice
-- Never ask for contact info (name, email, phone) — already collected
-- Never output raw JSON, field keys, or tool names in your reply text
-- Extract multiple fields from a single answer whenever possible — do not ask separately for things the client already said${licensedJurisdictions ? `\n- Licensed jurisdiction guidance: If the matter involves a location outside (${licensedJurisdictions}), acknowledge warmly without hard rejection — frame as a fit question for the attorney.` : ''}`;
-
-  const consultationFeeNote = `- If a consultation fee is required: Mention the fee softly as the next step. Max 2 sentences.
-- If no fee is required: Let the client know they can submit whenever ready.`;
-
-  const contextBlock = intakeContext
-    ? `What has been collected so far:\n${intakeContext}`
-    : '';
-
-  return `${userSalutationSnippet}You are a warm, helpful legal intake assistant for ${practiceName}.${licensedStatesSnippet}
-
-This firm handles the following practice areas:
-${serviceList}
-
-${fieldBlock}
-
-${toolRules}
-
-${convRules}
-
-${consultationFeeNote}
-${contextBlock ? `\n${contextBlock}` : ''}`.trim();
+  return `You are collecting intake information for ${practiceName}. Tell ${clientName} their information looks complete — one sentence. Call submit_intake if they confirm.`;
 };
 
 
-/**
- * Builds the synthesis prompt — fired when the completeness score reaches
- * COMPLETENESS_THRESHOLD_SUGGEST_SUBMIT and all fields are collected.
- *
- * The AI synthesizes what it heard into a natural paragraph, surfaces anything
- * inferable from the description, and asks one open question before submitting.
- * This is the highest-yield moment for catching errors and capturing extra facts.
- */
-function buildSynthesisPrompt(intakeContext: string, userNamingInstruction: string): string {
-  const contextSection = intakeContext
-    ? `Here is what has been collected — use this to write your synthesis:\n${intakeContext}`
-    : '';
-
-  return `You have gathered a thorough picture of this client's situation.${userNamingInstruction}
-
-Your job this turn is to:
-1. Write a warm, natural 2–4 sentence summary of what you've heard — NOT a bullet list. Write it the way a knowledgeable friend would recap the conversation. Cover what the matter is about, where they are, who is involved, the urgency, and what they're hoping for. Plain English only — no field labels, no legal jargon.
-2. End with one open question: "Does that capture your situation? Anything important I missed, or anything you'd like to add before we send this over?"
-
-If the client confirms → call submit_intake immediately.
-If the client corrects something → call save_case_details, acknowledge the correction in one sentence, present the updated summary, and ask for confirmation again.
-If the client volunteers new details → call save_case_details, incorporate them, re-summarize, and confirm.
-
-Rules:
-- Under 80 words for the summary
-- One closing question only — do not list choices or ask multiple things
-- Sound like you genuinely understood them, not like you are reading from a form
-
-${contextSection}`.trim();
-}
 
 function buildIntakeContextSummary(
   state: Record<string, unknown> | null,
@@ -977,13 +922,27 @@ const buildCompactPracticeContextForPrompt = (
     compact.services = normalizeServicesForPrompt(normalized);
   }
 
-  const rawServiceStates = normalized.service_states;
-  if (Array.isArray(rawServiceStates)) {
-    const states = rawServiceStates
-      .filter((state): state is string => typeof state === 'string' && state.trim().length > 0)
-      .map((state) => state.trim().toUpperCase());
-    if (states.length > 0) {
-      compact.licensedJurisdictions = `${states.join(', ')} (US)`;
+  const rawSupportedStates = normalized.supported_states;
+  if (Array.isArray(rawSupportedStates)) {
+    const parts: string[] = [];
+    for (const entry of rawSupportedStates) {
+      if (typeof entry !== 'object' || entry === null) continue;
+      const country = typeof (entry as Record<string, unknown>).country === 'string'
+        ? ((entry as Record<string, unknown>).country as string).trim().toUpperCase()
+        : null;
+      if (!country) continue;
+      const states = (entry as Record<string, unknown>).states;
+      if (Array.isArray(states) && states.length > 0) {
+        const codes = states
+          .filter((s): s is string => typeof s === 'string' && s.trim().length > 0)
+          .map((s) => s.trim().toUpperCase());
+        if (codes.length > 0) parts.push(`${codes.join(', ')} (${country})`);
+      } else {
+        parts.push(country);
+      }
+    }
+    if (parts.length > 0) {
+      compact.licensedJurisdictions = parts.join('; ');
     }
   }
 

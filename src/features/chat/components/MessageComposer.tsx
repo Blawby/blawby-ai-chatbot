@@ -447,9 +447,11 @@ const MessageComposer = ({
               </>
             }
             hint={
-              <span>
-                <kbd>Enter</kbd> send · <kbd>Shift</kbd> <kbd>Enter</kbd> newline · Blawby never writes to your records without your approval.
-              </span>
+              isPublicWorkspace ? undefined : (
+                <span>
+                  <kbd>Enter</kbd> send · <kbd>Shift</kbd> <kbd>Enter</kbd> newline · Blawby never writes to your records without your approval.
+                </span>
+              )
             }
           />
         </div>

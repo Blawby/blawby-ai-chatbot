@@ -15,7 +15,6 @@ type IntakePreviewDialogProps = {
   practiceSlug?: string | null;
   practiceName?: string | null;
   practiceLogo?: string | null;
-  practiceAccentColor?: string;
   currencyCode?: string;
   onConfirm: () => Promise<void> | void;
   onCancel: () => void;
@@ -28,7 +27,6 @@ export const IntakePreviewDialog = ({
   practiceSlug,
   practiceName,
   practiceLogo,
-  practiceAccentColor,
   currencyCode = 'USD',
   onConfirm,
   onCancel,
@@ -49,7 +47,6 @@ export const IntakePreviewDialog = ({
   const previewConfig: WidgetPreviewConfig = {
     name: practiceName ?? undefined,
     profileImage: practiceLogo ?? null,
-    accentColor: practiceAccentColor,
     introMessage: template.introMessage ?? null,
     legalDisclaimer: template.legalDisclaimer ?? null,
     consultationFee: isMinorAmount(template.consultationFee)

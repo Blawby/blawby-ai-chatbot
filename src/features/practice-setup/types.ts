@@ -6,7 +6,6 @@ import type { SetupFieldsPayload } from '@/shared/types/conversation';
 export interface BasicsFormValues {
   name: string;
   slug: string;
-  accentColor: string;
 }
 
 export interface ContactFormValues {

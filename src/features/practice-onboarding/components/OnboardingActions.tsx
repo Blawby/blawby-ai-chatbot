@@ -16,7 +16,6 @@ export interface OnboardingActionsProps {
   onSaveBasics?: (values: {
     name: string;
     slug: string;
-    accentColor: string;
   }) => Promise<void>;
   onSaveContact?: (values: {
     website: string;

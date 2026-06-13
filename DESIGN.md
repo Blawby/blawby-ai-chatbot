@@ -92,7 +92,7 @@ components:
 
 Blawby is a multi-tenant legal-practice tool whose surfaces should read like a competent associate's prepared workspace: information laid out where the lawyer reaches for it, no chrome performing seriousness on the page's behalf. The reference is **Stripe Dashboard** — light-first by default, information-dense without being cramped, comfortable with tables, money, and numbers, slightly editorial in type voice. Trustworthy more than cool. The surface does its job and disappears.
 
-Color is the most unusual constraint in this system. The accent ramp is **dynamic per practice**: each firm picks its own brand color, and the UI re-themes at runtime. That means **visual identity cannot lean on the accent hue.** Identity comes from layout, type, surface restraint, and rhythm. The accent is signal, not voice.
+Color is the most unusual constraint in this system. The accent is fixed product gold and never runtime-themed. That means **visual identity cannot lean on the accent hue.** Identity comes from layout, type, surface restraint, and rhythm. The accent is signal, not voice.
 
 This system explicitly rejects four aesthetics, in order of risk:
 
@@ -104,22 +104,22 @@ This system explicitly rejects four aesthetics, in order of risk:
 **Key Characteristics:**
 
 - **Light-default, dark-equal.** Both themes are first-class; neither is "the look." The default surface is near-white slate, the dark variant is a deep blue-black with measured contrast lift.
-- **Tinted-neutral palette.** Surfaces are slate-warm whites and blue-blacks; the accent is a single per-practice hue used at <15% of any screen.
+- **Tinted-neutral palette.** Surfaces are slate-warm whites and blue-blacks; the accent is fixed product gold used at <15% of any screen.
 - **Flat by default.** Shadows are structural (lifting overlays above surface), not decorative.
 - **Rounded but not soft.** 12–16px on containers, full pill on interactive controls. Sharp enough to feel tool-like, soft enough to feel composed.
 - **Typography does the work.** Outfit display, Inter body. Hierarchy comes from weight contrast and size ratio, not from color or chrome.
-- **Multi-tenant aware.** Every color choice is tested against the eight preset accents and arbitrary hex — the system must look right whether the practice picked gold, blue, green, or magenta.
+- **Fixed accent discipline.** Color choices assume a single product accent (gold) and preserve hierarchy with neutral surfaces first; accent usage remains sparse and functional.
 
 ## 2. Colors
 
-A two-layer palette: a fixed neutral structure that defines the room, plus a single tenant-controlled accent that defines the practice. The two layers are independent on purpose.
+A fixed neutral structure defines the room, with a single gold accent used sparingly across the product.
 
 ### Primary
 
-The accent is **per-practice, runtime-themed** via `src/shared/utils/accentColors.ts`. Eight named presets ship out of the box (grey, gold, blue, green, yellow, pink, orange, purple), and practices can supply arbitrary hex — the system auto-derives an 11-step ramp (50–950) by mixing the base hex toward white (lighter shades) and black (darker shades). Text-on-accent foreground is computed at runtime against WCAG contrast.
+The accent is fixed gold. It is not tenant-configurable and should not be runtime-themed.
 
-- **Practice Accent** (`var(--accent-500)` — runtime per tenant): Primary CTAs, focus rings, link text, active nav indicator, hover-state fills at 8–28% alpha. Used on **≤15% of any given screen.** The accent is a stamp, not a backdrop.
-- **Default Accent: Gold** (#D4AF37): What unconfigured practices and unauthenticated surfaces see. **This default is on the anti-reference list** (see Don'ts). Treated as legacy.
+- **Product Accent** (`var(--accent)`): Primary CTAs, focus rings, link text, active nav indicator, hover-state fills at 8–28% alpha. Used on **≤15% of any given screen.** The accent is a stamp, not a backdrop.
+- **Accent Color: Gold** (`#D4AF37`): The single approved accent across all surfaces.
 
 ### Neutral
 
@@ -205,7 +205,7 @@ Implemented in `src/index.css` as a single component class system (`.btn` + vari
 
 - **Shape:** Pill (`rounded-full`, `border-radius: 9999px`). Pill form is the system's signature.
 - **Size scale:** `btn-xs` (px-2.5, py-1, 12px text) · `btn-sm` (px-3, py-1.5, 12px) · `btn-md` (px-4, py-2, 14px, default) · `btn-lg` (px-6, py-3, 16px). Icon-only variants take square boxes at the equivalent heights.
-- **Primary** (`btn-primary`): solid accent background, contrast-aware foreground (light or dark text chosen at runtime per accent), 200ms transition on hover. **Currently ships with an accent-glow box-shadow (`0 4px 14px rgb(var(--accent-500) / 0.18)`) — flag for removal**; the Flat-By-Default and No-Glow rules apply.
+- **Primary** (`btn-primary`): solid accent background, contrast-aware foreground for the fixed product accent, 200ms transition on hover. **Currently ships with an accent-glow box-shadow (`0 4px 14px rgb(var(--accent-500) / 0.18)`) — flag for removal**; the Flat-By-Default and No-Glow rules apply.
 - **Secondary** (`btn-secondary`): `surface-elevated` background, `border-default` border, primary text. The workhorse of "this is a button but not the action."
 - **Ghost** (`btn-ghost` / `btn-icon`): transparent at rest, `surface-card-hover` background on hover. For toolbar-density situations where chrome would crowd.
 - **Outline** (`btn-outline`): transparent + `border-default`. Stronger than ghost, quieter than secondary.
@@ -276,12 +276,12 @@ Concrete guardrails. The Don'ts here directly mirror PRODUCT.md's anti-reference
 
 ### Do:
 
-- **Do** treat the accent as the practice's signature, not the product's. Use it on ≤15% of any rendered screen.
+- **Do** treat the accent as the product's fixed signature and use it on ≤15% of any rendered screen.
 - **Do** earn elevation. Cards sit flat at rest; shadows appear on hover for interactive cards and on overlays only.
 - **Do** layer depth tonally. Use the six-step dark-mode surface ladder (`surface-app` → `surface-sidebar` → `surface-header` → `surface-page` → `surface-section` → `surface-card`) before reaching for a shadow.
 - **Do** lead pages with a single headline in Inter 600. Save Outfit for the marketing surfaces and the rare hero moment.
 - **Do** use `rounded-2xl` for cards, `rounded-xl` for inputs, `rounded-full` for actions. The radii encode role; mixing them confuses scanability.
-- **Do** verify every screen renders correctly under all eight preset accents and at least one arbitrary hex. If a layout breaks when the accent changes, the layout was wrong.
+- **Do** verify every screen preserves hierarchy and contrast with the fixed gold accent at low usage; if a layout only works by increasing accent coverage, the layout is wrong.
 - **Do** keep status colors as the only non-accent meaningful colors. Reserve them for state (info, success, warning, error) and never use them decoratively.
 - **Do** honor `prefers-reduced-motion`. Existing animations already gate on it; new motion must too.
 - **Do** translate-test copy. With 13+ locales, no English string should rely on word order, length, or unique grammar.
@@ -297,8 +297,8 @@ Concrete guardrails. The Don'ts here directly mirror PRODUCT.md's anti-reference
 - **Don't** put Outfit inside the product shell except for a single page-title moment. No Outfit in tables, cards, dialogs, or forms.
 - **Don't** use border-left or border-right greater than 1px as a colored accent stripe. The nav-active indicator uses an inset shadow specifically to avoid this pattern.
 - **Don't** use gradient text (`background-clip: text`). Emphasis comes from weight or size.
-- **Don't** rely on the accent for visual identity at the page level. The accent could be any hue from gold to magenta to grey — the page must compose well without it.
-- **Don't** ship "gold scales of justice" or any stuffy law-firm motifs. (PRODUCT.md anti-ref: *Stuffy law-firm aesthetic*.) **The current gold default conflicts with this and should be revisited:** either change the default to a neutral or to a hue that aligns with the "Stripe of Law" register.
+- **Don't** rely on the accent for visual identity at the page level. The page must compose well on neutrals first, with gold used only as sparse functional signal.
+- **Don't** ship "gold scales of justice" or any stuffy law-firm motifs. (PRODUCT.md anti-ref: *Stuffy law-firm aesthetic*.)
 - **Don't** ship Clio/MyCase chrome: dense toolbars, inline-tooltip clutter, navy+cream container backgrounds. (PRODUCT.md anti-ref: *Legacy legal SaaS*.)
 - **Don't** ship the AI-demo "Ask me anything" hero on any product surface. The chat is a working tool; treat it as such. (PRODUCT.md anti-ref: *Generic AI tool template*.)
 - **Don't** modal-first. Inline editing, side panels, and progressive disclosure beat modal dialogs for almost every flow inside the product shell.

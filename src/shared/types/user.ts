@@ -78,7 +78,6 @@ export interface UserProfile {
   
   // App Preferences
   theme?: string;
-  accentColor?: string;
   fontSize?: string;
   language?: string;
   spokenLanguage?: string;
@@ -257,7 +256,6 @@ export interface BetterAuthSessionUser {
   addressCountry?: string | null;
   preferredContactMethod?: string | null;
   theme?: string;
-  accentColor?: string;
   fontSize?: string;
   language?: string;
   spokenLanguage?: string;

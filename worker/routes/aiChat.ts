@@ -15,7 +15,7 @@ import {
   type PartialCollectedFields,
   type PartialSlimContactInput,
 } from '../services/PartialIntakeSubmissionService.js';
-import { createWorkersAiClient } from '../utils/workersAiClient.js';
+import { createWorkersAiClient, resolveWorkersAiModel } from '../utils/workersAiClient.js';
 import { fetchPracticeDetailsWithCache } from '../utils/practiceDetailsCache.js';
 import { Logger } from '../utils/logger.js';
 import { resolveConsultationState } from '../../src/shared/utils/consultationState';
@@ -34,6 +34,7 @@ import {
   HARD_ERROR_MESSAGE,
   createSseResponse,
   consumeAiStream,
+  consumeAnthropicStream,
   normalizeKeys,
   createAiDebugError,
   isRecord,
@@ -47,7 +48,7 @@ import {
   INTAKE_TOOLS,
   buildIntakeTools,
   buildIntakeSystemPrompt,
-  deriveCaseSavedAcknowledgment,
+  toAnthropicTools,
   mergeIntakeState,
   normalizeServicesForPrompt,
   shouldRequireDisclaimer,
@@ -55,6 +56,7 @@ import {
   executeIntakeTool,
   resolveNextField,
   computeCompletenessScore,
+  isIntakeCompleteForTemplate,
   type IntakeSubmissionGate,
   type ToolResult,
 } from './aiChatIntake.js';
@@ -777,7 +779,8 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
 
   const aiPromptContext = buildCompactPracticeContextForPrompt(details);
   const aiClient = createWorkersAiClient(env);
-  const model = DEFAULT_AI_MODEL;
+  const model = resolveWorkersAiModel(env, DEFAULT_AI_MODEL);
+  const isAnthropicModel = model.startsWith('claude-');
 
   const servicesForPrompt = normalizeServicesForPrompt(details);
   const onboardingPromptProfile = isOnboardingMode
@@ -837,6 +840,9 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
   // tell the AI how close the intake is to complete.
   const completenessScore = computeCompletenessScore(activeTemplate, flatState);
 
+  // True when all required fields are collected — shifts AI into summary+choice mode.
+  const requiredComplete = isIntakeCompleteForTemplate(activeTemplate, flatState);
+
   // Submission gate uses the orchestration layer when a template is active
   const templateRequiredFields = templateFields.length > 0
     ? templateFields.filter((f) => f.required || f.phase === 'required')
@@ -868,30 +874,43 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
   let systemPrompt: string;
 
   if (isIntakeMode) {
-    // Adaptive prompt — the AI knows the next field and the completeness score
-    systemPrompt = [
-      buildIntakeSystemPrompt(
-        servicesForPrompt,
-        aiPromptContext,
-        storedIntakeState,
-        userName,
-        nextField,
-        completenessScore,
-        templateFields,
-      ),
-      `PRACTICE_CONTEXT: ${JSON.stringify(aiPromptContext)}`,
-      body.additionalContext ? `SEARCH_CONTEXT: ${body.additionalContext}` : null,
-    ].filter(Boolean).join('\n\n');
+    // Adaptive prompt — the AI knows the next field and the completeness score.
+    // Only pass the practice name into the context: contact info, fees, services,
+    // and jurisdiction are intentionally excluded so the AI doesn't hallucinate
+    // them into responses. Submission and payment are handled by tools, not text.
+    const intakePracticeContext = aiPromptContext
+      ? { practiceName: aiPromptContext['practiceName'] ?? null }
+      : null;
+    systemPrompt = buildIntakeSystemPrompt(
+      servicesForPrompt,
+      intakePracticeContext,
+      storedIntakeState,
+      userName,
+      nextField,
+      completenessScore,
+      templateFields,
+      requiredComplete,
+    );
 
-    requestPayload.messages = [
-      { role: 'system', content: systemPrompt },
-      ...body.messages.map((m) => ({ role: m.role, content: m.content })),
-    ];
-    requestPayload.tools = templateFields.length > 0
+    const intakeTools = templateFields.length > 0
       ? buildIntakeTools(templateFields)
       : INTAKE_TOOLS;
-    requestPayload.parallel_tool_calls = false;
-    requestPayload.temperature = 0.5;
+
+    if (isAnthropicModel) {
+      requestPayload.system = systemPrompt;
+      requestPayload.messages = body.messages.map((m) => ({ role: m.role, content: m.content }));
+      requestPayload.tools = toAnthropicTools(intakeTools as Parameters<typeof toAnthropicTools>[0]);
+      requestPayload.max_tokens = 8192;
+      requestPayload.temperature = 0.5;
+    } else {
+      requestPayload.messages = [
+        { role: 'system', content: systemPrompt },
+        ...body.messages.map((m) => ({ role: m.role, content: m.content })),
+      ];
+      requestPayload.tools = intakeTools;
+      requestPayload.parallel_tool_calls = false;
+      requestPayload.temperature = 0.5;
+    }
   } else if (!isIntakeMode) {
     const nonIntakeSystemPrompt = isOnboardingMode
       ? buildOnboardingSystemPrompt(onboardingPromptProfile)
@@ -906,27 +925,39 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
     systemPrompt = [
       nonIntakeSystemPrompt,
       `PRACTICE_CONTEXT: ${JSON.stringify(aiPromptContext)}`,
+      ...(body.additionalContext
+        ? [`SEARCH_CONTEXT: ${body.additionalContext}`]
+        : []),
     ].join('\n\n');
 
-    requestPayload.messages = [
-      { role: 'system', content: systemPrompt },
-      ...(body.additionalContext
-        ? [{ role: 'system' as const, content: `SEARCH_CONTEXT: ${body.additionalContext}` }]
-        : []),
-      ...body.messages.map((message) => ({ role: message.role, content: message.content })),
-    ];
+    if (isAnthropicModel) {
+      requestPayload.system = systemPrompt;
+      requestPayload.messages = body.messages.map((message) => ({ role: message.role, content: message.content }));
+      requestPayload.max_tokens = 4096;
+    } else {
+      requestPayload.messages = [
+        { role: 'system', content: systemPrompt },
+        ...body.messages.map((message) => ({ role: message.role, content: message.content })),
+      ];
+    }
   } else {
     // This should not happen, but TypeScript needs it
     systemPrompt = 'You are an assistant.';
   }
 
   if (isOnboardingMode) {
-    requestPayload.tools = [ONBOARDING_TOOL];
-    requestPayload.tool_choice = {
-      type: 'function',
-      function: { name: 'update_practice_fields' },
-    };
-    requestPayload.parallel_tool_calls = false;
+    if (isAnthropicModel) {
+      requestPayload.tools = toAnthropicTools([ONBOARDING_TOOL] as Parameters<typeof toAnthropicTools>[0]);
+      requestPayload.tool_choice = { type: 'tool', name: 'update_practice_fields' };
+      requestPayload.max_tokens = requestPayload.max_tokens ?? 4096;
+    } else {
+      requestPayload.tools = [ONBOARDING_TOOL];
+      requestPayload.tool_choice = {
+        type: 'function',
+        function: { name: 'update_practice_fields' },
+      };
+      requestPayload.parallel_tool_calls = false;
+    }
   }
 
   const { response: sseResponse, write, close } = createSseResponse();
@@ -1108,7 +1139,7 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
       if (isIntakeMode || isOnboardingMode) {
         const toolNames = Array.isArray(requestPayload.tools)
           ? requestPayload.tools
-              .map((tool) => (tool as { function?: { name?: string } }).function?.name ?? null)
+              .map((tool) => { const t = tool as { name?: string; function?: { name?: string } }; return t.name ?? t.function?.name ?? null; })
               .filter((name): name is string => Boolean(name))
           : [];
         Logger.info('AI tool request summary', {
@@ -1280,13 +1311,13 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
       const aigStep = aiResponse.headers.get('cf-aig-step');
 
       // Stream tokens live to the user — intake mode now streams directly
-      const streamResult = await consumeAiStream(
-        aiResponse, 
-        true, 
-        streamWrite, 
+      const streamResult = await (isAnthropicModel ? consumeAnthropicStream : consumeAiStream)(
+        aiResponse,
+        true,
+        streamWrite,
         body.conversationId,
         requestId,
-        sendSseDebug
+        sendSseDebug,
       );
       const conversationTotalResponseMs = Date.now() - conversationRequestStartedAt;
       const latencyMs = Date.now() - startedAt;
@@ -1304,6 +1335,28 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
         conversationTTFTMs,
         conversationTotalResponseMs,
       });
+
+      if (streamResult.diagnostics.failClosedReason) {
+        Logger.warn('AI stream closed by safety guard', {
+          conversationId: body.conversationId,
+          model,
+          failClosedReason: streamResult.diagnostics.failClosedReason,
+          diagnostics: streamResult.diagnostics,
+        });
+
+        if (isIntakeMode) {
+          await handleAiFailure(streamResult.diagnostics.failClosedReason);
+          return;
+        }
+
+        write({
+          error: true,
+          code: 'ai_stream_fail_closed',
+          message: 'AI response blocked by safety guard',
+          failureReason: streamResult.diagnostics.failClosedReason,
+        });
+        return;
+      }
 
       accumulatedReply = streamResult.reply;
       emittedAnyToken = streamResult.emittedToken;
@@ -1436,67 +1489,42 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
         ? mergeIntakeState(storedIntakeState, patchToMerge)
         : null;
 
+      // Worker-side guardrails — run after every intake tool turn.
+      if (isIntakeMode && mergedIntakeState) {
+        const allRequiredDone = isIntakeCompleteForTemplate(activeTemplate, mergedIntakeState);
+
+        if (!allRequiredDone) {
+          // AI acknowledged but forgot to ask the next question — append it.
+          if (!accumulatedReply.includes('?')) {
+            const nextRequired = resolveNextField(activeTemplate, mergedIntakeState, 'required');
+            if (nextRequired) {
+              const q = nextRequired.previewQuestion?.trim()
+                ?? `What is your ${nextRequired.label.toLowerCase()}?`;
+              const suffix = accumulatedReply.trim() ? ' ' + q : q;
+              accumulatedReply += suffix;
+              write({ token: suffix });
+              emittedAnyToken = true;
+            }
+          }
+        } else if (!accumulatedReply.trim()) {
+          // All required fields just collected but AI returned no text (tool-only).
+          // Inject a brief closing line so the conversation doesn't go silent.
+          const closing = "Got it — I have everything I need. Feel free to submit whenever you're ready.";
+          accumulatedReply = closing;
+          write({ token: closing });
+          emittedAnyToken = true;
+        }
+      }
+
       const shouldPromptConsultation =
         !hasSlimContactDraft &&
         (shouldRequireDisclaimer(body.messages) || CONSULTATION_CTA_REGEX.test(accumulatedReply));
       const includeActionsInMetadata = Boolean(actions && actions.length > 0);
-      
-      // Detect tool-only behavior and normalize successful intake tool turns.
+
       const wasToolOnly = accumulatedReply.trim().length === 0 && streamResult.toolCalls.length > 0;
-      const shouldUseToolReply = isIntakeMode && finalToolResult?.success === true;
-      const normalizationReasons: string[] = [];
-      let syntheticReply = '';
-
-      if (wasToolOnly) {
-        normalizationReasons.push('tool_only_completion');
-      }
-
-      if (shouldUseToolReply) {
-        if (!wasToolOnly && accumulatedReply.trim()) {
-          normalizationReasons.push('tool_completion_replaced_model_text');
-        }
-        if (isIntakeMode && lastQuestionResult?.success && typeof lastQuestionResult.message === 'string' && lastQuestionResult.message.trim()) {
-          syntheticReply = lastQuestionResult.message.trim();
-        } else if (isIntakeMode && finalToolResult?.success && patchToMerge) {
-          const consultationFee = templatePaymentConfig.hasConfig
-            ? templatePaymentConfig.consultationFee
-            : readFiniteNumberField(details, ['consultation_fee']);
-          // Recompute nextField and score from POST-merge state so the synthetic
-          // reply doesn't re-ask the field that save_case_details just answered.
-          const mergedState = mergedIntakeState as Record<string, unknown> | null;
-          const nextFieldAfterPatch = mergedState
-            ? (resolveNextField(activeTemplate, mergedState, 'required') ?? resolveNextField(activeTemplate, mergedState, 'enrichment'))
-            : null;
-          const scoreAfterPatch = mergedState
-            ? computeCompletenessScore(activeTemplate, mergedState)
-            : 0;
-          syntheticReply = deriveCaseSavedAcknowledgment(
-            finalToolResult,
-            intakeSubmissionGate,
-            mergedIntakeState,
-            servicesForPrompt,
-            consultationFee,
-            userName,
-            nextFieldAfterPatch,
-            scoreAfterPatch,
-          );
-          if (!syntheticReply && typeof finalToolResult.message === 'string' && finalToolResult.message.trim()) {
-            syntheticReply = finalToolResult.message.trim();
-          }
-        } else if (typeof finalToolResult.message === 'string' && finalToolResult.message.trim()) {
-          syntheticReply = finalToolResult.message.trim();
-        }
-      }
-      
-      sendSseDebug('debug_normalization', {
-        requestId,
-        reasons: normalizationReasons,
-        syntheticReply: syntheticReply || accumulatedReply,
-        wasToolOnly,
-      });
 
       // Store message BEFORE emitting done — client acts on fields immediately
-      const finalReply = syntheticReply || accumulatedReply;
+      const finalReply = accumulatedReply;
       let persistedMessageId: string | null = null;
       let messagePersisted = false;
       
@@ -1519,7 +1547,7 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
             ...(shouldPromptConsultation
               ? { modeSelector: { showAskQuestion: false, showRequestConsultation: true, source: 'ai' } }
               : {}),
-            ...(wasToolOnly || normalizationReasons.length > 0 ? { wasToolOnly, normalizationReasons } : {}),
+            ...(wasToolOnly ? { wasToolOnly } : {}),
           },
           recipientUserId: authContext.user.id,
           skipPracticeValidation: shouldSkipPracticeValidation,
@@ -1532,7 +1560,7 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
           conversationId: body.conversationId,
           messageId: storedMessage.id,
           role: 'assistant',
-          kind: syntheticReply ? 'synthetic' : 'original',
+          kind: 'original',
           wasToolOnly,
         });
 
@@ -1620,7 +1648,7 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
           systemPromptLength: systemPrompt.length,
           toolNames: Array.isArray(requestPayload.tools)
             ? requestPayload.tools
-                .map((tool) => (tool as { function?: { name?: string } }).function?.name ?? null)
+                .map((tool) => { const t = tool as { name?: string; function?: { name?: string } }; return t.name ?? t.function?.name ?? null; })
                 .filter((name): name is string => Boolean(name))
             : [],
           messageCount: body.messages.length,
@@ -1629,7 +1657,6 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
         const turnModelResponse: Record<string, unknown> = {
           reply: finalReply,
           accumulatedReply,
-          syntheticReply,
           emittedAnyToken,
           streamStalled: streamResult.streamStalled,
           replyLength: streamResult.reply.length,

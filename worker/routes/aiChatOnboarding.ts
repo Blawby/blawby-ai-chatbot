@@ -36,7 +36,6 @@ const ONBOARDING_TOOL = {
           },
           maxItems: 20,
         },
-        accentColor: { type: 'string' },
         completionScore: { type: 'number', minimum: 0, maximum: 100 },
         missingFields: { type: 'array', items: { type: 'string' } },
         actions: {
@@ -141,7 +140,6 @@ const buildOnboardingProfileMetadata = (
   const website = readAnyString(onboardingFields, ['website']) ?? readAnyString(details, ['website']);
   const contactPhone = readAnyString(onboardingFields, ['contactPhone']) ?? readAnyString(details, ['business_phone']);
   const businessEmail = readAnyString(onboardingFields, ['businessEmail']) ?? readAnyString(details, ['business_email', 'email']);
-  const accentColor = readAnyString(onboardingFields, ['accentColor']) ?? readAnyString(details, ['accentColor', 'accent_color']);
   const services = normalizeOnboardingServices(onboardingFields?.services ?? details?.services);
   const hasServices = services.length > 0;
 
@@ -167,7 +165,6 @@ const buildOnboardingProfileMetadata = (
     ['contactPhone', Boolean(contactPhone), 10],
     ['businessEmail', Boolean(businessEmail), 10],
     ['address', hasAddress, 15],
-    ['accentColor', Boolean(accentColor), 10],
   ];
   const totalWeight = weightedChecks.reduce((sum, [, , weight]) => sum + weight, 0);
   const earnedWeight = weightedChecks.reduce((sum, [, done, weight]) => sum + (done ? weight : 0), 0);

@@ -58,7 +58,6 @@ function _mapBetterAuthUserToProfile(authUser: ExtendedUser): UserProfile {
     
     // App Preferences - sensible defaults
     theme: 'system',
-    accentColor: 'blue',
     fontSize: 'medium',
     language: 'en',
     timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
@@ -90,7 +89,6 @@ export interface UserProfile {
   preferredContactMethod?: string | null;
   // App Preferences
   theme?: string;
-  accentColor?: string;
   fontSize?: string;
   language?: string;
   timezone?: string;
@@ -116,7 +114,6 @@ export interface UserProfileInput {
   preferredContactMethod?: string;
   // App Preferences
   theme?: string;
-  accentColor?: string;
   fontSize?: string;
   language?: string;
   timezone?: string;

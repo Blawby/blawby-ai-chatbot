@@ -6,7 +6,6 @@ export interface ExtractedFields {
   name?: string;
   slug?: string;
   description?: string;
-  accentColor?: string;
   website?: string;
   contactPhone?: string;
   businessEmail?: string;

@@ -67,7 +67,6 @@ export const ConversationConfigSchema = z.object({
   domain: z.string(),
   description: z.string(),
   brandColor: z.string(),
-  accentColor: z.string(),
   profileImage: z.string().optional(),
   voice: VoiceConfigSchema,
   blawbyApi: BlawbyApiConfigSchema.optional(),
@@ -99,7 +98,7 @@ export type PracticeConfig = ConversationConfig;
  *   - availableServices: []
  *   - serviceQuestions: {}
  *   - domain / description: ''
- *   - brandColor / accentColor: '#000000'
+ *   - brandColor: '#000000'
  *   - voice.provider: 'cloudflare' if invalid
  *   - voice.enabled: coerced via Boolean()
  */
@@ -118,7 +117,6 @@ export const ConversationConfigPermissiveSchema = z.object({
   domain: z.string().default('').catch(''),
   description: z.string().default('').catch(''),
   brandColor: z.string().default('#000000').catch('#000000'),
-  accentColor: z.string().default('#000000').catch('#000000'),
   profileImage: z.string().optional().catch(undefined),
   voice: PermissiveVoiceSchema.default({ enabled: false, provider: 'cloudflare' }),
   blawbyApi: z.object({
@@ -151,7 +149,6 @@ export const PracticeSchema = z.object({
   name: z.string(),
   slug: z.string(),
   domain: z.string().optional(),
-  accentColor: z.string().optional(),
   metadata: z.record(z.string(), z.unknown()).optional(),
   /** Extracted from practice.metadata.conversationConfig in the remote API. */
   conversationConfig: ConversationConfigSchema,
@@ -174,7 +171,6 @@ export const WorkspaceSchema = z.object({
   name: z.string(),
   slug: z.string(),
   domain: z.string().optional(),
-  accentColor: z.string().optional(),
   metadata: z.record(z.string(), z.unknown()).optional(),
   /** Hardcoded defaults (workspaces don't have backend-side config). */
   conversationConfig: ConversationConfigSchema,

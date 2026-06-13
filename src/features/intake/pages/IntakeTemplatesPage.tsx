@@ -644,7 +644,6 @@ type TemplateEditorProps = {
   practicePreviewConfig: {
     name?: string;
     profileImage?: string | null;
-    accentColor?: string;
   };
   onCancel: () => void;
   onSaveDraft: (template: IntakeTemplate) => Promise<void>;
@@ -1487,7 +1486,6 @@ function TemplateEditor({
   const previewConfig = useMemo<WidgetPreviewConfig>(() => ({
     name: practiceCanvasName,
     profileImage: practiceCanvasLogo,
-    accentColor: practicePreviewConfig.accentColor,
     introMessage: draftTemplate.introMessage ?? null,
     legalDisclaimer: draftTemplate.legalDisclaimer ?? null,
     consultationFee: typeof draftTemplate.consultationFee === 'number'
@@ -1496,7 +1494,7 @@ function TemplateEditor({
     paymentLinkEnabled: draftTemplate.paymentLinkEnabled,
     currency: currencyCode,
     intakeTemplate: draftTemplate,
-  }), [practiceCanvasName, practiceCanvasLogo, practicePreviewConfig.accentColor, draftTemplate, currencyCode]);
+  }), [practiceCanvasName, practiceCanvasLogo, draftTemplate, currencyCode]);
   const publicFormUrl = useMemo(
     () => getPublicFormUrl(practiceSlug, draftTemplate.slug),
     [draftTemplate.slug, practiceSlug],
@@ -2694,7 +2692,6 @@ export default function IntakeTemplatesPage({
         practicePreviewConfig={{
           name: currentPractice.name,
           profileImage: currentPractice.logo ?? undefined,
-          accentColor: currentPractice.accentColor ?? undefined,
         }}
         onCancel={handleCancel}
         onSaveDraft={handleSaveDraft}

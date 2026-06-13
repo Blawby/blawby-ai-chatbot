@@ -849,7 +849,6 @@ function PracticeAppRoute({
     serviceQuestions: {},
     domain: '',
     brandColor: '#000000',
-    accentColor: currentPractice?.accentColor ?? 'gold',
     voice: {
       enabled: false,
       provider: 'cloudflare',
@@ -1086,7 +1085,6 @@ function ClientPracticeRoute({
     serviceQuestions: {},
     domain: '',
     brandColor: '#000000',
-    accentColor: currentPractice?.accentColor ?? 'gold',
     voice: {
       enabled: false,
       provider: 'cloudflare',

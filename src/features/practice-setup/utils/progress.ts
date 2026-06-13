@@ -4,7 +4,6 @@ export interface PracticeSetupProgressInputs {
   website?: string | null;
   contactPhone?: string | null;
   businessEmail?: string | null;
-  accentColor?: string | null;
   hasServices: boolean;
   hasAddress: boolean;
   hasLogo: boolean;
@@ -27,7 +26,6 @@ export const calculatePracticeSetupProgress = (
     ['contactPhone', Boolean(inputs.contactPhone?.trim()), 10],
     ['businessEmail', Boolean(inputs.businessEmail?.trim()), 10],
     ['address', inputs.hasAddress, 15],
-    ['accentColor', Boolean(inputs.accentColor?.trim()), 5],
     ['logo', inputs.hasLogo, 5],
     ['payouts', inputs.hasPayouts, 5],
   ];

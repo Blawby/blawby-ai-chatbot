@@ -97,7 +97,6 @@ export const PublicWorkspaceRoute: FunctionComponent<PublicWorkspaceRouteProps> 
       ...basePracticeConfig,
       name: previewConfig.name ?? basePracticeConfig.name,
       profileImage: previewConfig.profileImage !== undefined ? (previewConfig.profileImage ?? undefined) : basePracticeConfig.profileImage,
-      accentColor: previewConfig.accentColor ?? basePracticeConfig.accentColor,
       introMessage: previewConfig.introMessage !== undefined ? (previewConfig.introMessage ?? undefined) : basePracticeConfig.introMessage,
       legalDisclaimer: previewConfig.legalDisclaimer !== undefined ? (previewConfig.legalDisclaimer ?? undefined) : basePracticeConfig.legalDisclaimer,
       consultationFee: (previewConfig.consultationFee !== undefined && previewConfig.consultationFee !== null) ? toMinorUnitsValue(previewConfig.consultationFee) : basePracticeConfig.consultationFee,
