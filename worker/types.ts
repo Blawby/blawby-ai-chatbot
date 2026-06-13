@@ -230,6 +230,7 @@ export interface Env {
   // tsconfig (which does not, but transitively imports worker/types.ts
   // for FileAttachment + ChatMessage shapes).
   SEARCH_INDEX_EVENTS?: Queue<import('./types/search.js').SearchIndexEvent>;
+  INTAKE_CONVERSATION_EVENTS?: Queue<import('./types/intakeConversationQueue.js').IntakeConversationQueueMessage>;
   SEARCH_VECTORS?: {
     upsert(vectors: Array<{
       id: string;
