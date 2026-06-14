@@ -905,7 +905,7 @@ export class ChatRoom {
 
     await this.state.storage.delete(pendingKey);
 
-    void this.env.INTAKE_CONVERSATION_EVENTS?.send({
+    await this.env.INTAKE_CONVERSATION_EVENTS?.send({
       type: 'message.completed',
       id: messageId,
       conversation_id: conversationId,

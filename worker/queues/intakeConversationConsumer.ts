@@ -36,7 +36,14 @@ export async function handleIntakeConversationQueue(
   clearTimeout(timeout);
 
   if (!res.ok) {
-    if (res.status === 429 || (res.status >= 500 && res.status < 600)) {
+    const responseBody = await res.text().catch(() => '');
+    console.error('intakeConversationConsumer: backend rejected event batch', {
+      status: res.status,
+      responseBody,
+      batchSize: batch.messages.length,
+    });
+
+    if (res.status === 401 || res.status === 403 || res.status === 429 || res.status >= 500) {
       batch.retryAll();
     } else {
       batch.ackAll();

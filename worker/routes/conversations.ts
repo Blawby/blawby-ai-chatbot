@@ -481,7 +481,7 @@ export async function handleConversations(request: Request, env: Env): Promise<R
       lifecycleStatus: staffInitiated ? 'visible' : 'pending_visibility',
     }, request);
 
-    void env.INTAKE_CONVERSATION_EVENTS?.send({
+    await env.INTAKE_CONVERSATION_EVENTS?.send({
       type: 'conversation.created',
       id: conversation.id,
       organization_id: conversation.practice_id,
