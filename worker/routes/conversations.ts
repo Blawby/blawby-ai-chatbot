@@ -489,7 +489,7 @@ export async function handleConversations(request: Request, env: Env): Promise<R
       is_anonymous: conversation.is_anonymous ?? false,
       status: conversation.status,
       priority: conversation.priority ?? 'normal',
-      created_at: new Date().toISOString(),
+      created_at: conversation.created_at,
     });
 
     return createJsonResponse(conversation);
@@ -755,7 +755,7 @@ export async function handleConversations(request: Request, env: Env): Promise<R
       id: conversation.id,
       organization_id: conversation.practice_id,
       matter_id: conversation.matter_id ?? null,
-      updated_at: new Date().toISOString(),
+      updated_at: conversation.updated_at,
     });
 
     return createJsonResponse(conversation);
@@ -1130,8 +1130,8 @@ export async function handleConversations(request: Request, env: Env): Promise<R
         status: conversation.status,
         intake_mode_activated_at: conversation.intake_mode_activated_at ?? null,
         ai_failed_at: conversation.ai_failed_at ?? null,
-        closed_at: null,
-        updated_at: new Date().toISOString(),
+        closed_at: conversation.closed_at ?? null,
+        updated_at: conversation.updated_at,
       });
     }
 
