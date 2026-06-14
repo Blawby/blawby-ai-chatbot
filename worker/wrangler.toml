@@ -228,6 +228,17 @@ max_batch_timeout = 5
 max_retries = 5
 dead_letter_queue = "search-index-events-staging-dlq"
 
+[[env.staging.queues.producers]]
+queue = "intake-conversation-events-staging"
+binding = "INTAKE_CONVERSATION_EVENTS"
+
+[[env.staging.queues.consumers]]
+queue = "intake-conversation-events-staging"
+max_batch_size = 100
+max_batch_timeout = 5
+max_retries = 3
+dead_letter_queue = "intake-conversation-events-staging-dlq"
+
 [[env.staging.vectorize]]
 binding = "SEARCH_VECTORS"
 index_name = "blawby-search-vectors-staging"

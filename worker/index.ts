@@ -52,6 +52,8 @@ import { handleError } from './errorHandler';
 import { withCORS, getCorsConfig } from './middleware/cors';
 import { edgeCache } from './utils/edgeCache.js';
 import type { ScheduledEvent } from '@cloudflare/workers-types';
+import { handleIntakeConversationQueue } from './queues/intakeConversationConsumer.js';
+import type { IntakeConversationQueueMessage } from './types/intakeConversationQueue.js';
 import { handleNotificationQueue } from './queues/notificationProcessor.js';
 import { handleSearchIndexQueue } from './queues/searchIndexConsumer.js';
 import type { SearchIndexEvent } from './types/search.js';
@@ -391,6 +393,9 @@ export const handleRequest = withCORS(handleRequestInternal, getCorsConfig);
 async function handleQueue(batch: MessageBatch<unknown>, env: Env): Promise<void> {
   if (batch.queue.startsWith('search-index-events')) {
     return handleSearchIndexQueue(batch as MessageBatch<SearchIndexEvent>, env);
+  }
+  if (batch.queue.startsWith('intake-conversation-events')) {
+    return handleIntakeConversationQueue(batch as MessageBatch<IntakeConversationQueueMessage>, env);
   }
   return handleNotificationQueue(batch as MessageBatch<NotificationQueueMessage>, env);
 }
