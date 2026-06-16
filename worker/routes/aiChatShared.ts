@@ -498,11 +498,12 @@ const consumeAiStream = async (
     }
   }
 
-  const hasPotentialToolLeak = finalToolCalls.length > 0 || 
-    localReply.includes('update_practice_fields');
+  const hasPotentialToolLeak = looksLikeToolLeak(localReply);
 
   if (hasPotentialToolLeak && emitTokens) {
-    // Block streaming until reply is explicitly parsed as safe
+    // Block only literal tool payloads that leaked into assistant-visible text.
+    // Structured tool_calls are expected in intake streams and are executed by
+    // aiChat.ts after the text stream completes.
     diagnostics.failClosedReason = 'potential_tool_leak';
     return {
       reply: localReply,

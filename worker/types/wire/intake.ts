@@ -26,6 +26,10 @@ const nullableUnknown = () => z.unknown().nullable();
  * via `conversation_id` -> admin inspector view, avoiding PII leakage through
  * the backend's middleware / APM / platform logs that may log raw request
  * bodies even when Zod strips the field from the validated DTO.
+ *
+ * Current staging rejects worker-local conversation ids when sent as the
+ * backend's top-level `conversation_id`. Store that diagnostic link in
+ * `custom_fields._worker_conversation_id` instead.
  */
 export const BackendIntakeFailureContextSchema = z.object({
   reason: z.string().min(1),
@@ -41,7 +45,7 @@ export const BackendIntakeCreatePayloadSchema = z.object({
   email: z.string().email(),
   user_id: optionalString(),
   phone: optionalString(),
-  conversation_id: z.string().min(1),
+  conversation_id: optionalString(),
   description: optionalString(),
   urgency: optionalString(),
   opposing_party: optionalString(),

@@ -133,7 +133,6 @@ function buildPayload(input: PartialIntakeSubmitInput): BackendIntakeCreatePaylo
     amount: input.amountMinor,
     name,
     email,
-    conversation_id: input.conversationId,
     phone: input.slimContact.phone?.trim() || undefined,
     description: collected?.description?.trim() || undefined,
     urgency: collected?.urgency ?? undefined,
@@ -152,6 +151,10 @@ function buildPayload(input: PartialIntakeSubmitInput): BackendIntakeCreatePaylo
           state: state || undefined,
         }
       : undefined,
+    custom_fields: {
+      _worker_conversation_id: input.conversationId,
+      _failure_context: JSON.stringify(input.failureContext),
+    },
     failure_context: input.failureContext,
   };
 

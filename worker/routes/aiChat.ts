@@ -67,7 +67,7 @@ import {
   buildOnboardingProfileMetadata,
 } from './aiChatOnboarding.js';
 import type { ChatMessageAction } from '../../src/shared/types/conversation.js';
-import { normalizeChatActions } from '../../src/shared/utils/chatActions.js';
+import { hasTerminalChatAction, normalizeChatActions } from '../../src/shared/utils/chatActions.js';
 import type { IntakeFieldDefinition } from '../../src/shared/types/intake.js';
 import type { IntakeTemplate } from '../../src/shared/types/intake.js';
 import { STANDARD_FIELD_DEFINITIONS } from '../../src/shared/constants/intakeTemplates.js';
@@ -78,6 +78,18 @@ const readBooleanField = (record: Record<string, unknown> | null, keys: string[]
     if (typeof record[key] === 'boolean') return record[key] as boolean;
   }
   return null;
+};
+
+const TERMINAL_INTAKE_REPLY_REGEX =
+  /ready to submit|ready when you are|submit whenever|everything I need|continue to payment|pay (?:and submit|\$)|payment|consultation fee|submit your (?:case|intake|request)/i;
+const REQUIRED_FIELD_QUESTION_REGEX =
+  /\b(?:what|which|where|describe|tell me)\b[^?]*(?:legal situation|situation|going on|city|state|located|location)\b/i;
+
+const asksForRequiredIntakeField = (reply: string): boolean => {
+  const trimmed = reply.trim();
+  return trimmed.includes('?') &&
+    !TERMINAL_INTAKE_REPLY_REGEX.test(trimmed) &&
+    REQUIRED_FIELD_QUESTION_REGEX.test(trimmed);
 };
 
 const readFiniteNumberField = (record: Record<string, unknown> | null, keys: string[]): number | null => {
@@ -1514,6 +1526,21 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
           write({ token: closing });
           emittedAnyToken = true;
         }
+      }
+
+      if (
+        isIntakeMode &&
+        actions &&
+        actions.length > 0 &&
+        hasTerminalChatAction(actions) &&
+        asksForRequiredIntakeField(accumulatedReply)
+      ) {
+        Logger.warn('ai.intake.actions.suppressed_for_question', {
+          requestId,
+          conversationId: body.conversationId,
+          actionTypes: actions.map((action) => action.type),
+        });
+        actions = null;
       }
 
       const shouldPromptConsultation =

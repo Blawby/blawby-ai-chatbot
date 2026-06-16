@@ -775,7 +775,6 @@ const buildIntakePayload = (
     amount: normalizeAmount(options?.amountMinor),
     name: draft.name,
     email: draft.email,
-    conversation_id: conversationId,
   };
 
   if (options?.userId && options.userId.trim().length > 0) {
@@ -820,9 +819,10 @@ const buildIntakePayload = (
   }
 
   const customFields = buildCustomFieldsPayload(intake, options?.template);
-  if (customFields) {
-    payload.custom_fields = customFields;
-  }
+  payload.custom_fields = {
+    ...(customFields ?? {}),
+    _worker_conversation_id: conversationId,
+  };
 
   return payload;
 };
@@ -1068,7 +1068,7 @@ export async function handleSubmitIntake(
   // Build backend payload using the canonical consultation fee resolved above.
   const intakePayload = buildIntakePayload(conversationId, slug, draft, intake, {
     amountMinor: resolvedAmountMinor,
-    userId,
+    userId: authContext.isAnonymous === true ? undefined : userId,
     template: templatePaymentConfig,
   });
 
@@ -1200,6 +1200,7 @@ export async function handleSubmitIntake(
           intakeUuid,
           submittedAt: new Date().toISOString(),
           paymentRequired: Boolean(payment_link_url),
+          paymentLinkUrl: payment_link_url ?? null,
         },
       },
       { repair: true }

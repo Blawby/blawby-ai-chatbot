@@ -531,13 +531,6 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
         isLast: boolean
     ): ChatMessageAction[] => {
         const messageActions = [...baseActions];
-        const shouldAppendSubmitAction =
-            !message.isUser &&
-            isLast &&
-            intakeReady &&
-            intakeConversationState?.ctaResponse !== 'ready' &&
-            intakeStatus?.step !== 'pending_review' &&
-            intakeStatus?.step !== 'completed';
         const shouldAppendDecisionActions =
             !message.isUser &&
             isLast &&
@@ -551,17 +544,10 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
             if (!hasBuildBriefAction(messageActions)) {
                 messageActions.push(createBuildBriefAction('Build a stronger brief'));
             }
-        } else if (shouldAppendSubmitAction && !hasTerminalChatAction(messageActions)) {
-            messageActions.push(
-                createSubmitAction(intakeStatus?.paymentRequired ? 'Continue' : 'Submit request')
-            );
-            if (!hasBuildBriefAction(messageActions)) {
-                messageActions.push(createBuildBriefAction('Strengthen my brief'));
-            }
         }
 
         return messageActions;
-    }, [intakeReady, intakeConversationState?.ctaResponse, intakeStatus?.paymentRequired, intakeStatus?.step]);
+    }, [intakeStatus?.step]);
 
     const scrollToMessage = useCallback((messageId: string) => {
         if (!messageId) {

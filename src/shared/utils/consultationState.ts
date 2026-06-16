@@ -108,12 +108,14 @@ const mergeSubmission = (
     ? source.intakePaymentReceived
     : null;
   const fallbackCheckoutSessionId = trimString(source?.checkoutSessionId) || null;
+  const fallbackPaymentLinkUrl = trimString(source?.paymentLinkUrl) || null;
   return {
     intakeUuid: normalized.intakeUuid ?? fallbackUuid,
     submittedAt: normalized.submittedAt ?? (trimString(source?.submittedAt) || null),
     paymentRequired: normalized.paymentRequired ?? fallbackPaymentRequired,
     paymentReceived: normalized.paymentReceived ?? fallbackPaymentReceived,
     checkoutSessionId: normalized.checkoutSessionId ?? fallbackCheckoutSessionId,
+    paymentLinkUrl: normalized.paymentLinkUrl ?? fallbackPaymentLinkUrl,
   };
 };
 
@@ -252,6 +254,7 @@ const normalizeConsultationSubmission = (value: unknown): ConsultationState['sub
     paymentRequired: normalizeBooleanOrNull(record.paymentRequired),
     paymentReceived: normalizeBooleanOrNull(record.paymentReceived),
     checkoutSessionId: trimString(record.checkoutSessionId) || null,
+    paymentLinkUrl: trimString(record.paymentLinkUrl) || null,
   };
 };
 
@@ -322,6 +325,7 @@ export const resolveConsultationState = (
       : null,
     paymentRequired: typeof source.intakePaymentRequired === 'boolean' ? source.intakePaymentRequired : null,
     paymentReceived: typeof source.intakePaymentReceived === 'boolean' ? source.intakePaymentReceived : null,
+    paymentLinkUrl: typeof source.intakePaymentLinkUrl === 'string' ? source.intakePaymentLinkUrl : null,
   };
   const consultationSubmission = normalizeConsultationSubmission(existingConsultation?.submission);
   const submission = mergeSubmission(
@@ -404,6 +408,10 @@ export const mergeConsultationState = (
         patch.submission.checkoutSessionId === undefined
           ? base.submission.checkoutSessionId ?? null
           : trimString(patch.submission.checkoutSessionId) || null,
+      paymentLinkUrl:
+        patch.submission.paymentLinkUrl === undefined
+          ? base.submission.paymentLinkUrl ?? null
+          : trimString(patch.submission.paymentLinkUrl) || null,
     };
   })();
 
@@ -455,6 +463,7 @@ export const applyConsultationPatchToMetadata = (
     nextMetadata.intakeUuid = consultation.submission.intakeUuid;
     nextMetadata.intakePaymentRequired = consultation.submission.paymentRequired ?? undefined;
     nextMetadata.intakePaymentReceived = consultation.submission.paymentReceived ?? undefined;
+    nextMetadata.intakePaymentLinkUrl = consultation.submission.paymentLinkUrl ?? undefined;
     nextMetadata.intakeSubmitted = (
       consultation.status === 'submitted'
       || consultation.status === 'completed'
@@ -481,6 +490,7 @@ export const clearConsultationMetadata = (
     intakeUuid: null,
     intakePaymentRequired: undefined,
     intakePaymentReceived: undefined,
+    intakePaymentLinkUrl: undefined,
     intakeSubmitted: false,
     intakeCompleted: false,
   };

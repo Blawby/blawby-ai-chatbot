@@ -19,7 +19,7 @@ describe('PartialIntakeSubmissionService', () => {
     createIntakeSpy.mockRestore();
   });
 
-  it('POSTs the 4 required fields + conversation_id + failure_context on AI failure', async () => {
+  it('POSTs the 4 required fields + worker conversation reference + failure_context on AI failure', async () => {
     createIntakeSpy.mockResolvedValue(new Response('{"uuid":"intake-1","status":"pending_review"}', { status: 200 }));
     const service = new PartialIntakeSubmissionService(baseEnv());
 
@@ -47,12 +47,20 @@ describe('PartialIntakeSubmissionService', () => {
       name: 'Jane Doe',
       email: 'jane@example.com',
       phone: '+1-555-555-5555',
-      conversation_id: 'conv-1',
       failure_context: {
         reason: 'upstream_transient_exhausted',
         mode_resolution_trace: { isPublic: true, isIntakeMode: true },
         timeline_ref: 'conv-1',
       },
+    });
+    expect(payload).not.toHaveProperty('conversation_id');
+    expect(payload.custom_fields).toMatchObject({
+      _worker_conversation_id: 'conv-1',
+      _failure_context: JSON.stringify({
+        reason: 'upstream_transient_exhausted',
+        mode_resolution_trace: { isPublic: true, isIntakeMode: true },
+        timeline_ref: 'conv-1',
+      }),
     });
   });
 
