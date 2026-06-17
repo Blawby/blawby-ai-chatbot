@@ -19,7 +19,7 @@ describe('PartialIntakeSubmissionService', () => {
     createIntakeSpy.mockRestore();
   });
 
-  it('POSTs the 4 required fields + conversation_id + failure_context on AI failure', async () => {
+  it('POSTs the 4 required fields + worker conversation reference + failure_context on AI failure', async () => {
     createIntakeSpy.mockResolvedValue(new Response('{"uuid":"intake-1","status":"pending_review"}', { status: 200 }));
     const service = new PartialIntakeSubmissionService(baseEnv());
 
@@ -47,12 +47,20 @@ describe('PartialIntakeSubmissionService', () => {
       name: 'Jane Doe',
       email: 'jane@example.com',
       phone: '+1-555-555-5555',
-      conversation_id: 'conv-1',
       failure_context: {
         reason: 'upstream_transient_exhausted',
         mode_resolution_trace: { isPublic: true, isIntakeMode: true },
         timeline_ref: 'conv-1',
       },
+    });
+    expect(payload).not.toHaveProperty('conversation_id');
+    expect(payload.custom_fields).toMatchObject({
+      _worker_conversation_id: 'conv-1',
+      _failure_context: JSON.stringify({
+        reason: 'upstream_transient_exhausted',
+        mode_resolution_trace: { isPublic: true, isIntakeMode: true },
+        timeline_ref: 'conv-1',
+      }),
     });
   });
 
@@ -71,6 +79,26 @@ describe('PartialIntakeSubmissionService', () => {
     const [, payload] = createIntakeSpy.mock.calls[0] as [unknown, Record<string, unknown>];
     expect(payload).not.toHaveProperty('last_user_message');
     expect(payload.failure_context as Record<string, unknown>).not.toHaveProperty('last_user_message');
+  });
+
+  it('does not throw when failure_context contains BigInt or circular values', async () => {
+    createIntakeSpy.mockResolvedValue(new Response('{"uuid":"i"}', { status: 200 }));
+    const service = new PartialIntakeSubmissionService(baseEnv());
+    const circular: Record<string, unknown> = { reason: 'logic_failure', count: 1n };
+    circular.self = circular;
+
+    await expect(service.submit({
+      conversationId: 'conv-1',
+      practiceSlug: 'p',
+      amountMinor: 0,
+      slimContact: { name: 'Jane', email: 'j@example.com', phone: null },
+      failureContext: circular as never,
+    })).resolves.toBeUndefined();
+
+    const [, payload] = createIntakeSpy.mock.calls[0] as [unknown, Record<string, unknown>];
+    expect((payload.custom_fields as Record<string, unknown>)._failure_context).toBe(
+      '{"reason":"logic_failure","count":"1","self":"[Circular]"}'
+    );
   });
 
   it('omits phone when not collected (backend treats phone as optional)', async () => {

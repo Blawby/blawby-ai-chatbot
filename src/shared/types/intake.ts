@@ -155,6 +155,7 @@ export interface ConsultationSubmissionState {
   paymentRequired: boolean | null;
   paymentReceived: boolean | null;
   checkoutSessionId: string | null;
+  paymentLinkUrl?: string | null;
   /** Slug of the IntakeTemplate used when this intake was collected */
   templateSlug?: string | null;
 }
@@ -191,6 +192,7 @@ export const initialConsultationSubmissionState: ConsultationSubmissionState = {
   paymentRequired: null,
   paymentReceived: null,
   checkoutSessionId: null,
+  paymentLinkUrl: null,
 };
 
 export const CONSULTATION_STATE_VERSION = 1;

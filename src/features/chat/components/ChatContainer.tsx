@@ -617,25 +617,6 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
 
             {(!showAuthPrompt && !shouldShowSlimForm && !shouldShowDisclaimer && !hideComposer) && (
                 <>
-                {isPublicWorkspace &&
-                  intakeContext.intakeConversationState?.ctaShown === true &&
-                  intakeContext.intakeStatus?.step !== 'completed' &&
-                  intakeContext.intakeStatus?.step !== 'pending_review' &&
-                  intakeContext.intakeConversationState?.ctaResponse !== 'ready' &&
-                  intakeContext.onSubmitNow && (
-                  <button
-                    type="button"
-                    aria-label="Submit request from composer"
-                    onClick={() => void handleConfirmSubmitAction()}
-                    className="flex w-full items-center gap-3 border-t border-[color:var(--rule)] bg-[color:var(--card)] px-4 py-3 text-left transition-colors hover:bg-[color:var(--paper)]"
-                  >
-                    <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[color:var(--accent)]">
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" className="text-accent-ink"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
-                    </span>
-                    <span className="flex-1 font-sans text-sm font-medium text-ink-1">Submit request</span>
-                    <span className="font-sans text-xs text-dim-2">Ready when you are</span>
-                  </button>
-                )}
                 <MessageComposer
                   inputValue={inputValue}
                   setInputValue={setInputValue}

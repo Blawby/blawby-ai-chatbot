@@ -20,6 +20,12 @@ const EXPECTED_CONSULTATION_FEE_LABEL = new Intl.NumberFormat('en-US', {
   style: 'currency',
   currency: 'USD',
 }).format(EXPECTED_CONSULTATION_FEE_MINOR / 100);
+const INTAKE_FAILURE_RESPONSE_REGEX =
+  /I wasn't able to generate a response|Our intake assistant is having trouble right now|We've passed what you've told us to the practice/i;
+const SUBMIT_READY_PROMPT_REGEX =
+  /ready to submit|ready when you are|submit whenever you're ready|everything I need|all I need|schedule your consultation|consultation fee|continue to payment|pay and submit|pay & submit|submit your (?:case|intake)|case is ready to submit/i;
+const REQUIRED_FIELD_PROMPT_REGEX =
+  /\b(?:what|which|where|describe|tell me)\b[\s\S]*(?:legal situation|situation|going on|city|state|located|location)\b/i;
 
 const normalizePracticeSlug = (value: string): string => {
   const trimmed = value.trim();
@@ -119,6 +125,12 @@ function aggregateDonePayloads(payloads: DonePayload[]): DonePayload | null {
     if (typeof p.wasToolOnly === 'boolean') out.wasToolOnly = p.wasToolOnly;
   }
   return Object.keys(out).length ? out : null;
+}
+
+function throwIfIntakeFailureResponse(text: string | null | undefined, context: string): void {
+  if (text && INTAKE_FAILURE_RESPONSE_REGEX.test(text)) {
+    throw new Error(`AI fallback response detected during ${context}: ${text}`);
+  }
 }
 
 
@@ -562,11 +574,15 @@ test.describe('Public widget intake flow', () => {
           `Expected AI chat output to change after SSE settled. before count=${aiCountBefore} before text=${JSON.stringify(latestAiTextBefore)} after count=${aiCountAfterSettle} after text=${JSON.stringify(latestAiTextAfterSettle)}`
         ).toBe(true);
       }
+      const responseText = contentType.includes('application/json') ? '' : await responseTextPromise;
+      const replyText = (body && (body.reply ?? (body.message && body.message.content))) ?? latestVisibleAiText;
+      throwIfIntakeFailureResponse(replyText, `rendered reply for "${text}"`);
+      throwIfIntakeFailureResponse(responseText, `SSE response for "${text}"`);
       return {
         response,
         contentType,
-        responseText: contentType.includes('application/json') ? '' : await responseTextPromise,
-        replyText: (body && (body.reply ?? (body.message && body.message.content))) ?? latestVisibleAiText,
+        responseText,
+        replyText,
       };
     };
 
@@ -663,14 +679,19 @@ test.describe('Public widget intake flow', () => {
         .isVisible()
         .catch(() => false);
       const bodyTextBefore = await bodyLocator.innerText().catch(() => '');
-      const readyPromptBefore = /ready to submit|are you ready|schedule your consultation|fee|submit your case/i.test(bodyTextBefore);
+      throwIfIntakeFailureResponse(bodyTextBefore, `pre-turn ${index + 1} page text`);
+      const latestPromptBefore = await getLatestAiPromptText();
+      const readyPromptBefore = SUBMIT_READY_PROMPT_REGEX.test(latestPromptBefore);
+      if (submitVisibleBefore && !readyPromptBefore && REQUIRED_FIELD_PROMPT_REGEX.test(latestPromptBefore)) {
+        throw new Error(`Premature Submit request CTA visible before a terminal intake prompt.\nBody text: ${bodyTextBefore.slice(-1000)}`);
+      }
       if (submitVisibleBefore || paymentPromptVisibleBefore || readyPromptBefore) {
         reachedSubmitReady = true;
         if (paymentPromptVisibleBefore) reachedPaymentTerminal = true;
         break;
       }
 
-      const promptText = await getLatestAiPromptText();
+      const promptText = latestPromptBefore;
       const answer = pickAnswerForPrompt(promptText, TURN_ANSWERS[index]);
       const aiStep = await sendAndAwaitAi(answer, promptText);
       aiTranscript.push({
@@ -679,9 +700,6 @@ test.describe('Public widget intake flow', () => {
         contentType: aiStep.contentType,
         replyText: aiStep.replyText,
       });
-      if (aiStep.replyText && aiStep.replyText.includes("I wasn't able to generate a response")) {
-        throw new Error(`AI fallback response detected: ${aiStep.replyText}`);
-      }
 
       const submitVisible = await submitNowButton.isVisible().catch(() => false);
       const paymentPromptVisible = await anonPage
@@ -690,7 +708,14 @@ test.describe('Public widget intake flow', () => {
         .isVisible()
         .catch(() => false);
       const bodyText = await bodyLocator.innerText().catch(() => '');
-      const readyPrompt = /ready to submit|are you ready|schedule your consultation|fee|submit your case/i.test(bodyText);
+      throwIfIntakeFailureResponse(bodyText, `post-turn ${index + 1} page text`);
+      const latestReplyAfter = await getLatestAiPromptText();
+      const readyPrompt =
+        SUBMIT_READY_PROMPT_REGEX.test(aiStep.replyText) ||
+        SUBMIT_READY_PROMPT_REGEX.test(latestReplyAfter);
+      if (submitVisible && !readyPrompt && REQUIRED_FIELD_PROMPT_REGEX.test(latestReplyAfter)) {
+        throw new Error(`Premature Submit request CTA visible while intake is still asking for details.\nLatest prompt: ${promptText}\nLatest reply: ${aiStep.replyText}\nBody text: ${bodyText.slice(-1000)}`);
+      }
       if (submitVisible || paymentPromptVisible || readyPrompt) {
         reachedSubmitReady = true;
         if (paymentPromptVisible) reachedPaymentTerminal = true;
@@ -709,10 +734,19 @@ test.describe('Public widget intake flow', () => {
     const submitVisibleAtAction = await submitNowButton.isVisible().catch(() => false);
     const bodyTextAtAction = await bodyLocator.innerText().catch(() => '');
     const hasPaymentPromptAtAction = /consultation fee|continue to payment|pay and submit|pay & submit|submit your intake/i.test(bodyTextAtAction);
-    const terminalActionButton = anonPage
+    const terminalActionButtons = anonPage
       .locator('button:visible')
-      .filter({ hasText: /(pay|continue|submit request)/i })
-      .first();
+      .filter({ hasText: /^(pay(?:\s|\$)|continue(?:\s+to\s+payment)?$|submit request$)/i });
+    await expect
+      .poll(
+        async () => terminalActionButtons.count(),
+        {
+          timeout: 10_000,
+          message: 'Widget intake should expose exactly one terminal submit/payment action.',
+        }
+      )
+      .toBe(1);
+    const terminalActionButton = terminalActionButtons.first();
     const submitIntakeResponsePromise = anonPage.waitForResponse(
       (response) =>
         response.request().method() === 'POST' &&
@@ -730,7 +764,7 @@ test.describe('Public widget intake flow', () => {
 
     if (reachedPaymentTerminal || paymentVisibleAtAction || hasPaymentPromptAtAction) {
       if (paymentVisibleAtAction) {
-        await paymentContinueButton.click();
+        await terminalActionButton.click();
       } else {
         try {
           await expect(
@@ -830,10 +864,6 @@ test.describe('Public widget intake flow', () => {
       resolvedConsultationFee,
       `Expected consultation fee amount ${EXPECTED_CONSULTATION_FEE_MINOR} minor units (${EXPECTED_CONSULTATION_FEE_LABEL}).\nObserved settings: ${JSON.stringify(latestSettingsPayload, null, 2)}`
     ).toBe(EXPECTED_CONSULTATION_FEE_MINOR);
-
-    // Because the "Pay $75.00" button now skips the intermediate <PaymentPrompt> if clicked from the AI message,
-    // we bypass looking for the intermediate UI and directly assert we reached Stripe checkout.
-    await expect(anonPage).toHaveURL(/stripe\.com/i, { timeout: 30000 });
 
     expect(
       submitIntakeResponse,

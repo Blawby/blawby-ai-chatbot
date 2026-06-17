@@ -67,7 +67,7 @@ import {
   buildOnboardingProfileMetadata,
 } from './aiChatOnboarding.js';
 import type { ChatMessageAction } from '../../src/shared/types/conversation.js';
-import { normalizeChatActions } from '../../src/shared/utils/chatActions.js';
+import { hasTerminalChatAction, normalizeChatActions } from '../../src/shared/utils/chatActions.js';
 import type { IntakeFieldDefinition } from '../../src/shared/types/intake.js';
 import type { IntakeTemplate } from '../../src/shared/types/intake.js';
 import { STANDARD_FIELD_DEFINITIONS } from '../../src/shared/constants/intakeTemplates.js';
@@ -1488,10 +1488,11 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
       const mergedIntakeState = isIntakeMode
         ? mergeIntakeState(storedIntakeState, patchToMerge)
         : null;
+      let allRequiredDone: boolean | null = null;
 
       // Worker-side guardrails — run after every intake tool turn.
       if (isIntakeMode && mergedIntakeState) {
-        const allRequiredDone = isIntakeCompleteForTemplate(activeTemplate, mergedIntakeState);
+        allRequiredDone = isIntakeCompleteForTemplate(activeTemplate, mergedIntakeState);
 
         if (!allRequiredDone) {
           // AI acknowledged but forgot to ask the next question — append it.
@@ -1514,6 +1515,21 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
           write({ token: closing });
           emittedAnyToken = true;
         }
+      }
+
+      if (
+        isIntakeMode &&
+        actions &&
+        actions.length > 0 &&
+        hasTerminalChatAction(actions) &&
+        allRequiredDone === false
+      ) {
+        Logger.warn('ai.intake.actions.suppressed_for_question', {
+          requestId,
+          conversationId: body.conversationId,
+          actionTypes: actions.map((action) => action.type),
+        });
+        actions = null;
       }
 
       const shouldPromptConsultation =

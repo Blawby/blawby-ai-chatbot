@@ -13,7 +13,7 @@
  * Verifies (U11 of docs/plans/2026-05-18-002-feat-strengthen-intake-ai-observability-plan.md):
  *   - widget renders the hard-error UI with the canonical copy
  *   - backend `POST /api/practice-client-intakes/create` fires with
- *     conversation_id (partial-intake submission per U7)
+ *     custom_fields._worker_conversation_id (partial-intake submission per U7)
  *   - composer is disabled and inline error region has role=alert
  */
 
@@ -66,11 +66,14 @@ test.describe('Public widget intake — AI failure path (U11)', () => {
 
     // Backend should have received a POST /create with the conversation_id —
     // the worker submits partial intake on AI failure (U7 / R14 / AE5).
+    // Staging rejects worker-local ids in the backend-owned top-level
+    // conversation_id field, so the worker stores the link in custom_fields.
     const submitRequest = await partialSubmitWaiter;
     const body = submitRequest.postData();
     const parsed = body ? (JSON.parse(body) as Record<string, unknown>) : null;
     expect(parsed).not.toBeNull();
-    expect(typeof parsed?.conversation_id).toBe('string');
+    expect(parsed).not.toHaveProperty('conversation_id');
+    expect(typeof (parsed?.custom_fields as Record<string, unknown> | undefined)?._worker_conversation_id).toBe('string');
     expect(typeof parsed?.email).toBe('string');
     expect(typeof parsed?.name).toBe('string');
   });

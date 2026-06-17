@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import {
+  applyConsultationPatchToMetadata,
   hasCoreIntakeFields,
   isIntakeReadyForSubmission,
   isIntakeSubmittable,
+  resolveConsultationState,
 } from '@/shared/utils/consultationState';
 
 describe('consultationState intake readiness', () => {
@@ -42,5 +44,22 @@ describe('consultationState intake readiness', () => {
     expect(isIntakeSubmittable(state, { paymentRequired: false, paymentReceived: false })).toBe(true);
     expect(isIntakeSubmittable(state, { paymentRequired: true, paymentReceived: false })).toBe(false);
     expect(isIntakeSubmittable(state, { paymentRequired: true, paymentReceived: true })).toBe(true);
+  });
+
+  it('preserves payment link URL in submission metadata for retry handoff', () => {
+    const metadata = applyConsultationPatchToMetadata(
+      null,
+      {
+        submission: {
+          intakeUuid: '11111111-1111-4111-8111-111111111111',
+          paymentRequired: true,
+          paymentLinkUrl: 'https://buy.stripe.com/test_123',
+        },
+      },
+      { mirrorLegacyFields: true }
+    );
+
+    expect(metadata.intakePaymentLinkUrl).toBe('https://buy.stripe.com/test_123');
+    expect(resolveConsultationState(metadata)?.submission.paymentLinkUrl).toBe('https://buy.stripe.com/test_123');
   });
 });

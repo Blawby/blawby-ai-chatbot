@@ -545,7 +545,10 @@
         // Widget asks parent to open a payment URL in a new tab so the top-level
         // context handles it (Stripe rejects being loaded inside an iframe).
         if (typeof data.url === 'string' && /^https:\/\//.test(data.url)) {
-          w.open(data.url, '_blank', 'noopener,noreferrer');
+          var popup = w.open(data.url, '_blank', 'noopener,noreferrer');
+          if (!popup) {
+            w.location.assign(data.url);
+          }
         }
         break;
     }
