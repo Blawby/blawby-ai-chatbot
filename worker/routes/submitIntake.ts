@@ -928,10 +928,17 @@ export async function handleSubmitIntake(
   // Early exit if already submitted (best-effort check before lock)
   if (consultation?.submission.intakeUuid || userInfo.intakeUuid) {
     const existingIntakeUuid = consultation?.submission.intakeUuid ?? userInfo.intakeUuid ?? null;
+    const existingPaymentLinkUrl = consultation?.submission.paymentLinkUrl
+      ?? readStringField(userInfo as Record<string, unknown>, [
+        'intakePaymentLinkUrl',
+        'paymentLinkUrl',
+        'payment_link_url',
+      ]);
     Logger.warn('[submitIntake] Intake already submitted, returning existing UUID', {
       conversationId,
       practiceId,
       existingIntakeUuid,
+      hasPaymentLinkUrl: Boolean(existingPaymentLinkUrl),
     });
     // Return the existing intake UUID idempotently
     return new Response(
@@ -940,7 +947,7 @@ export async function handleSubmitIntake(
         data: {
           intake_uuid: existingIntakeUuid,
           status: 'existing',
-          payment_link_url: null,
+          payment_link_url: existingPaymentLinkUrl,
         },
       }),
       {

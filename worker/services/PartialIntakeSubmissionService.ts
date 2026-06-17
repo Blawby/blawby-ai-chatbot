@@ -113,6 +113,23 @@ export class PartialIntakeSubmissionService {
   }
 }
 
+function safeStringifyFailureContext(value: unknown): string {
+  try {
+    const seen = new WeakSet<object>();
+    const serialized = JSON.stringify(value, (_key, nestedValue: unknown) => {
+      if (typeof nestedValue === 'bigint') return nestedValue.toString();
+      if (nestedValue && typeof nestedValue === 'object') {
+        if (seen.has(nestedValue)) return '[Circular]';
+        seen.add(nestedValue);
+      }
+      return nestedValue;
+    });
+    return typeof serialized === 'string' ? serialized : String(value);
+  } catch {
+    return String(value);
+  }
+}
+
 /**
  * Returns null when the payload cannot be assembled (missing name or email).
  * Backend rejects without both; logging at the call site is more useful than
@@ -153,7 +170,7 @@ function buildPayload(input: PartialIntakeSubmitInput): BackendIntakeCreatePaylo
       : undefined,
     custom_fields: {
       _worker_conversation_id: input.conversationId,
-      _failure_context: JSON.stringify(input.failureContext),
+      _failure_context: safeStringifyFailureContext(input.failureContext),
     },
     failure_context: input.failureContext,
   };

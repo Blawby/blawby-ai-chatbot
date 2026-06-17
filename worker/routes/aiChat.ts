@@ -80,18 +80,6 @@ const readBooleanField = (record: Record<string, unknown> | null, keys: string[]
   return null;
 };
 
-const TERMINAL_INTAKE_REPLY_REGEX =
-  /ready to submit|ready when you are|submit whenever|everything I need|continue to payment|pay (?:and submit|\$)|payment|consultation fee|submit your (?:case|intake|request)/i;
-const REQUIRED_FIELD_QUESTION_REGEX =
-  /\b(?:what|which|where|describe|tell me)\b[^?]*(?:legal situation|situation|going on|city|state|located|location)\b/i;
-
-const asksForRequiredIntakeField = (reply: string): boolean => {
-  const trimmed = reply.trim();
-  return trimmed.includes('?') &&
-    !TERMINAL_INTAKE_REPLY_REGEX.test(trimmed) &&
-    REQUIRED_FIELD_QUESTION_REGEX.test(trimmed);
-};
-
 const readFiniteNumberField = (record: Record<string, unknown> | null, keys: string[]): number | null => {
   if (!record) return null;
   for (const key of keys) {
@@ -1500,10 +1488,11 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
       const mergedIntakeState = isIntakeMode
         ? mergeIntakeState(storedIntakeState, patchToMerge)
         : null;
+      let allRequiredDone: boolean | null = null;
 
       // Worker-side guardrails — run after every intake tool turn.
       if (isIntakeMode && mergedIntakeState) {
-        const allRequiredDone = isIntakeCompleteForTemplate(activeTemplate, mergedIntakeState);
+        allRequiredDone = isIntakeCompleteForTemplate(activeTemplate, mergedIntakeState);
 
         if (!allRequiredDone) {
           // AI acknowledged but forgot to ask the next question — append it.
@@ -1533,7 +1522,7 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
         actions &&
         actions.length > 0 &&
         hasTerminalChatAction(actions) &&
-        asksForRequiredIntakeField(accumulatedReply)
+        allRequiredDone === false
       ) {
         Logger.warn('ai.intake.actions.suppressed_for_question', {
           requestId,

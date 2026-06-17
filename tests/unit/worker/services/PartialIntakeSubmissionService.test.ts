@@ -81,6 +81,26 @@ describe('PartialIntakeSubmissionService', () => {
     expect(payload.failure_context as Record<string, unknown>).not.toHaveProperty('last_user_message');
   });
 
+  it('does not throw when failure_context contains BigInt or circular values', async () => {
+    createIntakeSpy.mockResolvedValue(new Response('{"uuid":"i"}', { status: 200 }));
+    const service = new PartialIntakeSubmissionService(baseEnv());
+    const circular: Record<string, unknown> = { reason: 'logic_failure', count: 1n };
+    circular.self = circular;
+
+    await expect(service.submit({
+      conversationId: 'conv-1',
+      practiceSlug: 'p',
+      amountMinor: 0,
+      slimContact: { name: 'Jane', email: 'j@example.com', phone: null },
+      failureContext: circular as never,
+    })).resolves.toBeUndefined();
+
+    const [, payload] = createIntakeSpy.mock.calls[0] as [unknown, Record<string, unknown>];
+    expect((payload.custom_fields as Record<string, unknown>)._failure_context).toBe(
+      '{"reason":"logic_failure","count":"1","self":"[Circular]"}'
+    );
+  });
+
   it('omits phone when not collected (backend treats phone as optional)', async () => {
     createIntakeSpy.mockResolvedValue(new Response('{}', { status: 200 }));
     const service = new PartialIntakeSubmissionService(baseEnv());

@@ -764,7 +764,7 @@ test.describe('Public widget intake flow', () => {
 
     if (reachedPaymentTerminal || paymentVisibleAtAction || hasPaymentPromptAtAction) {
       if (paymentVisibleAtAction) {
-        await paymentContinueButton.click();
+        await terminalActionButton.click();
       } else {
         try {
           await expect(

@@ -535,6 +535,7 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
             !message.isUser &&
             isLast &&
             message.metadata?.intakeDecisionPrompt === true &&
+            intakeReady &&
             intakeStatus?.step === 'contact_form_decision';
 
         if (shouldAppendDecisionActions) {
@@ -547,7 +548,7 @@ const VirtualMessageList: FunctionComponent<VirtualMessageListProps> = ({
         }
 
         return messageActions;
-    }, [intakeStatus?.step]);
+    }, [intakeReady, intakeStatus?.paymentRequired, intakeStatus?.step]);
 
     const scrollToMessage = useCallback((messageId: string) => {
         if (!messageId) {
