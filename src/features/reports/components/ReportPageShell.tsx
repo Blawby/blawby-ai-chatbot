@@ -28,6 +28,9 @@ const defaultFilterValues = (definition: ReportDefinition): ReportFilterValues =
   return values;
 };
 
+const reportEmptyMessage = (title: string) =>
+  `No ${title.toLowerCase()} rows found for these filters. Try a different date range or add the records that feed this report.`;
+
 export const ReportPageShell: FunctionComponent<ReportPageShellProps> = ({ definition, practiceId }) => {
   const [filters, setFilters] = useState<ReportFilterValues>(() => defaultFilterValues(definition));
   const [scheduleOpen, setScheduleOpen] = useState(false);
@@ -112,6 +115,7 @@ export const ReportPageShell: FunctionComponent<ReportPageShellProps> = ({ defin
         columns={definition.columns}
         rows={(data?.items as Record<string, unknown>[]) ?? []}
         loading={loading && !data}
+        emptyState={<span className="text-sm text-dim-2">{reportEmptyMessage(definition.title)}</span>}
       />
 
       <ScheduleModal

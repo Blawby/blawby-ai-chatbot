@@ -21,6 +21,7 @@ import { setupGlobalKeyboardListeners } from '@/shared/utils/keyboard';
 import { formatRelativeTime } from '@/features/matters/utils/formatRelativeTime';
 import { resolveConversationContactName, resolveConversationDisplayTitle } from '@/shared/utils/conversationDisplay';
 import { usePracticeDetails } from '@/shared/hooks/usePracticeDetails';
+import { applyHtmlTheme } from '@/shared/hooks/useTheme';
 import { practiceDetailsStore } from '@/shared/stores/practiceDetailsStore';
 import { useStore } from '@nanostores/preact';
 import { LeftRail, type LeftRailItem } from '@/design-system/layout';
@@ -644,7 +645,7 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
 
   useEffect(() => {
     // Widget shell is always rendered with the midnight (dark) theme.
-    document.documentElement.setAttribute('data-theme', 'midnight');
+    applyHtmlTheme(true);
   }, []);
 
   const handleSlimFormDismiss = useCallback(() => {

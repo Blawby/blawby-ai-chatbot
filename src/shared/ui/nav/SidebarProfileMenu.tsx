@@ -5,6 +5,7 @@ import { Sidebar } from './Sidebar';
 import { Avatar } from '@/shared/ui/profile';
 import { Icon, type IconComponent } from '@/shared/ui/Icon';
 import { cn } from '@/shared/utils/cn';
+import { applyHtmlTheme } from '@/shared/hooks/useTheme';
 
 type ThemeChoice = 'light' | 'dark' | 'system';
 
@@ -20,11 +21,7 @@ const readStoredTheme = (): ThemeChoice => {
 };
 
 const setHtmlTheme = (dark: boolean) => {
-  if (dark) {
-    document.documentElement.setAttribute('data-theme', 'midnight');
-  } else {
-    document.documentElement.removeAttribute('data-theme');
-  }
+  applyHtmlTheme(dark);
 };
 
 const applyTheme = (choice: ThemeChoice) => {

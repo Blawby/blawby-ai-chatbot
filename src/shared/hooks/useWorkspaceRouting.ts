@@ -51,6 +51,7 @@ import { getWorkspaceConversationsPath, getWorkspaceMattersPath, getWorkspaceCon
 import type { LayoutMode } from '@/app/MainApp';
 import { useMobileDetection } from '@/shared/hooks/useMobileDetection';
 import type { AuthSessionPayload } from '@/shared/types/user';
+import type { PracticeDetails } from '@/shared/lib/apiClient';
 
 // ─── types ────────────────────────────────────────────────────────────────────
 
@@ -60,8 +61,6 @@ interface CurrentPractice {
   logo?: string | null;
   metadata?: Record<string, unknown> | null;
 }
-
-interface PracticeDetails {}
 
 export interface UseWorkspaceRoutingOptions {
   practiceId: string;
@@ -92,7 +91,6 @@ export const useWorkspaceRouting = ({
   routeConversationId,
   isWidget = false,
   currentPractice,
-  practiceDetails,
   activeMemberRole,
   session,
 }: UseWorkspaceRoutingOptions) => {

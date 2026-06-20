@@ -11,7 +11,7 @@
  * If a route ordering changes (e.g. `/api/ai/chat` accidentally matches
  * before `/api/ai/intent`), this test fails.
  */
-import { describe, it, expect, beforeAll, vi } from 'vitest';
+import { describe, it, expect, beforeAll } from 'vitest';
 import type { Env } from '../../../worker/types.js';
 
 let findRoute: typeof import('../../../worker/index.js').findRoute;
@@ -55,6 +55,7 @@ describe('worker route table', () => {
     expectRoute('/api/onboarding', 'proxy');
     expectRoute('/api/matters', 'proxy');
     expectRoute('/api/matters/m-1', 'proxy');
+    expectRoute('/api/engagement-contracts/practice-1', 'proxy');
     expectRoute('/api/invoices', 'proxy');
     expectRoute('/api/practice-client-intakes', 'proxy');
     expectRoute('/api/clients', 'proxy');

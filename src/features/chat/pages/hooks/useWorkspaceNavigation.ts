@@ -232,6 +232,11 @@ export function useWorkspaceNavigation({
       setSecondaryFilterBySection((prev) => ({ ...prev, [workspaceSection]: id }));
       return;
     }
+    if (workspaceSection === 'matters') {
+      navigate(`${basePath}/matters`);
+      setSecondaryFilterBySection((prev) => ({ ...prev, [workspaceSection]: id }));
+      return;
+    }
     setSecondaryFilterBySection((prev) => ({ ...prev, [workspaceSection]: id }));
   }, [navigate, normalizedBase, workspaceSection]);
 

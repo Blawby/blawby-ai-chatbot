@@ -27,9 +27,9 @@ const CLIENT_INVOICE_TAB_OPTIONS: ReadonlyArray<{ value: ClientInvoiceTabId; lab
 
 const InvoicesEmptyState = ({ hasFilters }: { hasFilters: boolean }) => (
   <WorkspacePlaceholderState
-    title={hasFilters ? 'No invoices match these filters' : 'No invoices yet'}
+    title={hasFilters ? 'No invoices found for these filters' : 'No invoices found'}
     description={hasFilters
-      ? 'Try adjusting your filters to see more invoices.'
+      ? 'Adjust the invoice filters to look for paid, unpaid, or open invoices.'
       : 'Invoices shared with you will appear here.'}
     className="p-8"
   />

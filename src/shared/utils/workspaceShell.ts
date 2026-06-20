@@ -216,6 +216,9 @@ export const getWorkspaceDefaultSecondaryFilter = ({
   if (workspaceSection === 'conversations' && (isPracticeWorkspace || isClientWorkspace)) {
     return 'all';
   }
+  if (workspaceSection === 'matters' && (isPracticeWorkspace || isClientWorkspace)) {
+    return 'all';
+  }
   if (workspaceSection === 'home' && isPracticeWorkspace) {
     return 'overview';
   }
@@ -260,6 +263,9 @@ export const getWorkspaceActiveSecondaryFilter = ({
   if (workspaceSection === 'conversations' && (isPracticeWorkspace || isClientWorkspace)) {
     return secondaryFilterBySection[workspaceSection] ?? defaultSecondaryFilterId;
   }
+  if (workspaceSection === 'matters' && (isPracticeWorkspace || isClientWorkspace)) {
+    return secondaryFilterBySection[workspaceSection] ?? defaultSecondaryFilterId;
+  }
   if (workspaceSection === 'home' && isPracticeWorkspace) {
     return 'overview';
   }
@@ -279,7 +285,7 @@ export const getWorkspaceActiveSecondaryFilter = ({
   if (workspaceSection === 'intakes' && isPracticeWorkspace) {
     return 'responses';
   }
-  if (workspaceSection === 'matters' || workspaceSection === 'invoices') return null;
+  if (workspaceSection === 'invoices') return null;
   return secondaryFilterBySection[workspaceSection] ?? defaultSecondaryFilterId;
 };
 

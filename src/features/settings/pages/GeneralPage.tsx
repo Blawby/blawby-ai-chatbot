@@ -14,6 +14,7 @@ import { SettingsCard } from '@/features/settings/components/SettingsCard';
 import { getPreferencesCategory, preferencesApi } from '@/shared/lib/preferencesApi';
 import type { GeneralPreferences } from '@/shared/types/preferences';
 import { cn } from '@/shared/utils/cn';
+import { applyHtmlTheme } from '@/shared/hooks/useTheme';
 
 // ---------------------------------------------------------------------------
 // Theme card — uses app's .card CSS class + design-token border + shadow
@@ -110,19 +111,19 @@ export const GeneralPage = () => {
 
   const applyThemePreference = useCallback((value: 'light' | 'dark' | 'system') => {
     if (value === 'dark') {
-      document.documentElement.setAttribute('data-theme', 'midnight');
+      applyHtmlTheme(true);
       localStorage.setItem('theme', 'dark');
       return;
     }
     if (value === 'light') {
-      document.documentElement.removeAttribute('data-theme');
+      applyHtmlTheme(false);
       localStorage.setItem('theme', 'light');
       return;
     }
     if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
-      document.documentElement.setAttribute('data-theme', 'midnight');
+      applyHtmlTheme(true);
     } else {
-      document.documentElement.removeAttribute('data-theme');
+      applyHtmlTheme(false);
     }
     localStorage.removeItem('theme');
   }, []);

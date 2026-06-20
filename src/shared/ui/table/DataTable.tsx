@@ -270,7 +270,7 @@ export const DataTable = ({
               return (
                 <tr>
                   <td colSpan={columns.length} className="px-4 py-6 text-sm text-dim-2">
-                    {emptyState ?? 'No results'}
+                    {emptyState ?? 'No table rows found.'}
                   </td>
                 </tr>
               );

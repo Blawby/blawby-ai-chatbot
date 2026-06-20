@@ -1,3 +1,4 @@
+/* global URL */
 import { type ConfigEnv, type ProxyOptions, defineConfig, loadEnv } from 'vite';
 import preact from '@preact/preset-vite';
 import { resolve } from 'path';
@@ -79,6 +80,7 @@ const workerEndpoints = [
 	'reports',
 	'subscriptions',
 	'subscription',
+	'engagement-contracts',
 	'matters',
 	'uploads',
 	'widget',

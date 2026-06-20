@@ -21,7 +21,6 @@ import {
 } from '../../src/shared/utils/intakeOrchestration.js';
 
 const MAX_SERVICES_IN_PROMPT = 20;
-const MAX_SERVICES_IN_CONVERSATION_PROMPT = 8;
 type IntakePromptService = { name: string; uuid: string };
 
 const US_STATE_NAME_TO_CODE: Record<string, string> = {
@@ -402,9 +401,6 @@ export const handleSaveCaseDetails = (
   const merged = mergeIntakeState(storedIntakeState, patch);
   const isSubmittable = isIntakeSubmittable(merged, submissionGate);
 
-  const completenessScore = submissionGate.activeTemplate && merged
-    ? computeCompletenessScore(submissionGate.activeTemplate, merged as Record<string, unknown>)
-    : 0;
 
   // Template fee presence takes precedence over practice details — allow zero values.
   const templatePaymentConfigured = typeof submissionGate.templateConsultationFee === 'number';

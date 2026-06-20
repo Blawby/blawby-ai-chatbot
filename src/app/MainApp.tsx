@@ -972,31 +972,12 @@ export function MainApp({
             <PracticeContactsPage
               practiceId={practiceId}
               basePath={practiceContactsPath}
-              renderMode={layoutMode === 'desktop' ? 'detailOnly' : 'full'}
               statusFilter={statusFilter}
               prefetchedItems={prefetchData?.contactsData?.items}
               prefetchedLoading={prefetchData?.contactsData?.isLoading}
               prefetchedError={prefetchData?.contactsData?.error}
-              onRefetchList={prefetchData?.contactsData?.refetch}
 
               detailHeaderLeadingAction={detailHeaderLeadingAction}
-              showDetailBackButton={showWorkspaceDetailBack}
-            />
-          </LazyRouteBoundary>
-        )
-        : undefined}
-      contactsListContent={isPracticeWorkspace && layoutMode === 'desktop' && practiceContactsPath != null
-        ? (statusFilter, prefetchData) => (
-          <LazyRouteBoundary>
-            <PracticeContactsPage
-              practiceId={practiceId}
-              basePath={practiceContactsPath}
-              renderMode="listOnly"
-              statusFilter={statusFilter}
-              prefetchedItems={prefetchData?.contactsData?.items}
-              prefetchedLoading={prefetchData?.contactsData?.isLoading}
-              prefetchedError={prefetchData?.contactsData?.error}
-              onRefetchList={prefetchData?.contactsData?.refetch}
               showDetailBackButton={showWorkspaceDetailBack}
             />
           </LazyRouteBoundary>

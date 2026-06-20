@@ -45,7 +45,12 @@ export function useWorkspaceConversations({
       ? (activeSecondaryFilter ? PRACTICE_CONVERSATIONS_ASSIGNED_TO_MAP[activeSecondaryFilter] : null)
       : (isClientWorkspace && activeSecondaryFilter ? CLIENT_CONVERSATIONS_ASSIGNED_TO_MAP[activeSecondaryFilter] : null))
     : null;
-  const shouldListConversations = isPracticeWorkspace ? true : view !== 'conversation';
+  const shouldListConversations =
+    workspaceSection === 'conversations' ||
+    workspaceSection === 'assistant' ||
+    view === 'home' ||
+    view === 'setup' ||
+    Boolean(activeConversationId);
 
   const {
     conversations,
