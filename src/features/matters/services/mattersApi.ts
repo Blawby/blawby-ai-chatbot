@@ -33,6 +33,7 @@ import type {
   BackendMatterExpense,
   BackendMatterMilestone,
   BackendMatterTask,
+  BackendPracticeTask,
   TaskStatus,
   TaskPriority,
 } from '@/shared/types/wire';
@@ -45,6 +46,7 @@ export type {
   BackendMatterExpense,
   BackendMatterMilestone,
   BackendMatterTask,
+  BackendPracticeTask,
   TaskStatus,
   TaskPriority,
 };
@@ -258,6 +260,9 @@ const extractMilestonesArray = (payload: unknown): BackendMatterMilestone[] =>
 
 const extractTasksArray = (payload: unknown): BackendMatterTask[] =>
   pluckCollection<BackendMatterTask>(unwrapApiResponse<unknown>(payload), ['tasks']);
+
+const extractPracticeTasksArray = (payload: unknown): BackendPracticeTask[] =>
+  pluckCollection<BackendPracticeTask>(unwrapApiResponse<unknown>(payload), ['tasks']);
 
 const extractTask = (payload: unknown): BackendMatterTask | null =>
   pluckRecord<BackendMatterTask>(unwrapApiResponse<unknown>(payload), ['task']);
@@ -900,6 +905,38 @@ export const listMatterTasks = async (
     'Failed to load tasks'
   );
   return extractTasksArray(payload);
+};
+
+export const listPracticeTasks = async (
+  practiceId: string,
+  filters: ListMatterTaskFilters & { due_before?: string; page?: number; limit?: number } = {},
+  options: FetchOptions = {}
+): Promise<BackendPracticeTask[]> => {
+  if (!practiceId) {
+    return [];
+  }
+
+  const params = new URLSearchParams();
+  if (filters.task_id) params.set('task_id', filters.task_id);
+  if (filters.assignee_id) params.set('assignee_id', filters.assignee_id);
+  if (filters.status) params.set('status', filters.status);
+  if (filters.priority) params.set('priority', filters.priority);
+  if (filters.stage) params.set('stage', filters.stage);
+  if (filters.due_before) params.set('due_before', filters.due_before);
+  if (filters.page) params.set('page', String(filters.page));
+  if (filters.limit) params.set('limit', String(filters.limit));
+
+  const payload = await requestData(
+    apiClient.get(
+      `/api/tasks/${encodeURIComponent(practiceId)}`,
+      {
+        params: Object.fromEntries(params.entries()),
+        signal: options.signal
+      }
+    ),
+    'Failed to load tasks'
+  );
+  return extractPracticeTasksArray(payload);
 };
 
 export const createMatterTask = async (

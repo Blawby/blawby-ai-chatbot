@@ -38,6 +38,7 @@ const BACKEND_PATH_PREFIXES = [
   '/api/preferences',
   '/api/subscriptions',
   '/api/subscription',
+  '/api/tasks',
   '/api/uploads',
   '/api/clients'
 ];
