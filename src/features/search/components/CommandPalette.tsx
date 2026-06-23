@@ -9,6 +9,7 @@ import {
   parseQuery,
   type SearchScope,
 } from '../utils/parseQuery';
+import { highlightText } from '../utils/highlightText';
 import type {
   SearchEnvelope,
   SearchResultItem,
@@ -154,7 +155,7 @@ export function CommandPalette({
         Global search
       </div>
       <div className="flex items-center gap-2 px-4 border-b border-line-subtle">
-        <Search size={18} className="text-ink/60" aria-hidden="true" />
+        <Search size={18} className="text-dim" aria-hidden="true" />
         {parsed.scopes.length > 0 ? <ScopePills scopes={parsed.scopes} /> : null}
         <input
           ref={inputRef}
@@ -162,7 +163,7 @@ export function CommandPalette({
           value={query}
           onInput={(event) => setQueryAndReset((event.target as HTMLInputElement).value)}
           placeholder="Search clients, matters, invoices, files…"
-          className="flex-1 bg-transparent py-3 outline-none text-base text-ink placeholder:text-ink/40"
+          className="flex-1 bg-transparent py-3 outline-none text-base text-ink placeholder:text-dim-2"
           aria-label="Search query"
         />
       </div>
@@ -192,6 +193,7 @@ export function CommandPalette({
             envelope={envelope}
             activeIndex={activeIndex}
             onSelect={selectResult}
+            terms={parsed.terms}
           />
         ) : recents.length > 0 ? (
           <RecentsList recents={recents} onPick={(q) => setQueryAndReset(q)} />
@@ -223,17 +225,19 @@ function ResultGroups({
   envelope,
   activeIndex,
   onSelect,
+  terms,
 }: {
   envelope: SearchEnvelope;
   activeIndex: number;
   onSelect: (item: SearchResultItem, rank: number) => void;
+  terms: string;
 }) {
   let rank = 0;
   return (
     <div className="flex flex-col">
       {envelope.groups.map((group) => (
         <div key={group.id} className="px-2 pb-2">
-          <div className="px-3 pt-3 pb-1 text-[11px] uppercase tracking-wider text-ink/50 font-medium">
+          <div className="px-3 pt-3 pb-1 text-[11px] uppercase tracking-wider text-dim-2 font-medium">
             {group.label}
           </div>
           {group.items.map((item) => {
@@ -248,28 +252,31 @@ function ResultGroups({
                 onClick={() => onSelect(item, itemRank)}
                 className={cn(
                   'w-full flex items-start gap-3 px-3 py-2 rounded-lg text-left transition-colors',
+                  '[&_mark]:bg-accent/25 [&_mark]:text-inherit [&_mark]:rounded-sm [&_mark]:px-0.5',
                   active
                     ? 'bg-paper-2'
                     : 'hover:bg-paper-2/60',
                   item.archived ? 'opacity-60' : '',
                 )}
               >
-                <Icon size={16} className="mt-0.5 shrink-0 text-ink/60" aria-hidden="true" />
+                <Icon size={16} className="mt-0.5 shrink-0 text-dim" aria-hidden="true" />
                 <div className="min-w-0 flex-1">
                   <div className="text-sm font-medium truncate text-ink">
-                    {item.title}
+                    {highlightText(item.title, terms)}
                     {item.archived ? (
-                      <span className="ml-2 text-[10px] uppercase text-ink/50">
+                      <span className="ml-2 text-[10px] uppercase text-dim-2">
                         archived
                       </span>
                     ) : null}
                   </div>
                   {item.subtitle ? (
-                    <div className="text-xs text-ink/60 truncate">{item.subtitle}</div>
+                    <div className="text-xs text-dim truncate">
+                      {highlightText(item.subtitle, terms)}
+                    </div>
                   ) : null}
                   {item.snippet ? (
                     <div
-                      className="text-xs text-ink/70 mt-0.5"
+                      className="text-xs text-dim mt-0.5"
                       dangerouslySetInnerHTML={{ __html: item.snippet }}
                     />
                   ) : null}
@@ -292,7 +299,7 @@ function SuggestionsList({
 }) {
   return (
     <div className="px-2 pb-2">
-      <div className="px-3 pt-3 pb-1 text-[11px] uppercase tracking-wider text-ink/50 font-medium">
+      <div className="px-3 pt-3 pb-1 text-[11px] uppercase tracking-wider text-dim-2 font-medium">
         Suggestions
       </div>
       {suggestions.map((s) => (
@@ -302,9 +309,9 @@ function SuggestionsList({
           onClick={() => onPick(s.query)}
           className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-left hover:bg-paper-2/60"
         >
-          <Search size={14} className="text-ink/40" aria-hidden="true" />
+          <Search size={14} className="text-dim-2" aria-hidden="true" />
           <span className="text-sm text-ink flex-1">{s.query}</span>
-          <span className="text-[10px] uppercase text-ink/40">
+          <span className="text-[10px] uppercase text-dim-2">
             {s.source === 'user' ? 'recent' : 'popular'}
           </span>
         </button>
@@ -322,7 +329,7 @@ function DidYouMean({
 }) {
   return (
     <div className="px-6 pb-4 text-center">
-      <div className="text-sm text-ink/70">
+      <div className="text-sm text-dim">
         Did you mean{' '}
         <button
           type="button"
@@ -346,7 +353,7 @@ function RecentsList({
 }) {
   return (
     <div className="px-2 pb-2">
-      <div className="px-3 pt-3 pb-1 text-[11px] uppercase tracking-wider text-ink/50 font-medium">
+      <div className="px-3 pt-3 pb-1 text-[11px] uppercase tracking-wider text-dim-2 font-medium">
         Recent searches
       </div>
       {recents.map((q) => (
@@ -356,7 +363,7 @@ function RecentsList({
           onClick={() => onPick(q)}
           className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-left hover:bg-paper-2/60"
         >
-          <Search size={14} className="text-ink/40" aria-hidden="true" />
+          <Search size={14} className="text-dim-2" aria-hidden="true" />
           <span className="text-sm text-ink">{q}</span>
         </button>
       ))}
@@ -366,13 +373,13 @@ function RecentsList({
 
 function EmptyState({ message }: { message: string }) {
   return (
-    <div className="px-6 py-10 text-center text-sm text-ink/60">{message}</div>
+    <div className="px-6 py-10 text-center text-sm text-dim">{message}</div>
   );
 }
 
 function Footer() {
   return (
-    <div className="flex items-center justify-between gap-3 px-4 py-2.5 border-t border-line-subtle text-[11px] text-ink/60">
+    <div className="flex items-center justify-between gap-3 px-4 py-2.5 border-t border-line-subtle text-[11px] text-dim">
       <div className="flex gap-3">
         <span>↑↓ navigate</span>
         <span>↵ open</span>

@@ -69,11 +69,11 @@ const InvoicesEmptyState = ({
   onCreateInvoice?: () => void;
 }) => (
   <WorkspacePlaceholderState
-    title={hasFilters ? 'No invoices match these filters' : 'No invoices yet'}
+    title={hasFilters ? 'No invoices found for these filters' : 'No invoices found'}
     description={hasFilters
-      ? 'Try adjusting your filters to see more invoices.'
+      ? 'Adjust the invoice filters or create a new invoice if this bill has not been started.'
       : 'Create your first invoice here, or link one to a matter later.'}
-    primaryAction={hasFilters ? undefined : (onCreateInvoice ? { label: 'New Invoice', onClick: onCreateInvoice } : undefined)}
+    primaryAction={hasFilters ? undefined : (onCreateInvoice ? { label: 'Create Invoice', onClick: onCreateInvoice } : undefined)}
     className="p-8"
   />
 );
@@ -309,12 +309,19 @@ export function PracticeInvoicesPage({
   // ── The list-shell head (used in both full + listOnly) ────────────────
   const listHead = (
     <div className="border-b border-rule px-4 pb-[14px] pt-5 sm:px-[22px] sm:pt-[22px]">
-      <div className="font-mono text-[10px] uppercase tracking-[0.14em] text-dim">
-        Workspace · {aggregates.loading ? '—' : `${totalCount} invoices`}
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <div className="font-mono text-[10px] uppercase tracking-[0.14em] text-dim">
+            Workspace · {aggregates.loading ? '—' : `${totalCount} invoices`}
+          </div>
+          <h1 className="mt-1 font-[family-name:var(--serif)] text-[28px] font-normal leading-none tracking-[-0.02em] text-ink sm:text-[34px]">
+            Invoices
+          </h1>
+        </div>
+        {onCreateInvoice ? (
+          <Button size="sm" onClick={onCreateInvoice} className="mt-1 shrink-0">New Invoice</Button>
+        ) : null}
       </div>
-      <h1 className="mt-1 font-[family-name:var(--serif)] text-[28px] font-normal leading-none tracking-[-0.02em] text-ink sm:text-[34px]">
-        Invoices
-      </h1>
       <div className="mt-3 flex flex-wrap gap-3.5">
         {statCells.map((cell) => (
           <div key={cell.label} className="flex flex-col gap-0.5">
@@ -447,17 +454,12 @@ export function PracticeInvoicesPage({
       <div className="flex min-h-0 flex-1 flex-col">
         {listHead}
         <div className="flex min-h-0 flex-1 flex-col gap-4 p-4 sm:p-6">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <Seg<ViewMode>
-              value={viewMode}
-              options={VIEW_MODE_OPTIONS}
-              onChange={setViewMode}
-              ariaLabel="Switch invoice view"
-            />
-            {onCreateInvoice ? (
-              <Button onClick={onCreateInvoice}>New Invoice</Button>
-            ) : null}
-          </div>
+          <Seg<ViewMode>
+            value={viewMode}
+            options={VIEW_MODE_OPTIONS}
+            onChange={setViewMode}
+            ariaLabel="Switch invoice view"
+          />
           {aiBlock}
           <InvoiceFilterChips
             filters={chipFilters}
@@ -472,7 +474,7 @@ export function PracticeInvoicesPage({
             hasMore={hasMore}
             onLoadMore={loadMore}
             error={error}
-            emptyMessage={hasFilters ? 'No invoices match these filters.' : undefined}
+            emptyMessage={hasFilters ? 'No invoices found for these filters. Adjust the filters or create a new invoice.' : undefined}
             onRowClick={handleRowClick}
             onViewCustomer={handleViewCustomer}
             onSendInvoice={handleSendInvoice}
@@ -508,16 +510,13 @@ export function PracticeInvoicesPage({
 
   const rightPane = (
     <div className="flex h-full min-h-0 flex-1 flex-col">
-      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-rule px-6 py-4">
+      <div className="border-b border-rule px-6 py-4">
         <Seg<ViewMode>
           value={viewMode}
           options={VIEW_MODE_OPTIONS}
           onChange={setViewMode}
           ariaLabel="Switch invoice view"
         />
-        {onCreateInvoice ? (
-          <Button size="sm" onClick={onCreateInvoice}>New Invoice</Button>
-        ) : null}
       </div>
       <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-auto p-6">
         {aiBlock}

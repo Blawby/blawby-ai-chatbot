@@ -21,6 +21,7 @@ import { setupGlobalKeyboardListeners } from '@/shared/utils/keyboard';
 import { formatRelativeTime } from '@/features/matters/utils/formatRelativeTime';
 import { resolveConversationContactName, resolveConversationDisplayTitle } from '@/shared/utils/conversationDisplay';
 import { usePracticeDetails } from '@/shared/hooks/usePracticeDetails';
+import { applyHtmlTheme } from '@/shared/hooks/useTheme';
 import { practiceDetailsStore } from '@/shared/stores/practiceDetailsStore';
 import { useStore } from '@nanostores/preact';
 import { LeftRail, type LeftRailItem } from '@/design-system/layout';
@@ -69,6 +70,8 @@ interface WidgetAppProps {
   bootstrapSession?: AuthSessionPayload;
   /** Resolved intake template from bootstrap. Absent means no published template exists for this practice. */
   intakeTemplate?: IntakeTemplate | null;
+  /** Service UUID from ?service= embed param — pre-seeds practiceServiceUuid in conversation state so conditions evaluate correctly from turn 1. */
+  preSelectedServiceUuid?: string | null;
 }
 
 export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
@@ -78,30 +81,15 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
   bootstrapConversationId,
   bootstrapSession,
   intakeTemplate: intakeTemplateProp,
+  preSelectedServiceUuid,
 }) => {
-  // Chat-first public intake: the public widget opens straight into the
-  // conversation surface (Intake.html / Mobile.html intake variant) instead
-  // of the card-grid home — the home view remains reachable via the
-  // bottom-rail Home button and via the chat header back button.
-  // routeConversationId still wins when present so deep-linked
-  // conversations behave as before. On mobile this also means the very
-  // first thing a visitor sees is the AI intro bubble, not a card grid.
-  //
-  // TODO(mobile-keyboard): soft-keyboard handling is wired downstream in
-  // ChatContainer via window.visualViewport (it shifts the sticky composer
-  // above the keyboard via `keyboardInsetPx`). Long-tail iOS Safari quirks
-  // around scroll-into-view of the last message on focus are non-trivial
-  // without a real device test pass — leaving in-situ until QA can verify
-  // on hardware. If issues surface, the fix lives in ChatContainer, not
-  // this file.
-  const [view, setView] = useState<'home' | 'list' | 'chat'>('chat');
+  // Only URL deep-links auto-open chat. Bootstrap/effective conversation IDs
+  // provide context/session continuity but do not switch the initial UI view.
+  const [view, setView] = useState<'home' | 'list' | 'chat'>(routeConversationId ? 'chat' : 'home');
   const [setupConversationId, setConversationId] = useState<string | null>(null);
   const [bootstrapIgnored, setBootstrapIgnored] = useState(false);
   const creatingConversationRef = useRef<Promise<string> | null>(null);
-  // Default to REQUEST_CONSULTATION so the chat surface mounts immediately
-  // (`canChat` requires either a conversation or a mode) and the AI starts the
-  // canonical intake flow on first turn.
-  const [conversationMode, setConversationMode] = useState<ConversationMode | null>('REQUEST_CONSULTATION');
+  const [conversationMode, setConversationMode] = useState<ConversationMode | null>(null);
   
   // Disclaimer & Mode tracking
   const [pendingMode, setPendingMode] = useState<ConversationMode | null>(null);
@@ -149,7 +137,14 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
           status: 'draft',
           // Embed the resolved template so the worker can read it back on
           // every subsequent AI turn without a separate lookup.
-          extraMetadata: { intakeTemplate: activeIntakeTemplate },
+          // Pre-seed practiceServiceUuid if the embed specifies ?service=<uuid>
+          // so field conditions evaluate correctly from turn 1.
+          extraMetadata: {
+            intakeTemplate: activeIntakeTemplate,
+            ...(preSelectedServiceUuid
+              ? { intakeConversationState: { practiceServiceUuid: preSelectedServiceUuid } }
+              : {}),
+          },
         });
         locallyCreatedConversationIds.current.add(newId);
         setBootstrapIgnored(true);
@@ -167,7 +162,7 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
 
     creatingConversationRef.current = createPromise;
     return createPromise;
-  }, [effectiveConversationId, practiceId, setConversationId, activeIntakeTemplate]);
+  }, [effectiveConversationId, practiceId, setConversationId, activeIntakeTemplate, preSelectedServiceUuid]);
 
   const { details: practiceDetails } = usePracticeDetails(practiceId, practiceConfig.slug);
   
@@ -355,18 +350,6 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
     setIsPaymentAuthPromptOpen(false);
   }, []);
 
-  const _handleStrengthenCase = useCallback(async () => {
-    try {
-      // Clear ctaShown so the submit button disappears during enrichment.
-      // Without this, ctaShown: true persists from the required-fields-complete
-      // state and the UI keeps showing submit even while collecting optional fields.
-      await applyIntakeFields({ enrichmentMode: true, ctaShown: false });
-      await sendMessage('I want to provide more details to strengthen my case.', []);
-    } catch (err) {
-      console.error('Failed to start strengthen case flow', err);
-    }
-  }, [applyIntakeFields, sendMessage]);
-
   // System Messages
   const { persistSystemMessage: _persistSystemMessage } = useConversationSystemMessages({
     conversationId: activeConversationId ?? undefined,
@@ -551,7 +534,7 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
       size="icon-sm"
       onClick={requestWidgetClose}
       aria-label="Close widget"
-      className="text-ink/60 hover:text-ink card backdrop-blur-md border border-line-subtle shadow-lg"
+      className="text-dim hover:text-ink card backdrop-blur-md border border-line-subtle shadow-lg"
     >
       <Icon icon={X} className="h-5 w-5" />
     </Button>
@@ -662,7 +645,12 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
 
   useEffect(() => {
     // Widget shell is always rendered with the midnight (dark) theme.
-    document.documentElement.setAttribute('data-theme', 'midnight');
+    applyHtmlTheme(true);
+  }, []);
+
+  const handleSlimFormDismiss = useCallback(() => {
+    setConversationMode(null);
+    setView('home');
   }, []);
 
   const intakeProviderValue = useMemo(() => ({
@@ -671,10 +659,10 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
     onIntakeCtaResponse: _handleIntakeCtaResponse,
     onSubmitNow: _handleConfirmSubmit,
     onBuildBrief: _handleBuildBrief,
-    onStrengthenCase: _handleStrengthenCase,
+    onStrengthenCase: undefined,
     slimContactDraft,
     onSlimFormContinue: _handleSlimFormContinue,
-    onSlimFormDismiss: undefined,
+    onSlimFormDismiss: handleSlimFormDismiss,
     isPublicWorkspace: true,
   }), [
     intakeStatus,
@@ -682,9 +670,9 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
     _handleIntakeCtaResponse,
     _handleConfirmSubmit,
     _handleBuildBrief,
-    _handleStrengthenCase,
     slimContactDraft,
-    _handleSlimFormContinue
+    _handleSlimFormContinue,
+    handleSlimFormDismiss,
   ]);
   const withIntakeProvider = (content: ComponentChildren) => (
     <IntakeProvider value={intakeProviderValue}>
@@ -696,7 +684,7 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
     <>
       <DragDropOverlay isVisible={isDragging} />
       {withIntakeProvider(
-        <div className={`absolute inset-x-0 inset-y-0 h-[100dvh] w-full overflow-hidden flex flex-col supports-[height:100cqh]:h-[100cqh] supports-[height:100svh]:h-[100svh] widget-shell-gradient justify-end`}>
+        <div className={`absolute inset-x-0 inset-y-0 h-[100dvh] w-full overflow-hidden flex flex-col supports-[height:100cqh]:h-[100cqh] supports-[height:100svh]:h-[100svh] widget-shell-gradient${view === 'home' ? ' widget-shell-gradient--home' : ''} justify-end`}>
         {view === 'home' && (
           <div className="flex h-full flex-col overflow-hidden relative">
             <div className="flex-1 overflow-y-auto">
@@ -839,6 +827,7 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
                 isLoadingMoreMessages={isLoadingMoreMessages}
                 onLoadMoreMessages={loadMoreMessages}
                 showAuthPrompt={shouldShowAuthPrompt}
+                authPromptCallbackUrl={window.location.origin}
                 onAuthPromptRequest={isAnonymous ? handlePaymentAuthRequest : undefined}
                 onAuthPromptClose={handleAuthPromptClose}
                 onAuthPromptSuccess={handleAuthPromptSuccess}
@@ -914,7 +903,7 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
             items={[
               {
                 id: 'home',
-                label: t('nav.home'),
+                label: t('workspace.navigation.home'),
                 icon: Home,
                 href: '#home',
                 isAction: true,
@@ -926,7 +915,7 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
               },
               {
                 id: 'list',
-                label: t('nav.messages'),
+                label: t('workspace.navigation.messages'),
                 icon: MessagesSquare,
                 href: '#list',
                 isAction: true,

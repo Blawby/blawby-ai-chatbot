@@ -34,6 +34,7 @@ export function usePaginatedList<T extends { id: string }>(
   const loadMoreRef = useRef<HTMLDivElement | null>(null);
   const fetchRequestIdRef = useRef(0);
   const fetchPageRef = useRef(fetchPage);
+  const resetDepsRef = useRef<unknown[] | null>(null);
 
   useEffect(() => {
     fetchPageRef.current = fetchPage;
@@ -42,6 +43,14 @@ export function usePaginatedList<T extends { id: string }>(
   const [resetCounter, setResetCounter] = useState(0);
 
   useEffect(() => {
+    const previousDeps = resetDepsRef.current;
+    resetDepsRef.current = deps;
+    if (!previousDeps || (
+      previousDeps.length === deps.length
+      && previousDeps.every((value, index) => Object.is(value, deps[index]))
+    )) {
+      return;
+    }
     setResetCounter((c) => c + 1);
     setPage(1);
     setItems([]);
@@ -54,7 +63,6 @@ export function usePaginatedList<T extends { id: string }>(
   }, deps);
 
   useEffect(() => {
-    if (!hasMore && page > 1) return;
     const controller = new AbortController();
     const requestId = ++fetchRequestIdRef.current;
     setError(null);
@@ -83,7 +91,7 @@ export function usePaginatedList<T extends { id: string }>(
       });
 
     return () => controller.abort();
-  }, [hasMore, page, resetCounter]);
+  }, [page, resetCounter]);
 
   const canObserve = useMemo(() => hasMore && !isLoading && !isLoadingMore, [hasMore, isLoading, isLoadingMore]);
 

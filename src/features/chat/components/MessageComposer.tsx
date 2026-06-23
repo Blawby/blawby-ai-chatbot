@@ -11,7 +11,7 @@ import { ArrowUp, X } from 'lucide-preact';
 import { features } from '@/config/features';
 import { FileAttachment } from '../../../../worker/types';
 import type { UploadingFile } from '@/shared/types/upload';
-import { Trans, useTranslation } from '@/shared/i18n/hooks';
+import { Trans } from '@/shared/i18n/hooks';
 import type { ReplyTarget } from '@/features/chat/types';
 import { cn } from '@/shared/utils/cn';
 
@@ -93,7 +93,6 @@ const MessageComposer = ({
   mentionCandidates = [],
   hardError = null,
 }: MessageComposerProps) => {
-  const { t } = useTranslation('common');
   const [isCompactViewport, setIsCompactViewport] = useState(false);
   const [mentionMenuOpen, setMentionMenuOpen] = useState(false);
   const [mentionQuery, setMentionQuery] = useState('');
@@ -287,7 +286,7 @@ const MessageComposer = ({
                 {replyTo && (
                   <div className="composer-thread-reply">
                     <div className="flex min-w-0 items-center gap-2">
-                      <span className="text-ink/70">
+                      <span className="text-dim">
                         <Trans
                           i18nKey="chat.replyingTo"
                           values={{ name: replyTo.authorName }}
@@ -448,9 +447,11 @@ const MessageComposer = ({
               </>
             }
             hint={
-              <span>
-                <kbd>Enter</kbd> send · <kbd>Shift</kbd> <kbd>Enter</kbd> newline · Blawby never writes to your records without your approval.
-              </span>
+              isPublicWorkspace ? undefined : (
+                <span>
+                  <kbd>Enter</kbd> send · <kbd>Shift</kbd> <kbd>Enter</kbd> newline · Blawby never writes to your records without your approval.
+                </span>
+              )
             }
           />
         </div>

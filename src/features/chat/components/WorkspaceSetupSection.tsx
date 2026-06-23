@@ -9,7 +9,6 @@ import { ContactForm } from '@/features/intake/components/ContactForm';
 import ChatContainer from '@/features/chat/components/ChatContainer';
 import { useTranslation } from '@/shared/i18n/hooks';
 import { features } from '@/config/features';
-import { normalizeAccentColor } from '@/shared/utils/brandColor';
 import { calculatePracticeSetupProgress } from '@/features/practice-setup/utils/progress';
 import type { PracticeSetupStatus } from '@/features/practice-setup/utils/status';
 import type { Practice } from '@/shared/hooks/usePracticeManagement';
@@ -152,9 +151,8 @@ export const WorkspaceSetupSection: FunctionComponent<WorkspaceSetupSectionProps
     onBasicsDraftChange?.({
       name: fields.name ?? practice?.name ?? '',
       slug: fields.slug ?? practice?.slug ?? '',
-      accentColor: normalizeAccentColor(fields.accentColor ?? practice?.accentColor ?? '#D4AF37'),
     });
-  }, [onBasicsDraftChange, practice?.accentColor, practice?.name, practice?.slug]);
+  }, [onBasicsDraftChange, practice?.name, practice?.slug]);
 
   const derivedProgress = useMemo(() => {
     const name = (extracted.name ?? practice?.name ?? '').trim();
@@ -179,7 +177,6 @@ export const WorkspaceSetupSection: FunctionComponent<WorkspaceSetupSectionProps
       (addrExtracted.state || addrDetails.state || addrPractice.state).trim()
     );
 
-    const accentColor = normalizeAccentColor(extracted.accentColor ?? details?.accentColor ?? practice?.accentColor);
     const hasLogo = Boolean(practice?.logo);
     const hasPayouts = setupStatus.payoutsComplete || payoutsCompleteOverride;
     return calculatePracticeSetupProgress({
@@ -188,7 +185,6 @@ export const WorkspaceSetupSection: FunctionComponent<WorkspaceSetupSectionProps
       website,
       contactPhone,
       businessEmail,
-      accentColor,
       hasServices,
       hasAddress,
       hasLogo,
@@ -199,7 +195,6 @@ export const WorkspaceSetupSection: FunctionComponent<WorkspaceSetupSectionProps
   const hasPending = useMemo(() => {
     const currentName = (practice?.name ?? '').trim();
     const currentSlug = (practice?.slug ?? '').trim();
-    const currentAccent = normalizeAccentColor(details?.accentColor ?? practice?.accentColor ?? '');
     const currentWebsite = (details?.website ?? practice?.website ?? '').trim();
     const currentBusinessEmail = (details?.businessEmail ?? practice?.businessEmail ?? '').trim();
     const currentBusinessPhone = (details?.businessPhone ?? practice?.businessPhone ?? '').trim();
@@ -207,10 +202,6 @@ export const WorkspaceSetupSection: FunctionComponent<WorkspaceSetupSectionProps
     const currentServices = normalizeServiceRecords(details?.services != null ? details.services : practice?.services);
     if (typeof extracted.name === 'string' && extracted.name.trim() !== currentName) return true;
     if (typeof extracted.slug === 'string' && extracted.slug.trim() !== currentSlug) return true;
-    if (typeof extracted.accentColor === 'string') {
-      const extractedAccent = normalizeAccentColor(extracted.accentColor);
-      if (extractedAccent && extractedAccent !== currentAccent) return true;
-    }
     if (typeof extracted.website === 'string' && extracted.website.trim() !== currentWebsite) return true;
     if (typeof extracted.businessEmail === 'string' && extracted.businessEmail.trim() !== currentBusinessEmail) return true;
     if (typeof extracted.businessPhone === 'string' && extracted.businessPhone.trim() !== currentBusinessPhone) return true;
@@ -226,11 +217,9 @@ export const WorkspaceSetupSection: FunctionComponent<WorkspaceSetupSectionProps
     if (!practice) return;
     setIsSaving(true);
     setSaveError(null);
-    const priorAccent = normalizeAccentColor(details?.accentColor ?? practice?.accentColor) ?? '#D4AF37';
     const priorBasics = {
       name: practice.name ?? '',
       slug: practice.slug ?? '',
-      accentColor: priorAccent,
     };
     const priorContact = {
       website: details?.website ?? practice?.website ?? '',
@@ -240,9 +229,8 @@ export const WorkspaceSetupSection: FunctionComponent<WorkspaceSetupSectionProps
     };
     let failingStep: string | null = null;
     try {
-      const accentColor = normalizeAccentColor(extracted.accentColor ?? priorAccent) ?? priorAccent;
       failingStep = 'basics';
-      await onSaveBasics({ name: extracted.name ?? practice.name ?? '', slug: extracted.slug ?? practice.slug ?? '', accentColor }, { suppressSuccessToast: true });
+      await onSaveBasics({ name: extracted.name ?? practice.name ?? '', slug: extracted.slug ?? practice.slug ?? '' }, { suppressSuccessToast: true });
       const existingAddress = normalizeAddress(details?.address ?? practice?.address ?? '');
       const extractedAddress = extracted.address ? normalizeAddress(extracted.address) : null;
       const mergedAddress = extractedAddress === null

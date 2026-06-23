@@ -112,7 +112,6 @@ export interface Practice {
   postalCode?: string | null;
   country?: string | null;
   primaryColor?: string | null;
-  accentColor?: string | null;
   isPublic?: boolean | null;
   services?: Array<Record<string, unknown>> | null;
 }
@@ -243,7 +242,6 @@ function mergePracticeDetails(practice: Practice, details: PracticeDetails | nul
   setIfNonNull('postalCode', details.postalCode as Practice['postalCode'] | undefined | null);
   setIfNonNull('country', details.country as Practice['country'] | undefined | null);
   setIfNonNull('primaryColor', details.primaryColor as Practice['primaryColor'] | undefined | null);
-  setIfNonNull('accentColor', details.accentColor as Practice['accentColor'] | undefined | null);
   setIfDefined('legalDisclaimer', details.legalDisclaimer as Practice['legalDisclaimer'] | undefined);
   setIfDefined('isPublic', details.isPublic as Practice['isPublic'] | undefined);
   setIfDefined('services', details.services as Practice['services'] | undefined);

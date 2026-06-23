@@ -6,7 +6,7 @@
 	<link rel="icon" type="image/png" href="/blawby-favicon-iframe.png" />
 	<link rel="apple-touch-icon" href="/blawby-favicon-iframe.png" />
 	<link rel="shortcut icon" href="/blawby-favicon-iframe.png" />
-	<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+	<meta name="viewport" content="width=device-width, initial-scale=1.0" />
 	<meta name="color-scheme" content="light dark" />
 	<link rel="preconnect" href="https://fonts.googleapis.com" crossorigin />
 	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -18,6 +18,10 @@
 				var prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
 				if (saved === 'dark' || (!saved && prefersDark)) {
 					document.documentElement.setAttribute('data-theme', 'midnight');
+					document.documentElement.style.colorScheme = 'dark';
+					document.querySelector('meta[name="theme-color"]')?.setAttribute('content', '#050c1c');
+				} else {
+					document.documentElement.style.colorScheme = 'light';
 				}
 			} catch (e) { /* localStorage unavailable (private mode, iframe restrictions) */ }
 		})();

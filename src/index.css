@@ -1,16 +1,34 @@
-@import './design-system/tokens.css';
+@import "./design-system/tokens.css";
 
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 @layer base {
+  html {
+    background-color: var(--paper);
+  }
 
   body {
     @apply min-h-screen m-0;
+
     background-color: var(--paper);
     color: var(--ink);
     font-family: var(--sans);
+  }
+
+  input,
+  textarea,
+  select {
+    background-color: var(--card);
+    color: var(--ink);
+    caret-color: var(--accent);
+  }
+
+  select,
+  option {
+    background-color: var(--card);
+    color: var(--ink);
   }
 
   .widget-shell-gradient {
@@ -21,6 +39,26 @@
     background-color: var(--paper);
     container-type: inline-size;
     container-name: widget;
+  }
+
+  .widget-shell-gradient--home {
+    background:
+      radial-gradient(
+        ellipse 860px 520px at 8% -14%,
+        color-mix(in oklab, var(--accent) 44%, transparent),
+        transparent 64%
+      ),
+      radial-gradient(
+        ellipse 620px 380px at 18% 10%,
+        color-mix(in oklab, var(--accent) 30%, transparent),
+        transparent 70%
+      ),
+      radial-gradient(
+        ellipse 420px 260px at 30% 22%,
+        color-mix(in oklab, var(--accent) 18%, transparent),
+        transparent 74%
+      ),
+      var(--paper);
   }
 
   /* Hide scrollbars globally */
@@ -82,7 +120,6 @@
 }
 
 @layer components {
-
   /* Canonical layout primitives. Feature components choose these roles; tokens decide color. */
 
   .page-detail {
@@ -92,19 +129,16 @@
     color: rgb(var(--text-primary));
   }
 
-
   .page-detail-header {
     @apply px-4 py-5 sm:px-6;
 
     background-color: transparent;
   }
 
-
   .tab-bar {
     @apply border-b px-4 sm:px-6;
     border-color: rgb(var(--border-subtle));
   }
-
 
   .page-content {
     @apply p-4 sm:p-6;
@@ -161,7 +195,6 @@
     @apply ml-auto flex items-center gap-2;
   }
 
-
   /* Canonical DS card. */
   .card {
     position: relative;
@@ -173,7 +206,9 @@
   }
 
   .card-hover {
-    transition: background 0.18s ease, box-shadow 0.18s ease;
+    transition:
+      background 0.18s ease,
+      box-shadow 0.18s ease;
   }
 
   .card-hover:hover {
@@ -242,8 +277,6 @@
     box-shadow: 0 0 0 3px color-mix(in oklab, var(--pos) 20%, transparent);
   }
 
-
-
   .workspace-header {
     @apply relative flex min-h-[56px] items-center gap-3 px-4 py-3 text-ink rounded-none border-b border-solid border-rule;
     background: rgb(var(--header-bg));
@@ -281,17 +314,17 @@
   .workspace-header__loading {
     @apply pointer-events-none absolute bottom-[-1px] left-0 h-0.5 w-full;
 
-    background: linear-gradient(90deg,
-        rgb(var(--accent-rgb) / 0) 0%,
-        rgb(var(--accent-rgb) / 0.95) 20%,
-        rgb(var(--accent-rgb) / 1) 45%,
-        rgb(var(--accent-rgb) / 0.95) 70%,
-        rgb(var(--accent-rgb) / 0) 100%);
+    background: linear-gradient(
+      90deg,
+      rgb(var(--accent-rgb) / 0) 0%,
+      rgb(var(--accent-rgb) / 0.95) 20%,
+      rgb(var(--accent-rgb) / 1) 45%,
+      rgb(var(--accent-rgb) / 0.95) 70%,
+      rgb(var(--accent-rgb) / 0) 100%
+    );
     transform: translateX(-100%);
     animation: workspace-header-progress 1.15s linear infinite;
   }
-
-
 
   /* Semantic surface helpers */
   .surface-subtle {
@@ -359,7 +392,11 @@
     border: 1px solid transparent;
     background: transparent;
     color: var(--ink);
-    transition: background 0.18s ease, color 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
+    transition:
+      background 0.18s ease,
+      color 0.18s ease,
+      border-color 0.18s ease,
+      box-shadow 0.18s ease;
     font-family: var(--sans);
     cursor: pointer;
     -webkit-user-select: none;
@@ -377,16 +414,44 @@
   }
 
   /* Sizes (override base padding/font-size) */
-  .btn-xs { padding: 4px 10px; font-size: 12px; }
-  .btn-sm { padding: 6px 12px; font-size: 12.5px; }
-  .btn-md { padding: 10px 18px; font-size: 14px; }
-  .btn-lg { padding: 16px 26px; font-size: 15px; }
+  .btn-xs {
+    padding: 4px 10px;
+    font-size: 12px;
+  }
+  .btn-sm {
+    padding: 6px 12px;
+    font-size: 12.5px;
+  }
+  .btn-md {
+    padding: 10px 18px;
+    font-size: 14px;
+  }
+  .btn-lg {
+    padding: 16px 26px;
+    font-size: 15px;
+  }
 
   /* Icon-only size helpers (pair with a variant) */
-  .btn-icon-xs { width: 28px; height: 28px; padding: 0; }
-  .btn-icon-sm { width: 32px; height: 32px; padding: 0; }
-  .btn-icon-md { width: 36px; height: 36px; padding: 0; }
-  .btn-icon-lg { width: 44px; height: 44px; padding: 0; }
+  .btn-icon-xs {
+    width: 28px;
+    height: 28px;
+    padding: 0;
+  }
+  .btn-icon-sm {
+    width: 32px;
+    height: 32px;
+    padding: 0;
+  }
+  .btn-icon-md {
+    width: 36px;
+    height: 36px;
+    padding: 0;
+  }
+  .btn-icon-lg {
+    width: 44px;
+    height: 44px;
+    padding: 0;
+  }
 
   /* Primary — solid ink, hover swaps to accent */
   .btn-primary {
@@ -654,7 +719,7 @@
     margin: 0;
   }
 
-  .chat-markdown.truncate p+p::before {
+  .chat-markdown.truncate p + p::before {
     content: " ";
   }
 
@@ -736,12 +801,12 @@
     margin-bottom: 0;
   }
 
-  .chat-markdown li>p {
+  .chat-markdown li > p {
     margin: 0;
     display: inline;
   }
 
-  .chat-markdown li>p+p {
+  .chat-markdown li > p + p {
     display: block;
     margin-top: 0.35em;
   }
@@ -761,8 +826,8 @@
   }
 
   /* Nested lists — tighter, no extra bottom margin */
-  .chat-markdown li>ul,
-  .chat-markdown li>ol {
+  .chat-markdown li > ul,
+  .chat-markdown li > ol {
     margin-top: 0.2em;
     margin-bottom: 0;
   }
@@ -832,7 +897,7 @@
 
   /* When markdown is the only child of a tight container,
      remove the trailing margin on whatever element closes it */
-  .chat-markdown> :last-child {
+  .chat-markdown > :last-child {
     margin-bottom: 0 !important;
   }
 
@@ -906,7 +971,7 @@
     box-shadow: none;
   }
 
-  .message-list-item+.message-list-item {
+  .message-list-item + .message-list-item {
     margin-top: 0;
   }
 
@@ -1018,10 +1083,18 @@
     flex-shrink: 0;
   }
 
-  .pill.live::before  { background: var(--pos); }
-  .pill.warn::before  { background: var(--warn); }
-  .pill.urgent::before { background: var(--neg); }
-  .pill.gold::before  { background: var(--accent); }
+  .pill.live::before {
+    background: var(--pos);
+  }
+  .pill.warn::before {
+    background: var(--warn);
+  }
+  .pill.urgent::before {
+    background: var(--neg);
+  }
+  .pill.gold::before {
+    background: var(--accent);
+  }
 
   .chip {
     display: inline-flex;
@@ -1035,7 +1108,10 @@
     color: var(--ink-2);
     border-radius: var(--r-xs);
     cursor: pointer;
-    transition: background 0.14s, transform 0.12s, border-color 0.14s;
+    transition:
+      background 0.14s,
+      transform 0.12s,
+      border-color 0.14s;
     font-family: var(--sans);
   }
 
@@ -1075,8 +1151,18 @@
     border-radius: var(--r-md);
     background: color-mix(in oklab, var(--neg) 6%, var(--card));
   }
-  .danger h3 { color: var(--neg); font-family: var(--serif); font-weight: 400; font-size: 20px; margin: 0 0 4px; }
-  .danger .gdesc { color: var(--ink-2); font-size: 13.5px; margin: 0 0 14px; }
+  .danger h3 {
+    color: var(--neg);
+    font-family: var(--serif);
+    font-weight: 400;
+    font-size: 20px;
+    margin: 0 0 4px;
+  }
+  .danger .gdesc {
+    color: var(--ink-2);
+    font-size: 13.5px;
+    margin: 0 0 14px;
+  }
 
   /* Form field group — label + input/select/textarea stacked vertically */
   .form-field {
@@ -1107,8 +1193,12 @@
     transition: width 0.3s ease;
   }
 
-  .bar.warn > i { background: var(--neg); }
-  .bar.ok > i { background: var(--pos); }
+  .bar.warn > i {
+    background: var(--neg);
+  }
+  .bar.ok > i {
+    background: var(--pos);
+  }
 
   .avatar {
     display: inline-grid;
@@ -1156,7 +1246,9 @@
     border-radius: var(--r-xs);
     padding: 11px 12px;
     outline: none;
-    transition: border-color 0.14s, box-shadow 0.14s;
+    transition:
+      border-color 0.14s,
+      box-shadow 0.14s;
     width: 100%;
   }
 
@@ -1224,8 +1316,12 @@
     box-shadow: 0 1px 2px rgba(0, 0, 0, 0.15);
   }
 
-  .toggle.on { background: var(--accent); }
-  .toggle.on::after { transform: translateX(16px); }
+  .toggle.on {
+    background: var(--accent);
+  }
+  .toggle.on::after {
+    transform: translateX(16px);
+  }
 
   .toggle:focus-visible {
     outline: none;
@@ -1273,8 +1369,12 @@
     color: var(--ink);
   }
 
-  .brand-mark-sm .brand-mark-glyph { font-size: 18px; }
-  .brand-mark-sm .brand-mark-word { font-size: 16px; }
+  .brand-mark-sm .brand-mark-glyph {
+    font-size: 18px;
+  }
+  .brand-mark-sm .brand-mark-word {
+    font-size: 16px;
+  }
 
   /* LeftRail badges are still used by the mobile bottom bar. */
   .left-rail-badge {
@@ -1304,7 +1404,10 @@
     font-size: 13px;
     font-weight: 500;
     cursor: pointer;
-    transition: background 0.18s ease, border-color 0.18s ease, color 0.18s ease;
+    transition:
+      background 0.18s ease,
+      border-color 0.18s ease,
+      color 0.18s ease;
   }
   .left-rail-new-btn:hover {
     background: var(--accent);
@@ -1318,13 +1421,13 @@
   .left-rail-new-btn kbd {
     font-family: var(--mono);
     font-size: 10px;
-    background: rgba(255,255,255,0.12);
+    background: rgba(255, 255, 255, 0.12);
     color: color-mix(in oklab, var(--paper) 70%, transparent);
     padding: 2px 6px;
     border-radius: 3px;
   }
   .left-rail-new-btn:hover kbd {
-    background: rgba(0,0,0,0.12);
+    background: rgba(0, 0, 0, 0.12);
     color: var(--accent-ink);
   }
 
@@ -1403,7 +1506,9 @@
     color: var(--dim);
     font-size: 16px;
     cursor: pointer;
-    transition: background 0.12s ease, color 0.12s ease;
+    transition:
+      background 0.12s ease,
+      color 0.12s ease;
   }
   .focus-drawer-close-btn:hover {
     background: var(--rule-soft);
@@ -1422,9 +1527,15 @@
   }
 
   /* Edge border depends on which side the drawer sits on */
-  .focus-drawer.right { border-left: 1px solid var(--paper-edge); }
-  .focus-drawer.left { border-right: 1px solid var(--paper-edge); }
-  .focus-drawer.bottom { border-top: 1px solid var(--paper-edge); }
+  .focus-drawer.right {
+    border-left: 1px solid var(--paper-edge);
+  }
+  .focus-drawer.left {
+    border-right: 1px solid var(--paper-edge);
+  }
+  .focus-drawer.bottom {
+    border-top: 1px solid var(--paper-edge);
+  }
 
   /* Inline (desktop) — sticky side rail. Bottom inline isn't supported; the
      component falls back to overlay presentation for `position='bottom'`. */
@@ -1437,7 +1548,9 @@
   }
 
   .focus-drawer-inline.right,
-  .focus-drawer-inline.left { width: 400px; }
+  .focus-drawer-inline.left {
+    width: 400px;
+  }
 
   /* Overlay (mobile) — portaled, anchored to the chosen edge */
   .focus-drawer-overlay {
@@ -1514,7 +1627,9 @@
     display: block;
     border-left: 3px solid transparent;
     padding: 12px 16px;
-    transition: background 0.14s ease, border-color 0.14s ease;
+    transition:
+      background 0.14s ease,
+      border-color 0.14s ease;
     cursor: pointer;
   }
 
@@ -1619,7 +1734,11 @@
 
   /* §3.1 AI summary — gold-tinted hero block */
   .ai-summary {
-    background: linear-gradient(180deg, color-mix(in oklab, var(--accent) 12%, var(--card)), var(--card));
+    background: linear-gradient(
+      180deg,
+      color-mix(in oklab, var(--accent) 12%, var(--card)),
+      var(--card)
+    );
     border: 1px solid color-mix(in oklab, var(--accent) 30%, var(--rule));
     border-radius: var(--r-md);
     padding: 20px 22px;
@@ -1728,7 +1847,9 @@
     font-size: 13px;
     color: var(--ink);
     cursor: pointer;
-    transition: background 0.12s, border-color 0.12s;
+    transition:
+      background 0.12s,
+      border-color 0.12s;
     line-height: 1.4;
     font-family: var(--sans);
   }
@@ -1823,7 +1944,9 @@
   }
   .composer:focus-within {
     border-color: var(--ink-3);
-    box-shadow: var(--shadow-2), 0 0 0 3px var(--accent-soft);
+    box-shadow:
+      var(--shadow-2),
+      0 0 0 3px var(--accent-soft);
   }
   .composer-tabs {
     display: flex;
@@ -1867,7 +1990,9 @@
   .composer-input--multiline {
     min-height: 88px;
   }
-  .composer-input::placeholder { color: var(--dim-2); }
+  .composer-input::placeholder {
+    color: var(--dim-2);
+  }
   .composer-suggestions {
     display: flex;
     flex-wrap: wrap;
@@ -1895,7 +2020,9 @@
     margin-top: 10px;
     flex-wrap: wrap;
   }
-  .composer-spacer { flex: 1; }
+  .composer-spacer {
+    flex: 1;
+  }
   .composer-ctx {
     display: inline-flex;
     align-items: center;
@@ -1931,7 +2058,9 @@
     letter-spacing: 0.08em;
     background: transparent;
     cursor: pointer;
-    transition: border-color 0.12s ease, color 0.12s ease;
+    transition:
+      border-color 0.12s ease,
+      color 0.12s ease;
   }
   .composer-ctx-add:hover {
     border-color: var(--ink-3);
@@ -1948,7 +2077,10 @@
     background: var(--paper);
     color: var(--ink-2);
     cursor: pointer;
-    transition: background 0.12s ease, border-color 0.12s ease, color 0.12s ease;
+    transition:
+      background 0.12s ease,
+      border-color 0.12s ease,
+      color 0.12s ease;
     flex-shrink: 0;
   }
   .composer-icon-button:hover {
@@ -1968,7 +2100,11 @@
     justify-content: center;
     cursor: pointer;
     flex-shrink: 0;
-    transition: background 0.18s ease, border-color 0.18s ease, color 0.18s ease, opacity 0.18s ease;
+    transition:
+      background 0.18s ease,
+      border-color 0.18s ease,
+      color 0.18s ease,
+      opacity 0.18s ease;
   }
   .composer-send-button:hover:not(:disabled) {
     background: var(--accent);
@@ -2064,7 +2200,9 @@
     color: var(--ink);
     background: transparent;
     border: 0;
-    transition: background 0.12s ease, color 0.12s ease;
+    transition:
+      background 0.12s ease,
+      color 0.12s ease;
   }
   .composer-thread-mention-option:hover,
   .composer-thread-mention-option--active {
@@ -2083,7 +2221,10 @@
     border: 1px solid var(--rule);
     border-radius: var(--r-md);
     padding: 18px;
-    transition: transform 0.15s, box-shadow 0.15s, border-color 0.15s;
+    transition:
+      transform 0.15s,
+      box-shadow 0.15s,
+      border-color 0.15s;
     box-shadow: var(--shadow-1);
   }
   .briefing-grid-card:hover {
@@ -2259,7 +2400,7 @@
     max-width: 720px;
     margin: 0 auto;
     padding: 56px 60px 72px;
-    color: #15140F;
+    color: #15140f;
     font-family: var(--serif);
     line-height: 1.6;
     font-size: 14.5px;
@@ -2404,12 +2545,14 @@
      final consolidation is part of Commit 8 feature sweep. */
   .seg {
     display: inline-flex;
-    border: 1px solid var(--rule);
-    border-radius: var(--r-xs);
+    border: 1px solid rgb(var(--sidebar-border));
+    border-radius: var(--r-sm);
     background: var(--card);
+    overflow: hidden;
   }
   .seg button {
     appearance: none;
+    position: relative;
     border: none;
     background: transparent;
     padding: 5px 10px;
@@ -2417,22 +2560,30 @@
     font-size: 12px;
     color: var(--ink-2);
     cursor: pointer;
-    border-right: 1px solid var(--rule);
+    border-right: 1px solid rgb(var(--sidebar-border));
     line-height: 1.4;
+    transition: background-color 150ms ease, color 150ms ease, box-shadow 150ms ease;
   }
   .seg button:last-child {
     border-right: none;
   }
   .seg button:hover:not(:disabled) {
-    background: var(--rule-soft);
+    background: rgb(var(--sidebar-hover-bg));
+    color: var(--ink);
+  }
+  .seg button:focus-visible {
+    outline: none;
+    z-index: 1;
+    box-shadow: inset 0 0 0 2px color-mix(in oklab, var(--accent) 62%, transparent);
   }
   .seg button:disabled {
     cursor: not-allowed;
     opacity: 0.5;
   }
   .seg button.seg-on {
-    background: var(--ink);
-    color: var(--accent);
+    background: rgb(var(--sidebar-active-bg));
+    color: rgb(var(--sidebar-active-text));
+    box-shadow: inset 0 -2px 0 var(--accent);
   }
 
   /* §3.16 AI Ask Bar — sticky pill composer for one-off asks on list views */
@@ -2452,7 +2603,11 @@
 
   /* §3.17 AI Answer Card — gold-tinted grounded reply card */
   .ai-answer-card {
-    background: linear-gradient(180deg, color-mix(in oklab, var(--accent) 12%, var(--card)), var(--card));
+    background: linear-gradient(
+      180deg,
+      color-mix(in oklab, var(--accent) 12%, var(--card)),
+      var(--card)
+    );
     border: 1px solid color-mix(in oklab, var(--accent) 30%, var(--rule));
     border-left: 2px solid var(--accent);
     border-radius: var(--r-md);
@@ -2576,7 +2731,9 @@
     font-size: 13px;
     color: var(--ink);
     outline: none;
-    transition: border-color 120ms ease, box-shadow 120ms ease;
+    transition:
+      border-color 120ms ease,
+      box-shadow 120ms ease;
   }
   .ai-ribbon-edit:focus {
     border-color: var(--accent);
@@ -2594,7 +2751,12 @@
     gap: 6px;
   }
   .ai-ribbon-authoring {
-    background: linear-gradient(90deg, var(--accent-soft), color-mix(in oklab, var(--accent) 8%, var(--card)), var(--card));
+    background: linear-gradient(
+      90deg,
+      var(--accent-soft),
+      color-mix(in oklab, var(--accent) 8%, var(--card)),
+      var(--card)
+    );
     border: 1px solid color-mix(in oklab, var(--accent) 24%, var(--rule));
   }
   .ai-ribbon-observation {
@@ -2609,8 +2771,13 @@
     animation: ai-ribbon-pulse 2.4s ease-in-out infinite;
   }
   @keyframes ai-ribbon-pulse {
-    0%, 100% { background: color-mix(in oklab, var(--accent) 6%, var(--card)); }
-    50% { background: color-mix(in oklab, var(--accent) 14%, var(--card)); }
+    0%,
+    100% {
+      background: color-mix(in oklab, var(--accent) 6%, var(--card));
+    }
+    50% {
+      background: color-mix(in oklab, var(--accent) 14%, var(--card));
+    }
   }
 
   /* §3.19 Placeholder token — golden chip for unresolved {{key}}, green for resolved */
@@ -2636,10 +2803,8 @@
 
   /* §3.20 Numbered Section — step indicator with done/now/next states */
   .numbered-section {
-    display: grid;
-    grid-template-columns: 28px 1fr;
-    gap: 14px;
-    align-items: flex-start;
+    --numbered-section-indent: 42px;
+    display: block;
   }
   .numbered-section-indicator {
     width: 24px;
@@ -2654,40 +2819,44 @@
     margin-top: 2px;
     flex-shrink: 0;
   }
-  .numbered-section-indicator-done {
+  .numbered-section-done .numbered-section-indicator {
     background: var(--accent);
     color: var(--accent-ink);
     border: 1px solid var(--accent);
   }
-  .numbered-section-indicator-now {
+  .numbered-section-now .numbered-section-indicator {
     background: var(--card);
     color: var(--accent-deep);
     border: 2px solid var(--accent);
     box-shadow: 0 0 0 3px var(--accent-soft);
   }
-  .numbered-section-indicator-next {
+  .numbered-section-next .numbered-section-indicator {
     background: var(--card);
     color: var(--dim);
     border: 1px solid var(--rule);
   }
   .numbered-section-body {
+    margin-left: var(--numbered-section-indent);
+    margin-top: 12px;
     min-width: 0;
   }
   .numbered-section-title {
+    display: grid;
+    grid-template-columns: 28px minmax(0, 1fr);
+    column-gap: 14px;
+    align-items: flex-start;
     font-family: var(--serif);
     font-size: 18px;
     color: var(--ink);
     line-height: 1.3;
     margin: 0;
   }
-  .numbered-section-description {
+  .numbered-section-desc {
     font-family: var(--mono);
     font-size: 11px;
     color: var(--dim);
-    margin-top: 4px;
-  }
-  .numbered-section-content {
-    margin-top: 12px;
+    line-height: 1.45;
+    margin: 4px 0 0 var(--numbered-section-indent);
   }
 
   /* §3.21 Signal Pill — semantic risk/sentiment pill */
@@ -2713,13 +2882,17 @@
     color: var(--neg);
     border: 1px solid color-mix(in oklab, var(--neg) 30%, transparent);
   }
-  .signal-pill-urgent .signal-pill-dot { background: var(--neg); }
+  .signal-pill-urgent .signal-pill-dot {
+    background: var(--neg);
+  }
   .signal-pill-warn {
     background: color-mix(in oklab, var(--warn) 14%, var(--card));
     color: color-mix(in oklab, var(--warn) 70%, var(--ink));
     border: 1px solid color-mix(in oklab, var(--warn) 35%, transparent);
   }
-  .signal-pill-warn .signal-pill-dot { background: var(--warn); }
+  .signal-pill-warn .signal-pill-dot {
+    background: var(--warn);
+  }
   .signal-pill-healthy,
   .signal-pill-calm {
     background: color-mix(in oklab, var(--pos) 12%, var(--card));
@@ -2727,7 +2900,9 @@
     border: 1px solid color-mix(in oklab, var(--pos) 30%, transparent);
   }
   .signal-pill-healthy .signal-pill-dot,
-  .signal-pill-calm .signal-pill-dot { background: var(--pos); }
+  .signal-pill-calm .signal-pill-dot {
+    background: var(--pos);
+  }
   .signal-pill-quiet,
   .signal-pill-silent {
     background: var(--paper-2);
@@ -2735,19 +2910,25 @@
     border: 1px solid var(--rule);
   }
   .signal-pill-quiet .signal-pill-dot,
-  .signal-pill-silent .signal-pill-dot { background: var(--dim); }
+  .signal-pill-silent .signal-pill-dot {
+    background: var(--dim);
+  }
   .signal-pill-anxious {
     background: color-mix(in oklab, var(--warn) 14%, var(--card));
     color: color-mix(in oklab, var(--warn) 70%, var(--ink));
     border: 1px solid color-mix(in oklab, var(--warn) 35%, transparent);
   }
-  .signal-pill-anxious .signal-pill-dot { background: var(--warn); }
+  .signal-pill-anxious .signal-pill-dot {
+    background: var(--warn);
+  }
   .signal-pill-frustrated {
     background: color-mix(in oklab, var(--neg) 12%, var(--card));
     color: var(--neg);
     border: 1px solid color-mix(in oklab, var(--neg) 30%, transparent);
   }
-  .signal-pill-frustrated .signal-pill-dot { background: var(--neg); }
+  .signal-pill-frustrated .signal-pill-dot {
+    background: var(--neg);
+  }
 
   /* §3.22 Quick Reply Chip — rounded pill for quick-reply chips in chat.
      Bumped padding from 6px 14px to 8px 16px + min-height 36px so the chip
@@ -2765,7 +2946,9 @@
     font-family: var(--sans);
     font-size: 13px;
     cursor: pointer;
-    transition: background 120ms ease, border-color 120ms ease;
+    transition:
+      background 120ms ease,
+      border-color 120ms ease;
   }
   .quick-reply-chip:hover:not(:disabled) {
     background: var(--paper-2);
@@ -2865,7 +3048,6 @@
 }
 
 @layer utilities {
-
   /* Accordion */
   [data-state="open"] [data-slot="accordion-trigger"] svg {
     transform: rotate(180deg);
@@ -3480,8 +3662,12 @@
    * the sweep and showing a slightly more opaque static bar instead.
    */
   @keyframes skeleton-shimmer {
-    0%   { background-position: 200% 0; }
-    100% { background-position: -200% 0; }
+    0% {
+      background-position: 200% 0;
+    }
+    100% {
+      background-position: -200% 0;
+    }
   }
 
   .skeleton-bar {

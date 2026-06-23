@@ -144,7 +144,6 @@ describe('wire schemas — runtime parse fixtures', () => {
       domain: 'acme-law.com',
       description: 'Family and criminal law',
       brandColor: '#1a1a1a',
-      accentColor: '#ff6600',
       voice: {
         enabled: false,
         provider: 'cloudflare',

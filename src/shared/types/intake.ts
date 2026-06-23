@@ -80,6 +80,12 @@ export interface IntakeFieldDefinition {
    * Preserved so UI rendering and validation can access specialized semantics.
    */
   backendFieldType?: string;
+  /**
+   * Weight (0–25) used by computeCompletenessScore.
+   * Required-phase fields carry higher weight. Omitting defaults to 5.
+   * The score drives when the submit CTA appears — not field phase or count.
+   */
+  completenessWeight?: number;
 }
 
 // ---------------------------------------------------------------------------
@@ -139,7 +145,6 @@ export interface IntakeConversationState {
   ctaShown: boolean;
   ctaResponse: 'ready' | 'not_yet' | null;
   notYetCount: number;
-  enrichmentMode: boolean | null;
   /** Values for non-standard fields defined by custom IntakeTemplates */
   customFields?: Record<string, string | number | boolean>;
 }
@@ -150,6 +155,7 @@ export interface ConsultationSubmissionState {
   paymentRequired: boolean | null;
   paymentReceived: boolean | null;
   checkoutSessionId: string | null;
+  paymentLinkUrl?: string | null;
   /** Slug of the IntakeTemplate used when this intake was collected */
   templateSlug?: string | null;
 }
@@ -174,7 +180,6 @@ export const initialIntakeState: IntakeConversationState = {
   courtDate: null,
   hasDocuments: null,
   householdSize: null,
-  enrichmentMode: null,
   turnCount: 0,
   ctaShown: false,
   ctaResponse: null,
@@ -187,6 +192,7 @@ export const initialConsultationSubmissionState: ConsultationSubmissionState = {
   paymentRequired: null,
   paymentReceived: null,
   checkoutSessionId: null,
+  paymentLinkUrl: null,
 };
 
 export const CONSULTATION_STATE_VERSION = 1;
@@ -204,7 +210,6 @@ export type IntakeFieldsPayload = {
   householdSize?: number | null;
   ctaShown?: boolean;
   intakeReady?: boolean;
-  enrichmentMode?: boolean | null;
 };
 
 export type IntakeFieldChangeOptions = {

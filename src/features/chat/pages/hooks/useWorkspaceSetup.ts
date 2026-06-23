@@ -20,7 +20,6 @@ import { extractStripeStatusFromPayload } from '@/features/onboarding/utils';
 import type { StripeConnectStatus } from '@/features/onboarding/types';
 import { getValidatedStripeOnboardingUrl } from '@/shared/utils/stripeOnboarding';
 import { uploadPracticeLogo } from '@/shared/utils/practiceLogoUpload';
-import { normalizeAccentColor } from '@/shared/utils/brandColor';
 import { buildPracticeProfilePayloads } from '@/shared/utils/practiceProfile';
 import type { Conversation } from '@/shared/types/conversation';
 import type { ComboboxOption } from '@/shared/ui/input';
@@ -204,11 +203,22 @@ export const useWorkspaceSetup = ({
   const [previewReloadKey, setPreviewReloadKey] = useState(0);
 
   const workspacePracticeId = practiceId ?? currentPractice?.id ?? null;
+  const shouldLoadSetupDetails = view === 'setup';
+  const shouldLoadTeam =
+    isPracticeWorkspace &&
+    Boolean(workspacePracticeId) &&
+    (
+      view === 'setup' ||
+      workspaceSection === 'conversations' ||
+      workspaceSection === 'assistant' ||
+      workspaceSection === 'matters'
+    );
 
   useEffect(() => {
+    if (!shouldLoadSetupDetails) return;
     if (!currentPractice?.id) return;
     void fetchSetupDetails();
-  }, [currentPractice?.id, fetchSetupDetails]);
+  }, [currentPractice?.id, fetchSetupDetails, shouldLoadSetupDetails]);
 
   const forcePreviewReload = useCallback(() => {
     setPreviewReloadKey(prev => prev + 1);
@@ -225,12 +235,6 @@ export const useWorkspaceSetup = ({
     }
     const trimmedName = values.name.trim();
     const trimmedSlug = values.slug.trim();
-    const normalizedAccentColor = normalizeAccentColor(values.accentColor);
-    if (!normalizedAccentColor) {
-      const error = new Error('Accent color must be a valid hex value (for example #3B82F6).');
-      showError('Invalid accent color', error.message);
-      throw error;
-    }
     const practiceUpdates: Record<string, string> = {};
 
     if (trimmedName && trimmedName !== (currentPractice.name ?? '')) {
@@ -239,19 +243,12 @@ export const useWorkspaceSetup = ({
     if (trimmedSlug && trimmedSlug !== (currentPractice.slug ?? '')) {
       practiceUpdates.slug = trimmedSlug;
     }
-    const accentSource = normalizeAccentColor(setupDetails?.accentColor ?? currentPractice?.accentColor);
-    const accentChanged = normalizedAccentColor !== accentSource;
 
     try {
       if (Object.keys(practiceUpdates).length > 0) {
         await updatePractice(currentPractice.id, practiceUpdates);
       }
-      if (accentChanged) {
-        await updateSetupDetails({
-          ...(accentChanged ? { accentColor: normalizedAccentColor } : {})
-        });
-      }
-      if (Object.keys(practiceUpdates).length > 0 || accentChanged) {
+      if (Object.keys(practiceUpdates).length > 0) {
         if (!options?.suppressSuccessToast) {
           showSuccess('Basics updated', 'Your public profile reflects the newest info.');
         }
@@ -265,7 +262,7 @@ export const useWorkspaceSetup = ({
       showError('Basics update failed', error instanceof Error ? error.message : 'Unable to save basics.');
       throw error;
     }
-  }, [currentPractice, forcePreviewReload, setupDetails?.accentColor, showError, showSuccess, updatePractice, updateSetupDetails]);
+  }, [currentPractice, forcePreviewReload, showError, showSuccess, updatePractice]);
 
   const handleSaveContact = useCallback(async (
     values: ContactFormValues,
@@ -350,7 +347,7 @@ export const useWorkspaceSetup = ({
   const { members: practiceMembers } = usePracticeTeam(
     workspacePracticeId,
     session?.user?.id ?? null,
-    { enabled: isPracticeWorkspace && Boolean(workspacePracticeId) }
+    { enabled: shouldLoadTeam }
   );
 
   const conversationMemberOptions = useMemo(

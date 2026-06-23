@@ -31,7 +31,6 @@ import {
 import type { ConversationMessage } from '@/shared/types/conversation';
 import { useMessageHandling } from '@/shared/hooks/useMessageHandling';
 import { usePracticeDetails } from '@/shared/hooks/usePracticeDetails';
-import { applyConsultationPatchToMetadata } from '@/shared/utils/consultationState';
 import { formatRelativeTime } from '@/features/matters/utils/formatRelativeTime';
 import { resolvePracticeServiceLabel } from '@/features/matters/utils/matterUtils';
 import { resolveIntakeTitle } from '@/features/intake/utils/intakeTitle';
@@ -358,7 +357,6 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
 
   const {
     conversationMetadata,
-    updateConversationMetadata: updateConversationMetadataPatch,
     intakeConversationState,
   } = useMessageHandling({
     practiceId: practiceId ?? undefined,
@@ -721,15 +719,7 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
     const targetPracticeId = intake?.organization_id;
     if (!conversationId || !targetPracticeId || gatherDetailsSubmitting) return;
 
-    const currentCase = intakeConversationState;
-    const nextMetadata = applyConsultationPatchToMetadata(
-      conversationMetadata,
-      { case: { ...(currentCase ?? {}), enrichmentMode: true } },
-      { mirrorLegacyFields: true },
-    );
-
-    const templateFields = (activeTemplate?.fields ?? STANDARD_FIELD_DEFINITIONS)
-      .filter((f) => f.phase === 'enrichment');
+    const templateFields = (activeTemplate?.fields ?? STANDARD_FIELD_DEFINITIONS);
     const intakeStateRecord = intakeConversationState as unknown as Record<string, unknown> | null;
     const nextMissingField = templateFields.find(
       (f) => !resolveFieldValue(f, intakeStateRecord, intake),
@@ -740,7 +730,6 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
 
     setGatherDetailsSubmitting(true);
     try {
-      await updateConversationMetadataPatch(nextMetadata, conversationId);
       const message = await postSystemMessage(conversationId, targetPracticeId, {
         clientId: 'system-intake-gather-details',
         content: prompt,
@@ -748,7 +737,6 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
           source: 'ai',
           systemMessageKey: 'intake_gather_details',
           intakeUuid: intakeId,
-          enrichmentMode: true,
         },
       });
       if (message) {
@@ -774,14 +762,12 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
     }
   }, [
     activeTemplate,
-    conversationMetadata,
     gatherDetailsSubmitting,
     intake,
     intakeConversationState,
     intakeId,
     showError,
     showSuccess,
-    updateConversationMetadataPatch,
   ]);
 
   const handleGenerateEngagement = useCallback(async (template: EngagementLetterTemplate) => {
@@ -1066,7 +1052,7 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
     <Card>
       <div className="space-y-1">
         <SectionLabel>Client&apos;s own words</SectionLabel>
-        <p className="whitespace-pre-wrap text-sm leading-relaxed text-ink/90">{description}</p>
+        <p className="whitespace-pre-wrap text-sm leading-relaxed text-ink">{description}</p>
       </div>
     </Card>
   ) : null;
@@ -1246,7 +1232,7 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
         <div className="rounded-lg bg-accent/10 p-2 text-accent">
           <Icon icon={Sparkles} className="h-4 w-4" />
         </div>
-        <p className="text-xs leading-relaxed text-ink/90">
+        <p className="text-xs leading-relaxed text-ink">
           Blawby can ask the client for missing legal details and add them to this thread.
         </p>
       </div>
@@ -1267,7 +1253,7 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
   const notesCard = (intake.triage_reason && intake.triage_reason.trim().length > 0) ? (
     <Card className="p-4">
       <SectionLabel className="mb-2">Notes</SectionLabel>
-      <p className="text-xs leading-relaxed text-ink/90 whitespace-pre-wrap">
+      <p className="text-xs leading-relaxed text-ink whitespace-pre-wrap">
         {intake.triage_reason}
       </p>
     </Card>

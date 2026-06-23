@@ -94,7 +94,7 @@ const MediaContent: FunctionComponent<MediaContentProps> = ({ media }) => {
             {renderMediaContent()}
             <div className="text-center">
                 <h3 className="text-lg font-semibold mb-1">{media.name}</h3>
-                <p className="text-sm opacity-80">
+                <p className="text-sm text-dim">
                     {media.type} • {Math.round(media.size / 1024)} KB
                 </p>
             </div>

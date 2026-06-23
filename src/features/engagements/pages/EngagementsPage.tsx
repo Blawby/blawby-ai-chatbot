@@ -5,9 +5,9 @@ import { Briefcase, Plus } from 'lucide-preact';
 
 import { Button } from '@/shared/ui/Button';
 import { Seg } from '@/design-system/patterns';
-import { EntityList } from '@/shared/ui/list/EntityList';
 import { WorkspacePlaceholderState } from '@/shared/ui/layout/WorkspacePlaceholderState';
 import { InfiniteScroll } from '@/shared/ui/layout/InfiniteScroll';
+import { LoadingSpinner } from '@/shared/ui/layout/LoadingSpinner';
 import { usePaginatedList } from '@/shared/hooks/usePaginatedList';
 import { queryCache } from '@/shared/lib/queryCache';
 import { policyTtl } from '@/shared/lib/cachePolicy';
@@ -74,8 +74,7 @@ const StatusPill: FunctionComponent<{ status: EngagementStatus | string | undefi
 const getMatterLabel = (item: EngagementListItem): string => {
   const proposalSummary = item.proposal_data?.client_summary?.matter_summary;
   if (proposalSummary && proposalSummary.trim()) return proposalSummary;
-  if (item.title && item.title.trim()) return item.title;
-  return '—';
+  throw new Error(`Engagement ${item.id} is missing proposal_data.client_summary.matter_summary`);
 };
 
 const getBillingLabel = (fees: ProposalFees | null | undefined): string => {
@@ -104,7 +103,10 @@ const EngagementMobileCard: FunctionComponent<{
   item: EngagementListItem;
   onClick: () => void;
 }> = ({ item, onClick }) => {
-  const name = item.client_name || 'Unknown Client';
+  const name = item.client_name;
+  if (!name) {
+    throw new Error(`Engagement ${item.id} is missing client_name`);
+  }
   const matter = getMatterLabel(item);
   const retainer = getRetainerLabel(item.proposal_data?.fees);
 
@@ -178,13 +180,8 @@ export const EngagementsPage: FunctionComponent<EngagementsPageProps> = ({
       // reuses the result instead of re-hitting the backend. Keyed by practice
       // + status filter + page; invalidated on create/action handlers below.
       //
-      // We intentionally do NOT forward usePaginatedList's per-mount abort
-      // signal into the cached fetch. usePaginatedList runs its fetch effect
-      // twice on mount (its reset effect bumps a counter), aborting the first
-      // run; coalesceGet's single-flight would then tie the surviving second
-      // call to the first (aborted) promise, leaving the list permanently
-      // empty. Letting the request finish also warms the cache for the next
-      // visit — stale results are ignored by usePaginatedList's requestId guard.
+      // Let the cached request finish even if this list unmounts quickly; the
+      // result warms the cache for the next visit and avoids a repeat page load.
       const cacheKey = `engagement:list:${practiceId}:${activeTab}:p${page}`;
       const result = await queryCache.coalesceGet(
         cacheKey,
@@ -259,10 +256,13 @@ export const EngagementsPage: FunctionComponent<EngagementsPageProps> = ({
     );
   }
 
-  const showEmpty = !isLoading && !error && engagements.length === 0 && !hasMore;
+  const showEmpty = !isLoading && !error && engagements.length === 0;
+  const emptyTitle = activeTab === 'all'
+    ? 'No engagements found'
+    : `No ${activeTab} engagements found`;
   const emptyMessage = activeTab === 'all'
-    ? 'When you accept an intake and begin drafting an engagement letter, it will appear here.'
-    : `No ${activeTab} engagements yet.`;
+    ? 'Create an engagement to draft, send, and track a client engagement letter.'
+    : `Create an engagement or switch filters to see ${activeTab} engagement letters.`;
 
   return (
     <div className="flex h-full flex-col min-h-0 bg-paper">
@@ -291,45 +291,62 @@ export const EngagementsPage: FunctionComponent<EngagementsPageProps> = ({
         ) : showEmpty ? (
           <WorkspacePlaceholderState
             icon={Briefcase}
-            title="No engagements yet"
+            title={emptyTitle}
             description={emptyMessage}
-            primaryAction={{ label: 'New Engagement', onClick: handleOpenCreate, icon: Plus, disabled: !practiceId }}
+            primaryAction={{ label: 'Create Engagement', onClick: handleOpenCreate, icon: Plus, disabled: !practiceId }}
             className="p-8"
           />
         ) : (
           <>
             {/* Desktop table */}
             <div className="hidden md:block px-6 py-4">
-              <EntityList
-                items={engagements}
-                onSelect={handleSelectEngagement}
-                isLoading={isLoading && engagements.length === 0}
-                isLoadingMore={isLoadingMore}
-                onLoadMore={hasMore ? loadMore : undefined}
-                className="panel overflow-hidden"
-                renderItem={(item) => (
-                  <div className="flex w-full items-center gap-4 px-4 py-3">
-                    <span className="min-w-[160px] flex-1 truncate text-sm font-medium text-ink">
-                      {item.client_name || 'Unknown Client'}
-                    </span>
-                    <span className="min-w-[160px] flex-1 truncate text-sm text-dim-2">
-                      {getMatterLabel(item)}
-                    </span>
-                    <span className="hidden min-w-[100px] text-sm text-dim-2 md:block">
-                      {getBillingLabel(item.proposal_data?.fees)}
-                    </span>
-                    <span className="min-w-[80px] text-sm">
-                      <StatusPill status={item.status} />
-                    </span>
-                    <span className="hidden min-w-[100px] text-right text-sm tabular-nums text-dim-2 lg:block">
-                      {item.sent_at ? formatRelativeTime(item.sent_at) : '—'}
-                    </span>
-                    <span className="min-w-[100px] text-right text-sm font-medium tabular-nums text-ink">
-                      {getRetainerLabel(item.proposal_data?.fees)}
-                    </span>
+              <div className="panel overflow-hidden">
+                {isLoading && engagements.length === 0 ? (
+                  <div className="flex justify-center px-4 py-6">
+                    <LoadingSpinner size="sm" ariaLabel="Loading engagements" announce={false} />
                   </div>
+                ) : (
+                  <>
+                    {engagements.map((item) => (
+                      <button
+                        key={item.id}
+                        type="button"
+                        onClick={() => handleSelectEngagement(item)}
+                        className="flex w-full items-center gap-4 border-b border-line-subtle px-4 py-3 text-left transition-colors hover:bg-paper-2/40"
+                      >
+                        <span className="min-w-[160px] flex-1 truncate text-sm font-medium text-ink">
+                          {item.client_name}
+                        </span>
+                        <span className="min-w-[160px] flex-1 truncate text-sm text-dim-2">
+                          {getMatterLabel(item)}
+                        </span>
+                        <span className="hidden min-w-[100px] text-sm text-dim-2 md:block">
+                          {getBillingLabel(item.proposal_data?.fees)}
+                        </span>
+                        <span className="min-w-[80px] text-sm">
+                          <StatusPill status={item.status} />
+                        </span>
+                        <span className="hidden min-w-[100px] text-right text-sm tabular-nums text-dim-2 lg:block">
+                          {item.sent_at ? formatRelativeTime(item.sent_at) : '-'}
+                        </span>
+                        <span className="min-w-[100px] text-right text-sm font-medium tabular-nums text-ink">
+                          {getRetainerLabel(item.proposal_data?.fees)}
+                        </span>
+                      </button>
+                    ))}
+                    {isLoadingMore ? (
+                      <div className="flex justify-center px-4 py-3">
+                        <LoadingSpinner size="sm" ariaLabel="Loading more engagements" announce={false} />
+                      </div>
+                    ) : null}
+                    {hasMore && !isLoadingMore ? (
+                      <div className="border-t border-line-subtle px-4 py-3 text-center">
+                        <Button variant="secondary" onClick={loadMore}>Load More</Button>
+                      </div>
+                    ) : null}
+                  </>
                 )}
-              />
+              </div>
             </div>
 
             {/* Mobile cards */}

@@ -25,7 +25,6 @@ import {
 } from 'lucide-preact';
 import { SettingsNavIcon } from '@/shared/ui/nav/SettingsNavIcon';
 import { features } from '@/config/features';
-import { CONTACTS_DIRECTORY_LABEL } from '@/shared/domain/contacts';
 import type { PracticeRole } from '@/shared/utils/practiceRoles';
 import { getPreferencesCategory } from '@/shared/lib/preferencesApi';
 import {
@@ -100,7 +99,7 @@ export type NavCtx = {
   canAccessPractice: boolean;
 };
 
-export type WorkspaceSection = 'home' | 'conversations' | 'intakes' | 'engagements' | 'matters' | 'files' | 'invoices' | 'reports' | 'settings' | 'coverage' | 'assistant' | 'trust' | 'tasks' | 'calendar';
+export type WorkspaceSection = 'home' | 'contacts' | 'conversations' | 'intakes' | 'engagements' | 'matters' | 'files' | 'invoices' | 'reports' | 'settings' | 'coverage' | 'assistant' | 'trust' | 'tasks' | 'calendar';
 
 
 
@@ -237,6 +236,7 @@ const buildPracticeRail = (basePath: string): NavRailItem[] => [
     icon: Users,
     href: `${basePath}/contacts`,
     matchHrefs: [`${basePath}/contacts`],
+    expandable: true,
     prefetch: prefetchPracticeContactsChunk,
   },
   {
@@ -350,20 +350,22 @@ const buildHomeSecondary = (basePath: string, workspace: 'practice' | 'client'):
     label: 'Home',
     items: [
       { id: 'overview', label: 'Overview', href: `${basePath}` },
-      {
-        id: 'contacts',
-        label: CONTACTS_DIRECTORY_LABEL,
-        children: [
-          { id: 'contacts-all', label: 'All', href: `${basePath}/contacts` },
-          { id: 'contacts-clients', label: 'Clients', href: `${basePath}/contacts/clients` },
-          { id: 'contacts-pending', label: 'Pending', href: `${basePath}/contacts/pending` },
-          { id: 'contacts-team', label: 'Team', href: `${basePath}/contacts/team` },
-          { id: 'contacts-archived', label: 'Archived', href: `${basePath}/contacts/archived` },
-        ],
-      },
     ],
   }];
 };
+
+const buildContactsSecondary = (basePath: string): NavSection[] => [
+  {
+    label: 'Contacts',
+    items: [
+      { id: 'contacts-all', label: 'All', href: `${basePath}/contacts` },
+      { id: 'contacts-clients', label: 'Clients', href: `${basePath}/contacts/clients` },
+      { id: 'contacts-pending', label: 'Pending', href: `${basePath}/contacts/pending` },
+      { id: 'contacts-team', label: 'Team', href: `${basePath}/contacts/team` },
+      { id: 'contacts-archived', label: 'Archived', href: `${basePath}/contacts/archived` },
+    ],
+  },
+];
 
 const buildConversationsSecondary = (basePath: string, workspace: 'practice' | 'client'): NavSection[] => {
   if (workspace === 'practice') {
@@ -385,6 +387,20 @@ const buildConversationsSecondary = (basePath: string, workspace: 'practice' | '
     ],
   }];
 };
+
+const buildMattersSecondary = (basePath: string): NavSection[] => [
+  {
+    label: 'Matters',
+    items: [
+      { id: 'all', label: 'All', href: `${basePath}/matters` },
+      { id: 'new', label: 'New', href: `${basePath}/matters` },
+      { id: 'active', label: 'Active', href: `${basePath}/matters` },
+      { id: 'closing', label: 'Closing', href: `${basePath}/matters` },
+      { id: 'closed', label: 'Closed', href: `${basePath}/matters` },
+      { id: 'declined', label: 'Declined', href: `${basePath}/matters` },
+    ],
+  },
+];
 
 const buildReportsSecondary = (basePath: string, workspace: 'practice' | 'client'): NavSection[] | undefined => {
   if (workspace !== 'practice') return undefined;
@@ -434,7 +450,6 @@ const buildSettingsSecondary = (basePath: string, canAccessPractice: boolean): N
     sections.splice(1, 0, {
       label: 'Intelligence',
       items: [
-        { id: 'intelligence', label: 'AI behavior', href: `${basePath}/settings/practice/intelligence`, icon: Sparkles },
         { id: 'engagement-templates', label: 'Engagement templates', href: `${basePath}/settings/practice/engagement-templates`, icon: FileText },
         { id: 'coverage', label: 'Coverage', href: `${basePath}/coverage`, icon: Map },
         { id: 'apps', label: 'Apps & integrations', href: `${basePath}/settings/apps`, icon: Puzzle },
@@ -486,8 +501,12 @@ const buildCalendarSecondary = (basePath: string): NavSection[] => [
 
 const buildSecondary = (basePath: string, section: WorkspaceSection, workspace: 'practice' | 'client', canAccessPractice: boolean): NavSection[] | undefined => {
   switch (section) {
+    case 'contacts':
+      return workspace === 'practice' ? buildContactsSecondary(basePath) : undefined;
     case 'conversations':
       return buildConversationsSecondary(basePath, workspace);
+    case 'matters':
+      return buildMattersSecondary(basePath);
     case 'tasks':
       return workspace === 'practice' ? buildTasksSecondary(basePath) : undefined;
     case 'calendar':
@@ -575,6 +594,7 @@ export type SidebarConfig = {
  * (per Pencil GtRGH); contacts/overview filters render in the page body, not the sidebar.
  */
 const RAIL_ID_TO_SECTION: Record<string, WorkspaceSection> = {
+  contacts: 'contacts',
   conversations: 'conversations',
   intakes: 'intakes',
   engagements: 'engagements',

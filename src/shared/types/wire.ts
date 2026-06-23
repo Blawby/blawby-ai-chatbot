@@ -90,6 +90,14 @@ export {
   SubscriptionLifecycleStatusSchema,
 } from '../../../worker/types/wire/practice';
 
+// Reports / practice-wide aggregates
+export type {
+  BackendPracticeTask,
+} from '../../../worker/types/wire/reports';
+export {
+  BackendPracticeTaskSchema,
+} from '../../../worker/types/wire/reports';
+
 // ── Conversation ──────────────────────────────────────────────────────────
 export type {
   ChatMessage,

@@ -173,8 +173,8 @@ export interface Env {
   // MCP_BACKEND_AUDIENCE — canonical resource URL for the
   //   /.well-known/oauth-protected-resource document and JWT `aud` enforcement.
   //   If unset, derived from the request URL (local dev).
-  // MCP_BACKEND_TOKEN — service token the Worker sends when calling backend
-  //   REST endpoints from MCP tool handlers.
+  // MCP_BACKEND_TOKEN — referenced by MCP tool handlers; pending replacement
+  //   with proper OAuth once the backend wires that auth path.
   // WORKER_EVENT_SECRET — secret backend sends in `x-worker-secret` header
   //   on the /api/mcp/internal/events ingest route.
   MCP_BACKEND_AUDIENCE?: string;
@@ -184,12 +184,8 @@ export interface Env {
   CLOUDFLARE_ACCOUNT_ID?: string;
   CLOUDFLARE_API_TOKEN?: string;
   CLOUDFLARE_PUBLIC_URL?: string;
-  // Cloudflare API token with Workers AI access. The legacy `CF_AIG_`
-  // ("AI Gateway") name is kept to avoid re-issuing the deployed secret — the
-  // Worker calls the Workers AI REST endpoint directly, not AI Gateway.
   CF_AIG_TOKEN?: string;
-  // Optional Workers AI model ID override (e.g. `@cf/zai-org/glm-4.7-flash`).
-  // Falls back to the Worker's DEFAULT_AI_MODEL when unset.
+  AI_GATEWAY_SLUG?: string;
   AI_MODEL?: string;
   DOMAIN?: string;
   BETTER_AUTH_URL?: string;
@@ -234,6 +230,7 @@ export interface Env {
   // tsconfig (which does not, but transitively imports worker/types.ts
   // for FileAttachment + ChatMessage shapes).
   SEARCH_INDEX_EVENTS?: Queue<import('./types/search.js').SearchIndexEvent>;
+  INTAKE_CONVERSATION_EVENTS?: Queue<import('./types/intakeConversationQueue.js').IntakeConversationQueueMessage>;
   SEARCH_VECTORS?: {
     upsert(vectors: Array<{
       id: string;

@@ -197,6 +197,11 @@ export function useWorkspaceNavigation({
     if (workspaceSection === 'settings') return;
     const basePath = normalizedBase || '/';
     if (workspaceSection === 'home') {
+      navigate(basePath);
+      setSecondaryFilterBySection((prev) => ({ ...prev, [workspaceSection]: id }));
+      return;
+    }
+    if (workspaceSection === 'contacts') {
       const contactsBasePath = `${basePath}/contacts`;
       const target = id === 'contacts-archived'
         ? `${contactsBasePath}/archived`
@@ -206,9 +211,7 @@ export function useWorkspaceNavigation({
             ? `${contactsBasePath}/clients`
             : id === 'contacts-pending'
               ? `${contactsBasePath}/pending`
-          : id === 'contacts' || id === 'contacts-all'
-            ? contactsBasePath
-            : basePath;
+          : contactsBasePath;
       navigate(target);
       setSecondaryFilterBySection((prev) => ({ ...prev, [workspaceSection]: id }));
       return;
@@ -226,6 +229,11 @@ export function useWorkspaceNavigation({
     }
     if (workspaceSection === 'conversations') {
       navigate(`${basePath}/conversations`);
+      setSecondaryFilterBySection((prev) => ({ ...prev, [workspaceSection]: id }));
+      return;
+    }
+    if (workspaceSection === 'matters') {
+      navigate(`${basePath}/matters`);
       setSecondaryFilterBySection((prev) => ({ ...prev, [workspaceSection]: id }));
       return;
     }

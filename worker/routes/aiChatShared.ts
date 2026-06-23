@@ -1,5 +1,5 @@
 
-const DEFAULT_AI_MODEL = '@cf/zai-org/glm-4.7-flash';
+const DEFAULT_AI_MODEL = 'gpt-4o-mini';
 const LEGAL_DISCLAIMER = 'I\'m not a lawyer and can\'t provide legal advice, but I can help you request a consultation with this practice.';
 const MAX_MESSAGES = 40;
 const MAX_MESSAGE_LENGTH = 2000;
@@ -498,11 +498,12 @@ const consumeAiStream = async (
     }
   }
 
-  const hasPotentialToolLeak = finalToolCalls.length > 0 || 
-    localReply.includes('update_practice_fields');
+  const hasPotentialToolLeak = looksLikeToolLeak(localReply);
 
   if (hasPotentialToolLeak && emitTokens) {
-    // Block streaming until reply is explicitly parsed as safe
+    // Block only literal tool payloads that leaked into assistant-visible text.
+    // Structured tool_calls are expected in intake streams and are executed by
+    // aiChat.ts after the text stream completes.
     diagnostics.failClosedReason = 'potential_tool_leak';
     return {
       reply: localReply,
@@ -546,7 +547,6 @@ const normalizeKeys = (obj: unknown): unknown => {
     eligibility_signals: 'eligibilitySignals',
     contact_phone: 'contactPhone',
     business_email: 'businessEmail',
-    accent_color: 'accentColor',
     completion_score: 'completionScore',
     missing_fields: 'missingFields',
     trigger_edit_modal: 'triggerEditModal',
@@ -606,6 +606,205 @@ const readAnyString = (record: Record<string, unknown> | null | undefined, keys:
 
 const isDebugEnabled = (value: unknown): boolean => value === '1' || value === 'true' || value === true;
 
+// ---------------------------------------------------------------------------
+// Anthropic SSE stream parser
+// ---------------------------------------------------------------------------
+// Anthropic streaming uses a different SSE format than OpenAI:
+//   event: content_block_start  → opens a text or tool_use block (has index, type, name/id for tools)
+//   event: content_block_delta  → text_delta or input_json_delta fragments
+//   event: content_block_stop   → closes a block
+//   event: message_delta        → carries stop_reason
+//   event: message_stop         → stream finished
+// Returns the same shape as consumeAiStream so callers are provider-agnostic.
+const consumeAnthropicStream = async (
+  response: Response,
+  emitTokens = true,
+  write: (payload: Record<string, unknown>) => void,
+  conversationId: string,
+  _requestId?: string,
+  _sendSseDebug?: (event: string, data: Record<string, unknown>) => void,
+): Promise<{
+  reply: string;
+  toolCalls: Array<{ name: string; arguments: string }>;
+  streamStalled: boolean;
+  emittedToken: boolean;
+  diagnostics: {
+    chunkCount: number;
+    parsedChunkCount: number;
+    malformedChunkCount: number;
+    contentChunkCount: number;
+    deltaToolCallChunkCount: number;
+    namedToolFragmentCount: number;
+    argumentOnlyToolFragmentCount: number;
+    finishReasons: string[];
+    sampleToolChunks: string[];
+    sampleUnexpectedChunks: string[];
+    failClosedReason?: string;
+  };
+}> => {
+  const empty = () => ({
+    reply: '',
+    toolCalls: [] as Array<{ name: string; arguments: string }>,
+    streamStalled: false,
+    emittedToken: false,
+    diagnostics: {
+      chunkCount: 0, parsedChunkCount: 0, malformedChunkCount: 0,
+      contentChunkCount: 0, deltaToolCallChunkCount: 0,
+      namedToolFragmentCount: 0, argumentOnlyToolFragmentCount: 0,
+      finishReasons: [] as string[], sampleToolChunks: [] as string[],
+      sampleUnexpectedChunks: [] as string[],
+    },
+  });
+
+  if (!response.body) return empty();
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  const { Logger } = await import('../utils/logger.js');
+
+  let buffer = '';
+  let streamStalled = false;
+  let localReply = '';
+  let localEmittedToken = false;
+  let blockedByPotentialToolLeak = false;
+
+  // Tracks open content blocks by index
+  const blocks = new Map<number, { type: 'text' | 'tool_use'; name?: string; args: string }>();
+
+  const diagnostics = {
+    chunkCount: 0, parsedChunkCount: 0, malformedChunkCount: 0,
+    contentChunkCount: 0, deltaToolCallChunkCount: 0,
+    namedToolFragmentCount: 0, argumentOnlyToolFragmentCount: 0,
+    finishReasons: [] as string[], sampleToolChunks: [] as string[],
+    sampleUnexpectedChunks: [] as string[],
+    failClosedReason: undefined as string | undefined,
+  };
+
+  const processAnthropicEvent = (event: Record<string, unknown>): void => {
+    const type = event.type as string | undefined;
+
+    if (type === 'content_block_start') {
+      const index = event.index as number;
+      const block = event.content_block as Record<string, unknown> | undefined;
+      if (!block) return;
+      if (block.type === 'text') {
+        blocks.set(index, { type: 'text', args: '' });
+      } else if (block.type === 'tool_use') {
+        blocks.set(index, { type: 'tool_use', name: block.name as string, args: '' });
+        diagnostics.namedToolFragmentCount += 1;
+      }
+      return;
+    }
+
+    if (type === 'content_block_delta') {
+      const index = event.index as number;
+      const delta = event.delta as Record<string, unknown> | undefined;
+      if (!delta) return;
+      const block = blocks.get(index);
+      if (!block) return;
+
+      if (delta.type === 'text_delta' && typeof delta.text === 'string') {
+        const nextReply = localReply + delta.text;
+        const contentLooksLikeToolLeak = looksLikeToolLeak(nextReply);
+
+        localReply = nextReply;
+        diagnostics.contentChunkCount += 1;
+
+        if (contentLooksLikeToolLeak) {
+          blockedByPotentialToolLeak = true;
+          streamStalled = true;
+          diagnostics.failClosedReason = 'potential_tool_leak';
+        }
+
+        if (emitTokens && !blockedByPotentialToolLeak) {
+          write({ token: delta.text });
+          localEmittedToken = true;
+        }
+      } else if (delta.type === 'input_json_delta' && typeof delta.partial_json === 'string') {
+        block.args += delta.partial_json;
+        diagnostics.deltaToolCallChunkCount += 1;
+      }
+      return;
+    }
+
+    if (type === 'message_delta') {
+      const delta = event.delta as Record<string, unknown> | undefined;
+      if (delta?.stop_reason && typeof delta.stop_reason === 'string') {
+        diagnostics.finishReasons.push(delta.stop_reason);
+      }
+    }
+  };
+
+  const processAnthropicLine = (line: string): void => {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith('event:')) return;
+    if (!trimmed.startsWith('data: ')) return;
+
+    diagnostics.chunkCount += 1;
+    let event: Record<string, unknown>;
+    try {
+      event = JSON.parse(trimmed.slice(6));
+      diagnostics.parsedChunkCount += 1;
+    } catch {
+      diagnostics.malformedChunkCount += 1;
+      return;
+    }
+
+    processAnthropicEvent(event);
+  };
+
+  while (true) {
+    let timeoutTimer: ReturnType<typeof setTimeout> | null = null;
+    const result = await Promise.race([
+      reader.read().then((res) => { if (timeoutTimer) clearTimeout(timeoutTimer); return res; }),
+      new Promise<never>((_, reject) => {
+        timeoutTimer = setTimeout(() => reject(new Error('AI_STREAM_STALL')), AI_STREAM_READ_TIMEOUT_MS);
+      }),
+    ]).catch(async (error: unknown) => {
+      if (timeoutTimer) clearTimeout(timeoutTimer);
+      Logger.warn('Anthropic stream stalled', {
+        conversationId,
+        reason: error instanceof Error ? error.message : String(error),
+      });
+      await reader.cancel().catch(() => {});
+      streamStalled = true;
+      return { done: true, value: undefined };
+    });
+
+    const { done, value } = result as { done: boolean; value?: Uint8Array };
+    if (done) break;
+
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split('\n');
+    buffer = lines.pop() ?? '';
+
+    for (const line of lines) {
+      processAnthropicLine(line);
+    }
+  }
+
+  if (buffer.trim()) {
+    for (const line of buffer.split('\n')) {
+      processAnthropicLine(line);
+    }
+  }
+
+  const toolCalls: Array<{ name: string; arguments: string }> = [];
+  for (const block of blocks.values()) {
+    if (block.type === 'tool_use' && block.name) {
+      toolCalls.push({ name: block.name, arguments: block.args || '{}' });
+    }
+  }
+
+  return {
+    reply: localReply,
+    toolCalls,
+    streamStalled,
+    emittedToken: localEmittedToken,
+    diagnostics,
+  };
+};
+
 export {
   DEFAULT_AI_MODEL,
   LEGAL_DISCLAIMER,
@@ -625,6 +824,7 @@ export {
   sseEvent,
   createSseResponse,
   consumeAiStream,
+  consumeAnthropicStream,
   normalizeKeys,
   createAiDebugError,
   isRecord,

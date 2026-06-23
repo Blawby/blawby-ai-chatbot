@@ -10,7 +10,6 @@ import type { PracticeDetails } from '@/shared/lib/apiClient';
 import type { Address } from '@/shared/types/address';
 import { cn } from '@/shared/utils/cn';
 import { buildPracticeProfilePayloads } from '@/shared/utils/practiceProfile';
-import { normalizeAccentColor } from '@/shared/utils/brandColor';
 import { uploadPracticeLogo } from '@/shared/utils/practiceLogoUpload';
 
 interface PracticePageProps {
@@ -25,7 +24,6 @@ type ContactDraft = {
   contactPhone?: string;
   address?: Partial<Address>;
   logo?: string;
-  accentColor?: string;
 };
 
 const mapAddressSource = (src: string | Record<string, unknown> | null | undefined) => {
@@ -159,9 +157,6 @@ export const PracticePage = ({ className }: PracticePageProps) => {
   const toggleJurisdiction = (j: string) => setMeta((p) => ({ ...p, jurisdictions: p.jurisdictions.includes(j) ? p.jurisdictions.filter((x) => x !== j) : [...p.jurisdictions, j] }));
   const togglePracticeArea = (a: string) => setMeta((p) => ({ ...p, practiceAreas: p.practiceAreas.includes(a) ? p.practiceAreas.filter((x) => x !== a) : [...p.practiceAreas, a] }));
 
-  const currentAccentColor =
-    normalizeAccentColor(details?.accentColor ?? currentPractice?.accentColor) ?? '#D4AF37';
-
   const contactValues = useMemo(
     () => ({
       ...resolveContactDraft(currentPractice, details),
@@ -169,9 +164,8 @@ export const PracticePage = ({ className }: PracticePageProps) => {
       name: draft.name ?? currentPractice?.name ?? '',
       slug: draft.slug ?? currentPractice?.slug ?? '',
       logo: draft.logo ?? currentPractice?.logo ?? '',
-      accentColor: draft.accentColor ?? currentAccentColor,
     }),
-    [currentAccentColor, currentPractice, details, draft]
+    [currentPractice, details, draft]
   );
 
   // ── i18n ──────────────────────────────────────────────────────────────────
@@ -189,14 +183,9 @@ export const PracticePage = ({ className }: PracticePageProps) => {
     publicSlugSuggestPrefix: t('settings:practice.identity.slugSuggestPrefix', { defaultValue: 'Use' }),
     publicSlugSuggestSuffix: t('settings:practice.identity.slugSuggestSuffix', { defaultValue: 'from your practice name' }),
     brandTitle: t('settings:practice.brand.title', { defaultValue: 'Brand' }),
-    brandDescription: t('settings:practice.brand.description', { defaultValue: 'Avatar and accent color used throughout the widget experience.' }),
+    brandDescription: t('settings:practice.brand.description', { defaultValue: 'Logo used throughout the widget experience.' }),
     avatarLabel: t('settings:practice.brand.avatarLabel', { defaultValue: 'Upload brand avatar' }),
     avatarDescription: t('settings:practice.brand.avatarDescription', { defaultValue: 'Upload a square image. Maximum 5 MB.' }),
-    brandColorLabel: t('settings:practice.brand.colorLabel', { defaultValue: 'Brand color' }),
-    brandColorAriaLabel: t('settings:practice.brand.colorAriaLabel', { defaultValue: 'Brand color' }),
-    currentBrandColorAria: t('settings:practice.brand.currentColorAria', { defaultValue: 'Current brand color {{color}}', color: contactValues.accentColor ?? currentAccentColor }),
-    brandColorHexAria: t('settings:practice.brand.colorHexAria', { defaultValue: 'Brand color hex' }),
-    brandColorPlaceholder: t('settings:practice.brand.colorPlaceholder', { defaultValue: '#D4AF37' }),
     contactTitle: t('settings:practice.contact.title', { defaultValue: 'Contact details' }),
     contactDescription: t('settings:practice.contact.description', { defaultValue: 'Website, business email, and phone number for this practice.' }),
     websiteLabel: t('settings:practice.contact.websiteLabel', { defaultValue: 'Website' }),
@@ -218,9 +207,7 @@ export const PracticePage = ({ className }: PracticePageProps) => {
     saveFailedBody: t('settings:practice.toasts.practiceSettingsSaveFailed.body', { defaultValue: 'Unable to save your practice settings. Please try again.' }),
     logoUploadFailedTitle: t('settings:practice.toasts.logoUploadFailed.title', { defaultValue: 'Logo upload failed' }),
     logoUploadFailedBody: t('settings:practice.toasts.logoUploadFailed.body', { defaultValue: 'Unable to upload your logo. Please try again.' }),
-    brandColorInvalidTitle: t('settings:practice.toasts.brandColorInvalid.title', { defaultValue: 'Brand color' }),
-    brandColorInvalidBody: t('settings:practice.toasts.brandColorInvalid.body', { defaultValue: 'Brand color must be a valid hex value.' }),
-  }), [contactValues.accentColor, currentAccentColor, t]);
+  }), [t]);
 
   // ── hasChanges ────────────────────────────────────────────────────────────
   const hasChanges = useMemo(() => {
@@ -232,12 +219,11 @@ export const PracticePage = ({ className }: PracticePageProps) => {
       || contactValues.businessEmail?.trim() !== baseline.businessEmail?.trim()
       || contactValues.contactPhone?.trim() !== baseline.contactPhone?.trim()
       || JSON.stringify(contactValues.address ?? null) !== JSON.stringify(baseline.address ?? null)
-      || (contactValues.logo ?? '').trim() !== (currentPractice?.logo ?? '').trim()
-      || normalizeAccentColor(contactValues.accentColor) !== currentAccentColor;
+      || (contactValues.logo ?? '').trim() !== (currentPractice?.logo ?? '').trim();
 
     const metaChanged = JSON.stringify(meta) !== JSON.stringify(metaFromDetails);
     return contactChanged || metaChanged;
-  }, [contactValues, currentAccentColor, currentPractice, details, meta, metaFromDetails]);
+  }, [contactValues, currentPractice, details, meta, metaFromDetails]);
 
   // ── logo upload ───────────────────────────────────────────────────────────
   const handleLogoChange = async (files: FileList | File[]) => {
@@ -266,12 +252,6 @@ export const PracticePage = ({ className }: PracticePageProps) => {
   const handleSave = useCallback(async () => {
     if (!currentPractice || isSaving) return;
 
-    const normalizedAccentColor = normalizeAccentColor(contactValues.accentColor);
-    if (!normalizedAccentColor) {
-      showError(practiceText.brandColorInvalidTitle, practiceText.brandColorInvalidBody);
-      return;
-    }
-
     setIsSaving(true);
     try {
       const { practicePayload, detailsPayload } = buildPracticeProfilePayloads(
@@ -279,7 +259,6 @@ export const PracticePage = ({ className }: PracticePageProps) => {
           name: contactValues.name ?? null,
           slug: contactValues.slug ?? null,
           logo: contactValues.logo ?? null,
-          accentColor: normalizedAccentColor,
           website: contactValues.website ?? null,
           businessEmail: contactValues.businessEmail ?? null,
           businessPhone: contactValues.contactPhone ?? null,
@@ -295,7 +274,6 @@ export const PracticePage = ({ className }: PracticePageProps) => {
             logo: currentPractice.logo ?? null,
             name: currentPractice.name ?? null,
             slug: currentPractice.slug ?? null,
-            accentColor: currentAccentColor,
             website: details?.website ?? currentPractice.website ?? null,
             businessEmail: details?.businessEmail ?? currentPractice.businessEmail ?? null,
             businessPhone: details?.businessPhone ?? currentPractice.businessPhone ?? null,
@@ -369,7 +347,6 @@ export const PracticePage = ({ className }: PracticePageProps) => {
     isSaving,
     contactValues,
     meta,
-    currentAccentColor,
     details,
     updatePractice,
     updateDetails,
@@ -473,27 +450,6 @@ export const PracticePage = ({ className }: PracticePageProps) => {
               <label className="label" htmlFor="website">Website</label>
               <input id="website" className="input" value={contactValues.website || ''} placeholder="https://example.com" disabled={isSaving}
                 onInput={(e) => setDraft((p) => ({ ...p, website: (e.target as HTMLInputElement).value }))} />
-            </div>
-            <div className="form-field">
-              <label className="label" htmlFor="accent-color">Accent color</label>
-              <div className="flex items-center gap-3">
-                <input
-                  id="accent-color"
-                  className="h-11 w-14 rounded-[var(--r-xs)] border border-rule bg-card px-1 py-1"
-                  type="color"
-                  value={normalizeAccentColor(contactValues.accentColor) ?? currentAccentColor}
-                  disabled={isSaving}
-                  onInput={(e) => setDraft((p) => ({ ...p, accentColor: (e.target as HTMLInputElement).value }))}
-                />
-                <input
-                  id="accent-color-hex"
-                  className="input flex-1"
-                  value={contactValues.accentColor || currentAccentColor}
-                  placeholder="#D4AF37"
-                  disabled={isSaving}
-                  onInput={(e) => setDraft((p) => ({ ...p, accentColor: (e.target as HTMLInputElement).value }))}
-                />
-              </div>
             </div>
           </div>
 

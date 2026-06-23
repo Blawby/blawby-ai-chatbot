@@ -63,11 +63,6 @@ export type ChatMessageAction =
       variant?: ChatMessageActionVariant;
     }
   | {
-      type: 'strengthen_case';
-      label: string;
-      variant?: ChatMessageActionVariant;
-    }
-  | {
       type: 'practice_assistant_decision';
       label: string;
       actionId: string;
@@ -110,7 +105,6 @@ export interface SetupFieldsPayload {
   name?: string;
   slug?: string;
   description?: string;
-  accentColor?: string;
   website?: string;
   businessEmail?: string;
   businessPhone?: string;

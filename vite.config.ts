@@ -1,3 +1,4 @@
+/* global URL */
 import { type ConfigEnv, type ProxyOptions, defineConfig, loadEnv } from 'vite';
 import preact from '@preact/preset-vite';
 import { resolve } from 'path';
@@ -79,7 +80,9 @@ const workerEndpoints = [
 	'reports',
 	'subscriptions',
 	'subscription',
+	'engagement-contracts',
 	'matters',
+	'tasks',
 	'uploads',
 	'widget',
 	'presence',
@@ -235,9 +238,19 @@ export default defineConfig(({ mode }: ConfigEnv) => {
 					skipWaiting: false,
 					clientsClaim: false,
 					cleanupOutdatedCaches: true,
-					// Precache the SPA shell used by Workbox's navigation fallback plus
-					// app JS/CSS. Widget pages/assets are still excluded by the denylist.
-					globPatterns: ['index.html', 'assets/**/*.{js,css}'],
+					// Precache only the SPA shell and shared entry/vendor bundles.
+					// Lazy route/dialog chunks are cached on first real use below.
+					globPatterns: [
+						'index.html',
+						'assets/main-*.js',
+						'assets/prerenderEntry-*.js',
+						'assets/vendor-*.js',
+						'assets/i18n-*.js',
+						'assets/icons-*.js',
+						'assets/stripe-*.js',
+						'assets/markdown-*.js',
+						'assets/*.css'
+					],
 					globIgnores: [],
 					navigateFallbackDenylist: [
 						// Never route API or auth requests through the SPA
@@ -247,7 +260,15 @@ export default defineConfig(({ mode }: ConfigEnv) => {
 						/\/widget-[^/]+$/,
 						/\.html$/,
 					],
-					runtimeCaching: []
+					runtimeCaching: [
+						{
+							urlPattern: /\/assets\/.*\.js$/,
+							handler: 'StaleWhileRevalidate',
+							options: {
+								cacheName: 'lazy-chunks'
+							}
+						}
+					]
 				}
 			}),
 			// Process HTML with critical CSS extraction
@@ -341,7 +362,10 @@ export default defineConfig(({ mode }: ConfigEnv) => {
 			host: true,
 			port: 5137,      // Matches your current setup
 			strictPort: true, // Fail if port is busy (tunnel expects this exact port)
-			allowedHosts: ['local.blawby.com'], // Allow the public tunnel domain
+			// Each developer's cloudflared tunnel uses a different hostname.
+			// VITE_TUNNEL_HOST (in .env) selects which one HMR connects to; both
+			// are allowed so either developer's tunnel routes through Vite.
+			allowedHosts: ['local.blawby.com', 'dev.blawby.com'],
 			watch: {
 				ignored: [
 					'**/.tmp/**',
@@ -355,7 +379,7 @@ export default defineConfig(({ mode }: ConfigEnv) => {
 			},
 			hmr: {
 				protocol: 'wss',
-				host: 'local.blawby.com',
+				host: env.VITE_TUNNEL_HOST || 'dev.blawby.com',
 				clientPort: 443
 			},
 			proxy: {

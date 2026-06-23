@@ -20,6 +20,12 @@ const EXPECTED_CONSULTATION_FEE_LABEL = new Intl.NumberFormat('en-US', {
   style: 'currency',
   currency: 'USD',
 }).format(EXPECTED_CONSULTATION_FEE_MINOR / 100);
+const INTAKE_FAILURE_RESPONSE_REGEX =
+  /I wasn't able to generate a response|Our intake assistant is having trouble right now|We've passed what you've told us to the practice/i;
+const SUBMIT_READY_PROMPT_REGEX =
+  /ready to submit|ready when you are|submit whenever you're ready|everything I need|all I need|schedule your consultation|consultation fee|continue to payment|pay and submit|pay & submit|submit your (?:case|intake)|case is ready to submit/i;
+const REQUIRED_FIELD_PROMPT_REGEX =
+  /\b(?:what|which|where|describe|tell me)\b[\s\S]*(?:legal situation|situation|going on|city|state|located|location)\b/i;
 
 const normalizePracticeSlug = (value: string): string => {
   const trimmed = value.trim();
@@ -119,6 +125,12 @@ function aggregateDonePayloads(payloads: DonePayload[]): DonePayload | null {
     if (typeof p.wasToolOnly === 'boolean') out.wasToolOnly = p.wasToolOnly;
   }
   return Object.keys(out).length ? out : null;
+}
+
+function throwIfIntakeFailureResponse(text: string | null | undefined, context: string): void {
+  if (text && INTAKE_FAILURE_RESPONSE_REGEX.test(text)) {
+    throw new Error(`AI fallback response detected during ${context}: ${text}`);
+  }
 }
 
 
@@ -380,12 +392,11 @@ test.describe('Public widget intake flow', () => {
 
     await expect(messageInput).toBeEnabled({ timeout: 45000 });
     const bodyLocator = anonPage.locator('body');
-    const submitNowButton = anonPage.getByRole('button', { name: /submit request/i });
+    const submitNowButton = anonPage.getByRole('button', { name: /submit request/i }).first();
     const paymentContinueButton = anonPage
       .locator('button:visible')
       .filter({ hasText: /(pay|continue)/i })
       .first();
-    const buildBriefButton = anonPage.getByRole('button', { name: /build stronger brief/i });
     const aiTranscript: Array<{ prompt?: string; user: string; contentType: string; replyText: string }> = [];
 
     const sendAndAwaitAi = async (text: string, promptText = '') => {
@@ -563,11 +574,15 @@ test.describe('Public widget intake flow', () => {
           `Expected AI chat output to change after SSE settled. before count=${aiCountBefore} before text=${JSON.stringify(latestAiTextBefore)} after count=${aiCountAfterSettle} after text=${JSON.stringify(latestAiTextAfterSettle)}`
         ).toBe(true);
       }
+      const responseText = contentType.includes('application/json') ? '' : await responseTextPromise;
+      const replyText = (body && (body.reply ?? (body.message && body.message.content))) ?? latestVisibleAiText;
+      throwIfIntakeFailureResponse(replyText, `rendered reply for "${text}"`);
+      throwIfIntakeFailureResponse(responseText, `SSE response for "${text}"`);
       return {
         response,
         contentType,
-        responseText: contentType.includes('application/json') ? '' : await responseTextPromise,
-        replyText: (body && (body.reply ?? (body.message && body.message.content))) ?? latestVisibleAiText,
+        responseText,
+        replyText,
       };
     };
 
@@ -664,14 +679,19 @@ test.describe('Public widget intake flow', () => {
         .isVisible()
         .catch(() => false);
       const bodyTextBefore = await bodyLocator.innerText().catch(() => '');
-      const readyPromptBefore = /ready to submit|are you ready|schedule your consultation|fee|submit your case/i.test(bodyTextBefore);
+      throwIfIntakeFailureResponse(bodyTextBefore, `pre-turn ${index + 1} page text`);
+      const latestPromptBefore = await getLatestAiPromptText();
+      const readyPromptBefore = SUBMIT_READY_PROMPT_REGEX.test(latestPromptBefore);
+      if (submitVisibleBefore && !readyPromptBefore && REQUIRED_FIELD_PROMPT_REGEX.test(latestPromptBefore)) {
+        throw new Error(`Premature Submit request CTA visible before a terminal intake prompt.\nBody text: ${bodyTextBefore.slice(-1000)}`);
+      }
       if (submitVisibleBefore || paymentPromptVisibleBefore || readyPromptBefore) {
         reachedSubmitReady = true;
         if (paymentPromptVisibleBefore) reachedPaymentTerminal = true;
         break;
       }
 
-      const promptText = await getLatestAiPromptText();
+      const promptText = latestPromptBefore;
       const answer = pickAnswerForPrompt(promptText, TURN_ANSWERS[index]);
       const aiStep = await sendAndAwaitAi(answer, promptText);
       aiTranscript.push({
@@ -680,9 +700,6 @@ test.describe('Public widget intake flow', () => {
         contentType: aiStep.contentType,
         replyText: aiStep.replyText,
       });
-      if (aiStep.replyText && aiStep.replyText.includes("I wasn't able to generate a response")) {
-        throw new Error(`AI fallback response detected: ${aiStep.replyText}`);
-      }
 
       const submitVisible = await submitNowButton.isVisible().catch(() => false);
       const paymentPromptVisible = await anonPage
@@ -691,7 +708,14 @@ test.describe('Public widget intake flow', () => {
         .isVisible()
         .catch(() => false);
       const bodyText = await bodyLocator.innerText().catch(() => '');
-      const readyPrompt = /ready to submit|are you ready|schedule your consultation|fee|submit your case/i.test(bodyText);
+      throwIfIntakeFailureResponse(bodyText, `post-turn ${index + 1} page text`);
+      const latestReplyAfter = await getLatestAiPromptText();
+      const readyPrompt =
+        SUBMIT_READY_PROMPT_REGEX.test(aiStep.replyText) ||
+        SUBMIT_READY_PROMPT_REGEX.test(latestReplyAfter);
+      if (submitVisible && !readyPrompt && REQUIRED_FIELD_PROMPT_REGEX.test(latestReplyAfter)) {
+        throw new Error(`Premature Submit request CTA visible while intake is still asking for details.\nLatest prompt: ${promptText}\nLatest reply: ${aiStep.replyText}\nBody text: ${bodyText.slice(-1000)}`);
+      }
       if (submitVisible || paymentPromptVisible || readyPrompt) {
         reachedSubmitReady = true;
         if (paymentPromptVisible) reachedPaymentTerminal = true;
@@ -710,10 +734,19 @@ test.describe('Public widget intake flow', () => {
     const submitVisibleAtAction = await submitNowButton.isVisible().catch(() => false);
     const bodyTextAtAction = await bodyLocator.innerText().catch(() => '');
     const hasPaymentPromptAtAction = /consultation fee|continue to payment|pay and submit|pay & submit|submit your intake/i.test(bodyTextAtAction);
-    const terminalActionButton = anonPage
+    const terminalActionButtons = anonPage
       .locator('button:visible')
-      .filter({ hasText: /(pay|continue|submit request)/i })
-      .first();
+      .filter({ hasText: /^(pay(?:\s|\$)|continue(?:\s+to\s+payment)?$|submit request$)/i });
+    await expect
+      .poll(
+        async () => terminalActionButtons.count(),
+        {
+          timeout: 10_000,
+          message: 'Widget intake should expose exactly one terminal submit/payment action.',
+        }
+      )
+      .toBe(1);
+    const terminalActionButton = terminalActionButtons.first();
     const submitIntakeResponsePromise = anonPage.waitForResponse(
       (response) =>
         response.request().method() === 'POST' &&
@@ -731,7 +764,7 @@ test.describe('Public widget intake flow', () => {
 
     if (reachedPaymentTerminal || paymentVisibleAtAction || hasPaymentPromptAtAction) {
       if (paymentVisibleAtAction) {
-        await paymentContinueButton.click();
+        await terminalActionButton.click();
       } else {
         try {
           await expect(
@@ -831,10 +864,6 @@ test.describe('Public widget intake flow', () => {
       resolvedConsultationFee,
       `Expected consultation fee amount ${EXPECTED_CONSULTATION_FEE_MINOR} minor units (${EXPECTED_CONSULTATION_FEE_LABEL}).\nObserved settings: ${JSON.stringify(latestSettingsPayload, null, 2)}`
     ).toBe(EXPECTED_CONSULTATION_FEE_MINOR);
-
-    // Because the "Pay $75.00" button now skips the intermediate <PaymentPrompt> if clicked from the AI message,
-    // we bypass looking for the intermediate UI and directly assert we reached Stripe checkout.
-    await expect(anonPage).toHaveURL(/stripe\.com/i, { timeout: 30000 });
 
     expect(
       submitIntakeResponse,
@@ -1201,7 +1230,7 @@ test.describe('Public widget intake flow', () => {
       expect(done1 && done1.intakeFields, 'Expected intakeFields in Turn 1 response.').toBeDefined();
       expect(done1 && done1.intakeFields && done1.intakeFields.description, 'Expected extracted description in Turn 1 fields.').toBeTruthy();
 
-      const submitNowButton = anonPage.getByRole('button', { name: /submit request/i });
+      const submitNowButton = anonPage.getByRole('button', { name: /submit request/i }).first();
       const paymentButton = anonPage.locator('button:visible').filter({ hasText: /^(continue|continue\s+to\s+payment|pay\s*(?:&|and)\s*submit)$/i }).first();
 
       const { reply: reply2, donePayload: done2 } = await sendAndAwait('Raleigh, NC');
@@ -1469,19 +1498,20 @@ test.describe('Public widget intake flow', () => {
     }
   });
 
-  test('strengthen case path sets enrichmentMode and keeps submit available', async ({
+  test('intake collects enrichment fields continuously and submit CTA appears at score threshold', async ({
     anonPage,
   }, testInfo) => {
     const practiceSlug = normalizePracticeSlug(DEFAULT_PRACTICE_SLUG);
     const uniqueId = randomUUID().slice(0, 8);
-    const authName = `Strengthen E2E ${uniqueId}`;
-    const authEmail = `strengthen-e2e+${uniqueId}@test-blawby.com`;
+    const authName = `Enrichment E2E ${uniqueId}`;
+    const authEmail = `enrichment-e2e+${uniqueId}@test-blawby.com`;
 
     await anonPage.goto(buildWidgetUrl(practiceSlug), { waitUntil: 'domcontentloaded' });
     const { messageInput } = await prepareWidgetComposer(anonPage, authName, authEmail);
 
     const aiLocator = anonPage.locator('[data-testid="ai-message"], [data-testid="system-message"]');
     const streamingLocator = anonPage.locator('[id^="message-streaming-"]');
+    const submitNowButton = anonPage.getByRole('button', { name: /submit request/i }).first();
     const terminalActionButton = anonPage.locator('button:visible').filter({ hasText: /(pay|continue|submit request)/i }).first();
     let latestDonePayload: DonePayload | null = null;
 
@@ -1504,7 +1534,6 @@ test.describe('Public widget intake flow', () => {
       const response = await responsePromise;
       const responseText = await response.text().catch(() => '');
 
-      // Parse and attach SSE done payloads for debugging
       const payloads = parseDonePayloads(responseText);
       if (payloads.length) {
         try {
@@ -1515,7 +1544,6 @@ test.describe('Public widget intake flow', () => {
         } catch {}
       }
 
-      // Aggregate payloads into latestDonePayload so downstream structured-answer logic can use it
       const aggregated = aggregateDonePayloads(payloads);
       if (aggregated) latestDonePayload = aggregated;
 
@@ -1532,54 +1560,65 @@ test.describe('Public widget intake flow', () => {
       return getLatestAiText();
     };
 
-    // ── Get to a submittable state (description + city + state) ─────────────
-    // Turn 1: describe situation
-    await expect.poll(getLatestAiText, { timeout: LEAD_TURN_TIMEOUT_MS,
-      message: 'Expected initial situation prompt.' })
-      .toMatch(/legal situation|what'?s going on|describe|tell me/i);
+    // ── Wait for initial prompt ───────────────────────────────────────────────
+    await expect.poll(getLatestAiText, {
+      timeout: LEAD_TURN_TIMEOUT_MS,
+      message: 'Expected initial intake prompt.',
+    }).toMatch(/legal situation|what'?s going on|describe|tell me/i);
 
+    // Turn 1: description (25 pts toward score)
     await sendAndAwait('My landlord is refusing to return my security deposit after I moved out.');
 
-    // Turn 2: location
+    // Turn 2: city + state (8 + 7 pts) — total ~40 pts, below submit threshold of 50
     await sendAndAwait('Durham, NC');
 
-    // Wait for submit button to potentially appear (payment or submit path)
-    const MAX_EXTRA_TURNS = 5;
-    for (let i = 0; i < MAX_EXTRA_TURNS; i++) {
-      const isTerminalVisible = await terminalActionButton.isVisible().catch(() => false);
-      if (isTerminalVisible) break;
+    // ── Answer enrichment questions adaptively until submit CTA appears ───────
+    // Score threshold for submit CTA is 50. Reaching it requires at least one enrichment
+    // field on top of description + city + state (urgency=12, opposingParty=12, etc.)
+    const MAX_ENRICHMENT_TURNS = 7;
+    let submitReached = await submitNowButton.isVisible().catch(() => false) ||
+      await terminalActionButton.isVisible().catch(() => false);
+
+    for (let i = 0; i < MAX_ENRICHMENT_TURNS && !submitReached; i++) {
+      submitReached =
+        await submitNowButton.isVisible().catch(() => false) ||
+        await anonPage.locator('button:visible').filter({ hasText: /pay|continue to payment/i }).isVisible().catch(() => false);
+      if (submitReached) break;
 
       const latestText = await getLatestAiText();
-      if (/ready to submit|are you ready|schedule your consultation|fee/i.test(latestText)) break;
+      if (/ready to submit|are you ready|schedule your consultation|fee|submit your case/i.test(latestText)) {
+        submitReached = true;
+        break;
+      }
 
-      // Answer whatever the AI asks
       if (/state|jurisdiction|licensed/i.test(latestText)) {
         await sendAndAwait('NC');
-      } else if (/city|location|where|area/i.test(latestText)) {
-        await sendAndAwait('Durham, NC');
       } else if (/other party|opposing|landlord|who/i.test(latestText)) {
         await sendAndAwait('Johnson Properties LLC');
       } else if (/urgent|time.sensitive/i.test(latestText)) {
         await sendAndAwait('Time-sensitive');
       } else if (/documents|paperwork/i.test(latestText)) {
-        await sendAndAwait('Yes I have documents');
+        await sendAndAwait('Yes, I have documents');
       } else if (/outcome|hoping/i.test(latestText)) {
         await sendAndAwait('Get my full deposit back');
       } else {
-        await sendAndAwait('No additional details');
+        await sendAndAwait('Time-sensitive');
       }
     }
 
-    // ── At least "Submit request" or "Pay" must be visible now ───────────────
-    await expect(terminalActionButton, 'Expected submit/pay button after completing core intake fields.')
-      .toBeVisible({ timeout: 15000 });
+    expect(
+      submitReached,
+      'Submit CTA must appear after description + location + at least one enrichment field (score ≥ 50).'
+    ).toBe(true);
 
-    // ── "Strengthen my case first" should also be visible ───────────────────
+    // ── "Strengthen my case" button must NOT exist ────────────────────────────
     const strengthenButton = anonPage.getByRole('button', { name: /strengthen my case/i });
-    await expect(strengthenButton, 'Expected "Strengthen my case first" button alongside Submit.')
-      .toBeVisible({ timeout: 5000 });
+    await expect(
+      strengthenButton,
+      '"Strengthen my case" button must not appear — enrichment now happens continuously without a separate mode.'
+    ).not.toBeVisible();
 
-    await testInfo.attach('strengthen-before-click-buttons.json', {
+    await testInfo.attach('enrichment-buttons-at-submit.json', {
       body: JSON.stringify(
         await anonPage.locator('button:visible').allInnerTexts().catch(() => []),
         null, 2
@@ -1587,58 +1626,47 @@ test.describe('Public widget intake flow', () => {
       contentType: 'application/json',
     });
 
-    // ── Click "Strengthen my case first" ────────────────────────────────────
-    const applyIntakeFieldsPromise = anonPage.waitForResponse(
-      (r) => r.request().method() === 'PATCH' && r.url().includes('/api/conversations/'),
-      { timeout: 10000 }
-    ).catch(() => null);
+    // ── Submit button must still be visible while AI continues collecting ─────
+    const submitStillVisible =
+      await submitNowButton.isVisible().catch(() => false) ||
+      await terminalActionButton.isVisible().catch(() => false);
+    expect(
+      submitStillVisible,
+      'Submit/Pay button must remain visible while AI continues collecting enrichment fields.'
+    ).toBe(true);
 
-    await strengthenButton.click();
+    // ── Send one more enrichment answer and verify submit persists ────────────
+    const latestTextBeforeExtra = await getLatestAiText();
+    if (!/fee|payment|submit|continue/i.test(latestTextBeforeExtra)) {
+      if (/urgent|time.sensitive/i.test(latestTextBeforeExtra)) {
+        await sendAndAwait('Time-sensitive');
+      } else if (/other party|opposing|landlord|who/i.test(latestTextBeforeExtra)) {
+        await sendAndAwait('Johnson Properties LLC');
+      } else if (/documents/i.test(latestTextBeforeExtra)) {
+        await sendAndAwait('Yes, I have documents');
+      } else if (/outcome|hoping/i.test(latestTextBeforeExtra)) {
+        await sendAndAwait('Get my full deposit back');
+      } else {
+        await sendAndAwait('Yes');
+      }
 
-    // enrichmentMode PATCH can be delayed/debounced; treat as diagnostic-only network signal.
-    const applyResponse = await applyIntakeFieldsPromise;
-    if (applyResponse) {
-      expect(applyResponse.status(), 'applyIntakeFields PATCH should return 200 OK when observed').toBe(200);
-    } else {
-      await testInfo.attach('strengthen-apply-patch-missed.json', {
-        body: JSON.stringify(
-          { note: 'No PATCH observed within timeout; likely debounce/batching. Continuing with behavior assertions.' },
-          null,
-          2
-        ),
-        contentType: 'application/json',
-      });
+      const submitAfterExtra =
+        await submitNowButton.isVisible().catch(() => false) ||
+        await terminalActionButton.isVisible().catch(() => false);
+      expect(
+        submitAfterExtra,
+        'Submit/Pay button must remain visible after providing additional enrichment fields.'
+      ).toBe(true);
     }
 
-    // ── AI should respond with a question focused on opposing party ──────────
-    await expect.poll(
-      getLatestAiText,
-      {
-        timeout: LEAD_TURN_TIMEOUT_MS,
-        message: 'After strengthen_case, AI should ask an enrichment-mode followup question.',
-      }
-    ).toMatch(/address|phone|documents|dates|evidence|timeline|contact|clarification|who|what|where|when|why|how|other party|opposing|landlord|employer|spouse|entity|involved|household|size/i);
-
-    // ── Submit/Pay button must still be visible alongside AI question ────────
-    await expect(
-      terminalActionButton,
-      'Submit/Pay button must remain available during enrichment mode.'
-    ).toBeVisible({ timeout: 5000 });
-
-    // ── Strength ring button (case strength indicator) should be visible ─────
-    const strengthRingButton = anonPage.getByRole('button', { name: /case strength/i });
-    await expect(
-      strengthRingButton,
-      'Case strength ring should be visible in consult conversation header.'
-    ).toBeVisible({ timeout: 5000 });
-
-    await testInfo.attach('strengthen-after-click-buttons.json', {
-      body: JSON.stringify(
-        await anonPage.locator('button:visible').allInnerTexts().catch(() => []),
-        null, 2
-      ),
-      contentType: 'application/json',
-    });
+    // ── Final done payload must have required fields ───────────────────────────
+    if (latestDonePayload) {
+      expect(latestDonePayload.intakeFields?.description, 'description must be present in final state').toBeTruthy();
+      expect(
+        latestDonePayload.intakeFields?.city || latestDonePayload.intakeFields?.state,
+        'at least one location field must be present in final state'
+      ).toBeTruthy();
+    }
   });
 
   test('post-submit composer uploads target the uploads endpoint with intake scope', async ({ anonPage }) => {

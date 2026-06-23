@@ -32,7 +32,6 @@ const buildPreviewPracticeConfig = (
   serviceQuestions: {},
   domain: '',
   brandColor: '#000000',
-  accentColor: config.accentColor ?? 'gold',
   consultationFee: typeof config.consultationFee === 'number' && Number.isFinite(config.consultationFee)
     ? (toMinorUnitsValue(config.consultationFee) as unknown as UIPracticeConfig['consultationFee'])
     : undefined,
@@ -61,10 +60,10 @@ export const WidgetPreviewFrame = ({
     [config, practiceSlug],
   );
   const previewPracticeId = practiceConfig.id || `preview-${practiceConfig.slug || 'practice'}`;
-  // Only key on scenario + practice + accentColor to avoid unnecessary remounts
+  // Only key on scenario + practice to avoid unnecessary remounts.
   const previewKey = useMemo(
-    () => `${scenario}:${practiceSlug ?? 'preview'}:${config.accentColor ?? ''}`,
-    [scenario, practiceSlug, config.accentColor],
+    () => `${scenario}:${practiceSlug ?? 'preview'}`,
+    [scenario, practiceSlug],
   );
 
   return (

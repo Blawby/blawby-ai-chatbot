@@ -83,8 +83,6 @@ export const normalizeChatActions = (value: unknown): ChatMessageAction[] => {
         return label ? [{ type: 'continue_payment', label, variant }] : [];
       case 'build_brief':
         return label ? [{ type: 'build_brief', label, variant }] : [];
-      case 'strengthen_case':
-        return label ? [{ type: 'strengthen_case', label, variant }] : [];
       case 'practice_assistant_decision': {
         const actionId = typeof record.actionId === 'string' ? record.actionId.trim() : '';
         const decision = record.decision === 'approve' || record.decision === 'reject'
@@ -122,8 +120,6 @@ export const getChatActionKey = (action: ChatMessageAction, index: number): stri
       return `open-url-${index}-${encodeURIComponent(action.url)}`;
     case 'build_brief':
       return `build-brief-${index}`;
-    case 'strengthen_case':
-      return `strengthen-case-${index}`;
     case 'practice_assistant_decision':
       return `practice-assistant-decision-${action.actionId}-${action.decision}-${index}`;
   }

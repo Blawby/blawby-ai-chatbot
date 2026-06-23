@@ -57,7 +57,6 @@ const PERSISTED_INTAKE_FIELD_KEYS = [
   'hasDocuments',
   'householdSize',
   'ctaShown',
-  'enrichmentMode',
 ] as const satisfies ReadonlyArray<keyof IntakeConversationState & keyof IntakeFieldsPayload>;
 
 type PersistedIntakeFieldKey = (typeof PERSISTED_INTAKE_FIELD_KEYS)[number];
@@ -550,7 +549,9 @@ export function useIntakeFlow({
         : undefined;
       const templateHasPaymentConfig = Boolean(
         storedTemplate &&
-        (typeof storedTemplate.paymentLinkEnabled === 'boolean' || typeof storedTemplate.consultationFee === 'number')
+        storedTemplate.paymentLinkEnabled === true &&
+        typeof storedTemplate.consultationFee === 'number' &&
+        storedTemplate.consultationFee > 0
       );
       if (templateHasPaymentConfig) {
         consultationFee = typeof storedTemplate?.consultationFee === 'number' ? storedTemplate.consultationFee : 0;
@@ -639,16 +640,18 @@ export function useIntakeFlow({
     if (!enabled) return { paymentLinkUrl: null, intakeUuid: null };
     if (!conversationId || !practiceId) return { paymentLinkUrl: null, intakeUuid: null };
 
-    const existingSubmission = conversationMetadataRef.current?.submission as { intakeUuid?: string } | undefined;
+    const existingConsultation = resolveConsultationState(conversationMetadataRef.current);
+    const existingSubmission = existingConsultation?.submission;
     if (existingSubmission?.intakeUuid) {
       if (import.meta.env.DEV) {
         console.info('[handleFinalizeSubmit] Skipping submit: intake record already exists', {
           conversationId,
           practiceId,
           intakeUuid: existingSubmission.intakeUuid,
+          hasPaymentLinkUrl: Boolean(existingSubmission.paymentLinkUrl),
         });
       }
-      return { paymentLinkUrl: null, intakeUuid: existingSubmission.intakeUuid };
+      return { paymentLinkUrl: existingSubmission.paymentLinkUrl ?? null, intakeUuid: existingSubmission.intakeUuid };
     }
     if (submitInFlightRef.current) {
       if (import.meta.env.DEV) {
@@ -747,6 +750,7 @@ export function useIntakeFlow({
               intakeUuid,
               submittedAt: new Date().toISOString(),
               paymentRequired: Boolean(paymentLinkUrl),
+              paymentLinkUrl,
             },
           },
           { mirrorLegacyFields: true }

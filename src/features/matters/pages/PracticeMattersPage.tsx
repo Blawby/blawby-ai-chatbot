@@ -5,7 +5,7 @@ import { Page } from '@/shared/ui/layout/Page';
 import { WorkspacePlaceholderState } from '@/shared/ui/layout/WorkspacePlaceholderState';
 import { Button } from '@/shared/ui/Button';
 import { CurrencyInput, Input } from '@/shared/ui/input';
-import { Seg, StatStrip, AIAskBar, AIAnswerCard, type StatStripCell } from '@/design-system/patterns';
+import { Seg, AIAskBar, AIAnswerCard, type StatStripCell } from '@/design-system/patterns';
 import { Bar, Pill, SignalPill, type SignalPillSignal, type PillTone } from '@/design-system/primitives';
 import { type TimelineItem, type TimelinePerson } from '@/shared/ui/activity/ActivityTimeline';
 import { Dialog, DialogBody } from '@/shared/ui/dialog';
@@ -161,6 +161,19 @@ const FILTER_CHIP_OPTIONS: ReadonlyArray<{ id: MatterRiskFilter; label: string }
   { id: 'status_open', label: 'Status: open' },
   { id: 'assigned_me', label: 'Assigned to me' },
 ];
+
+const filterChipBaseClass =
+  'relative inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1 font-mono text-[10.5px] uppercase tracking-wider transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50';
+const filterChipActiveClass =
+  `${filterChipBaseClass} border border-[rgb(var(--sidebar-border))] bg-[rgb(var(--sidebar-active-bg))] pl-3 text-ink before:absolute before:left-1 before:top-1.5 before:bottom-1.5 before:w-0.5 before:rounded-full before:bg-accent before:content-['']`;
+const filterChipInactiveClass =
+  `${filterChipBaseClass} border border-dashed border-line-utility bg-transparent text-dim hover:border-line-emphasized hover:bg-[rgb(var(--sidebar-hover-bg))] hover:text-ink-2`;
+const mobileFilterChipBaseClass =
+  'relative flex w-full items-center justify-between rounded-lg border px-4 py-3 text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50';
+const mobileFilterChipActiveClass =
+  `${mobileFilterChipBaseClass} border-[rgb(var(--sidebar-border))] bg-[rgb(var(--sidebar-active-bg))] pl-5 text-ink before:absolute before:left-2 before:top-3 before:bottom-3 before:w-0.5 before:rounded-full before:bg-accent before:content-['']`;
+const mobileFilterChipInactiveClass =
+  `${mobileFilterChipBaseClass} border-line-subtle bg-paper-2 text-ink-2 hover:bg-[rgb(var(--sidebar-hover-bg))] hover:text-ink`;
 
 // Risk signal derivation from matter data. We only have urgency + updated_at
 // in the prefetched list payload — per-row event counts and retainer % live in
@@ -783,7 +796,7 @@ export const PracticeMattersPage = ({
   useEffect(() => {
     if (!activePracticeId) return;
     if (practiceDetailsRequestedRef.current === activePracticeId) return;
-    if (practiceDetails && hasPracticeDetails) {
+    if (hasPracticeDetails) {
       practiceDetailsRequestedRef.current = activePracticeId;
       return;
     }
@@ -792,7 +805,7 @@ export const PracticeMattersPage = ({
     fetchPracticeDetails()
       .catch((error) => console.warn('[PracticeMattersPage] Failed to load practice services', error))
       .finally(() => setServicesLoading(false));
-  }, [activePracticeId, fetchPracticeDetails, hasPracticeDetails, practiceDetails]);
+  }, [activePracticeId, fetchPracticeDetails, hasPracticeDetails]);
 
   useEffect(() => {
     if (!convertIntakeUuid || !activePracticeId) {
@@ -2505,12 +2518,8 @@ export const PracticeMattersPage = ({
                   type="button"
                   onClick={() => toggleFilter(chip.id)}
                   aria-pressed={isOn}
-                  className={
-                    isOn
-                      ? 'inline-flex items-center gap-1.5 rounded-[2px] border border-solid bg-[var(--accent-soft)] px-2.5 py-1 font-mono text-[10.5px] uppercase tracking-wider text-[var(--accent-deep)] transition-colors'
-                      : 'inline-flex items-center gap-1.5 rounded-[2px] border border-dashed border-line-utility bg-transparent px-2.5 py-1 font-mono text-[10.5px] uppercase tracking-wider text-dim transition-colors hover:border-line-emphasized hover:text-ink-2'
-                  }
-                  style={isOn ? { borderColor: 'color-mix(in oklab, var(--accent) 40%, var(--rule))' } : undefined}
+                  className={isOn ? filterChipActiveClass : filterChipInactiveClass}
+                  style={isOn ? { color: 'var(--ink)' } : undefined}
                 >
                   {chip.label}
                   {isOn ? <span className="text-dim-2">×</span> : null}
@@ -2648,11 +2657,8 @@ export const PracticeMattersPage = ({
                   type="button"
                   onClick={() => toggleFilter(chip.id)}
                   aria-pressed={isOn}
-                  className={`flex w-full items-center justify-between rounded-md border px-4 py-3 text-sm transition-colors ${
-                    isOn
-                      ? 'border-line-emphasized bg-[var(--accent-soft)] text-ink'
-                      : 'border-line-subtle bg-paper-2 text-ink-2 hover:bg-rule-soft'
-                  }`}
+                  className={isOn ? mobileFilterChipActiveClass : mobileFilterChipInactiveClass}
+                  style={isOn ? { color: 'var(--ink)' } : undefined}
                 >
                   <span>{chip.label}</span>
                   {isOn ? <span className="font-mono text-xs text-dim-2">×</span> : null}

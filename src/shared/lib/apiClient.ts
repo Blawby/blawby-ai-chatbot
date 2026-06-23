@@ -112,6 +112,27 @@ type ApiFetchConfig = {
   acceptStatuses?: number[];
 };
 
+async function parseResponseBody(response: Response, responseHeaders: Headers, isErrorResponse: boolean): Promise<unknown> {
+  const contentType = responseHeaders.get?.('content-type') ?? '';
+  const isJson = contentType.toLowerCase().includes('application/json');
+  if (isJson || (!contentType && typeof response.json === 'function')) {
+    const jsonSource = typeof response.clone === 'function' ? response.clone() : response;
+    try {
+      return await jsonSource.json() as unknown;
+    } catch (error) {
+      if (!isErrorResponse || typeof response.text !== 'function') {
+        throw error;
+      }
+      try {
+        return await response.text();
+      } catch {
+        throw error;
+      }
+    }
+  }
+  return await response.text();
+}
+
 const composeAbortSignals = (signal: AbortSignal | undefined, timeout: number | undefined): { signal: AbortSignal | undefined; cleanup: () => void } => {
   if (timeout == null) return { signal, cleanup: () => {} };
   const controller = new AbortController();
@@ -184,13 +205,7 @@ async function apiFetch<T>(
     return { data: null as T, status: response.status, headers: responseHeaders };
   }
 
-  const contentType = responseHeaders.get?.('content-type') ?? '';
-  // Heuristic for environments without a proper Headers instance (some test
-  // mocks): if `json()` is callable, prefer JSON.
-  const preferJson = contentType.includes('application/json') || typeof response.json === 'function';
-  const data: unknown = preferJson
-    ? await response.json() as unknown
-    : await response.text();
+  const data = await parseResponseBody(response, responseHeaders, !response.ok && !isAccepted);
 
   if (!response.ok && !isAccepted) {
     throw new HttpError(response.status, data, extractFetchErrorMessage(data, `HTTP ${response.status}`));
@@ -562,7 +577,6 @@ export interface Practice {
   postalCode?: string | null;
   country?: string | null;
   primaryColor?: string | null;
-  accentColor?: string | null;
   isPublic?: boolean | null;
   services?: Array<Record<string, unknown>> | null;
 
@@ -620,7 +634,6 @@ export interface PracticeDetailsUpdate {
   postalCode?: string | null;
   country?: string | null;
   primaryColor?: string | null;
-  accentColor?: string | null;
   introMessage?: string | null;
   legalDisclaimer?: string | null;
   isPublic?: boolean | null;
@@ -660,7 +673,6 @@ export interface PracticeDetails {
   postalCode?: string | null;
   country?: string | null;
   primaryColor?: string | null;
-  accentColor?: string | null;
   introMessage?: string | null;
   legalDisclaimer?: string | null;
   isPublic?: boolean | null;
@@ -1046,7 +1058,6 @@ function normalizePracticePayload(payload: unknown): Practice {
     postalCode: toNullableString(record.postal_code),
     country: toNullableString(record.country),
     primaryColor: toNullableString(record.primary_color),
-    accentColor: toNullableString(record.accent_color),
     legalDisclaimer: toNullableString(record.legal_disclaimer),
     isPublic: 'is_public' in record ? Boolean(record.is_public) : null,
     services: Array.isArray(record.services) ? (record.services as Array<Record<string, unknown>>) : null,
@@ -1958,9 +1969,6 @@ function normalizePracticeDetailsPayload(payload: PracticeDetailsUpdate): Record
   if ('primaryColor' in payload && payload.primaryColor !== undefined) {
     normalized.primary_color = payload.primaryColor;
   }
-  if ('accentColor' in payload && payload.accentColor !== undefined) {
-    normalized.accent_color = payload.accentColor;
-  }
   if ('legalDisclaimer' in payload) {
     if (payload.legalDisclaimer === null) {
       normalized.overview = '';
@@ -2124,7 +2132,6 @@ export function normalizePracticeDetailsResponse(payload: unknown): PracticeDeta
     'payment_url',
     'calendly_url',
     'website',
-    'accent_color',
     'primary_color',
     'is_public',
     'services',
@@ -2250,7 +2257,6 @@ export function normalizePracticeDetailsResponse(payload: unknown): PracticeDeta
       ?? getOptionalNullableString(container, ['postal_code']),
     country: getOptionalNullableString(address, ['country']) ?? getOptionalNullableString(container, ['country']),
      primaryColor: getOptionalNullableString(container, ['primary_color']),
-     accentColor: getOptionalNullableString(container, ['accent_color']),
      serviceStates: (() => {
        const raw = 'service_states' in container ? container.service_states : undefined;
        if (raw === undefined) return undefined;

@@ -15,7 +15,6 @@ export type PracticeProfileInput = {
   state?: string | null;
   postalCode?: string | null;
   country?: string | null;
-  accentColor?: string | null;
   introMessage?: string | null;
   legalDisclaimer?: string | null;
   description?: string | null;
@@ -130,12 +129,6 @@ export const buildPracticeProfilePayloads = (
   const country = normalizeOptionalText(input.country);
   if (country !== undefined && shouldInclude(country, normalizeOptionalText(compareTo.country))) {
     detailsPayload.country = country;
-  }
-
-
-  const accentColor = normalizeOptionalText(input.accentColor);
-  if (accentColor !== undefined && shouldInclude(accentColor, normalizeOptionalText(compareTo.accentColor))) {
-    detailsPayload.accentColor = accentColor;
   }
 
   // Widget opening message (intro)

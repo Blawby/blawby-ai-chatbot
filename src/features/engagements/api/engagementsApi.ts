@@ -49,6 +49,18 @@ type PatchEngagementContractPayload = {
 const mutationError = (error: unknown, defaultMessage: string): Error => {
   if (isHttpError(error)) {
     const data = error.response.data as { message?: string; error?: string } | undefined;
+    console.error('[engagementsApi] Engagement request failed', {
+      status: error.response.status,
+      data: error.response.data,
+    });
+    try {
+      console.error(`[engagementsApi] Engagement request failed details ${JSON.stringify({
+        status: error.response.status,
+        data: error.response.data,
+      })}`);
+    } catch {
+      // The structured log above still carries the response body if stringifying fails.
+    }
     const message = data?.message ?? data?.error;
     return new Error(message ? String(message) : `${defaultMessage} (HTTP ${error.response.status})`);
   }
@@ -69,62 +81,127 @@ const requireString = (data: Record<string, unknown>, field: string): string => 
 const optionalString = (value: unknown): string | null =>
   typeof value === 'string' && value.length > 0 ? value : null;
 
+const optionalNumber = (value: unknown): number | null =>
+  typeof value === 'number' && Number.isFinite(value) ? value : null;
+
+const requireRecord = (
+  data: Record<string, unknown>,
+  field: string,
+  engagementId: string
+): Record<string, unknown> => {
+  const value = data[field];
+  if (!value || typeof value !== 'object') {
+    throw new Error(`Engagement ${engagementId} is missing ${field}`);
+  }
+  return value as Record<string, unknown>;
+};
+
+const logInvalidEngagementContract = (raw: unknown, error: Error) => {
+  if (typeof console === 'undefined') return;
+  const data = asRecord(raw);
+  const proposalData = asRecord(data.proposal_data);
+  const clientSummary = asRecord(proposalData.client_summary);
+  const fees = asRecord(proposalData.fees);
+  const details = {
+    error: error.message,
+    id: data.id,
+    keys: Object.keys(data),
+    proposalDataKeys: Object.keys(proposalData),
+    clientSummaryKeys: Object.keys(clientSummary),
+    feesKeys: Object.keys(fees),
+  };
+  console.error('[engagementsApi] Invalid engagement contract payload', details);
+  console.error(`[engagementsApi] Invalid engagement contract payload details ${JSON.stringify(details)}`);
+};
+
 const parseContractListPayload = (raw: unknown): EngagementContractListPayload => {
   const data = asRecord(raw);
-  if (!Array.isArray(data.data)) {
+  const list = data.data;
+  if (!Array.isArray(list)) {
     throw new Error('Engagement contract list is missing data');
   }
+
   const pagination = asRecord(data.pagination);
-  if (
-    typeof pagination.page !== 'number'
-    || typeof pagination.limit !== 'number'
-    || typeof pagination.total !== 'number'
-  ) {
+  const page = optionalNumber(pagination.page);
+  const limit = optionalNumber(pagination.limit);
+  const total = optionalNumber(pagination.total);
+
+  if (page === null || limit === null || total === null) {
     throw new Error('Engagement contract list is missing pagination');
   }
+
   return {
-    data: data.data,
+    data: list,
     pagination: {
-      page: pagination.page,
-      limit: pagination.limit,
-      total: pagination.total,
+      page,
+      limit,
+      total,
     },
   };
 };
 
 const normalizeEngagementContract = (raw: unknown): EngagementDetail => {
-  const data = asRecord(raw);
-  if (!data.id) throw new Error('Engagement not found');
-  if (typeof data.status !== 'string' || !ENGAGEMENT_STATUSES.includes(data.status as EngagementStatus)) {
-    throw new Error('Engagement has an invalid status');
+  try {
+    const data = asRecord(raw);
+    const id = requireString(data, 'id');
+    if (typeof data.status !== 'string' || !ENGAGEMENT_STATUSES.includes(data.status as EngagementStatus)) {
+      throw new Error(`Engagement ${id} has an invalid status`);
+    }
+
+    const proposalData = requireRecord(data, 'proposal_data', id) as unknown as ProposalData;
+    const proposalRecord = proposalData as unknown as Record<string, unknown>;
+    const clientSummary = requireRecord(proposalRecord, 'client_summary', id);
+    requireRecord(proposalRecord, 'fees', id);
+    const sourceSnapshot = proposalData.source_snapshot;
+    const clientName = requireString(clientSummary, 'client_name');
+    const matterSummary = requireString(clientSummary, 'matter_summary');
+
+    return {
+      ...(data as unknown as EngagementDetail),
+      id,
+      matter_id: optionalString(data.matter_id),
+      intake_id: requireString(data, 'intake_id'),
+      organization_id: requireString(data, 'organization_id'),
+      status: data.status as EngagementStatus,
+      proposal_data: proposalData,
+      client_name: clientName,
+      client_email: optionalString(data.client_email),
+      title: matterSummary,
+      description: matterSummary,
+      conversation_id: sourceSnapshot?.conversation_id ?? optionalString(data.conversation_id),
+      practice_area: sourceSnapshot?.practice_area ?? optionalString(data.practice_area),
+      urgency: sourceSnapshot?.urgency ?? optionalString(data.urgency),
+      opposing_party: sourceSnapshot?.opposing_party ?? optionalString(data.opposing_party),
+      desired_outcome: sourceSnapshot?.desired_outcome ?? optionalString(data.desired_outcome),
+      created_at: requireString(data, 'created_at'),
+      updated_at: optionalString(data.updated_at),
+    };
+  } catch (error) {
+    const normalizedError = error instanceof Error ? error : new Error('Engagement contract payload is invalid');
+    logInvalidEngagementContract(raw, normalizedError);
+    throw normalizedError;
+  }
+};
+
+const normalizeEngagementContractList = (
+  data: EngagementContractListPayload,
+  allowedStatuses: Set<string>,
+): { items: EngagementDetail[]; rejectedCount: number } => {
+  const items: EngagementDetail[] = [];
+  let rejectedCount = 0;
+
+  for (const rawItem of data.data) {
+    try {
+      const item = normalizeEngagementContract(rawItem);
+      if (allowedStatuses.has(item.status)) {
+        items.push(item);
+      }
+    } catch {
+      rejectedCount += 1;
+    }
   }
 
-  const proposalData = data.proposal_data && typeof data.proposal_data === 'object'
-    ? data.proposal_data as ProposalData
-    : null;
-  const clientSummary = proposalData?.client_summary;
-  const sourceSnapshot = proposalData?.source_snapshot;
-
-  return {
-    ...(data as unknown as EngagementDetail),
-    id: requireString(data, 'id'),
-    matter_id: optionalString(data.matter_id),
-    intake_id: requireString(data, 'intake_id'),
-    organization_id: requireString(data, 'organization_id'),
-    status: data.status as EngagementStatus,
-    proposal_data: proposalData,
-    client_name: clientSummary?.client_name ?? null,
-    client_email: optionalString(data.client_email),
-    title: clientSummary?.matter_summary ?? null,
-    description: clientSummary?.matter_summary ?? null,
-    conversation_id: sourceSnapshot?.conversation_id ?? null,
-    practice_area: sourceSnapshot?.practice_area ?? null,
-    urgency: sourceSnapshot?.urgency ?? null,
-    opposing_party: sourceSnapshot?.opposing_party ?? null,
-    desired_outcome: sourceSnapshot?.desired_outcome ?? null,
-    created_at: requireString(data, 'created_at'),
-    updated_at: optionalString(data.updated_at),
-  };
+  return { items, rejectedCount };
 };
 
 const invalidateEngagementLifecycleCaches = (practiceId: string, engagement?: EngagementDetail | null) => {
@@ -189,9 +266,8 @@ export async function listEngagements(
   }
 
   const data = parseContractListPayload(raw);
-  const allItems = data.data.map(normalizeEngagementContract);
-  const items = allItems.filter((item) => allowedStatuses.has(item.status));
-  const total = data.pagination.total;
+  const { items, rejectedCount } = normalizeEngagementContractList(data, allowedStatuses);
+  const total = Math.max(0, data.pagination.total - rejectedCount);
   const total_pages = Math.max(1, Math.ceil(total / requestedLimit));
 
   return {

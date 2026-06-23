@@ -101,9 +101,9 @@ const AudioRecordingUI: FunctionComponent<AudioRecordingUIProps> = ({
         const barCount = Math.floor(canvas.width / (barWidth + barGap));
         const radius = 2; // Radius for rounded corners
         const accentRgb = getComputedStyle(document.documentElement).getPropertyValue('--accent-rgb').trim();
-        const accentColor = accentRgb ? `rgb(${accentRgb})` : '#d4af37';
+        const goldColor = accentRgb ? `rgb(${accentRgb})` : '#d4af37';
 
-        ctx.fillStyle = accentColor;
+        ctx.fillStyle = goldColor;
         
         function draw() {
             if (!analyserRef.current || !dataArrayRef.current) return;
@@ -190,9 +190,9 @@ const AudioRecordingUI: FunctionComponent<AudioRecordingUIProps> = ({
         const baseHeight = canvas.height / 4;
         const radius = 2; // Radius for rounded corners
         const accentRgb = getComputedStyle(document.documentElement).getPropertyValue('--accent-rgb').trim();
-        const accentColor = accentRgb ? `rgb(${accentRgb})` : '#d4af37';
+        const goldColor = accentRgb ? `rgb(${accentRgb})` : '#d4af37';
 
-        ctx.fillStyle = accentColor;
+        ctx.fillStyle = goldColor;
         
         function animateBarData() {
             const amplitudes = [];

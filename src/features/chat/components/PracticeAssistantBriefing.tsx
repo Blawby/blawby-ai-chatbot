@@ -267,15 +267,16 @@ export function PracticeAssistantBriefing({
     { enabled: Boolean(practiceId) },
   );
 
+  const mattersData = useMattersData(practiceId ?? '', [], {
+    enabled: Boolean(practiceId),
+  });
+
   const { summaryStats, loading: practiceBillingLoading } = usePracticeBillingData({
     practiceId,
     enabled: Boolean(practiceId),
     matterLimit: 25,
     windowSize: '7d',
-  });
-
-  const mattersData = useMattersData(practiceId ?? '', [], {
-    enabled: Boolean(practiceId),
+    matters: mattersData.items,
   });
 
   const [stripeStatus, setStripeStatus] = useState<StripeStatus>(null);

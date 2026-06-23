@@ -153,3 +153,49 @@ export function getRequiredFieldProgress(
   const collected = requiredActive.filter((f) => isFieldCollected(f, state)).length;
   return { collected, total: requiredActive.length };
 }
+
+// ---------------------------------------------------------------------------
+// Completeness score
+// ---------------------------------------------------------------------------
+
+/**
+ * Score at which the submit CTA becomes visible.
+ * Requires at minimum: description + jurisdiction + one meaningful enrichment field.
+ */
+export const COMPLETENESS_THRESHOLD_SHOW_CTA = 50;
+
+/**
+ * Score at which the AI naturally synthesizes what it has heard and invites
+ * the client to submit — replacing the old "Strengthen my case" button.
+ */
+export const COMPLETENESS_THRESHOLD_SUGGEST_SUBMIT = 75;
+
+/**
+ * Computes a 0–100 completeness score for the current intake state.
+ *
+ * Each field contributes its `completenessWeight` (default 5) when collected
+ * and its condition is met. Fields with weight 0 (e.g. householdSize) are
+ * excluded from both the numerator and denominator so they never inflate or
+ * deflate the score for practices where they are irrelevant.
+ *
+ * The score drives the submit CTA visibility and the AI's synthesis instruction.
+ * It is deterministic and fully unit-testable — no AI involvement.
+ */
+export function computeCompletenessScore(
+  template: Pick<IntakeTemplate, 'fields'>,
+  state: Record<string, unknown>,
+): number {
+  let earned = 0;
+  let possible = 0;
+
+  for (const field of template.fields) {
+    const weight = field.completenessWeight ?? 5;
+    if (weight === 0) continue;
+    if (!isFieldConditionMet(field, state)) continue;
+    possible += weight;
+    if (isFieldCollected(field, state)) earned += weight;
+  }
+
+  if (possible === 0) return 0;
+  return Math.round((earned / possible) * 100);
+}

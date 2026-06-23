@@ -220,6 +220,7 @@ export function EmbedCodeDialog({ isOpen, onClose, practiceSlug, templateSlug }:
   const { showSuccess, showError } = useToastContext();
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const snippet = getEmbedSnippet(practiceSlug, templateSlug);
+  const publicUrl = getPublicFormUrl(practiceSlug, templateSlug);
 
   useEffect(() => {
     if (isOpen && textareaRef.current) {
@@ -228,18 +229,54 @@ export function EmbedCodeDialog({ isOpen, onClose, practiceSlug, templateSlug }:
     }
   }, [isOpen]);
 
+  const handleCopyLink = () => {
+    copyTextToClipboard(
+      publicUrl,
+      () => {
+        showSuccess('Link copied', 'The public intake link is ready to share.');
+      },
+      (message) => showError('Copy failed', message),
+    );
+  };
+
   return (
-    <Dialog isOpen={isOpen} onClose={onClose} title="Embed code" description="Copy or inspect the embed snippet for this intake template.">
+    <Dialog isOpen={isOpen} onClose={onClose} title="Published" description="Your form is now live and ready to use.">
       <DialogBody>
-        <p className="mb-3 text-sm text-dim-2">Paste this script into your site&apos;s <code>&lt;head&gt;</code> or before <code>&lt;/body&gt;</code>.</p>
-        <textarea
-          ref={textareaRef}
-          readOnly
-          value={snippet}
-          className="w-full resize-none rounded-md border border-line-subtle bg-paper p-3 font-mono text-sm text-ink"
-          rows={6}
-          aria-label="Embed snippet"
-        />
+        <div className="space-y-5">
+          <div className="space-y-2">
+            <p className="text-sm text-dim-2">
+              Share the direct link to this form:
+            </p>
+            <div className="rounded-md border border-line-subtle bg-paper px-4 py-3">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div className="min-w-0">
+                  <a
+                    href={publicUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="block truncate text-sm font-medium text-ink underline decoration-line-glass/50 underline-offset-4 hover:decoration-input-text"
+                  >
+                    {publicUrl}
+                  </a>
+                </div>
+                <Button type="button" variant="secondary" size="sm" onClick={handleCopyLink}>
+                  Copy link
+                </Button>
+              </div>
+            </div>
+          </div>
+          <div className="space-y-3">
+            <p className="text-sm text-dim-2">Or paste this script into your site&apos;s <code>&lt;head&gt;</code> or before <code>&lt;/body&gt;</code>.</p>
+            <textarea
+              ref={textareaRef}
+              readOnly
+              value={snippet}
+              className="w-full resize-none rounded-md border border-line-subtle bg-paper p-3 font-mono text-sm text-ink"
+              rows={6}
+              aria-label="Embed snippet"
+            />
+          </div>
+        </div>
       </DialogBody>
       <DialogFooter>
         <Button

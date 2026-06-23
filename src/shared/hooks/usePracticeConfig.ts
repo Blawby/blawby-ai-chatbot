@@ -20,7 +20,6 @@ const PracticeSchema = z.object({
   stripeCustomerId: z.string().nullable().optional(), // API can return null
   seats: z.number().optional(),
   kind: z.enum(['personal', 'business']).optional(),
-  accentColor: z.string().optional(),
   consultationFee: z.number().int().nonnegative().nullable().optional(),
   billingIncrementMinutes: z.number().int().positive().nullable().optional(),
   subscriptionStatus: z.enum(['none', 'trialing', 'active', 'past_due', 'canceled', 'incomplete', 'incomplete_expired', 'unpaid', 'paused']).optional()
@@ -52,7 +51,6 @@ const buildDefaultPracticeConfig = (overrides: Partial<UIPracticeConfig> = {}): 
   serviceQuestions: {},
   domain: '',
   brandColor: '#000000',
-  accentColor: 'gold',
   voice: {
     enabled: false,
     provider: 'cloudflare',
@@ -76,7 +74,6 @@ export const resolvePracticeConfigFromBootstrap = (
   serviceQuestions: {},
   domain: '',
   brandColor: '#000000',
-  accentColor: (pd.accent_color as string) || 'gold',
   voice: { enabled: false, provider: 'cloudflare', voiceId: null, displayName: null, previewUrl: null },
   consultationFee: typeof pd.consultation_fee === 'number' ? toMinorUnitsValue(pd.consultation_fee) ?? undefined : undefined,
   paymentUrl: pd.payment_url as string | null ?? null,
@@ -200,7 +197,6 @@ export const usePracticeConfig = ({
             legalDisclaimer: details?.legalDisclaimer ?? null,
             consultationFee: (details?.consultationFee as unknown as MinorAmount) ?? undefined,
             billingIncrementMinutes: details?.billingIncrementMinutes ?? undefined,
-            accentColor: details?.accentColor ?? 'gold',
             isPublic: details?.isPublic
           });
 
@@ -258,7 +254,6 @@ export const usePracticeConfig = ({
           serviceQuestions: cfg.serviceQuestions ?? {},
           domain: cfg.domain ?? '',
           brandColor: cfg.brandColor ?? '#000000',
-          accentColor: practice.accentColor ?? cfg.accentColor ?? 'gold',
           consultationFee: (cfg.consultationFee as unknown as MinorAmount) ?? (practice.consultationFee as unknown as MinorAmount) ?? undefined,
           billingIncrementMinutes: cfg.billingIncrementMinutes ?? practice.billingIncrementMinutes ?? undefined,
           voice: {

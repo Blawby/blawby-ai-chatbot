@@ -62,7 +62,6 @@ export const conversationConfigSchema = z.object({
   domain: z.string().min(1).optional(),
   description: z.string().min(1).optional(),
   brandColor: z.string().regex(/^#[0-9A-Fa-f]{6}$/).optional(),
-  accentColor: z.string().regex(/^#[0-9A-Fa-f]{6}$/).optional(),
   profileImage: z.string().url().optional(),
   voice: z.object({
     enabled: z.boolean().optional(),

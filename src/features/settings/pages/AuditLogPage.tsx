@@ -150,7 +150,14 @@ export const AuditLogPage = ({ className = '' }: AuditLogPageProps) => {
             </div>
           </SettingsCard>
         ) : (
-          <p className="py-8 text-center text-sm text-dim">No events match your filters.</p>
+          <SettingsCard className="max-w-[860px]">
+            <div className="py-8 text-center">
+              <p className="text-sm font-medium text-ink">No audit events found</p>
+              <p className="mx-auto mt-1 max-w-md text-sm text-dim">
+                Adjust the audit filters to find logged changes, sign-ins, assistant actions, or record updates.
+              </p>
+            </div>
+          </SettingsCard>
         )}
 
         {/* Pagination */}

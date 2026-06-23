@@ -175,7 +175,7 @@ VITE_DEBUG_OVERLAY = false
 CLOUDFLARE_PUBLIC_URL = "https://local.blawby.com"
 CLOUDFLARE_ACCOUNT_ID = "fa3dc6c06433f6b0ea78d95bce23ad91"
 BACKEND_API_URL = "https://staging-api.blawby.com"
-ALLOWED_WS_ORIGINS = "https://local.blawby.com,http://local.blawby.com,http://localhost:5173,https://localhost:5173,http://localhost:5137,https://localhost:5137"
+ALLOWED_WS_ORIGINS = "https://local.blawby.com,http://local.blawby.com,https://dev.blawby.com,http://dev.blawby.com,http://localhost:5173,https://localhost:5173,http://localhost:5137,https://localhost:5137"
 REQUIRE_EMAIL_VERIFICATION = false
 ENABLE_EMAIL_NOTIFICATIONS = true
 ENABLE_PUSH_NOTIFICATIONS = true
@@ -227,6 +227,17 @@ max_batch_size = 25
 max_batch_timeout = 5
 max_retries = 5
 dead_letter_queue = "search-index-events-staging-dlq"
+
+[[env.staging.queues.producers]]
+queue = "intake-conversation-events-staging"
+binding = "INTAKE_CONVERSATION_EVENTS"
+
+[[env.staging.queues.consumers]]
+queue = "intake-conversation-events-staging"
+max_batch_size = 100
+max_batch_timeout = 5
+max_retries = 3
+dead_letter_queue = "intake-conversation-events-staging-dlq"
 
 [[env.staging.vectorize]]
 binding = "SEARCH_VECTORS"

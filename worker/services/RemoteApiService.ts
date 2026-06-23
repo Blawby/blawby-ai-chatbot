@@ -8,9 +8,7 @@ import { redactSensitiveFields } from '../utils/redactResponse.js';
 import { policyTtlMs } from '../utils/cachePolicy.js';
 import { validateWire } from '../utils/validateWire.js';
 import { PracticeSchema, ConversationConfigPermissiveSchema } from '../types/wire/practice.js';
-import {
-  BackendIntakeConvertResponseSchema,
-} from '../types/wire/intake.js';
+import { BackendIntakeConvertResponseSchema } from '../types/wire/intake.js';
 import { canAssignTeamMemberToMatter, isTeamRole, type PracticeTeamResponse } from '../../src/shared/types/team.js';
 
 /**
@@ -66,6 +64,7 @@ export class RemoteApiService {
       method?: string;
       body?: string;
       forwardAuthCookie?: boolean;
+      headers?: Record<string, string>;
     }
   ): Promise<Response> {
     const baseUrl = this.getRemoteApiUrl(env);
@@ -75,6 +74,12 @@ export class RemoteApiService {
     const headers = new Headers({
       'Content-Type': 'application/json',
     });
+
+    if (options?.headers) {
+      for (const [key, value] of Object.entries(options.headers)) {
+        headers.set(key, value);
+      }
+    }
 
     // Forward session cookies when available unless explicitly disabled.
     if (options?.forwardAuthCookie !== false) {
@@ -311,14 +316,12 @@ export class RemoteApiService {
   static async getPublicPracticeIntakeSettings(
     env: Env,
     slug: string,
-    request?: Request
+    request?: Request,
+    templateSlug?: string,
   ): Promise<Response> {
-    return this.fetchFromRemoteApi(
-      env,
-      `/api/practice-client-intakes/${encodeURIComponent(slug)}/intake`,
-      request,
-      { forwardAuthCookie: false }
-    );
+    const base = `/api/practice-client-intakes/${encodeURIComponent(slug)}/intake`;
+    const path = templateSlug ? `${base}?template_slug=${encodeURIComponent(templateSlug)}` : base;
+    return this.fetchFromRemoteApi(env, path, request, { forwardAuthCookie: false });
   }
 
   /**

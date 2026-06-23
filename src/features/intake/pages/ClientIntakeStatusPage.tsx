@@ -143,7 +143,7 @@ export const ClientIntakeStatusPage: FunctionComponent<ClientIntakeStatusPagePro
           {intake.nextStep ? (
             <Card className="bg-paper-2/30">
               <SectionHeading>Next Step</SectionHeading>
-              <p className="mt-1.5 whitespace-pre-wrap text-sm leading-relaxed text-ink/90">
+              <p className="mt-1.5 whitespace-pre-wrap text-sm leading-relaxed text-ink">
                 {intake.nextStep}
               </p>
             </Card>
@@ -190,7 +190,7 @@ export const ClientIntakeStatusPage: FunctionComponent<ClientIntakeStatusPagePro
           {intake.notes ? (
             <Card>
               <SectionHeading>Notes</SectionHeading>
-              <p className="mt-1.5 whitespace-pre-wrap text-sm leading-relaxed text-ink/90">
+              <p className="mt-1.5 whitespace-pre-wrap text-sm leading-relaxed text-ink">
                 {intake.notes}
               </p>
             </Card>

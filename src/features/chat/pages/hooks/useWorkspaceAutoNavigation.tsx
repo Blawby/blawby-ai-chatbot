@@ -121,6 +121,35 @@ export function useWorkspaceAutoNavigation(
     workspaceSection,
   ]);
 
+  // Practice workspace on desktop mirrors the client split-view behavior:
+  // entering Messages opens the most recently updated visible thread.
+  useEffect(() => {
+    if (!isPracticeWorkspace || layoutMode !== 'desktop') return;
+    if (workspaceSection !== 'conversations' || view !== 'list') return;
+    if (activeConversationId || hasAutoNavigatedRef.current) return;
+    if (resolvedConversationsLoading || navigationInitiatedRef.current) return;
+
+    const mostRecentConversationId = filteredConversations
+      .slice()
+      .sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime())[0]?.id;
+    if (!mostRecentConversationId) return;
+
+    navigationInitiatedRef.current = true;
+    hasAutoNavigatedRef.current = true;
+    handleSelectConversation(mostRecentConversationId);
+  }, [
+    activeConversationId,
+    filteredConversations,
+    handleSelectConversation,
+    hasAutoNavigatedRef,
+    isPracticeWorkspace,
+    layoutMode,
+    navigationInitiatedRef,
+    resolvedConversationsLoading,
+    view,
+    workspaceSection,
+  ]);
+
   // Client workspace on desktop, conversations section: pick the first
   // conversation if none is active. Gated on workspaceSection so the home tab
   // can render the client dashboard instead of bouncing straight to messages.

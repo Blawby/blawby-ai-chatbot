@@ -13,6 +13,7 @@ import { z } from 'zod';
 const optionalString = () => z.string().optional();
 const optionalNumber = () => z.number().optional();
 const optionalBoolean = () => z.boolean().optional();
+const nullableUnknown = () => z.unknown().nullable();
 
 /**
  * Diagnostic context attached to partial intake submissions that arrive after
@@ -25,6 +26,10 @@ const optionalBoolean = () => z.boolean().optional();
  * via `conversation_id` -> admin inspector view, avoiding PII leakage through
  * the backend's middleware / APM / platform logs that may log raw request
  * bodies even when Zod strips the field from the validated DTO.
+ *
+ * Current staging rejects worker-local conversation ids when sent as the
+ * backend's top-level `conversation_id`. Store that diagnostic link in
+ * `custom_fields._worker_conversation_id` instead.
  */
 export const BackendIntakeFailureContextSchema = z.object({
   reason: z.string().min(1),
@@ -40,7 +45,7 @@ export const BackendIntakeCreatePayloadSchema = z.object({
   email: z.string().email(),
   user_id: optionalString(),
   phone: optionalString(),
-  conversation_id: z.string().min(1),
+  conversation_id: optionalString(),
   description: optionalString(),
   urgency: optionalString(),
   opposing_party: optionalString(),
@@ -107,42 +112,54 @@ export const BackendIntakeConvertResponseSchema = z.object({
 });
 export type BackendIntakeConvertResponse = z.infer<typeof BackendIntakeConvertResponseSchema>;
 
-export type BackendIntakeTemplateField = {
-  id: string;
-  template_id: string;
-  key: string;
-  label: string;
-  field_type: 'text' | 'textarea' | 'email' | 'phone' | 'select' | 'multiselect' | 'date' | 'boolean' | 'number';
-  phase: 'required' | 'enrichment';
-  required: boolean;
-  order_index: number;
-  placeholder: string | null;
-  help_text: string | null;
-  prompt_hint: string | null;
-  is_standard: boolean;
-  validation_rules: unknown | null;
-  options: Array<{ value: string; label: string }> | null;
-  created_at: string;
-  updated_at: string;
-};
+export const BackendIntakeTemplateFieldSchema = z.object({
+  id: z.string(),
+  template_id: z.string(),
+  key: z.string(),
+  label: z.string(),
+  field_type: z.enum(['text', 'textarea', 'email', 'phone', 'select', 'multiselect', 'date', 'boolean', 'number']),
+  phase: z.enum(['required', 'enrichment']),
+  required: z.boolean(),
+  order_index: z.number(),
+  placeholder: z.string().nullable(),
+  help_text: z.string().nullable(),
+  prompt_hint: z.string().nullable(),
+  is_standard: z.boolean(),
+  validation_rules: nullableUnknown(),
+  options: z.array(z.object({
+    value: z.string(),
+    label: z.string(),
+  })).nullable(),
+  created_at: z.string(),
+  updated_at: z.string(),
+});
 
-export type BackendIntakeTemplate = {
-  id: string;
-  organization_id: string;
-  slug: string;
-  name: string;
-  description: string | null;
-  status: 'draft' | 'published' | 'archived';
-  is_default: boolean;
-  intro_message: string | null;
-  legal_disclaimer: string | null;
-  payment_link_enabled: boolean;
-  consultation_fee: number | null;
-  archived_at: string | null;
-  created_at: string;
-  updated_at: string;
-  fields: BackendIntakeTemplateField[];
-};
+export type BackendIntakeTemplateField = z.infer<typeof BackendIntakeTemplateFieldSchema>;
+
+export const BackendIntakeTemplateSchema = z.object({
+  id: z.string(),
+  organization_id: z.string(),
+  slug: z.string(),
+  name: z.string(),
+  description: z.string().nullable(),
+  status: z.enum(['draft', 'published', 'archived']),
+  is_default: z.boolean(),
+  intro_message: z.string().nullable(),
+  legal_disclaimer: z.string().nullable(),
+  payment_link_enabled: z.boolean(),
+  consultation_fee: z.number().nullable(),
+  archived_at: z.string().nullable(),
+  created_at: z.string(),
+  updated_at: z.string(),
+  fields: z.array(BackendIntakeTemplateFieldSchema),
+});
+
+export type BackendIntakeTemplate = z.infer<typeof BackendIntakeTemplateSchema>;
+
+export const BackendPracticeTemplatesResponseSchema = z.object({
+  templates: z.array(BackendIntakeTemplateSchema),
+});
+export type BackendPracticeTemplatesResponse = z.infer<typeof BackendPracticeTemplatesResponseSchema>;
 
 export type BackendIntakeTemplatePublic = {
   id: string;
@@ -152,7 +169,7 @@ export type BackendIntakeTemplatePublic = {
   legal_disclaimer: string | null;
   payment_link_enabled: boolean;
   consultation_fee: number | null;
-  fields: Array<Omit<BackendIntakeTemplateField, 'template_id' | 'validation_rules' | 'created_at' | 'updated_at'>>;
+  fields: Array<Omit<BackendIntakeTemplateField, 'template_id' | 'created_at' | 'updated_at'>>;
 };
 
 /**

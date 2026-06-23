@@ -13,7 +13,6 @@ import { FormActions } from '@/shared/ui/form';
 import { FormLabel } from '@/shared/ui/form/FormLabel';
 import { Input, URLInput, EmailInput, PhoneInput } from '@/shared/ui/input';
 import { AddressExperienceForm } from '@/shared/ui/address/AddressExperienceForm';
-import { normalizeAccentColor } from '@/shared/utils/brandColor';
 import type { Address } from '@/shared/types/address';
 import type { PracticeDetails } from '@/shared/lib/apiClient';
 import type { Practice } from '@/shared/hooks/usePracticeManagement';
@@ -24,7 +23,6 @@ export interface OnboardingDialogsProps {
   onSaveBasics?: (values: {
     name: string;
     slug: string;
-    accentColor: string;
   }) => Promise<void>;
   onSaveContact?: (values: {
     website: string;
@@ -46,7 +44,6 @@ export interface OnboardingDialogsRef {
 interface BasicsFormValues {
   name: string;
   slug: string;
-  accentColor: string;
 }
 
 interface ContactFormValues {
@@ -56,10 +53,9 @@ interface ContactFormValues {
   address?: Partial<Address>;
 }
 
-const getBasicsDraft = (practice: Practice | null, details: PracticeDetails | null): BasicsFormValues => ({
+const getBasicsDraft = (practice: Practice | null): BasicsFormValues => ({
   name: practice?.name ?? '',
   slug: practice?.slug ?? '',
-  accentColor: normalizeAccentColor(details?.accentColor ?? practice?.accentColor) ?? '#D4AF37',
 });
 
 const toPartialAddress = (value: unknown): Partial<Address> | undefined => {
@@ -104,13 +100,13 @@ const OnboardingDialogs = forwardRef<OnboardingDialogsRef, OnboardingDialogsProp
 }, ref) => {
   const [basicsModalOpen, setBasicsModalOpen] = useState(false);
   const [contactModalOpen, setContactModalOpen] = useState(false);
-  const [basicsDraft, setBasicsDraft] = useState<BasicsFormValues>(() => getBasicsDraft(practice, details));
+  const [basicsDraft, setBasicsDraft] = useState<BasicsFormValues>(() => getBasicsDraft(practice));
   const [contactDraft, setContactDraft] = useState<ContactFormValues>(() => getContactDraft(practice, details));
 
   const openBasicsModal = useCallback(() => {
-    setBasicsDraft(getBasicsDraft(practice, details));
+    setBasicsDraft(getBasicsDraft(practice));
     setBasicsModalOpen(true);
-  }, [practice, details]);
+  }, [practice]);
 
   const openContactModal = useCallback(() => {
     setContactDraft(getContactDraft(practice, details));
@@ -198,33 +194,6 @@ const OnboardingDialogs = forwardRef<OnboardingDialogsRef, OnboardingDialogsProp
               />
             </div>
           </FormGrid>
-
-
-          <div className="space-y-1.5">
-            <FormLabel htmlFor="edit-accent">Accent Color</FormLabel>
-            <div className="flex items-center gap-2">
-              <div
-                className="relative h-10 w-10 shrink-0 overflow-hidden rounded-full"
-                style={{ backgroundColor: normalizeAccentColor(basicsDraft.accentColor) ?? '#D4AF37' }}
-              >
-                <input
-                  type="color"
-                  value={normalizeAccentColor(basicsDraft.accentColor) ?? '#D4AF37'}
-                  onChange={e => setBasicsDraft(p => ({ ...p, accentColor: (e.target as HTMLInputElement).value }))}
-                  className="absolute inset-0 w-full h-full cursor-pointer opacity-0"
-                  aria-label="Accent color"
-                  disabled={isModalSaving}
-                />
-              </div>
-              <Input
-                value={basicsDraft.accentColor}
-                onChange={v => setBasicsDraft(p => ({ ...p, accentColor: v }))}
-                placeholder="#3B82F6"
-                aria-label="Accent color hex"
-                disabled={isModalSaving}
-              />
-            </div>
-          </div>
 
           <FormActions
             className="justify-end"

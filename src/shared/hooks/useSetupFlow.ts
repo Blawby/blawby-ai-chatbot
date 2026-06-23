@@ -39,7 +39,6 @@ const PERSISTED_SETUP_FIELD_KEYS = [
   'name',
   'slug',
   'description',
-  'accentColor',
   'website',
   'businessEmail',
   'businessPhone',

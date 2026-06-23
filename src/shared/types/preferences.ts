@@ -7,7 +7,6 @@ export type PreferenceCategory =
 
 export interface GeneralPreferences {
   theme?: 'light' | 'dark' | 'system';
-  accent_color?: string;
   language?: string;
   spoken_language?: string;
   timezone?: string;

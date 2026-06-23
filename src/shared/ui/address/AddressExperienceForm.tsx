@@ -3,7 +3,6 @@ import { z } from 'zod';
 import { Form, FormField, FormItem, type FormData as FormDataType } from '@/shared/ui/form';
 import { Input } from '@/shared/ui/input/Input';
 import { EmailInput } from '@/shared/ui/input/EmailInput';
-import { PhoneInput } from '@/shared/ui/input/PhoneInput';
 import { Textarea } from '@/shared/ui/input/Textarea';
 import { Combobox, type ComboboxOption } from '@/shared/ui/input/Combobox';
 import { AddressInput } from '@/shared/ui/address/AddressInput';
@@ -320,7 +319,7 @@ export const AddressExperienceForm = ({
   return (
     <div className={containerClasses} data-testid="address-experience-form">
       {message && (
-        <div className="mb-4 text-ink dark:text-ink/80">
+        <div className="mb-4 text-ink">
           {message}
         </div>
       )}
@@ -378,7 +377,8 @@ export const AddressExperienceForm = ({
                     );
                   case 'phone':
                     return (
-                      <PhoneInput
+                      <Input
+                        type="tel"
                         name={field}
                         value={(value as string) || ''}
                         onChange={handleChange}
@@ -388,9 +388,7 @@ export const AddressExperienceForm = ({
                         error={error?.message}
                         variant={error ? 'error' : 'default'}
                         disabled={disabled}
-                        format={true}
-                        showCountryCode={true}
-                        countryCode="+1"
+                        autoComplete="tel"
                         className={inputClassName}
                       />
                     );

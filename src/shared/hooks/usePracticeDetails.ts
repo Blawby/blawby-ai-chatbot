@@ -7,7 +7,7 @@ import { practiceDetailsStore, setPracticeDetailsEntry } from '@/shared/stores/p
 /**
  * usePracticeDetails
  *
- * Reads practice details (accent color, description, contact info, etc.) from
+ * Reads practice details (description, contact info, etc.) from
  * the nanostores `practiceDetailsStore`.  The store is pre-seeded by
  * `usePracticeConfig` whenever it resolves a practice (public or authenticated),
  * so in the normal widget/public flow `fetchDetails` should be a no-op.

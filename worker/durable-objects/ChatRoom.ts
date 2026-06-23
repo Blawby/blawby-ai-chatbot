@@ -905,6 +905,21 @@ export class ChatRoom {
 
     await this.state.storage.delete(pendingKey);
 
+    await this.env.INTAKE_CONVERSATION_EVENTS?.send({
+      type: 'message.completed',
+      id: messageId,
+      conversation_id: conversationId,
+      organization_id: practiceId,
+      user_id: userId ?? null,
+      role,
+      content,
+      seq: pending.allocated_seq,
+      client_id: clientId,
+      token_count: null,
+      metadata: sanitizedMetadata ?? null,
+      created_at: serverTs,
+    });
+
     if (role === 'user') {
       void this.maybeUpdateConversationTitle(conversationId, content);
     }

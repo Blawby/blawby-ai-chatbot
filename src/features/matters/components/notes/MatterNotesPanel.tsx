@@ -217,7 +217,7 @@ export const MatterNotesPanel = ({
                       <span className="text-xs text-dim-2">(edited)</span>
                     )}
                   </div>
-                  <p className="mt-2 whitespace-pre-wrap text-sm text-ink opacity-80 decoration-input-placeholder">
+                  <p className="mt-2 whitespace-pre-wrap text-sm text-ink-2 decoration-input-placeholder">
                     {note.content}
                   </p>
                 </div>
@@ -297,7 +297,7 @@ export const MatterNotesPanel = ({
           contentClassName="max-w-xl"
         >
           <DialogBody className="space-y-4">
-            <p className="text-sm text-ink opacity-80">
+            <p className="text-sm text-ink-2">
               Are you sure you want to delete this note? This action cannot be undone.
             </p>
             {deleteError && (

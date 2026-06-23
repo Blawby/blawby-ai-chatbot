@@ -51,6 +51,7 @@ import { getWorkspaceConversationsPath, getWorkspaceMattersPath, getWorkspaceCon
 import type { LayoutMode } from '@/app/MainApp';
 import { useMobileDetection } from '@/shared/hooks/useMobileDetection';
 import type { AuthSessionPayload } from '@/shared/types/user';
+import type { PracticeDetails } from '@/shared/lib/apiClient';
 
 // ─── types ────────────────────────────────────────────────────────────────────
 
@@ -58,12 +59,7 @@ interface CurrentPractice {
   slug?: string | null;
   name?: string | null;
   logo?: string | null;
-  accentColor?: string | null;
   metadata?: Record<string, unknown> | null;
-}
-
-interface PracticeDetails {
-  accentColor?: string | null;
 }
 
 export interface UseWorkspaceRoutingOptions {
@@ -95,7 +91,6 @@ export const useWorkspaceRouting = ({
   routeConversationId,
   isWidget = false,
   currentPractice,
-  practiceDetails,
   activeMemberRole,
   session,
 }: UseWorkspaceRoutingOptions) => {
@@ -135,23 +130,6 @@ export const useWorkspaceRouting = ({
     if (isPublicWorkspace) return practiceConfig.profileImage ?? null;
     return currentPractice?.logo ?? practiceConfig?.profileImage ?? null;
   }, [currentPractice?.logo, isPublicWorkspace, practiceConfig?.profileImage]);
-
-  /**
-   * Resolved accent color. After the DS migration the value no longer affects
-   * the visual theme (fixed gold), but the API still accepts brandColor on
-   * practice records, so consumers of this hook may still need the resolved
-   * value for non-visual purposes (forms, payload validation).
-   */
-  const resolvedAccentColor = useMemo(() => {
-    if (isPublicWorkspace || isClientWorkspace) return practiceConfig.accentColor;
-    return practiceDetails?.accentColor ?? currentPractice?.accentColor ?? practiceConfig.accentColor;
-  }, [
-    currentPractice?.accentColor,
-    isClientWorkspace,
-    isPublicWorkspace,
-    practiceConfig.accentColor,
-    practiceDetails?.accentColor,
-  ]);
 
   // ── conversation ID from route ─────────────────────────────────────────────
 
@@ -250,7 +228,6 @@ export const useWorkspaceRouting = ({
     // Display values
     resolvedPracticeName,
     resolvedPracticeLogo,
-    resolvedAccentColor,
 
     // Navigation
     normalizedRouteConversationId,

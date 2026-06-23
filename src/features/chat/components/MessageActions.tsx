@@ -122,8 +122,6 @@ export const MessageActions: FunctionComponent<MessageActionsProps> = ({
 	const resolvedIntakeStatus = intakeContext.intakeStatus;
 	const resolvedOnSubmitNow = intakeContext.onSubmitNow;
 	const resolvedOnBuildBrief = intakeContext.onBuildBrief;
-	const resolvedOnStrengthenCase = intakeContext.onStrengthenCase;
-
 	const isIntakeCompleted = resolvedIntakeStatus?.step === 'completed';
 	const shouldShowAuthCta = Boolean(authCta?.label && onAuthPromptRequest && !isIntakeCompleted);
 	const shouldShowPaymentCard = Boolean(paymentRequest && resolvedIntakeStatus?.paymentReceived !== true);
@@ -139,11 +137,9 @@ export const MessageActions: FunctionComponent<MessageActionsProps> = ({
 				return true;
 			case 'build_brief':
 				return Boolean(resolvedOnBuildBrief);
-				case 'strengthen_case':
-					return Boolean(resolvedOnStrengthenCase);
-				case 'practice_assistant_decision':
-					return Boolean(practiceId) && !resolvedPracticeAssistantActionIds.has(action.actionId);
-			}
+			case 'practice_assistant_decision':
+				return Boolean(action.actionId) && Boolean(practiceId) && !resolvedPracticeAssistantActionIds.has(action.actionId);
+		}
 		});
 	const decisionActions = renderableActions.filter((a) => a.type === 'practice_assistant_decision');
 	const standardActions = renderableActions.filter((a) => a.type !== 'practice_assistant_decision');
@@ -321,18 +317,6 @@ export const MessageActions: FunctionComponent<MessageActionsProps> = ({
 									{action.label}
 								</Button>
 							) : null
-							) : action.type === 'strengthen_case' ? (
-								resolvedOnStrengthenCase ? (
-									<Button
-									key={getChatActionKey(action, idx)}
-									variant={action.variant === 'primary' ? 'primary' : 'secondary'}
-									size="sm"
-									className="shrink-0"
-									onClick={() => resolvedOnStrengthenCase()}
-								>
-									{action.label}
-									</Button>
-								) : null
 							) : (
 								// `reply` actions render as rounded-pill QuickReplyChips per
 								// Intake.html `.qchip`. Click marks the chip selected

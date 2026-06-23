@@ -616,6 +616,7 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
             />
 
             {(!showAuthPrompt && !shouldShowSlimForm && !shouldShowDisclaimer && !hideComposer) && (
+                <>
                 <MessageComposer
                   inputValue={inputValue}
                   setInputValue={setInputValue}
@@ -643,6 +644,7 @@ const ChatContainer: FunctionComponent<ChatContainerProps> = ({
                   isPublicWorkspace={isPublicWorkspace}
                   hardError={hardError ?? null}
                 />
+                </>
             )}
           </div>
         </div>

@@ -25,38 +25,46 @@ export async function handleWidgetPracticeDetails(request: Request, env: Env): P
     throw HttpErrors.badRequest('Invalid slug encoding');
   }
 
-  const remoteResponse = await RemoteApiService.getPublicPracticeDetails(env, decodedSlug, request);
-  const payload = await remoteResponse.json().catch(() => null) as Record<string, unknown> | null;
+  const response = await RemoteApiService.getPublicPracticeDetails(env, decodedSlug, request);
+  const rawText = await response.text();
 
-  const dataRecord =
-    payload && typeof payload.data === 'object' && payload.data !== null
-      ? payload.data as Record<string, unknown>
-      : null;
-  const detailsRecord =
-    payload && typeof payload.details === 'object' && payload.details !== null
-      ? payload.details as Record<string, unknown>
-      : null;
-  const nestedDetailsRecord =
-    dataRecord && typeof dataRecord.details === 'object' && dataRecord.details !== null
-      ? dataRecord.details as Record<string, unknown>
-      : null;
-
-  const accentColor =
-    (payload && typeof payload.accentColor === 'string' && payload.accentColor.trim()) ||
-    (payload && typeof payload.accent_color === 'string' && payload.accent_color.trim()) ||
-    (dataRecord && typeof dataRecord.accentColor === 'string' && dataRecord.accentColor.trim()) ||
-    (dataRecord && typeof dataRecord.accent_color === 'string' && dataRecord.accent_color.trim()) ||
-    (detailsRecord && typeof detailsRecord.accentColor === 'string' && detailsRecord.accentColor.trim()) ||
-    (detailsRecord && typeof detailsRecord.accent_color === 'string' && detailsRecord.accent_color.trim()) ||
-    (nestedDetailsRecord && typeof nestedDetailsRecord.accentColor === 'string' && nestedDetailsRecord.accentColor.trim()) ||
-    (nestedDetailsRecord && typeof nestedDetailsRecord.accent_color === 'string' && nestedDetailsRecord.accent_color.trim()) ||
-    null;
-
-  return new Response(JSON.stringify({ accentColor, accent_color: accentColor }), {
-    status: 200,
-    headers: {
-      'Content-Type': 'application/json',
-      'Cache-Control': 'public, max-age=300',
+  const normalizedHeaders = new Headers();
+  const allowedHeaderNames = ['content-type', 'content-language', 'etag'];
+  for (const headerName of allowedHeaderNames) {
+    const headerValue = response.headers.get(headerName);
+    if (headerValue) {
+      normalizedHeaders.set(headerName, headerValue);
     }
+  }
+  if (response.ok) {
+    normalizedHeaders.set('Cache-Control', 'public, max-age=300');
+  } else {
+    normalizedHeaders.set('Cache-Control', 'no-store');
+  }
+
+  let payload: Record<string, unknown> | null = null;
+  try {
+    payload = JSON.parse(rawText) as Record<string, unknown>;
+  } catch {
+    normalizedHeaders.set('Cache-Control', 'no-store');
+    return new Response(rawText, {
+      status: response.status,
+      headers: normalizedHeaders,
+    });
+  }
+
+  if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
+    normalizedHeaders.set('Cache-Control', 'no-store');
+    return new Response(rawText, {
+      status: response.status,
+      headers: normalizedHeaders,
+    });
+  }
+
+  normalizedHeaders.set('content-type', 'application/json');
+
+  return new Response(JSON.stringify(payload), {
+    status: response.status,
+    headers: normalizedHeaders,
   });
 }

@@ -66,7 +66,18 @@ Strong success criteria let you loop independently. Weak criteria ("make it work
 
 ## 5. Local Browser Verification
 
-Always verify browser/auth/signup flows through `https://local.blawby.com`, not raw Vite or Wrangler localhost URLs. Auth cookies, Worker proxying, and app routing all depend on the same origin/path shape as real deployments.
+Always verify browser/auth/signup flows through the developer-specific tunnel hostname, not raw Vite or Wrangler localhost URLs. Auth cookies, Worker proxying, and app routing all depend on the same origin/path shape as real deployments.
+
+Each developer has their own Cloudflare tunnel hostname (Vite's `server.allowedHosts` / `hmr.host` must match whichever tunnel is in use):
+
+| Developer | Tunnel hostname |
+|-----------|----------------|
+| `paulchrisluke` | `https://local.blawby.com` |
+| `DarkSkyXD` (current user) | `https://dev.blawby.com` |
+
+The tunnel hostname is determined by the `CLOUDFLARE_TUNNEL_TOKEN` configured in `.env` / `worker/.dev.vars` — `scripts/run-tunnel.ts` reads it and `cloudflared` connects to whichever hostname that token owns. If you switch machines, update `vite.config.ts`'s `server.allowedHosts` and `server.hmr.host` to match, or Vite will reject the request with "Blocked request. This host (…) is not allowed."
+
+For E2E tests, set `E2E_BASE_URL` to your tunnel hostname (defaults in the Playwright configs assume `local.blawby.com`).
 
 Always use the staging backend — auth, preferences, and API calls all proxy to `https://staging-api.blawby.com`.
 
@@ -75,7 +86,7 @@ npm install
 npm run dev:full
 ```
 
-Open `https://local.blawby.com`. Done.
+Open your tunnel hostname in the browser. Done.
 
 #### Wrangler auth — if `dev:full` fails to start the worker
 

@@ -10,6 +10,10 @@ type CommandPaletteContextValue = {
   open: (initialQuery?: string) => void;
   close: () => void;
   toggle: () => void;
+  /** True iff the palette is actually mounted and usable — i.e. authenticated
+   *  practice/client workspace with a resolved practice id. Triggers should
+   *  hide themselves when this is false rather than rendering a dead button. */
+  enabled: boolean;
 };
 
 const CommandPaletteContext = createContext<CommandPaletteContextValue | null>(null);
@@ -64,9 +68,10 @@ export function CommandPaletteProvider({
     return () => window.removeEventListener('keydown', handler);
   }, [enabled, toggle]);
 
+  const isUsable = enabled && Boolean(practiceId);
   const value = useMemo<CommandPaletteContextValue>(
-    () => ({ isOpen, open, close, toggle }),
-    [isOpen, open, close, toggle],
+    () => ({ isOpen, open, close, toggle, enabled: isUsable }),
+    [isOpen, open, close, toggle, isUsable],
   );
 
   return (
@@ -94,6 +99,7 @@ export function useCommandPalette(): CommandPaletteContextValue {
       open: () => {},
       close: () => {},
       toggle: () => {},
+      enabled: false,
     };
   }
   return ctx;

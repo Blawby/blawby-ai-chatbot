@@ -60,6 +60,7 @@ export const AboutYouStep = ({ draft, requireName, onChange }: AboutYouStepProps
             Birthday
           </label>
           <DatePicker
+            id="onboarding-birthday"
             value={draft.birthday ?? ''}
             onChange={(date) => onChange({ birthday: typeof date === 'string' ? date : '' })}
             placeholder="MM/DD/YYYY"

@@ -26,27 +26,47 @@ type UseWorkspaceDataInput = {
   sessionUserId: string | null;
 };
 
+const MATTERS_FILTER_STATUS_MAP: Record<string, string[]> = {
+  new: ['first_contact', 'intake_pending', 'conflict_check', 'eligibility'],
+  active: ['consultation_scheduled', 'engagement_pending', 'active', 'pleadings_filed', 'discovery', 'mediation', 'pre_trial', 'trial'],
+  closing: ['order_entered', 'appeal_pending'],
+  closed: ['closed'],
+  declined: ['declined', 'conflicted', 'referred'],
+};
+
 export function useWorkspaceData({
   practiceId,
   isPracticeWorkspace,
   isClientWorkspace,
   view,
   layoutMode,
+  workspaceSection,
+  activeSecondaryFilter,
   selectedMatterIdFromPath,
   sessionUserId,
 }: UseWorkspaceDataInput) {
-  const mattersStatusFilter = useMemo<string[]>(() => [], []);
+  const mattersStatusFilter = useMemo<string[]>(() => {
+    if (!activeSecondaryFilter || activeSecondaryFilter === 'all') return [];
+    return MATTERS_FILTER_STATUS_MAP[activeSecondaryFilter] ?? [];
+  }, [activeSecondaryFilter]);
 
   const contactsStatusFilter = useMemo<UserDetailStatus | null>(() => null, []);
 
   const invoicesStatusFilter = useMemo<string[]>(() => [], []);
 
-  // Always fetch the full unfiltered matters list so the inspector can use it.
-  // The mattersStore handles deduplication — this fires once and caches.
+  const shouldFetchMatters =
+    (isPracticeWorkspace || isClientWorkspace) &&
+    (
+      workspaceSection === 'matters' ||
+      Boolean(selectedMatterIdFromPath)
+    );
+
+  // Fetch the full unfiltered matters list only where matter rows are rendered.
+  // The matters store still deduplicates and caches the sections that opt in.
   const mattersData = useMattersData(
     practiceId,
     [], // no status filter — fetch all, filter at display time
-    { enabled: isPracticeWorkspace || isClientWorkspace }
+    { enabled: shouldFetchMatters }
   );
 
   // Filtered view for the matters list page (status filter applied after fetch)

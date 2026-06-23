@@ -1,10 +1,10 @@
 /**
  * Brand color validation.
  *
- * The DS migration drops runtime per-practice accent injection — the visual
- * theme is now a fixed gold. The settings UI still lets practice admins pick
- * a brand color (named or hex), and the API still accepts and validates the
- * value. `normalizeAccentColor` is the pure validator used in those flows.
+ * The DS migration drops runtime per-practice accent injection, so the visual
+ * theme is now a fixed gold. The API still stores legacy brand-color values,
+ * and a few profile persistence paths still normalize them for compatibility.
+ * `normalizeAccentColor` stays as a pure validator for those cases.
  *
  * No DOM side effects. No `style.setProperty` calls.
  */

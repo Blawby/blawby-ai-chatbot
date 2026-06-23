@@ -481,6 +481,17 @@ export async function handleConversations(request: Request, env: Env): Promise<R
       lifecycleStatus: staffInitiated ? 'visible' : 'pending_visibility',
     }, request);
 
+    await env.INTAKE_CONVERSATION_EVENTS?.send({
+      type: 'conversation.created',
+      id: conversation.id,
+      organization_id: conversation.practice_id,
+      client_user_id: conversation.user_id ?? userId,
+      is_anonymous: conversation.is_anonymous ?? false,
+      status: conversation.status,
+      priority: conversation.priority ?? 'normal',
+      created_at: conversation.created_at,
+    });
+
     return createJsonResponse(conversation);
   }
 
@@ -738,6 +749,14 @@ export async function handleConversations(request: Request, env: Env): Promise<R
     const conversation = trimmedMatterId === null
       ? await conversationService.detachMatter(conversationId, practiceId)
       : await conversationService.attachMatter(conversationId, practiceId, trimmedMatterId);
+
+    void env.INTAKE_CONVERSATION_EVENTS?.send({
+      type: 'conversation.matter_linked',
+      id: conversation.id,
+      organization_id: conversation.practice_id,
+      matter_id: conversation.matter_id ?? null,
+      updated_at: conversation.updated_at,
+    });
 
     return createJsonResponse(conversation);
   }
@@ -1102,6 +1121,19 @@ export async function handleConversations(request: Request, env: Env): Promise<R
       },
       { request }
     );
+
+    if (body.status !== undefined) {
+      void env.INTAKE_CONVERSATION_EVENTS?.send({
+        type: 'conversation.status_changed',
+        id: conversation.id,
+        organization_id: conversation.practice_id,
+        status: conversation.status,
+        intake_mode_activated_at: conversation.intake_mode_activated_at ?? null,
+        ai_failed_at: conversation.ai_failed_at ?? null,
+        closed_at: conversation.closed_at ?? null,
+        updated_at: conversation.updated_at,
+      });
+    }
 
     // Mark intake-mode-activated when the consultation transition indicates the
     // slim-contact-form flow completed (or any intake-active state). Idempotent:

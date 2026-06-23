@@ -23,12 +23,12 @@ export interface MatterAskCardProps {
  * MatterAskCard — pinned chat card scoped to a single matter
  * (per design_handoff_blawby_chat_first/screens/Matter.html ".ask-card").
  *
- * Dark-ink card rendered in the right rail of the matter detail. Distinct
+ * Theme-aware card rendered in the right rail of the matter detail. Distinct
  * from `AIAskBar`:
  *   - `AIAskBar` is the global one-off ask on list views (paper card, sticky
  *     bottom, suggestions as pills).
  *   - `MatterAskCard` is permanently scoped to one matter and lives in the
- *     right rail (ink card, suggestions as tappable underlined links).
+ *     right rail (card surface, suggestions as tappable underlined links).
  *
  * TODO(backend): wire onSubmit to `/api/practice/:id/matters/:matterId/ask`
  * once the scoped-context practice-assistant route exists. Today the stub
@@ -74,7 +74,7 @@ export const MatterAskCard = ({
   return (
     <section
       aria-label="Ask about this matter"
-      className="rounded-md bg-[color:var(--ink)] p-4 text-[color:var(--paper)] shadow-[var(--shadow-2)]"
+      className="card flex flex-col gap-3 p-4 text-ink"
     >
       <div className="flex items-center gap-2.5">
         <div
@@ -84,18 +84,17 @@ export const MatterAskCard = ({
           B
         </div>
         <div className="min-w-0 leading-tight">
-          <div className="font-mono text-[9px] uppercase tracking-[0.1em] text-[color-mix(in_oklab,var(--paper)_50%,transparent)]">
+          <div className="font-mono text-[9px] uppercase tracking-[0.1em] text-dim-2">
             {contextLabel}
           </div>
-          <h4 className="font-[family-name:var(--serif)] text-base font-normal text-[color:var(--paper)]">
+          <h4 className="font-[family-name:var(--serif)] text-base font-normal text-ink">
             Ask about this matter
           </h4>
         </div>
       </div>
 
-      <form onSubmit={handleSubmit} className="mt-3 flex flex-col gap-3" role="search">
+      <form onSubmit={handleSubmit} className="flex flex-col gap-3" role="search">
         <Composer
-          className="composer--inverse"
           placeholder={placeholder}
           value={value}
           inputMode="single-line"
@@ -124,7 +123,7 @@ export const MatterAskCard = ({
                 <button
                   type="button"
                   onClick={() => submit(suggestion)}
-                  className="flex w-full items-center gap-2 py-1 text-left font-[family-name:var(--sans)] text-[12.5px] text-[color:var(--accent)] transition-colors hover:text-[color-mix(in_oklab,var(--accent)_80%,white)]"
+                  className="flex w-full items-center gap-2 py-1 text-left font-[family-name:var(--sans)] text-[12.5px] text-accent-deep transition-colors hover:text-accent dark:text-accent dark:hover:text-accent-deep"
                 >
                   <span aria-hidden="true" className="font-[family-name:var(--serif)] italic opacity-70">
                     ›

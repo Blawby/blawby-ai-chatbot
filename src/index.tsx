@@ -1,4 +1,5 @@
 import { hydrate, prerender as ssr, Router, Route, useLocation, LocationProvider } from 'preact-iso';
+import { render } from 'preact';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { Suspense } from 'preact/compat';
 import { I18nextProvider } from 'react-i18next';
@@ -43,7 +44,7 @@ import { registerSWWithUpdatePrompt } from '@/shared/lib/swUpdate';
 import { UpdateAvailableToast } from '@/shared/ui/UpdateAvailableToast';
 import { consumePostAuthConversationContext } from '@/shared/utils/anonymousIdentity';
 import { isWidgetRuntimeContext as _isWidgetRuntimeContext } from '@/shared/utils/widgetAuth';
-import { useTheme } from '@/shared/hooks/useTheme';
+import { applyHtmlTheme, useTheme } from '@/shared/hooks/useTheme';
 import { lazy } from 'preact/compat';
 // Top-level pages are lazy so they don't bloat the entry chunk. Each page
 // loads its own bundle on demand the first time the matching route renders.
@@ -82,6 +83,20 @@ const reloadPage = () => {
   if (typeof window !== 'undefined') {
     window.location.reload();
   }
+};
+
+const mountApp = (mountEl: HTMLElement) => {
+  if (import.meta.env.DEV) {
+    render(<AppWithProviders />, mountEl);
+    return;
+  }
+
+  const hasPrerenderedContent = mountEl.childNodes.length > 0;
+  if (hasPrerenderedContent) {
+    hydrate(<AppWithProviders />, mountEl);
+    return;
+  }
+  render(<AppWithProviders />, mountEl);
 };
 
 const buildRetryAction = () => ({
@@ -849,7 +864,6 @@ function PracticeAppRoute({
     serviceQuestions: {},
     domain: '',
     brandColor: '#000000',
-    accentColor: currentPractice?.accentColor ?? 'gold',
     voice: {
       enabled: false,
       provider: 'cloudflare',
@@ -940,7 +954,11 @@ function PracticeAppRoute({
   }
 
   if (!session?.user) {
-    return <AuthPage />;
+    return (
+      <Suspense fallback={<LoadingScreen />}>
+        <AuthPage />
+      </Suspense>
+    );
   }
 
   if (!canAccessPractice) {
@@ -1086,7 +1104,6 @@ function ClientPracticeRoute({
     serviceQuestions: {},
     domain: '',
     brandColor: '#000000',
-    accentColor: currentPractice?.accentColor ?? 'gold',
     voice: {
       enabled: false,
       provider: 'cloudflare',
@@ -1188,9 +1205,11 @@ function ClientPracticeRoute({
 function AppWithProviders() {
   return (
     <I18nextProvider i18n={i18n}>
-      <Suspense fallback={<LoadingScreen />}>
-        <App />
-      </Suspense>
+      <ErrorBoundary>
+        <Suspense fallback={<LoadingScreen />}>
+          <App />
+        </Suspense>
+      </ErrorBoundary>
     </I18nextProvider>
   );
 }
@@ -1207,7 +1226,9 @@ async function mountClientApp() {
   const shouldBeDark = savedTheme === 'dark' || (!savedTheme && prefersDark);
 
   if (shouldBeDark) {
-    document.documentElement.setAttribute('data-theme', 'midnight');
+    applyHtmlTheme(true);
+  } else {
+    applyHtmlTheme(false);
   }
 
 
@@ -1221,14 +1242,16 @@ async function mountClientApp() {
     .then(() => {
       {
         const mountEl = document.getElementById('app');
-        if (mountEl) hydrate(<AppWithProviders />, mountEl);
+        if (mountEl) {
+          mountApp(mountEl);
+        }
       }
     })
     .catch((_error) => {
       console.error('Failed to initialize i18n:', _error);
       {
         const mountEl = document.getElementById('app');
-        if (mountEl) hydrate(<AppWithProviders />, mountEl);
+        if (mountEl) mountApp(mountEl);
       }
     });
 }

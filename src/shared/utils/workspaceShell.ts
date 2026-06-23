@@ -53,7 +53,7 @@ const normalizeDecodedSegment = (value: string) => {
 export const getWorkspaceSection = (view: WorkspaceView): WorkspaceSection => {
   if (view === 'list' || view === 'conversation') return 'conversations';
   if (view === 'invoiceDetail') return 'invoices';
-  if (view === 'setup' || view === 'contacts') return 'home';
+  if (view === 'setup') return 'home';
   if (view === 'intakeDetail') return 'intakes';
   // Coverage lives under Settings in the sidebar; route stays at /coverage but the
   // rail/active state belongs to Settings so its dropdown auto-expands.
@@ -198,7 +198,7 @@ export const getWorkspaceDefaultSecondaryFilter = ({
   workspaceSection,
   isPracticeWorkspace,
   isClientWorkspace,
-  view,
+  view: _view,
   contactsRouteKind,
   reportSectionFromPath,
   intakeSectionFromPath,
@@ -216,8 +216,13 @@ export const getWorkspaceDefaultSecondaryFilter = ({
   if (workspaceSection === 'conversations' && (isPracticeWorkspace || isClientWorkspace)) {
     return 'all';
   }
+  if (workspaceSection === 'matters' && (isPracticeWorkspace || isClientWorkspace)) {
+    return 'all';
+  }
   if (workspaceSection === 'home' && isPracticeWorkspace) {
-    if (view !== 'contacts') return 'overview';
+    return 'overview';
+  }
+  if (workspaceSection === 'contacts' && isPracticeWorkspace) {
     if (contactsRouteKind === 'archived') return 'contacts-archived';
     if (contactsRouteKind === 'team') return 'contacts-team';
     if (contactsRouteKind === 'clients') return 'contacts-clients';
@@ -237,7 +242,7 @@ export const getWorkspaceActiveSecondaryFilter = ({
   workspaceSection,
   isPracticeWorkspace,
   isClientWorkspace,
-  view,
+  view: _view,
   contactsRouteKind,
   reportSectionFromPath,
   intakeSectionFromPath,
@@ -258,8 +263,13 @@ export const getWorkspaceActiveSecondaryFilter = ({
   if (workspaceSection === 'conversations' && (isPracticeWorkspace || isClientWorkspace)) {
     return secondaryFilterBySection[workspaceSection] ?? defaultSecondaryFilterId;
   }
+  if (workspaceSection === 'matters' && (isPracticeWorkspace || isClientWorkspace)) {
+    return secondaryFilterBySection[workspaceSection] ?? defaultSecondaryFilterId;
+  }
   if (workspaceSection === 'home' && isPracticeWorkspace) {
-    if (view !== 'contacts') return 'overview';
+    return 'overview';
+  }
+  if (workspaceSection === 'contacts' && isPracticeWorkspace) {
     if (contactsRouteKind === 'archived') return 'contacts-archived';
     if (contactsRouteKind === 'team') return 'contacts-team';
     if (contactsRouteKind === 'clients') return 'contacts-clients';
@@ -275,7 +285,7 @@ export const getWorkspaceActiveSecondaryFilter = ({
   if (workspaceSection === 'intakes' && isPracticeWorkspace) {
     return 'responses';
   }
-  if (workspaceSection === 'matters' || workspaceSection === 'invoices') return null;
+  if (workspaceSection === 'invoices') return null;
   return secondaryFilterBySection[workspaceSection] ?? defaultSecondaryFilterId;
 };
 
@@ -302,7 +312,10 @@ export const shouldShowWorkspaceMobileMenuButton = ({
   if (workspaceSection === 'intakes') return view === 'intakes';
   if (workspaceSection === 'matters') return false;
   if (workspaceSection === 'home') {
-    return isPracticeWorkspace && (view === 'home' || (view === 'contacts' && !selectedContactIdFromPath));
+    return isPracticeWorkspace && view === 'home';
+  }
+  if (workspaceSection === 'contacts') {
+    return isPracticeWorkspace && !selectedContactIdFromPath;
   }
   if (workspaceSection === 'invoices') return false;
   if (workspaceSection === 'reports') return true;

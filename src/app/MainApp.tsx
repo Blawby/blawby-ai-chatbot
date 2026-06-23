@@ -133,7 +133,7 @@ export function MainApp({
   const { session, isPending: sessionIsPending, isAnonymous } = useSessionContext();
   const { activeMemberRole } = useMemberRoleContext();
 
-  // ── practice details (accent color) ───────────────────────────────────────
+  // ── practice details ───────────────────────────────────────────────────────
   // For the public workspace, prefer practiceConfig.id (UUID) as the store key.
   // usePracticeConfig already seeds practiceDetailsStore under both the slug AND
   const practiceDetailsId = practiceConfig.id || practiceId || null;
@@ -308,16 +308,6 @@ export function MainApp({
   const handleAuthPromptSuccess = useCallback(async () => {
     if (isPaymentAuthPromptOpen) setIsPaymentAuthPromptOpen(false);
   }, [isPaymentAuthPromptOpen]);
-
-  const handleStrengthenCase = useCallback(async () => {
-    try {
-      // Clear ctaShown so the submit button disappears during enrichment.
-      await applyIntakeFields({ enrichmentMode: true, ctaShown: false });
-      await sendMessage('I want to provide more details to strengthen my case.', []);
-    } catch (err) {
-      console.error('Failed to start strengthen case flow', err);
-    }
-  }, [applyIntakeFields, sendMessage]);
 
   // ── conversation mode selection ────────────────────────────────────────────
   const handleModeSelection = useCallback(async (
@@ -982,31 +972,12 @@ export function MainApp({
             <PracticeContactsPage
               practiceId={practiceId}
               basePath={practiceContactsPath}
-              renderMode={layoutMode === 'desktop' ? 'detailOnly' : 'full'}
               statusFilter={statusFilter}
               prefetchedItems={prefetchData?.contactsData?.items}
               prefetchedLoading={prefetchData?.contactsData?.isLoading}
               prefetchedError={prefetchData?.contactsData?.error}
-              onRefetchList={prefetchData?.contactsData?.refetch}
 
               detailHeaderLeadingAction={detailHeaderLeadingAction}
-              showDetailBackButton={showWorkspaceDetailBack}
-            />
-          </LazyRouteBoundary>
-        )
-        : undefined}
-      contactsListContent={isPracticeWorkspace && layoutMode === 'desktop' && practiceContactsPath != null
-        ? (statusFilter, prefetchData) => (
-          <LazyRouteBoundary>
-            <PracticeContactsPage
-              practiceId={practiceId}
-              basePath={practiceContactsPath}
-              renderMode="listOnly"
-              statusFilter={statusFilter}
-              prefetchedItems={prefetchData?.contactsData?.items}
-              prefetchedLoading={prefetchData?.contactsData?.isLoading}
-              prefetchedError={prefetchData?.contactsData?.error}
-              onRefetchList={prefetchData?.contactsData?.refetch}
               showDetailBackButton={showWorkspaceDetailBack}
             />
           </LazyRouteBoundary>
@@ -1205,7 +1176,7 @@ export function MainApp({
     onIntakeCtaResponse: handleIntakeCtaResponse,
     onSubmitNow: handleConfirmSubmit,
     onBuildBrief: handleBuildBrief,
-    onStrengthenCase: handleStrengthenCase,
+    onStrengthenCase: undefined,
     slimContactDraft,
     onSlimFormContinue: handleSlimFormContinue,
     onSlimFormDismiss: handleSlimFormDismiss,
