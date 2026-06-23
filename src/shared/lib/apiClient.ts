@@ -112,6 +112,27 @@ type ApiFetchConfig = {
   acceptStatuses?: number[];
 };
 
+async function parseResponseBody(response: Response, responseHeaders: Headers, isErrorResponse: boolean): Promise<unknown> {
+  const contentType = responseHeaders.get?.('content-type') ?? '';
+  const isJson = contentType.toLowerCase().includes('application/json');
+  if (isJson || (!contentType && typeof response.json === 'function')) {
+    const jsonSource = typeof response.clone === 'function' ? response.clone() : response;
+    try {
+      return await jsonSource.json() as unknown;
+    } catch (error) {
+      if (!isErrorResponse || typeof response.text !== 'function') {
+        throw error;
+      }
+      try {
+        return await response.text();
+      } catch {
+        throw error;
+      }
+    }
+  }
+  return await response.text();
+}
+
 const composeAbortSignals = (signal: AbortSignal | undefined, timeout: number | undefined): { signal: AbortSignal | undefined; cleanup: () => void } => {
   if (timeout == null) return { signal, cleanup: () => {} };
   const controller = new AbortController();
@@ -184,13 +205,7 @@ async function apiFetch<T>(
     return { data: null as T, status: response.status, headers: responseHeaders };
   }
 
-  const contentType = responseHeaders.get?.('content-type') ?? '';
-  // Heuristic for environments without a proper Headers instance (some test
-  // mocks): if `json()` is callable, prefer JSON.
-  const preferJson = contentType.includes('application/json') || typeof response.json === 'function';
-  const data: unknown = preferJson
-    ? await response.json() as unknown
-    : await response.text();
+  const data = await parseResponseBody(response, responseHeaders, !response.ok && !isAccepted);
 
   if (!response.ok && !isAccepted) {
     throw new HttpError(response.status, data, extractFetchErrorMessage(data, `HTTP ${response.status}`));

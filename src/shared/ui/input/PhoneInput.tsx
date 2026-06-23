@@ -409,14 +409,8 @@ export const PhoneInput = forwardRef<HTMLInputElement, PhoneInputProps>(
             </div>
           )}
 
-          <div
+          <label
             className="relative flex-1 min-w-0"
-            onMouseDown={(event) => {
-              if (event.target === event.currentTarget) {
-                event.preventDefault();
-                inputElementRef.current?.focus();
-              }
-            }}
           >
             {!showCountryCode ? (
               <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
@@ -462,7 +456,7 @@ export const PhoneInput = forwardRef<HTMLInputElement, PhoneInputProps>(
                 )}
               </div>
             )}
-          </div>
+          </label>
         </div>
 
         {error && (

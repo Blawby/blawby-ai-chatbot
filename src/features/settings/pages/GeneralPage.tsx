@@ -14,6 +14,7 @@ import { SettingsCard } from '@/features/settings/components/SettingsCard';
 import { getPreferencesCategory, preferencesApi } from '@/shared/lib/preferencesApi';
 import type { GeneralPreferences } from '@/shared/types/preferences';
 import { cn } from '@/shared/utils/cn';
+import { applyHtmlTheme } from '@/shared/hooks/useTheme';
 
 // ---------------------------------------------------------------------------
 // Theme card — uses app's .card CSS class + design-token border + shadow
@@ -110,21 +111,21 @@ export const GeneralPage = () => {
 
   const applyThemePreference = useCallback((value: 'light' | 'dark' | 'system') => {
     if (value === 'dark') {
-      document.documentElement.setAttribute('data-theme', 'midnight');
-      localStorage.setItem('theme', 'dark');
+      applyHtmlTheme(true);
+      try { localStorage.setItem('theme', 'dark'); } catch { /* ignore */ }
       return;
     }
     if (value === 'light') {
-      document.documentElement.removeAttribute('data-theme');
-      localStorage.setItem('theme', 'light');
+      applyHtmlTheme(false);
+      try { localStorage.setItem('theme', 'light'); } catch { /* ignore */ }
       return;
     }
     if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
-      document.documentElement.setAttribute('data-theme', 'midnight');
+      applyHtmlTheme(true);
     } else {
-      document.documentElement.removeAttribute('data-theme');
+      applyHtmlTheme(false);
     }
-    localStorage.removeItem('theme');
+    try { localStorage.removeItem('theme'); } catch { /* ignore */ }
   }, []);
 
   useEffect(() => {

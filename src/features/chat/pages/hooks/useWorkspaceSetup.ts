@@ -203,11 +203,22 @@ export const useWorkspaceSetup = ({
   const [previewReloadKey, setPreviewReloadKey] = useState(0);
 
   const workspacePracticeId = practiceId ?? currentPractice?.id ?? null;
+  const shouldLoadSetupDetails = view === 'setup';
+  const shouldLoadTeam =
+    isPracticeWorkspace &&
+    Boolean(workspacePracticeId) &&
+    (
+      view === 'setup' ||
+      workspaceSection === 'conversations' ||
+      workspaceSection === 'assistant' ||
+      workspaceSection === 'matters'
+    );
 
   useEffect(() => {
+    if (!shouldLoadSetupDetails) return;
     if (!currentPractice?.id) return;
     void fetchSetupDetails();
-  }, [currentPractice?.id, fetchSetupDetails]);
+  }, [currentPractice?.id, fetchSetupDetails, shouldLoadSetupDetails]);
 
   const forcePreviewReload = useCallback(() => {
     setPreviewReloadKey(prev => prev + 1);
@@ -336,7 +347,7 @@ export const useWorkspaceSetup = ({
   const { members: practiceMembers } = usePracticeTeam(
     workspacePracticeId,
     session?.user?.id ?? null,
-    { enabled: isPracticeWorkspace && Boolean(workspacePracticeId) }
+    { enabled: shouldLoadTeam }
   );
 
   const conversationMemberOptions = useMemo(

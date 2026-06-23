@@ -53,7 +53,7 @@ interface ContactFormValues {
   address?: Partial<Address>;
 }
 
-const getBasicsDraft = (practice: Practice | null, details: PracticeDetails | null): BasicsFormValues => ({
+const getBasicsDraft = (practice: Practice | null): BasicsFormValues => ({
   name: practice?.name ?? '',
   slug: practice?.slug ?? '',
 });
@@ -100,13 +100,13 @@ const OnboardingDialogs = forwardRef<OnboardingDialogsRef, OnboardingDialogsProp
 }, ref) => {
   const [basicsModalOpen, setBasicsModalOpen] = useState(false);
   const [contactModalOpen, setContactModalOpen] = useState(false);
-  const [basicsDraft, setBasicsDraft] = useState<BasicsFormValues>(() => getBasicsDraft(practice, details));
+  const [basicsDraft, setBasicsDraft] = useState<BasicsFormValues>(() => getBasicsDraft(practice));
   const [contactDraft, setContactDraft] = useState<ContactFormValues>(() => getContactDraft(practice, details));
 
   const openBasicsModal = useCallback(() => {
-    setBasicsDraft(getBasicsDraft(practice, details));
+    setBasicsDraft(getBasicsDraft(practice));
     setBasicsModalOpen(true);
-  }, [practice, details]);
+  }, [practice]);
 
   const openContactModal = useCallback(() => {
     setContactDraft(getContactDraft(practice, details));

@@ -85,6 +85,8 @@ const nullableString = (value: string): string | null => {
   return trimmed.length > 0 ? trimmed : null;
 };
 
+const requiredString = (value: string): string => value.trim();
+
 const numberOrNull = (value: string): number | null => {
   const trimmed = value.trim();
   if (!trimmed) return null;
@@ -92,13 +94,11 @@ const numberOrNull = (value: string): number | null => {
   return Number.isFinite(parsed) ? parsed : null;
 };
 
-const lines = (value: string): string[] | null => {
-  const entries = value
+const lineEntries = (value: string): string[] =>
+  value
     .split('\n')
     .map((entry) => entry.trim())
     .filter(Boolean);
-  return entries.length > 0 ? entries : null;
-};
 
 const firstString = (...values: unknown[]): string => {
   for (const value of values) {
@@ -168,45 +168,45 @@ export const buildEngagementDraftFormFromIntake = (
 
 export const buildProposalDataFromDraft = (form: EngagementDraftForm): ProposalData => {
   const fees: ProposalFees = {
-    billing_type: nullableString(form.billingType),
+    billing_type: requiredString(form.billingType),
     fixed_fee_amount: numberOrNull(form.fixedFeeAmount),
     hourly_rate_attorney: numberOrNull(form.hourlyRateAttorney),
     hourly_rate_admin: numberOrNull(form.hourlyRateAdmin),
     contingency_percentage: numberOrNull(form.contingencyPercentage),
     retainer_amount: numberOrNull(form.retainerAmount),
     payment_frequency: nullableString(form.paymentFrequency),
-    fee_notes: nullableString(form.feeNotes),
+    fee_notes: requiredString(form.feeNotes),
   };
 
   return {
     client_summary: {
-      client_name: nullableString(form.clientName),
-      matter_summary: nullableString(form.matterSummary),
-      location_summary: nullableString(form.locationSummary),
-      goals_summary: nullableString(form.goalsSummary),
+      client_name: requiredString(form.clientName),
+      matter_summary: requiredString(form.matterSummary),
+      location_summary: requiredString(form.locationSummary),
+      goals_summary: requiredString(form.goalsSummary),
     },
     representation: {
       scope_summary: form.scopeSummary.trim(),
-      included_services: lines(form.includedServices),
-      excluded_services: lines(form.excludedServices),
-      client_identity_notes: nullableString(form.clientIdentityNotes),
-      jurisdiction_notes: nullableString(form.jurisdictionNotes),
+      included_services: lineEntries(form.includedServices),
+      excluded_services: lineEntries(form.excludedServices),
+      client_identity_notes: requiredString(form.clientIdentityNotes),
+      jurisdiction_notes: requiredString(form.jurisdictionNotes),
     },
     fees,
     risk_review: {
       conflict_status: form.conflictStatus,
       jurisdiction_status: form.jurisdictionStatus,
-      risk_notes: lines(form.riskNotes),
-      open_questions: lines(form.openQuestions),
+      risk_notes: lineEntries(form.riskNotes),
+      open_questions: lineEntries(form.openQuestions),
     },
     source_snapshot: {
-      intake_uuid: nullableString(form.intakeId),
-      conversation_id: nullableString(form.conversationId),
-      matter_id: nullableString(form.matterId),
-      practice_area: nullableString(form.practiceArea),
-      urgency: nullableString(form.urgency),
-      desired_outcome: nullableString(form.desiredOutcome),
-      opposing_party: nullableString(form.opposingParty),
+      intake_uuid: requiredString(form.intakeId),
+      conversation_id: requiredString(form.conversationId),
+      matter_id: requiredString(form.matterId),
+      practice_area: requiredString(form.practiceArea),
+      urgency: requiredString(form.urgency),
+      desired_outcome: requiredString(form.desiredOutcome),
+      opposing_party: requiredString(form.opposingParty),
       court_date: nullableString(form.courtDate),
     },
     draft_meta: {
@@ -223,8 +223,8 @@ export const buildDeterministicContractBody = (form: EngagementDraftForm): strin
   const scopeSummary = form.scopeSummary.trim() || matterSummary;
   const goalsSummary = form.goalsSummary.trim();
   const feeNotes = form.feeNotes.trim();
-  const included = lines(form.includedServices);
-  const excluded = lines(form.excludedServices);
+  const included = lineEntries(form.includedServices);
+  const excluded = lineEntries(form.excludedServices);
 
   return [
     `Engagement Letter for ${clientName}`,
@@ -233,8 +233,8 @@ export const buildDeterministicContractBody = (form: EngagementDraftForm): strin
     '',
     'Scope of Representation',
     scopeSummary,
-    included ? `Included services:\n${included.map((item) => `- ${item}`).join('\n')}` : '',
-    excluded ? `Excluded services:\n${excluded.map((item) => `- ${item}`).join('\n')}` : '',
+    included.length ? `Included services:\n${included.map((item) => `- ${item}`).join('\n')}` : '',
+    excluded.length ? `Excluded services:\n${excluded.map((item) => `- ${item}`).join('\n')}` : '',
     goalsSummary ? `Client goals:\n${goalsSummary}` : '',
     '',
     'Fees and Billing',

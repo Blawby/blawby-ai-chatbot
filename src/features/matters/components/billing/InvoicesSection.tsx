@@ -75,7 +75,7 @@ export const InvoicesSection = ({
       invoices={summaries}
       loading={loading}
       error={error}
-      emptyMessage="No invoices yet for this matter."
+      emptyMessage="No invoices found for this matter. Create an invoice from this matter when there is work to bill."
       onRowClick={(invoice) => {
         const sourceInvoice = invoiceById.get(invoice.id);
         if (sourceInvoice) {

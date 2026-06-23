@@ -14,7 +14,7 @@
    ========================================================= */
 
 :root {
-  color-scheme: light dark;
+  color-scheme: light;
 
   /* ---- Surface ---- */
   --paper:        #f6f3ea;
@@ -45,6 +45,21 @@
   --rule-soft:    rgba(15,30,54,0.08);
   --rule-rgb:     211 214 223;
 
+  /* ---- Line utilities ----
+     Used by Tailwind `border-line-*`, `divide-line-*`, `ring-line-*`, and
+     `bg-line-*` utilities. Subtle lines are ink-derived so dense table/list
+     dividers stay quieter than container rules in every theme. */
+  --line-subtle-rgb:     var(--ink-rgb);
+  --line-subtle-alpha:   0.08;
+  --line-default-rgb:    var(--rule-rgb);
+  --line-default-alpha:  0.72;
+  --line-utility-rgb:    var(--rule-rgb);
+  --line-utility-alpha:  1;
+  --line-emphasized-rgb: var(--ink-3-rgb);
+  --line-emphasized-alpha: 0.48;
+  --line-glass-rgb:      var(--ink-rgb);
+  --line-glass-alpha:    0.12;
+
   /* ---- Accent (gold) ---- */
   --accent:       oklch(0.72 0.13 82);
   --accent-soft:  oklch(0.72 0.13 82 / 0.14);
@@ -64,20 +79,79 @@
   --warn-rgb:     201 137 30;
   --neg-rgb:      189  68 40;
 
+  /* ---- Compatibility aliases ----
+     Page, input, inspector, markdown, and upload components consume these
+     semantic names. Keep them aliased to the canonical palette so every
+     surface follows the active theme without page-level overrides. */
+  --surface-page:       var(--paper-rgb);
+  --surface-base:       var(--paper-rgb);
+  --surface-workspace:  var(--paper-2-rgb);
+  --surface-card:       var(--card-rgb);
+  --surface-card-hover: var(--paper-2-rgb);
+  --surface-panel:      var(--paper-2-rgb);
+  --surface-overlay:    var(--card-rgb);
+  --surface-app-frame:  var(--paper-rgb);
+  --surface-utility:    var(--ink-rgb);
+
+  --text-primary:   var(--ink-rgb);
+  --text-secondary: var(--ink-2-rgb);
+  --text-muted:     var(--dim-rgb);
+  --border-subtle:  var(--rule-rgb);
+
+  --header-bg:         var(--card-rgb);
+  --input-text:        var(--ink-rgb);
+  --input-foreground:  var(--ink-rgb);
+  --input-placeholder: var(--dim-rgb);
+  --error-foreground:  var(--neg-rgb);
+  --gray-500:          107 114 128;
+  --line-glass:        var(--line-glass-rgb);
+
+  --glass-bg-top:    rgb(var(--card-rgb) / 0.92);
+  --glass-bg-mid:    rgb(var(--card-rgb) / 0.86);
+  --glass-bg-bottom: rgb(var(--paper-rgb) / 0.82);
+  --glass-rim-subtle: 0 0 0 1px rgb(var(--line-glass-rgb) / 0.12), 0 18px 48px -32px rgb(var(--ink-rgb) / 0.32);
+
   /* ---- Sidebar (rail) ----
      Aliased onto the theme palette so each data-theme below inherits
      these automatically through CSS variable resolution. Active state
-     uses the inverse paper/ink pair so the selected row reads as a
-     high-contrast pill against the rail surface; the `before:bg-accent`
-     stripe and `[&_svg]:text-accent` icon supply the brand cue on top. */
+     stays tonal rather than inverted; the accent stripe and icon carry
+     the brand cue while the row remains quiet enough for dense navigation. */
   --sidebar-bg:             var(--paper-2-rgb);
   --sidebar-text:           var(--ink-rgb);
   --sidebar-text-secondary: var(--ink-3-rgb);
   --sidebar-hover-bg:       var(--paper-edge-rgb);
-  --sidebar-active-bg:      var(--ink-rgb);
-  --sidebar-active-text:    var(--paper-rgb);
+  --sidebar-active-bg:      220 211 186;
+  --sidebar-active-text:    var(--ink-rgb);
   --sidebar-border:         var(--rule-rgb);
-  --sidebar-badge-bg:       var(--neg-rgb);
+  --sidebar-badge-bg:       145 100 16;
+  --sidebar-badge-text:     255 255 255;
+  --sidebar-divider:        var(--rule-rgb);
+  --sidebar-section-label:  var(--dim-rgb);
+  --sidebar-menu-border:    var(--rule-rgb);
+
+  /* ---- Upload file chips ---- */
+  --light-file-type-pdf:         220 38 38;
+  --light-file-type-image:       22 163 74;
+  --light-file-type-video:       124 58 237;
+  --light-file-type-audio:       217 119 6;
+  --light-file-type-code:        37 99 235;
+  --light-file-type-archive:     100 116 139;
+  --light-file-type-spreadsheet: 5 150 105;
+  --light-file-type-document:    14 116 144;
+  --light-file-type-default:     71 85 105;
+  --dark-file-type-pdf:          248 113 113;
+  --dark-file-type-image:        74 222 128;
+  --dark-file-type-video:        167 139 250;
+  --dark-file-type-audio:        251 191 36;
+  --dark-file-type-code:         96 165 250;
+  --dark-file-type-archive:      148 163 184;
+  --dark-file-type-spreadsheet:  52 211 153;
+  --dark-file-type-document:     34 211 238;
+  --dark-file-type-default:      148 163 184;
+  --light-file-progress-bg:      211 214 223;
+  --light-file-progress-fill:    var(--accent-rgb);
+  --dark-file-progress-bg:       21 32 59;
+  --dark-file-progress-fill:     var(--accent-rgb);
 
   /* ---- Type ---- */
   --serif: "Source Serif 4", "Source Serif Pro", Georgia, serif;
@@ -110,6 +184,8 @@
    ========================================================= */
 
 html[data-theme="dark"] {
+  color-scheme: dark;
+
   --paper:        #0c1830;
   --paper-2:      #142142;
   --paper-edge:   #1d2c4f;
@@ -144,9 +220,24 @@ html[data-theme="dark"] {
   --accent-rgb:      221 184 70;
   --accent-deep-rgb: 173 137 35;
   --accent-ink-rgb:   42  34  0;
+
+  --sidebar-bg:             14  24  48;
+  --sidebar-text:           var(--ink-rgb);
+  --sidebar-text-secondary: 183 191 211;
+  --sidebar-hover-bg:       22  34  62;
+  --sidebar-active-bg:      30  45  76;
+  --sidebar-active-text:    var(--ink-rgb);
+  --sidebar-border:         34  49  82;
+  --sidebar-badge-bg:       145 100 16;
+  --sidebar-badge-text:     255 255 255;
+  --sidebar-divider:        34  49  82;
+  --sidebar-section-label:  130 141 166;
+  --sidebar-menu-border:    34  49  82;
 }
 
 html[data-theme="midnight"] {
+  color-scheme: dark;
+
   --paper:        #050c1c;
   --paper-2:      #0c142a;
   --paper-edge:   #15203b;
@@ -181,9 +272,24 @@ html[data-theme="midnight"] {
   --accent-rgb:      232 196 80;
   --accent-deep-rgb: 173 137 35;
   --accent-ink-rgb:   42  34  0;
+
+  --sidebar-bg:             8   16  34;
+  --sidebar-text:           var(--ink-rgb);
+  --sidebar-text-secondary: 183 191 211;
+  --sidebar-hover-bg:       16  27  52;
+  --sidebar-active-bg:      25  38  65;
+  --sidebar-active-text:    var(--ink-rgb);
+  --sidebar-border:         28  42  72;
+  --sidebar-badge-bg:       145 100 16;
+  --sidebar-badge-text:     255 255 255;
+  --sidebar-divider:        28  42  72;
+  --sidebar-section-label:  130 141 166;
+  --sidebar-menu-border:    28  42  72;
 }
 
 html[data-theme="parchment"] {
+  color-scheme: light;
+
   --paper:        #f0eadb;
   --paper-2:      #e2dabf;
   --paper-edge:   #cdc9b8;

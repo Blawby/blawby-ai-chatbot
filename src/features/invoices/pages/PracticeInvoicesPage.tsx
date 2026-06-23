@@ -69,11 +69,11 @@ const InvoicesEmptyState = ({
   onCreateInvoice?: () => void;
 }) => (
   <WorkspacePlaceholderState
-    title={hasFilters ? 'No invoices match these filters' : 'No invoices yet'}
+    title={hasFilters ? 'No invoices found for these filters' : 'No invoices found'}
     description={hasFilters
-      ? 'Try adjusting your filters to see more invoices.'
+      ? 'Adjust the invoice filters or create a new invoice if this bill has not been started.'
       : 'Create your first invoice here, or link one to a matter later.'}
-    primaryAction={hasFilters ? undefined : (onCreateInvoice ? { label: 'New Invoice', onClick: onCreateInvoice } : undefined)}
+    primaryAction={hasFilters ? undefined : (onCreateInvoice ? { label: 'Create Invoice', onClick: onCreateInvoice } : undefined)}
     className="p-8"
   />
 );
@@ -474,7 +474,7 @@ export function PracticeInvoicesPage({
             hasMore={hasMore}
             onLoadMore={loadMore}
             error={error}
-            emptyMessage={hasFilters ? 'No invoices match these filters.' : undefined}
+            emptyMessage={hasFilters ? 'No invoices found for these filters. Adjust the filters or create a new invoice.' : undefined}
             onRowClick={handleRowClick}
             onViewCustomer={handleViewCustomer}
             onSendInvoice={handleSendInvoice}

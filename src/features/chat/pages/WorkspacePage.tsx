@@ -38,6 +38,7 @@ import { useWorkspaceConversations } from './hooks/useWorkspaceConversations';
 import { useWorkspaceNavigation } from './hooks/useWorkspaceNavigation';
 import { resolveConsultationState } from '@/shared/utils/consultationState';
 import { resolveConversationContactName, resolveConversationDisplayTitle } from '@/shared/utils/conversationDisplay';
+import { useMatterDetail } from '@/shared/hooks/useMatterDetail';
 import { useWorkspaceSetup } from './hooks/useWorkspaceSetup';
 import { useWorkspaceData } from './hooks/useWorkspaceData';
 import { useConversationPreviews } from './hooks/useConversationPreviews';
@@ -114,7 +115,7 @@ const getRailItemMatchScore = (currentPath: string, item: LeftRailItem): number 
   return bestScore;
 };
 
-const SECTION_SIDEBAR_WORKSPACE_SECTIONS = new Set(['settings', 'reports', 'conversations', 'assistant', 'tasks', 'calendar'] as const);
+const SECTION_SIDEBAR_WORKSPACE_SECTIONS = new Set(['settings', 'reports', 'conversations', 'assistant', 'matters', 'tasks', 'calendar'] as const);
 
 interface WorkspacePageProps {
   view: WorkspaceView;
@@ -161,7 +162,6 @@ interface WorkspacePageProps {
   mattersView?: ComponentChildren | ((statusFilter: string[], prefetchData?: WorkspacePrefetchData, onDetailInspector?: (() => void), detailInspectorOpen?: boolean, detailHeaderLeadingAction?: ComponentChildren) => ComponentChildren);
   mattersListContent?: ComponentChildren | ((statusFilter: string[], prefetchData?: WorkspacePrefetchData) => ComponentChildren);
   contactsView?: ComponentChildren | ((statusFilter: UserDetailStatus | null, prefetchData?: WorkspacePrefetchData, onDetailInspector?: (() => void), detailInspectorOpen?: boolean, detailHeaderLeadingAction?: ComponentChildren) => ComponentChildren);
-  contactsListContent?: ComponentChildren | ((statusFilter: UserDetailStatus | null, prefetchData?: WorkspacePrefetchData) => ComponentChildren);
   invoicesView?: ComponentChildren | ((statusFilter: string[], onDetailInspector?: (() => void), detailInspectorOpen?: boolean, detailHeaderLeadingAction?: ComponentChildren) => ComponentChildren);
   invoicesListContent?: ComponentChildren | ((statusFilter: string[]) => ComponentChildren);
   reportsView?: ComponentChildren | ((title: string, reportType: string, deliveryId: string | null) => ComponentChildren);
@@ -243,7 +243,6 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
   mattersView,
   mattersListContent,
   contactsView,
-  contactsListContent,
   invoicesView,
   invoicesListContent,
   intakesView,
@@ -1144,14 +1143,6 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
     && !mattersDataForView.error
     && mattersDataForView.items.length === 0
   );
-  const shouldShowDesktopContactsListPanel = !(
-    layoutMode === 'desktop'
-    && view === 'contacts'
-    && activeSecondaryFilter !== 'contacts-pending'
-    && !contactsData.isLoading
-    && !contactsData.error
-    && contactsData.items.length === 0
-  );
   const shouldShowDesktopInvoicesListPanel = view === 'invoices' && hasDesktopInvoiceListItems !== false;
   const matterListIsEmpty = layoutMode === 'desktop'
     && view === 'matters'
@@ -1340,9 +1331,6 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
   const matterListPanel = layoutMode === 'desktop' && (isPracticeWorkspace || isClientWorkspace) && view === 'matters' && shouldShowDesktopMattersListPanel
     ? resolveViewContent(mattersListContent, [mattersStatusFilter, workspacePrefetchData] as const)
     : undefined;
-  const contactsListPanel = layoutMode === 'desktop' && isPracticeWorkspace && view === 'contacts' && shouldShowDesktopContactsListPanel
-    ? resolveViewContent(contactsListContent, [contactsStatusFilter, workspacePrefetchData] as const)
-    : undefined;
   const invoicesListPanel = layoutMode === 'desktop' && (isPracticeWorkspace || isClientWorkspace) && view === 'invoices' && shouldShowDesktopInvoicesListPanel
     ? resolveViewContent(invoicesListContent, [invoicesStatusFilter] as const)
     : undefined;
@@ -1453,10 +1441,12 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
   // dedicated three-section panel (Contact / Linked Matter / Recent Activity)
   // instead of the generic InspectorPanel surface. Other entity types keep
   // using InspectorPanel.
-  const linkedMatter = useMemo(() => {
-    if (!selectedConversation?.matter_id) return null;
-    return mattersData.items.find((m) => m.id === selectedConversation.matter_id) ?? null;
-  }, [mattersData.items, selectedConversation?.matter_id]);
+  const linkedMatterId = isPracticeWorkspace && workspaceSection === 'conversations'
+    ? selectedConversation?.matter_id ?? null
+    : null;
+  const { data: linkedMatter } = useMatterDetail(practiceId, linkedMatterId, {
+    enabled: Boolean(linkedMatterId),
+  });
   const conversationContextPanel = isPracticeWorkspace
     && inspectorTarget?.entityType === 'conversation'
     ? (
@@ -1545,7 +1535,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
       || workspaceSection === 'conversations'
       || workspaceSection === 'assistant')
     && currentSectionRailItem
-    && SECTION_SIDEBAR_WORKSPACE_SECTIONS.has(workspaceSection as 'settings' | 'reports' | 'conversations' | 'assistant' | 'tasks' | 'calendar')
+    && SECTION_SIDEBAR_WORKSPACE_SECTIONS.has(workspaceSection as 'settings' | 'reports' | 'conversations' | 'assistant' | 'matters' | 'tasks' | 'calendar')
   );
   const staticSectionSidebarSections = useMemo(() => (
     (navConfig.secondary ?? []).map((section, index) => ({
@@ -1558,13 +1548,13 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
           label: item.label,
           icon: item.icon as IconComponent | undefined,
           href: item.href,
-          badge: typeof item.badge === 'number' ? item.badge : null,
+          badge: sidebarCounts?.[item.id] ?? (typeof item.badge === 'number' ? item.badge : null),
           variant: item.variant,
           isAction: item.isAction,
-          isActive: workspaceSection === 'conversations'
+          isActive: workspaceSection === 'conversations' || workspaceSection === 'matters'
             ? item.id === activeSecondaryFilter
             : undefined,
-          onClick: workspaceSection === 'conversations'
+          onClick: workspaceSection === 'conversations' || workspaceSection === 'matters'
             ? () => handleSecondaryFilterSelect(item.id)
             : undefined,
           prefetch: item.prefetch,
@@ -1575,6 +1565,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
     currentSectionRailItem?.id,
     handleSecondaryFilterSelect,
     navConfig.secondary,
+    sidebarCounts,
     workspaceSection,
   ]);
   const sectionSidebarSections = useMemo(() => (
@@ -1710,7 +1701,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
         <AppShell
           className="flex-1 min-w-0 bg-transparent"
           accentBackdropVariant="none"
-          listPanel={isFullscreenEditorRoute ? undefined : (matterListPanel ?? contactsListPanel ?? invoicesListPanel)}
+          listPanel={isFullscreenEditorRoute ? undefined : (matterListPanel ?? invoicesListPanel)}
           inspector={activeInspector ?? undefined}
           inspectorMobileOpen={detailInspectorOpen && (isMobileLayout || !isXlViewport)}
           onInspectorMobileClose={() => setIsInspectorOpen(false)}

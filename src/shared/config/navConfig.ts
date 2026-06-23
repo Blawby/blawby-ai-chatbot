@@ -388,6 +388,20 @@ const buildConversationsSecondary = (basePath: string, workspace: 'practice' | '
   }];
 };
 
+const buildMattersSecondary = (basePath: string): NavSection[] => [
+  {
+    label: 'Matters',
+    items: [
+      { id: 'all', label: 'All', href: `${basePath}/matters` },
+      { id: 'new', label: 'New', href: `${basePath}/matters` },
+      { id: 'active', label: 'Active', href: `${basePath}/matters` },
+      { id: 'closing', label: 'Closing', href: `${basePath}/matters` },
+      { id: 'closed', label: 'Closed', href: `${basePath}/matters` },
+      { id: 'declined', label: 'Declined', href: `${basePath}/matters` },
+    ],
+  },
+];
+
 const buildReportsSecondary = (basePath: string, workspace: 'practice' | 'client'): NavSection[] | undefined => {
   if (workspace !== 'practice') return undefined;
   const reportItems: SecondaryNavItem[] = REPORT_DEFINITIONS.map((def) => ({
@@ -491,6 +505,8 @@ const buildSecondary = (basePath: string, section: WorkspaceSection, workspace: 
       return workspace === 'practice' ? buildContactsSecondary(basePath) : undefined;
     case 'conversations':
       return buildConversationsSecondary(basePath, workspace);
+    case 'matters':
+      return buildMattersSecondary(basePath);
     case 'tasks':
       return workspace === 'practice' ? buildTasksSecondary(basePath) : undefined;
     case 'calendar':

@@ -97,7 +97,7 @@ export const ClientRecentInvoicesTable = ({
                       {day.entries.length === 0 && showEmptyRows ? (
                         <tr>
                           <td colSpan={3} className="relative py-5 text-sm text-dim-2">
-                            No invoice activity yet.
+                            No invoice activity found. New invoices and payments from your firm will appear here.
                             <div className="absolute right-full bottom-0 h-px w-screen bg-line-glass/20" />
                             <div className="absolute bottom-0 left-0 h-px w-screen bg-line-glass/20" />
                           </td>

@@ -19,8 +19,8 @@ export type JurisdictionStatus = 'supported' | 'unsupported' | 'unknown';
 export interface RiskReview {
   conflict_status: ConflictStatus;
   jurisdiction_status: JurisdictionStatus;
-  risk_notes?: string[] | null;
-  open_questions?: string[] | null;
+  risk_notes: string[];
+  open_questions: string[];
   conflict_note?: string | null;
 }
 
@@ -28,28 +28,28 @@ export interface RiskReview {
 
 export interface ProposalRepresentation {
   scope_summary: string;
-  included_services?: string[] | null;
-  excluded_services?: string[] | null;
-  client_identity_notes?: string | null;
-  jurisdiction_notes?: string | null;
+  included_services: string[];
+  excluded_services: string[];
+  client_identity_notes: string;
+  jurisdiction_notes: string;
 }
 
 export interface ProposalFees {
-  billing_type?: string | null;
+  billing_type: string;
   fixed_fee_amount?: number | null;
   hourly_rate_attorney?: number | null;
   hourly_rate_admin?: number | null;
   contingency_percentage?: number | null;
   retainer_amount?: number | null;
   payment_frequency?: string | null;
-  fee_notes?: string | null;
+  fee_notes: string;
 }
 
 export interface ProposalClientSummary {
-  matter_summary?: string | null;
-  location_summary?: string | null;
-  goals_summary?: string | null;
-  client_name?: string | null;
+  matter_summary: string;
+  location_summary: string;
+  goals_summary: string;
+  client_name: string;
   co_clients?: string[] | null;
   non_clients?: string[] | null;
 }
@@ -67,13 +67,13 @@ export interface ProposalData {
   client_summary: ProposalClientSummary;
   draft_meta: ProposalDraftMeta;
   source_snapshot?: {
-    intake_uuid?: string | null;
-    conversation_id?: string | null;
-    matter_id?: string | null;
-    practice_area?: string | null;
-    urgency?: string | null;
-    desired_outcome?: string | null;
-    opposing_party?: string | null;
+    intake_uuid: string;
+    conversation_id: string;
+    matter_id: string;
+    practice_area: string;
+    urgency: string;
+    desired_outcome: string;
+    opposing_party: string;
     court_date?: string | null;
   } | null;
   acknowledgment_language?: string | null;

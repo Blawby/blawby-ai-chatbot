@@ -1,4 +1,3 @@
-import { useTranslation } from 'react-i18next';
 import type { ComponentChildren } from 'preact';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { useLocation } from 'preact-iso';
@@ -8,10 +7,9 @@ import { DetailHeader } from '@/shared/ui/layout/DetailHeader';
 import { ResponsiveDefinitionGrid } from '@/shared/ui/layout/ResponsiveDefinitionGrid';
 import { Panel } from '@/shared/ui/layout/Panel';
 import { WorkspacePlaceholderState } from '@/shared/ui/layout/WorkspacePlaceholderState';
-import { LoadingBlock, InteractiveListItem } from '@/shared/ui/layout';
 import { Button } from '@/shared/ui/Button';
 import { Avatar } from '@/shared/ui/profile';
-import { LoadingSpinner } from '@/shared/ui/layout/LoadingSpinner';
+import { DataTable, type DataTableColumn, type DataTableRow } from '@/shared/ui/table';
 import { cn } from '@/shared/utils/cn';
 import { ActivityTimeline, type TimelineItem } from '@/shared/ui/activity/ActivityTimeline';
 import { formatDate } from '@/shared/utils/dateTime';
@@ -53,13 +51,10 @@ import {
   MatterChip,
   type StatStripCell,
 } from '@/design-system/patterns';
-import { SignalPill, type SignalPillSignal } from '@/design-system/primitives';
+import { Pill, SignalPill, type PillTone, type SignalPillSignal } from '@/design-system/primitives';
 import type { BackendMatter } from '@/features/matters/services/mattersApi';
 import { formatRelativeTime } from '@/features/matters/utils/formatRelativeTime';
-import {
-  ClientDirectoryRow,
-  readRetainerAmount,
-} from '@/features/clients/components/ClientDirectoryRow';
+import { readRetainerAmount } from '@/features/clients/components/ClientDirectoryRow';
 import {
   SENTIMENT_RANK,
   computeLastContactDays,
@@ -101,16 +96,56 @@ const formatPhoneNumber = (phone?: string | null) => {
   return phone;
 };
 
+const contactStatusPillTone = (status?: ContactRelationshipStatus | null): PillTone | undefined => {
+  switch (status) {
+    case 'active':
+      return 'live';
+    case 'lead':
+      return 'warn';
+    case 'inactive':
+    case 'archived':
+      return 'dim';
+    default:
+      return undefined;
+  }
+};
+
+const formatMatterCount = (count: number) => {
+  if (count === 0) return 'No matters';
+  if (count === 1) return '1 matter';
+  return `${count} matters`;
+};
+
+const ContactTableEmptyState = ({
+  title,
+  description,
+  actionLabel,
+  onAction,
+}: {
+  title: string;
+  description: string;
+  actionLabel?: string;
+  onAction?: () => void;
+}) => (
+  <div className="flex flex-col items-center justify-center gap-3 px-4 py-8 text-center">
+    <div>
+      <p className="text-sm font-medium text-ink">{title}</p>
+      <p className="mt-1 max-w-md text-sm text-dim-2">{description}</p>
+    </div>
+    {actionLabel && onAction ? (
+      <Button variant="secondary" size="sm" icon={Plus} onClick={onAction}>
+        {actionLabel}
+      </Button>
+    ) : null}
+  </div>
+);
+
 const PendingEmptyState = ({ onInviteClient }: { onInviteClient: () => void }) => (
-  <WorkspacePlaceholderState
-    icon={User}
-    title="No pending invites"
-    description="Contact invites you send will appear here until they are accepted."
-    primaryAction={{
-      label: 'New Contact',
-      onClick: onInviteClient,
-      icon: Plus,
-    }}
+  <ContactTableEmptyState
+    title="No pending invitations found"
+    description="Create a contact invitation and it will stay here until the person accepts it."
+    actionLabel="Create Contact"
+    onAction={onInviteClient}
   />
 );
 
@@ -502,30 +537,25 @@ export const PracticeContactsPage = ({
   practiceId: routePracticeId,
   basePath = '/practice/contacts',
   conversationsPath,
-  renderMode = 'full',
   statusFilter = null,
   prefetchedItems = [],
   prefetchedLoading = false,
   prefetchedLoadingMore = false,
   prefetchedError = null,
-  onRefetchList: _onRefetchList,
   detailHeaderLeadingAction,
   showDetailBackButton = true,
 }: {
   practiceId?: string | null;
   basePath?: string;
   conversationsPath?: string | null;
-  renderMode?: 'full' | 'listOnly' | 'detailOnly';
   statusFilter?: ContactRelationshipStatus | null;
   prefetchedItems?: ContactRecord[];
   prefetchedLoading?: boolean;
   prefetchedLoadingMore?: boolean;
   prefetchedError?: string | null;
-  onRefetchList?: (signal?: AbortSignal) => Promise<void>;
   detailHeaderLeadingAction?: ComponentChildren;
   showDetailBackButton?: boolean;
 }) => {
-  const { t } = useTranslation();
   const location = useLocation();
   const { currentPractice } = usePracticeManagement();
   const { session } = useSessionContext();
@@ -1237,150 +1267,180 @@ export const PracticeContactsPage = ({
     { id: 'risk', label: 'Risk' },
   ];
 
-  // ── List panes ───────────────────────────────────────────────────────
-  const directoryListPane = (
-    <div className="h-full overflow-y-auto">
-      {/* Header row — desktop only */}
-      <div className="hidden border-b border-line-subtle bg-paper-2 px-[18px] py-2.5 font-mono text-[10px] uppercase tracking-[0.12em] text-dim md:grid md:grid-cols-[28px_minmax(0,1.8fr)_minmax(0,1.6fr)_minmax(0,1fr)_110px_100px] md:gap-4">
-        <div />
-        <div>Client</div>
-        <div>Retainer</div>
-        <div>Primary matter</div>
-        <div>Last contact</div>
-        <div>Signal</div>
-      </div>
+  // ── Table rows ───────────────────────────────────────────────────────
+  const contactColumns = useMemo<DataTableColumn[]>(() => [
+    { id: 'contact', label: 'Contact', isPrimary: true },
+    { id: 'status', label: 'Status', hideAt: 'sm' },
+    { id: 'matters', label: 'Matters', hideAt: 'md' },
+    { id: 'retainer', label: 'Retainer', hideAt: 'lg', align: 'right' },
+    { id: 'lastContact', label: 'Last contact', hideAt: 'md' },
+    { id: 'signal', label: 'Signal', hideAt: 'sm' },
+    { id: 'actions', label: '', align: 'right', isAction: true, disableCellWrap: true },
+  ], []);
 
-      {sortedClients.length === 0 ? (
-        <div className="flex h-full min-h-[200px] items-center justify-center px-6 py-12 text-center">
-          <p className="text-sm text-dim-2">
-            {activeFilter === 'all'
-              ? 'No contacts found.'
-              : 'No contacts match this filter.'}
-          </p>
-        </div>
-      ) : (
-        sortedClients.map((client) => {
-          const isSelected = client.id === selectedClient?.id;
-          if (client.kind === 'team') {
-            // Team rows use the simpler legacy row — directory grid is for clients.
-            const nameParts = splitName(client.name);
-            const normalizedTeamRole = normalizePracticeRole(client.teamRole);
-            return (
-              <InteractiveListItem
-                key={client.id}
-                onClick={() => handleSelectClient(client)}
-                isSelected={isSelected}
-                padding="px-4 py-3.5"
-                className="flex-nowrap gap-4 rounded-none h-auto border-b border-line-subtle"
-              >
-                <Avatar name={client.name} size="md" className="text-ink" />
-                <div className="min-w-0 flex-1 text-left">
-                  <p className="text-sm text-ink truncate">
-                    {nameParts.first ? (
-                      <>
-                        <span>{nameParts.first} </span>
-                        <span className="font-semibold">{nameParts.last}</span>
-                      </>
-                    ) : (
-                      <span className="font-semibold">{nameParts.last}</span>
-                    )}
-                  </p>
-                  <p className="mt-0.5 text-xs text-dim-2 truncate">
-                    Team member{normalizedTeamRole ? ` • ${getPracticeRoleLabel(normalizedTeamRole)}` : ''}
-                  </p>
-                </div>
-              </InteractiveListItem>
-            );
-          }
-          const matters = client.matters ?? [];
-          const retainerMatter = matters.find((m) => readRetainerAmount(m) !== null) ?? client.primaryMatter ?? null;
-          const retainerAmount = readRetainerAmount(retainerMatter);
-          // We don't have a real retainer cap exposed yet — use a placeholder
-          // percent so the bar still gives a sense of presence.
-          // TODO(backend): expose retainer cap + current balance per matter
-          // so this bar can become exact instead of presence-only.
-          const retainerPercent = retainerAmount !== null ? 60 : null;
-          const lastContactSource = client.lastContactDays !== null && client.primaryMatter?.updated_at
-            ? `via ${formatRelativeTime(client.primaryMatter.updated_at)}`
-            : null;
-          const practiceArea = client.primaryMatter?.matter_type ?? null;
-          return (
-            <ClientDirectoryRow
-              key={client.id}
-              id={client.id}
-              name={client.name}
-              matterCount={matters.length}
-              primaryMatter={client.primaryMatter ?? null}
-              practiceArea={practiceArea}
-              retainerAmount={retainerAmount}
-              retainerPercent={retainerPercent}
-              lastContactDays={client.lastContactDays ?? null}
-              lastContactSource={lastContactSource}
-              signal={client.signal ?? 'calm'}
-              isSelected={isSelected}
-              isUrgent={client.signal === 'frustrated'}
-              onSelect={() => handleSelectClient(client)}
-              onMessage={() => { void handleSendMessage(client); }}
-              onCall={client.phone ? () => { window.location.href = `tel:${client.phone}`; } : undefined}
-              onOpenMatters={(() => {
-                const primary = client.primaryMatter;
-                return primary ? () => handleOpenMatter(primary.id) : undefined;
-              })()}
-              onOpenPrimaryMatter={(matterId) => handleOpenMatter(matterId)}
+  const contactRows = useMemo<DataTableRow[]>(() => sortedClients.map((client) => {
+    const matters = client.matters ?? [];
+    const primaryMatter = client.primaryMatter ?? null;
+    const retainerMatter = matters.find((matter) => readRetainerAmount(matter) !== null) ?? primaryMatter;
+    const retainerAmount = readRetainerAmount(retainerMatter);
+    const normalizedTeamRole = normalizePracticeRole(client.teamRole);
+    const roleLabel = normalizedTeamRole ? getPracticeRoleLabel(normalizedTeamRole) : 'Team member';
+    const isClientRecord = client.kind === 'client';
+    const statusLabel = isClientRecord
+      ? (client.status ? STATUS_LABELS[client.status] : 'Contact')
+      : roleLabel;
+    const signal = client.signal ?? 'calm';
+    const lastContactSource = isClientRecord && client.lastContactDays !== null && primaryMatter?.updated_at
+      ? `via ${formatRelativeTime(primaryMatter.updated_at)}`
+      : null;
+
+    return {
+      id: client.id,
+      onClick: () => handleSelectClient(client),
+      className: signal === 'frustrated' ? 'bg-[color-mix(in_oklab,var(--neg)_3%,transparent)]' : undefined,
+      cells: {
+        contact: (
+          <div className="flex min-w-0 items-center gap-3">
+            <Avatar name={client.name} size="md" className={cn('shrink-0 text-ink', signal === 'frustrated' && 'ring-1 ring-neg')} />
+            <div className="min-w-0">
+              <div className="truncate font-[family-name:var(--serif)] text-[17px] leading-tight text-ink">
+                {client.name}
+              </div>
+              <div className="mt-1 truncate text-xs text-dim-2">
+                {isClientRecord ? client.email : `Team member · ${client.email}`}
+              </div>
+            </div>
+          </div>
+        ),
+        status: isClientRecord ? (
+          <Pill tone={contactStatusPillTone(client.status)}>{statusLabel}</Pill>
+        ) : (
+          <Pill tone="dim">{roleLabel}</Pill>
+        ),
+        matters: (
+          <div className="min-w-0">
+            <div className="truncate text-sm text-ink-2">{formatMatterCount(matters.length)}</div>
+            {primaryMatter ? (
+              <div className="mt-1 max-w-full truncate text-xs text-accent">
+                {primaryMatter.title ?? 'Untitled matter'}
+              </div>
+            ) : null}
+          </div>
+        ),
+        retainer: retainerAmount !== null ? (
+          <span className="font-mono tabular-nums text-ink">
+            {retainerAmount.toLocaleString('en-US', { style: 'currency', currency: 'USD' })}
+          </span>
+        ) : (
+          <span className="text-dim-2">—</span>
+        ),
+        lastContact: (
+          <span className="font-mono text-xs uppercase tracking-wider text-ink-2">
+            {isClientRecord ? formatLastContact(client.lastContactDays ?? null) : '—'}
+            {lastContactSource ? <span className="mt-0.5 block text-[10px] normal-case tracking-normal text-dim">{lastContactSource}</span> : null}
+          </span>
+        ),
+        signal: isClientRecord ? (
+          <SignalPill signal={signal} label={signalLabel(signal)} />
+        ) : (
+          <span className="font-mono text-[10.5px] uppercase tracking-wider text-dim-2">Team</span>
+        ),
+        actions: (
+          <div className="flex justify-end gap-1">
+            {isClientRecord ? (
+              <Button
+                variant="icon"
+                size="icon-sm"
+                icon={MessagesSquare}
+                iconClassName="h-4 w-4"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  void handleSendMessage(client);
+                }}
+                disabled={!client.userId || sendMessagePending}
+                aria-label={`Message ${client.name}`}
+                title={!client.userId ? 'Messaging requires a linked portal account.' : 'Message'}
+              />
+            ) : null}
+            {isClientRecord && client.phone ? (
+              <Button
+                variant="icon"
+                size="icon-sm"
+                icon={Phone}
+                iconClassName="h-4 w-4"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  window.location.href = `tel:${client.phone}`;
+                }}
+                aria-label={`Call ${client.name}`}
+                title="Call"
+              />
+            ) : null}
+          </div>
+        ),
+      },
+    };
+  }), [handleSelectClient, handleSendMessage, sendMessagePending, sortedClients]);
+
+  const pendingInvitationColumns = useMemo<DataTableColumn[]>(() => [
+    { id: 'invitee', label: 'Invitee', isPrimary: true },
+    { id: 'role', label: 'Role', hideAt: 'sm' },
+    { id: 'status', label: 'Status', hideAt: 'md' },
+    { id: 'expires', label: 'Expires', hideAt: 'sm' },
+    { id: 'actions', label: '', align: 'right', isAction: true, disableCellWrap: true },
+  ], []);
+
+  const pendingInvitationRows = useMemo<DataTableRow[]>(() => sortedPendingInvitations.map((invitation) => {
+    const roleLabel = getPracticeRoleLabel(normalizePracticeRole(invitation.role) ?? 'client');
+    return {
+      id: invitation.id,
+      onClick: () => handleSelectPendingInvitation(invitation),
+      cells: {
+        invitee: (
+          <div className="flex min-w-0 items-center gap-3">
+            <Avatar name={invitation.email} size="md" className="shrink-0 text-ink" />
+            <div className="min-w-0">
+              <div className="truncate text-sm font-medium text-ink">{invitation.email}</div>
+              <div className="mt-1 truncate text-xs text-dim-2">Pending contact invitation</div>
+            </div>
+          </div>
+        ),
+        role: roleLabel,
+        status: <Pill tone="warn">Pending</Pill>,
+        expires: formatDate(new Date(invitation.expiresAt)),
+        actions: (
+          <div className="flex justify-end gap-1">
+            <Button
+              variant="icon"
+              size="icon-sm"
+              icon={Copy}
+              iconClassName="h-4 w-4"
+              onClick={(event) => {
+                event.stopPropagation();
+                void handleCopyPendingInvitationLink(invitation.id);
+              }}
+              aria-label={`Copy invite link for ${invitation.email}`}
+              title="Copy invite link"
             />
-          );
-        })
-      )}
-
-      {prefetchedLoadingMore ? (
-        <div className="px-4 py-3 text-xs text-dim-2 text-center">
-          <LoadingSpinner size="sm" ariaLabel={t('clients.loadingMore', { defaultValue: 'Loading more contacts' })} />
-        </div>
-      ) : null}
-    </div>
-  );
-
-  const pendingInvitationListPane = (
-    <div className="relative h-full min-h-0 overflow-hidden">
-      <div className="h-full overflow-y-auto">
-        <ul className="divide-y divide-line-subtle">
-          {sortedPendingInvitations.map((invitation) => {
-            const isSelected = invitation.id === selectedPendingInvitationFromList?.id;
-            const roleLabel = getPracticeRoleLabel(normalizePracticeRole(invitation.role) ?? 'client');
-            return (
-              <li key={invitation.id}>
-                <InteractiveListItem
-                  onClick={() => handleSelectPendingInvitation(invitation)}
-                  isSelected={isSelected}
-                  padding="px-4 py-3.5"
-                  className="flex-nowrap gap-4 rounded-none h-auto"
-                >
-                  <Avatar
-                    name={invitation.email}
-                    size="md"
-                    className="text-ink"
-                  />
-                  <div className="min-w-0 flex-1 text-left">
-                    <p className="truncate text-sm font-medium text-ink">
-                      {invitation.email}
-                    </p>
-                    <p className="mt-0.5 truncate text-xs text-dim-2">
-                      {roleLabel} invitation • Expires {formatDate(new Date(invitation.expiresAt))}
-                    </p>
-                  </div>
-                </InteractiveListItem>
-              </li>
-            );
-          })}
-          {sortedPendingInvitations.length === 0 ? (
-            <li className="p-6">
-              <PendingEmptyState onInviteClient={handleOpenAddClient} />
-            </li>
-          ) : null}
-        </ul>
-      </div>
-    </div>
-  );
+            {isAdmin ? (
+              <Button
+                variant="icon"
+                size="icon-sm"
+                icon={X}
+                iconClassName="h-4 w-4"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  void handleCancelPendingInvitation(invitation.id);
+                }}
+                aria-label={`Cancel invite for ${invitation.email}`}
+                title="Cancel invitation"
+              />
+            ) : null}
+          </div>
+        ),
+      },
+    };
+  }), [handleCancelPendingInvitation, handleCopyPendingInvitationLink, handleSelectPendingInvitation, isAdmin, sortedPendingInvitations]);
 
   const clientDetailBody = selectedClient ? (
     <ClientDetailPanel
@@ -1477,41 +1537,10 @@ export const PracticeContactsPage = ({
     </div>
   ) : null;
 
-  const renderCenteredState = (children: ComponentChildren) => (
-    <div className="h-full flex items-center justify-center">
-      {children}
+  const renderErrorState = (message: string | null) => (
+    <div className="flex min-h-[160px] items-center justify-center px-6 py-10">
+      <p className="text-sm text-dim-2">{message}</p>
     </div>
-  );
-
-  const renderLoadingState = () => renderCenteredState(
-    <LoadingBlock label={t('clients.loading', { defaultValue: 'Loading contacts...' })} />
-  );
-
-  const renderErrorState = (message: string | null) => renderCenteredState(
-    <p className="text-sm text-dim-2">{message}</p>
-  );
-
-  const renderListPanel = ({
-    loading,
-    error,
-    content,
-    useEmptyMinHeight = false,
-  }: {
-    loading: boolean;
-    error: string | null;
-    content: ComponentChildren;
-    useEmptyMinHeight?: boolean;
-  }) => (
-    <Panel className={cn(
-      'list-panel-card-gradient min-h-0 flex-1 overflow-hidden',
-      useEmptyMinHeight && 'min-h-[520px]'
-    )}>
-      {loading
-        ? renderLoadingState()
-        : error
-          ? renderErrorState(error)
-          : content}
-    </Panel>
   );
 
   const renderDetailShell = ({
@@ -1721,13 +1750,26 @@ export const PracticeContactsPage = ({
 
           {/* ── Directory ───────────────────────────────────────────── */}
           <div className="mt-0 overflow-hidden rounded-b-md border border-t-0 border-line-subtle bg-card">
-            {clientsLoading ? (
-              <div className="p-6">{renderLoadingState()}</div>
-            ) : clientsError ? (
-              <div className="p-6">{renderErrorState(clientsError)}</div>
-            ) : (
-              directoryListPane
-            )}
+            <DataTable
+              columns={contactColumns}
+              rows={contactRows}
+              loading={clientsLoading}
+              isLoadingMore={prefetchedLoadingMore}
+              errorState={clientsError ? renderErrorState(clientsError) : undefined}
+              emptyState={(
+                <ContactTableEmptyState
+                  title={activeFilter === 'all' ? 'No contacts found' : 'No contacts found for this filter'}
+                  description={activeFilter === 'all'
+                    ? 'Create a contact to track client details, matters, retainers, and recent communication.'
+                    : 'Adjust the contact filters or create a new contact if this person is not in your directory.'}
+                  actionLabel="Create Contact"
+                  onAction={handleOpenAddClient}
+                />
+              )}
+              density="compact"
+              className="gap-0"
+              tableClassName="bg-card"
+            />
           </div>
 
           {/* Foot summary */}
@@ -1747,52 +1789,7 @@ export const PracticeContactsPage = ({
     );
   };
 
-  const listPanelContent = isPendingListRoute
-    ? {
-        content: <div className="min-h-0 flex-1">{pendingInvitationListPane}</div>,
-        useEmptyMinHeight: true,
-      }
-    : {
-        content: <div className="min-h-0 flex-1 overflow-y-auto">{directoryListPane}</div>,
-        useEmptyMinHeight: sortedClients.length === 0 || clientsLoading || Boolean(clientsError),
-      };
-
   const hasSelectedDetail = Boolean(selectedPendingInvitationIdFromPath || selectedClientIdFromPath);
-
-  if (renderMode === 'listOnly') {
-    if (!isPendingListRoute && !clientsLoading && !clientsError && sortedClients.length === 0) {
-      return null;
-    }
-
-    return (
-      <div className="h-full min-h-0 overflow-hidden flex flex-col gap-2">
-        {/* Filter row above the list when in listOnly (split view's left pane). */}
-        {!isPendingListRoute ? (
-          <div className="px-3 pt-2 sm:px-4">
-            {renderFilterRow()}
-          </div>
-        ) : null}
-        {renderListPanel({
-          loading: clientsLoading,
-          error: clientsError,
-          ...listPanelContent,
-        })}
-      </div>
-    );
-  }
-
-  if (renderMode === 'detailOnly') {
-    return (
-      <>
-        {renderDetailShell({
-          title: detailConfig.title,
-          body: detailConfig.body,
-          leadingAction: detailHeaderLeadingAction,
-          actions: detailHeaderActions,
-        })}
-      </>
-    );
-  }
 
   if (hasSelectedDetail) {
     return (
@@ -1809,22 +1806,45 @@ export const PracticeContactsPage = ({
     );
   }
 
-  // ── chat-first full-page (no selection, full renderMode) ──────────────
+  // ── chat-first full-page (no selection) ──────────────────────────────
   if (!isPendingListRoute) {
     return renderChatFirstListPage();
   }
 
-  // Pending invitations: preserve legacy panel-list rendering.
   return (
-    <>
-      <div className="h-full min-h-0 overflow-hidden flex flex-col gap-2">
-        {renderListPanel({
-          loading: clientsLoading,
-          error: clientsError,
-          content: listPanelContent.content,
-          useEmptyMinHeight: listPanelContent.useEmptyMinHeight,
-        })}
+    <div className="flex h-full min-h-0 flex-col overflow-auto">
+      <div className="mx-auto w-full max-w-[1280px] px-4 pb-12 pt-6 sm:px-8 sm:pt-7 md:px-10">
+        <header className="flex flex-wrap items-end justify-between gap-3 border-b border-line-subtle pb-5 sm:gap-4">
+          <div className="min-w-0">
+            <div className="font-mono text-[10.5px] uppercase tracking-[0.16em] text-dim">
+              Contacts · {sortedPendingInvitations.length} pending
+            </div>
+            <h1 className="mt-1.5 font-[family-name:var(--serif)] text-[32px] font-normal leading-[1.05] tracking-[-0.022em] text-ink sm:text-[44px] sm:leading-none lg:text-[56px]">
+              Pending invitations
+            </h1>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <Button variant="secondary" size="sm" onClick={handleOpenTeamInvite}>
+              Invite Team Member
+            </Button>
+            <Button variant="primary" size="sm" icon={Plus} onClick={handleOpenAddClient}>
+              New Contact
+            </Button>
+          </div>
+        </header>
+        <div className="mt-5 overflow-hidden rounded-md border border-line-subtle bg-card">
+          <DataTable
+            columns={pendingInvitationColumns}
+            rows={pendingInvitationRows}
+            loading={clientsLoading}
+            errorState={clientsError ? renderErrorState(clientsError) : undefined}
+            emptyState={<PendingEmptyState onInviteClient={handleOpenAddClient} />}
+            density="compact"
+            className="gap-0"
+            tableClassName="bg-card"
+          />
+        </div>
       </div>
-    </>
+    </div>
   );
 };

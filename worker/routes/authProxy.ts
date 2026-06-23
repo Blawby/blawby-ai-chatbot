@@ -26,6 +26,7 @@ type CachedProxyResponse = {
   body: ArrayBuffer;
   hasSetCookie: boolean;
 };
+
 const BACKEND_PATH_PREFIXES = [
   '/api/onboarding',
   '/api/matters',
@@ -55,6 +56,90 @@ export async function handleAuthProxy(request: Request, env: Env): Promise<Respo
 
 const isBackendProxyPath = (path: string): boolean =>
   BACKEND_PATH_PREFIXES.some((prefix) => path.startsWith(prefix));
+
+const jsonResponse = (body: unknown, status: number): Response =>
+  new Response(JSON.stringify(body), {
+    status,
+    headers: {
+      'Content-Type': 'application/json',
+      'Cache-Control': 'no-store',
+    },
+  });
+
+const validateEngagementContractProxyResponse = async (
+  request: Request,
+  response: Response,
+): Promise<Response | null> => {
+  const url = new URL(request.url);
+  if (!url.pathname.startsWith('/api/engagement-contracts')) return null;
+  if (request.method.toUpperCase() === 'HEAD') return null;
+
+  const contentType = response.headers.get('Content-Type') ?? '';
+  const isJson = contentType.toLowerCase().includes('application/json');
+
+  if (!isJson) {
+    const bodyPreview = await response.clone().text()
+      .then((text) => text.slice(0, 500))
+      .catch((error) => `Unable to read response body: ${error instanceof Error ? error.message : String(error)}`);
+
+    if (response.status < 200 || response.status >= 300) {
+      Logger.error('[engagement-contracts] Upstream request failed with non-JSON response', {
+        path: url.pathname,
+        status: response.status,
+        contentType,
+        bodyPreview,
+      });
+      return jsonResponse({
+        success: false,
+        error: 'Engagement contract upstream request failed',
+        details: {
+          path: url.pathname,
+          status: response.status,
+          contentType,
+          bodyPreview,
+        },
+      }, 500);
+    }
+
+    Logger.error('[engagement-contracts] Upstream returned non-JSON response', {
+      path: url.pathname,
+      status: response.status,
+      contentType,
+      bodyPreview,
+    });
+    return jsonResponse({
+      success: false,
+      error: 'Malformed engagement contract response',
+      details: {
+        path: url.pathname,
+        reason: 'Upstream returned non-JSON response',
+        contentType,
+        bodyPreview,
+      },
+    }, 500);
+  }
+
+  try {
+    await response.clone().json();
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    Logger.error('[engagement-contracts] Upstream returned non-JSON response', {
+      path: url.pathname,
+      status: response.status,
+      error: errorMessage,
+    });
+    return jsonResponse({
+      success: false,
+      error: 'Malformed engagement contract response',
+      details: {
+        path: url.pathname,
+        reason: 'Upstream returned invalid JSON',
+      },
+    }, 500);
+  }
+
+  return null;
+};
 
 const getPracticeIdForDetailsCacheInvalidation = (pathname: string): string | null => {
   const segments = pathname.split('/').filter(Boolean);
@@ -186,6 +271,10 @@ export async function handleBackendProxy(
     transformUrl,
     onBeforeFetch,
   });
+  const engagementContractError = await validateEngagementContractProxyResponse(request, result.response);
+  if (engagementContractError) {
+    return engagementContractError;
+  }
 
   // Mutations on practice routes — invalidate the practice-details cache.
   if (result.status >= 200 && result.status < 300 && method !== 'GET' && method !== 'HEAD') {

@@ -1,12 +1,25 @@
 import { useState, useEffect, useRef } from 'preact/hooks';
 
-const applyHtmlTheme = (dark: boolean): void => {
+const updateThemeMeta = (): void => {
+  if (typeof document === 'undefined' || typeof window === 'undefined') return;
+  const themeColorMeta = document.querySelector<HTMLMetaElement>('meta[name="theme-color"]');
+  if (!themeColorMeta) return;
+  const paper = window.getComputedStyle(document.documentElement).getPropertyValue('--paper').trim();
+  if (paper) {
+    themeColorMeta.setAttribute('content', paper);
+  }
+};
+
+export const applyHtmlTheme = (dark: boolean): void => {
   if (typeof document === 'undefined') return;
   if (dark) {
     document.documentElement.setAttribute('data-theme', 'midnight');
+    document.documentElement.style.colorScheme = 'dark';
   } else {
     document.documentElement.removeAttribute('data-theme');
+    document.documentElement.style.colorScheme = 'light';
   }
+  updateThemeMeta();
 };
 
 export const useTheme = () => {
