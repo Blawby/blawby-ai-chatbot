@@ -2,10 +2,11 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'preact/hooks'
 import {
   createMatterTask,
   deleteMatterTask,
+  listPracticeTasks,
   listMatters,
-  listMatterTasks,
   updateMatterTask,
   type BackendMatter,
+  type BackendPracticeTask,
   type CreateMatterTaskPayload,
   type UpdateMatterTaskPayload
 } from '@/features/matters/services/mattersApi';
@@ -14,14 +15,50 @@ import type { CreateTaskInput, Task, UpdateTaskInput } from '@/features/tasks/ty
 
 const PAGE_SIZE = 50;
 
-const buildMatterTitle = (matter: BackendMatter): string => {
-  const raw = (matter.title ?? '').toString().trim();
-  return raw.length > 0 ? raw : 'Untitled matter';
-};
-
 const isMatterUrgent = (matter: BackendMatter): boolean => {
   const urgency = (matter.urgency ?? '').toString().toLowerCase();
   return urgency === 'emergency' || urgency === 'time_sensitive';
+};
+
+const normalizeStatus = (status: BackendPracticeTask['status']) =>
+  status === 'pending' || status === 'in_progress' || status === 'completed' || status === 'blocked'
+    ? status
+    : 'pending';
+
+const normalizePriority = (priority: BackendPracticeTask['priority']) =>
+  priority === 'low' || priority === 'normal' || priority === 'high' || priority === 'urgent'
+    ? priority
+    : 'normal';
+
+const isPracticeTaskUrgent = (task: BackendPracticeTask): boolean => {
+  const record = task as BackendPracticeTask & { matter?: BackendMatter | null; matter_urgency?: string | null };
+  const urgency = (record.matter?.urgency ?? record.matter_urgency ?? '').toString().toLowerCase();
+  return urgency === 'emergency' || urgency === 'time_sensitive';
+};
+
+const getPracticeTaskMatterTitle = (task: BackendPracticeTask, matter?: BackendMatter): string => {
+  const record = task as BackendPracticeTask & { matter?: BackendMatter | null; matter_title?: string | null };
+  const title = record.matter?.title ?? record.matter_title ?? matter?.title ?? '';
+  const raw = title.toString().trim();
+  return raw.length > 0 ? raw : 'Untitled matter';
+};
+
+const toTask = (task: BackendPracticeTask, matter?: BackendMatter): Task | null => {
+  if (!task.matter_id) return null;
+  const base = toMatterTask({
+    ...task,
+    matter_id: task.matter_id,
+    name: task.name ?? 'Untitled task',
+    status: normalizeStatus(task.status),
+    priority: normalizePriority(task.priority),
+    stage: task.stage ?? '',
+  });
+  return {
+    ...base,
+    matterTitle: getPracticeTaskMatterTitle(task, matter),
+    matterStatus: matter?.status ?? null,
+    matterUrgent: matter ? isMatterUrgent(matter) : isPracticeTaskUrgent(task)
+  };
 };
 
 type UseTasksResult = {
@@ -39,15 +76,10 @@ type UseTasksResult = {
 /**
  * Cross-matter Tasks aggregation hook.
  *
- * The Tasks API is matter-scoped (`/api/matters/:practice/:matter/tasks`), so
- * the cross-matter Tasks screen must fan-out across the practice's matters and
- * merge each matter-row task list with its parent-matter context (title,
- * status, urgency) — this hook owns that fan-out + the per-task mutations.
- *
- * No top-level `/api/practices/:id/tasks` endpoint is exposed on the worker;
- * a `BackendPracticeTask` shape exists for the internal ReportService but it
- * is not surfaced to the frontend. If/when a real aggregation endpoint ships,
- * swap the fan-out below for a single fetch.
+ * The practice-wide Tasks API returns tasks across the organization in one
+ * request while the matters list supplies create-task options and row context.
+ * Each aggregate task is merged with its parent matter metadata (title,
+ * status, urgency) without per-matter task fan-out.
  */
 export const useTasks = (practiceId: string | null | undefined): UseTasksResult => {
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -88,32 +120,15 @@ export const useTasks = (practiceId: string | null | undefined): UseTasksResult 
         }
         setMatters(allMatters);
 
-        // 2. Fan-out task fetches per matter, tolerating individual failures
-        //    so one missing matter doesn't blank the whole screen.
-        const settled = await Promise.allSettled(
-          allMatters.map((matter) =>
-            listMatterTasks(practiceId, matter.id, {}, { signal })
-          )
-        );
+        // 2. Fetch practice-wide tasks in a single request.
+        const practiceTasks = await listPracticeTasks(practiceId, {}, { signal });
         if (signal.aborted) return;
 
+        const matterById = new Map(allMatters.map((matter) => [matter.id, matter]));
         const merged: Task[] = [];
-        settled.forEach((result, index) => {
-          const matter = allMatters[index];
-          if (!matter) return;
-          if (result.status !== 'fulfilled') return;
-          const matterTitle = buildMatterTitle(matter);
-          const matterStatus = matter.status ?? null;
-          const matterUrgent = isMatterUrgent(matter);
-          for (const wireTask of result.value) {
-            const base = toMatterTask(wireTask);
-            merged.push({
-              ...base,
-              matterTitle,
-              matterStatus,
-              matterUrgent
-            });
-          }
+        practiceTasks.forEach((wireTask) => {
+          const task = toTask(wireTask, wireTask.matter_id ? matterById.get(wireTask.matter_id) : undefined);
+          if (task) merged.push(task);
         });
 
         setTasks(merged);

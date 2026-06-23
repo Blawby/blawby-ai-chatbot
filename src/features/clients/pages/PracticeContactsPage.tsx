@@ -1,5 +1,5 @@
 import type { ComponentChildren } from 'preact';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'preact/hooks';
+import { useCallback, useEffect, useMemo, useState } from 'preact/hooks';
 import { useLocation } from 'preact-iso';
 import { Copy, X, MessagesSquare, Plus, User, Phone } from 'lucide-preact';
 
@@ -29,12 +29,10 @@ import {
   updateUserDetailMemo,
   deleteUserDetailMemo,
   getUserDetail,
-  getUserDetailAddressById,
   type UserDetailMemoRecord
 } from '@/shared/lib/apiClient';
 import {
   formatUserDetailAddressDisplay,
-  hasRenderableUserDetailAddress,
   readUserDetailAddress,
 } from '@/shared/lib/userDetailAddress';
 import {
@@ -567,11 +565,6 @@ export const PracticeContactsPage = ({
   const [memoSubmitting, setMemoSubmitting] = useState(false);
   const [memoActionId, setMemoActionId] = useState<string | null>(null);
   const [sendMessagePending, setSendMessagePending] = useState(false);
-  const [hydratedAddressByDetailId, setHydratedAddressByDetailId] = useState<Record<string, unknown>>({});
-  // Transient in-flight / failed trackers — use refs to avoid effect self-canceling
-  const hydrationInFlightRef = useRef<Record<string, true>>({});
-  const hydrationFailedRef = useRef<Record<string, true>>({});
-
   // ── chat-first list controls ─────────────────────────────────────────
   const [activeFilter, setActiveFilter] = useState<ContactFilterId>('all');
   const [sortMode, setSortMode] = useState<ContactSortId>('recent_activity');
@@ -647,90 +640,6 @@ export const PracticeContactsPage = ({
       return { ...prev, [activePracticeId]: updated };
     });
   }, [activePracticeId]);
-  useEffect(() => {
-    if (!activePracticeId) return;
-
-    const candidates = prefetchedItems.filter((detail) => {
-      if (hydratedAddressByDetailId[detail.id] || hydrationInFlightRef.current[detail.id] || hydrationFailedRef.current[detail.id]) return false;
-      const hasAddressId = Boolean((detail as Record<string, unknown>).address_id ?? (detail as Record<string, unknown>).addressId);
-      if (!hasAddressId) return false;
-      const inlineAddress = readUserDetailAddress(detail);
-      return !inlineAddress;
-    });
-
-    if (candidates.length === 0) return;
-
-    let cancelled = false;
-    // mark in-flight in the ref (transient)
-    hydrationInFlightRef.current = { ...hydrationInFlightRef.current };
-    candidates.forEach((detail) => {
-      hydrationInFlightRef.current[detail.id] = true;
-    });
-    void Promise.allSettled(
-      candidates.map(async (detail) => {
-        const hydrated = await getUserDetail(activePracticeId, detail.id);
-        let resolved = hydrated ? readUserDetailAddress(hydrated) : null;
-        if (hydrated && !resolved) {
-          const hydratedRecord = hydrated as unknown as Record<string, unknown>;
-          const addressId = typeof hydratedRecord.address_id === 'string'
-            ? hydratedRecord.address_id
-            : (typeof hydratedRecord.addressId === 'string' ? hydratedRecord.addressId : '');
-          if (addressId.trim().length > 0) {
-            const fetchedAddress = await getUserDetailAddressById(activePracticeId, addressId.trim());
-            if (fetchedAddress && hasRenderableUserDetailAddress(fetchedAddress)) {
-              resolved = readUserDetailAddress(fetchedAddress);
-            }
-          }
-        }
-        if (!resolved) return null;
-        return { id: detail.id, address: resolved };
-      })
-    ).then((results) => {
-      if (cancelled) return;
-      const updates: Record<string, unknown> = {};
-      results.forEach((result, index) => {
-        const detailId = candidates[index]?.id;
-        if (result.status === 'rejected') {
-          console.error('[Contacts] Failed to hydrate contact address', {
-            detailId,
-            reason: result.reason
-          });
-          if (detailId) {
-            hydrationFailedRef.current = { ...hydrationFailedRef.current };
-            hydrationFailedRef.current[detailId] = true;
-          }
-          return;
-        }
-        if (!result.value) {
-          if (detailId) {
-            hydrationFailedRef.current = { ...hydrationFailedRef.current };
-            hydrationFailedRef.current[detailId] = true;
-          }
-          return;
-        }
-        updates[result.value.id] = result.value.address;
-      });
-      if (Object.keys(updates).length === 0) return;
-      setHydratedAddressByDetailId((prev) => ({ ...prev, ...updates }));
-    }).finally(() => {
-      // remove in-flight flags for completed candidates, even if the effect was cancelled
-      hydrationInFlightRef.current = { ...hydrationInFlightRef.current };
-      candidates.forEach((detail) => {
-        delete hydrationInFlightRef.current[detail.id];
-      });
-    });
-
-    return () => {
-      // clear any in-flight markers we set for these candidates so they can
-      // be retried on the next effect run instead of being permanently blocked
-      hydrationInFlightRef.current = { ...hydrationInFlightRef.current };
-      candidates.forEach((detail) => {
-        delete hydrationInFlightRef.current[detail.id];
-      });
-      cancelled = true;
-    };
-  }, [activePracticeId, prefetchedItems, hydratedAddressByDetailId]);
-
   const teamMembers = useMemo<DirectoryRecord[]>(() => {
     return teamMembersData.map<DirectoryRecord>((member) => ({
         id: `team:${member.userId}`,
@@ -776,8 +685,7 @@ export const PracticeContactsPage = ({
   const clients = useMemo<DirectoryRecord[]>(() => {
     const peopleItems: DirectoryRecord[] = prefetchedItems.map((detail) => {
       const name = detail.user?.name?.trim() || detail.user?.email?.trim() || 'Unknown contact';
-      const hydratedAddress = hydratedAddressByDetailId[detail.id];
-      const resolvedAddress = readUserDetailAddress(hydratedAddress) ?? readUserDetailAddress(detail);
+      const resolvedAddress = readUserDetailAddress(detail);
       const userId = detail.user_id;
       const matters = userId ? (mattersByUserId.get(userId) ?? []) : [];
       const primaryMatter = pickPrimaryMatter(matters);
@@ -812,7 +720,7 @@ export const PracticeContactsPage = ({
       return activePeople;
     }
     return teamMembersLoaded ? [...activePeople, ...teamMembers] : activePeople;
-  }, [hydratedAddressByDetailId, isArchivedListRoute, isClientsListRoute, isTeamListRoute, mattersByUserId, now, pickPrimaryMatter, prefetchedItems, statusFilter, teamMembers, teamMembersLoaded]);
+  }, [isArchivedListRoute, isClientsListRoute, isTeamListRoute, mattersByUserId, now, pickPrimaryMatter, prefetchedItems, statusFilter, teamMembers, teamMembersLoaded]);
 
   const pendingClientInvitations = useMemo(
     () => practiceInvitations.filter((invitation) => normalizePracticeRole(invitation.role) === 'client' && invitation.status === 'pending'),
@@ -1026,8 +934,7 @@ export const PracticeContactsPage = ({
           return;
         }
         const name = detail.user?.name?.trim() || detail.user?.email?.trim() || 'Unknown contact';
-        const hydratedAddress = hydratedAddressByDetailId[detail.id];
-        const resolvedAddress = readUserDetailAddress(hydratedAddress) ?? readUserDetailAddress(detail);
+        const resolvedAddress = readUserDetailAddress(detail);
         const userId = detail.user_id;
         const matters = userId ? (mattersByUserId.get(userId) ?? []) : [];
         const primaryMatter = pickPrimaryMatter(matters);
@@ -1054,7 +961,7 @@ export const PracticeContactsPage = ({
         setSelectedClientRemote(null);
       });
     return () => controller.abort();
-  }, [activePracticeId, hydratedAddressByDetailId, mattersByUserId, now, pickPrimaryMatter, selectedClientFromList, selectedClientIdFromPath, teamMembersLoaded]);
+  }, [activePracticeId, mattersByUserId, now, pickPrimaryMatter, selectedClientFromList, selectedClientIdFromPath, teamMembersLoaded]);
 
   const handleMemoSubmit = useCallback(async (text: string) => {
     if (!activePracticeId || !selectedClient || selectedClient.kind !== 'client') return;

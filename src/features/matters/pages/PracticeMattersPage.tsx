@@ -796,7 +796,7 @@ export const PracticeMattersPage = ({
   useEffect(() => {
     if (!activePracticeId) return;
     if (practiceDetailsRequestedRef.current === activePracticeId) return;
-    if (practiceDetails && hasPracticeDetails) {
+    if (hasPracticeDetails) {
       practiceDetailsRequestedRef.current = activePracticeId;
       return;
     }
@@ -805,7 +805,7 @@ export const PracticeMattersPage = ({
     fetchPracticeDetails()
       .catch((error) => console.warn('[PracticeMattersPage] Failed to load practice services', error))
       .finally(() => setServicesLoading(false));
-  }, [activePracticeId, fetchPracticeDetails, hasPracticeDetails, practiceDetails]);
+  }, [activePracticeId, fetchPracticeDetails, hasPracticeDetails]);
 
   useEffect(() => {
     if (!convertIntakeUuid || !activePracticeId) {
