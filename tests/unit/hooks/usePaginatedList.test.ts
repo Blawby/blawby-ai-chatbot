@@ -59,4 +59,30 @@ describe('usePaginatedList', () => {
       expect(fetchPage).toHaveBeenCalledTimes(2);
     });
   });
+
+  it('does not reset or reload when deps rerender with equivalent values', async () => {
+    const fetchPage = vi.fn(async () => ({
+      items: [{ id: 'item-1' }],
+      hasMore: false,
+    }));
+
+    const { rerender, result } = renderHook(
+      ({ practiceId }) =>
+        usePaginatedList<Item>({
+          fetchPage,
+          deps: [practiceId],
+        }),
+      { initialProps: { practiceId: 'practice-1' } },
+    );
+
+    await waitFor(() => {
+      expect(result.current.items).toEqual([{ id: 'item-1' }]);
+    });
+
+    await act(async () => {
+      rerender({ practiceId: 'practice-1' });
+    });
+
+    expect(fetchPage).toHaveBeenCalledTimes(1);
+  });
 });

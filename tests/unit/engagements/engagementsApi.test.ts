@@ -52,22 +52,36 @@ const proposalData: ProposalData = {
   client_summary: {
     client_name: 'Jane Client',
     matter_summary: 'Custody consultation',
+    location_summary: '',
+    goals_summary: '',
   },
   representation: {
     scope_summary: 'Limited scope representation.',
+    included_services: [],
+    excluded_services: [],
+    client_identity_notes: '',
+    jurisdiction_notes: '',
   },
   fees: {
     billing_type: 'fixed',
     fixed_fee_amount: 1500,
+    fee_notes: '',
   },
   risk_review: {
     conflict_status: 'unknown',
     jurisdiction_status: 'unknown',
+    risk_notes: [],
+    open_questions: [],
   },
   source_snapshot: {
     intake_uuid: 'intake-123',
     conversation_id: 'conversation-123',
-    matter_id: null,
+    matter_id: '',
+    practice_area: '',
+    urgency: '',
+    desired_outcome: '',
+    opposing_party: '',
+    court_date: null,
   },
   draft_meta: {
     generated_at: '2026-05-22T10:00:00.000Z',

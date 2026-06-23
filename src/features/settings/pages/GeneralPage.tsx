@@ -112,12 +112,12 @@ export const GeneralPage = () => {
   const applyThemePreference = useCallback((value: 'light' | 'dark' | 'system') => {
     if (value === 'dark') {
       applyHtmlTheme(true);
-      localStorage.setItem('theme', 'dark');
+      try { localStorage.setItem('theme', 'dark'); } catch { /* ignore */ }
       return;
     }
     if (value === 'light') {
       applyHtmlTheme(false);
-      localStorage.setItem('theme', 'light');
+      try { localStorage.setItem('theme', 'light'); } catch { /* ignore */ }
       return;
     }
     if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
@@ -125,7 +125,7 @@ export const GeneralPage = () => {
     } else {
       applyHtmlTheme(false);
     }
-    localStorage.removeItem('theme');
+    try { localStorage.removeItem('theme'); } catch { /* ignore */ }
   }, []);
 
   useEffect(() => {

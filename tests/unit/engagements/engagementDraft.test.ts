@@ -60,25 +60,25 @@ describe('engagementDraft', () => {
     });
     expect(proposal.representation.scope_summary).toBe('Custody consultation');
     expect(proposal.fees).toMatchObject({
-      billing_type: null,
+      billing_type: '',
       fixed_fee_amount: null,
       hourly_rate_attorney: null,
       hourly_rate_admin: null,
       contingency_percentage: null,
       retainer_amount: null,
       payment_frequency: null,
-      fee_notes: null,
+      fee_notes: '',
     });
     expect(proposal.risk_review).toMatchObject({
       conflict_status: 'unknown',
       jurisdiction_status: 'unknown',
-      risk_notes: null,
-      open_questions: null,
+      risk_notes: [],
+      open_questions: [],
     });
     expect(proposal.source_snapshot).toMatchObject({
       intake_uuid: 'intake-123',
       conversation_id: 'conversation-123',
-      matter_id: null,
+      matter_id: '',
       practice_area: 'Family Law',
       urgency: 'time_sensitive',
       desired_outcome: 'Protect weekday parenting time',
@@ -94,7 +94,7 @@ describe('engagementDraft', () => {
     vi.useRealTimers();
   });
 
-  it('keeps missing optional fields null or empty', () => {
+  it('serializes missing required string fields as empty strings and arrays', () => {
     const form = buildEngagementDraftFormFromIntake({
       ...acceptedIntake,
       conversation_id: null,
@@ -107,10 +107,14 @@ describe('engagementDraft', () => {
     });
     const proposal = buildProposalDataFromDraft(form);
 
-    expect(proposal.client_summary.client_name).toBeNull();
-    expect(proposal.client_summary.location_summary).toBeNull();
-    expect(proposal.source_snapshot?.conversation_id).toBeNull();
-    expect(proposal.source_snapshot?.practice_area).toBeNull();
+    expect(proposal.client_summary.client_name).toBe('');
+    expect(proposal.client_summary.location_summary).toBe('');
+    expect(proposal.representation.included_services).toEqual([]);
+    expect(proposal.risk_review.open_questions).toEqual([]);
+    expect(proposal.source_snapshot?.conversation_id).toBe('');
+    expect(proposal.source_snapshot?.matter_id).toBe('');
+    expect(proposal.source_snapshot?.practice_area).toBe('');
+    expect(proposal.source_snapshot?.urgency).toBe('');
     expect(proposal.source_snapshot?.court_date).toBeNull();
   });
 

@@ -11,6 +11,7 @@
 
   body {
     @apply min-h-screen m-0;
+
     background-color: var(--paper);
     color: var(--ink);
     font-family: var(--sans);
@@ -2802,10 +2803,8 @@
 
   /* §3.20 Numbered Section — step indicator with done/now/next states */
   .numbered-section {
-    display: grid;
-    grid-template-columns: 28px 1fr;
-    gap: 14px;
-    align-items: flex-start;
+    --numbered-section-indent: 42px;
+    display: block;
   }
   .numbered-section-indicator {
     width: 24px;
@@ -2820,40 +2819,44 @@
     margin-top: 2px;
     flex-shrink: 0;
   }
-  .numbered-section-indicator-done {
+  .numbered-section-done .numbered-section-indicator {
     background: var(--accent);
     color: var(--accent-ink);
     border: 1px solid var(--accent);
   }
-  .numbered-section-indicator-now {
+  .numbered-section-now .numbered-section-indicator {
     background: var(--card);
     color: var(--accent-deep);
     border: 2px solid var(--accent);
     box-shadow: 0 0 0 3px var(--accent-soft);
   }
-  .numbered-section-indicator-next {
+  .numbered-section-next .numbered-section-indicator {
     background: var(--card);
     color: var(--dim);
     border: 1px solid var(--rule);
   }
   .numbered-section-body {
+    margin-left: var(--numbered-section-indent);
+    margin-top: 12px;
     min-width: 0;
   }
   .numbered-section-title {
+    display: grid;
+    grid-template-columns: 28px minmax(0, 1fr);
+    column-gap: 14px;
+    align-items: flex-start;
     font-family: var(--serif);
     font-size: 18px;
     color: var(--ink);
     line-height: 1.3;
     margin: 0;
   }
-  .numbered-section-description {
+  .numbered-section-desc {
     font-family: var(--mono);
     font-size: 11px;
     color: var(--dim);
-    margin-top: 4px;
-  }
-  .numbered-section-content {
-    margin-top: 12px;
+    line-height: 1.45;
+    margin: 4px 0 0 var(--numbered-section-indent);
   }
 
   /* §3.21 Signal Pill — semantic risk/sentiment pill */

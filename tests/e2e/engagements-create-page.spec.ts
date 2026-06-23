@@ -32,7 +32,7 @@ const validDraftEngagement = {
       scope_summary: 'Draft an engagement letter for proper E2E data.',
       included_services: ['Initial consultation', 'Document review'],
       excluded_services: ['Trial representation'],
-      client_identity_notes: null,
+      client_identity_notes: '',
       jurisdiction_notes: 'Texas',
     },
     fees: {
@@ -68,11 +68,11 @@ const validDraftEngagement = {
     source_snapshot: {
       intake_uuid: 'e2e-intake-valid-draft',
       conversation_id: 'e2e-conversation-valid-draft',
-      matter_id: null,
+      matter_id: '',
       practice_area: 'business',
       urgency: 'routine',
       desired_outcome: 'Validate engagement list rendering',
-      opposing_party: null,
+      opposing_party: '',
       court_date: null,
     },
     acknowledgment_language: 'Client acknowledges the scope.',
