@@ -22,7 +22,6 @@ import {
 } from '@/shared/utils/workspace';
 import { AlertTriangle } from 'lucide-preact';
 import { AppGuard } from '@/app/AppGuard';
-import { AuthBootGate } from '@/app/AuthBootGate';
 import { App404 } from '@/features/practice/components/404';
 // `normalizePracticeRole` is not needed in this module; remove import.
 import { LoadingScreen } from '@/shared/ui/layout/LoadingScreen';
@@ -287,11 +286,9 @@ function AppRoot() {
 
   return (
     <SessionProvider>
-      <AuthBootGate>
-        <AppGuard>
-          <AppShell />
-        </AppGuard>
-      </AuthBootGate>
+      <AppGuard>
+        <AppShell />
+      </AppGuard>
     </SessionProvider>
   );
 }
