@@ -39,7 +39,7 @@ The wrapping hooks (`useMattersData`, `useClientsData`, `usePracticeTeam`, `useI
 | Use | Primitive | Notes |
 |---|---|---|
 | First-load placeholder for a page-sized container | `<LoadingBlock>` (h-full) | Pass `minDurationMs={150}`–`200` to avoid flicker on fast networks. |
-| Cold app boot (no UI yet) | `<LoadingScreen>` (h-screen) | Already wrapped by `<AuthBootGate>` in `App` — most callers don't need this directly. |
+| Protected route first load | `<LoadingScreen>` (h-screen) | Use inside routes that cannot render until auth/session state settles. Public routes should render immediately. |
 | Inline activity indicator (next to a title, inside a button) | `<LoadingSpinner size="sm" announce={false}/>` | Inherits `text-[rgb(var(--accent-foreground))]` color. |
 | Skeleton for content with a known shape | `<SkeletonLoader variant=…>` + presets `InspectorSectionSkeleton`, `MessageRowSkeleton` | Variants: `text`, `title`, `avatar`, `button`, `input`, `chip`, `rect`. |
 | AI thinking dot | `<AIThinkingIndicator/>` | Custom `aria-busy` + accent dot animation. |
@@ -85,11 +85,11 @@ This keeps the page visible during background refetches triggered by mutations (
 Recommended values:
 - Route subviews: `200`
 - Inline panels: `150`
-- Cold boot (`AuthBootGate`): `150`
+- Protected route first load: `150`
 
-## Auth boot gate
+## Auth and route loading
 
-`<AuthBootGate>` wraps `<AppShell>` in `App`. While `useSessionContext().isPending` is true, it shows a single full-screen `<LoadingScreen>` so per-route `if (sessionPending) return <LoadingScreen />` checks become redundant (legacy checks remain as defense-in-depth — safe to remove in a follow-up).
+Auth/session loading is route-level. Public routes such as `/auth`, `/login`, `/pricing`, and `/public/*` should render immediately and must not be hidden behind a global session gate. Protected routes should check `useSessionContext().isPending` before redirecting or rendering authenticated data. Background session refetches, including Better Auth's focus/visibility refetches, must not unmount the routed app or clear local UI state.
 
 ## Lazy route boundaries
 
