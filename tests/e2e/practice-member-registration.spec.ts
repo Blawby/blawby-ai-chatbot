@@ -132,12 +132,27 @@ test.describe('New practice member registration → dashboard', () => {
     await expect(page.getByText(/Step 2 of 6 · Your practice/i)).toBeVisible();
     await page.locator('#onboarding-firmName').fill(practice.name);
     await page.locator('#onboarding-jurisdiction').selectOption(practice.jurisdiction);
+    await expect(page.locator('#onboarding-jurisdiction')).toContainText('WY · Wyoming');
+    await expect(page.getByText('Civil litigation')).toHaveCount(0);
 
+    const createPracticeRequest = page.waitForRequest(
+      (request) => request.url().includes('/api/practice') && request.method() === 'POST',
+      { timeout: 30000 }
+    );
     const createPracticeResponse = page.waitForResponse(
       (response) => response.url().includes('/api/practice') && response.request().method() === 'POST',
       { timeout: 30000 }
     );
     await page.getByRole('button', { name: /Continue → Get Business/i }).click();
+    const practiceRequest = await createPracticeRequest;
+    const practicePayload = practiceRequest.postDataJSON() as {
+      supported_states?: Array<{ country?: string; states?: string[] }>;
+      metadata?: { jurisdictions?: string[] };
+    };
+    expect(practicePayload.supported_states).toEqual([
+      { country: 'US', states: [practice.jurisdiction] },
+    ]);
+    expect(practicePayload.metadata?.jurisdictions).toEqual([practice.jurisdiction]);
     const practiceResponse = await createPracticeResponse;
     expect(practiceResponse.ok()).toBe(true);
     practiceCreated = true;

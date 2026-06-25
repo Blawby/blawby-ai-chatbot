@@ -109,6 +109,27 @@ describe('OnboardingFlow subscription ordering', () => {
     fireEvent.input(document.querySelector('#onboarding-firmName') as HTMLInputElement, {
       target: { value: 'E2E Practice' },
     });
+    const jurisdictionSelect = document.getElementById('onboarding-jurisdiction') as unknown as HTMLSelectElement;
+    const jurisdictionOptions = Array.from(jurisdictionSelect.options).map((option) => option.value);
+    expect(jurisdictionOptions).toContain('DC');
+    expect(jurisdictionOptions).toContain('VT');
+    expect(screen.queryByText('Civil litigation')).not.toBeInTheDocument();
+    expect(screen.getByText('Business formation')).toBeInTheDocument();
+    expect(screen.getByText('Compliance counseling')).toBeInTheDocument();
+    expect(screen.getByText('Business disputes')).toBeInTheDocument();
+
+    jurisdictionSelect.value = 'VT';
+    fireEvent.input(jurisdictionSelect);
+    fireEvent.change(jurisdictionSelect);
+    const otherTypeSelect = document.getElementById('onboarding-practice-area-other-type') as unknown as HTMLSelectElement;
+    otherTypeSelect.value = 'Litigation';
+    fireEvent.input(otherTypeSelect);
+    fireEvent.change(otherTypeSelect);
+    fireEvent.input(document.querySelector('#onboarding-practice-area-other') as HTMLInputElement, {
+      target: { value: 'Aviation law' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: /^Add$/i }));
+    fireEvent.click(screen.getByRole('button', { name: 'Business disputes' }));
     fireEvent.click(screen.getByRole('button', { name: /Continue → Get Business/i }));
 
     await waitFor(() => {
@@ -116,6 +137,12 @@ describe('OnboardingFlow subscription ordering', () => {
         expect.objectContaining({
           name: 'E2E Practice',
           slug: 'e2e-practice',
+          supportedStates: [{ country: 'US', states: ['VT'] }],
+          metadata: expect.objectContaining({
+            practiceAreas: expect.arrayContaining(['Aviation law', 'Business disputes']),
+            practiceTypes: ['Litigation'],
+            jurisdictions: ['VT'],
+          }),
         })
       );
     });
