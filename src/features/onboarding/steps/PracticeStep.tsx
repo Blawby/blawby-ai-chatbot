@@ -39,7 +39,7 @@ const PRACTICE_AREAS: readonly string[] = [
 ];
 
 /**
- * Step 3 body — practice identity plus grounding fields. All fields are sent
+ * Step 2 body — practice identity plus grounding fields. All fields are sent
  * to the backend via `POST /api/practice` (createPractice) which creates the
  * org, practice details, and seeds the default intake template atomically.
  * Slug is auto-derived from firm name and is not user-editable.

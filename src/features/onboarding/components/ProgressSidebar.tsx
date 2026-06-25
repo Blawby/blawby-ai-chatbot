@@ -23,14 +23,14 @@ const SIDEBAR_STEPS: readonly SidebarStep[] = [
   },
   {
     row: 2,
-    title: 'Get Business',
-    description: 'Billed monthly. Cancel anytime.',
+    title: 'Tell us about your practice',
+    description: 'Firm name, jurisdiction, bar #, and description',
     clickStep: 2
   },
   {
     row: 3,
-    title: 'Tell us about your practice',
-    description: 'Firm name, jurisdiction, bar #, and description',
+    title: 'Get Business',
+    description: 'Billed monthly. Cancel anytime.',
     clickStep: 3
   },
   {
@@ -63,7 +63,7 @@ const getStepState = (
   hasActiveSubscription: boolean
 ): 'done' | 'now' | 'next' => {
   const currentRow = getSidebarPosition(currentStep);
-  if (row === 2 && hasActiveSubscription && currentStep !== 2) {
+  if (row === 3 && hasActiveSubscription && currentStep !== 3) {
     return 'done';
   }
   if (row < currentRow) return 'done';
@@ -184,13 +184,13 @@ export const ProgressSidebar = ({
                     fontSize: '14px',
                     fontWeight: 500,
                     color:
-                      step.row === 2 && state === 'now'
+                      step.row === 3 && state === 'now'
                         ? 'var(--accent-deep)'
                         : state === 'done'
                           ? 'var(--ink-2)'
                           : 'var(--ink)',
                     textDecoration:
-                      state === 'done' && step.row !== 2 ? 'line-through' : 'none',
+                      state === 'done' && step.row !== 3 ? 'line-through' : 'none',
                     textDecorationColor: 'var(--dim-2)'
                   }}
                 >

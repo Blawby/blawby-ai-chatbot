@@ -16,6 +16,7 @@ type BillingPeriod = 'monthly' | 'yearly';
 
 interface PricingViewProps {
   onUpgrade?: (planName: string) => Promise<boolean | void> | boolean | void;
+  practiceId?: string | null;
   planOverride?: SubscriptionPlan | null;
   variant?: 'default' | 'onboarding';
   className?: string;
@@ -26,6 +27,7 @@ const DISPLAY_PLAN_NAME = 'blawby_practice';
 const PricingView: FunctionComponent<PricingViewProps> = ({
   className,
   onUpgrade,
+  practiceId = null,
   planOverride = null,
   variant = 'default'
 }) => {
@@ -111,6 +113,7 @@ const PricingView: FunctionComponent<PricingViewProps> = ({
         }
       }
       await submitUpgrade({
+        practiceId: practiceId ?? undefined,
         plan: selectedPlanName,
         annual: isYearly && hasYearly
       });
