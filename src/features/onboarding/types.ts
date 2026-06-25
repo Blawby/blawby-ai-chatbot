@@ -17,7 +17,7 @@ export interface OnboardingDraft {
   birthday?: string;
   agreedToTerms?: boolean;
 
-  /** Step 3 — Your practice. Slug is derived from practiceName — not user-editable. */
+  /** Step 2 — Your practice. Slug is derived from practiceName — not user-editable. */
   practiceName?: string;
   jurisdiction?: string;
   barNumber?: string;

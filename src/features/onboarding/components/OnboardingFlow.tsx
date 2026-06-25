@@ -73,8 +73,8 @@ interface DebugOnboardingFlowProps {
 const TOTAL_STEPS: OnboardingStep[] = [1, 2, 3, 4, 5, 6];
 
 const CONTINUE_LABEL: Record<OnboardingStep, string> = {
-  1: 'Continue → Get Business',
-  2: 'Continue → Your practice',
+  1: 'Continue → Your practice',
+  2: 'Continue → Get Business',
   3: 'Continue → Payments',
   4: 'Continue → Your intake form',
   5: 'Continue → Share intake',
@@ -83,8 +83,8 @@ const CONTINUE_LABEL: Record<OnboardingStep, string> = {
 
 const CRUMB: Record<OnboardingStep, string> = {
   1: 'Step 1 of 6 · About you',
-  2: 'Step 2 of 6 · Get Business',
-  3: 'Step 3 of 6 · Your practice',
+  2: 'Step 2 of 6 · Your practice',
+  3: 'Step 3 of 6 · Get Business',
   4: 'Step 4 of 6 · Payments',
   5: 'Step 5 of 6 · Your intake form',
   6: 'Step 6 of 6 · Share intake'
@@ -117,6 +117,7 @@ const OnboardingFlowImpl = ({
 
   const [step, setStep] = useState<OnboardingStep>(initialStep);
   const [hasActiveSubscription, setHasActiveSubscription] = useState(initialHasActiveSubscription);
+  const [activatedOrganizationId, setActivatedOrganizationId] = useState<string | null>(null);
   const [draft, setDraft] = useState<OnboardingDraft>(() => {
     const stored = persistDraft ? readDraft() : null;
     return {
@@ -128,6 +129,7 @@ const OnboardingFlowImpl = ({
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const hasLoadedPrefsRef = useRef(false);
+  const activatingOrganizationIdRef = useRef<string | null>(null);
   useEffect(() => {
     if (!active || !sessionUserId || hasLoadedPrefsRef.current || !loadPreferences) return;
     void (async () => {
@@ -146,8 +148,51 @@ const OnboardingFlowImpl = ({
     })();
   }, [active, loadPreferences, sessionUserId, sessionUserName]);
 
+  const subscriptionOrganizationId = draft.createdOrganizationId ?? firstExistingMembership?.id ?? null;
+
   useEffect(() => {
-    if (!active || !loadSubscription) return;
+    if (!active || !subscriptionOrganizationId || activatedOrganizationId === subscriptionOrganizationId) return;
+    if (activatingOrganizationIdRef.current === subscriptionOrganizationId) return;
+    activatingOrganizationIdRef.current = subscriptionOrganizationId;
+    void (async () => {
+      let didActivate = false;
+      try {
+        const activated = await createOrganization(draft, firstExistingMembership ?? {
+          id: subscriptionOrganizationId,
+          slug: draft.createdOrganizationSlug ?? null,
+          name: draft.practiceName ?? null
+        });
+        if (activated?.id) {
+          didActivate = true;
+          setActivatedOrganizationId(activated.id);
+          setDraft((prev) => ({
+            ...prev,
+            createdOrganizationId: activated.id,
+            createdOrganizationSlug: activated.slug ?? prev.createdOrganizationSlug ?? firstExistingMembership?.slug ?? null,
+            practiceName: prev.practiceName ?? firstExistingMembership?.name ?? ''
+          }));
+        }
+      } catch (error) {
+        if (import.meta.env.DEV) {
+          console.error('[ONBOARDING][ORG] failed to activate organization', error);
+        }
+      } finally {
+        if (!didActivate && activatingOrganizationIdRef.current === subscriptionOrganizationId) {
+          activatingOrganizationIdRef.current = null;
+        }
+      }
+    })();
+  }, [
+    active,
+    activatedOrganizationId,
+    createOrganization,
+    draft,
+    firstExistingMembership,
+    subscriptionOrganizationId
+  ]);
+
+  useEffect(() => {
+    if (!active || !loadSubscription || !subscriptionOrganizationId || activatedOrganizationId !== subscriptionOrganizationId) return;
     let cancelled = false;
     void (async () => {
       try {
@@ -165,7 +210,7 @@ const OnboardingFlowImpl = ({
     return () => {
       cancelled = true;
     };
-  }, [active, loadSubscription]);
+  }, [active, activatedOrganizationId, loadSubscription, subscriptionOrganizationId]);
 
   useEffect(() => {
     if (!firstExistingMembership?.id || draft.createdOrganizationId) return;
@@ -194,7 +239,19 @@ const OnboardingFlowImpl = ({
 
   const ensureOrganization = async (): Promise<string | null> => {
     if (draft.createdOrganizationId) {
-      return draft.createdOrganizationId;
+      if (activatedOrganizationId === draft.createdOrganizationId) {
+        return draft.createdOrganizationId;
+      }
+      const activated = await createOrganization(draft, firstExistingMembership);
+      if (!activated?.id) {
+        return null;
+      }
+      setActivatedOrganizationId(activated.id);
+      handleDraftChange({
+        createdOrganizationId: activated.id,
+        createdOrganizationSlug: activated.slug ?? draft.createdOrganizationSlug ?? null
+      });
+      return activated.id;
     }
 
     const created = await createOrganization(draft, firstExistingMembership);
@@ -206,6 +263,7 @@ const OnboardingFlowImpl = ({
       createdOrganizationId: created.id,
       createdOrganizationSlug: created.slug ?? null
     });
+    setActivatedOrganizationId(created.id);
     return created.id;
   };
 
@@ -239,7 +297,7 @@ const OnboardingFlowImpl = ({
   };
 
   const handleContinue = async () => {
-    if (step === 3) {
+    if (step === 2) {
       try {
         setIsSubmitting(true);
         const orgId = await ensureOrganization();
@@ -269,7 +327,7 @@ const OnboardingFlowImpl = ({
   };
 
   const handleSkip = () => {
-    if (step === 1 || step === 3 || step === 6) return;
+    if (step === 1 || step === 2 || step === 6) return;
     const next = (step + 1) as OnboardingStep;
     if (TOTAL_STEPS.includes(next)) setStep(next);
   };
@@ -279,9 +337,9 @@ const OnboardingFlowImpl = ({
       case 1:
         return !isAboutYouComplete(draft, requiresNameCollection);
       case 2:
-        return false;
-      case 3:
         return !isPracticeComplete(draft);
+      case 3:
+        return false;
       case 4:
         return !isPaymentsComplete(draft);
       case 5:
@@ -350,10 +408,10 @@ const OnboardingFlowImpl = ({
             </>
           )}
 
-          {step === 2 && (
+          {step === 3 && (
             <>
               <StageHeader
-                crumb={CRUMB[2]}
+                crumb={CRUMB[3]}
                 title={<>Set up <em style={{ color: 'var(--accent)', fontStyle: 'italic' }}>Business</em>.</>}
                 lede={
                   <>
@@ -371,6 +429,7 @@ const OnboardingFlowImpl = ({
                 </p>
               </AssistantTurn>
               <PricingView
+                practiceId={draft.createdOrganizationId}
                 planOverride={pricingPlanOverride}
                 variant="onboarding"
               />
@@ -378,17 +437,17 @@ const OnboardingFlowImpl = ({
                 onSkip={handleSkip}
                 onBack={handleBack}
                 onContinue={handleContinue}
-                continueLabel={CONTINUE_LABEL[2]}
+                continueLabel={CONTINUE_LABEL[3]}
                 continueDisabled={continueDisabled}
                 isSubmitting={isSubmitting}
               />
             </>
           )}
 
-          {step === 3 && (
+          {step === 2 && (
             <>
               <StageHeader
-                crumb={CRUMB[3]}
+                crumb={CRUMB[2]}
                 title={<>Now — what&apos;s your <em style={{ color: 'var(--accent)', fontStyle: 'italic' }}>practice</em> called?</>}
                 lede={
                   <>
@@ -410,7 +469,7 @@ const OnboardingFlowImpl = ({
               <StageFooter
                 onBack={handleBack}
                 onContinue={handleContinue}
-                continueLabel={CONTINUE_LABEL[3]}
+                continueLabel={CONTINUE_LABEL[2]}
                 continueDisabled={continueDisabled}
                 isSubmitting={isSubmitting}
               />
@@ -564,8 +623,13 @@ export const OnboardingFlow = ({
       loadPreferences={() => getPreferencesCategory<OnboardingPreferences>('onboarding')}
       loadSubscription={async () => Boolean(await getCurrentSubscription())}
       createOrganization={async (draft, membership) => {
-        if (membership?.id) {
-          return { id: membership.id, slug: membership.slug ?? null };
+        const existingOrganizationId = membership?.id ?? draft.createdOrganizationId;
+        if (existingOrganizationId) {
+          await authClient.organization.setActive({ organizationId: existingOrganizationId });
+          return {
+            id: existingOrganizationId,
+            slug: membership?.slug ?? draft.createdOrganizationSlug ?? null
+          };
         }
 
         const name = (draft.practiceName ?? '').trim();
