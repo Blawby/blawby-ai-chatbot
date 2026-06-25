@@ -72,6 +72,7 @@ export const IntakeFormStep = ({ draft }: IntakeFormStepProps) => {
 
   const requiredFields = template.fields.filter((f) => (f.phase ?? (f.required ? 'required' : 'enrichment')) === 'required');
   const enrichmentFields = template.fields.filter((f) => (f.phase ?? (f.required ? 'required' : 'enrichment')) === 'enrichment');
+  const standardContactFields = ['Name', 'Email', 'Phone'];
 
   return (
     <div className="flex flex-col gap-4">
@@ -88,6 +89,20 @@ export const IntakeFormStep = ({ draft }: IntakeFormStepProps) => {
             {template.introMessage}
           </p>
         )}
+      </div>
+
+      <div className="card" style={{ padding: '22px' }}>
+        <div style={{ fontFamily: 'var(--mono)', fontSize: 10, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--dim)', marginBottom: 14 }}>
+          Collected on every intake
+        </div>
+        <ul style={{ display: 'flex', flexDirection: 'column', gap: 10, margin: 0, padding: 0, listStyle: 'none' }}>
+          {standardContactFields.map((label) => (
+            <li key={label} style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
+              <Icon icon={CheckCircle2} className="h-4 w-4 shrink-0 mt-0.5" style={{ color: 'var(--pos)' }} />
+              <span style={{ fontSize: 14, color: 'var(--ink)' }}>{label}</span>
+            </li>
+          ))}
+        </ul>
       </div>
 
       {/* Required fields */}
@@ -131,7 +146,7 @@ export const IntakeFormStep = ({ draft }: IntakeFormStepProps) => {
       )}
 
       <p style={{ fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--dim)', letterSpacing: '0.02em' }}>
-        You can rename this form and add custom questions from{' '}
+        You can rename this form, edit these questions, and add custom questions from{' '}
         <strong style={{ color: 'var(--ink-2)' }}>Settings → Intake forms</strong>{' '}
         any time after setup.
       </p>

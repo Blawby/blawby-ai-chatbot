@@ -1,23 +1,73 @@
+import { useState } from 'preact/hooks';
 import { CheckCircle2 } from 'lucide-preact';
+import { Button } from '@/shared/ui/Button';
 import { Icon } from '@/shared/ui/Icon';
+import { useToastContext } from '@/shared/contexts/ToastContext';
+import { createConnectedAccount } from '@/shared/lib/apiClient';
+import { getValidatedStripeOnboardingUrl } from '@/shared/utils/stripeOnboarding';
 import type { OnboardingDraft } from '../types';
 
 interface PaymentsStepProps {
   draft: OnboardingDraft;
+  practiceEmail: string;
+  redirectToStripe?: (url: string) => void;
 }
 
-/**
- * Step 4 body — Stripe Connect handoff.
- *
- * TODO(stripe): wiring Stripe Connect inside onboarding requires the org to
- * exist before the connected-account API can be called (createConnectedAccount
- * needs a practiceUuid). The existing flow at /practice/:slug/setup mints the
- * account *after* org creation. To keep onboarding linear and non-blocking,
- * step 4 renders an explainer + handoff: payouts get set up immediately after
- * the user lands in their workspace, via the existing StripeCheckpointCard.
- * Reusing that surface unmodified avoids forking Stripe state machines.
- */
-export const PaymentsStep = (_: PaymentsStepProps) => {
+const defaultRedirectToStripe = (url: string): void => {
+  if (typeof window === 'undefined') return;
+  window.location.href = url;
+};
+
+export const PaymentsStep = ({
+  draft,
+  practiceEmail,
+  redirectToStripe = defaultRedirectToStripe,
+}: PaymentsStepProps) => {
+  const { showError } = useToastContext();
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const organizationId = draft.createdOrganizationId ?? null;
+
+  const handleStartStripe = async () => {
+    if (!organizationId) {
+      showError('Payouts', 'Missing practice context.');
+      return;
+    }
+    if (!practiceEmail) {
+      showError('Payouts', 'Add an email before starting Stripe verification.');
+      return;
+    }
+    if (typeof window === 'undefined') {
+      showError('Payouts', 'Unable to start Stripe onboarding in this environment.');
+      return;
+    }
+
+    const baseUrl = `${window.location.origin}${window.location.pathname}`;
+    const returnUrl = new URL(baseUrl);
+    returnUrl.searchParams.set('stripe', 'return');
+    const refreshUrl = new URL(baseUrl);
+    refreshUrl.searchParams.set('stripe', 'refresh');
+
+    setIsSubmitting(true);
+    try {
+      const connectedAccount = await createConnectedAccount({
+        practiceEmail,
+        practiceUuid: organizationId,
+        returnUrl: returnUrl.toString(),
+        refreshUrl: refreshUrl.toString(),
+      });
+      const validatedUrl = getValidatedStripeOnboardingUrl(connectedAccount.onboardingUrl);
+      if (!validatedUrl) {
+        showError('Payouts', 'Stripe onboarding link was not provided. Please try again.');
+        return;
+      }
+      redirectToStripe(validatedUrl);
+    } catch (error) {
+      showError('Payouts', error instanceof Error ? error.message : 'Failed to start Stripe onboarding');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   return (
     <section className="card" style={{ padding: '28px' }}>
       <h2
@@ -35,7 +85,7 @@ export const PaymentsStep = (_: PaymentsStepProps) => {
       </h2>
 
       <div
-        className="flex items-center gap-4 rounded-md border p-4"
+        className="flex flex-col gap-4 rounded-md border p-4 sm:flex-row sm:items-center"
         style={{
           background: 'var(--card)',
           borderColor: 'var(--rule)',
@@ -73,6 +123,14 @@ export const PaymentsStep = (_: PaymentsStepProps) => {
             receive payouts.
           </p>
         </div>
+        <Button
+          type="button"
+          size="sm"
+          onClick={() => void handleStartStripe()}
+          disabled={isSubmitting || !organizationId || !practiceEmail}
+        >
+          {isSubmitting ? 'Preparing Stripe...' : 'Start Stripe setup'}
+        </Button>
       </div>
 
       <div
@@ -84,8 +142,8 @@ export const PaymentsStep = (_: PaymentsStepProps) => {
           color: 'var(--ink-2)'
         }}
       >
-        You&apos;ll finish Stripe setup from your workspace after onboarding. We&apos;ll
-        take you there next so you can start or resume verification.
+        Stripe opens a secure hosted flow for business and representative
+        verification. You can return here after Stripe sends you back.
       </div>
 
       <ul className="mt-6 flex flex-col gap-3 text-sm" style={{ color: 'var(--ink-2)' }}>
@@ -99,14 +157,13 @@ export const PaymentsStep = (_: PaymentsStepProps) => {
         </li>
         <li className="flex items-start gap-2">
           <Icon icon={CheckCircle2} className="h-4 w-4 mt-0.5" style={{ color: 'var(--pos)' }} />
-          <span>You can start or finish setup from the workspace banner when you&apos;re ready</span>
+          <span>You can also finish setup later from Payouts &amp; billing settings</span>
         </li>
       </ul>
     </section>
   );
 };
 
-/** Step 4 is always continueable — Stripe is handed off post-onboarding. */
 export const isPaymentsComplete = (_draft: OnboardingDraft): boolean => true;
 
 export default PaymentsStep;

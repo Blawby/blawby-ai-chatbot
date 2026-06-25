@@ -2,8 +2,10 @@ import { act, fireEvent, render, screen, waitFor } from '@testing-library/preact
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const createPracticeMock = vi.fn();
+const createConnectedAccountMock = vi.fn();
 const getCurrentSubscriptionMock = vi.fn();
 const setActiveMock = vi.fn();
+const listIntakeTemplatesMock = vi.fn();
 let organizationsMock: unknown[] = [];
 
 vi.mock('@/shared/i18n/hooks', () => ({
@@ -26,6 +28,7 @@ vi.mock('@/shared/contexts/SessionContext', () => ({
       user: {
         id: 'user-1',
         name: 'E2E Owner',
+        email: 'owner@example.com',
       },
     },
   }),
@@ -40,7 +43,12 @@ vi.mock('@/shared/contexts/ToastContext', () => ({
 
 vi.mock('@/shared/lib/apiClient', () => ({
   createPractice: (...args: unknown[]) => createPracticeMock(...args),
+  createConnectedAccount: (...args: unknown[]) => createConnectedAccountMock(...args),
   getCurrentSubscription: (...args: unknown[]) => getCurrentSubscriptionMock(...args),
+}));
+
+vi.mock('@/features/intake/api/intakeTemplatesApi', () => ({
+  listIntakeTemplates: (...args: unknown[]) => listIntakeTemplatesMock(...args),
 }));
 
 vi.mock('@/shared/lib/preferencesApi', () => ({
@@ -74,17 +82,42 @@ vi.mock('@/features/pricing/components/PricingView', () => ({
 }));
 
 import { OnboardingFlow } from '@/features/onboarding/components/OnboardingFlow';
+import PaymentsStep from '@/features/onboarding/steps/PaymentsStep';
+import IntakeFormStep from '@/features/onboarding/steps/IntakeFormStep';
 
 describe('OnboardingFlow subscription ordering', () => {
   beforeEach(() => {
     localStorage.clear();
     createPracticeMock.mockReset();
+    createConnectedAccountMock.mockReset();
     getCurrentSubscriptionMock.mockReset();
     setActiveMock.mockReset();
+    listIntakeTemplatesMock.mockReset();
     organizationsMock = [];
     createPracticeMock.mockResolvedValue({ id: 'practice-123', slug: 'e2e-practice' });
+    createConnectedAccountMock.mockResolvedValue({
+      practiceUuid: 'practice-123',
+      stripeAccountId: 'acct_123',
+      clientSecret: null,
+      onboardingUrl: 'https://connect.stripe.com/setup/s/acct_123',
+      chargesEnabled: false,
+      payoutsEnabled: false,
+      detailsSubmitted: false,
+    });
     getCurrentSubscriptionMock.mockResolvedValue(null);
     setActiveMock.mockResolvedValue(undefined);
+    listIntakeTemplatesMock.mockResolvedValue([
+      {
+        id: 'template-1',
+        key: 'general',
+        name: 'General consultation',
+        is_default: true,
+        fields: [
+          { key: 'summary', label: 'Brief summary', required: true, phase: 'required' },
+          { key: 'timeline', label: 'Important dates', required: false, phase: 'enrichment' },
+        ],
+      },
+    ]);
   });
 
   it('creates a practice before loading subscription state or showing Business checkout', async () => {
@@ -188,5 +221,60 @@ describe('OnboardingFlow subscription ordering', () => {
       expect(getCurrentSubscriptionMock).toHaveBeenCalledTimes(1);
     });
     expect(callOrder).toEqual(['activate:start', 'activate:done', 'subscription']);
+  });
+
+  it('returns from subscription success directly to the payments step', async () => {
+    render(
+      <OnboardingFlow
+        onClose={vi.fn()}
+        onComplete={vi.fn()}
+        initialStep={4}
+        initialHasActiveSubscription
+        subscriptionSuccessPracticeId="practice-returned"
+      />
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText(/Step 4 of 6 .* Payments/)).toBeInTheDocument();
+    });
+    expect(screen.queryByText(/Step 1 of 6 .* About you/)).not.toBeInTheDocument();
+    expect(setActiveMock).toHaveBeenCalledWith({ organizationId: 'practice-returned' });
+  });
+
+  it('starts Stripe Connect from the payments step with the active practice', async () => {
+    const redirectToStripe = vi.fn();
+    render(
+      <PaymentsStep
+        draft={{ createdOrganizationId: 'practice-123' }}
+        practiceEmail="owner@example.com"
+        redirectToStripe={redirectToStripe}
+      />
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: /Start Stripe setup/i }));
+
+    await waitFor(() => {
+      expect(createConnectedAccountMock).toHaveBeenCalledWith({
+        practiceEmail: 'owner@example.com',
+        practiceUuid: 'practice-123',
+        returnUrl: expect.stringMatching(/\/\?stripe=return$|\/onboarding\?stripe=return$/),
+        refreshUrl: expect.stringMatching(/\/\?stripe=refresh$|\/onboarding\?stripe=refresh$/),
+      });
+    });
+    expect(redirectToStripe).toHaveBeenCalledWith('https://connect.stripe.com/setup/s/acct_123');
+  });
+
+  it('shows standard contact fields and editable-question copy in the intake preview', async () => {
+    render(<IntakeFormStep draft={{ createdOrganizationId: 'practice-123' }} />);
+
+    await waitFor(() => {
+      expect(screen.getByText('General consultation')).toBeInTheDocument();
+    });
+    expect(screen.getByText('Collected on every intake')).toBeInTheDocument();
+    expect(screen.getByText('Name')).toBeInTheDocument();
+    expect(screen.getByText('Email')).toBeInTheDocument();
+    expect(screen.getByText('Phone')).toBeInTheDocument();
+    expect(screen.getByText('Brief summary')).toBeInTheDocument();
+    expect(screen.getByText(/edit these questions/i)).toBeInTheDocument();
   });
 });

@@ -13,6 +13,7 @@ import MarketingShell from '@/shared/ui/layout/MarketingShell';
 import { SEOHead } from '@/app/SEOHead';
 import { normalizePracticeDetailsResponse } from '@/shared/lib/apiClient';
 import { setPracticeDetailsEntry } from '@/shared/stores/practiceDetailsStore';
+import { useSessionContext } from '@/shared/contexts/SessionContext';
 import type { WidgetPreviewConfig, WidgetPreviewMessage, WidgetPreviewScenario } from '@/shared/types/widgetPreview';
 import { toMinorUnitsValue } from '@/shared/utils/money';
 
@@ -43,6 +44,7 @@ export const PublicWorkspaceRoute: FunctionComponent<PublicWorkspaceRouteProps> 
   shell,
 }) => {
   const location = useLocation();
+  const { session } = useSessionContext();
   const slug = (practiceSlug ?? '').trim();
   const searchParams = getSearchParams(location.url);
 
@@ -54,6 +56,12 @@ export const PublicWorkspaceRoute: FunctionComponent<PublicWorkspaceRouteProps> 
 
   const isPreviewRequested = isPreviewQuery(searchParams);
   const isEmbed = isEmbedQuery(searchParams);
+  const isOwnerPreview = searchParams.get('ownerPreview') === '1';
+  const previewBanner = (isOwnerPreview || (session?.user && !session.user.is_anonymous)) && !isEmbed ? (
+    <div className="border-b border-line-subtle bg-paper-2 px-4 py-2 text-xs text-dim">
+      Preview mode: you are logged in as {session?.user?.email ?? 'your account'}. Clients do not see this banner.
+    </div>
+  ) : null;
 
   const initialScenario = useMemo<WidgetPreviewScenario>(() => {
     const params = getSearchParams(location.url);
@@ -116,7 +124,12 @@ export const PublicWorkspaceRoute: FunctionComponent<PublicWorkspaceRouteProps> 
   }, [data, resolvedPracticeId]);
 
   if (isLoading) {
-    return <LoadingScreen />;
+    return (
+      <>
+        {previewBanner}
+        <LoadingScreen />
+      </>
+    );
   }
 
   if (!data || error || !practiceConfig || !resolvedPracticeId) {
@@ -144,6 +157,7 @@ export const PublicWorkspaceRoute: FunctionComponent<PublicWorkspaceRouteProps> 
     return (
       <>
         <SEOHead practiceConfig={practiceConfig} currentUrl={currentUrl} />
+        {previewBanner}
         <WidgetPreviewApp
           practiceId={resolvedPracticeId}
           practiceConfig={practiceConfig}
@@ -166,7 +180,10 @@ export const PublicWorkspaceRoute: FunctionComponent<PublicWorkspaceRouteProps> 
   return (
     <>
       <SEOHead practiceConfig={practiceConfig} currentUrl={currentUrl} />
-      <Shell>{widgetApp}</Shell>
+      <Shell>
+        {previewBanner}
+        {widgetApp}
+      </Shell>
     </>
   );
 };
