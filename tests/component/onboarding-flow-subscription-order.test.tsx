@@ -1,9 +1,10 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/preact';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/preact';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const createPracticeMock = vi.fn();
 const getCurrentSubscriptionMock = vi.fn();
 const setActiveMock = vi.fn();
+let organizationsMock: unknown[] = [];
 
 vi.mock('@/shared/i18n/hooks', () => ({
   useTranslation: () => ({
@@ -55,7 +56,7 @@ vi.mock('@/shared/lib/authClient', () => ({
   },
   getSession: vi.fn().mockResolvedValue(null),
   updateUser: vi.fn().mockResolvedValue(undefined),
-  useListOrganizations: () => ({ data: [] }),
+  useListOrganizations: () => ({ data: organizationsMock }),
 }));
 
 vi.mock('@/config/urls', async (importOriginal) => {
@@ -80,6 +81,7 @@ describe('OnboardingFlow subscription ordering', () => {
     createPracticeMock.mockReset();
     getCurrentSubscriptionMock.mockReset();
     setActiveMock.mockReset();
+    organizationsMock = [];
     createPracticeMock.mockResolvedValue({ id: 'practice-123', slug: 'e2e-practice' });
     getCurrentSubscriptionMock.mockResolvedValue(null);
     setActiveMock.mockResolvedValue(undefined);
@@ -126,5 +128,38 @@ describe('OnboardingFlow subscription ordering', () => {
     await waitFor(() => {
       expect(getCurrentSubscriptionMock).toHaveBeenCalledTimes(1);
     });
+  });
+
+  it('activates an existing membership before loading subscription state', async () => {
+    organizationsMock = [{ id: 'existing-practice-123', slug: 'existing-practice', name: 'Existing Practice' }];
+    const callOrder: string[] = [];
+    let resolveActivation: (() => void) | null = null;
+    setActiveMock.mockImplementation(() => new Promise<void>((resolve) => {
+      callOrder.push('activate:start');
+      resolveActivation = () => {
+        callOrder.push('activate:done');
+        resolve();
+      };
+    }));
+    getCurrentSubscriptionMock.mockImplementation(() => {
+      callOrder.push('subscription');
+      return Promise.resolve(null);
+    });
+
+    render(<OnboardingFlow onClose={vi.fn()} onComplete={vi.fn()} />);
+
+    await waitFor(() => {
+      expect(setActiveMock).toHaveBeenCalledWith({ organizationId: 'existing-practice-123' });
+    });
+    expect(getCurrentSubscriptionMock).not.toHaveBeenCalled();
+
+    await act(async () => {
+      resolveActivation?.();
+    });
+
+    await waitFor(() => {
+      expect(getCurrentSubscriptionMock).toHaveBeenCalledTimes(1);
+    });
+    expect(callOrder).toEqual(['activate:start', 'activate:done', 'subscription']);
   });
 });

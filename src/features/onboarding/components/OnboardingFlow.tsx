@@ -117,6 +117,7 @@ const OnboardingFlowImpl = ({
 
   const [step, setStep] = useState<OnboardingStep>(initialStep);
   const [hasActiveSubscription, setHasActiveSubscription] = useState(initialHasActiveSubscription);
+  const [activatedOrganizationId, setActivatedOrganizationId] = useState<string | null>(null);
   const [draft, setDraft] = useState<OnboardingDraft>(() => {
     const stored = persistDraft ? readDraft() : null;
     return {
@@ -128,6 +129,7 @@ const OnboardingFlowImpl = ({
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const hasLoadedPrefsRef = useRef(false);
+  const activatingOrganizationIdRef = useRef<string | null>(null);
   useEffect(() => {
     if (!active || !sessionUserId || hasLoadedPrefsRef.current || !loadPreferences) return;
     void (async () => {
@@ -149,7 +151,48 @@ const OnboardingFlowImpl = ({
   const subscriptionOrganizationId = draft.createdOrganizationId ?? firstExistingMembership?.id ?? null;
 
   useEffect(() => {
-    if (!active || !loadSubscription || !subscriptionOrganizationId) return;
+    if (!active || !subscriptionOrganizationId || activatedOrganizationId === subscriptionOrganizationId) return;
+    if (activatingOrganizationIdRef.current === subscriptionOrganizationId) return;
+    activatingOrganizationIdRef.current = subscriptionOrganizationId;
+    void (async () => {
+      let didActivate = false;
+      try {
+        const activated = await createOrganization(draft, firstExistingMembership ?? {
+          id: subscriptionOrganizationId,
+          slug: draft.createdOrganizationSlug ?? null,
+          name: draft.practiceName ?? null
+        });
+        if (activated?.id) {
+          didActivate = true;
+          setActivatedOrganizationId(activated.id);
+          setDraft((prev) => ({
+            ...prev,
+            createdOrganizationId: activated.id,
+            createdOrganizationSlug: activated.slug ?? prev.createdOrganizationSlug ?? firstExistingMembership?.slug ?? null,
+            practiceName: prev.practiceName ?? firstExistingMembership?.name ?? ''
+          }));
+        }
+      } catch (error) {
+        if (import.meta.env.DEV) {
+          console.error('[ONBOARDING][ORG] failed to activate organization', error);
+        }
+      } finally {
+        if (!didActivate && activatingOrganizationIdRef.current === subscriptionOrganizationId) {
+          activatingOrganizationIdRef.current = null;
+        }
+      }
+    })();
+  }, [
+    active,
+    activatedOrganizationId,
+    createOrganization,
+    draft,
+    firstExistingMembership,
+    subscriptionOrganizationId
+  ]);
+
+  useEffect(() => {
+    if (!active || !loadSubscription || !subscriptionOrganizationId || activatedOrganizationId !== subscriptionOrganizationId) return;
     let cancelled = false;
     void (async () => {
       try {
@@ -167,7 +210,7 @@ const OnboardingFlowImpl = ({
     return () => {
       cancelled = true;
     };
-  }, [active, loadSubscription, subscriptionOrganizationId]);
+  }, [active, activatedOrganizationId, loadSubscription, subscriptionOrganizationId]);
 
   useEffect(() => {
     if (!firstExistingMembership?.id || draft.createdOrganizationId) return;
@@ -196,7 +239,19 @@ const OnboardingFlowImpl = ({
 
   const ensureOrganization = async (): Promise<string | null> => {
     if (draft.createdOrganizationId) {
-      return draft.createdOrganizationId;
+      if (activatedOrganizationId === draft.createdOrganizationId) {
+        return draft.createdOrganizationId;
+      }
+      const activated = await createOrganization(draft, firstExistingMembership);
+      if (!activated?.id) {
+        return null;
+      }
+      setActivatedOrganizationId(activated.id);
+      handleDraftChange({
+        createdOrganizationId: activated.id,
+        createdOrganizationSlug: activated.slug ?? draft.createdOrganizationSlug ?? null
+      });
+      return activated.id;
     }
 
     const created = await createOrganization(draft, firstExistingMembership);
@@ -208,6 +263,7 @@ const OnboardingFlowImpl = ({
       createdOrganizationId: created.id,
       createdOrganizationSlug: created.slug ?? null
     });
+    setActivatedOrganizationId(created.id);
     return created.id;
   };
 
@@ -567,9 +623,13 @@ export const OnboardingFlow = ({
       loadPreferences={() => getPreferencesCategory<OnboardingPreferences>('onboarding')}
       loadSubscription={async () => Boolean(await getCurrentSubscription())}
       createOrganization={async (draft, membership) => {
-        if (membership?.id) {
-          await authClient.organization.setActive({ organizationId: membership.id });
-          return { id: membership.id, slug: membership.slug ?? null };
+        const existingOrganizationId = membership?.id ?? draft.createdOrganizationId;
+        if (existingOrganizationId) {
+          await authClient.organization.setActive({ organizationId: existingOrganizationId });
+          return {
+            id: existingOrganizationId,
+            slug: membership?.slug ?? draft.createdOrganizationSlug ?? null
+          };
         }
 
         const name = (draft.practiceName ?? '').trim();
