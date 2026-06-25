@@ -606,6 +606,7 @@ export interface CreatePracticeRequest {
   logo?: string;
   description?: string;
   metadata?: PracticeMetadata;
+  supportedStates?: SupportedStateEntry[] | null;
   businessPhone?: string;
   businessEmail?: string;
   consultationFee?: MajorAmount;
@@ -1151,7 +1152,8 @@ export async function createPractice(
   payload: CreatePracticeRequest,
   config?: ApiRequestConfig
 ): Promise<Practice> {
-  const response = await apiClient.post('/api/practice', payload, {
+  const normalized = normalizePracticeCreatePayload(payload);
+  const response = await apiClient.post('/api/practice', normalized, {
     signal: config?.signal
   });
   return unwrapPracticeResponse(response.data);
@@ -1869,6 +1871,19 @@ function normalizePracticeUpdatePayload(payload: UpdatePracticeRequest): Record<
   return normalized;
 }
 
+function normalizePracticeCreatePayload(payload: CreatePracticeRequest): Record<string, unknown> {
+  const normalized: Record<string, unknown> = { ...payload };
+
+  if ('supportedStates' in payload) {
+    delete normalized.supportedStates;
+    if (payload.supportedStates !== undefined) {
+      normalized.supported_states = normalizeSupportedStates(payload.supportedStates);
+    }
+  }
+
+  return normalized;
+}
+
 function unwrapPublicPracticePayload(payload: unknown): Record<string, unknown> | null {
   if (!isRecord(payload)) return null;
 
@@ -2077,32 +2092,7 @@ function normalizePracticeDetailsPayload(payload: PracticeDetailsUpdate): Record
   }
 
   if ('supportedStates' in payload && payload.supportedStates !== undefined) {
-    if (Array.isArray(payload.supportedStates)) {
-      normalized.supported_states = payload.supportedStates
-        .map((entry) => {
-          if (!isRecord(entry) || typeof entry.country !== 'string') {
-            return null;
-          }
-          const country = entry.country.trim().toUpperCase();
-          if (!country) {
-            return null;
-          }
-          const result: Record<string, unknown> = { country };
-          if (Array.isArray(entry.states)) {
-            const states = entry.states
-              .filter((state): state is string => typeof state === 'string')
-              .map((state) => state.trim().toUpperCase())
-              .filter(Boolean);
-            if (states.length > 0) {
-              result.states = states;
-            }
-          }
-          return result;
-        })
-        .filter((entry): entry is Record<string, unknown> => entry !== null);
-    } else {
-      normalized.supported_states = payload.supportedStates;
-    }
+    normalized.supported_states = normalizeSupportedStates(payload.supportedStates);
   }
 
   // NOTE: Persist `services_by_state` inside `settings` (opaque JSON string).
@@ -2111,6 +2101,35 @@ function normalizePracticeDetailsPayload(payload: PracticeDetailsUpdate): Record
   // create a top-level `services_by_state` field — the backend does not accept it.
 
   return normalized;
+}
+
+function normalizeSupportedStates(
+  supportedStates: SupportedStateEntry[] | null
+): Record<string, unknown>[] | null {
+  if (supportedStates === null) return null;
+
+  return supportedStates
+    .map((entry) => {
+      if (!isRecord(entry) || typeof entry.country !== 'string') {
+        return null;
+      }
+      const country = entry.country.trim().toUpperCase();
+      if (!country) {
+        return null;
+      }
+      const result: Record<string, unknown> = { country };
+      if (Array.isArray(entry.states)) {
+        const states = entry.states
+          .filter((state): state is string => typeof state === 'string')
+          .map((state) => state.trim().toUpperCase())
+          .filter(Boolean);
+        if (states.length > 0) {
+          result.states = states;
+        }
+      }
+      return result;
+    })
+    .filter((entry): entry is Record<string, unknown> => entry !== null);
 }
 
 export function normalizePracticeDetailsResponse(payload: unknown): PracticeDetails | null {

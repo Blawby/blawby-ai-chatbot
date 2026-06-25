@@ -452,17 +452,17 @@ const OnboardingFlowImpl = ({
                 lede={
                   <>
                     Your practice is the workspace your team and clients see. Pick a
-                    name + slug now; jurisdiction and bar # help us tune your assistant
-                    to your state.
+                    name now; jurisdiction and service areas help Blawby screen
+                    incoming leads against the work and locations you accept.
                   </>
                 }
               />
               <AssistantTurn trail="grounding context">
                 <p style={{ margin: 0 }}>
                   {firstName ? <>Got it, <strong>{firstName}</strong>. </> : 'Got it. '}
-                  Let&apos;s name your practice. If you&apos;re solo,
-                  &ldquo;Law Offices of {firstName || 'Your Name'}&rdquo; is common —
-                  but anything works. You can change the public slug later.
+                  Add the practice name clients should see. We&apos;ll use the
+                  jurisdiction, service areas, and practice type to qualify leads
+                  before they reach your workspace.
                 </p>
               </AssistantTurn>
               <PracticeStep draft={draft} onChange={handleDraftChange} />
@@ -642,8 +642,12 @@ export const OnboardingFlow = ({
           name,
           slug: slugify(name),
           description: draft.description ?? undefined,
+          supportedStates: draft.jurisdiction
+            ? [{ country: 'US', states: [draft.jurisdiction] }]
+            : [],
           metadata: {
             practiceAreas: draft.practiceAreas ?? [],
+            practiceTypes: draft.practiceTypes ?? [],
             barNumber: draft.barNumber ?? '',
             jurisdictions: draft.jurisdiction ? [draft.jurisdiction] : [],
           },
