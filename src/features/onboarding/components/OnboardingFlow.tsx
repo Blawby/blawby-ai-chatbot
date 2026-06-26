@@ -38,13 +38,18 @@ interface OnboardingFlowProps {
   active?: boolean;
   className?: string;
   testId?: string;
+  initialStep?: OnboardingStep;
+  initialHasActiveSubscription?: boolean;
+  subscriptionSuccessPracticeId?: string | null;
 }
 
 interface OnboardingFlowRuntimeProps extends OnboardingFlowProps {
   initialStep?: OnboardingStep;
   initialDraft?: OnboardingDraft;
   initialHasActiveSubscription?: boolean;
+  subscriptionSuccessPracticeId?: string | null;
   sessionUserName: string;
+  sessionUserEmail: string;
   sessionUserId?: string | null;
   requiresNameCollection: boolean;
   firstExistingMembership?: ExistingMembership;
@@ -99,7 +104,9 @@ const OnboardingFlowImpl = ({
   initialStep = 1,
   initialDraft,
   initialHasActiveSubscription = false,
+  subscriptionSuccessPracticeId = null,
   sessionUserName,
+  sessionUserEmail,
   sessionUserId,
   requiresNameCollection,
   firstExistingMembership,
@@ -123,7 +130,12 @@ const OnboardingFlowImpl = ({
     return {
       fullName: stored?.fullName ?? initialDraft?.fullName ?? sessionUserName,
       ...(initialDraft ?? {}),
-      ...(stored ?? {})
+      ...(stored ?? {}),
+      createdOrganizationId:
+        subscriptionSuccessPracticeId
+          ?? stored?.createdOrganizationId
+          ?? initialDraft?.createdOrganizationId
+          ?? undefined
     };
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -496,7 +508,10 @@ const OnboardingFlowImpl = ({
                   this second, you can come back and complete verification there.
                 </p>
               </AssistantTurn>
-              <PaymentsStep draft={draft} />
+              <PaymentsStep
+                draft={draft}
+                practiceEmail={sessionUserEmail}
+              />
               <StageFooter
                 onSkip={handleSkip}
                 onBack={handleBack}
@@ -582,7 +597,10 @@ export const OnboardingFlow = ({
   onComplete,
   active = true,
   className = '',
-  testId
+  testId,
+  initialStep,
+  initialHasActiveSubscription = false,
+  subscriptionSuccessPracticeId = null
 }: OnboardingFlowProps) => {
   const { session } = useSessionContext();
 
@@ -616,10 +634,14 @@ export const OnboardingFlow = ({
       className={className}
       testId={testId}
       sessionUserName={sessionUserName}
+      sessionUserEmail={session?.user?.email ?? ''}
       sessionUserId={sessionUserId}
       requiresNameCollection={requiresNameCollection}
       firstExistingMembership={firstExistingMembership}
       persistDraft
+      initialStep={initialStep}
+      initialHasActiveSubscription={initialHasActiveSubscription}
+      subscriptionSuccessPracticeId={subscriptionSuccessPracticeId}
       loadPreferences={() => getPreferencesCategory<OnboardingPreferences>('onboarding')}
       loadSubscription={async () => Boolean(await getCurrentSubscription())}
       createOrganization={async (draft, membership) => {
@@ -701,6 +723,7 @@ export const DebugOnboardingFlow = ({
       initialDraft={initialDraft}
       initialHasActiveSubscription={hasActiveSubscription}
       sessionUserName={sessionUserName}
+      sessionUserEmail="sarah@example.com"
       pricingPlanOverride={pricingPlanOverride}
       sessionUserId={null}
       requiresNameCollection={false}
