@@ -8,7 +8,7 @@ import type { OnboardingDraft } from '../types';
 
 interface IntakeFormStepProps {
   draft: OnboardingDraft;
-  onTemplateReady?: (template: IntakeTemplate) => void;
+  onTemplateReady?: (template: IntakeTemplate | null) => void;
 }
 
 const fieldPhase = (field: IntakeFieldDefinition) => field.phase ?? (field.required ? 'required' : 'enrichment');
@@ -70,17 +70,20 @@ export const IntakeFormStep = ({ draft, onTemplateReady }: IntakeFormStepProps) 
     if (!orgId) {
       setIsLoading(false);
       setError('Practice not created yet. Go back to step 3.');
+      onTemplateReady?.(null);
       return;
     }
 
     let mounted = true;
     setIsLoading(true);
+    setError(null);
     listIntakeTemplates(orgId)
       .then((templates) => {
         if (!mounted) return;
         const defaultTemplate = templates.find((t) => t.is_default) ?? templates[0] ?? null;
         setTemplate(defaultTemplate);
-        if (defaultTemplate) onTemplateReady?.(defaultTemplate);
+        setError(null);
+        onTemplateReady?.(defaultTemplate);
         setIsLoading(false);
       })
       .catch((err: unknown) => {
@@ -92,6 +95,8 @@ export const IntakeFormStep = ({ draft, onTemplateReady }: IntakeFormStepProps) 
             ? 'Intake form not available yet. The backend endpoint may still be deploying.'
             : msg || 'Unable to load intake form.'
         );
+        setTemplate(null);
+        onTemplateReady?.(null);
         setIsLoading(false);
       });
 

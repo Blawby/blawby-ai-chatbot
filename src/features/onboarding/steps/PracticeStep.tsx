@@ -214,6 +214,7 @@ export const PracticeStep = ({ draft, onChange }: PracticeStepProps) => {
                           key={area}
                           variant={isSelected ? 'accent' : 'default'}
                           onClick={() => togglePracticeArea(area)}
+                          aria-pressed={isSelected}
                         >
                           {area}
                         </Chip>

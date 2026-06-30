@@ -211,6 +211,36 @@ describe('OnboardingFlow subscription ordering', () => {
     });
   });
 
+  it('continues onboarding when publishing the public practice flag fails', async () => {
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    updatePracticeDetailsMock.mockRejectedValue(new Error('visibility update failed'));
+
+    render(<OnboardingFlow onClose={vi.fn()} onComplete={vi.fn()} />);
+
+    await waitFor(() => {
+      expect(screen.getByText(/Step 1 of 6 .* About you/)).toBeInTheDocument();
+    });
+    fireEvent.input(document.querySelector('#onboarding-birthday') as HTMLInputElement, {
+      target: { value: '1990-01-15' },
+    });
+    fireEvent.click(document.querySelector('#onboarding-terms') as HTMLInputElement);
+    fireEvent.click(screen.getByRole('button', { name: /^Continue .* Your practice/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText(/Step 2 of 6 .* Your practice/)).toBeInTheDocument();
+    });
+    fireEvent.input(document.querySelector('#onboarding-firmName') as HTMLInputElement, {
+      target: { value: 'E2E Practice' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: /^Continue .* Get Business/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText(/Step 3 of 6 .* Get Business/)).toBeInTheDocument();
+    });
+    expect(updatePracticeDetailsMock).toHaveBeenCalledWith('practice-123', { isPublic: true });
+    consoleError.mockRestore();
+  });
+
   it('activates an existing membership before loading subscription state', async () => {
     organizationsMock = [{ id: 'existing-practice-123', slug: 'existing-practice', name: 'Existing Practice' }];
     const callOrder: string[] = [];
@@ -274,6 +304,21 @@ describe('OnboardingFlow subscription ordering', () => {
     expect(screen.queryByText(/Step 1 of 6 .* About you/)).not.toBeInTheDocument();
   });
 
+  it('prioritizes explicit Stripe return over subscription success returnTo', async () => {
+    locationMock.url = '/onboarding?stripe=return&returnTo=%2F%3Fsubscription%3Dsuccess%26practiceId%3Dpractice-returned';
+    locationMock.query = {
+      stripe: 'return',
+      returnTo: '%2F%3Fsubscription%3Dsuccess%26practiceId%3Dpractice-returned',
+    };
+
+    render(<OnboardingPage />);
+
+    await waitFor(() => {
+      expect(screen.getByText(/Step 5 of 6 .* Your intake form/)).toBeInTheDocument();
+    });
+    expect(screen.queryByText(/Step 4 of 6 .* Payments/)).not.toBeInTheDocument();
+  });
+
   it('starts Stripe Connect from the payments step with the active practice', async () => {
     const redirectToStripe = vi.fn();
     render(
@@ -309,5 +354,17 @@ describe('OnboardingFlow subscription ordering', () => {
     expect(screen.getByText('Phone')).toBeInTheDocument();
     expect(screen.getByText('Brief summary')).toBeInTheDocument();
     expect(screen.getByText(/edit these questions/i)).toBeInTheDocument();
+  });
+
+  it('clears the stored intake template slug when template loading fails', async () => {
+    const onTemplateReady = vi.fn();
+    listIntakeTemplatesMock.mockRejectedValue(new Error('template unavailable'));
+
+    render(<IntakeFormStep draft={{ createdOrganizationId: 'practice-123' }} onTemplateReady={onTemplateReady} />);
+
+    await waitFor(() => {
+      expect(screen.getByText('template unavailable')).toBeInTheDocument();
+    });
+    expect(onTemplateReady).toHaveBeenCalledWith(null);
   });
 });

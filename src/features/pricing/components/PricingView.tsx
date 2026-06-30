@@ -99,7 +99,8 @@ const PricingView: FunctionComponent<PricingViewProps> = ({
 
   const handleUpgrade = async (plan: SubscriptionPlan) => {
     const hasYearly = Boolean(plan.stripeYearlyPriceId && plan.yearlyPrice);
-    const isYearly = billingPeriod === 'yearly';
+    const hasMonthlyPrice = Boolean(plan.monthlyPrice);
+    const isYearly = (billingPeriod === 'yearly' && hasYearly) || (!hasMonthlyPrice && hasYearly);
     const selectedPlanName = plan.name;
     try {
       if (!selectedPlanName) {
@@ -123,7 +124,6 @@ const PricingView: FunctionComponent<PricingViewProps> = ({
     }
   };
 
-  const isYearly = billingPeriod === 'yearly';
   const hasYearly = Boolean(plan.stripeYearlyPriceId && plan.yearlyPrice);
   const features = Array.isArray(plan.features)
     ? plan.features.filter((feature): feature is string => typeof feature === 'string' && feature.trim().length > 0)
@@ -131,19 +131,24 @@ const PricingView: FunctionComponent<PricingViewProps> = ({
   const hasMonthlyPrice = Boolean(plan.monthlyPrice);
   const monthlyPriceValue = plan.monthlyPrice ? Number.parseFloat(plan.monthlyPrice) : NaN;
   const yearlyPriceValue = plan.yearlyPrice ? Number.parseFloat(plan.yearlyPrice) : NaN;
-  const selectedPriceValue = isYearly && hasYearly
+  const effectiveBillingPeriod: BillingPeriod = !hasMonthlyPrice && hasYearly ? 'yearly' : billingPeriod;
+  const isEffectiveYearly = effectiveBillingPeriod === 'yearly' && hasYearly;
+  const selectedPriceValue = isEffectiveYearly
     ? yearlyPriceValue
     : monthlyPriceValue;
   const hasDisplayPrice = Number.isFinite(selectedPriceValue);
-  const periodLabel = isYearly && hasYearly
+  const periodLabel = isEffectiveYearly
     ? t('pricing:billing.yearly')
     : t('pricing:billing.monthly');
-  const billingDescription = isYearly && hasYearly
+  const billingDescription = isEffectiveYearly
     ? t('pricing:billing.billedAnnually')
     : t('pricing:billing.billedMonthly');
   const monthlyLabel = t('pricing:billing.monthly');
   const annuallyLabel = t('pricing:billing.annually', {
     defaultValue: t('pricing:billing.yearly')
+  });
+  const paymentFrequencyLabel = t('pricing:billing.paymentFrequency', {
+    defaultValue: 'Payment frequency'
   });
   const yearlyDiscountPercent = (() => {
     if (!hasYearly || !Number.isFinite(monthlyPriceValue) || !Number.isFinite(yearlyPriceValue)) {
@@ -157,6 +162,12 @@ const PricingView: FunctionComponent<PricingViewProps> = ({
     const roundedDiscount = Math.round(discount);
     return roundedDiscount > 0 ? roundedDiscount : null;
   })();
+  const yearlyDiscountLabel = yearlyDiscountPercent
+    ? t('pricing:billing.savePercent', {
+        percent: yearlyDiscountPercent,
+        defaultValue: 'Save {{percent}}%'
+      })
+    : null;
   const showBillingSelector = hasMonthlyPrice && hasYearly;
   const isOnboarding = variant === 'onboarding';
   const billingToggleButtonClass = (active: boolean) => [
@@ -173,7 +184,7 @@ const PricingView: FunctionComponent<PricingViewProps> = ({
           <div className={`flex justify-center ${isOnboarding ? 'pb-0' : 'pb-1'}`}>
             <div
               role="group"
-              aria-label="Payment frequency"
+              aria-label={paymentFrequencyLabel}
               className="inline-flex rounded-full border border-[var(--rule)] bg-[var(--card)]/40 p-1"
             >
               <button
@@ -193,13 +204,13 @@ const PricingView: FunctionComponent<PricingViewProps> = ({
                 onClick={() => setBillingPeriod('yearly')}
               >
                 <span>{annuallyLabel}</span>
-                {yearlyDiscountPercent ? (
+                {yearlyDiscountLabel ? (
                   <span
                     className={billingPeriod === 'yearly'
                       ? 'text-[11px] font-semibold text-[var(--paper)]/75'
                       : 'text-[11px] font-semibold text-[var(--accent-deep)]'}
                   >
-                    Save {yearlyDiscountPercent}%
+                    {yearlyDiscountLabel}
                   </span>
                 ) : null}
               </button>

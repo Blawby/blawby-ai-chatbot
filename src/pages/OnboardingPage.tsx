@@ -57,11 +57,11 @@ const OnboardingPage = () => {
   const subscriptionSuccessPracticeId = getSubscriptionSuccessPracticeId(fallbackPath);
   const completionPath = subscriptionSuccessPracticeId ? '/' : fallbackPath;
   const stripeReturnStatus = getStripeReturnStatus(location.query?.stripe);
-  const initialOnboardingStep = subscriptionSuccessPracticeId
-    ? 4
-    : stripeReturnStatus === 'return'
-      ? 5
-      : stripeReturnStatus === 'refresh'
+  const initialOnboardingStep = stripeReturnStatus === 'return'
+    ? 5
+    : stripeReturnStatus === 'refresh'
+      ? 4
+      : subscriptionSuccessPracticeId
         ? 4
         : undefined;
   const handleComplete = () => {

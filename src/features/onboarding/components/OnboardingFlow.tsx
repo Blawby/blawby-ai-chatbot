@@ -363,10 +363,10 @@ const OnboardingFlowImpl = ({
     }
   }, [draft, requiresNameCollection, step]);
 
-  const handleIntakeTemplateReady = useCallback((template: { slug?: string }) => {
-    const nextSlug = template.slug?.trim() || null;
+  const handleIntakeTemplateReady = useCallback((template: { slug?: string } | null) => {
+    const nextSlug = template?.slug?.trim() || null;
     setDraft((prev) => (
-      nextSlug && nextSlug !== prev.defaultIntakeTemplateSlug
+      nextSlug !== (prev.defaultIntakeTemplateSlug ?? null)
         ? { ...prev, defaultIntakeTemplateSlug: nextSlug }
         : prev
     ));
@@ -695,7 +695,9 @@ export const OnboardingFlow = ({
 
         // Activate the new org in the Better Auth session.
         await authClient.organization.setActive({ organizationId: practice.id });
-        await updatePracticeDetails(practice.id, { isPublic: true });
+        void updatePracticeDetails(practice.id, { isPublic: true }).catch((error) => {
+          console.error('[ONBOARDING][PRACTICE_VISIBILITY] failed to publish practice', error);
+        });
 
         return { id: practice.id, slug: practice.slug ?? slugify(name) };
       }}
