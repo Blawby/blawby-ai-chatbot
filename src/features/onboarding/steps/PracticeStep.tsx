@@ -1,7 +1,6 @@
 import { useState } from 'preact/hooks';
-import { Building2, Plus } from 'lucide-preact';
+import { Building2 } from 'lucide-preact';
 import { Chip } from '@/design-system/primitives';
-import { Button } from '@/shared/ui/Button';
 import { Input, Textarea } from '@/shared/ui/input';
 import { slugify } from '@/shared/lib/orgCreation';
 import { getPublicFormOrigin } from '@/config/urls';
@@ -61,8 +60,14 @@ const PRACTICE_SERVICE_GROUPS: ReadonlyArray<{
   }
 ];
 
-const PRACTICE_TYPES = PRACTICE_SERVICE_GROUPS.map((group) => group.type);
 const CATALOG_PRACTICE_AREAS = PRACTICE_SERVICE_GROUPS.flatMap((group) => group.services);
+
+const getPracticeTypesForAreas = (areas: readonly string[]) => {
+  const areaSet = new Set(areas);
+  return PRACTICE_SERVICE_GROUPS
+    .filter((group) => group.services.some((service) => areaSet.has(service)))
+    .map((group) => group.type);
+};
 
 /**
  * Step 2 body — practice identity plus grounding fields. All fields are sent
@@ -72,48 +77,32 @@ const CATALOG_PRACTICE_AREAS = PRACTICE_SERVICE_GROUPS.flatMap((group) => group.
  */
 export const PracticeStep = ({ draft, onChange }: PracticeStepProps) => {
   const [otherPracticeArea, setOtherPracticeArea] = useState('');
-  const [otherPracticeType, setOtherPracticeType] = useState(PRACTICE_TYPES[0] ?? '');
   const computedSlug = slugify(draft.practiceName ?? '');
   const selectedAreas = new Set(draft.practiceAreas ?? []);
-  const selectedTypes = new Set(draft.practiceTypes ?? []);
+  const customPracticeAreas = (draft.practiceAreas ?? [])
+    .filter((area) => !CATALOG_PRACTICE_AREAS.includes(area));
   const publicOrigin = (() => { try { return getPublicFormOrigin(); } catch { return ''; } })();
 
   const setPracticeAreas = (areas: string[]) => {
     const uniqueAreas = Array.from(new Set(areas.map((area) => area.trim()).filter(Boolean)));
-    onChange({ practiceAreas: uniqueAreas });
+    onChange({
+      practiceAreas: uniqueAreas,
+      practiceTypes: getPracticeTypesForAreas(uniqueAreas)
+    });
   };
 
-  const setPracticeTypes = (types: string[]) => {
-    const uniqueTypes = Array.from(new Set(types.map((type) => type.trim()).filter(Boolean)));
-    onChange({ practiceTypes: uniqueTypes });
-  };
-
-  const togglePracticeType = (type: string) => {
-    const next = new Set(selectedTypes);
-    if (next.has(type)) {
-      next.delete(type);
-    } else {
-      next.add(type);
-    }
-    setPracticeTypes(Array.from(next));
-  };
-
-  const togglePracticeArea = (area: string, practiceType?: string) => {
+  const togglePracticeArea = (area: string) => {
     const next = new Set(selectedAreas);
-    const isAdding = !next.has(area);
     if (next.has(area)) {
       next.delete(area);
     } else {
       next.add(area);
     }
     const nextAreas = Array.from(next);
-    const nextTypes = practiceType && isAdding
-      ? Array.from(new Set([...(draft.practiceTypes ?? []), practiceType]))
-      : (draft.practiceTypes ?? []);
 
     onChange({
       practiceAreas: nextAreas,
-      practiceTypes: nextTypes
+      practiceTypes: getPracticeTypesForAreas(nextAreas)
     });
   };
 
@@ -121,7 +110,6 @@ export const PracticeStep = ({ draft, onChange }: PracticeStepProps) => {
     const nextArea = otherPracticeArea.trim();
     if (!nextArea) return;
     setPracticeAreas([...(draft.practiceAreas ?? []), nextArea]);
-    setPracticeTypes([...(draft.practiceTypes ?? []), otherPracticeType]);
     setOtherPracticeArea('');
   };
 
@@ -203,17 +191,20 @@ export const PracticeStep = ({ draft, onChange }: PracticeStepProps) => {
           </p>
           <div className="flex flex-col gap-5">
             {PRACTICE_SERVICE_GROUPS.map((group) => {
-              const hasSelectedService = group.services.some((service) => selectedAreas.has(service));
-              const isTypeSelected = selectedTypes.has(group.type) || hasSelectedService;
+              const selectedCount = group.services.filter((service) => selectedAreas.has(service)).length;
               return (
                 <div key={group.type}>
-                  <div className="mb-2 flex items-center gap-2">
-                    <Chip
-                      variant={isTypeSelected ? 'accent' : 'default'}
-                      onClick={() => togglePracticeType(group.type)}
-                    >
-                      {group.type}
-                    </Chip>
+                  <div className="mb-2 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-dim-2">
+                    <span>{group.type}</span>
+                    {selectedCount > 0 && (
+                      <span
+                        className="rounded-sm border border-line px-1.5 py-0.5 text-[10px] tracking-normal"
+                        style={{ color: 'var(--dim)' }}
+                        aria-label={`${selectedCount} selected`}
+                      >
+                        {selectedCount}
+                      </span>
+                    )}
                   </div>
                   <div className="flex flex-wrap gap-2">
                     {group.services.map((area) => {
@@ -222,7 +213,7 @@ export const PracticeStep = ({ draft, onChange }: PracticeStepProps) => {
                         <Chip
                           key={area}
                           variant={isSelected ? 'accent' : 'default'}
-                          onClick={() => togglePracticeArea(area, group.type)}
+                          onClick={() => togglePracticeArea(area)}
                         >
                           {area}
                         </Chip>
@@ -232,56 +223,37 @@ export const PracticeStep = ({ draft, onChange }: PracticeStepProps) => {
                 </div>
               );
             })}
-            {(draft.practiceAreas ?? [])
-              .filter((area) => !CATALOG_PRACTICE_AREAS.includes(area))
-              .map((area) => (
-                <Chip
-                  key={area}
-                  variant="accent"
-                  onClick={() => togglePracticeArea(area)}
-                  onRemove={() => togglePracticeArea(area)}
-                  removeAriaLabel={`Remove ${area}`}
-                >
-                  {area}
-                </Chip>
-              ))}
           </div>
-          <div className="mt-3 flex flex-col gap-2 sm:flex-row">
-            <select
-              id="onboarding-practice-area-other-type"
-              value={otherPracticeType}
-              onInput={(event) => setOtherPracticeType((event.target as HTMLSelectElement).value)}
-              className="select sm:max-w-[180px]"
-              aria-label="Practice type for custom area"
-            >
-              {PRACTICE_TYPES.map((type) => (
-                <option key={type} value={type}>
-                  {type}
-                </option>
-              ))}
-            </select>
+          <div className="mt-4">
             <Input
               id="onboarding-practice-area-other"
               type="text"
               value={otherPracticeArea}
               onChange={setOtherPracticeArea}
+              onBlur={addOtherPracticeArea}
               onKeyDown={(event) => {
                 if (event.key === 'Enter') {
                   event.preventDefault();
                   addOtherPracticeArea();
                 }
               }}
-              placeholder="Other practice area"
+              label="Add custom practice area"
+              placeholder="e.g. Aviation law"
             />
-            <Button
-              type="button"
-              variant="secondary"
-              icon={Plus}
-              onClick={addOtherPracticeArea}
-              disabled={otherPracticeArea.trim().length === 0}
-            >
-              Add
-            </Button>
+            {customPracticeAreas.length > 0 && (
+              <div className="mt-2 flex flex-wrap gap-2">
+                {customPracticeAreas.map((area) => (
+                  <Chip
+                    key={area}
+                    variant="accent"
+                    onRemove={() => togglePracticeArea(area)}
+                    removeAriaLabel={`Remove ${area}`}
+                  >
+                    {area}
+                  </Chip>
+                ))}
+              </div>
+            )}
           </div>
         </div>
 

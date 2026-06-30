@@ -1,8 +1,8 @@
-import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { useTranslation } from '@/shared/i18n/hooks';
 import { useSessionContext } from '@/shared/contexts/SessionContext';
 import { useToastContext } from '@/shared/contexts/ToastContext';
-import { createPractice, getCurrentSubscription } from '@/shared/lib/apiClient';
+import { createPractice, getCurrentSubscription, updatePracticeDetails } from '@/shared/lib/apiClient';
 import { getPreferencesCategory, updatePreferencesCategory } from '@/shared/lib/preferencesApi';
 import type { SubscriptionPlan } from '@/shared/utils/fetchPlans';
 import {
@@ -363,6 +363,15 @@ const OnboardingFlowImpl = ({
     }
   }, [draft, requiresNameCollection, step]);
 
+  const handleIntakeTemplateReady = useCallback((template: { slug?: string }) => {
+    const nextSlug = template.slug?.trim() || null;
+    setDraft((prev) => (
+      nextSlug && nextSlug !== prev.defaultIntakeTemplateSlug
+        ? { ...prev, defaultIntakeTemplateSlug: nextSlug }
+        : prev
+    ));
+  }, []);
+
   const resolvedTestId = testId ?? 'onboarding-flow';
 
   return (
@@ -446,7 +455,6 @@ const OnboardingFlowImpl = ({
                 variant="onboarding"
               />
               <StageFooter
-                onSkip={handleSkip}
                 onBack={handleBack}
                 onContinue={handleContinue}
                 continueLabel={CONTINUE_LABEL[3]}
@@ -495,17 +503,20 @@ const OnboardingFlowImpl = ({
                 title={<>Get <em style={{ color: 'var(--accent)', fontStyle: 'italic' }}>paid</em> — properly.</>}
                 lede={
                   <>
-                    You&apos;ll connect Stripe from your workspace so you can accept
-                    payments and receive payouts. Stripe will verify your business
-                    and representative details before enabling payouts.
+                    Connect the Stripe account where payouts from invoices,
+                    consultation fees, and other client payments should land.
+                    Stripe verifies your business and authorized representative
+                    before it can send funds to that account.
                   </>
                 }
               />
-              <AssistantTurn trail="why now matters">
+              <AssistantTurn trail="payout routing">
                 <p style={{ margin: 0 }}>
-                  Once your practice is live, the &ldquo;Connect Stripe&rdquo; banner in your
-                  workspace is the fastest way to finish setup. If you&apos;re not ready
-                  this second, you can come back and complete verification there.
+                  Blawby uses this connected account for money movement: client
+                  payments are processed by Stripe, then paid out to the bank account
+                  your practice designates. Use the appropriate operating or
+                  trust/IOLTA account for the type of funds you collect, consistent
+                  with your jurisdiction&apos;s rules.
                 </p>
               </AssistantTurn>
               <PaymentsStep
@@ -543,7 +554,10 @@ const OnboardingFlowImpl = ({
                   create forms for different matter types.
                 </p>
               </AssistantTurn>
-              <IntakeFormStep draft={draft} />
+              <IntakeFormStep
+                draft={draft}
+                onTemplateReady={handleIntakeTemplateReady}
+              />
               <StageFooter
                 onSkip={handleSkip}
                 onBack={handleBack}
@@ -681,6 +695,7 @@ export const OnboardingFlow = ({
 
         // Activate the new org in the Better Auth session.
         await authClient.organization.setActive({ organizationId: practice.id });
+        await updatePracticeDetails(practice.id, { isPublic: true });
 
         return { id: practice.id, slug: practice.slug ?? slugify(name) };
       }}

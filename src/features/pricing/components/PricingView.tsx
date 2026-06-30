@@ -2,7 +2,6 @@ import { FunctionComponent } from 'preact';
 import { useEffect, useState } from 'preact/hooks';
 import { useTranslation } from '@/shared/i18n/hooks';
 import { Button } from '@/shared/ui/Button';
-import { Seg } from '@/design-system/patterns';
 import { Check } from 'lucide-preact';
 
 import { Icon } from '@/shared/ui/Icon';
@@ -158,29 +157,53 @@ const PricingView: FunctionComponent<PricingViewProps> = ({
     const roundedDiscount = Math.round(discount);
     return roundedDiscount > 0 ? roundedDiscount : null;
   })();
-  const annuallyLabelWithDiscount = yearlyDiscountPercent
-    ? `${annuallyLabel} -${yearlyDiscountPercent}%`
-    : annuallyLabel;
-  const showBillingSelector = hasMonthlyPrice || hasYearly;
-  const billingOptions: Array<{ value: BillingPeriod; label: string; disabled?: boolean }> = [
-    { value: 'monthly', label: monthlyLabel, disabled: !hasMonthlyPrice },
-    { value: 'yearly', label: annuallyLabelWithDiscount, disabled: !hasYearly }
-  ];
+  const showBillingSelector = hasMonthlyPrice && hasYearly;
   const isOnboarding = variant === 'onboarding';
+  const billingToggleButtonClass = (active: boolean) => [
+    'inline-flex h-9 items-center justify-center gap-1.5 rounded-full px-4 text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--paper)] disabled:cursor-not-allowed disabled:opacity-50',
+    active
+      ? 'bg-[var(--ink)] text-[var(--paper)]'
+      : 'text-dim-2 hover:bg-[var(--paper)] hover:text-ink'
+  ].join(' ');
 
   return (
     <div className={`w-full text-ink ${className ?? ''}`}>
       <div className={`mx-auto w-full max-w-xl ${isOnboarding ? '' : 'px-2 pt-2 pb-2 md:px-3 md:pt-3 md:pb-3'}`}>
         {showBillingSelector ? (
           <div className={`flex justify-center ${isOnboarding ? 'pb-0' : 'pb-1'}`}>
-            <Seg<BillingPeriod>
-              className={isOnboarding ? 'w-full max-w-[420px] rounded-[14px] border border-[var(--rule)] bg-[var(--card)] p-1 shadow-[var(--shadow-1)]' : 'w-full max-w-[420px]'}
-              value={billingPeriod}
-              options={billingOptions}
-              onChange={setBillingPeriod}
-              ariaLabel="Payment frequency"
-              disabled={submitting}
-            />
+            <div
+              role="group"
+              aria-label="Payment frequency"
+              className="inline-flex rounded-full border border-[var(--rule)] bg-[var(--card)]/40 p-1"
+            >
+              <button
+                type="button"
+                aria-pressed={billingPeriod === 'monthly'}
+                disabled={submitting}
+                className={billingToggleButtonClass(billingPeriod === 'monthly')}
+                onClick={() => setBillingPeriod('monthly')}
+              >
+                {monthlyLabel}
+              </button>
+              <button
+                type="button"
+                aria-pressed={billingPeriod === 'yearly'}
+                disabled={submitting}
+                className={billingToggleButtonClass(billingPeriod === 'yearly')}
+                onClick={() => setBillingPeriod('yearly')}
+              >
+                <span>{annuallyLabel}</span>
+                {yearlyDiscountPercent ? (
+                  <span
+                    className={billingPeriod === 'yearly'
+                      ? 'text-[11px] font-semibold text-[var(--paper)]/75'
+                      : 'text-[11px] font-semibold text-[var(--accent-deep)]'}
+                  >
+                    Save {yearlyDiscountPercent}%
+                  </span>
+                ) : null}
+              </button>
+            </div>
           </div>
         ) : null}
 

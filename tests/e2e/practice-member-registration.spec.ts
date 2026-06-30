@@ -135,6 +135,14 @@ test.describe('New practice member registration → dashboard', () => {
     await page.locator('#onboarding-jurisdiction').selectOption(practice.jurisdiction);
     await expect(page.locator('#onboarding-jurisdiction')).toContainText('WY · Wyoming');
     await expect(page.getByText('Civil litigation')).toHaveCount(0);
+    await expect(page.getByRole('button', { name: /^Transactional$/ })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: /^Regulatory$/ })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: /^Litigation$/ })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Contract drafting' })).toBeVisible();
+    await page.getByLabel('Add custom practice area').fill('Aviation law');
+    await page.locator('#onboarding-practice-area-other').press('Enter');
+    await expect(page.getByText('Aviation law', { exact: true })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Remove Aviation law' })).toBeVisible();
 
     const createPracticeRequest = page.waitForRequest(
       (request) => request.url().includes('/api/practice') && request.method() === 'POST',
@@ -163,6 +171,10 @@ test.describe('New practice member registration → dashboard', () => {
 
     // 4. Step 3 — Get Business → Stripe Checkout
     await expect(page.getByText(/Step 3 of 6 · Get Business/i)).toBeVisible();
+    await expect(page.getByRole('button', { name: /skip/i })).toHaveCount(0);
+    await expect(page.getByRole('group', { name: /Payment frequency/i })).toBeVisible();
+    await expect(page.getByRole('button', { name: /^Monthly$/i })).toHaveAttribute('aria-pressed', 'true');
+    await expect(page.getByRole('button', { name: /Annually/i })).toHaveAttribute('aria-pressed', 'false');
     await page.waitForTimeout(2000);
     expect(
       subscriptionResponses.filter((response) => response.beforePracticeCreated),
@@ -237,10 +249,12 @@ test.describe('New practice member registration → dashboard', () => {
     await page.getByRole('button', { name: /Continue → Your intake form/i }).click();
 
     await expect(page.getByText(/Step 5 of 6 · Your intake form/i)).toBeVisible();
+    await expect(page.getByText('Client preview')).toBeVisible();
     await expect(page.getByText('Collected on every intake')).toBeVisible();
-    await expect(page.getByText('Name', { exact: true })).toBeVisible();
-    await expect(page.getByText('Email', { exact: true })).toBeVisible();
-    await expect(page.getByText('Phone', { exact: true })).toBeVisible();
+    await expect(page.getByText('Required before submission')).toBeVisible();
+    await expect(page.getByRole('textbox', { name: 'Name' })).toBeDisabled();
+    await expect(page.getByRole('textbox', { name: 'Email' })).toBeDisabled();
+    await expect(page.getByRole('textbox', { name: 'Phone' })).toBeDisabled();
     await expect(page.getByText(/edit these questions/i)).toBeVisible();
     await page.getByRole('button', { name: /Continue → Share intake/i }).click();
 
