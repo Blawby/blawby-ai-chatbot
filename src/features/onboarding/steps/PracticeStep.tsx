@@ -1,8 +1,10 @@
+import { useState } from 'preact/hooks';
 import { Building2 } from 'lucide-preact';
 import { Chip } from '@/design-system/primitives';
 import { Input, Textarea } from '@/shared/ui/input';
 import { slugify } from '@/shared/lib/orgCreation';
 import { getPublicFormOrigin } from '@/config/urls';
+import { STATE_OPTIONS } from '@/shared/ui/address/AddressFields';
 import type { OnboardingDraft } from '../types';
 
 interface PracticeStepProps {
@@ -10,33 +12,62 @@ interface PracticeStepProps {
   onChange: (patch: Partial<OnboardingDraft>) => void;
 }
 
-const JURISDICTIONS: ReadonlyArray<{ value: string; label: string }> = [
-  { value: 'NC', label: 'NC · North Carolina' },
-  { value: 'SC', label: 'SC · South Carolina' },
-  { value: 'GA', label: 'GA · Georgia' },
-  { value: 'TX', label: 'TX · Texas' },
-  { value: 'NY', label: 'NY · New York' },
-  { value: 'CA', label: 'CA · California' },
-  { value: 'FL', label: 'FL · Florida' },
-  { value: 'IL', label: 'IL · Illinois' },
-  { value: 'WA', label: 'WA · Washington' },
-  { value: 'MA', label: 'MA · Massachusetts' }
+const PRACTICE_SERVICE_GROUPS: ReadonlyArray<{
+  type: string;
+  services: readonly string[];
+}> = [
+  {
+    type: 'Transactional',
+    services: [
+      'Contract drafting',
+      'Contract review',
+      'Business formation',
+      'Mergers and acquisitions',
+      'Real estate transactions',
+      'Estate planning',
+      'Employment agreements',
+      'Intellectual property licensing',
+      'Nonprofit formation'
+    ]
+  },
+  {
+    type: 'Regulatory',
+    services: [
+      'Compliance counseling',
+      'Licensing and permitting',
+      'Tax',
+      'Immigration',
+      'Privacy and data security',
+      'Health care compliance',
+      'Environmental regulation',
+      'Securities regulation',
+      'Education compliance'
+    ]
+  },
+  {
+    type: 'Litigation',
+    services: [
+      'Family law',
+      'Personal injury',
+      'Employment disputes',
+      'Criminal defense',
+      'Business disputes',
+      'Probate disputes',
+      'Landlord-tenant disputes',
+      'Consumer protection',
+      'Appeals'
+    ]
+  }
 ];
 
-const PRACTICE_AREAS: readonly string[] = [
-  'Family law',
-  'Civil litigation',
-  'Estate planning',
-  'Personal injury',
-  'Small business',
-  'Real estate',
-  'Employment',
-  'Immigration',
-  'Criminal defense',
-  'Tax',
-  'Intellectual property',
-  'Bankruptcy'
-];
+const CATALOG_PRACTICE_AREAS = PRACTICE_SERVICE_GROUPS.flatMap((group) => group.services);
+
+const getPracticeTypesForAreas = (areas: readonly string[]) => {
+  const areaSet = new Set(areas);
+  return PRACTICE_SERVICE_GROUPS
+    .filter((group) => group.services.some((service) => areaSet.has(service)))
+    .map((group) => group.type);
+};
 
 /**
  * Step 2 body — practice identity plus grounding fields. All fields are sent
@@ -45,9 +76,20 @@ const PRACTICE_AREAS: readonly string[] = [
  * Slug is auto-derived from firm name and is not user-editable.
  */
 export const PracticeStep = ({ draft, onChange }: PracticeStepProps) => {
+  const [otherPracticeArea, setOtherPracticeArea] = useState('');
   const computedSlug = slugify(draft.practiceName ?? '');
   const selectedAreas = new Set(draft.practiceAreas ?? []);
+  const customPracticeAreas = (draft.practiceAreas ?? [])
+    .filter((area) => !CATALOG_PRACTICE_AREAS.includes(area));
   const publicOrigin = (() => { try { return getPublicFormOrigin(); } catch { return ''; } })();
+
+  const setPracticeAreas = (areas: string[]) => {
+    const uniqueAreas = Array.from(new Set(areas.map((area) => area.trim()).filter(Boolean)));
+    onChange({
+      practiceAreas: uniqueAreas,
+      practiceTypes: getPracticeTypesForAreas(uniqueAreas)
+    });
+  };
 
   const togglePracticeArea = (area: string) => {
     const next = new Set(selectedAreas);
@@ -56,7 +98,19 @@ export const PracticeStep = ({ draft, onChange }: PracticeStepProps) => {
     } else {
       next.add(area);
     }
-    onChange({ practiceAreas: Array.from(next) });
+    const nextAreas = Array.from(next);
+
+    onChange({
+      practiceAreas: nextAreas,
+      practiceTypes: getPracticeTypesForAreas(nextAreas)
+    });
+  };
+
+  const addOtherPracticeArea = () => {
+    const nextArea = otherPracticeArea.trim();
+    if (!nextArea) return;
+    setPracticeAreas([...(draft.practiceAreas ?? []), nextArea]);
+    setOtherPracticeArea('');
   };
 
   return (
@@ -87,7 +141,7 @@ export const PracticeStep = ({ draft, onChange }: PracticeStepProps) => {
               required
               value={draft.practiceName ?? ''}
               onChange={(value) => onChange({ practiceName: value })}
-              placeholder="Law Offices of Sarah Chen"
+              placeholder="Your practice name"
               icon={Building2}
               iconClassName="h-5 w-5 text-dim-2"
             />
@@ -103,15 +157,15 @@ export const PracticeStep = ({ draft, onChange }: PracticeStepProps) => {
             <select
               id="onboarding-jurisdiction"
               value={draft.jurisdiction ?? ''}
-              onChange={(event) =>
+              onInput={(event) =>
                 onChange({ jurisdiction: (event.target as HTMLSelectElement).value })
               }
               className="select"
             >
               <option value="">Select…</option>
-              {JURISDICTIONS.map((j) => (
-                <option key={j.value} value={j.value}>
-                  {j.label}
+              {STATE_OPTIONS.map((state) => (
+                <option key={state.value} value={state.value}>
+                  {state.value} · {state.label}
                 </option>
               ))}
             </select>
@@ -132,22 +186,75 @@ export const PracticeStep = ({ draft, onChange }: PracticeStepProps) => {
         </div>
 
         <div className="mt-6">
-          <p className="label mb-2 block" id="practice-areas-label">
-            Practice areas
+          <p className="label mb-2 block" id="practice-services-label">
+            Services by practice type
           </p>
-          <div className="flex flex-wrap gap-2">
-            {PRACTICE_AREAS.map((area) => {
-              const isSelected = selectedAreas.has(area);
+          <div className="flex flex-col gap-5">
+            {PRACTICE_SERVICE_GROUPS.map((group) => {
+              const selectedCount = group.services.filter((service) => selectedAreas.has(service)).length;
               return (
-                <Chip
-                  key={area}
-                  variant={isSelected ? 'accent' : 'default'}
-                  onClick={() => togglePracticeArea(area)}
-                >
-                  {area}
-                </Chip>
+                <div key={group.type}>
+                  <div className="mb-2 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-dim-2">
+                    <span>{group.type}</span>
+                    {selectedCount > 0 && (
+                      <span
+                        className="rounded-sm border border-line px-1.5 py-0.5 text-[10px] tracking-normal"
+                        style={{ color: 'var(--dim)' }}
+                        aria-label={`${selectedCount} selected`}
+                      >
+                        {selectedCount}
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {group.services.map((area) => {
+                      const isSelected = selectedAreas.has(area);
+                      return (
+                        <Chip
+                          key={area}
+                          variant={isSelected ? 'accent' : 'default'}
+                          onClick={() => togglePracticeArea(area)}
+                          aria-pressed={isSelected}
+                        >
+                          {area}
+                        </Chip>
+                      );
+                    })}
+                  </div>
+                </div>
               );
             })}
+          </div>
+          <div className="mt-4">
+            <Input
+              id="onboarding-practice-area-other"
+              type="text"
+              value={otherPracticeArea}
+              onChange={setOtherPracticeArea}
+              onBlur={addOtherPracticeArea}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter') {
+                  event.preventDefault();
+                  addOtherPracticeArea();
+                }
+              }}
+              label="Add custom practice area"
+              placeholder="e.g. Aviation law"
+            />
+            {customPracticeAreas.length > 0 && (
+              <div className="mt-2 flex flex-wrap gap-2">
+                {customPracticeAreas.map((area) => (
+                  <Chip
+                    key={area}
+                    variant="accent"
+                    onRemove={() => togglePracticeArea(area)}
+                    removeAriaLabel={`Remove ${area}`}
+                  >
+                    {area}
+                  </Chip>
+                ))}
+              </div>
+            )}
           </div>
         </div>
 

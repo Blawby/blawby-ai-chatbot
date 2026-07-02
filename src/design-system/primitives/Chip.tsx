@@ -1,15 +1,15 @@
-import type { ComponentChildren } from 'preact';
+import type { ComponentChildren, JSX } from 'preact';
 import { X } from 'lucide-preact';
 import { cn } from '@/shared/utils/cn';
 import { Icon } from '@/shared/ui/Icon';
 
 export type ChipVariant = 'default' | 'primary' | 'accent' | 'warn';
 
-export interface ChipProps {
+export interface ChipProps extends Omit<JSX.HTMLAttributes<HTMLButtonElement>, 'children' | 'className' | 'onClick' | 'title' | 'type'> {
   variant?: ChipVariant;
   onRemove?: () => void;
   href?: string;
-  onClick?: () => void;
+  onClick?: JSX.MouseEventHandler<HTMLButtonElement>;
   children: ComponentChildren;
   className?: string;
   removeAriaLabel?: string;
@@ -27,6 +27,7 @@ export function Chip({
   removeAriaLabel = 'Remove',
   title,
   type = 'button',
+  ...buttonProps
 }: ChipProps) {
   const classes = cn('chip', variant !== 'default' && variant, className);
 
@@ -61,7 +62,7 @@ export function Chip({
 
   if (onClick) {
     return (
-      <button type={type} className={classes} onClick={onClick} title={title}>
+      <button {...buttonProps} type={type} className={classes} onClick={onClick} title={title}>
         {content}
       </button>
     );

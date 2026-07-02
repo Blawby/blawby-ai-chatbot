@@ -19,6 +19,22 @@ const isSafeRedirectPath = (path: string | null | undefined): path is string => 
   }
 };
 
+const getSubscriptionSuccessPracticeId = (path: string | null): string | null => {
+  if (!path) return null;
+  try {
+    const url = new URL(path, 'http://local.dev');
+    if (url.searchParams.get('subscription') !== 'success') return null;
+    const practiceId = url.searchParams.get('practiceId')?.trim();
+    return practiceId || null;
+  } catch {
+    return null;
+  }
+};
+
+const getStripeReturnStatus = (value: unknown): 'return' | 'refresh' | null => {
+  return value === 'return' || value === 'refresh' ? value : null;
+};
+
 const OnboardingPage = () => {
   const { session, isPending } = useSessionContext();
   const { navigate } = useNavigation();
@@ -38,6 +54,23 @@ const OnboardingPage = () => {
   // RootRoute owns the post-onboarding destination decision. Returning to `/`
   // is safe now because root routing fails fast and sends no-practice users to pricing.
   const fallbackPath: string = isSafeRedirectPath(rawReturnTo) ? rawReturnTo : '/';
+  const subscriptionSuccessPracticeId = getSubscriptionSuccessPracticeId(fallbackPath);
+  const completionPath = subscriptionSuccessPracticeId ? '/' : fallbackPath;
+  const stripeReturnStatus = getStripeReturnStatus(location.query?.stripe);
+  const initialOnboardingStep = stripeReturnStatus === 'return'
+    ? 5
+    : stripeReturnStatus === 'refresh'
+      ? 4
+      : subscriptionSuccessPracticeId
+        ? 4
+        : undefined;
+  const handleComplete = () => {
+    if (typeof window !== 'undefined') {
+      window.location.assign(completionPath);
+      return;
+    }
+    navigate(completionPath, true);
+  };
 
   const userId = session?.user?.id;
   const userIsAnonymous = session?.user?.is_anonymous;
@@ -50,10 +83,10 @@ const OnboardingPage = () => {
       return;
     }
     if (userOnboardingComplete) {
-      navigate(fallbackPath, true);
+      navigate(completionPath, true);
     }
   }, [
-    fallbackPath,
+    completionPath,
     isPending,
     navigate,
     userId,
@@ -81,8 +114,11 @@ const OnboardingPage = () => {
   // directly without SetupShell's extra accent backdrop.
   return (
     <OnboardingFlow
-      onClose={() => navigate(fallbackPath, true)}
-      onComplete={() => navigate(fallbackPath, true)}
+      onClose={() => navigate(completionPath, true)}
+      onComplete={handleComplete}
+      initialStep={initialOnboardingStep}
+      initialHasActiveSubscription={Boolean(subscriptionSuccessPracticeId)}
+      subscriptionSuccessPracticeId={subscriptionSuccessPracticeId}
       active
     />
   );

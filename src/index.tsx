@@ -84,6 +84,19 @@ const reloadPage = () => {
   }
 };
 
+function PublicShortLinkRoute({ practiceSlug }: { practiceSlug?: string }) {
+  const location = useLocation();
+  const hasPaymentResultParams =
+    typeof location.query.session_id === 'string' ||
+    typeof location.query.uuid === 'string';
+
+  if (hasPaymentResultParams) {
+    return <PaymentResultPage practiceSlug={practiceSlug} />;
+  }
+
+  return <PublicWorkspaceRoute practiceSlug={practiceSlug} />;
+}
+
 const mountApp = (mountEl: HTMLElement) => {
   if (import.meta.env.DEV) {
     render(<AppWithProviders />, mountEl);
@@ -302,7 +315,7 @@ function AppShell() {
     Boolean(session?.user) &&
     !session?.user?.is_anonymous &&
     session?.user?.onboarding_complete !== true;
-  const isPublicRoute = location.path.startsWith('/public/');
+  const isPublicRoute = location.path.startsWith('/public/') || location.path.startsWith('/p/');
   const isAuthRoute = location.path.startsWith('/auth');
   const isPricingRoute = location.path.startsWith('/pricing');
   const isClientRoute = location.path.startsWith('/client/');
@@ -352,6 +365,7 @@ function AppShell() {
     const isDebugRoute = import.meta.env.DEV && location.path.startsWith('/debug');
     const isPublicIntakeRoute =
       location.path.startsWith('/public/') ||
+      location.path.startsWith('/p/') ||
       location.path.startsWith('/client/');
     const bypassOnboardingForRoute = isPublicIntakeRoute || isDebugRoute;
 
@@ -569,7 +583,7 @@ function AppShell() {
           <Route path="/practice/:practiceSlug/settings/audit-log" component={PracticeAppRoute} workspaceView="settings" settingsView="audit-log" />
           <Route path="/practice/:practiceSlug/settings/export-data" component={PracticeAppRoute} workspaceView="settings" settingsView="export-data" />
           <Route path="/practice/:practiceSlug/settings/help" component={PracticeAppRoute} workspaceView="settings" settingsView="help" />
-          <Route path="/p/:practiceSlug" component={({ practiceSlug }: { practiceSlug?: string }) => <PaymentResultPage practiceSlug={practiceSlug} />} />
+          <Route path="/p/:practiceSlug" component={PublicShortLinkRoute} />
           {/* U10: engineer-only intake inspector. The worker route is gated by
               the engineer email allowlist; this page surfaces a friendly
               "not authorized" message when the API returns 403. */}

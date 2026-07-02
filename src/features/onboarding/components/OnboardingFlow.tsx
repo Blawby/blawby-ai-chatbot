@@ -1,8 +1,8 @@
-import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { useTranslation } from '@/shared/i18n/hooks';
 import { useSessionContext } from '@/shared/contexts/SessionContext';
 import { useToastContext } from '@/shared/contexts/ToastContext';
-import { createPractice, getCurrentSubscription } from '@/shared/lib/apiClient';
+import { createPractice, getCurrentSubscription, updatePracticeDetails } from '@/shared/lib/apiClient';
 import { getPreferencesCategory, updatePreferencesCategory } from '@/shared/lib/preferencesApi';
 import type { SubscriptionPlan } from '@/shared/utils/fetchPlans';
 import {
@@ -38,13 +38,18 @@ interface OnboardingFlowProps {
   active?: boolean;
   className?: string;
   testId?: string;
+  initialStep?: OnboardingStep;
+  initialHasActiveSubscription?: boolean;
+  subscriptionSuccessPracticeId?: string | null;
 }
 
 interface OnboardingFlowRuntimeProps extends OnboardingFlowProps {
   initialStep?: OnboardingStep;
   initialDraft?: OnboardingDraft;
   initialHasActiveSubscription?: boolean;
+  subscriptionSuccessPracticeId?: string | null;
   sessionUserName: string;
+  sessionUserEmail: string;
   sessionUserId?: string | null;
   requiresNameCollection: boolean;
   firstExistingMembership?: ExistingMembership;
@@ -99,7 +104,9 @@ const OnboardingFlowImpl = ({
   initialStep = 1,
   initialDraft,
   initialHasActiveSubscription = false,
+  subscriptionSuccessPracticeId = null,
   sessionUserName,
+  sessionUserEmail,
   sessionUserId,
   requiresNameCollection,
   firstExistingMembership,
@@ -123,7 +130,12 @@ const OnboardingFlowImpl = ({
     return {
       fullName: stored?.fullName ?? initialDraft?.fullName ?? sessionUserName,
       ...(initialDraft ?? {}),
-      ...(stored ?? {})
+      ...(stored ?? {}),
+      createdOrganizationId:
+        subscriptionSuccessPracticeId
+          ?? stored?.createdOrganizationId
+          ?? initialDraft?.createdOrganizationId
+          ?? undefined
     };
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -351,6 +363,15 @@ const OnboardingFlowImpl = ({
     }
   }, [draft, requiresNameCollection, step]);
 
+  const handleIntakeTemplateReady = useCallback((template: { slug?: string } | null) => {
+    const nextSlug = template?.slug?.trim() || null;
+    setDraft((prev) => (
+      nextSlug !== (prev.defaultIntakeTemplateSlug ?? null)
+        ? { ...prev, defaultIntakeTemplateSlug: nextSlug }
+        : prev
+    ));
+  }, []);
+
   const resolvedTestId = testId ?? 'onboarding-flow';
 
   return (
@@ -434,7 +455,6 @@ const OnboardingFlowImpl = ({
                 variant="onboarding"
               />
               <StageFooter
-                onSkip={handleSkip}
                 onBack={handleBack}
                 onContinue={handleContinue}
                 continueLabel={CONTINUE_LABEL[3]}
@@ -452,17 +472,17 @@ const OnboardingFlowImpl = ({
                 lede={
                   <>
                     Your practice is the workspace your team and clients see. Pick a
-                    name + slug now; jurisdiction and bar # help us tune your assistant
-                    to your state.
+                    name now; jurisdiction and service areas help Blawby screen
+                    incoming leads against the work and locations you accept.
                   </>
                 }
               />
               <AssistantTurn trail="grounding context">
                 <p style={{ margin: 0 }}>
                   {firstName ? <>Got it, <strong>{firstName}</strong>. </> : 'Got it. '}
-                  Let&apos;s name your practice. If you&apos;re solo,
-                  &ldquo;Law Offices of {firstName || 'Your Name'}&rdquo; is common —
-                  but anything works. You can change the public slug later.
+                  Add the practice name clients should see. We&apos;ll use the
+                  jurisdiction, service areas, and practice type to qualify leads
+                  before they reach your workspace.
                 </p>
               </AssistantTurn>
               <PracticeStep draft={draft} onChange={handleDraftChange} />
@@ -483,20 +503,26 @@ const OnboardingFlowImpl = ({
                 title={<>Get <em style={{ color: 'var(--accent)', fontStyle: 'italic' }}>paid</em> — properly.</>}
                 lede={
                   <>
-                    You&apos;ll connect Stripe from your workspace so you can accept
-                    payments and receive payouts. Stripe will verify your business
-                    and representative details before enabling payouts.
+                    Connect the Stripe account where payouts from invoices,
+                    consultation fees, and other client payments should land.
+                    Stripe verifies your business and authorized representative
+                    before it can send funds to that account.
                   </>
                 }
               />
-              <AssistantTurn trail="why now matters">
+              <AssistantTurn trail="payout routing">
                 <p style={{ margin: 0 }}>
-                  Once your practice is live, the &ldquo;Connect Stripe&rdquo; banner in your
-                  workspace is the fastest way to finish setup. If you&apos;re not ready
-                  this second, you can come back and complete verification there.
+                  Blawby uses this connected account for money movement: client
+                  payments are processed by Stripe, then paid out to the bank account
+                  your practice designates. Use the appropriate operating or
+                  trust/IOLTA account for the type of funds you collect, consistent
+                  with your jurisdiction&apos;s rules.
                 </p>
               </AssistantTurn>
-              <PaymentsStep draft={draft} />
+              <PaymentsStep
+                draft={draft}
+                practiceEmail={sessionUserEmail}
+              />
               <StageFooter
                 onSkip={handleSkip}
                 onBack={handleBack}
@@ -528,7 +554,10 @@ const OnboardingFlowImpl = ({
                   create forms for different matter types.
                 </p>
               </AssistantTurn>
-              <IntakeFormStep draft={draft} />
+              <IntakeFormStep
+                draft={draft}
+                onTemplateReady={handleIntakeTemplateReady}
+              />
               <StageFooter
                 onSkip={handleSkip}
                 onBack={handleBack}
@@ -582,7 +611,10 @@ export const OnboardingFlow = ({
   onComplete,
   active = true,
   className = '',
-  testId
+  testId,
+  initialStep,
+  initialHasActiveSubscription = false,
+  subscriptionSuccessPracticeId = null
 }: OnboardingFlowProps) => {
   const { session } = useSessionContext();
 
@@ -616,10 +648,14 @@ export const OnboardingFlow = ({
       className={className}
       testId={testId}
       sessionUserName={sessionUserName}
+      sessionUserEmail={session?.user?.email ?? ''}
       sessionUserId={sessionUserId}
       requiresNameCollection={requiresNameCollection}
       firstExistingMembership={firstExistingMembership}
       persistDraft
+      initialStep={initialStep}
+      initialHasActiveSubscription={initialHasActiveSubscription}
+      subscriptionSuccessPracticeId={subscriptionSuccessPracticeId}
       loadPreferences={() => getPreferencesCategory<OnboardingPreferences>('onboarding')}
       loadSubscription={async () => Boolean(await getCurrentSubscription())}
       createOrganization={async (draft, membership) => {
@@ -642,8 +678,12 @@ export const OnboardingFlow = ({
           name,
           slug: slugify(name),
           description: draft.description ?? undefined,
+          supportedStates: draft.jurisdiction
+            ? [{ country: 'US', states: [draft.jurisdiction] }]
+            : [],
           metadata: {
             practiceAreas: draft.practiceAreas ?? [],
+            practiceTypes: draft.practiceTypes ?? [],
             barNumber: draft.barNumber ?? '',
             jurisdictions: draft.jurisdiction ? [draft.jurisdiction] : [],
           },
@@ -655,6 +695,9 @@ export const OnboardingFlow = ({
 
         // Activate the new org in the Better Auth session.
         await authClient.organization.setActive({ organizationId: practice.id });
+        void updatePracticeDetails(practice.id, { isPublic: true }).catch((error) => {
+          console.error('[ONBOARDING][PRACTICE_VISIBILITY] failed to publish practice', error);
+        });
 
         return { id: practice.id, slug: practice.slug ?? slugify(name) };
       }}
@@ -697,6 +740,7 @@ export const DebugOnboardingFlow = ({
       initialDraft={initialDraft}
       initialHasActiveSubscription={hasActiveSubscription}
       sessionUserName={sessionUserName}
+      sessionUserEmail="sarah@example.com"
       pricingPlanOverride={pricingPlanOverride}
       sessionUserId={null}
       requiresNameCollection={false}

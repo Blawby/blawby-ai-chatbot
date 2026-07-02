@@ -22,7 +22,9 @@ export interface OnboardingDraft {
   jurisdiction?: string;
   barNumber?: string;
   practiceAreas?: string[];
+  practiceTypes?: string[];
   description?: string;
+  defaultIntakeTemplateSlug?: string | null;
   /** Set once createPractice() has succeeded so we don't re-create on back/forward. */
   createdOrganizationId?: string | null;
   createdOrganizationSlug?: string | null;

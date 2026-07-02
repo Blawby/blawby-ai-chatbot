@@ -24,8 +24,13 @@ export const ShareIntakeStep = ({ draft }: ShareIntakeStepProps) => {
 
   const intakeUrl = useMemo(() => {
     const slug = draft.createdOrganizationSlug ?? 'your-practice';
-    return `${getPublicFormOrigin()}/p/${slug}`;
-  }, [draft.createdOrganizationSlug]);
+    const url = new URL(`/p/${encodeURIComponent(slug)}`, getPublicFormOrigin());
+    const templateSlug = draft.defaultIntakeTemplateSlug?.trim();
+    if (templateSlug) {
+      url.searchParams.set('template', templateSlug);
+    }
+    return url.toString();
+  }, [draft.createdOrganizationSlug, draft.defaultIntakeTemplateSlug]);
 
   const handleCopy = async () => {
     try {
@@ -42,7 +47,9 @@ export const ShareIntakeStep = ({ draft }: ShareIntakeStepProps) => {
 
   const handleOpenPreview = () => {
     if (typeof window === 'undefined') return;
-    window.open(intakeUrl, '_blank', 'noopener,noreferrer');
+    const previewUrl = new URL(intakeUrl);
+    previewUrl.searchParams.set('ownerPreview', '1');
+    window.open(previewUrl.toString(), '_blank', 'noopener,noreferrer');
   };
 
   const practiceAreaCount = draft.practiceAreas?.length ?? 0;
