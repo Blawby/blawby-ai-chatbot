@@ -280,6 +280,8 @@
     "monthly": "Monthly",
     "annually": "Annually",
     "yearly": "year",
+    "paymentFrequency": "Payment frequency",
+    "savePercent": "Save {{percent}}%",
     "billedMonthly": "Billed monthly. Cancel anytime.",
     "billedAnnually": "Billed annually. Cancel anytime.",
     "noPracticeSelected": "No practice selected",

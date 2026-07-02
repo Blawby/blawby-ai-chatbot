@@ -31,6 +31,10 @@ const getSubscriptionSuccessPracticeId = (path: string | null): string | null =>
   }
 };
 
+const getStripeReturnStatus = (value: unknown): 'return' | 'refresh' | null => {
+  return value === 'return' || value === 'refresh' ? value : null;
+};
+
 const OnboardingPage = () => {
   const { session, isPending } = useSessionContext();
   const { navigate } = useNavigation();
@@ -52,6 +56,14 @@ const OnboardingPage = () => {
   const fallbackPath: string = isSafeRedirectPath(rawReturnTo) ? rawReturnTo : '/';
   const subscriptionSuccessPracticeId = getSubscriptionSuccessPracticeId(fallbackPath);
   const completionPath = subscriptionSuccessPracticeId ? '/' : fallbackPath;
+  const stripeReturnStatus = getStripeReturnStatus(location.query?.stripe);
+  const initialOnboardingStep = stripeReturnStatus === 'return'
+    ? 5
+    : stripeReturnStatus === 'refresh'
+      ? 4
+      : subscriptionSuccessPracticeId
+        ? 4
+        : undefined;
   const handleComplete = () => {
     if (typeof window !== 'undefined') {
       window.location.assign(completionPath);
@@ -104,7 +116,7 @@ const OnboardingPage = () => {
     <OnboardingFlow
       onClose={() => navigate(completionPath, true)}
       onComplete={handleComplete}
-      initialStep={subscriptionSuccessPracticeId ? 4 : undefined}
+      initialStep={initialOnboardingStep}
       initialHasActiveSubscription={Boolean(subscriptionSuccessPracticeId)}
       subscriptionSuccessPracticeId={subscriptionSuccessPracticeId}
       active
