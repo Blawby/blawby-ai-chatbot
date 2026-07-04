@@ -60,7 +60,7 @@ export const useAuthAccounts = (enabled = true) => {
     }
 
     try {
-      const result = await authClient.listUserAccounts();
+      const result = await authClient.listAccounts();
       if (isMounted && !isMounted()) {
         return;
       }
