@@ -8,6 +8,7 @@ import { Button } from '@/shared/ui/Button';
 import { LoadingSpinner } from '@/shared/ui/layout/LoadingSpinner';
 import { handleError } from '@/shared/utils/errorHandler';
 import { getClient } from '@/shared/lib/authClient';
+import { useNavigation } from '@/shared/utils/navigation';
 
 type AuthMode = 'signin' | 'signup';
 
@@ -47,6 +48,7 @@ const AuthForm = ({
   variant = 'card'
 }: AuthFormProps) => {
   const { t } = useTranslation('auth');
+  const { navigate } = useNavigation();
   const [internalMode, setInternalMode] = useState<AuthMode>(mode ?? defaultMode);
   const resolvedMode = mode ?? internalMode;
   const isControlled = typeof mode !== 'undefined';
@@ -381,6 +383,22 @@ const AuthForm = ({
                 </FormItem>
               )}
             </FormField>
+
+            {resolvedMode === 'signin' && (
+              <div className="text-right">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  type="button"
+                  onClick={() => navigate('/auth/forgot-password')}
+                  disabled={disableActions}
+                  className="text-accent hover:text-accent-deep"
+                  data-testid="auth-forgot-password-link"
+                >
+                  {t('signin.forgotPassword')}
+                </Button>
+              </div>
+            )}
 
             {resolvedMode === 'signup' && signupVariant === 'full' && (
               <FormField name="confirmPassword">

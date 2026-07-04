@@ -48,6 +48,8 @@ import { lazy } from 'preact/compat';
 // Top-level pages are lazy so they don't bloat the entry chunk. Each page
 // loads its own bundle on demand the first time the matching route renders.
 const AuthPage = lazy(() => import('@/pages/AuthPage'));
+const ForgotPasswordPage = lazy(() => import('@/pages/ForgotPasswordPage'));
+const ResetPasswordPage = lazy(() => import('@/pages/ResetPasswordPage'));
 const AcceptInvitationPage = lazy(() => import('@/pages/AcceptInvitationPage'));
 const ClientHomePage = lazy(() => import('@/pages/ClientHomePage'));
 const PracticeTrustPage = lazy(() => import('@/features/trust/pages/PracticeTrustPage'));
@@ -453,6 +455,16 @@ function AppShell() {
           <Route path="/login" component={(props) => (
             <Suspense fallback={<LoadingScreen />}>
               <AuthPage {...props} />
+            </Suspense>
+          )} />
+          <Route path="/auth/forgot-password" component={(props) => (
+            <Suspense fallback={<LoadingScreen />}>
+              <ForgotPasswordPage {...props} />
+            </Suspense>
+          )} />
+          <Route path="/auth/reset-password" component={(props) => (
+            <Suspense fallback={<LoadingScreen />}>
+              <ResetPasswordPage {...props} />
             </Suspense>
           )} />
           <Route path="/auth/accept-invitation" component={(props) => (
