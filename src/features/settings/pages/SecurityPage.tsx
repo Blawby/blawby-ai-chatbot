@@ -154,10 +154,10 @@ export const SecurityPage = ({
 
   useEffect(() => {
     if (!session?.user) return;
-    authClient.listUserAccounts()
+    authClient.listAccounts()
       .then((result) => {
-        const accounts = (result?.data ?? []) as Array<{ provider: string }>;
-        setLinkedProviders(accounts.map((a) => a.provider));
+        const accounts = (result?.data ?? []) as Array<{ providerId: string }>;
+        setLinkedProviders(accounts.map((a) => a.providerId));
       })
       .catch(() => { /* best-effort */ });
   }, [session?.user]);
@@ -212,7 +212,7 @@ export const SecurityPage = ({
   };
 
   const handleChangePassword = async () => {
-    if (!passwordForm.newPassword || !passwordForm.confirmPassword || (hasPasswordAccount && !passwordForm.currentPassword)) {
+    if (!passwordForm.currentPassword || !passwordForm.newPassword || !passwordForm.confirmPassword) {
       showError(t('settings:security.password.errors.missing.title'), t('settings:security.password.errors.missing.body'));
       return;
     }
@@ -227,15 +227,9 @@ export const SecurityPage = ({
     try {
       setPasswordSubmitting(true);
       setPasswordError(null);
-      if (hasPasswordAccount) {
-        const { data: _d, error } = await authClient.changePassword({ currentPassword: passwordForm.currentPassword, newPassword: passwordForm.newPassword });
-        const msg = getBetterAuthErrorMessage({ data: _d, error }, t('settings:security.password.errors.failed.body'));
-        if (msg) { setPasswordError(msg); showError(t('settings:security.password.errors.failed.title'), msg); return; }
-      } else {
-        const { data: _d, error } = await authClient.setPassword({ newPassword: passwordForm.newPassword });
-        const msg = getBetterAuthErrorMessage({ data: _d, error }, t('settings:security.password.errors.failed.body'));
-        if (msg) { setPasswordError(msg); showError(t('settings:security.password.errors.failed.title'), msg); return; }
-      }
+      const { data: _d, error } = await authClient.changePassword({ currentPassword: passwordForm.currentPassword, newPassword: passwordForm.newPassword });
+      const msg = getBetterAuthErrorMessage({ data: _d, error }, t('settings:security.password.errors.failed.body'));
+      if (msg) { setPasswordError(msg); showError(t('settings:security.password.errors.failed.title'), msg); return; }
       showSuccess(t('settings:security.password.success.title'), t('settings:security.password.success.body'));
       setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' });
       reloadAuthAccounts().catch(() => {});
@@ -248,11 +242,16 @@ export const SecurityPage = ({
     }
   };
 
+  // Better Auth's setPassword is a server-only API (see auth.api.setPassword
+  // in the docs) — it cannot be called from the client. OAuth-only accounts
+  // must go through the same request-password-reset email flow as "forgot
+  // password" to attach a credential account.
   const handleResetPassword = async () => {
     if (isResettingPassword || !session?.user?.email) return;
     setIsResettingPassword(true);
     try {
-      const { data: _d, error } = await authClient.requestPasswordReset({ email: session.user.email });
+      const redirectTo = `${window.location.origin}/auth/reset-password`;
+      const { data: _d, error } = await authClient.requestPasswordReset({ email: session.user.email, redirectTo });
       const msg = getBetterAuthErrorMessage({ data: _d, error }, t('settings:security.password.errors.failed.body'));
       if (msg) { showError(t('settings:security.password.errors.failed.title'), msg); return; }
       showSuccess(t('settings:security.password.reset.title'), t('settings:security.password.reset.body'));
@@ -298,41 +297,51 @@ export const SecurityPage = ({
         </div>
       </SettingSection>
 
-      <SettingSection title="Password" description="Change your password. You&apos;ll be signed out of all other sessions.">
+      <SettingSection
+        title="Password"
+        description={hasPasswordAccount
+          ? "Change your password. You&apos;ll be signed out of all other sessions."
+          : "You signed in with a social account and don&apos;t have a password yet. Send yourself a setup link to add one."}
+      >
         <div className={securityCardClassName}>
-          <div className="flex flex-col gap-3.5">
-            {hasPasswordAccount && (
-              <div className="form-field">
-                <label className="label" htmlFor="current-password-input">Current password</label>
-                <input id="current-password-input" className="input" type="password" placeholder="••••••••" value={passwordForm.currentPassword}
-                  onInput={(e) => { setPasswordError(null); setPasswordForm(p => ({ ...p, currentPassword: (e.target as HTMLInputElement).value })); }} />
+          {hasPasswordAccount ? (
+            <>
+              <div className="flex flex-col gap-3.5">
+                <div className="form-field">
+                  <label className="label" htmlFor="current-password-input">Current password</label>
+                  <input id="current-password-input" className="input" type="password" placeholder="••••••••" value={passwordForm.currentPassword}
+                    onInput={(e) => { setPasswordError(null); setPasswordForm(p => ({ ...p, currentPassword: (e.target as HTMLInputElement).value })); }} />
+                </div>
+                <div className="form-field">
+                  <label className="label" htmlFor="new-password-input">New password</label>
+                  <input id="new-password-input" className="input" type="password" placeholder="At least 8 characters" value={passwordForm.newPassword}
+                    onInput={(e) => { setPasswordError(null); setPasswordForm(p => ({ ...p, newPassword: (e.target as HTMLInputElement).value })); }} />
+                </div>
+                <div className="form-field">
+                  <label className="label" htmlFor="confirm-password-input">Confirm new password</label>
+                  <input id="confirm-password-input" className="input" type="password" placeholder="••••••••" value={passwordForm.confirmPassword}
+                    onInput={(e) => { setPasswordError(null); setPasswordForm(p => ({ ...p, confirmPassword: (e.target as HTMLInputElement).value })); }} />
+                </div>
               </div>
-            )}
-            <div className="form-field">
-              <label className="label" htmlFor="new-password-input">New password</label>
-              <input id="new-password-input" className="input" type="password" placeholder="At least 8 characters" value={passwordForm.newPassword}
-                onInput={(e) => { setPasswordError(null); setPasswordForm(p => ({ ...p, newPassword: (e.target as HTMLInputElement).value })); }} />
-            </div>
-            <div className="form-field">
-              <label className="label" htmlFor="confirm-password-input">Confirm new password</label>
-              <input id="confirm-password-input" className="input" type="password" placeholder="••••••••" value={passwordForm.confirmPassword}
-                onInput={(e) => { setPasswordError(null); setPasswordForm(p => ({ ...p, confirmPassword: (e.target as HTMLInputElement).value })); }} />
-            </div>
-          </div>
-          {passwordError && <p className="mt-3 text-[12px] text-[var(--neg)]">{passwordError}</p>}
-          <div className="flex items-center gap-2 mt-4">
-            <Button variant="primary" size="sm" onClick={() => void handleChangePassword()} disabled={passwordSubmitting}>
-              {passwordSubmitting ? <LoadingSpinner size="sm" ariaLabel="Updating password" /> : null}
-              Update password
+              {passwordError && <p className="mt-3 text-[12px] text-[var(--neg)]">{passwordError}</p>}
+              <div className="flex items-center gap-2 mt-4">
+                <Button variant="primary" size="sm" onClick={() => void handleChangePassword()} disabled={passwordSubmitting}>
+                  {passwordSubmitting ? <LoadingSpinner size="sm" ariaLabel="Updating password" /> : null}
+                  Update password
+                </Button>
+                <Button variant="ghost" size="sm" onClick={() => void handleResetPassword()} disabled={isResettingPassword}>
+                  {isResettingPassword ? <LoadingSpinner size="sm" ariaLabel="Sending password reset email" /> : null}
+                  Forgot password?
+                </Button>
+              </div>
+              {lastChanged && <p className="mt-3" style={{ fontSize: 12.5, color: 'var(--dim)' }}>Last changed: {lastChanged}</p>}
+            </>
+          ) : (
+            <Button variant="primary" size="sm" onClick={() => void handleResetPassword()} disabled={isResettingPassword}>
+              {isResettingPassword ? <LoadingSpinner size="sm" ariaLabel="Sending password setup email" /> : null}
+              Send password setup email
             </Button>
-            {hasPasswordAccount && (
-              <Button variant="ghost" size="sm" onClick={() => void handleResetPassword()} disabled={isResettingPassword}>
-                {isResettingPassword ? <LoadingSpinner size="sm" ariaLabel="Sending password reset email" /> : null}
-                Forgot password?
-              </Button>
-            )}
-          </div>
-          {lastChanged && <p className="mt-3" style={{ fontSize: 12.5, color: 'var(--dim)' }}>Last changed: {lastChanged}</p>}
+          )}
         </div>
       </SettingSection>
 
