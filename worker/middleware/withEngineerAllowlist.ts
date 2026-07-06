@@ -35,7 +35,7 @@ export function parseEngineerAllowlist(raw: string | undefined | null): Set<stri
  * read from `env.INTAKE_INSPECTOR_ENGINEER_EMAILS`.
  *
  * Composes alongside `withAuth(handler, { required: true })` — do NOT modify
- * withAuth (mirrors the MCP plan's withMCPAuth pattern).
+ * withAuth.
  *
  *   withEngineerAllowlist(withAuth(handler, { required: true }))
  *
