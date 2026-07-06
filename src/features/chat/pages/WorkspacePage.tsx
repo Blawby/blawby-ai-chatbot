@@ -3,7 +3,7 @@ import type { ComponentChildren } from 'preact';
 import { useMemo, useRef, useState, useEffect, useCallback } from 'preact/hooks';
 import { lazy, Suspense } from 'preact/compat';
 import { useLocation } from 'preact-iso';
-import { Menu, Plus, Search, SquarePen } from 'lucide-preact';
+import { Menu, Plus, SquarePen } from 'lucide-preact';
 
 import { useNavigation } from '@/shared/utils/navigation';
 import { cn } from '@/shared/utils/cn';
@@ -33,7 +33,6 @@ import type { WorkspaceMainPaneLayout } from '@/shared/ui/layout/WorkspaceMainPa
 import { WorkspaceListHeader } from '@/shared/ui/layout/WorkspaceListHeader';
 import type { WorkspacePlaceholderAction } from '@/shared/ui/layout/WorkspacePlaceholderState';
 import { Button } from '@/shared/ui/Button';
-import { Input } from '@/shared/ui/input/Input';
 import { useWorkspaceConversations } from './hooks/useWorkspaceConversations';
 import { useWorkspaceNavigation } from './hooks/useWorkspaceNavigation';
 import { resolveConsultationState } from '@/shared/utils/consultationState';
@@ -268,10 +267,6 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
   const [optimisticallyReadConversationIds, setOptimisticallyReadConversationIds] = useState<Set<string>>(new Set());
   const [isDeletingConversation, setIsDeletingConversation] = useState(false);
   const [isMobileRailMenuOpen, setIsMobileRailMenuOpen] = useState(false);
-  const [threadSidebarSearch, setThreadSidebarSearch] = useState<Record<ThreadSidebarSection, string>>({
-    assistant: '',
-    conversations: '',
-  });
   const [isAddClientDialogOpen, setIsAddClientDialogOpen] = useState(false);
   // Draft conversation state. When non-null, the chat area renders
   // DraftConversationView and the messages list shows a synthetic "Draft"
@@ -644,8 +639,6 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
     () => resolvedConversations.filter(isAssistantConversation),
     [resolvedConversations]
   );
-  const conversationThreadSearch = threadSidebarSearch.conversations.trim().toLowerCase();
-  const assistantThreadSearch = threadSidebarSearch.assistant.trim().toLowerCase();
 
   useEffect(() => {
     if (previewStrongReady || (onboardingProgress?.completionScore ?? 0) >= 80) {
@@ -1149,10 +1142,6 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
     && !mattersDataForView.isLoading
     && !mattersDataForView.error
     && mattersDataForView.items.length === 0;
-  const handleThreadSidebarSearchChange = useCallback((value: string) => {
-    if (workspaceSection !== 'assistant' && workspaceSection !== 'conversations') return;
-    setThreadSidebarSearch((prev) => ({ ...prev, [workspaceSection]: value }));
-  }, [workspaceSection]);
   const handleAssistantCreate = useCallback(() => {
     void handleStartConversation('PRACTICE_ASSISTANT', {
       forceNew: true,
@@ -1213,21 +1202,11 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
     conversations: Conversation[],
     section: ThreadSidebarSection,
   ): LeftRailItem[] => {
-    const searchQuery = (section === 'assistant' ? assistantThreadSearch : conversationThreadSearch).trim();
     const fallbackTitle = typeof practiceName === 'string' ? practiceName.trim() : '';
-    const searchNeedle = searchQuery.toLowerCase();
 
     return conversations
       .slice()
       .sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime())
-      .filter((conversation) => {
-        if (!searchNeedle) return true;
-        const title = resolveConversationContactName(conversation)
-          || resolveConversationDisplayTitle(conversation, fallbackTitle)
-          || '';
-        const previewText = (conversationPreviews[conversation.id]?.content ?? conversation.last_message_content ?? '').toString();
-        return title.toLowerCase().includes(searchNeedle) || previewText.toLowerCase().includes(searchNeedle);
-      })
       .map((conversation) => {
         const title = resolveConversationContactName(conversation)
           || resolveConversationDisplayTitle(conversation, fallbackTitle)
@@ -1245,9 +1224,6 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
       });
   }, [
     activeConversationId,
-    assistantThreadSearch,
-    conversationPreviews,
-    conversationThreadSearch,
     conversationsPath,
     normalizedBase,
     practiceName,
@@ -1583,11 +1559,6 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
   ), [assistantThreadRailItems, messageThreadRailItems, staticSectionSidebarSections, workspaceSection]);
   const sectionSidebarBackHref = normalizedBase ?? '/';
   const sectionSidebarBackLabel = workspaceSection === 'assistant' ? 'Back to home' : 'Back to workspace';
-  const activeThreadSearchValue = workspaceSection === 'assistant'
-    ? threadSidebarSearch.assistant
-    : workspaceSection === 'conversations'
-      ? threadSidebarSearch.conversations
-      : '';
   const sectionSidebarCreateButton = workspaceSection === 'assistant'
     ? (
       <Button
@@ -1652,17 +1623,6 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
         </button>
         {sectionSidebarCreateButton}
       </div>
-      {(workspaceSection === 'assistant' || workspaceSection === 'conversations') ? (
-        <Input
-          type="search"
-          value={activeThreadSearchValue}
-          onChange={handleThreadSidebarSearchChange}
-          placeholder={workspaceSection === 'assistant' ? 'Search assistant threads...' : 'Search messages...'}
-          aria-label={workspaceSection === 'assistant' ? 'Search assistant threads' : 'Search messages'}
-          size="sm"
-          icon={Search}
-        />
-      ) : null}
     </div>
   ) : brandMark;
 
@@ -1751,17 +1711,6 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
                 </button>
                 {drawerSectionSidebarCreateButton}
               </div>
-              {(workspaceSection === 'assistant' || workspaceSection === 'conversations') ? (
-                <Input
-                  type="search"
-                  value={activeThreadSearchValue}
-                  onChange={handleThreadSidebarSearchChange}
-                  placeholder={workspaceSection === 'assistant' ? 'Search assistant threads...' : 'Search messages...'}
-                  aria-label={workspaceSection === 'assistant' ? 'Search assistant threads' : 'Search messages'}
-                  size="sm"
-                  icon={Search}
-                />
-              ) : null}
             </div>
           ) : null}
           {(shouldUseSectionSidebar
