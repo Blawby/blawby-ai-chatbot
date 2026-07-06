@@ -7,15 +7,14 @@ import { EditorShell, LoadingBlock } from '@/shared/ui/layout';
 import { useNavigation } from '@/shared/utils/navigation';
 import { useToastContext } from '@/shared/contexts/ToastContext';
 import {
-  createUserDetail,
   getUserDetail,
-  listUserDetails,
   updateUserDetail,
   type UserDetailRecord,
   type UserDetailStatus,
 } from '@/shared/lib/apiClient';
 import { readUserDetailAddress } from '@/shared/lib/userDetailAddress';
 import { getValidatedInternalReturnPath } from '@/shared/utils/workspace';
+import { usePracticeInvitations } from '@/shared/hooks/usePracticeInvitations';
 
 type PracticeContactEditorPageProps = {
   practiceId: string | null;
@@ -83,7 +82,8 @@ export function PracticeContactEditorPage({
 }: PracticeContactEditorPageProps) {
   const location = useLocation();
   const { navigate } = useNavigation();
-  const { showSuccess, showWarning } = useToastContext();
+  const { showSuccess } = useToastContext();
+  const { sendInvitation } = usePracticeInvitations(practiceId);
 
   const isEditMode = Boolean(contactId);
   const formId = useId();
@@ -171,16 +171,15 @@ export function PracticeContactEditorPage({
       throw new Error('Email is required.');
     }
 
-    const payloadAddress = normalizeAddress(draft.address);
-    const payload = {
-      name: draft.name.trim() || undefined,
-      email,
-      phone: draft.phone.trim() || undefined,
-      status: draft.status,
-      address: payloadAddress,
-    };
-
     if (isEditMode && resolvedContactId) {
+      const payloadAddress = normalizeAddress(draft.address);
+      const payload = {
+        name: draft.name.trim() || undefined,
+        email,
+        phone: draft.phone.trim() || undefined,
+        status: draft.status,
+        address: payloadAddress,
+      };
       const updated = await updateUserDetail(practiceId, resolvedContactId, payload);
       if (!updated) {
         throw new Error('Contact update did not return a record.');
@@ -190,88 +189,9 @@ export function PracticeContactEditorPage({
       return;
     }
 
-    await createUserDetail(practiceId, { email });
-
-    // The create API uses an external invitation system and may be eventually
-    // consistent. Retry-list for the created record instead of relying on a
-    // single immediate query. Use exponential backoff with a few attempts.
-    const attempts = 5;
-    let resolved: UserDetailRecord | undefined;
-    try {
-      for (let i = 0; i < attempts; i++) {
-        const maybeCreated = await listUserDetails(practiceId, {
-          search: email,
-          limit: 100,
-        });
-        resolved = maybeCreated.data.find((item) => item.user?.email?.trim().toLowerCase() === email.toLowerCase());
-        if (resolved) break;
-        // backoff: 300ms, 600ms, 1200ms, ...
-        const delay = 300 * Math.pow(2, i);
-        // don't block the event loop excessively
-        await new Promise((res) => setTimeout(res, delay));
-      }
-
-      if (resolved) {
-        try {
-          const updated = await updateUserDetail(practiceId, resolved.id, payload);
-          setResolvedContactId(updated?.id ?? resolved.id);
-          showSuccess('Contact created', 'The contact was saved successfully.');
-          navigate(returnTo);
-          return;
-        } catch (updateErr) {
-          setResolvedContactId(resolved.id);
-          setError('Invite sent but subsequent update failed.');
-          if (process.env.NODE_ENV !== 'production') {
-            console.error('Invite sent but updateUserDetail failed', updateErr);
-          }
-          return;
-        }
-      }
-    } catch (listOrUpdateErr) {
-      setError('Invite sent but subsequent update failed.');
-      if (resolved?.id) setResolvedContactId(resolved.id);
-      if (process.env.NODE_ENV !== 'production') {
-        console.error('Invite sent but listUserDetails or updateUserDetail failed', listOrUpdateErr);
-      }
-      return;
-    }
-
-    // Invite was sent but the created record did not appear within retries.
-    // Persist the pending update so a background retry or next page load
-    // can complete the remaining fields (name/phone/address).
-    try {
-      if (typeof window !== 'undefined') {
-        const key = 'pendingContactUpdates';
-        const raw = window.localStorage.getItem(key);
-        const list = raw ? JSON.parse(raw) as Array<Record<string, unknown>> : [];
-        list.push({
-          practiceId,
-          email,
-          payload,
-          timestamp: new Date().toISOString(),
-        });
-        window.localStorage.setItem(key, JSON.stringify(list));
-      }
-    } catch (_err) {
-      // ignore localStorage errors — still surface the pending state to the user
-    }
-
-    showWarning(
-      'Invite sent but details not saved',
-      'The contact invite was sent but additional details were not persisted. The remaining details will be retried in the background.'
-    );
-
-    // Preserve resolvedContactId (do not drop it) and surface pending state
-    // to the caller by adding a query flag so UIs can render pending indicators.
-    const pendingReturnTo = (() => {
-      try {
-        const url = returnTo || '/practice';
-        return url.includes('?') ? `${url}&pendingContact=1` : `${url}?pendingContact=1`;
-      } catch {
-        return returnTo;
-      }
-    })();
-    navigate(pendingReturnTo);
+    await sendInvitation(email, 'client');
+    showSuccess('Invite sent', 'The invitation has been sent.');
+    navigate(returnTo);
     } catch (nextError) {
       const message = nextError instanceof Error ? nextError.message : 'Failed to save contact.';
       setError(message);
@@ -281,12 +201,12 @@ export function PracticeContactEditorPage({
     } finally {
       setSaving(false);
     }
-  }, [draft.address, draft.email, draft.name, draft.phone, draft.status, isEditMode, navigate, practiceId, resolvedContactId, returnTo, saving, showSuccess, showWarning]);
+  }, [draft.address, draft.email, draft.name, draft.phone, draft.status, isEditMode, navigate, practiceId, resolvedContactId, returnTo, saving, sendInvitation, showSuccess]);
 
-  const title = isEditMode ? 'Edit Contact' : 'Create Contact';
+  const title = isEditMode ? 'Edit Contact' : 'Invite Contact';
   const subtitle = isEditMode
     ? 'Update contact details and relationship status.'
-    : 'Create a contact record and capture their details.';
+    : 'Send an invitation to a new client contact.';
 
   return (
     <EditorShell
@@ -302,7 +222,7 @@ export function PracticeContactEditorPage({
             Cancel
           </Button>
           <Button type="submit" form={formId} disabled={saving || loading || !practiceId}>
-            {saving ? 'Saving...' : 'Save'}
+            {isEditMode ? (saving ? 'Saving...' : 'Save') : (saving ? 'Inviting...' : 'Invite')}
           </Button>
         </div>
       )}
@@ -322,7 +242,7 @@ export function PracticeContactEditorPage({
           <div className="space-y-6">
             <AddressExperienceForm
               formId={formId}
-              fields={['name', 'email', 'phone', 'address']}
+              fields={isEditMode ? ['name', 'email', 'phone', 'address'] : ['email']}
               required={['email']}
               initialValues={draft}
               variant="plain"
@@ -343,14 +263,16 @@ export function PracticeContactEditorPage({
               }}
             />
 
-            <Combobox
-              label="Status"
-              value={draft.status}
-              options={STATUS_OPTIONS}
-              onChange={(value) => setDraft((prev) => ({ ...prev, status: value as UserDetailStatus }))}
-              disabled={saving}
-            />
-            {resolvedContactId ? (
+            {isEditMode ? (
+              <Combobox
+                label="Status"
+                value={draft.status}
+                options={STATUS_OPTIONS}
+                onChange={(value) => setDraft((prev) => ({ ...prev, status: value as UserDetailStatus }))}
+                disabled={saving}
+              />
+            ) : null}
+            {isEditMode && resolvedContactId ? (
               <p className="text-xs text-dim-2">
                 Contact record: {resolvedContactId}
               </p>
