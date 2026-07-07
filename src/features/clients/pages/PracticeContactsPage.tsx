@@ -1573,7 +1573,12 @@ export const PracticeContactsPage = ({
                 <em className="not-italic text-accent">haven&apos;t heard from.</em>
               </h1>
             </div>
-            <StatStrip cells={headerStatCells} className="hidden sm:flex" />
+            <div className="flex flex-wrap items-center gap-3">
+              <StatStrip cells={headerStatCells} className="hidden sm:flex" />
+              <Button variant="primary" size="sm" icon={Plus} onClick={handleOpenAddClient}>
+                New Contact
+              </Button>
+            </div>
           </header>
 
           {/* ── AI ask bar ──────────────────────────────────────────── */}
