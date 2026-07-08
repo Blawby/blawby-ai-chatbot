@@ -1,5 +1,5 @@
 import type { FullConfig } from '@playwright/test';
-import { chromium } from 'playwright';
+import { chromium, type Page } from 'playwright';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
 import { join } from 'path';
 import { loadE2EConfig } from './helpers/e2eConfig';
@@ -136,6 +136,80 @@ const hasValidSessionFromStorage = async (
   }
 };
 
+const activeOrganizationIdFromPayload = (payload: unknown): string | null => {
+  const root = payload && typeof payload === 'object' ? payload as Record<string, unknown> : null;
+  const container = root && root.data && typeof root.data === 'object'
+    ? root.data as Record<string, unknown>
+    : root;
+  const session = container?.session && typeof container.session === 'object'
+    ? container.session as Record<string, unknown>
+    : null;
+  const value = session?.activeOrganizationId ?? session?.active_organization_id;
+  return typeof value === 'string' && value.trim().length > 0 ? value.trim() : null;
+};
+
+const ensureOwnerActivePractice = async (options: {
+  baseURL: string;
+  storagePath: string;
+  practiceId: string;
+}): Promise<void> => {
+  const { baseURL, storagePath, practiceId } = options;
+  const browser = await chromium.launch();
+  const context = await browser.newContext({ baseURL, storageState: storagePath });
+  const page = await context.newPage();
+
+  try {
+    await page.goto('/', { waitUntil: 'domcontentloaded' });
+    await waitForSession(page, { timeoutMs: 30000 });
+    const setActive = await page.evaluate(async (practiceId) => {
+      const response = await fetch('/api/auth/organization/set-active', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ organizationId: practiceId })
+      });
+      const body = await response.text().catch(() => '');
+      return { ok: response.ok, status: response.status, body };
+    }, practiceId);
+
+    if (!setActive.ok) {
+      throw new Error(
+        `Configured owner cannot activate practice ${practiceId}: ` +
+        `${setActive.status} ${setActive.body.slice(0, 500)}`
+      );
+    }
+
+    await expectActiveOrganization(page, practiceId);
+    await context.storageState({ path: storagePath });
+    console.log(`✅ owner active practice saved to storageState: ${practiceId}`);
+  } finally {
+    await context.close();
+    await browser.close();
+  }
+};
+
+const expectActiveOrganization = async (page: Page, practiceId: string): Promise<void> => {
+  const deadline = Date.now() + 30000;
+  let lastActiveId: string | null = null;
+  while (Date.now() < deadline) {
+    const sessionPayload = await page.evaluate(async () => {
+      const response = await fetch('/api/auth/get-session', {
+        method: 'GET',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' }
+      });
+      return response.json().catch(() => null);
+    }).catch(() => null);
+    lastActiveId = activeOrganizationIdFromPayload(sessionPayload);
+    if (lastActiveId === practiceId) return;
+    await sleep(500);
+  }
+  throw new Error(
+    `Owner session did not activate configured practice ${practiceId}; ` +
+    `last active organization was ${lastActiveId ?? 'missing'}.`
+  );
+};
+
 const verifyWorkerHealth = async (): Promise<void> => {
   const configuredBaseUrl = process.env.E2E_BASE_URL || 'https://dev.blawby.com';
   if (!shouldVerifyLocalWorker(configuredBaseUrl)) {
@@ -158,7 +232,7 @@ const verifyWorkerHealth = async (): Promise<void> => {
       lastErrorMessage = `Worker health check failed: ${response.status} ${body.slice(0, 200)}`;
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      lastErrorMessage = `Worker health check failed. Make sure wrangler is running: npm run dev:worker:clean. ${message}`;
+      lastErrorMessage = `Worker health check failed. Make sure wrangler is running: npm run dev:worker or npm run dev:worker:no-ai. ${message}`;
     } finally {
       clearTimeout(timeoutId);
     }
@@ -453,6 +527,11 @@ export const runAuthGlobalSetup = async (config: FullConfig): Promise<void> => {
       label: 'owner'
     });
   }
+  await ensureOwnerActivePractice({
+    baseURL,
+    storagePath: ownerPath,
+    practiceId: e2eConfig.practice.id
+  });
 
   if (SKIP_CLIENT_AUTH) {
     console.log('⏭️  client storageState skipped because E2E_SKIP_CLIENT_AUTH is enabled');
