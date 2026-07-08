@@ -8,7 +8,6 @@ type JsonRecord = Record<string, unknown>;
 type ApiPage = Parameters<typeof fetchJsonViaPage>[0];
 
 const e2eConfig = loadE2EConfig();
-const RUN_CLIENT_BILLING = ['1', 'true', 'yes'].includes((process.env.E2E_RUN_CLIENT_BILLING ?? '').toLowerCase());
 
 let PRACTICE_ID = e2eConfig?.practice.id ?? '';
 let PRACTICE_SLUG = normalizeE2EPracticeSlug(e2eConfig?.practice.slug, 'demo-owner-local');
@@ -114,15 +113,18 @@ const findClientByEmail = async (
   }) ?? null;
 };
 
-const findOwnerBillingClient = async (ownerPage: ApiPage): Promise<JsonRecord | null> => {
-  const clientList = await api(ownerPage, `/api/clients/${encodeURIComponent(PRACTICE_ID)}?limit=100`);
-  const clients = arrayFrom(clientList.data, ['data', 'clients', 'items']);
-  const configuredClientEmail = e2eConfig?.client.email.toLowerCase();
-  const configuredClient = configuredClientEmail
-    ? clients.find((item) => textFrom(asRecord(item.user), ['email'])?.toLowerCase() === configuredClientEmail)
-    : null;
-  return configuredClient
-    ?? clients.find((item) => textFrom(item, ['id']) && textFrom(asRecord(item.user), ['email']));
+const configuredClientEmailFromSession = async (clientPage: ApiPage): Promise<string> => {
+  await clientPage.goto('/', { waitUntil: 'domcontentloaded' });
+  const clientSession = await api(clientPage, '/api/auth/get-session');
+  return requireText(userFromSessionPayload(clientSession.data) as JsonRecord, ['email'], 'client session').toLowerCase();
+};
+
+const resolveConfiguredClientForPractice = async (
+  ownerPage: ApiPage,
+  clientPage: ApiPage
+): Promise<JsonRecord> => {
+  const clientEmail = await configuredClientEmailFromSession(clientPage);
+  return ensureClientLinkedToPractice(ownerPage, clientPage, clientEmail);
 };
 
 const ensureClientCanAcceptPracticeInvite = async (
@@ -469,13 +471,11 @@ test.describe('billing and invoicing happy path', () => {
   test.skip(!e2eConfig, 'E2E credentials are not configured.');
   test.describe.configure({ mode: 'serial', timeout: 240000 });
 
-  test('practice owner creates matter work and a draft invoice', async ({ ownerPage }) => {
+  test('practice owner creates matter work and a draft invoice for the configured client', async ({ ownerPage, clientPage }) => {
     if (!e2eConfig) return;
 
     await prepareOwnerPage(ownerPage);
-    const client = await findOwnerBillingClient(ownerPage);
-    test.skip(!client, `Practice ${PRACTICE_ID} has no client contacts available for owner-side billing coverage.`);
-    if (!client) return;
+    const client = await resolveConfiguredClientForPractice(ownerPage, clientPage);
     const scenario = await createPracticeBillingScenario(ownerPage, client, `billing-owner-e2e-${Date.now()}`);
 
     await verifyPracticeBillingScenarioInOwnerUi(ownerPage, scenario);
@@ -483,14 +483,10 @@ test.describe('billing and invoicing happy path', () => {
   });
 
   test('client receives and pays hosted invoice', async ({ ownerPage, clientPage }) => {
-    test.skip(!RUN_CLIENT_BILLING, 'Client billing coverage is gated until stable client credentials are configured.');
     if (!e2eConfig) return;
 
     await prepareOwnerPage(ownerPage);
-    await clientPage.goto('/', { waitUntil: 'domcontentloaded' });
-    const clientSession = await api(clientPage, '/api/auth/get-session');
-    const clientEmail = requireText(userFromSessionPayload(clientSession.data) as JsonRecord, ['email'], 'client session').toLowerCase();
-    const client = await ensureClientLinkedToPractice(ownerPage, clientPage, clientEmail);
+    const client = await resolveConfiguredClientForPractice(ownerPage, clientPage);
     const scenario = await createPracticeBillingScenario(ownerPage, client, `billing-client-e2e-${Date.now()}`, { sendInvoice: true });
     expect(scenario.hostedInvoiceUrl, 'sent invoice should expose a hosted Stripe invoice URL').toMatch(/^https:\/\/invoice\.stripe\.com\//);
 
