@@ -124,7 +124,12 @@ const resolveConfiguredClientForPractice = async (
   clientPage: ApiPage
 ): Promise<JsonRecord> => {
   const clientEmail = await configuredClientEmailFromSession(clientPage);
-  return ensureClientLinkedToPractice(ownerPage, clientPage, clientEmail);
+  const client = await ensureClientLinkedToPractice(ownerPage, clientPage, clientEmail);
+  expect(
+    textFrom(asRecord(client.user), ['email'])?.toLowerCase(),
+    'linked practice client contact should be the signed-in client account'
+  ).toBe(clientEmail);
+  return client;
 };
 
 const ensureClientCanAcceptPracticeInvite = async (
@@ -247,7 +252,7 @@ const resolveOwnerPracticeContext = async (ownerPage: ApiPage) => {
 
 type PracticeBillingScenario = {
   clientId: string;
-  clientEmail: string | null;
+  clientEmail: string;
   invoiceId: string;
   matterId: string;
   hostedInvoiceUrl: string | null;
@@ -272,7 +277,7 @@ const createPracticeBillingScenario = async (
   const clientInvoiceNote = `Please pay this E2E invoice ${unique}`;
   const internalMemo = `Owner-only memo ${unique}`;
   const clientId = requireText(client, ['id'], 'client record');
-  const clientEmail = textFrom(asRecord(client.user), ['email']);
+  const clientEmail = requireText(asRecord(client.user) ?? {}, ['email'], 'client record user');
 
   const onboarding = await api(ownerPage, `/api/onboarding/organization/${encodeURIComponent(PRACTICE_ID)}/status`);
   const onboardingRecord = firstRecordFrom(onboarding.data, ['data', 'status']) ?? asRecord(onboarding.data);
@@ -515,9 +520,7 @@ test.describe('billing and invoicing happy path', () => {
 
     await clientPage.goto(`/client/${encodeURIComponent(PRACTICE_SLUG)}/invoices/${encodeURIComponent(scenario.invoiceId)}`, { waitUntil: 'domcontentloaded' });
     await expect(clientPage.getByRole('button', { name: /^pay$/i })).toBeVisible({ timeout: 30000 });
-    if (scenario.clientEmail) {
-      await expect(clientPage.getByText(scenario.clientEmail).first()).toBeVisible();
-    }
+    await expect(clientPage.getByText(scenario.clientEmail).first()).toBeVisible();
     await expect(clientPage.getByText(scenario.clientInvoiceNote).first()).toBeVisible();
     await expect(clientPage.getByText(scenario.timeDescription).first()).toBeVisible();
     await expect(clientPage.getByText(scenario.expenseDescription).first()).toBeVisible();
