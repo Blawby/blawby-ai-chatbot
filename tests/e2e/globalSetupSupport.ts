@@ -277,20 +277,11 @@ const createSignedInState = async (options: {
           name: `E2E ${label}`
         });
       } catch (error) {
-        if (label !== 'client') {
-          throw error;
-        }
-        const fallbackEmail = `e2e-client-${Date.now()}@test-blawby.com`;
-        console.warn(
-          `Configured client could not sign in or register (${error instanceof Error ? error.message : String(error)}). ` +
-          `Creating a fresh generated E2E client instead.`
+        throw new Error(
+          `Configured ${label} could not sign in or register. ` +
+          `Billing e2e requires the configured ${label} account, not a generated fallback. ` +
+          `${error instanceof Error ? error.message : String(error)}`
         );
-        await sleep(10_000);
-        await createTestUser(page, {
-          email: fallbackEmail,
-          password,
-          name: 'E2E client'
-        });
       }
       await context.storageState({ path: storagePath });
       console.log(`✅ ${label} storageState saved to ${storagePath}`);
