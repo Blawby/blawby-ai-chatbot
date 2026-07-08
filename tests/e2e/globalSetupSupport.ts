@@ -61,6 +61,32 @@ const normalizeEmail = (value: string | undefined | null): string | null => {
   return trimmed || null;
 };
 
+const redactAuthDebugText = (value: string, configuredEmail: string): string => {
+  const emailPattern = /[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi;
+  return value
+    .replaceAll(configuredEmail, '[REDACTED_EMAIL]')
+    .replace(emailPattern, '[REDACTED_EMAIL]')
+    .replace(/("password"\s*:\s*)"[^"]*"/gi, '$1"[REDACTED]"')
+    .replace(/("confirmPassword"\s*:\s*)"[^"]*"/gi, '$1"[REDACTED]"');
+};
+
+const summarizeAuthDebug = (authNetworkLogs: string[]): string => {
+  if (authNetworkLogs.length === 0) return 'No auth responses were captured.';
+  return authNetworkLogs.slice(-8).join(' | ');
+};
+
+const writeAuthDebugFiles = (label: string, authNetworkLogs: string[], consoleLogs: string[], pageErrors: string[]): void => {
+  const resultsDir = ensureResultsDir();
+  const networkPath = join(resultsDir, `signin-session-network-${label}.txt`);
+  const consolePath = join(resultsDir, `signin-session-console-${label}.txt`);
+  if (authNetworkLogs.length > 0) {
+    writeFileSync(networkPath, authNetworkLogs.join('\n'));
+  }
+  if (consoleLogs.length > 0 || pageErrors.length > 0) {
+    writeFileSync(consolePath, [...consoleLogs, ...pageErrors].join('\n'));
+  }
+};
+
 const hasValidSessionFromStorage = async (
   baseURL: string,
   storagePath: string,
@@ -294,8 +320,9 @@ const createSignedInState = async (options: {
     if (!url.includes('/api/auth/')) return;
     const status = response.status();
     const method = response.request().method();
-    await response.text().catch(() => '');
-    authNetworkLogs.push(`[auth] ${method} ${status} ${url} [REDACTED]`);
+    const body = await response.text().catch(() => '');
+    const bodyPreview = redactAuthDebugText(body, email).slice(0, 500);
+    authNetworkLogs.push(`[auth] ${method} ${status} ${url} ${bodyPreview || '[no-body]'}`);
   };
   const authRequestFailedHandler = (request: { url: () => string; method: () => string; failure: () => { errorText?: string } | null }) => {
     const url = request.url();
@@ -351,10 +378,12 @@ const createSignedInState = async (options: {
           name: `E2E ${label}`
         });
       } catch (error) {
+        writeAuthDebugFiles(label, authNetworkLogs, consoleLogs, pageErrors);
         throw new Error(
           `Configured ${label} could not sign in or register. ` +
           `Billing e2e requires the configured ${label} account, not a generated fallback. ` +
-          `${error instanceof Error ? error.message : String(error)}`
+          `${error instanceof Error ? error.message : String(error)} ` +
+          `Recent auth responses: ${summarizeAuthDebug(authNetworkLogs)}`
         );
       }
       await context.storageState({ path: storagePath });
@@ -370,16 +399,11 @@ const createSignedInState = async (options: {
     try {
       await waitForSession(page, { timeoutMs: authTimeoutMs });
     } catch (error) {
-      const resultsDir = ensureResultsDir();
-      const networkPath = join(resultsDir, `signin-session-network-${label}.txt`);
-      const consolePath = join(resultsDir, `signin-session-console-${label}.txt`);
-      if (authNetworkLogs.length > 0) {
-        writeFileSync(networkPath, authNetworkLogs.join('\n'));
-      }
-      if (consoleLogs.length > 0 || pageErrors.length > 0) {
-        writeFileSync(consolePath, [...consoleLogs, ...pageErrors].join('\n'));
-      }
-      throw error;
+      writeAuthDebugFiles(label, authNetworkLogs, consoleLogs, pageErrors);
+      throw new Error(
+        `${error instanceof Error ? error.message : String(error)} ` +
+        `Recent auth responses: ${summarizeAuthDebug(authNetworkLogs)}`
+      );
     }
 
     try {
