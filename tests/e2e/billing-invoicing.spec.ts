@@ -1,6 +1,6 @@
 import { expect, test } from './fixtures.auth';
 import { loadE2EConfig, normalizeE2EPracticeSlug } from './helpers/e2eConfig';
-import { fetchJsonViaPage, type JsonResult } from './helpers/http';
+import { fetchJsonViaPage, formatJsonResultError, type JsonResult } from './helpers/http';
 import { verifyE2ETestUserEmail } from './helpers/stagingAuthBootstrap';
 import { completeStripeHostedInvoicePaymentWithTestCard } from './helpers/stripeCheckout';
 
@@ -79,7 +79,7 @@ const booleanFrom = (record: JsonRecord | null | undefined, keys: string[]): boo
 
 const requireRecord = (result: JsonResult, keys: string[], label: string): JsonRecord => {
   if (result.status < 200 || result.status >= 300) {
-    throw new Error(`${label} failed: ${result.status} ${result.error ?? JSON.stringify(result.data)}`);
+    throw new Error(`${label} failed: ${formatJsonResultError(result)}`);
   }
   const record = firstRecordFrom(result.data, keys);
   if (!record) throw new Error(`${label} returned no record: ${JSON.stringify(result.data)}`);
@@ -227,7 +227,7 @@ const api = async (page: ApiPage, url: string, init?: Parameters<typeof fetchJso
     result = await fetchJsonViaPage(page, url, init);
   }
   if (result.status < 200 || result.status >= 300) {
-    throw new Error(`API ${init?.method ?? 'GET'} ${url} failed: ${result.status} ${result.error ?? JSON.stringify(result.data)}`);
+    throw new Error(`API ${init?.method ?? 'GET'} ${url} failed: ${formatJsonResultError(result)}`);
   }
   return result;
 };
