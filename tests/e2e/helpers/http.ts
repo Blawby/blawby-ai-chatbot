@@ -4,22 +4,44 @@ export interface JsonResult<T = any> {
   status: number;
   data?: T;
   error?: string;
+  headers?: Record<string, string>;
+}
+
+const interestingResponseHeaders = [
+  'x-request-id',
+  'x-correlation-id',
+  'x-amzn-trace-id',
+  'cf-ray',
+  'server',
+] as const;
+
+export function formatJsonResultError(result: JsonResult): string {
+  const details = result.error ?? JSON.stringify(result.data);
+  const headers = result.headers && Object.keys(result.headers).length > 0
+    ? ` headers=${JSON.stringify(result.headers)}`
+    : '';
+  return `${result.status} ${details}${headers}`;
 }
 
 export async function fetchJsonViaPage(page: Page, url: string, init?: any): Promise<JsonResult> {
-  return page.evaluate(async ({ url, init }: any) => {
+  return page.evaluate(async ({ url, init, interestingResponseHeaders }: any) => {
     try {
       const response = await fetch(url, { credentials: 'include', ...init });
+      const headers = Object.fromEntries(
+        interestingResponseHeaders
+          .map((name: string) => [name, response.headers.get(name)])
+          .filter((entry: [string, string | null]) => entry[1])
+      );
       if (!response.ok) {
         const text = await response.text();
-        return { status: response.status, error: `HTTP ${response.status}: ${text}` };
+        return { status: response.status, error: `HTTP ${response.status}: ${text}`, headers };
       }
       const data = await response.json();
-      return { status: response.status, data };
+      return { status: response.status, data, headers };
     } catch (err) {
       return { status: 0, error: err instanceof Error ? err.message : String(err) };
     }
-  }, { url, init });
+  }, { url, init, interestingResponseHeaders });
 }
 
 export async function postStreamViaPage(page: Page, url: string, body: unknown): Promise<{ status: number; error?: string }> {

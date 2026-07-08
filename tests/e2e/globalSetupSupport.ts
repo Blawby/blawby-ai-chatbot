@@ -1,11 +1,12 @@
 import type { FullConfig } from '@playwright/test';
-import { chromium } from 'playwright';
+import { chromium, type Page } from 'playwright';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
 import { join } from 'path';
 import { loadE2EConfig } from './helpers/e2eConfig';
 import { waitForSession } from './helpers/auth';
 import { AUTH_DIR, AUTH_STATE_PATHS } from './helpers/authState';
 import { getBaseUrlFromConfig } from './helpers/baseUrl';
+import { createTestUser } from './helpers/createTestUser';
 
 const SESSION_COOKIE_PATTERN = /better-auth\.session_token/i;
 
@@ -22,6 +23,14 @@ type StorageState = {
 const FORCE_AUTH_REFRESH = ['true', '1', 'yes'].includes(
   (process.env.E2E_FORCE_AUTH_REFRESH || '').toLowerCase()
 );
+const SKIP_CLIENT_AUTH = ['true', '1', 'yes'].includes(
+  (process.env.E2E_SKIP_CLIENT_AUTH || '').toLowerCase()
+);
+
+const shouldVerifyLocalWorker = (baseURL: string): boolean => {
+  const hostname = new URL(baseURL).hostname.toLowerCase();
+  return hostname === 'local.blawby.com' || hostname === 'localhost' || hostname === '127.0.0.1';
+};
 
 const ensureAuthDir = (): string => {
   mkdirSync(AUTH_DIR, { recursive: true });
@@ -47,7 +56,42 @@ const cookieMatchesHost = (cookieDomain: string | undefined, host: string): bool
   return normalized === target;
 };
 
-const hasValidSessionFromStorage = async (baseURL: string, storagePath: string): Promise<boolean> => {
+const normalizeEmail = (value: string | undefined | null): string | null => {
+  const trimmed = value?.trim().toLowerCase();
+  return trimmed || null;
+};
+
+const redactAuthDebugText = (value: string, configuredEmail: string): string => {
+  const emailPattern = /[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi;
+  return value
+    .replaceAll(configuredEmail, '[REDACTED_EMAIL]')
+    .replace(emailPattern, '[REDACTED_EMAIL]')
+    .replace(/("password"\s*:\s*)"[^"]*"/gi, '$1"[REDACTED]"')
+    .replace(/("confirmPassword"\s*:\s*)"[^"]*"/gi, '$1"[REDACTED]"');
+};
+
+const summarizeAuthDebug = (authNetworkLogs: string[]): string => {
+  if (authNetworkLogs.length === 0) return 'No auth responses were captured.';
+  return authNetworkLogs.slice(-8).join(' | ');
+};
+
+const writeAuthDebugFiles = (label: string, authNetworkLogs: string[], consoleLogs: string[], pageErrors: string[]): void => {
+  const resultsDir = ensureResultsDir();
+  const networkPath = join(resultsDir, `signin-session-network-${label}.txt`);
+  const consolePath = join(resultsDir, `signin-session-console-${label}.txt`);
+  if (authNetworkLogs.length > 0) {
+    writeFileSync(networkPath, authNetworkLogs.join('\n'));
+  }
+  if (consoleLogs.length > 0 || pageErrors.length > 0) {
+    writeFileSync(consolePath, [...consoleLogs, ...pageErrors].join('\n'));
+  }
+};
+
+const hasValidSessionFromStorage = async (
+  baseURL: string,
+  storagePath: string,
+  expectedEmail?: string
+): Promise<boolean> => {
   if (!existsSync(storagePath)) {
     return false;
   }
@@ -103,8 +147,13 @@ const hasValidSessionFromStorage = async (baseURL: string, storagePath: string):
     if (!container || typeof container !== 'object') {
       return false;
     }
-    const user = (container as { user?: { id?: string } }).user;
-    const session = (container as { session?: { user?: { id?: string } } }).session;
+    const user = (container as { user?: { id?: string; email?: string } }).user;
+    const session = (container as { session?: { user?: { id?: string; email?: string } } }).session;
+    const actualEmail = normalizeEmail(user?.email ?? session?.user?.email);
+    const requiredEmail = normalizeEmail(expectedEmail);
+    if (requiredEmail && actualEmail !== requiredEmail) {
+      return false;
+    }
     return Boolean(user?.id || session?.user?.id);
   } catch {
     return false;
@@ -113,7 +162,86 @@ const hasValidSessionFromStorage = async (baseURL: string, storagePath: string):
   }
 };
 
+const activeOrganizationIdFromPayload = (payload: unknown): string | null => {
+  const root = payload && typeof payload === 'object' ? payload as Record<string, unknown> : null;
+  const container = root && root.data && typeof root.data === 'object'
+    ? root.data as Record<string, unknown>
+    : root;
+  const session = container?.session && typeof container.session === 'object'
+    ? container.session as Record<string, unknown>
+    : null;
+  const value = session?.activeOrganizationId ?? session?.active_organization_id;
+  return typeof value === 'string' && value.trim().length > 0 ? value.trim() : null;
+};
+
+const ensureOwnerActivePractice = async (options: {
+  baseURL: string;
+  storagePath: string;
+  practiceId: string;
+}): Promise<void> => {
+  const { baseURL, storagePath, practiceId } = options;
+  const browser = await chromium.launch();
+  const context = await browser.newContext({ baseURL, storageState: storagePath });
+  const page = await context.newPage();
+
+  try {
+    await page.goto('/', { waitUntil: 'domcontentloaded' });
+    await waitForSession(page, { timeoutMs: 30000 });
+    const setActive = await page.evaluate(async (practiceId) => {
+      const response = await fetch('/api/auth/organization/set-active', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ organizationId: practiceId })
+      });
+      const body = await response.text().catch(() => '');
+      return { ok: response.ok, status: response.status, body };
+    }, practiceId);
+
+    if (!setActive.ok) {
+      throw new Error(
+        `Configured owner cannot activate practice ${practiceId}: ` +
+        `${setActive.status} ${setActive.body.slice(0, 500)}`
+      );
+    }
+
+    await expectActiveOrganization(page, practiceId);
+    await context.storageState({ path: storagePath });
+    console.log(`✅ owner active practice saved to storageState: ${practiceId}`);
+  } finally {
+    await context.close();
+    await browser.close();
+  }
+};
+
+const expectActiveOrganization = async (page: Page, practiceId: string): Promise<void> => {
+  const deadline = Date.now() + 30000;
+  let lastActiveId: string | null = null;
+  while (Date.now() < deadline) {
+    const sessionPayload = await page.evaluate(async () => {
+      const response = await fetch('/api/auth/get-session', {
+        method: 'GET',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' }
+      });
+      return response.json().catch(() => null);
+    }).catch(() => null);
+    lastActiveId = activeOrganizationIdFromPayload(sessionPayload);
+    if (lastActiveId === practiceId) return;
+    await sleep(500);
+  }
+  throw new Error(
+    `Owner session did not activate configured practice ${practiceId}; ` +
+    `last active organization was ${lastActiveId ?? 'missing'}.`
+  );
+};
+
 const verifyWorkerHealth = async (): Promise<void> => {
+  const configuredBaseUrl = process.env.E2E_BASE_URL || 'https://dev.blawby.com';
+  if (!shouldVerifyLocalWorker(configuredBaseUrl)) {
+    console.log(`Skipping local worker health check for remote base URL: ${configuredBaseUrl}`);
+    return;
+  }
   const baseUrl = process.env.VITE_WORKER_API_URL || process.env.E2E_WORKER_URL || 'http://localhost:8787';
   const deadline = Date.now() + 8000;
   let lastErrorMessage = '';
@@ -130,7 +258,7 @@ const verifyWorkerHealth = async (): Promise<void> => {
       lastErrorMessage = `Worker health check failed: ${response.status} ${body.slice(0, 200)}`;
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      lastErrorMessage = `Worker health check failed. Make sure wrangler is running: npm run dev:worker:clean. ${message}`;
+      lastErrorMessage = `Worker health check failed. Make sure wrangler is running: npm run dev:worker or npm run dev:worker:no-ai. ${message}`;
     } finally {
       clearTimeout(timeoutId);
     }
@@ -192,8 +320,9 @@ const createSignedInState = async (options: {
     if (!url.includes('/api/auth/')) return;
     const status = response.status();
     const method = response.request().method();
-    await response.text().catch(() => '');
-    authNetworkLogs.push(`[auth] ${method} ${status} ${url} [REDACTED]`);
+    const body = await response.text().catch(() => '');
+    const bodyPreview = redactAuthDebugText(body, email).slice(0, 500);
+    authNetworkLogs.push(`[auth] ${method} ${status} ${url} ${bodyPreview || '[no-body]'}`);
   };
   const authRequestFailedHandler = (request: { url: () => string; method: () => string; failure: () => { errorText?: string } | null }) => {
     const url = request.url();
@@ -239,6 +368,29 @@ const createSignedInState = async (options: {
     } else {
       authNetworkLogs.push('[auth] No sign-in response captured within 20s');
     }
+
+    if (signInResponse?.status() === 401) {
+      console.log(`🧾 ${label} sign-in returned 401; attempting to register configured E2E user...`);
+      try {
+        await createTestUser(page, {
+          email,
+          password,
+          name: `E2E ${label}`
+        });
+      } catch (error) {
+        writeAuthDebugFiles(label, authNetworkLogs, consoleLogs, pageErrors);
+        throw new Error(
+          `Configured ${label} could not sign in or register. ` +
+          `Billing e2e requires the configured ${label} account, not a generated fallback. ` +
+          `${error instanceof Error ? error.message : String(error)} ` +
+          `Recent auth responses: ${summarizeAuthDebug(authNetworkLogs)}`
+        );
+      }
+      await context.storageState({ path: storagePath });
+      console.log(`✅ ${label} storageState saved to ${storagePath}`);
+      return;
+    }
+
     await Promise.race([
       page.waitForURL((url) => !url.pathname.startsWith('/auth'), { timeout: authTimeoutMs }),
       page.waitForLoadState('networkidle', { timeout: authTimeoutMs })
@@ -247,16 +399,11 @@ const createSignedInState = async (options: {
     try {
       await waitForSession(page, { timeoutMs: authTimeoutMs });
     } catch (error) {
-      const resultsDir = ensureResultsDir();
-      const networkPath = join(resultsDir, `signin-session-network-${label}.txt`);
-      const consolePath = join(resultsDir, `signin-session-console-${label}.txt`);
-      if (authNetworkLogs.length > 0) {
-        writeFileSync(networkPath, authNetworkLogs.join('\n'));
-      }
-      if (consoleLogs.length > 0 || pageErrors.length > 0) {
-        writeFileSync(consolePath, [...consoleLogs, ...pageErrors].join('\n'));
-      }
-      throw error;
+      writeAuthDebugFiles(label, authNetworkLogs, consoleLogs, pageErrors);
+      throw new Error(
+        `${error instanceof Error ? error.message : String(error)} ` +
+        `Recent auth responses: ${summarizeAuthDebug(authNetworkLogs)}`
+      );
     }
 
     try {
@@ -310,6 +457,15 @@ const createAnonymousState = async (options: {
     await page.goto(normalized);
     await page.waitForLoadState('domcontentloaded');
 
+    try {
+      await waitForSession(page, { timeoutMs: 5000 });
+      await context.storageState({ path: storagePath });
+      console.log(`✅ anonymous storageState saved to ${storagePath}`);
+      return;
+    } catch {
+      // No anonymous session exists yet; create one below.
+    }
+
     // Retry anonymous session creation to handle rate limits (429) or transient proxy failures
     let lastError: any = null;
     const retryDeadline = Date.now() + 90000;
@@ -328,6 +484,9 @@ const createAnonymousState = async (options: {
 
           if (!response.ok) {
             const body = await response.text().catch(() => 'no-body');
+            if (response.status === 400 && body.includes('ANONYMOUS_USERS_CANNOT_SIGN_IN_AGAIN_ANONYMOUSLY')) {
+              return;
+            }
             throw new Error(`Anonymous sign-in failed with status ${response.status}: ${body.slice(0, 500)}`);
           }
         });
@@ -381,7 +540,7 @@ export const runAuthGlobalSetup = async (config: FullConfig): Promise<void> => {
     );
   }
 
-  if (!FORCE_AUTH_REFRESH && await hasValidSessionFromStorage(baseURL, ownerPath)) {
+  if (!FORCE_AUTH_REFRESH && await hasValidSessionFromStorage(baseURL, ownerPath, e2eConfig.owner.email)) {
     console.log(`✅ owner storageState already valid at ${ownerPath}`);
   } else {
     await createSignedInState({
@@ -392,8 +551,15 @@ export const runAuthGlobalSetup = async (config: FullConfig): Promise<void> => {
       label: 'owner'
     });
   }
+  await ensureOwnerActivePractice({
+    baseURL,
+    storagePath: ownerPath,
+    practiceId: e2eConfig.practice.id
+  });
 
-  if (!FORCE_AUTH_REFRESH && await hasValidSessionFromStorage(baseURL, clientPath)) {
+  if (SKIP_CLIENT_AUTH) {
+    console.log('⏭️  client storageState skipped because E2E_SKIP_CLIENT_AUTH is enabled');
+  } else if (!FORCE_AUTH_REFRESH && await hasValidSessionFromStorage(baseURL, clientPath, e2eConfig.client.email)) {
     console.log(`✅ client storageState already valid at ${clientPath}`);
   } else {
     await createSignedInState({

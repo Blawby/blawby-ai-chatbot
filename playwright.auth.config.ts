@@ -1,4 +1,7 @@
 import { defineConfig, devices } from '@playwright/test';
+import { loadE2EEnvFiles } from './tests/e2e/helpers/e2eConfig';
+
+loadE2EEnvFiles();
 
 const RESPONSIVE_VIEWPORTS = {
   mobile: { width: 375, height: 667 },
@@ -24,6 +27,7 @@ export default defineConfig({
     /.*intake-form-templates\.spec\.ts/,
     /.*notifications\.spec\.ts/,
     /.*pricing-gate-membership\.spec\.ts/,
+    /.*billing-invoicing\.spec\.ts/,
     /.*engagements-create-page\.spec\.ts/,
     /.*responsive-auth\.spec\.ts/,
     /.*responsive-screenshots\.spec\.ts/,
@@ -38,7 +42,7 @@ export default defineConfig({
   workers: resolveWorkers(),
   outputDir: './.tmp/playwright/auth/results',
   use: {
-    baseURL: process.env.E2E_BASE_URL || 'https://local.blawby.com',
+    baseURL: process.env.E2E_BASE_URL || 'https://dev.blawby.com',
     trace: 'retain-on-failure',
     storageState: './.tmp/playwright/auth/state/owner.json',
   },

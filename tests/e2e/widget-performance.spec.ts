@@ -1,6 +1,7 @@
 import { expect, test } from './fixtures.public';
 import type { Request as PWRequest } from '@playwright/test';
 import { randomUUID } from 'crypto';
+import { resolveE2EPracticeSlug } from './helpers/e2eConfig';
 
 interface ApiRecord {
   method: string;
@@ -21,7 +22,7 @@ const MAX_FORM_SUBMIT_FEEDBACK_MS = Number(process.env.E2E_WIDGET_FORM_SUBMIT_BU
 // NEW: Updated expectations for new architecture
 const MAX_FIRST_TOKEN_MS = Number(process.env.E2E_WIDGET_FIRST_TOKEN_BUDGET_MS ?? 12000);
 const MAX_TURN_DURATION_MS = Number(process.env.E2E_WIDGET_TOOL_EXECUTION_BUDGET_MS ?? 25000);
-const DEFAULT_WIDGET_SLUG = process.env.E2E_WIDGET_SLUG ?? process.env.E2E_PRACTICE_SLUG ?? 'paul-yahoo';
+const DEFAULT_WIDGET_SLUG = resolveE2EPracticeSlug('paul-yahoo', { allowWidgetOverride: true });
 const ACCESS_FALLBACK_REGEX = /\bi (?:do not|don't) have access to this practice['']?s details\b/i;
 const GENERIC_AI_FALLBACK_REGEX = /i wasn['']t able to generate a response/i;
 

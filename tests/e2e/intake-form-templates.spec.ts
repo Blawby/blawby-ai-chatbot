@@ -2,12 +2,11 @@ import { existsSync } from 'fs';
 import { randomUUID } from 'crypto';
 import { expect, test } from './fixtures.auth';
 import { buildWidgetUrl, prepareWidgetComposer } from './helpers/widgetComposer';
-import { loadE2EConfig } from './helpers/e2eConfig';
+import { loadE2EConfig, resolveE2EPracticeSlug } from './helpers/e2eConfig';
 import { AUTH_STATE_PATHS } from './helpers/authState';
 import { fetchJsonViaPage } from './helpers/http';
 
-const DEFAULT_PRACTICE_SLUG =
-  process.env.E2E_WIDGET_SLUG ?? process.env.E2E_PRACTICE_SLUG ?? 'demo-owner-local';
+const DEFAULT_PRACTICE_SLUG = resolveE2EPracticeSlug('demo-owner-local', { allowWidgetOverride: true });
 
 type JsonRecord = Record<string, unknown>;
 
