@@ -6,6 +6,10 @@ import { completeStripeHostedInvoicePaymentWithTestCard } from './helpers/stripe
 
 type JsonRecord = Record<string, unknown>;
 type ApiPage = Parameters<typeof fetchJsonViaPage>[0];
+type E2EClientIdentity = {
+  email: string;
+  userId: string;
+};
 
 const e2eConfig = loadE2EConfig();
 
@@ -113,22 +117,32 @@ const findClientByEmail = async (
   }) ?? null;
 };
 
-const configuredClientEmailFromSession = async (clientPage: ApiPage): Promise<string> => {
+const configuredClientIdentityFromSession = async (clientPage: ApiPage): Promise<E2EClientIdentity> => {
   await clientPage.goto('/', { waitUntil: 'domcontentloaded' });
   const clientSession = await api(clientPage, '/api/auth/get-session');
-  return requireText(userFromSessionPayload(clientSession.data) as JsonRecord, ['email'], 'client session').toLowerCase();
+  const user = userFromSessionPayload(clientSession.data);
+  return {
+    email: requireText(user as JsonRecord, ['email'], 'client session').toLowerCase(),
+    userId: requireText(user as JsonRecord, ['id'], 'client session'),
+  };
 };
 
 const resolveConfiguredClientForPractice = async (
   ownerPage: ApiPage,
   clientPage: ApiPage
 ): Promise<JsonRecord> => {
-  const clientEmail = await configuredClientEmailFromSession(clientPage);
-  const client = await ensureClientLinkedToPractice(ownerPage, clientPage, clientEmail);
+  const clientIdentity = await configuredClientIdentityFromSession(clientPage);
+  const client = await ensureClientLinkedToPractice(ownerPage, clientPage, clientIdentity.email);
   expect(
     textFrom(asRecord(client.user), ['email'])?.toLowerCase(),
     'linked practice client contact should be the signed-in client account'
-  ).toBe(clientEmail);
+  ).toBe(clientIdentity.email);
+  const linkedUserId = textFrom(asRecord(client.user), ['id', 'user_id', 'userId'])
+    ?? textFrom(client, ['user_id', 'userId']);
+  expect(
+    linkedUserId,
+    'linked practice client contact should point at the signed-in client user id'
+  ).toBe(clientIdentity.userId);
   return client;
 };
 
@@ -241,10 +255,15 @@ const resolveOwnerPracticeContext = async (ownerPage: ApiPage) => {
   const practiceList = await api(ownerPage, '/api/practice/list');
   const practices = arrayFrom(practiceList.data, ['practices', 'data', 'items']);
   const practice = practices.find((item) => textFrom(item, ['slug']) === PRACTICE_SLUG)
-    ?? practices.find((item) => textFrom(item, ['id']) === PRACTICE_ID)
-    ?? practices[0];
+    ?? practices.find((item) => textFrom(item, ['id']) === PRACTICE_ID);
   if (!practice) {
-    throw new Error(`Owner account has no practices: ${JSON.stringify(practiceList.data)}`);
+    throw new Error(
+      `Configured owner account is not linked to practice ${PRACTICE_SLUG || PRACTICE_ID}. ` +
+      `Available practices: ${JSON.stringify(practices.map((item) => ({
+        id: textFrom(item, ['id']),
+        slug: textFrom(item, ['slug']),
+      })))}`
+    );
   }
   PRACTICE_ID = requireText(practice, ['id'], 'owner practice');
   PRACTICE_SLUG = requireText(practice, ['slug'], 'owner practice');
