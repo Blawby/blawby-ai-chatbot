@@ -221,5 +221,5 @@ export async function completeStripeHostedInvoicePaymentWithTestCard(page: Page)
     await submitByType.click();
   }
 
-  await expect(page.getByText(/paid|payment successful|thank you|receipt/i).first()).toBeVisible({ timeout: 60000 });
+  await expect(page.getByText(/invoice paid|payment successful|thank you|receipt/i).first()).toBeVisible({ timeout: 60000 });
 }

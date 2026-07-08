@@ -18,15 +18,21 @@ const getDatabaseUrl = (): string | null => {
 };
 
 const shouldUseSsl = (databaseUrl: string): boolean | { rejectUnauthorized: false } => {
-  if (process.env.E2E_DATABASE_SSL === 'false') return false;
-  if (process.env.E2E_DATABASE_SSL === 'true') return { rejectUnauthorized: false };
-
   try {
     const url = new URL(databaseUrl);
     const sslMode = url.searchParams.get('sslmode')?.toLowerCase();
     const hostname = url.hostname.toLowerCase();
     const isLocal = hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '::1';
-    return sslMode === 'require' || !isLocal ? { rejectUnauthorized: false } : false;
+    const sslRequested = process.env.E2E_DATABASE_SSL === 'true'
+      || sslMode === 'require'
+      || sslMode === 'verify-ca'
+      || sslMode === 'verify-full';
+
+    if (isLocal) {
+      return sslRequested ? { rejectUnauthorized: false } : false;
+    }
+
+    return true;
   } catch {
     return false;
   }

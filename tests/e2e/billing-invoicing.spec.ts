@@ -487,7 +487,9 @@ const prepareOwnerPage = async (ownerPage: ApiPage): Promise<void> => {
     body: JSON.stringify({ organizationId: PRACTICE_ID }),
   });
   const session = await api(ownerPage, '/api/auth/get-session');
-  const activeOrgId = textFrom(asRecord(session.data)?.session as JsonRecord | undefined, ['activeOrganizationId', 'active_organization_id']);
+  const sessionData = asRecord(unwrapData(session.data));
+  const activeSession = asRecord(sessionData?.session) ?? sessionData;
+  const activeOrgId = textFrom(activeSession, ['activeOrganizationId', 'active_organization_id']);
   expect(activeOrgId, 'owner session should carry the configured practice as active organization').toBe(PRACTICE_ID);
 };
 

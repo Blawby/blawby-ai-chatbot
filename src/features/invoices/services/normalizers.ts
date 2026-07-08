@@ -212,8 +212,8 @@ export const normalizeInvoiceDetail = (
     memo: invoice.memo,
     lineItems: (invoice.line_items ?? []).map((item) => ({
       ...item,
-      unit_price: asMajor(asNumber(item.unit_price)) as typeof item.unit_price,
-      line_total: asMajor(asNumber(item.line_total)) as typeof item.line_total,
+      unit_price: asMajor(asNumber(item.unit_price)),
+      line_total: asMajor(asNumber(item.line_total)),
     })),
     payments: mapPaymentEvents(rawInvoice),
     refunds: mapRefundEvents(rawInvoice),
