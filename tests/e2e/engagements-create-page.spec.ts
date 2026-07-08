@@ -1,19 +1,8 @@
 import { expect, test } from './fixtures.auth';
-import { loadE2EConfig } from './helpers/e2eConfig';
+import { loadE2EConfig, resolveE2EPracticeSlug } from './helpers/e2eConfig';
 
 const e2eConfig = loadE2EConfig();
-const resolvePracticeSlug = (value: string | null | undefined): string => {
-  if (!value) return 'demo-owner-local';
-  try {
-    const url = new URL(value);
-    const segments = url.pathname.split('/').filter(Boolean);
-    return segments[segments.length - 1] ?? 'demo-owner-local';
-  } catch {
-    return value;
-  }
-};
-
-const PRACTICE_SLUG = resolvePracticeSlug(e2eConfig?.practice.slug ?? process.env.E2E_PRACTICE_SLUG);
+const PRACTICE_SLUG = resolveE2EPracticeSlug('demo-owner-local');
 const ENGAGEMENTS_BASE = `/practice/${encodeURIComponent(PRACTICE_SLUG)}/engagements`;
 const CREATE_PATH = `${ENGAGEMENTS_BASE}/new`;
 

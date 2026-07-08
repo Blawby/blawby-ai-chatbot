@@ -6,6 +6,7 @@ import { loadE2EConfig } from './helpers/e2eConfig';
 import { waitForSession } from './helpers/auth';
 import { AUTH_DIR, AUTH_STATE_PATHS } from './helpers/authState';
 import { getBaseUrlFromConfig } from './helpers/baseUrl';
+import { createTestUser } from './helpers/createTestUser';
 
 const SESSION_COOKIE_PATTERN = /better-auth\.session_token/i;
 
@@ -22,6 +23,14 @@ type StorageState = {
 const FORCE_AUTH_REFRESH = ['true', '1', 'yes'].includes(
   (process.env.E2E_FORCE_AUTH_REFRESH || '').toLowerCase()
 );
+const SKIP_CLIENT_AUTH = ['true', '1', 'yes'].includes(
+  (process.env.E2E_SKIP_CLIENT_AUTH || '').toLowerCase()
+);
+
+const shouldVerifyLocalWorker = (baseURL: string): boolean => {
+  const hostname = new URL(baseURL).hostname.toLowerCase();
+  return hostname === 'local.blawby.com' || hostname === 'localhost' || hostname === '127.0.0.1';
+};
 
 const ensureAuthDir = (): string => {
   mkdirSync(AUTH_DIR, { recursive: true });
@@ -47,7 +56,16 @@ const cookieMatchesHost = (cookieDomain: string | undefined, host: string): bool
   return normalized === target;
 };
 
-const hasValidSessionFromStorage = async (baseURL: string, storagePath: string): Promise<boolean> => {
+const normalizeEmail = (value: string | undefined | null): string | null => {
+  const trimmed = value?.trim().toLowerCase();
+  return trimmed || null;
+};
+
+const hasValidSessionFromStorage = async (
+  baseURL: string,
+  storagePath: string,
+  expectedEmail?: string
+): Promise<boolean> => {
   if (!existsSync(storagePath)) {
     return false;
   }
@@ -103,8 +121,13 @@ const hasValidSessionFromStorage = async (baseURL: string, storagePath: string):
     if (!container || typeof container !== 'object') {
       return false;
     }
-    const user = (container as { user?: { id?: string } }).user;
-    const session = (container as { session?: { user?: { id?: string } } }).session;
+    const user = (container as { user?: { id?: string; email?: string } }).user;
+    const session = (container as { session?: { user?: { id?: string; email?: string } } }).session;
+    const actualEmail = normalizeEmail(user?.email ?? session?.user?.email);
+    const requiredEmail = normalizeEmail(expectedEmail);
+    if (requiredEmail && actualEmail !== requiredEmail) {
+      return false;
+    }
     return Boolean(user?.id || session?.user?.id);
   } catch {
     return false;
@@ -114,6 +137,11 @@ const hasValidSessionFromStorage = async (baseURL: string, storagePath: string):
 };
 
 const verifyWorkerHealth = async (): Promise<void> => {
+  const configuredBaseUrl = process.env.E2E_BASE_URL || 'https://dev.blawby.com';
+  if (!shouldVerifyLocalWorker(configuredBaseUrl)) {
+    console.log(`Skipping local worker health check for remote base URL: ${configuredBaseUrl}`);
+    return;
+  }
   const baseUrl = process.env.VITE_WORKER_API_URL || process.env.E2E_WORKER_URL || 'http://localhost:8787';
   const deadline = Date.now() + 8000;
   let lastErrorMessage = '';
@@ -239,6 +267,36 @@ const createSignedInState = async (options: {
     } else {
       authNetworkLogs.push('[auth] No sign-in response captured within 20s');
     }
+
+    if (signInResponse?.status() === 401) {
+      console.log(`🧾 ${label} sign-in returned 401; attempting to register configured E2E user...`);
+      try {
+        await createTestUser(page, {
+          email,
+          password,
+          name: `E2E ${label}`
+        });
+      } catch (error) {
+        if (label !== 'client') {
+          throw error;
+        }
+        const fallbackEmail = `e2e-client-${Date.now()}@test-blawby.com`;
+        console.warn(
+          `Configured client could not sign in or register (${error instanceof Error ? error.message : String(error)}). ` +
+          `Creating a fresh generated E2E client instead.`
+        );
+        await sleep(10_000);
+        await createTestUser(page, {
+          email: fallbackEmail,
+          password,
+          name: 'E2E client'
+        });
+      }
+      await context.storageState({ path: storagePath });
+      console.log(`✅ ${label} storageState saved to ${storagePath}`);
+      return;
+    }
+
     await Promise.race([
       page.waitForURL((url) => !url.pathname.startsWith('/auth'), { timeout: authTimeoutMs }),
       page.waitForLoadState('networkidle', { timeout: authTimeoutMs })
@@ -310,6 +368,15 @@ const createAnonymousState = async (options: {
     await page.goto(normalized);
     await page.waitForLoadState('domcontentloaded');
 
+    try {
+      await waitForSession(page, { timeoutMs: 5000 });
+      await context.storageState({ path: storagePath });
+      console.log(`✅ anonymous storageState saved to ${storagePath}`);
+      return;
+    } catch {
+      // No anonymous session exists yet; create one below.
+    }
+
     // Retry anonymous session creation to handle rate limits (429) or transient proxy failures
     let lastError: any = null;
     const retryDeadline = Date.now() + 90000;
@@ -328,6 +395,9 @@ const createAnonymousState = async (options: {
 
           if (!response.ok) {
             const body = await response.text().catch(() => 'no-body');
+            if (response.status === 400 && body.includes('ANONYMOUS_USERS_CANNOT_SIGN_IN_AGAIN_ANONYMOUSLY')) {
+              return;
+            }
             throw new Error(`Anonymous sign-in failed with status ${response.status}: ${body.slice(0, 500)}`);
           }
         });
@@ -381,7 +451,7 @@ export const runAuthGlobalSetup = async (config: FullConfig): Promise<void> => {
     );
   }
 
-  if (!FORCE_AUTH_REFRESH && await hasValidSessionFromStorage(baseURL, ownerPath)) {
+  if (!FORCE_AUTH_REFRESH && await hasValidSessionFromStorage(baseURL, ownerPath, e2eConfig.owner.email)) {
     console.log(`✅ owner storageState already valid at ${ownerPath}`);
   } else {
     await createSignedInState({
@@ -393,7 +463,9 @@ export const runAuthGlobalSetup = async (config: FullConfig): Promise<void> => {
     });
   }
 
-  if (!FORCE_AUTH_REFRESH && await hasValidSessionFromStorage(baseURL, clientPath)) {
+  if (SKIP_CLIENT_AUTH) {
+    console.log('⏭️  client storageState skipped because E2E_SKIP_CLIENT_AUTH is enabled');
+  } else if (!FORCE_AUTH_REFRESH && await hasValidSessionFromStorage(baseURL, clientPath, e2eConfig.client.email)) {
     console.log(`✅ client storageState already valid at ${clientPath}`);
   } else {
     await createSignedInState({

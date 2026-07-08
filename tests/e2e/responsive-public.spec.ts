@@ -1,6 +1,7 @@
 import { expect, test } from './fixtures.public';
+import { resolveE2EPracticeSlug } from './helpers/e2eConfig';
 
-const PRACTICE_SLUG = process.env.E2E_WIDGET_SLUG ?? process.env.E2E_PRACTICE_SLUG ?? 'paul-yahoo';
+const PRACTICE_SLUG = resolveE2EPracticeSlug('paul-yahoo', { allowWidgetOverride: true });
 
 const ROUTES = [
   `/public/${encodeURIComponent(PRACTICE_SLUG)}?v=widget`,

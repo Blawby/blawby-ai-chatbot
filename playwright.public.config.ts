@@ -1,4 +1,7 @@
 import { defineConfig, devices } from '@playwright/test';
+import { loadE2EEnvFiles } from './tests/e2e/helpers/e2eConfig';
+
+loadE2EEnvFiles();
 
 const PUBLIC_WIDGET_SPECS = [
   /.*widget-diagnose\.spec\.ts/,
@@ -42,7 +45,7 @@ export default defineConfig({
   workers: resolveWorkers(),
   outputDir: './.tmp/playwright/public/results',
   use: {
-    baseURL: process.env.E2E_BASE_URL || 'https://local.blawby.com',
+    baseURL: process.env.E2E_BASE_URL || 'https://dev.blawby.com',
     trace: 'retain-on-failure',
     storageState: { cookies: [], origins: [] },
   },

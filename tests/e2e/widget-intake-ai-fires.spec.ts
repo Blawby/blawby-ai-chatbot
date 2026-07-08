@@ -20,9 +20,9 @@
 
 import { expect, test } from './fixtures.public';
 import { prepareWidgetComposer, buildWidgetUrl } from './helpers/widgetComposer';
+import { resolveE2EPracticeSlug } from './helpers/e2eConfig';
 
-const DEFAULT_PRACTICE_SLUG =
-  process.env.E2E_WIDGET_SLUG ?? process.env.E2E_PRACTICE_SLUG ?? 'paul-yahoo';
+const DEFAULT_PRACTICE_SLUG = resolveE2EPracticeSlug('paul-yahoo', { allowWidgetOverride: true });
 
 const FORCE_FAILURE_ENABLED =
   String(process.env.E2E_INTAKE_AI_FORCE_FAILURE ?? '').toLowerCase() === 'true';

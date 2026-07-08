@@ -3,8 +3,9 @@ import type { Page } from '@playwright/test';
 import { randomUUID } from 'crypto';
 import { mkdirSync, writeFileSync } from 'fs';
 import { resolve } from 'path';
+import { resolveE2EPracticeSlug } from './helpers/e2eConfig';
 
-const DEFAULT_PRACTICE_SLUG = process.env.E2E_WIDGET_SLUG ?? process.env.E2E_PRACTICE_SLUG ?? 'paul-yahoo';
+const DEFAULT_PRACTICE_SLUG = resolveE2EPracticeSlug('paul-yahoo', { allowWidgetOverride: true });
 const rawBudget = process.env.E2E_WIDGET_AI_RESPONSE_BUDGET_MS;
 const parsedBudget = rawBudget ? parseInt(rawBudget, 10) : 90000;
 const MAX_AI_RESPONSE_MS = Number.isFinite(parsedBudget) ? parsedBudget : 120000;

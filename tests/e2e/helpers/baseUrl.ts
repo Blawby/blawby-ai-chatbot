@@ -1,6 +1,9 @@
 import type { FullConfig } from '@playwright/test';
+import { loadE2EEnvFiles } from './e2eConfig';
 
-const DEFAULT_BASE_URL = process.env.E2E_BASE_URL || 'https://local.blawby.com';
+loadE2EEnvFiles();
+
+const DEFAULT_BASE_URL = process.env.E2E_BASE_URL || 'https://dev.blawby.com';
 
 export const resolveBaseUrl = (baseURL?: string): string => {
   if (typeof baseURL === 'string' && baseURL.length > 0) {

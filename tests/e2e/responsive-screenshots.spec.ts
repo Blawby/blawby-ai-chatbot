@@ -1,7 +1,8 @@
 import { expect, test } from './fixtures.auth';
 import type { Page } from '@playwright/test';
+import { resolveE2EPracticeSlug } from './helpers/e2eConfig';
 
-const PRACTICE_SLUG = process.env.E2E_PRACTICE_SLUG ?? 'paul-yahoo';
+const PRACTICE_SLUG = resolveE2EPracticeSlug('paul-yahoo');
 const PRACTICE_BASE = `/practice/${encodeURIComponent(PRACTICE_SLUG)}`;
 const PUBLIC_BASE = `/public/${encodeURIComponent(PRACTICE_SLUG)}`;
 const PUBLIC_WIDGET = `${PUBLIC_BASE}?v=widget`;

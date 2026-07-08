@@ -1,4 +1,4 @@
-import { fromMinorUnits } from '@/shared/utils/money';
+import { asMajor, fromMinorUnits } from '@/shared/utils/money';
 import type { Invoice } from '@/features/matters/types/billing.types';
 import type {
   InvoiceDetail,
@@ -158,9 +158,9 @@ export const normalizeInvoiceSummary = (invoice: Invoice): InvoiceSummary => ({
   invoiceNumber: normalizeInvoiceNumber(invoice),
   stripeInvoiceNumber: asString(invoice.stripe_invoice_number),
   status: normalizeInvoiceStatus(invoice.status),
-  subtotal: fromMinorUnits(asNumber(invoice.subtotal as unknown as number)),
-  taxAmount: fromMinorUnits(asNumber(invoice.tax_amount as unknown as number)),
-  discountAmount: fromMinorUnits(asNumber(invoice.discount_amount as unknown as number)),
+  subtotal: asMajor(asNumber(invoice.subtotal)),
+  taxAmount: asMajor(asNumber(invoice.tax_amount)),
+  discountAmount: asMajor(asNumber(invoice.discount_amount)),
   clientName: asString(invoice.client?.name),
   clientEmail: asString(invoice.client?.email),
   clientStatus: asString(invoice.client?.status),
@@ -170,11 +170,11 @@ export const normalizeInvoiceSummary = (invoice: Invoice): InvoiceSummary => ({
   matterStatus: asString(invoice.matter?.status),
   matterBillingType: asString(invoice.matter?.billing_type),
   matterRetainerBalance: invoice.matter?.retainer_balance != null
-    ? fromMinorUnits(asNumber(invoice.matter.retainer_balance as unknown as number))
+    ? asMajor(asNumber(invoice.matter.retainer_balance))
     : null,
-  total: fromMinorUnits(asNumber(invoice.total as unknown as number)),
-  amountDue: fromMinorUnits(asNumber(invoice.amount_due as unknown as number)),
-  amountPaid: fromMinorUnits(asNumber(invoice.amount_paid as unknown as number)),
+  total: asMajor(asNumber(invoice.total)),
+  amountDue: asMajor(asNumber(invoice.amount_due)),
+  amountPaid: asMajor(asNumber(invoice.amount_paid)),
   invoiceType: asString(invoice.invoice_type),
   notes: asString(invoice.notes),
   memo: asString(invoice.memo),
@@ -212,8 +212,8 @@ export const normalizeInvoiceDetail = (
     memo: invoice.memo,
     lineItems: (invoice.line_items ?? []).map((item) => ({
       ...item,
-      unit_price: fromMinorUnits(asNumber(item.unit_price as unknown as number)) as typeof item.unit_price,
-      line_total: fromMinorUnits(asNumber(item.line_total as unknown as number)) as typeof item.line_total,
+      unit_price: asMajor(asNumber(item.unit_price)) as typeof item.unit_price,
+      line_total: asMajor(asNumber(item.line_total)) as typeof item.line_total,
     })),
     payments: mapPaymentEvents(rawInvoice),
     refunds: mapRefundEvents(rawInvoice),
