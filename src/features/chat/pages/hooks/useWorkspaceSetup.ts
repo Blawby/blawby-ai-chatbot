@@ -205,7 +205,7 @@ export const useWorkspaceSetup = ({
   const [logoUploading, setLogoUploading] = useState(false);
   const [previewReloadKey, setPreviewReloadKey] = useState(0);
 
-  const workspacePracticeId = isPracticeWorkspace ? (practiceId ?? currentPractice?.id ?? null) : null;
+  const workspacePracticeId = practiceId ?? currentPractice?.id ?? null;
   const shouldLoadSetupDetails = isPracticeWorkspace && view === 'setup';
   const shouldLoadTeam =
     isPracticeWorkspace &&
