@@ -9,14 +9,13 @@ export interface BrandMarkProps {
 
 export function BrandMark({
   size = 'md',
-  glyph = 'B',
   word = 'Blawby',
   className,
 }: BrandMarkProps) {
   return (
     <span className={cn('brand-mark', size === 'sm' && 'brand-mark-sm', className)}>
       <span className="brand-mark-glyph" aria-hidden="true">
-        {glyph}
+        <img src="/blawby-favicon-iframe.png" alt="" loading="lazy" decoding="async" />
       </span>
       <span className="brand-mark-word">{word}</span>
     </span>

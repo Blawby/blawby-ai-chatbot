@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'preact/hooks';
-import { listMatters, type BackendMatter } from '@/features/matters/services/mattersApi';
+import { listClientMatters, type BackendMatter } from '@/features/matters/services/mattersApi';
 import { listClientInvoices } from '@/features/invoices/services/invoicesService';
 import type { InvoiceSummary } from '@/features/invoices/types';
 import { asMajor, type MajorAmount } from '@/shared/utils/money';
@@ -133,7 +133,7 @@ export const useClientDashboardData = ({
     setError(null);
     try {
       const [matterList, invoiceResult] = await Promise.all([
-        listMatters(practiceId, { limit: 25, signal }),
+        listClientMatters(practiceId, { limit: 25, signal }),
         listClientInvoices(
           practiceId,
           { rules: [], page: 1, pageSize: 50 },

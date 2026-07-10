@@ -67,7 +67,7 @@ Smoke specs assert no horizontal overflow at each tier (`tests/e2e/responsive-pu
 
 | File                                                          | Mobile | Tablet | Desktop | Notes                                            |
 | ------------------------------------------------------------- | :----: | :----: | :-----: | ------------------------------------------------ |
-| `src/pages/ClientHomePage.tsx`                                |   ✅   |   ✅   |    ✅   | Uses `WorkspaceShellHeader` + `AppShell`           |
+| `src/features/chat/components/WorkspaceHomeSection.tsx`        |   ✅   |   ✅   |    ✅   | Client home renders inside the shared workspace shell |
 | `src/features/matters/pages/ClientMattersPage.tsx`            |   ✅   |   ✅   |    ✅   | `sm:grid-cols-2` definition grid                   |
 | `src/features/invoices/pages/ClientInvoicesPage.tsx`          |   ⚠️  |   ⬜   |    ✅   | Uses `DataTable` — runtime verification pending   |
 | `src/features/invoices/pages/ClientInvoiceDetailPage.tsx`     |   ✅   |   ✅   |    ✅   | `sm:grid-cols-3`, `lg:grid-cols-3`                 |

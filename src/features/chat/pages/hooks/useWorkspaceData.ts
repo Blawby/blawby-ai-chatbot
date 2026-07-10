@@ -66,7 +66,7 @@ export function useWorkspaceData({
   const mattersData = useMattersData(
     practiceId,
     [], // no status filter — fetch all, filter at display time
-    { enabled: shouldFetchMatters }
+    { audience: isClientWorkspace ? 'client' : 'practice', enabled: shouldFetchMatters }
   );
 
   // Filtered view for the matters list page (status filter applied after fetch)

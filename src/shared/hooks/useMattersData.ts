@@ -1,10 +1,11 @@
 import { useMemo } from 'preact/hooks';
-import { listMatters, type BackendMatter } from '@/features/matters/services/mattersApi';
+import { listClientMatters, listMatters, type BackendMatter } from '@/features/matters/services/mattersApi';
 import { useQuery } from '@/shared/hooks/useQuery';
 import { policyTtl } from '@/shared/lib/cachePolicy';
 
 type UseMattersDataOptions = {
   enabled?: boolean;
+  audience?: 'practice' | 'client';
 };
 
 export const useMattersData = (
@@ -12,19 +13,21 @@ export const useMattersData = (
   statusFilter: string[],
   options: UseMattersDataOptions = {}
 ) => {
-  const { enabled = true } = options;
+  const { audience = 'practice', enabled = true } = options;
 
   // Serialize the filter to a stable string so it's stable when callers pass
   // a fresh array literal each render.
   const filterKey = statusFilter.map((v) => v.trim().toLowerCase()).filter(Boolean).sort().join(',');
-  const cacheKey = `matters:${practiceId}:${filterKey}`;
+  const cacheKey = `matters:${audience}:${practiceId}:${filterKey}`;
 
   const fetchAllPages = async (signal?: AbortSignal): Promise<BackendMatter[]> => {
     const pageSize = 50;
     const allItems: BackendMatter[] = [];
     let page = 1;
     while (true) {
-      const pageItems = await listMatters(practiceId, { page, limit: pageSize, signal });
+      const pageItems = audience === 'client'
+        ? await listClientMatters(practiceId, { page, limit: pageSize, signal })
+        : await listMatters(practiceId, { page, limit: pageSize, signal });
       allItems.push(...pageItems);
       if (pageItems.length < pageSize) break;
       page += 1;

@@ -9,6 +9,7 @@ import { CommandPaletteProvider } from '@/features/search/contexts/CommandPalett
 import { SessionProvider, useSessionContext } from '@/shared/contexts/SessionContext';
 import { authClient } from '@/shared/lib/authClient';
 import type { WorkspaceView } from '@/shared/utils/workspaceShell';
+import type { WorkspacePreference } from '@/shared/types/workspace';
 import type { SettingsView } from '@/features/settings/pages/SettingsContent';
 import { PublicWorkspaceRoute } from '@/app/PublicWorkspaceRoute';
 import { useNavigation } from '@/shared/utils/navigation';
@@ -51,7 +52,6 @@ const AuthPage = lazy(() => import('@/pages/AuthPage'));
 const ForgotPasswordPage = lazy(() => import('@/pages/ForgotPasswordPage'));
 const ResetPasswordPage = lazy(() => import('@/pages/ResetPasswordPage'));
 const AcceptInvitationPage = lazy(() => import('@/pages/AcceptInvitationPage'));
-const ClientHomePage = lazy(() => import('@/pages/ClientHomePage'));
 const PracticeTrustPage = lazy(() => import('@/features/trust/pages/PracticeTrustPage'));
 const PracticeCalendarPage = lazy(() => import('@/features/calendar/pages/PracticeCalendarPage'));
 const OnboardingPage = lazy(() => import('@/pages/OnboardingPage'));
@@ -136,15 +136,17 @@ const describeError = (error: unknown): string => {
 const resolveAuthenticatedHomePath = ({
   fallbackSlug,
   hasPracticeMembership,
+  defaultWorkspace,
 }: {
   fallbackSlug: string | null;
   hasPracticeMembership: boolean;
+  defaultWorkspace: WorkspacePreference;
 }): string | null => {
   if (!hasPracticeMembership || !fallbackSlug) {
     return null;
   }
 
-  return getWorkspaceHomePath('practice', fallbackSlug);
+  return getWorkspaceHomePath(defaultWorkspace === 'client' ? 'client' : 'practice', fallbackSlug);
 };
 
 const DevDebugStylesRoute = () => {
@@ -329,6 +331,8 @@ function AppShell() {
   const {
     currentPractice,
     hasPracticeMembership,
+    defaultWorkspace,
+    rolePending,
     practicesLoading,
     practicesError,
   } = useWorkspaceResolver({
@@ -341,12 +345,14 @@ function AppShell() {
     return resolveAuthenticatedHomePath({
       fallbackSlug,
       hasPracticeMembership,
+      defaultWorkspace,
     });
-  }, [currentPractice?.slug, hasPracticeMembership]);
+  }, [currentPractice?.slug, defaultWorkspace, hasPracticeMembership]);
 
   useEffect(() => {
     if (sessionPending) return;
     if (practicesLoading) return;
+    if (rolePending) return;
     if (session?.user && !session.user.is_anonymous) {
       const pendingConversation = consumePostAuthConversationContext();
       if (
@@ -440,6 +446,7 @@ function AppShell() {
     location.url,
     navigate,
     practicesLoading,
+    rolePending,
     session?.user,
     sessionPending
   ]);
@@ -712,6 +719,8 @@ function RootRoute() {
     currentPractice,
     practices,
     hasPracticeMembership,
+    defaultWorkspace,
+    rolePending,
   } = useWorkspaceResolver({
     autoFetchPractices: shouldFetchRootPractices,
   });
@@ -737,8 +746,9 @@ function RootRoute() {
     return resolveAuthenticatedHomePath({
       fallbackSlug,
       hasPracticeMembership,
+      defaultWorkspace,
     });
-  }, [currentPractice?.slug, hasPracticeMembership, practices, shouldFetchRootPractices, subscriptionSuccessPracticeId]);
+  }, [currentPractice?.slug, defaultWorkspace, hasPracticeMembership, practices, shouldFetchRootPractices, subscriptionSuccessPracticeId]);
 
   useEffect(() => {
     return () => {
@@ -785,7 +795,7 @@ function RootRoute() {
 
   useEffect(() => {
     if (subscriptionSyncPending) return;
-    if (isPending || (shouldFetchRootPractices && practicesLoading)) return;
+    if (isPending || rolePending || (shouldFetchRootPractices && practicesLoading)) return;
 
     if (!session?.user) {
       navigate('/auth', true);
@@ -803,6 +813,7 @@ function RootRoute() {
     authenticatedHomePath,
     subscriptionSyncPending,
     practicesLoading,
+    rolePending,
     isPending,
     navigate,
     session?.user,
@@ -819,6 +830,7 @@ function RootRoute() {
   if (
     !subscriptionSyncPending &&
     !isPending &&
+    !rolePending &&
     !practicesLoading &&
     session?.user &&
     !session.user.is_anonymous &&
@@ -1149,9 +1161,6 @@ function ClientPracticeRoute({
     sessionIsPending,
   ]);
 
-  // Home tab renders the client dashboard (src/features/client-dashboard).
-  // Previously redirected to /conversations because no dashboard existed.
-
   if (sessionIsPending || practicesLoading || rolePending) {
     return <LoadingScreen />;
   }
@@ -1181,14 +1190,6 @@ function ClientPracticeRoute({
 
   if (!resolvedPracticeId) {
     return <LoadingScreen />;
-  }
-
-  if (workspaceView === 'home') {
-    return (
-      <Suspense fallback={<LoadingScreen />}>
-        <ClientHomePage />
-      </Suspense>
-    );
   }
 
   const currentUrl = typeof window !== 'undefined'

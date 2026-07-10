@@ -7,6 +7,9 @@ import {
   apiClient,
 } from '@/shared/lib/apiClient';
 import {
+  clientMatterCollectionPath,
+  clientMatterItemPath,
+  clientMatterNestedPath,
   matterCollectionPath,
   matterItemPath,
   matterNestedItemPath,
@@ -315,6 +318,50 @@ export const getMatter = async (
   return null;
 };
 
+export const listClientMatters = async (
+  practiceId: string,
+  options: FetchOptions & { page?: number; limit?: number } = {}
+): Promise<BackendMatter[]> => {
+  if (!practiceId) {
+    return [];
+  }
+
+  const params = new URLSearchParams();
+  params.set('page', String(options.page ?? 1));
+  params.set('limit', String(options.limit ?? 20));
+
+  const payload = await requestData(
+    apiClient.get(clientMatterCollectionPath(practiceId), {
+      params: Object.fromEntries(params.entries()),
+      signal: options.signal
+    }),
+    'Failed to load client matters'
+  );
+
+  const matters = extractMatterArray(payload);
+  return matters.map(normalizeMatter);
+};
+
+export const getClientMatter = async (
+  practiceId: string,
+  matterId: string,
+  options: FetchOptions = {}
+): Promise<BackendMatter | null> => {
+  if (!practiceId || !matterId) {
+    return null;
+  }
+
+  const payload = await requestData(
+    apiClient.get(clientMatterItemPath(practiceId, matterId), {
+      signal: options.signal
+    }),
+    'Failed to load client matter'
+  );
+
+  const singleMatter = extractMatter(payload);
+  return singleMatter ? normalizeMatter(singleMatter) : null;
+};
+
 export const createMatter = async (
   practiceId: string,
   payload: Record<string, unknown>,
@@ -409,6 +456,44 @@ export const listMatterNotes = async (
       { signal: options.signal }
     ),
     'Failed to load notes'
+  );
+  return extractNotesArray(payload);
+};
+
+export const getClientMatterActivity = async (
+  practiceId: string,
+  matterId: string,
+  options: FetchOptions = {}
+): Promise<BackendMatterActivity[]> => {
+  if (!practiceId || !matterId) {
+    return [];
+  }
+
+  const payload = await requestData(
+    apiClient.get(
+      clientMatterNestedPath(practiceId, matterId, 'activity'),
+      { signal: options.signal }
+    ),
+    'Failed to load client matter activity'
+  );
+  return extractActivityArray(payload);
+};
+
+export const listClientMatterNotes = async (
+  practiceId: string,
+  matterId: string,
+  options: FetchOptions = {}
+): Promise<BackendMatterNote[]> => {
+  if (!practiceId || !matterId) {
+    return [];
+  }
+
+  const payload = await requestData(
+    apiClient.get(
+      clientMatterNestedPath(practiceId, matterId, 'notes'),
+      { signal: options.signal }
+    ),
+    'Failed to load client matter notes'
   );
   return extractNotesArray(payload);
 };
@@ -903,6 +988,36 @@ export const listMatterTasks = async (
       }
     ),
     'Failed to load tasks'
+  );
+  return extractTasksArray(payload);
+};
+
+export const listClientMatterTasks = async (
+  practiceId: string,
+  matterId: string,
+  filters: ListMatterTaskFilters = {},
+  options: FetchOptions = {}
+): Promise<BackendMatterTask[]> => {
+  if (!practiceId || !matterId) {
+    return [];
+  }
+
+  const params = new URLSearchParams();
+  if (filters.task_id) params.set('task_id', filters.task_id);
+  if (filters.assignee_id) params.set('assignee_id', filters.assignee_id);
+  if (filters.status) params.set('status', filters.status);
+  if (filters.priority) params.set('priority', filters.priority);
+  if (filters.stage) params.set('stage', filters.stage);
+
+  const payload = await requestData(
+    apiClient.get(
+      clientMatterNestedPath(practiceId, matterId, 'tasks'),
+      {
+        params: Object.fromEntries(params.entries()),
+        signal: options.signal
+      }
+    ),
+    'Failed to load client matter tasks'
   );
   return extractTasksArray(payload);
 };

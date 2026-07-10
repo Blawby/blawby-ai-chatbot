@@ -1007,7 +1007,7 @@ const WorkspacePage: FunctionComponent<WorkspacePageProps> = ({
   const sidebarOrg = orgDisplayName
     ? {
         name: orgDisplayName,
-        plan: 'Practice',
+        plan: isClientWorkspace ? 'Client portal' : 'Practice',
         initial: orgDisplayName.charAt(0).toUpperCase() || 'W',
       }
     : null;
