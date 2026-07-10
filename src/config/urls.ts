@@ -109,6 +109,15 @@ export const matterNestedItemPath = (
 	itemId: string
 ): string => `${matterNestedPath(practiceId, matterId, resource)}/${encodeSegment(itemId)}`;
 
+export const clientMatterCollectionPath = (practiceId: string): string =>
+	`${matterCollectionPath(practiceId)}/client`;
+
+export const clientMatterItemPath = (practiceId: string, matterId: string): string =>
+	`${clientMatterCollectionPath(practiceId)}/${encodeSegment(matterId)}`;
+
+export const clientMatterNestedPath = (practiceId: string, matterId: string, resource: string): string =>
+	`${clientMatterItemPath(practiceId, matterId)}/${resource}`;
+
 /**
  * Get URL for Cloudflare Worker API
  * 
@@ -307,7 +316,10 @@ export const urls = {
 	matterCollectionPath,
 	matterItemPath,
 	matterNestedPath,
-	matterNestedItemPath
+	matterNestedItemPath,
+	clientMatterCollectionPath,
+	clientMatterItemPath,
+	clientMatterNestedPath
 };
 
 /**

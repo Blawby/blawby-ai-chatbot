@@ -175,7 +175,10 @@ export const useWorkspaceSetup = ({
     })();
   }, [createOnboardingConversation, isAnonymous, isConversationsLoading, isPracticeWorkspace, isSessionPending, onboardingConversationFromList, onboardingConversationId, onboardingConversationRetryTick, practiceId, refreshConversations, sessionUserId, view]);
 
-  const { currentPractice, updatePractice } = usePracticeManagement({ fetchOnboardingStatus: false });
+  const { currentPractice, updatePractice } = usePracticeManagement({
+    autoFetchPractices: isPracticeWorkspace,
+    fetchOnboardingStatus: false,
+  });
 
   const handleOnboardingMessageError = useCallback((error: unknown) => {
     const message = error instanceof Error ? error.message : 'Onboarding chat error';
@@ -194,7 +197,7 @@ export const useWorkspaceSetup = ({
     details: setupDetails,
     updateDetails: updateSetupDetails,
     fetchDetails: fetchSetupDetails,
-  } = usePracticeDetails(currentPractice?.id ?? null, null, false);
+  } = usePracticeDetails(isPracticeWorkspace ? currentPractice?.id ?? null : null, null, false);
 
   const { setupFields, applySetupFields } = onboardingMessageHandling;
   const setupStatus = resolvePracticeSetupStatus(currentPractice, setupDetails ?? null);
@@ -202,8 +205,8 @@ export const useWorkspaceSetup = ({
   const [logoUploading, setLogoUploading] = useState(false);
   const [previewReloadKey, setPreviewReloadKey] = useState(0);
 
-  const workspacePracticeId = practiceId ?? currentPractice?.id ?? null;
-  const shouldLoadSetupDetails = view === 'setup';
+  const workspacePracticeId = isPracticeWorkspace ? (practiceId ?? currentPractice?.id ?? null) : null;
+  const shouldLoadSetupDetails = isPracticeWorkspace && view === 'setup';
   const shouldLoadTeam =
     isPracticeWorkspace &&
     Boolean(workspacePracticeId) &&
@@ -380,7 +383,7 @@ export const useWorkspaceSetup = ({
   // Only fetch Stripe/onboarding status when the user is in settings or setup.
   // Fetching it on every workspace mount hammers the rate-limited API endpoint.
   const isSettingsSection = workspaceSection === 'settings';
-  const shouldFetchStripeStatus = isSettingsSection || view === 'setup';
+  const shouldFetchStripeStatus = isPracticeWorkspace && (isSettingsSection || view === 'setup');
 
   const showErrorRef = useRef(showError);
   useEffect(() => { showErrorRef.current = showError; });

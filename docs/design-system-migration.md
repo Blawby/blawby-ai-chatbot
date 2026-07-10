@@ -43,7 +43,7 @@ From `design_handoff_blawby_chat_first/DESIGN_SYSTEM.md §0`:
 | 5d.4b — MatterInspector extract | `0d4eefab` | ✅ in PR #648 | `src/features/matters/components/MatterInspector.tsx` (717 lines) consumes useMatterDetail + identityHelpers. Owns full matter editor state, ~14 resolvedMatter fields, status/patch handlers, matterStatusOptions/urgencyOptions/matterTeamIdentities memos. InspectorPanel −628 lines. |
 | 5d.5 — ConversationInspector extract | `d884f792` | ✅ in PR #649 | `src/features/chat/components/ConversationInspector.tsx` (727 lines) — last per-feature inspector. Consumes useUserDetail + useMatterDetail + usePracticeDetail. Owns 3 sub-paths (PRACTICE_ONBOARDING / isClientView / regular), 14-position editor discriminator, intake field handlers. **InspectorPanel −797 lines (1004 → 243).** All per-feature inspector logic now lives in features/*. |
 | 5d.6 — Delete InspectorPanel dispatcher | — | **deferred — see note** | InspectorPanel is now a genuinely thin 243-line facade (type defs + chrome + 4-branch dispatch). Deleting it requires extracting chrome + updating 4 callers (1 of which has dynamic entityType requiring a switch). The dispatcher provides real value as a single entry point with unified prop API. **Recommended: keep as facade unless 5e shell refactor wants the inspector chrome moved closer to the shell.** Revisit when shell work makes the call site obvious. |
-| 5e.2 — ClientHomePage to LeftRail | `8246f45c` | ✅ in PR #650 | First shell migrated. Establishes the pattern: build LeftRailItem[] from getXxxNavConfig().rail; LeftRail + main flex composition; drop AppShell entirely for shells that don't need its multi-column grid. |
+| 5e.2 — Client home to shared workspace shell | `8246f45c` | ✅ in PR #650, stale page deleted in client parity follow-up | Client home now renders through `WorkspacePage` + `WorkspaceHomeSection`, sharing the same rail, composer, and brand primitive as practice workspaces. |
 | 5e.3 — PracticeHomePage to LeftRail | `b221d125` | ✅ in PR #650 | Same pattern + merges live sidebarCounts into items.badge; OrgSwitcherMenu in brandMark slot. |
 | 5e.4 — WidgetApp to LeftRail mobile + FocusDrawer | `eda94046` | ✅ in PR #650 | NavRail → LeftRail mobile variant; MobileInspectorOverlay → FocusDrawer; hidden prop pattern → conditional render. |
 | 5e.5 — WorkspacePage refactor | `df70062c` | ✅ in PR #651 | Final shell migrated. WorkspacePage net −111 lines. Drops isDesktopSidebarCollapsed + localStorage + isMobileNavOpen + WorkspaceShellHeader. Composes LeftRail outside AppShell. AssistantListPanel still feeds AppShell.listPanel; formalization as standalone ConversationListPanel deferred to a smaller follow-up. |
@@ -204,7 +204,7 @@ Per locked answer #4 (drop AppShell sidebar props) and #5 (assistant conversatio
 - [ ] Drop AppShell's `sidebar` / `desktopSidebarCollapsed` / `mobileSidebar` / `mobileSidebarOpen` / `onMobileSidebarClose` props
 - [ ] Refactor `WorkspacePage.tsx` (1666L) to compose LeftRail directly + render assistant `ConversationListPanel` as adjacent 340px column when in chat/assistant section
 - [ ] Refactor `PracticeHomePage.tsx` (554L) to compose LeftRail directly
-- [ ] Refactor `ClientHomePage.tsx` (151L) to compose LeftRail directly
+- [x] Delete stale `ClientHomePage.tsx`; client home is composed by `WorkspacePage` + `WorkspaceHomeSection`
 - [ ] Refactor `WidgetApp.tsx` (865L) to use LeftRail mobile variant
 - [ ] Extract `ConversationListPanel` as the 340px thread-list column per `Conversations.html` 4-column layout
 - [ ] Drop `isDesktopSidebarCollapsed` state + `'blawby:sidebar:collapsed'` localStorage key
@@ -315,7 +315,7 @@ Current baseline on `staging` HEAD.
 
 ## PR-7 (this PR) — landed checklist
 
-- [x] **5e.2** — ClientHomePage rewired to LeftRail — `8246f45c`
+- [x] **5e.2** — Client home moved onto the shared workspace shell — `8246f45c`
 - [x] **5e.3** — PracticeHomePage rewired to LeftRail with sidebarCounts → badge merge + OrgSwitcherMenu brandMark — `b221d125`
 - [x] **5e.4** — WidgetApp NavRail → LeftRail mobile + MobileInspectorOverlay → FocusDrawer — `eda94046`
 

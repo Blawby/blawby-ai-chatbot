@@ -15,11 +15,11 @@ import { MatterTasksPanel } from '@/features/matters/components/tasks/MatterTask
 import { MatterMessagesPanel } from '@/features/matters/components/messages/MatterMessagesPanel';
 import { MatterFilesPanel } from '@/features/matters/components/files/MatterFilesPanel';
 import {
-  getMatter,
-  getMatterActivity,
-  listMatterNotes,
-  listMatterTasks,
-  listMatters,
+  getClientMatter,
+  getClientMatterActivity,
+  listClientMatterNotes,
+  listClientMatterTasks,
+  listClientMatters,
   type BackendMatter,
   type BackendMatterActivity,
   type BackendMatterNote
@@ -146,7 +146,7 @@ export const ClientMattersPage = ({
     const controller = new AbortController();
     setInternalLoading(true);
     setInternalError(null);
-    listMatters(activePracticeId, { signal: controller.signal })
+    listClientMatters(activePracticeId, { signal: controller.signal })
       .then((items) => setInternalMatters(items))
       .catch((error: unknown) => {
         if ((error as DOMException).name === 'AbortError') return;
@@ -206,7 +206,7 @@ export const ClientMattersPage = ({
     setActivityLoading(false);
     setDetailLoading(true);
     setDetailError(null);
-    getMatter(activePracticeId, selectedMatterId, { signal: controller.signal })
+    getClientMatter(activePracticeId, selectedMatterId, { signal: controller.signal })
       .then((matter) => setSelectedMatterDetail(matter ? toMatterDetail(matter) : null))
       .catch((error: unknown) => {
         if ((error as DOMException).name === 'AbortError') return;
@@ -232,7 +232,7 @@ export const ClientMattersPage = ({
     const controller = new AbortController();
     setTasksLoading(true);
     setTasksError(null);
-    listMatterTasks(activePracticeId, selectedMatterId, {}, { signal: controller.signal })
+    listClientMatterTasks(activePracticeId, selectedMatterId, {}, { signal: controller.signal })
       .then((items) => setTasks(items.map(toMatterTask)))
       .catch((error: unknown) => {
         if ((error as DOMException).name === 'AbortError') return;
@@ -327,8 +327,8 @@ export const ClientMattersPage = ({
     const controller = new AbortController();
     setActivityLoading(true);
     Promise.all([
-      getMatterActivity(activePracticeId, selectedMatterId, { signal: controller.signal }),
-      listMatterNotes(activePracticeId, selectedMatterId, { signal: controller.signal })
+      getClientMatterActivity(activePracticeId, selectedMatterId, { signal: controller.signal }),
+      listClientMatterNotes(activePracticeId, selectedMatterId, { signal: controller.signal })
     ])
       .then(([activities, notes]) => {
         setFetchError(null);

@@ -15,9 +15,8 @@ export interface ClientEngagementBrandTopbarProps {
  * green-dot "encrypted · audit-logged" Pill. Mirrors `.top` in
  * `design_handoff_blawby_chat_first/screens/EngagementReview.html`.
  *
- * The BrandMark already renders the italic serif accent "B" + sans "Blawby"
- * wordmark per design-system/layout/BrandMark.tsx — we do not need a bespoke
- * brand glyph here.
+ * The BrandMark owns the logo + wordmark per design-system/layout/BrandMark.tsx,
+ * so we do not need a bespoke brand glyph here.
  */
 export const ClientEngagementBrandTopbar: FunctionComponent<ClientEngagementBrandTopbarProps> = ({
   recipientName,
