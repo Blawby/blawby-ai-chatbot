@@ -159,7 +159,7 @@ const FileMenu: FunctionComponent<FileMenuProps> = ({
           aria-labelledby="attachment-menu-button"
           className={`
             absolute bottom-full left-0 mb-2 min-w-[220px]
-            p-1 rounded-r-md border border-line-subtle bg-card/95 backdrop-blur-2xl shadow-glass transition-all duration-200
+            p-1 rounded-r-md border border-line-subtle bg-card/95 backdrop-blur-2xl shadow-glass transition-[opacity,transform] duration-200
             ${isClosing ? 'opacity-0 scale-95 pointer-events-none' : 'opacity-100 scale-100'}
           `}
           style={{ zIndex: THEME.zIndex.fileMenu }}

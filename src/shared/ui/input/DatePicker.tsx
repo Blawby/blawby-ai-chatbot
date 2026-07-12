@@ -114,7 +114,7 @@ export const DatePicker = forwardRef<HTMLInputElement, DatePickerProps>(({
 
   const inputClasses = cn(
     'w-full min-h-[44px] rounded-r-md text-ink placeholder:text-dim-2',
-    'focus:outline-none transition-all duration-200',
+    'focus:outline-none transition-[color,background-color,border-color,box-shadow] duration-200',
     'appearance-none field border-none',
     sizeClasses[size],
     variantClasses[variant],
@@ -159,8 +159,7 @@ export const DatePicker = forwardRef<HTMLInputElement, DatePickerProps>(({
       {_displayError && (
         <p
           id={errorId}
-          className="text-xs mt-1"
-          style={{ color: 'rgb(var(--error-foreground))' }}
+          className="mt-1 text-xs text-neg"
           role="alert"
           aria-live="assertive"
         >

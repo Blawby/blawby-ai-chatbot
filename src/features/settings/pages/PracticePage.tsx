@@ -375,7 +375,7 @@ export const PracticePage = ({ className }: PracticePageProps) => {
   const practiceInitial = (contactValues.name || currentPractice.name || 'P').charAt(0).toUpperCase();
   const logoUrl = contactValues.logo?.trim() || null;
   const chipClass = (selected: boolean, disabled = false, dashed = false) => cn(
-    'inline-flex items-center gap-1.5 rounded-[var(--r-xs)] border px-3 py-[7px] text-[13px] transition-all',
+    'inline-flex items-center gap-1.5 rounded-[var(--r-xs)] border px-3 py-[7px] text-[13px] transition-[color,background-color,border-color,opacity]',
     selected
       ? 'border-ink bg-ink text-accent'
       : 'bg-card text-ink-2 hover:border-ink',
@@ -406,7 +406,7 @@ export const PracticePage = ({ className }: PracticePageProps) => {
               className="w-auto"
             />
             <div>
-              <div className="font-serif text-[22px] font-normal tracking-[-0.01em] text-ink">
+              <div className="font-sans text-[22px] font-normal tracking-[-0.01em] text-ink">
                 {contactValues.name || currentPractice.name || practiceInitial}
               </div>
               <div className="mt-0.5 font-mono text-xs text-dim">

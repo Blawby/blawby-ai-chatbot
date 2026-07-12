@@ -111,8 +111,8 @@ export const IntakeFormStep = ({ draft, onTemplateReady }: IntakeFormStepProps) 
 
   if (error || !template) {
     return (
-      <div className="card" style={{ padding: '22px' }}>
-        <p className="text-sm" style={{ color: 'var(--neg)' }}>
+      <div className="card p-[22px]">
+        <p className="text-sm text-neg">
           {error ?? 'No intake form found. You can create one from Settings -> Intake forms.'}
         </p>
       </div>
@@ -129,12 +129,12 @@ export const IntakeFormStep = ({ draft, onTemplateReady }: IntakeFormStepProps) 
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="card overflow-hidden" style={{ padding: 0 }}>
+      <div className="card overflow-hidden p-0">
         <div className="border-b border-[var(--rule)] px-5 py-4">
           <div className="font-mono text-[10px] uppercase tracking-[0.1em] text-dim">
             Client preview
           </div>
-          <div className="mt-1 font-serif text-[24px] leading-tight tracking-[-0.01em] text-ink">
+          <div className="mt-1 font-sans text-[24px] leading-tight tracking-[-0.01em] text-ink">
             {template.name}
           </div>
           <p className="mt-2 max-w-[58ch] text-sm leading-6 text-ink-2">
@@ -179,7 +179,7 @@ export const IntakeFormStep = ({ draft, onTemplateReady }: IntakeFormStepProps) 
           {enrichmentFields.length > 0 && (
             <div className="mt-6 rounded-sm border border-[var(--rule)] bg-[var(--card)] p-4">
               <div className="flex items-center gap-2">
-                <Icon icon={Sparkles} className="h-3.5 w-3.5" style={{ color: 'var(--accent-deep)' }} />
+                <Icon icon={Sparkles} className="h-3.5 w-3.5 text-accent-deep" />
                 <span className="font-mono text-[10px] uppercase tracking-[0.1em] text-dim">
                   AI follow-up questions
                 </span>
@@ -197,9 +197,9 @@ export const IntakeFormStep = ({ draft, onTemplateReady }: IntakeFormStepProps) 
         </div>
       </div>
 
-      <p style={{ fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--dim)', letterSpacing: '0.02em' }}>
+      <p className="font-mono text-[11px] tracking-[0.02em] text-dim">
         You can rename this form, edit these questions, and add custom questions from{' '}
-        <strong style={{ color: 'var(--ink-2)' }}>Settings {'->'} Intake forms</strong>{' '}
+        <strong className="text-ink-2">Settings {'->'} Intake forms</strong>{' '}
         any time after setup.
       </p>
     </div>

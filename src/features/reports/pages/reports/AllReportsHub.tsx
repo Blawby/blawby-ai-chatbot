@@ -514,7 +514,7 @@ export const AllReportsHub: FunctionComponent<AllReportsHubProps> = ({ practiceI
 
         <section className="flex flex-col gap-3">
           <div className="flex items-end justify-between border-b border-rule pb-3">
-            <h2 className="font-serif text-2xl font-normal tracking-tight text-ink">
+            <h2 className="font-sans text-2xl font-normal tracking-tight text-ink">
               All reports
             </h2>
             <span className="font-mono text-[10px] uppercase tracking-[0.12em] text-dim">
@@ -552,7 +552,7 @@ const KpiBlock: FunctionComponent<KpiBlockProps> = ({ label, value, extra, tone 
       <div className="font-mono text-[10px] uppercase tracking-[0.12em] text-dim">
         {label}
       </div>
-      <div className="font-serif text-3xl leading-none tracking-tight text-ink tabular-nums">
+      <div className="font-sans text-3xl leading-none tracking-tight text-ink tabular-nums">
         {value}
       </div>
       {extra && (
@@ -591,7 +591,7 @@ const RevenueCompositionSection: FunctionComponent<RevenueCompositionSectionProp
   return (
     <section className="flex flex-col gap-4">
       <div className="flex items-end justify-between border-b border-rule pb-3">
-        <h2 className="font-serif text-2xl font-normal tracking-tight text-ink">
+        <h2 className="font-sans text-2xl font-normal tracking-tight text-ink">
           Revenue &amp; composition
         </h2>
         <span className="font-mono text-[10px] uppercase tracking-[0.12em] text-dim">
@@ -610,7 +610,7 @@ const RevenueCompositionSection: FunctionComponent<RevenueCompositionSectionProp
               <div className="font-mono text-[10px] uppercase tracking-[0.12em] text-dim">
                 Monthly revenue · 6mo trailing
               </div>
-              <div className="font-serif text-2xl leading-none tracking-tight text-ink tabular-nums">
+              <div className="font-sans text-2xl leading-none tracking-tight text-ink tabular-nums">
                 {formatCurrency(periodPaidCents / 100)}
               </div>
             </div>
@@ -639,7 +639,7 @@ const RevenueCompositionSection: FunctionComponent<RevenueCompositionSectionProp
               <div className="font-mono text-[10px] uppercase tracking-[0.12em] text-dim">
                 Revenue by practice area
               </div>
-              <div className="font-serif text-2xl leading-none tracking-tight text-ink">
+              <div className="font-sans text-2xl leading-none tracking-tight text-ink">
                 {byArea.length > 0 ? `${byArea.length} area${byArea.length === 1 ? '' : 's'} · ${periodLabel}` : '—'}
               </div>
             </div>
@@ -653,7 +653,7 @@ const RevenueCompositionSection: FunctionComponent<RevenueCompositionSectionProp
               {byArea.map((row) => (
                 <div key={row.label} className="flex flex-col gap-1.5">
                   <div className="flex items-baseline justify-between text-sm">
-                    <span className="font-serif text-ink">{row.label}</span>
+                    <span className="font-sans text-ink">{row.label}</span>
                     <span className="font-mono tabular-nums text-ink-2">
                       {formatCurrency(row.amountCents / 100)} · {row.share}%
                     </span>
@@ -691,7 +691,7 @@ const IntakeQualitySection: FunctionComponent<IntakeQualitySectionProps> = ({
   return (
     <section className="flex flex-col gap-4">
       <div className="flex items-end justify-between border-b border-rule pb-3">
-        <h2 className="font-serif text-2xl font-normal tracking-tight text-ink">
+        <h2 className="font-sans text-2xl font-normal tracking-tight text-ink">
           Intake quality &amp; conversion
         </h2>
         <span className="font-mono text-[10px] uppercase tracking-[0.12em] text-dim">
@@ -721,7 +721,7 @@ const IntakeQualitySection: FunctionComponent<IntakeQualitySectionProps> = ({
               key={row.label}
               className="grid grid-cols-[1.4fr_80px_80px_90px_1fr] items-center gap-4 border-b border-rule px-5 py-3 text-sm last:border-b-0"
             >
-              <div className="truncate font-serif text-base text-ink" title={row.label}>{row.label}</div>
+              <div className="truncate font-sans text-base text-ink" title={row.label}>{row.label}</div>
               <div className="text-right font-mono tabular-nums text-ink-2">{row.total}</div>
               <div className="text-right font-mono tabular-nums text-ink-2">{row.accepted}</div>
               <div className="text-right font-mono tabular-nums text-ink-2">
@@ -766,7 +766,7 @@ const AssistantActivitySection: FunctionComponent = () => {
   return (
     <section className="flex flex-col gap-4">
       <div className="flex items-end justify-between border-b border-rule pb-3">
-        <h2 className="font-serif text-2xl font-normal tracking-tight text-ink">
+        <h2 className="font-sans text-2xl font-normal tracking-tight text-ink">
           Assistant activity log
         </h2>
         <span className="font-mono text-[10px] uppercase tracking-[0.12em] text-dim">
@@ -792,7 +792,7 @@ const AssistantActivitySection: FunctionComponent = () => {
             className="grid grid-cols-[90px_1fr_90px_90px] items-center gap-4 border-b border-rule px-5 py-3 text-sm last:border-b-0"
           >
             <div className="font-mono text-[11px] uppercase tracking-[0.04em] text-dim">{row.when}</div>
-            <div className="font-serif text-sm text-ink">{row.what}</div>
+            <div className="font-sans text-sm text-ink">{row.what}</div>
             <div className="text-right font-mono tabular-nums text-ink-2">{row.saved}</div>
             <div className="flex justify-center">
               <Pill tone="dim">{row.status}</Pill>
@@ -816,7 +816,7 @@ const ReportListRow: FunctionComponent<ReportListRowProps> = ({ definition }) =>
         <Icon className="h-4 w-4 text-dim-2" aria-hidden="true" />
       </div>
       <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-        <span className="truncate font-serif text-base font-normal text-ink">
+        <span className="truncate font-sans text-base font-normal text-ink">
           {definition.title}
         </span>
         <span className="truncate text-sm text-dim-2">

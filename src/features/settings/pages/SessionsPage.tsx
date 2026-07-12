@@ -160,8 +160,7 @@ export const SessionsPage = ({ className = '' }: SessionsPageProps) => {
                       {label}
                       {isCurrent && (
                         <span
-                          className="font-mono text-[9.5px] uppercase tracking-[0.04em] text-[var(--pos)] border rounded-full px-[7px] py-0.5"
-                          style={{ background: 'color-mix(in oklab, var(--pos) 12%, var(--card))', borderColor: 'color-mix(in oklab, var(--pos) 25%, var(--rule))' }}
+                          className="rounded-full border border-[color-mix(in_oklab,var(--pos)_25%,var(--rule))] bg-[color-mix(in_oklab,var(--pos)_12%,var(--card))] px-[7px] py-0.5 font-mono text-[9.5px] uppercase tracking-[0.04em] text-pos"
                         >
                           this device
                         </span>

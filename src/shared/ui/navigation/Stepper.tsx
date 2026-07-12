@@ -59,7 +59,7 @@ export function Stepper({
               <div
                 aria-current={status === 'active' ? 'step' : undefined}
                 className={cn(
-                  'shrink-0 flex items-center justify-center rounded-full transition-all',
+                  'shrink-0 flex items-center justify-center rounded-full transition-[color,background-color,box-shadow]',
                   'w-8 h-8 text-xs font-medium',
                   status === 'completed' && 'bg-accent text-accent-ink',
                   status === 'active' && 'bg-accent/15 text-accent dark:text-accent ring-2 ring-accent/30',

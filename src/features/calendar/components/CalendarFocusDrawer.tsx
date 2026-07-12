@@ -204,9 +204,9 @@ export function CalendarFocusDrawer({
     >
       <div className="flex flex-col gap-4">
 
-        {/* Header — kind pill + serif H1 + when meta. Inline here (not in
+        {/* Header — kind pill + sans H1 + when meta. Inline here (not in
             FocusDrawer's title/subtitle slots) so we get full styling control
-            over the serif H1 and don't fight the title slot's CSS cascade. */}
+            over the sans H1 and don't fight the title slot's CSS cascade. */}
         <header className="flex flex-col gap-2 pb-1">
           <span className="inline-flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.14em] text-dim">
             {showPulse && (
@@ -217,7 +217,7 @@ export function CalendarFocusDrawer({
             )}
             {KIND_LABELS[event.kind]}
           </span>
-          <h2 className="m-0 font-serif text-[26px] font-normal leading-tight tracking-tight text-ink">
+          <h2 className="m-0 font-sans text-[26px] font-normal leading-tight tracking-tight text-ink">
             {event.title}
           </h2>
           <p className="m-0 text-[13px] text-ink-2">
@@ -259,7 +259,7 @@ export function CalendarFocusDrawer({
           <StatStrip
             cells={whenCells.map((cell) => ({
               label: cell.label,
-              value: <span className="font-serif text-lg leading-none tracking-tight">{cell.value}</span>
+              value: <span className="font-sans text-lg leading-none tracking-tight">{cell.value}</span>
             }))}
           />
         )}
@@ -342,7 +342,7 @@ export function CalendarFocusDrawer({
               <span className="font-mono text-[9.5px] uppercase tracking-[0.12em] text-dim">
                 Active matter
               </span>
-              <h4 className="font-serif text-[19px] font-normal leading-tight tracking-tight text-ink">
+              <h4 className="font-sans text-[19px] font-normal leading-tight tracking-tight text-ink">
                 {event.matterTitle}
               </h4>
               {event.clientName && (

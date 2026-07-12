@@ -219,14 +219,14 @@ export function PracticeCalendarPage({
         {/* Main column ----------------------------------------------------- */}
         <div className="flex min-w-0 flex-1 flex-col gap-6 px-4 py-6 sm:px-6 lg:px-8">
 
-          {/* Chat-first page header: serif H1 with em accent on "deadlines"
+          {/* Chat-first page header: sans H1 with em accent on "deadlines"
               + right-aligned StatStrip with three deterministic cells. */}
           <header className="flex flex-wrap items-end justify-between gap-4 border-b border-rule pb-5">
             <div className="min-w-0">
               <div className="font-mono text-[10.5px] uppercase tracking-[0.16em] text-dim">
                 Calendar
               </div>
-              <h1 className="mt-1.5 font-serif text-[32px] font-normal leading-none tracking-tight text-ink lg:text-[44px]">
+              <h1 className="mt-1.5 font-sans text-[32px] font-normal leading-none tracking-tight text-ink lg:text-[44px]">
                 Calendar &amp; <em className="not-italic text-accent-deep">deadlines.</em>
               </h1>
             </div>

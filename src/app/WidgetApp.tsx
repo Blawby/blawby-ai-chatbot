@@ -623,7 +623,7 @@ export const WidgetApp: FunctionComponent<WidgetAppProps> = ({
             <circle cx="12" cy="12" r={radius} strokeWidth="2" fill="none" className="text-line-glass/30" stroke="currentColor" />
             <circle
               cx="12" cy="12" r={radius} strokeWidth="2" fill="none" strokeLinecap="round"
-              className={`transition-all duration-300 ${ringClass}`} stroke="currentColor"
+              className={`transition-[stroke-dashoffset] duration-300 ${ringClass}`} stroke="currentColor"
               strokeDasharray={circumference} strokeDashoffset={dashOffset}
             />
           </svg>

@@ -2519,7 +2519,6 @@ export const PracticeMattersPage = ({
                   onClick={() => toggleFilter(chip.id)}
                   aria-pressed={isOn}
                   className={isOn ? filterChipActiveClass : filterChipInactiveClass}
-                  style={isOn ? { color: 'var(--ink)' } : undefined}
                 >
                   {chip.label}
                   {isOn ? <span className="text-dim-2">×</span> : null}
@@ -2605,7 +2604,7 @@ export const PracticeMattersPage = ({
             </div>
           ) : viewMode === 'timeline' ? (
             <div className="panel px-6 py-16 text-center">
-              <p className="font-[family-name:var(--serif)] text-lg text-ink">Timeline view</p>
+              <p className="font-sans text-lg text-ink">Timeline view</p>
               <p className="mt-2 text-sm text-dim-2">
                 Coming soon — a chronological lane of matter activity grouped by week.
               </p>
@@ -2658,7 +2657,6 @@ export const PracticeMattersPage = ({
                   onClick={() => toggleFilter(chip.id)}
                   aria-pressed={isOn}
                   className={isOn ? mobileFilterChipActiveClass : mobileFilterChipInactiveClass}
-                  style={isOn ? { color: 'var(--ink)' } : undefined}
                 >
                   <span>{chip.label}</span>
                   {isOn ? <span className="font-mono text-xs text-dim-2">×</span> : null}
@@ -2796,7 +2794,7 @@ function MattersTable({
               >
                 {/* Matter (title + sub) */}
                 <div className="min-w-0">
-                  <div className="truncate font-[family-name:var(--serif)] text-[17px] leading-tight text-ink">
+                  <div className="truncate font-sans text-[17px] leading-tight text-ink">
                     {summary.title}
                   </div>
                   <div className="mt-1 truncate font-mono text-xs text-dim">
@@ -2925,7 +2923,7 @@ function MattersBoard({
                       {row.caseNumber ?? 'BLB-—'}
                       {row.summary.practiceArea ? <> · {row.summary.practiceArea}</> : null}
                     </div>
-                    <div className="font-[family-name:var(--serif)] text-[15px] leading-tight text-ink">
+                    <div className="font-sans text-[15px] leading-tight text-ink">
                       {row.summary.title}
                     </div>
                     <div className="mt-1.5 flex items-center justify-between">

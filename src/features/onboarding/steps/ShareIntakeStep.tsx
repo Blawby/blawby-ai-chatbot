@@ -57,32 +57,13 @@ export const ShareIntakeStep = ({ draft }: ShareIntakeStepProps) => {
 
   return (
     <section className="flex flex-col gap-6">
-      <div
-        className="card flex flex-col gap-4"
-        style={{ padding: '28px' }}
-      >
+      <div className="card flex flex-col gap-4 p-7">
         <div className="flex items-start justify-between gap-4">
           <div className="min-w-0 flex-1">
-            <p
-              style={{
-                fontFamily: 'var(--mono)',
-                fontSize: '10px',
-                letterSpacing: '0.1em',
-                textTransform: 'uppercase',
-                color: 'var(--dim)',
-                margin: 0
-              }}
-            >
+            <p className="m-0 font-mono text-[10px] uppercase tracking-[0.1em] text-dim">
               Your intake link
             </p>
-            <p
-              className="mt-1.5 truncate"
-              style={{
-                fontFamily: 'var(--mono)',
-                fontSize: '15px',
-                color: 'var(--ink)'
-              }}
-            >
+            <p className="mt-1.5 truncate font-mono text-[15px] text-ink">
               {intakeUrl}
             </p>
           </div>
@@ -123,16 +104,9 @@ export const ShareIntakeStep = ({ draft }: ShareIntakeStepProps) => {
         ]}
       />
 
-      <div
-        className="flex items-start gap-3 rounded-md border p-4"
-        style={{
-          background: 'var(--accent-soft)',
-          borderColor: 'color-mix(in oklab, var(--accent) 30%, var(--rule))',
-          borderRadius: 'var(--r-md)'
-        }}
-      >
-        <Icon icon={Sparkles} className="h-5 w-5 mt-0.5" style={{ color: 'var(--accent-deep)' }} />
-        <div className="flex-1 text-sm" style={{ color: 'var(--ink)', lineHeight: 1.55 }}>
+      <div className="flex items-start gap-3 rounded-[var(--r-md)] border border-[color-mix(in_oklab,var(--accent)_30%,var(--rule))] bg-[var(--accent-soft)] p-4">
+        <Icon icon={Sparkles} className="mt-0.5 h-5 w-5 text-accent-deep" />
+        <div className="flex-1 text-sm leading-[1.55] text-ink">
           <strong>You&apos;re ready.</strong> Your intake link works the moment you finish.
           Share it with clients, embed it on your site, or paste it into any reply.
           We&apos;ll connect Stripe and finish payouts from the workspace banner.

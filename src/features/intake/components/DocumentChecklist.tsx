@@ -115,7 +115,7 @@ const DocumentChecklist: FunctionComponent<DocumentChecklistProps> = ({
         {documents.map((doc) => (
           <div
             key={doc.id}
-            className={`border rounded-r-md p-4 transition-all duration-300 ${
+            className={`border rounded-r-md p-4 transition-[transform,background-color,border-color] duration-300 ${
               dragOverId === doc.id 
                 ? 'border-accent bg-accent/10 scale-[1.02]' 
                 : 'border-line-subtle bg-paper-2/5'

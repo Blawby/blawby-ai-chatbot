@@ -224,7 +224,7 @@ export const PracticeCoveragePage = ({ className, onBack }: PracticeCoveragePage
           <div className="mb-1.5 font-mono text-[10px] uppercase tracking-[0.14em] text-dim">Settings · Practice · Coverage</div>
           <div className="flex items-start justify-between gap-4 max-sm:flex-col">
             <div>
-              <h1 className="font-serif text-[48px] font-normal leading-[1.05] tracking-[-0.02em] text-ink [&_em]:text-accent">
+              <h1 className="font-sans text-[48px] font-normal leading-[1.05] tracking-[-0.02em] text-ink [&_em]:text-accent">
                 Where you <em>practice.</em>
               </h1>
               <p className="mt-3 max-w-[60ch] text-[15px] leading-relaxed text-ink-2">

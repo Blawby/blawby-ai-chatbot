@@ -128,7 +128,7 @@ const CameraDialog: FunctionComponent<CameraDialogProps> = ({
         )}
         <div className="relative w-full h-full overflow-hidden bg-paper flex-grow border-t border-line-subtle">
           <video ref={videoRef} autoPlay playsInline muted className="w-full h-full object-cover" />
-          <canvas ref={canvasRef} style={{ display: 'none' }} />
+          <canvas ref={canvasRef} className="hidden" />
         </div>
         <div className="absolute bottom-10 left-0 right-0 flex justify-center items-center py-4 z-10">
           <CameraCaptureButton onClick={takePhoto} disabled={!isCameraReady} />

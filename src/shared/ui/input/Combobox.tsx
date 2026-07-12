@@ -165,7 +165,7 @@ function DropdownOption({
       onClick={onSelect}
       disabled={option.disabled}
       className={cn(
-        'group relative flex w-full items-center justify-between px-3 py-2.5 text-left text-sm transition-all',
+        'group relative flex w-full items-center justify-between px-3 py-2.5 text-left text-sm transition-colors',
         option.disabled && 'cursor-not-allowed opacity-45',
         isSelected || isFocused
           ? 'bg-accent/15 text-ink'
@@ -584,7 +584,7 @@ export function Combobox({
           onClick={() => (isOpen ? close() : open())}
           onKeyDown={handleKeyDown}
           className={cn(
-            'field relative flex w-full flex-row items-center gap-2 rounded-r-md pl-3 pr-4 py-2.5 transition-all duration-200',
+            'field relative flex w-full flex-row items-center gap-2 rounded-r-md pl-3 pr-4 py-2.5 transition-[color,background-color,border-color,box-shadow] duration-200',
             isOpen && 'is-open',
             !disabled && 'cursor-pointer'
           )}

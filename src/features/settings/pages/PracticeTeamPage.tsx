@@ -256,9 +256,9 @@ export const PracticeTeamPage = ({ className }: PracticeTeamPageProps) => {
                 const isEditing = editMemberData?.userId === member.userId;
                 return (
                   <div key={member.userId} className="border-b border-rule last:border-0">
-                    <div className="grid items-center gap-4 px-4 py-[14px]" style={{ gridTemplateColumns: '40px 1fr 120px 100px auto' }}>
+                    <div className="grid grid-cols-[40px_1fr_120px_100px_auto] items-center gap-4 px-4 py-[14px]">
                       {/* Avatar */}
-                      <div className="flex h-10 w-10 items-center justify-center rounded-full bg-ink font-serif italic text-sm text-accent">
+                      <div className="flex h-10 w-10 items-center justify-center rounded-full bg-ink font-sans italic text-sm text-accent">
                         {initial}
                       </div>
                       {/* Name / email */}
@@ -287,7 +287,7 @@ export const PracticeTeamPage = ({ className }: PracticeTeamPageProps) => {
                     {/* Inline manage form */}
                     {isEditing && editMemberData && (
                       <div className="border-t border-rule px-5 py-4 flex flex-wrap items-end gap-3">
-                        <div className="flex-1 min-w-0" style={{ maxWidth: 240 }}>
+                        <div className="min-w-0 max-w-[240px] flex-1">
                           <FormLabel htmlFor="member-role">Role</FormLabel>
                           <Combobox
                             id="member-role"
@@ -308,7 +308,7 @@ export const PracticeTeamPage = ({ className }: PracticeTeamPageProps) => {
 
               {/* Pending invitations */}
               {invitations.map((inv) => (
-                <div key={inv.id} className="grid items-center gap-4 px-4 py-[14px] border-b border-rule last:border-0" style={{ gridTemplateColumns: '40px 1fr 120px 100px auto' }}>
+                <div key={inv.id} className="grid grid-cols-[40px_1fr_120px_100px_auto] items-center gap-4 border-b border-rule px-4 py-[14px] last:border-0">
                   <div className="flex h-10 w-10 items-center justify-center rounded-full border-2 border-dashed border-rule text-sm text-dim">
                     {inv.email.charAt(0).toUpperCase()}
                   </div>
@@ -353,10 +353,10 @@ export const PracticeTeamPage = ({ className }: PracticeTeamPageProps) => {
             description="New members receive their own login and assistant thread. You control what they can see and do."
           >
             <SettingsCard className="max-w-[860px]">
-              <div className="font-serif text-lg mb-1">Send invitation</div>
+              <div className="font-sans text-lg mb-1">Send invitation</div>
               <p className="text-xs text-dim mb-4">They&apos;ll receive an email with a link to join your workspace.</p>
               <div className="flex flex-wrap items-end gap-3">
-                <div className="flex-1" style={{ minWidth: 200 }}>
+                <div className="min-w-[200px] flex-1">
                   <FormLabel htmlFor="invite-email">Email address</FormLabel>
                   <EmailInput
                     id="invite-email"
@@ -367,7 +367,7 @@ export const PracticeTeamPage = ({ className }: PracticeTeamPageProps) => {
                     required
                   />
                 </div>
-                <div style={{ minWidth: 150 }}>
+                <div className="min-w-[150px]">
                   <FormLabel htmlFor="invite-role">Role</FormLabel>
                   <Combobox
                     id="invite-role"
@@ -417,7 +417,7 @@ export const PracticeTeamPage = ({ className }: PracticeTeamPageProps) => {
             </div>
             <div className="h-1.5 w-full rounded-full bg-rule overflow-hidden">
               <div
-                className={cn('h-full rounded-full transition-all', isOverSeat ? 'bg-[var(--neg,#ef4444)]' : 'bg-ink')}
+                className={cn('h-full rounded-full transition-[width,background-color]', isOverSeat ? 'bg-[var(--neg,#ef4444)]' : 'bg-ink')}
                 style={{ width: `${seatsPercent}%` }}
               />
             </div>

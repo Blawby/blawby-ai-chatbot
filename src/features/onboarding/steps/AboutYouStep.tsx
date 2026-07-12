@@ -18,21 +18,8 @@ export const AboutYouStep = ({ draft, requireName, onChange }: AboutYouStepProps
   const today = new Date().toISOString().split('T')[0];
 
   return (
-    <section
-      className="card"
-      style={{ padding: '28px' }}
-    >
-      <h2
-        style={{
-          fontFamily: 'var(--serif)',
-          fontWeight: 400,
-          fontSize: '28px',
-          lineHeight: 1.15,
-          letterSpacing: '-0.01em',
-          margin: '0 0 18px',
-          color: 'var(--ink)'
-        }}
-      >
+    <section className="card p-7">
+      <h2 className="mb-[18px] font-sans text-[28px] font-normal leading-[1.15] tracking-[-0.01em] text-ink">
         About you
       </h2>
 

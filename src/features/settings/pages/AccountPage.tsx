@@ -850,7 +850,7 @@ export const AccountPage = ({
                 progress={avatarUploading ? avatarUploadProgress : null}
               />
               <div className="min-w-0">
-                <div className="font-serif text-[28px] font-normal tracking-[-0.01em] text-ink">{displayName}</div>
+                <div className="font-sans text-[28px] font-normal tracking-[-0.01em] text-ink">{displayName}</div>
                 <div className="mt-1 font-mono text-[11px] uppercase tracking-[0.08em] text-dim">User profile</div>
               </div>
             </div>
@@ -886,7 +886,7 @@ export const AccountPage = ({
           <SettingsCard className="max-w-[760px]">
             <div className="flex items-start justify-between gap-4 border-b border-rule pb-5 max-sm:flex-col">
               <div>
-                <div className="font-serif text-[26px] font-normal tracking-[-0.01em] text-ink">{currentPlanLabel}</div>
+                <div className="font-sans text-[26px] font-normal tracking-[-0.01em] text-ink">{currentPlanLabel}</div>
                 <p className="mt-1 text-[13.5px] leading-relaxed text-dim">
                   {subscriptionDescription ?? 'You can manage renewals, cancellation, and payment details from here.'}
                 </p>
@@ -1081,7 +1081,7 @@ export const AccountPage = ({
         <section className="rounded-[20px] border border-[color:color-mix(in_oklab,var(--neg)_30%,var(--rule))] bg-[color:color-mix(in_oklab,var(--neg)_6%,var(--card))] px-5 py-5 sm:px-6">
           <div className="flex items-start justify-between gap-4 max-sm:flex-col">
             <div>
-              <h3 className="font-serif text-2xl font-normal tracking-tight text-[var(--neg)]">Delete account</h3>
+              <h3 className="font-sans text-2xl font-normal tracking-tight text-[var(--neg)]">Delete account</h3>
               <p className="mt-1 max-w-[60ch] text-[13.5px] leading-relaxed text-ink-2">
                 Permanently remove your Blawby account and personal data. If you are the billing owner, cancel the active subscription before continuing.
               </p>

@@ -152,7 +152,7 @@ const MatterTab: FunctionComponent<MatterTabProps> = ({
     <div>
       {/* Matter Header */}
       <div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+        <div className="flex items-center gap-2">
           <h3>{matter.matterNumber || 'Matter'}</h3>
           <MatterStatusBadge status={badgeStatus} />
         </div>
@@ -169,7 +169,7 @@ const MatterTab: FunctionComponent<MatterTabProps> = ({
             }
           })();
           return (
-            <p style={{ fontSize: '0.85rem', color: 'var(--gray-500)' }}>
+            <p className="text-[0.85rem] text-dim">
               {msg}
             </p>
           );
@@ -279,7 +279,7 @@ const MatterTab: FunctionComponent<MatterTabProps> = ({
         multiple
         accept=".pdf,.doc,.docx,.txt,.jpg,.jpeg,.png,.gif,.webp"
         onChange={handleDocumentIconUpload}
-        style={{ display: 'none' }}
+        className="hidden"
       />
     </div>
   );

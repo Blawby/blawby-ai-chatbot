@@ -94,7 +94,7 @@ export const PasswordInput = forwardRef<HTMLInputElement, PasswordInputProps>(({
 
   const inputClasses = cn(
     'w-full rounded-r-md text-ink placeholder:text-dim-2',
-    'focus:outline-none transition-all duration-200',
+    'focus:outline-none transition-[color,background-color,border-color,box-shadow] duration-200',
     'field border-none',
     sizeClasses[size],
     iconPaddingClasses[size],

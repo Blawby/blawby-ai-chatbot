@@ -314,7 +314,7 @@ export function PracticeInvoicesPage({
           <div className="font-mono text-[10px] uppercase tracking-[0.14em] text-dim">
             Workspace · {aggregates.loading ? '—' : `${totalCount} invoices`}
           </div>
-          <h1 className="mt-1 font-[family-name:var(--serif)] text-[28px] font-normal leading-none tracking-[-0.02em] text-ink sm:text-[34px]">
+          <h1 className="mt-1 font-sans text-[28px] font-normal leading-none tracking-[-0.02em] text-ink sm:text-[34px]">
             Invoices
           </h1>
         </div>

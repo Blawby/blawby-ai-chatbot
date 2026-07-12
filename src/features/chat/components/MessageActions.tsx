@@ -254,7 +254,7 @@ export const MessageActions: FunctionComponent<MessageActionsProps> = ({
 											href={url}
 											target="_blank"
 											rel="noopener noreferrer"
-											className={`btn ${action.variant === 'primary' ? 'btn-primary' : 'btn-secondary'} btn-sm shrink-0 no-underline inline-flex items-center justify-center px-4 rounded-r-md font-semibold transition-all hover:opacity-90 active:scale-[0.98] h-8 text-xs`}
+											className={`btn ${action.variant === 'primary' ? 'btn-primary' : 'btn-secondary'} btn-sm shrink-0 no-underline inline-flex items-center justify-center px-4 rounded-r-md font-semibold transition-[opacity,transform] hover:opacity-90 active:scale-[0.98] h-8 text-xs`}
 										>
 											{action.label}
 										</a>
@@ -285,7 +285,7 @@ export const MessageActions: FunctionComponent<MessageActionsProps> = ({
 										<button
 											key={getChatActionKey(action, idx)}
 											type="button"
-											className={`btn ${action.variant === 'primary' ? 'btn-primary' : 'btn-secondary'} btn-sm shrink-0 no-underline inline-flex items-center justify-center px-4 rounded-r-md font-semibold transition-all hover:opacity-90 active:scale-[0.98] h-8 text-xs`}
+											className={`btn ${action.variant === 'primary' ? 'btn-primary' : 'btn-secondary'} btn-sm shrink-0 no-underline inline-flex items-center justify-center px-4 rounded-r-md font-semibold transition-[opacity,transform] hover:opacity-90 active:scale-[0.98] h-8 text-xs`}
 											onClick={() => navigate(`${parsed.pathname}${parsed.search}${parsed.hash}`)}
 										>
 											{action.label}
@@ -298,7 +298,7 @@ export const MessageActions: FunctionComponent<MessageActionsProps> = ({
 										href={action.url}
 										target="_blank"
 										rel="noopener noreferrer"
-										className={`btn ${action.variant === 'primary' ? 'btn-primary' : 'btn-secondary'} btn-sm shrink-0 no-underline inline-flex items-center justify-center px-4 rounded-r-md font-semibold transition-all hover:opacity-90 active:scale-[0.98] h-8 text-xs`}
+										className={`btn ${action.variant === 'primary' ? 'btn-primary' : 'btn-secondary'} btn-sm shrink-0 no-underline inline-flex items-center justify-center px-4 rounded-r-md font-semibold transition-[opacity,transform] hover:opacity-90 active:scale-[0.98] h-8 text-xs`}
 									>
 										{action.label}
 									</a>

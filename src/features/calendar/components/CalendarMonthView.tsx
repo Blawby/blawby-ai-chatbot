@@ -137,7 +137,7 @@ export function CalendarMonthView({
               <div className="flex items-baseline justify-between">
                 <span
                   className={cn(
-                    'font-serif text-base leading-none tracking-tight',
+                    'font-sans text-base leading-none tracking-tight',
                     isToday ? 'text-accent-deep' : 'text-ink',
                     past && !isToday && 'text-dim-2'
                   )}
@@ -179,7 +179,7 @@ export function CalendarMonthView({
                           {time}
                         </span>
                       )}
-                      <span className="font-serif text-xs leading-tight text-ink line-clamp-1">
+                      <span className="font-sans text-xs leading-tight text-ink line-clamp-1">
                         {event.title}
                       </span>
                     </button>

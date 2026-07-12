@@ -22,10 +22,10 @@ const URGENCY_BREADCRUMB_LABEL: Record<NonNullable<MatterDetail['urgency']>, str
   emergency: 'priority high'
 };
 
-const URGENCY_COLOR_VAR: Record<NonNullable<MatterDetail['urgency']>, string> = {
-  routine: 'var(--dim)',
-  time_sensitive: 'var(--warn)',
-  emergency: 'var(--neg)'
+const URGENCY_COLOR_CLASS: Record<NonNullable<MatterDetail['urgency']>, string> = {
+  routine: 'text-dim',
+  time_sensitive: 'text-warn',
+  emergency: 'text-neg'
 };
 
 // Derive a stable "BLB-####" matter number from the matter UUID when the
@@ -116,7 +116,7 @@ const MoreMenu = ({ items }: { items: MatterMoreMenuItem[] }) => (
  *
  * Layout (top to bottom):
  *   1. Breadcrumb row     — mono uppercase: "Matters / BLB-#### · priority high"
- *   2. Title row          — serif h1 44px with client name in --accent · top-right action cluster
+ *   2. Title row          — sans h1 44px with client name in --accent · top-right action cluster
  *   3. Sub strip          — bold practice-area · bold jurisdiction · opened date · billing pill
  *   4. 5-cell StatStrip   — retainer balance · unbilled time · events 30d · SoL/next deadline · est. value
  *
@@ -135,7 +135,7 @@ export const MatterDetailHeader = ({
   const title = detail.title?.trim() || 'Untitled matter';
   const matterNumber = deriveMatterNumber(detail);
   const urgencyLabel = detail.urgency ? URGENCY_BREADCRUMB_LABEL[detail.urgency] : null;
-  const urgencyColor = detail.urgency ? URGENCY_COLOR_VAR[detail.urgency] : undefined;
+  const urgencyColorClass = detail.urgency ? URGENCY_COLOR_CLASS[detail.urgency] : undefined;
 
   const openedLabel = formatOpenedDate(detail.openDate);
   const openedDays = daysBetween(detail.openDate);
@@ -199,7 +199,7 @@ export const MatterDetailHeader = ({
         {urgencyLabel ? (
           <>
             <span className="text-dim-2" aria-hidden="true">·</span>
-            <span style={{ color: urgencyColor }}>{urgencyLabel}</span>
+            <span className={urgencyColorClass}>{urgencyLabel}</span>
           </>
         ) : null}
       </div>
@@ -207,7 +207,7 @@ export const MatterDetailHeader = ({
       {/* title row */}
       <div className="mt-1.5 grid grid-cols-1 items-end gap-4 lg:grid-cols-[1fr_auto] lg:gap-8">
         <div className="min-w-0">
-          <h1 className="font-[family-name:var(--serif)] text-[34px] font-normal leading-[1.05] tracking-tight text-ink sm:text-[44px]">
+          <h1 className="font-sans text-[34px] font-normal leading-[1.05] tracking-tight text-ink sm:text-[44px]">
             {title}
             {clientLabel ? (
               <>
@@ -253,21 +253,15 @@ export const MatterDetailHeader = ({
         </div>
       </div>
 
-      {/* Stat strip — 5-cell on lg+, 3-cell on <lg (per canonical Matter.html
-          1180px breakpoint). The DS .stat-strip CSS is hard-coded to 5 cols
-          via repeat(5, 1fr); on mobile we slice to 3 cells and override the
-          grid-template-columns inline so the strip doesn't show 2 empty
-          phantom cells. Authoring a responsive rule in index.css is out of
-          scope for this feature. */}
+      {/* Stat strip: 5 cells on lg+, 3 cells below lg. */}
       {statCells && statCells.length > 0 ? (
         <div className="mt-6">
           <div className="hidden lg:block">
             <StatStrip cells={statCells} />
           </div>
-          <div className="lg:hidden" style={{ ['--stat-cols' as string]: '3' }}>
+          <div className="lg:hidden">
             <div
-              className="stat-strip"
-              style={{ gridTemplateColumns: 'repeat(3, 1fr)' }}
+              className="stat-strip grid-cols-3"
               role="group"
             >
               {statCells.slice(0, 3).map((cell, idx) => (

@@ -28,7 +28,7 @@ export interface StatStripProps {
  * Stat strip (DESIGN_SYSTEM §3.13).
  *
  * 5-cell horizontal strip used in the Matter detail header. Each cell:
- * mono label + serif large number with tabular-nums + optional extra line.
+ * mono label + sans large number with tabular-nums + optional extra line.
  */
 export function StatStrip({ cells, className }: StatStripProps) {
   return (

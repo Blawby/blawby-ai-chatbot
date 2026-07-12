@@ -15,17 +15,17 @@ import { SettingsCard } from '@/features/settings/components/SettingsCard';
 
 type EventType = 'ai' | 'update' | 'create' | 'delete' | 'auth';
 
-const DEMO_EVENTS: Array<{ id: string; ts: string; actor: string; actorInitial: string; actorStyle: string; type: EventType; action: string; target: string }> = [
-  { id: 'e1', ts: 'Jun 1, 10:42 AM', actor: 'Assistant', actorInitial: 'B', actorStyle: 'background:var(--ink);color:var(--accent);font-style:italic', type: 'ai', action: 'Drafted invoice for Chen v. Williams — awaiting approval', target: 'invoice_0047' },
-  { id: 'e2', ts: 'Jun 1, 10:38 AM', actor: 'Sarah Chen', actorInitial: 'SC', actorStyle: 'background:linear-gradient(135deg,#374151,#111827);color:#f9fafb', type: 'update', action: 'Approved staged invoice for matter_0012', target: 'invoice_0047' },
-  { id: 'e3', ts: 'Jun 1, 10:22 AM', actor: 'Assistant', actorInitial: 'B', actorStyle: 'background:var(--ink);color:var(--accent);font-style:italic', type: 'ai', action: 'Sent morning briefing email', target: 'sarah@sarahchenlaw.com' },
-  { id: 'e4', ts: 'Jun 1, 09:14 AM', actor: 'Stripe', actorInitial: 'S', actorStyle: 'background:#635BFF;color:#fff', type: 'create', action: 'Payment received $2,500.00 from Janet Williams', target: 'pay_3Q8xN2' },
-  { id: 'e5', ts: 'Jun 1, 08:50 AM', actor: 'Sarah Chen', actorInitial: 'SC', actorStyle: 'background:linear-gradient(135deg,#374151,#111827);color:#f9fafb', type: 'auth', action: 'Signed in from 74.125.xx.xx (Charlotte, NC)', target: 'session_a8f2' },
-  { id: 'e6', ts: 'May 31, 4:55 PM', actor: 'Assistant', actorInitial: 'B', actorStyle: 'background:var(--ink);color:var(--accent);font-style:italic', type: 'ai', action: 'Created calendar event "Thompson custody hearing" for Jul 14', target: 'event_0089' },
-  { id: 'e7', ts: 'May 31, 3:20 PM', actor: 'Sarah Chen', actorInitial: 'SC', actorStyle: 'background:linear-gradient(135deg,#374151,#111827);color:#f9fafb', type: 'create', action: 'Created new matter Thompson v. Thompson', target: 'matter_0015' },
-  { id: 'e8', ts: 'May 31, 2:44 PM', actor: 'System', actorInitial: 'SY', actorStyle: 'background:var(--rule-soft,#f3f4f6);color:var(--dim)', type: 'update', action: 'Intake form submitted by new lead (family law, DV flagged)', target: 'intake_0041' },
-  { id: 'e9', ts: 'May 31, 11:30 AM', actor: 'Sarah Chen', actorInitial: 'SC', actorStyle: 'background:linear-gradient(135deg,#374151,#111827);color:#f9fafb', type: 'update', action: 'Updated retainer threshold to 30% for Services & pricing', target: 'settings' },
-  { id: 'e10', ts: 'May 31, 10:15 AM', actor: 'Sarah Chen', actorInitial: 'SC', actorStyle: 'background:linear-gradient(135deg,#374151,#111827);color:#f9fafb', type: 'delete', action: 'Removed draft engagement letter for intake_0038', target: 'doc_0072' },
+const DEMO_EVENTS: Array<{ id: string; ts: string; actor: string; actorInitial: string; actorClass: string; type: EventType; action: string; target: string }> = [
+  { id: 'e1', ts: 'Jun 1, 10:42 AM', actor: 'Assistant', actorInitial: 'B', actorClass: 'bg-ink text-accent italic', type: 'ai', action: 'Drafted invoice for Chen v. Williams — awaiting approval', target: 'invoice_0047' },
+  { id: 'e2', ts: 'Jun 1, 10:38 AM', actor: 'Sarah Chen', actorInitial: 'SC', actorClass: 'bg-paper-2 text-ink', type: 'update', action: 'Approved staged invoice for matter_0012', target: 'invoice_0047' },
+  { id: 'e3', ts: 'Jun 1, 10:22 AM', actor: 'Assistant', actorInitial: 'B', actorClass: 'bg-ink text-accent italic', type: 'ai', action: 'Sent morning briefing email', target: 'sarah@sarahchenlaw.com' },
+  { id: 'e4', ts: 'Jun 1, 09:14 AM', actor: 'Stripe', actorInitial: 'S', actorClass: 'bg-accent text-accent-ink', type: 'create', action: 'Payment received $2,500.00 from Janet Williams', target: 'pay_3Q8xN2' },
+  { id: 'e5', ts: 'Jun 1, 08:50 AM', actor: 'Sarah Chen', actorInitial: 'SC', actorClass: 'bg-paper-2 text-ink', type: 'auth', action: 'Signed in from 74.125.xx.xx (Charlotte, NC)', target: 'session_a8f2' },
+  { id: 'e6', ts: 'May 31, 4:55 PM', actor: 'Assistant', actorInitial: 'B', actorClass: 'bg-ink text-accent italic', type: 'ai', action: 'Created calendar event "Thompson custody hearing" for Jul 14', target: 'event_0089' },
+  { id: 'e7', ts: 'May 31, 3:20 PM', actor: 'Sarah Chen', actorInitial: 'SC', actorClass: 'bg-paper-2 text-ink', type: 'create', action: 'Created new matter Thompson v. Thompson', target: 'matter_0015' },
+  { id: 'e8', ts: 'May 31, 2:44 PM', actor: 'System', actorInitial: 'SY', actorClass: 'bg-paper-2 text-dim', type: 'update', action: 'Intake form submitted by new lead (family law, DV flagged)', target: 'intake_0041' },
+  { id: 'e9', ts: 'May 31, 11:30 AM', actor: 'Sarah Chen', actorInitial: 'SC', actorClass: 'bg-paper-2 text-ink', type: 'update', action: 'Updated retainer threshold to 30% for Services & pricing', target: 'settings' },
+  { id: 'e10', ts: 'May 31, 10:15 AM', actor: 'Sarah Chen', actorInitial: 'SC', actorClass: 'bg-paper-2 text-ink', type: 'delete', action: 'Removed draft engagement letter for intake_0038', target: 'doc_0072' },
 ];
 
 const TYPE_STYLES: Record<EventType, string> = {
@@ -80,8 +80,7 @@ export const AuditLogPage = ({ className = '' }: AuditLogPageProps) => {
         <SettingsCard className="mb-5 max-w-[860px]">
         <div className="flex flex-wrap items-center gap-[10px]">
           <input
-            className="input flex-1"
-            style={{ minWidth: 260 }}
+            className="input min-w-[260px] flex-1"
             placeholder="Search events…"
             value={search}
             onInput={(e) => setSearch((e.target as HTMLInputElement).value)}
@@ -100,7 +99,7 @@ export const AuditLogPage = ({ className = '' }: AuditLogPageProps) => {
             <option value="Assistant">Assistant</option>
             <option value="System">System</option>
           </select>
-          <select className="select" value={rangeFilter} onChange={(e) => setRangeFilter((e.target as HTMLSelectElement).value)} style={{ width: 140 }}>
+          <select className="select w-[140px]" value={rangeFilter} onChange={(e) => setRangeFilter((e.target as HTMLSelectElement).value)}>
             <option value="7d">Last 7 days</option>
             <option value="30d">Last 30 days</option>
             <option value="90d">Last 90 days</option>
@@ -128,8 +127,7 @@ export const AuditLogPage = ({ className = '' }: AuditLogPageProps) => {
                       <td className="py-3 pr-3">
                         <div className="flex items-center gap-2">
                           <div
-                            className="h-[22px] w-[22px] rounded-full grid place-items-center font-serif text-[9px] font-bold shrink-0"
-                            style={event.actorStyle}
+                            className={cn('grid h-[22px] w-[22px] shrink-0 place-items-center rounded-full font-sans text-[9px] font-bold', event.actorClass)}
                           >
                             {event.actorInitial}
                           </div>

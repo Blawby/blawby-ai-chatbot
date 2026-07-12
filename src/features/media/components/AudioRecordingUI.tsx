@@ -331,7 +331,7 @@ const AudioRecordingUI: FunctionComponent<AudioRecordingUIProps> = ({
                 onClick={onCancel}
                 aria-label="Cancel recording"
                 title="Cancel recording"
-                className="flex items-center justify-center w-8 h-8 p-1.5 border-none rounded-full cursor-pointer transition-all duration-200 text-dim-2 hover:text-red-400 bg-paper-2/5 hover:bg-red-500/10 animate-zoom-in"
+                className="flex items-center justify-center w-8 h-8 p-1.5 border-none rounded-full cursor-pointer transition-colors duration-200 text-dim-2 hover:text-red-400 bg-paper-2/5 hover:bg-red-500/10 animate-zoom-in"
             >
                 <Icon icon={X} className="w-5 h-5" aria-hidden="true"  />
             </Button>
@@ -351,7 +351,7 @@ const AudioRecordingUI: FunctionComponent<AudioRecordingUIProps> = ({
                 aria-label="Confirm and send recording"
                 title="Confirm and send recording"
                 ref={confirmBtnRef}
-                className="flex items-center justify-center w-8 h-8 p-1.5 rounded-full shadow-lg shadow-accent/20 cursor-pointer transition-all duration-200 animate-zoom-in hover:scale-110 active:scale-95"
+                className="flex items-center justify-center w-8 h-8 p-1.5 rounded-full shadow-lg shadow-accent/20 cursor-pointer transition-transform duration-200 animate-zoom-in hover:scale-110 active:scale-95"
             >
                 <Icon icon={Check} className="w-5 h-5" aria-hidden="true"  />
             </Button>

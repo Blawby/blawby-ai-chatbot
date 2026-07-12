@@ -46,7 +46,7 @@ export function CalendarAgendaView({
         )}
         emptyState={
           <div className="p-8 text-center">
-            <p className="font-serif text-xl text-ink">No upcoming events</p>
+            <p className="font-sans text-xl text-ink">No upcoming events</p>
             <p className="mt-2 text-sm text-dim-2">
               The calendar aggregates task due dates, time entries, engagement
               lifecycle, invoice due dates, court dates and matter milestones.

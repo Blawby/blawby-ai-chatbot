@@ -33,25 +33,13 @@ export const StageFooter = ({
   skipLabel = "Skip — I'll set this up later"
 }: StageFooterProps) => {
   return (
-    <div
-      className="mt-auto flex items-center justify-between gap-4 pt-6"
-      style={{ borderTop: '1px solid var(--rule)' }}
-    >
+    <div className="mt-auto flex items-center justify-between gap-4 border-t border-rule pt-6">
       {onSkip ? (
         <button
           type="button"
           onClick={onSkip}
           disabled={isSubmitting}
-          className="bg-transparent border-0 cursor-pointer py-1"
-          style={{
-            fontFamily: 'var(--mono)',
-            fontSize: '11px',
-            letterSpacing: '0.08em',
-            textTransform: 'uppercase',
-            color: 'var(--dim)',
-            borderBottom: '1px dotted var(--dim-2)',
-            padding: '4px 0'
-          }}
+          className="cursor-pointer border-0 border-b border-dotted border-dim-2 bg-transparent py-1 font-mono text-[11px] uppercase tracking-[0.08em] text-dim"
         >
           {skipLabel}
         </button>

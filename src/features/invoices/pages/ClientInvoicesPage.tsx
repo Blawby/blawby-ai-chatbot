@@ -136,7 +136,7 @@ export function ClientInvoicesPage({
       <div className="font-mono text-[10px] uppercase tracking-[0.14em] text-dim">
         {`Your account · ${invoices.length} ${invoices.length === 1 ? 'invoice' : 'invoices'}`}
       </div>
-      <h1 className="mt-1 font-[family-name:var(--serif)] text-[28px] font-normal leading-none tracking-[-0.02em] text-ink sm:text-[34px]">
+      <h1 className="mt-1 font-sans text-[28px] font-normal leading-none tracking-[-0.02em] text-ink sm:text-[34px]">
         Invoices
       </h1>
       {totalDue > 0 ? (

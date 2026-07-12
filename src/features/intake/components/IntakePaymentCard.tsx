@@ -76,7 +76,7 @@ export const IntakePaymentCard: FunctionComponent<IntakePaymentCardProps> = ({
           // mobile so the Pay link clears the iOS HIG tap-target threshold
           // (the desktop py-3.5 is already ~14px both sides; mobile uses
           // padding-block: 12px + min-height: 44px to keep proportions).
-          className="intake-payment-card-cta btn btn-primary inline-flex w-full items-center justify-center rounded-r-md px-4 py-3.5 text-center font-semibold no-underline transition-all hover:opacity-90 active:scale-[0.98]"
+          className="intake-payment-card-cta btn btn-primary inline-flex w-full items-center justify-center rounded-r-md px-4 py-3.5 text-center font-semibold no-underline transition-[opacity,transform] hover:opacity-90 active:scale-[0.98]"
         >
           {buttonLabel}
         </a>

@@ -487,7 +487,7 @@ const PracticeTrustPage: FunctionComponent = () => {
             <section className="flex flex-col gap-3">
               <div className="flex flex-wrap items-end justify-between gap-2">
                 <div>
-                  <h2 className="font-serif text-xl text-ink">Per-client balances</h2>
+                  <h2 className="font-sans text-xl text-ink">Per-client balances</h2>
                   <p className="mt-1 text-sm text-dim-2">
                     Running balance per client based on the most recent entry in the period.
                   </p>
@@ -517,7 +517,7 @@ const PracticeTrustPage: FunctionComponent = () => {
             <section className="flex flex-col gap-3">
               <div className="flex flex-wrap items-end justify-between gap-2">
                 <div>
-                  <h2 className="font-serif text-xl text-ink">Recent transactions</h2>
+                  <h2 className="font-sans text-xl text-ink">Recent transactions</h2>
                   <p className="mt-1 text-sm text-dim-2">
                     Every deposit, transfer, and refund recorded in the ledger.
                   </p>

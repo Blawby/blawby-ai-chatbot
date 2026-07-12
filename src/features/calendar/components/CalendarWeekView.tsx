@@ -121,7 +121,7 @@ export function CalendarWeekView({
               </span>
               <span
                 className={cn(
-                  'font-serif text-lg leading-none tracking-tight',
+                  'font-sans text-lg leading-none tracking-tight',
                   isToday ? 'text-accent-deep' : 'text-ink'
                 )}
               >
@@ -166,7 +166,7 @@ export function CalendarWeekView({
                           {time}
                         </span>
                       )}
-                      <span className="font-serif text-xs leading-tight text-ink line-clamp-2">
+                      <span className="font-sans text-xs leading-tight text-ink line-clamp-2">
                         {event.title}
                       </span>
                     </button>

@@ -115,18 +115,8 @@ export const PracticeStep = ({ draft, onChange }: PracticeStepProps) => {
 
   return (
     <section className="flex flex-col gap-5">
-      <div className="card" style={{ padding: '28px' }}>
-        <h2
-          style={{
-            fontFamily: 'var(--serif)',
-            fontWeight: 400,
-            fontSize: '28px',
-            lineHeight: 1.15,
-            letterSpacing: '-0.01em',
-            margin: '0 0 18px',
-            color: 'var(--ink)'
-          }}
-        >
+      <div className="card p-7">
+        <h2 className="mb-[18px] font-sans text-[28px] font-normal leading-[1.15] tracking-[-0.01em] text-ink">
           Practice profile
         </h2>
 
@@ -145,7 +135,7 @@ export const PracticeStep = ({ draft, onChange }: PracticeStepProps) => {
               icon={Building2}
               iconClassName="h-5 w-5 text-dim-2"
             />
-            <p className="mt-1 text-xs" style={{ color: 'var(--dim)' }}>
+            <p className="mt-1 text-xs text-dim">
               {publicOrigin}/p/{computedSlug || 'your-practice'}
             </p>
           </div>
@@ -198,8 +188,7 @@ export const PracticeStep = ({ draft, onChange }: PracticeStepProps) => {
                     <span>{group.type}</span>
                     {selectedCount > 0 && (
                       <span
-                        className="rounded-sm border border-line px-1.5 py-0.5 text-[10px] tracking-normal"
-                        style={{ color: 'var(--dim)' }}
+                        className="rounded-sm border border-line px-1.5 py-0.5 text-[10px] tracking-normal text-dim"
                         aria-label={`${selectedCount} selected`}
                       >
                         {selectedCount}

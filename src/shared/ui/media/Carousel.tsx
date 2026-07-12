@@ -90,7 +90,7 @@ export function Carousel({
               onClick={() => goTo(i)}
               aria-label={`Go to slide ${i + 1}`}
               className={cn(
-                'w-1.5 h-1.5 rounded-full transition-all',
+                'w-1.5 h-1.5 rounded-full transition-[width,background-color]',
                 i === current
                   ? 'bg-accent w-4'
                   : 'bg-paper-2/15',

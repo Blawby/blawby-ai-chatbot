@@ -16,7 +16,7 @@ import { ContentWithPreview } from './ContentWithPreview';
  * as DetailHeader so all chrome in the app is consistent.
  *
  * Chat-first hero (Settings.html treatment): when `crumb`, `accentTitle`, or
- * `lede` is provided, EditorShell renders a serif H1 hero above its children
+ * `lede` is provided, EditorShell renders a sans H1 hero above its children
  * (in the scroll area, not the sticky header). The compact `title` stays in
  * the sticky header bar so the chrome stays consistent app-wide.
  */
@@ -25,7 +25,7 @@ export interface EditorShellProps {
   subtitle?: string;
   /**
    * Mono uppercase crumb (e.g. "Settings · Practice · Intelligence") rendered
-   * above the serif H1 hero. Renders inside the scrollable content, not the
+   * above the sans H1 hero. Renders inside the scrollable content, not the
    * sticky header.
    */
   crumb?: ComponentChildren;

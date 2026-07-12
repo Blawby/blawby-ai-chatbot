@@ -136,11 +136,11 @@ export const ClientEngagementSignatureCard: FunctionComponent<ClientEngagementSi
         className="m-0 mb-1.5 font-serif text-[26px] font-normal leading-[1.15] tracking-[-0.012em] text-ink"
       >
         Sign{' '}
-        <em className="text-accent" style={{ fontStyle: 'italic' }}>here.</em>
+        <em className="italic text-accent">here.</em>
       </h3>
       <p className="mb-[18px] text-[14px] leading-[1.55] text-ink-2">
         Draw your signature using your finger, trackpad, or mouse. By signing you agree to the terms above on{' '}
-        <em className="text-accent-deep" style={{ fontStyle: 'italic' }}>{todayLong}</em>.
+        <em className="italic text-accent-deep">{todayLong}</em>.
       </p>
 
       <div

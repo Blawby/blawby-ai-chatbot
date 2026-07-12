@@ -85,7 +85,7 @@ export const ProgressRing: FunctionComponent<ProgressRingProps> = ({
             transition: 'stroke-dashoffset 0.5s ease-in-out, stroke 0.5s ease-in-out' 
           }}
           strokeLinecap="round"
-          className={cn('transition-all', progressClassName)}
+          className={cn('transition-[stroke-dashoffset]', progressClassName)}
         />
       </svg>
       {children !== undefined && (
