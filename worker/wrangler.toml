@@ -88,6 +88,14 @@ new_classes = ["PresenceRoom"]
 
 [[migrations]]
 tag = "v6"
+new_sqlite_classes = ["McpSession"]
+
+[[migrations]]
+tag = "v7"
+deleted_classes = ["McpSession"]
+
+[[migrations]]
+tag = "v8"
 new_classes = ["ChatCounterObject"]
 
 [env.dev]
@@ -167,6 +175,14 @@ new_classes = ["PresenceRoom"]
 
 [[env.dev.migrations]]
 tag = "v6"
+new_sqlite_classes = ["McpSession"]
+
+[[env.dev.migrations]]
+tag = "v7"
+deleted_classes = ["McpSession"]
+
+[[env.dev.migrations]]
+tag = "v8"
 new_classes = ["ChatCounterObject"]
 
 [env.dev.vars]
@@ -284,11 +300,15 @@ new_classes = ["PresenceRoom"]
 
 [[env.staging.migrations]]
 tag = "v9"
-new_classes = ["ChatCounterObject"]
+new_sqlite_classes = ["McpSession"]
 
-# Staging already records v10; retain it so Wrangler does not replay earlier migrations.
 [[env.staging.migrations]]
 tag = "v10"
+deleted_classes = ["McpSession"]
+
+[[env.staging.migrations]]
+tag = "v11"
+new_classes = ["ChatCounterObject"]
 
 [env.staging.vars]
 NODE_ENV = "staging"
@@ -336,6 +356,12 @@ tag = "v6"
 new_classes = ["PresenceRoom"]
 [[env.production.migrations]]
 tag = "v7"
+new_sqlite_classes = ["McpSession"]
+[[env.production.migrations]]
+tag = "v8"
+deleted_classes = ["McpSession"]
+[[env.production.migrations]]
+tag = "v9"
 new_classes = ["ChatCounterObject"]
 [[env.production.r2_buckets]]
 binding = "FILES_BUCKET"
