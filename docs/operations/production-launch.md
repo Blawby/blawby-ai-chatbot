@@ -23,8 +23,25 @@ Only one `launch-production` run can execute at a time, and queued runs are not 
 4. Deploy the already-validated Pages artifact with `main` and the exact commit attached.
 5. Read the native Pages deployment ID and URL from structured output.
 6. Poll both the immutable Pages deployment URL and `https://ai.blawby.com` with bounded attempts/timeouts.
+7. Run the production-origin smoke with dedicated launch-test owner/client secrets.
 
-A failed preflight, Worker deploy, propagation check, Pages deploy, or Pages propagation check fails visibly and prevents later jobs from starting.
+Before either Cloudflare deployment changes, the workflow records the current healthy Worker's exact Git commit and Worker version ID plus the canonical Pages deployment ID and URL. A failed Worker deploy, Pages deploy, propagation check, or production smoke restores both recorded deployments and verifies the restored Worker and Pages origins with bounded retries.
+
+## Bounded production smoke
+
+The smoke configuration accepts credentials only from the `production` GitHub environment. It does not load developer env files or the ignored E2E credential fixture. Required secrets are:
+
+- `PRODUCTION_SMOKE_PRACTICE_ID` and `PRODUCTION_SMOKE_PRACTICE_SLUG`;
+- `PRODUCTION_SMOKE_OWNER_EMAIL` and `PRODUCTION_SMOKE_OWNER_PASSWORD`;
+- `PRODUCTION_SMOKE_CLIENT_EMAIL` and `PRODUCTION_SMOKE_CLIENT_PASSWORD`.
+
+Those identities belong only to the clearly marked launch-test Practice. Setup reuses the configured client linkage or creates the single marked client record when missing. The smoke checks root assets, safe health metadata, sign-in/session/sign-out and cross-origin auth rejection, active-Practice isolation, critical owner/client/widget proxy reads, desktop/mobile shell basics, browser errors, mixed-content and non-production calls. Billing checks are GET-only. The run creates or reuses at most one active `[LAUNCH SMOKE]` conversation, sends one harmless Practice Assistant query, and archives that conversation even when an assertion fails.
+
+The smoke contains no matter/invoice mutation, communication send, webhook acceptance, or charge path.
+
+## Staging rollback rehearsal
+
+Run `Deploy staging` manually with `rehearse_rollback` enabled. The workflow captures the current staging Worker and canonical Pages identities, deploys the selected staging commit, restores and verifies both previous deployments, records the measured rollback duration in `staging-rollback-rehearsal.json`, and then redeploys and verifies the selected commit so staging is not left on the old release. The artifact is retained for 90 days.
 
 ## Release record
 

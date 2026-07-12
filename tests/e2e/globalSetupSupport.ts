@@ -26,6 +26,15 @@ const FORCE_AUTH_REFRESH = ['true', '1', 'yes'].includes(
 const SKIP_CLIENT_AUTH = ['true', '1', 'yes'].includes(
   (process.env.E2E_SKIP_CLIENT_AUTH || '').toLowerCase()
 );
+const SKIP_ANONYMOUS_AUTH = ['true', '1', 'yes'].includes(
+  (process.env.E2E_SKIP_ANONYMOUS_AUTH || '').toLowerCase()
+);
+const REQUIRE_EXISTING_USERS = ['true', '1', 'yes'].includes(
+  (process.env.E2E_REQUIRE_EXISTING_USERS || '').toLowerCase()
+);
+const SKIP_ONBOARDING_PREFERENCE = ['true', '1', 'yes'].includes(
+  (process.env.E2E_SKIP_ONBOARDING_PREFERENCE || '').toLowerCase()
+);
 
 const shouldVerifyLocalWorker = (baseURL: string): boolean => {
   const hostname = new URL(baseURL).hostname.toLowerCase();
@@ -370,6 +379,10 @@ const createSignedInState = async (options: {
     }
 
     if (signInResponse?.status() === 401) {
+      if (REQUIRE_EXISTING_USERS) {
+        writeAuthDebugFiles(label, authNetworkLogs, consoleLogs, pageErrors);
+        throw new Error(`Configured ${label} launch-test user must already exist and sign in successfully.`);
+      }
       console.log(`🧾 ${label} sign-in returned 401; attempting to register configured E2E user...`);
       try {
         await createTestUser(page, {
@@ -406,26 +419,28 @@ const createSignedInState = async (options: {
       );
     }
 
-    try {
-      await page.evaluate(async () => {
-        try {
-          await fetch('/api/preferences/onboarding', {
-            method: 'PUT',
-            credentials: 'include',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              completed: true,
-              welcome_modal_shown: true,
-              practice_welcome_shown: true
-            })
-          });
-        } catch {
-          // Ignore preference update failures in e2e bootstrap
+    if (!SKIP_ONBOARDING_PREFERENCE) {
+      try {
+        await page.evaluate(async () => {
+          try {
+            await fetch('/api/preferences/onboarding', {
+              method: 'PUT',
+              credentials: 'include',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                completed: true,
+                welcome_modal_shown: true,
+                practice_welcome_shown: true
+              })
+            });
+          } catch {
+            // Ignore preference update failures in e2e bootstrap
+          }
+        });
+      } catch (error) {
+        if (!(error instanceof Error) || !error.message.includes('Execution context was destroyed')) {
+          console.warn('E2E setup onboarding preference update failed', error);
         }
-      });
-    } catch (error) {
-      if (!(error instanceof Error) || !error.message.includes('Execution context was destroyed')) {
-        console.warn('E2E setup onboarding preference update failed', error);
       }
     }
 
@@ -571,7 +586,9 @@ export const runAuthGlobalSetup = async (config: FullConfig): Promise<void> => {
     });
   }
 
-  if (!FORCE_AUTH_REFRESH && await hasValidSessionFromStorage(baseURL, anonymousPath)) {
+  if (SKIP_ANONYMOUS_AUTH) {
+    console.log('⏭️  anonymous storageState skipped because E2E_SKIP_ANONYMOUS_AUTH is enabled');
+  } else if (!FORCE_AUTH_REFRESH && await hasValidSessionFromStorage(baseURL, anonymousPath)) {
     console.log(`✅ anonymous storageState already valid at ${anonymousPath}`);
   } else {
     await createAnonymousState({
