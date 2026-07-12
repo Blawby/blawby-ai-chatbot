@@ -32,6 +32,7 @@ interface ActionRow {
   payload_json: string;
   result_json: string | null;
   error_message: string | null;
+  executed_at: string | null;
 }
 
 export class PracticeAssistantActionService {
@@ -127,23 +128,31 @@ export class PracticeAssistantActionService {
     if (row.status !== 'approved') {
       throw HttpErrors.conflict(`Action must be approved before execution. Current status: ${row.status}`);
     }
+    const correlationId = request.headers.get('x-correlation-id')?.trim() || crypto.randomUUID();
+    const claim = await this.env.DB.prepare(`
+      UPDATE practice_assistant_actions
+      SET executed_at = ?
+      WHERE id = ? AND practice_id = ? AND status = 'approved' AND executed_at IS NULL
+    `).bind(new Date().toISOString(), actionId, practiceId).run();
+    if (!claim.meta.changes) {
+      throw HttpErrors.conflict('Action execution has already been claimed');
+    }
     const payload = JSON.parse(row.payload_json) as Record<string, unknown>;
     try {
-      const result = await this.executePayload(practiceId, payload, request);
+      const result = await this.executePayload(actionId, practiceId, payload, request);
       await this.env.DB.prepare(`
         UPDATE practice_assistant_actions
-        SET status = 'executed', result_json = ?, executed_at = ?
-        WHERE id = ? AND practice_id = ?
-      `).bind(JSON.stringify(result ?? {}), new Date().toISOString(), actionId, practiceId).run();
+        SET status = 'executed', result_json = ?
+        WHERE id = ? AND practice_id = ? AND status = 'approved' AND executed_at IS NOT NULL
+      `).bind(JSON.stringify(result ?? {}), actionId, practiceId).run();
       return this.toSummary({ ...row, status: 'executed', result_json: JSON.stringify(result ?? {}) });
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
+    } catch {
       await this.env.DB.prepare(`
         UPDATE practice_assistant_actions
         SET status = 'failed', error_message = ?
-        WHERE id = ? AND practice_id = ?
-      `).bind(message, actionId, practiceId).run();
-      throw error;
+        WHERE id = ? AND practice_id = ? AND status = 'approved' AND executed_at IS NOT NULL
+      `).bind(`Execution failed. Correlation ID: ${correlationId}`, actionId, practiceId).run();
+      throw HttpErrors.internalServerError('Action execution failed', { correlationId });
     }
   }
 
@@ -179,16 +188,17 @@ export class PracticeAssistantActionService {
   // ─── Execution ──────────────────────────────────────────────────────────────
 
   private async executePayload(
+    actionId: string,
     practiceId: string,
     payload: Record<string, unknown>,
     request: Request,
   ): Promise<unknown> {
     const action = validateActionPayload(payload);
     switch (action.actionType) {
-      case 'update_entity': return this.executeUpdateEntity(practiceId, action, request);
-      case 'create_entity': return this.executeCreateEntity(practiceId, action, request);
-      case 'delete_entity': return this.executeDeleteEntity(practiceId, action, request);
-      case 'run_entity_action': return this.executeRunEntityAction(practiceId, action, request);
+      case 'update_entity': return this.executeUpdateEntity(actionId, practiceId, action, request);
+      case 'create_entity': return this.executeCreateEntity(actionId, practiceId, action, request);
+      case 'delete_entity': return this.executeDeleteEntity(actionId, practiceId, action, request);
+      case 'run_entity_action': return this.executeRunEntityAction(actionId, practiceId, action, request);
     }
   }
 
@@ -214,6 +224,7 @@ export class PracticeAssistantActionService {
   }
 
   private async executeUpdateEntity(
+    actionId: string,
     practiceId: string,
     action: UpdateEntityPayload,
     request: Request,
@@ -266,7 +277,7 @@ export class PracticeAssistantActionService {
     );
     let currentEntity: Record<string, unknown> = {};
     if (needsReadFirst && config.readRoute) {
-      const fetched = await this.entityFetch(config, config.readRoute(scope), request, { method: 'GET' });
+      const fetched = await this.entityFetch(actionId, config, config.readRoute(scope), request, { method: 'GET' });
       if (fetched && typeof fetched === 'object' && !Array.isArray(fetched)) {
         currentEntity = fetched as Record<string, unknown>;
       }
@@ -338,13 +349,13 @@ export class PracticeAssistantActionService {
       }
     }
 
-    const updated = await this.entityFetch(config, config.updateRoute(scope), request, {
+    const updated = await this.entityFetch(actionId, config, config.updateRoute(scope), request, {
       method: config.updateMethod,
       body: patch,
     });
 
     if (config.readRoute) {
-      const verified = await this.entityFetch(config, config.readRoute(scope), request, { method: 'GET' });
+      const verified = await this.entityFetch(actionId, config, config.readRoute(scope), request, { method: 'GET' });
       const verifiedRecord =
         verified && typeof verified === 'object' && !Array.isArray(verified)
           ? (verified as Record<string, unknown>)
@@ -359,6 +370,7 @@ export class PracticeAssistantActionService {
   }
 
   private async executeCreateEntity(
+    actionId: string,
     practiceId: string,
     action: CreateEntityPayload,
     request: Request,
@@ -413,7 +425,7 @@ export class PracticeAssistantActionService {
       }
     }
 
-    const created = await this.entityFetch(config, config.createRoute(scope), request, {
+    const created = await this.entityFetch(actionId, config, config.createRoute(scope), request, {
       method: 'POST',
       body: action.data,
     });
@@ -421,6 +433,7 @@ export class PracticeAssistantActionService {
   }
 
   private async executeDeleteEntity(
+    actionId: string,
     practiceId: string,
     action: DeleteEntityPayload,
     request: Request,
@@ -433,12 +446,12 @@ export class PracticeAssistantActionService {
     const scope = this.buildScope(practiceId, action);
     this.requireParent(config, scope);
 
-    await this.entityFetch(config, config.deleteRoute(scope), request, { method: 'DELETE' });
+    await this.entityFetch(actionId, config, config.deleteRoute(scope), request, { method: 'DELETE' });
 
     // Verify hard deletes: if the entity is still readable, the delete failed.
     if ((config.deleteSemantics ?? 'delete') === 'delete' && config.readRoute) {
       try {
-        await this.entityFetch(config, config.readRoute(scope), request, { method: 'GET' });
+        await this.entityFetch(actionId, config, config.readRoute(scope), request, { method: 'GET' });
         // If we reach here the entity still exists — delete did not take effect.
         throw new Error(`Delete verification failed: ${action.entityType} ${action.id} is still readable after delete`);
       } catch (error) {
@@ -457,6 +470,7 @@ export class PracticeAssistantActionService {
   }
 
   private async executeRunEntityAction(
+    actionId: string,
     practiceId: string,
     action: RunEntityActionPayload,
     request: Request,
@@ -483,13 +497,13 @@ export class PracticeAssistantActionService {
       }
     }
 
-    const result = await this.entityFetch(config, lifecycleAction.route(scope), request, {
+    const result = await this.entityFetch(actionId, config, lifecycleAction.route(scope), request, {
       method: lifecycleAction.method,
       body: action.input ?? {},
     });
 
     if (lifecycleAction.verifyReadRoute) {
-      const verified = await this.entityFetch(config, lifecycleAction.verifyReadRoute(scope), request, { method: 'GET' });
+      const verified = await this.entityFetch(actionId, config, lifecycleAction.verifyReadRoute(scope), request, { method: 'GET' });
       return { result, verified };
     }
     return { result };
@@ -503,41 +517,46 @@ export class PracticeAssistantActionService {
    * forwarding the original auth headers so the route's auth checks pass.
    */
   private entityFetch(
+    actionId: string,
     config: EntityConfig,
     path: string,
     request: Request,
     init: { method: string; body?: unknown },
   ): Promise<unknown> {
     return config.owner === 'worker'
-      ? this.workerFetch(path, request, init)
-      : this.backendFetch(path, request, init);
+      ? this.workerFetch(actionId, path, request, init)
+      : this.backendFetch(actionId, path, request, init);
   }
 
   private async workerFetch(
+    actionId: string,
     path: string,
     request: Request,
     init: { method: string; body?: unknown },
   ): Promise<unknown> {
     const origin = new URL(request.url).origin;
-    return this.doFetch(`${origin}${path}`, request, init);
+    return this.doFetch(actionId, `${origin}${path}`, request, init);
   }
 
   private async backendFetch(
+    actionId: string,
     path: string,
     request: Request,
     init: { method: string; body?: unknown },
   ): Promise<unknown> {
     const base = this.env.BACKEND_API_URL?.trim();
     if (!base) throw HttpErrors.internalServerError('BACKEND_API_URL is required');
-    return this.doFetch(`${base.replace(/\/+$/, '')}${path}`, request, init);
+    return this.doFetch(actionId, `${base.replace(/\/+$/, '')}${path}`, request, init);
   }
 
   private async doFetch(
+    actionId: string,
     url: string,
     request: Request,
     init: { method: string; body?: unknown },
   ): Promise<unknown> {
     const headers = new Headers({ 'Content-Type': 'application/json' });
+    headers.set('Idempotency-Key', `practice-assistant-action:${actionId}`);
     const cookie = request.headers.get('Cookie');
     const authorization = request.headers.get('Authorization');
     if (cookie) headers.set('Cookie', cookie);

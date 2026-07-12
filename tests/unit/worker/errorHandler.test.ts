@@ -26,6 +26,22 @@ describe('public error sanitization', () => {
       correlationId: 'correlation-123',
     });
     expect(JSON.stringify(body)).not.toMatch(/secret-value|stack detail|password/i);
+    expect(console.error).toHaveBeenCalledOnce();
+    expect(vi.mocked(console.error).mock.calls[0]?.[0]).not.toMatch(/secret-value|stack detail|password/i);
+  });
+
+  it('uses a server error correlation reference without exposing it as details', async () => {
+    const response = handleError(
+      HttpErrors.internalServerError('Action execution failed', { correlationId: 'action-correlation' }),
+    );
+
+    await expect(response.json()).resolves.toEqual({
+      success: false,
+      error: 'Internal server error',
+      errorCode: 'HTTP_500',
+      correlationId: 'action-correlation',
+    });
+    expect(response.headers.get('X-Request-ID')).toBe('action-correlation');
   });
 
   it('sanitizes explicit server errors while preserving safe client errors', async () => {

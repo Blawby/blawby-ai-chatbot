@@ -3,9 +3,10 @@ import { ZodError } from 'zod';
 
 // Structured logging for better observability
 export function logError(error: unknown, context: Record<string, unknown> = {}) {
+  const isSafeClientError = error instanceof HttpError && error.status < 500;
   const errorData = {
-    error: error instanceof Error ? error.message : String(error),
-    stack: error instanceof Error ? error.stack : undefined,
+    error: isSafeClientError ? error.message : 'Internal server error',
+    errorType: error instanceof Error ? error.name : typeof error,
     context,
     timestamp: new Date().toISOString(),
     worker: 'blawby-ai-chatbot'
@@ -15,8 +16,14 @@ export function logError(error: unknown, context: Record<string, unknown> = {}) 
 }
 
 // Centralized error handler with enhanced features
-export function handleError(error: unknown, correlationId = crypto.randomUUID()): Response {
-  logError(error, { endpoint: 'unknown', correlationId });
+export function handleError(error: unknown, correlationId?: string): Response {
+  const errorCorrelationId = error instanceof HttpError &&
+    error.details && typeof error.details === 'object' && !Array.isArray(error.details) &&
+    typeof (error.details as Record<string, unknown>).correlationId === 'string'
+    ? (error.details as Record<string, unknown>).correlationId as string
+    : undefined;
+  const resolvedCorrelationId = correlationId || errorCorrelationId || crypto.randomUUID();
+  logError(error, { endpoint: 'unknown', correlationId: resolvedCorrelationId });
 
   let status = 500;
   let message = 'Internal server error';
@@ -52,14 +59,14 @@ export function handleError(error: unknown, correlationId = crypto.randomUUID())
     error: message,
     errorCode,
     ...(details && { details }),
-    correlationId,
+    correlationId: resolvedCorrelationId,
   };
 
   return new Response(JSON.stringify(response), {
     status,
     headers: {
       'Content-Type': 'application/json',
-      'X-Request-ID': correlationId,
+      'X-Request-ID': resolvedCorrelationId,
     }
   });
 }
