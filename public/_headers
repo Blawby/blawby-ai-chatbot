@@ -47,3 +47,4 @@
   X-Content-Type-Options: nosniff
   Referrer-Policy: strict-origin-when-cross-origin
   Permissions-Policy: geolocation=(), microphone=(self)
+  Content-Security-Policy: default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'self'; form-action 'self' https://*.stripe.com; script-src 'self' 'unsafe-inline' https://cdn.onesignal.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: blob: https://imagedelivery.net https://api.cloudflare.com; connect-src 'self' https://api.blawby.com https://ai.blawby.com wss://ai.blawby.com https://*.onesignal.com wss://*.onesignal.com https://*.stripe.com; frame-src 'self' https://*.stripe.com; worker-src 'self' blob:; manifest-src 'self'; upgrade-insecure-requests

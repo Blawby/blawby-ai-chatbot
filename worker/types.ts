@@ -1,4 +1,11 @@
-import type { KVNamespace, R2Bucket, D1Database, Queue, DurableObjectNamespace } from '@cloudflare/workers-types';
+import type {
+  KVNamespace,
+  R2Bucket,
+  D1Database,
+  Queue,
+  DurableObjectNamespace,
+  WorkerVersionMetadata,
+} from '@cloudflare/workers-types';
 
 export type NotificationCategory = 'message' | 'payment' | 'intake' | 'matter' | 'system';
 export type NotificationSeverity = 'info' | 'success' | 'warning' | 'error';
@@ -224,6 +231,7 @@ export interface Env {
   AI?: {
     run(model: string, input: { text: string[] }): Promise<{ data?: number[][] }>;
   };
+  CF_VERSION_METADATA?: WorkerVersionMetadata;
   SEARCH_SEMANTIC_ENABLED?: string;
   SEARCH_INDEX_CONCURRENCY?: string;
   SEARCH_RERANK_ENABLED?: string;
