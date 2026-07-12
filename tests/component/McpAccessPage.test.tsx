@@ -49,7 +49,7 @@ vi.mock('@/shared/ui/layout/LoadingSpinner', () => ({
 
 vi.mock('@/shared/lib/mcpOAuth', () => ({
   beginMcpOAuthConnect,
-  getMcpResourceUrl: () => 'https://local.blawby.com/api/mcp',
+  getMcpResourceUrl: () => 'https://staging-api.blawby.com/mcp',
   MCP_OAUTH_STATUS_QUERY_KEY: 'mcp_oauth',
   MCP_OAUTH_MESSAGE_QUERY_KEY: 'message',
 }));
@@ -85,6 +85,7 @@ describe('McpAccessPage', () => {
     await waitFor(() => {
       expect(beginMcpOAuthConnect).toHaveBeenCalledWith('/practice/acme/settings/apps/claude-mcp');
     });
+    expect(screen.getByText('https://staging-api.blawby.com/mcp')).toBeInTheDocument();
   });
 
   it('handles callback success state and refreshes consents', async () => {
