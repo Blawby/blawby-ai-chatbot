@@ -1,13 +1,13 @@
 import { expect, test } from './fixtures.auth';
 import { loadE2EConfig, normalizeE2EPracticeSlug } from './helpers/e2eConfig';
 import { fetchJsonViaPage, formatJsonResultError, type JsonResult } from './helpers/http';
-import { verifyE2ETestUserEmail } from './helpers/stagingAuthBootstrap';
 import { completeStripeHostedInvoicePaymentWithTestCard } from './helpers/stripeCheckout';
 
 type JsonRecord = Record<string, unknown>;
 type ApiPage = Parameters<typeof fetchJsonViaPage>[0];
 type E2EClientIdentity = {
   email: string;
+  name: string;
   userId: string;
 };
 
@@ -72,15 +72,6 @@ const numberFrom = (record: JsonRecord | null | undefined, keys: string[]): numb
   return null;
 };
 
-const booleanFrom = (record: JsonRecord | null | undefined, keys: string[]): boolean | null => {
-  if (!record) return null;
-  for (const key of keys) {
-    const value = record[key];
-    if (typeof value === 'boolean') return value;
-  }
-  return null;
-};
-
 const requireRecord = (result: JsonResult, keys: string[], label: string): JsonRecord => {
   if (result.status < 200 || result.status >= 300) {
     throw new Error(`${label} failed: ${formatJsonResultError(result)}`);
@@ -123,6 +114,7 @@ const configuredClientIdentityFromSession = async (clientPage: ApiPage): Promise
   const user = userFromSessionPayload(clientSession.data);
   return {
     email: requireText(user as JsonRecord, ['email'], 'client session').toLowerCase(),
+    name: textFrom(user, ['name']) ?? 'Billing E2E Client',
     userId: requireText(user as JsonRecord, ['id'], 'client session'),
   };
 };
@@ -132,7 +124,7 @@ const resolveConfiguredClientForPractice = async (
   clientPage: ApiPage
 ): Promise<JsonRecord> => {
   const clientIdentity = await configuredClientIdentityFromSession(clientPage);
-  const client = await ensureClientLinkedToPractice(ownerPage, clientPage, clientIdentity.email);
+  const client = await ensureClientLinkedToPractice(ownerPage, clientPage, clientIdentity);
   expect(
     textFrom(asRecord(client.user), ['email'])?.toLowerCase(),
     'linked practice client contact should be the signed-in client account'
@@ -146,78 +138,33 @@ const resolveConfiguredClientForPractice = async (
   return client;
 };
 
-const ensureClientCanAcceptPracticeInvite = async (
-  clientPage: ApiPage,
-  clientEmail: string
-): Promise<void> => {
-  const session = await api(clientPage, '/api/auth/get-session');
-  const user = userFromSessionPayload(session.data);
-  if (booleanFrom(user, ['emailVerified', 'email_verified']) === true) return;
-
-  const verificationResult = await verifyE2ETestUserEmail(clientEmail);
-  if (verificationResult.status !== 'verified' && verificationResult.status !== 'already-verified') {
-    throw new Error(
-      `Client account ${clientEmail} is not email verified, so staging rejects practice invitation acceptance. ` +
-      `${verificationResult.message}`
-    );
-  }
-
-  await expect.poll(async () => {
-    const refreshedSession = await api(clientPage, '/api/auth/get-session');
-    const refreshedUser = userFromSessionPayload(refreshedSession.data);
-    return booleanFrom(refreshedUser, ['emailVerified', 'email_verified']);
-  }, {
-    timeout: 15000,
-    intervals: [500, 1000, 2000],
-    message: 'client session should reflect verified email before accepting the practice invitation',
-  }).toBe(true);
-};
-
 const ensureClientLinkedToPractice = async (
   ownerPage: ApiPage,
   clientPage: ApiPage,
-  clientEmail: string
+  clientIdentity: E2EClientIdentity
 ): Promise<JsonRecord> => {
-  const existingClient = await findClientByEmail(ownerPage, clientEmail);
-  if (existingClient) return existingClient;
-
-  await ensureClientCanAcceptPracticeInvite(clientPage, clientEmail);
-
-  const invitation = await api(ownerPage, '/api/auth/organization/invite-member', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      email: clientEmail,
-      role: 'client',
-      organizationId: PRACTICE_ID,
-    }),
-  });
-  const invitationRecord = firstRecordFrom(invitation.data, ['invitation', 'data']) ?? asRecord(invitation.data);
-  const invitationId = textFrom(invitationRecord, ['invitationId', 'id']);
-  if (invitationId) {
-    await api(clientPage, '/api/auth/organization/accept-invitation', {
+  const existingClient = await findClientByEmail(ownerPage, clientIdentity.email);
+  if (!existingClient) {
+    await api(ownerPage, `/api/clients/${encodeURIComponent(PRACTICE_ID)}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ invitationId }),
+      body: JSON.stringify({
+        name: clientIdentity.name,
+        email: clientIdentity.email,
+        status: 'active',
+      }),
     });
-    await api(clientPage, '/api/auth/organization/set-active', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ organizationId: PRACTICE_ID }),
-    }).catch(() => undefined);
   }
 
-  await expect.poll(async () => {
-    return Boolean(await findClientByEmail(ownerPage, clientEmail));
-  }, {
-    timeout: 30000,
-    intervals: [1000, 2000, 5000],
-    message: 'invited client should appear in the practice contacts list',
-  }).toBe(true);
+  await api(clientPage, '/api/auth/organization/set-active', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ organizationId: PRACTICE_ID }),
+  });
 
-  const linkedClient = await findClientByEmail(ownerPage, clientEmail);
+  const linkedClient = await findClientByEmail(ownerPage, clientIdentity.email);
   if (!linkedClient) {
-    throw new Error(`Invited client ${clientEmail} was not returned by /api/clients/${PRACTICE_ID}.`);
+    throw new Error(`Created billing client was not returned by /api/clients/${PRACTICE_ID}.`);
   }
   return linkedClient;
 };
