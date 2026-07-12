@@ -38,8 +38,12 @@ import {
   createIntakeTemplate,
   updateIntakeTemplate,
   deleteIntakeTemplate,
+  listIntakeTemplateSuggestions,
+  approveIntakeTemplateSuggestion,
+  dismissIntakeTemplateSuggestion,
   type CreateIntakeTemplateInput,
   type IntakeTemplateFieldInput,
+  type IntakeTemplateSuggestion,
 } from '@/features/intake/api/intakeTemplatesApi';
 import { fromMinorUnits, toMinorUnitsValue } from '@/shared/utils/money';
 import { getOnboardingStatusPayload } from '@/shared/lib/apiClient';
@@ -48,7 +52,10 @@ import type { FieldCondition, FieldPhase, IntakeFieldDefinition, IntakeTemplate 
 import { EmbedCodeDialog, getPublicFormUrl, copyTextToClipboard } from '@/features/intake/components/EmbedCodeBlock';
 import { Pill } from '@/design-system/primitives';
 import { IntakeAnalyticsStrip } from '@/features/intake/components/IntakeAnalyticsStrip';
-import { IntakeAuthoringStrip } from '@/features/intake/components/IntakeAuthoringStrip';
+import {
+  IntakeAuthoringStrip,
+  type SuggestionLoadState,
+} from '@/features/intake/components/IntakeAuthoringStrip';
 import {
   IntakePreviewChrome,
   type IntakePreviewMode,
@@ -615,9 +622,10 @@ type TemplateEditorProps = {
     profileImage?: string | null;
   };
   onCancel: () => void;
-  onSaveDraft: (template: IntakeTemplate) => Promise<void>;
-  onPublish: (template: IntakeTemplate) => Promise<void>;
+  onSaveDraft: (template: IntakeTemplate) => Promise<IntakeTemplate>;
+  onPublish: (template: IntakeTemplate) => Promise<IntakeTemplate>;
   onDiscardDraft: (templateId: string) => Promise<void>;
+  onTemplateChanged: () => Promise<void>;
 };
 
 function TemplateEditor({
@@ -636,6 +644,7 @@ function TemplateEditor({
   onSaveDraft,
   onPublish,
   onDiscardDraft,
+  onTemplateChanged,
 }: TemplateEditorProps) {
   const { showError, showSuccess } = useToastContext();
   const { navigate } = useNavigation();
@@ -658,6 +667,10 @@ function TemplateEditor({
   const [stripeStatus, setStripeStatus] = useState<StripeConnectStatus | null>(null);
   const [isStripeLoading, setIsStripeLoading] = useState(false);
   const [selectedItemId, setSelectedItemId] = useState<BuilderSelectionId>('contact');
+  const [templateRevision, setTemplateRevision] = useState(initial?.revision);
+  const [suggestions, setSuggestions] = useState<IntakeTemplateSuggestion[]>([]);
+  const [suggestionLoadState, setSuggestionLoadState] = useState<SuggestionLoadState>('idle');
+  const [actingSuggestionId, setActingSuggestionId] = useState<string | null>(null);
 
   // ── Chat-first authoring layer ──────────────────────────────────────────
   // Preview viewport mode — width-only; the inner widget renders the same
@@ -675,11 +688,78 @@ function TemplateEditor({
   const practiceCanvasLogo = practicePreviewConfig.profileImage ?? null;
   const hasStripeAccount = Boolean(stripeStatus?.stripe_account_id);
   const payoutsEnabled = stripeStatus?.payouts_enabled === true;
+  const canLoadSuggestions = Boolean(practiceOrganizationId && initial?.id && typeof templateRevision === 'number');
   const stripeStatusLabel = hasStripeAccount
     ? payoutsEnabled
       ? 'Ready'
       : 'Verification in progress'
     : 'Not connected';
+
+  const loadSuggestions = useCallback(async () => {
+    if (!practiceOrganizationId || !initial?.id || typeof templateRevision !== 'number') return;
+    setSuggestionLoadState('loading');
+    try {
+      const next = await listIntakeTemplateSuggestions(practiceOrganizationId, initial.id);
+      setSuggestions(next);
+      setSuggestionLoadState('ready');
+    } catch {
+      setSuggestionLoadState('error');
+    }
+  }, [initial?.id, practiceOrganizationId, templateRevision]);
+
+  useEffect(() => {
+    setTemplateRevision(initial?.revision);
+  }, [initial?.id, initial?.revision]);
+
+  useEffect(() => {
+    if (!canLoadSuggestions) {
+      setSuggestions([]);
+      setSuggestionLoadState('idle');
+      return;
+    }
+    void loadSuggestions();
+  }, [canLoadSuggestions, loadSuggestions]);
+
+  const handleApplySuggestion = useCallback(async (suggestion: IntakeTemplateSuggestion) => {
+    if (!practiceOrganizationId || !initial?.id || typeof templateRevision !== 'number') return;
+    setActingSuggestionId(suggestion.id);
+    try {
+      const result = await approveIntakeTemplateSuggestion(
+        practiceOrganizationId,
+        initial.id,
+        suggestion.id,
+        templateRevision,
+      );
+      const nextState = buildEditorState(result.template, editorDefaults);
+      setState(nextState);
+      setSavedSnapshot(serializeTemplate(editorStateToTemplate(nextState)));
+      setHasSavedDraft(result.template.status === 'draft');
+      setTemplateRevision(result.template.revision);
+      setSuggestions((current) => current.filter((item) => item.id !== suggestion.id));
+      await onTemplateChanged();
+      showSuccess('Suggestion applied', `Template revision ${result.template.revision} is ready for review.`);
+    } catch (error) {
+      showError('Suggestion not applied', error instanceof Error ? error.message : 'Unable to apply suggestion.');
+      await loadSuggestions();
+    } finally {
+      setActingSuggestionId(null);
+    }
+  }, [editorDefaults, initial?.id, loadSuggestions, onTemplateChanged, practiceOrganizationId, showError, showSuccess, templateRevision]);
+
+  const handleDismissSuggestion = useCallback(async (suggestion: IntakeTemplateSuggestion) => {
+    if (!practiceOrganizationId || !initial?.id) return;
+    setActingSuggestionId(suggestion.id);
+    try {
+      await dismissIntakeTemplateSuggestion(practiceOrganizationId, initial.id, suggestion.id);
+      setSuggestions((current) => current.filter((item) => item.id !== suggestion.id));
+      showSuccess('Suggestion dismissed');
+    } catch (error) {
+      showError('Suggestion not dismissed', error instanceof Error ? error.message : 'Unable to dismiss suggestion.');
+      await loadSuggestions();
+    } finally {
+      setActingSuggestionId(null);
+    }
+  }, [initial?.id, loadSuggestions, practiceOrganizationId, showError, showSuccess]);
 
   const lockedRequiredFields = useMemo(
     () => state.requiredFields.filter((field) => LOCKED_REQUIRED_KEYS.has(field.key)),
@@ -950,9 +1030,16 @@ function TemplateEditor({
 
     setIsSaving(true);
     try {
-      const template = editorStateToTemplate(state);
-      await onSaveDraft(template);
-      setSavedSnapshot(serializeTemplate(template));
+      const template = {
+        ...editorStateToTemplate(state),
+        id: initial?.id,
+        status: initial?.status,
+        revision: templateRevision,
+        publishedAt: initial?.publishedAt,
+      };
+      const saved = await onSaveDraft(template);
+      setTemplateRevision(saved.revision);
+      setSavedSnapshot(serializeTemplate(saved));
       setHasSavedDraft(true);
       setDiscardPending(false);
       showSuccess('Draft saved', `"${template.name}" draft saved.`);
@@ -968,9 +1055,16 @@ function TemplateEditor({
 
     setIsPublishing(true);
     try {
-      const template = editorStateToTemplate(state);
-      await onPublish(template);
-      setSavedSnapshot(serializeTemplate(template));
+      const template = {
+        ...editorStateToTemplate(state),
+        id: initial?.id,
+        status: initial?.status,
+        revision: templateRevision,
+        publishedAt: initial?.publishedAt,
+      };
+      const saved = await onPublish(template);
+      setTemplateRevision(saved.revision);
+      setSavedSnapshot(serializeTemplate(saved));
       setHasSavedDraft(false);
       setDiscardPending(false);
       showSuccess('Published', `"${template.name}" is live.`);
@@ -1428,7 +1522,16 @@ function TemplateEditor({
       <div className="px-2 pt-4 sm:px-4">
         <IntakeAnalyticsStrip usesLast30Days={null} conversionPercent={null} />
         <div className="mt-3">
-          <IntakeAuthoringStrip />
+          <IntakeAuthoringStrip
+            revision={templateRevision}
+            suggestions={suggestions}
+            loadState={suggestionLoadState}
+            actingSuggestionId={actingSuggestionId}
+            canLoad={canLoadSuggestions}
+            onRefresh={() => void loadSuggestions()}
+            onApply={(suggestion) => void handleApplySuggestion(suggestion)}
+            onDismiss={(suggestion) => void handleDismissSuggestion(suggestion)}
+          />
         </div>
       </div>
       <div className="min-h-0 flex-1">{livePreview}</div>
@@ -2013,7 +2116,16 @@ function TemplateEditor({
             */}
             <div className="mb-4 flex flex-col gap-3">
               <IntakeAnalyticsStrip usesLast30Days={null} conversionPercent={null} />
-              <IntakeAuthoringStrip />
+              <IntakeAuthoringStrip
+                revision={templateRevision}
+                suggestions={suggestions}
+                loadState={suggestionLoadState}
+                actingSuggestionId={actingSuggestionId}
+                canLoad={canLoadSuggestions}
+                onRefresh={() => void loadSuggestions()}
+                onApply={(suggestion) => void handleApplySuggestion(suggestion)}
+                onDismiss={(suggestion) => void handleDismissSuggestion(suggestion)}
+              />
             </div>
             {formStructure}
           </div>
@@ -2390,8 +2502,8 @@ export default function IntakeTemplatesPage({
       };
     }), []);
 
-  const handleSaveDraft = async (template: IntakeTemplate) => {
-    if (!resolvedPracticeId) return;
+  const handleSaveDraft = async (template: IntakeTemplate): Promise<IntakeTemplate> => {
+    if (!resolvedPracticeId) throw new Error('No practice selected.');
     setIsSaving(true);
     try {
       const input: CreateIntakeTemplateInput = {
@@ -2408,7 +2520,13 @@ export default function IntakeTemplatesPage({
 
       let saved: IntakeTemplate;
       if (template.id && template.id !== 'new') {
-        saved = await updateIntakeTemplate(resolvedPracticeId, template.id, input);
+        if (typeof template.revision !== 'number') {
+          throw new Error('Intake template response is missing its revision.');
+        }
+        saved = await updateIntakeTemplate(resolvedPracticeId, template.id, {
+          ...input,
+          expected_revision: template.revision,
+        });
       } else {
         saved = await createIntakeTemplate(resolvedPracticeId, input);
       }
@@ -2416,6 +2534,7 @@ export default function IntakeTemplatesPage({
       if (routeTemplateId === 'new' || !routeTemplateId) {
         navigate(`${basePath}/${encodeURIComponent(saved.id ?? saved.slug)}/edit`);
       }
+      return saved;
     } catch (error) {
       showError('Draft save failed', error instanceof Error ? error.message : 'Unable to save draft.');
       throw error;
@@ -2424,8 +2543,8 @@ export default function IntakeTemplatesPage({
     }
   };
 
-  const handlePublishTemplate = async (template: IntakeTemplate) => {
-    if (!resolvedPracticeId) return;
+  const handlePublishTemplate = async (template: IntakeTemplate): Promise<IntakeTemplate> => {
+    if (!resolvedPracticeId) throw new Error('No practice selected.');
     setIsSaving(true);
     try {
       const input: CreateIntakeTemplateInput = {
@@ -2442,12 +2561,19 @@ export default function IntakeTemplatesPage({
 
       let saved: IntakeTemplate;
       if (template.id && template.id !== 'new') {
-        saved = await updateIntakeTemplate(resolvedPracticeId, template.id, input);
+        if (typeof template.revision !== 'number') {
+          throw new Error('Intake template response is missing its revision.');
+        }
+        saved = await updateIntakeTemplate(resolvedPracticeId, template.id, {
+          ...input,
+          expected_revision: template.revision,
+        });
       } else {
         saved = await createIntakeTemplate(resolvedPracticeId, input);
       }
       await reloadTemplates();
       navigate(`${basePath}/${encodeURIComponent(saved.id ?? saved.slug)}`);
+      return saved;
     } catch (error) {
       showError('Publish failed', error instanceof Error ? error.message : 'Unable to publish form.');
       throw error;
@@ -2532,6 +2658,7 @@ export default function IntakeTemplatesPage({
         onSaveDraft={handleSaveDraft}
         onPublish={handlePublishTemplate}
         onDiscardDraft={handleDiscardDraft}
+        onTemplateChanged={reloadTemplates}
       />
     );
   }

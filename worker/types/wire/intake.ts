@@ -143,6 +143,8 @@ export const BackendIntakeTemplateSchema = z.object({
   name: z.string(),
   description: z.string().nullable(),
   status: z.enum(['draft', 'published', 'archived']),
+  revision: z.number().int().positive(),
+  published_at: z.string().nullable(),
   is_default: z.boolean(),
   intro_message: z.string().nullable(),
   legal_disclaimer: z.string().nullable(),

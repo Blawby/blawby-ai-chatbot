@@ -25,7 +25,8 @@ describe('honest compliance UI', () => {
     expect(templates).not.toContain('DEMO_STAGED_QUESTIONS');
     expect(templates).not.toContain('v.{headerVersionNumber}');
     expect(authoring).not.toContain('Your instruction was saved');
-    expect(authoring).toContain('AI template authoring is not connected');
+    expect(authoring).toContain('Suggestions staged through the assistant appear here for review');
+    expect(authoring).toContain('suggestion.analytics_evidence');
   });
 
   it('does not claim unsupported exports, travel estimates, or intake side effects', () => {
