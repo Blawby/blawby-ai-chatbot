@@ -474,15 +474,6 @@ export const ClientEngagementReviewPage: FunctionComponent<ClientEngagementRevie
     }
   }, [engagement, isDeclining, accepted, declined, practiceId, showError, showSuccess]);
 
-  const handleDownloadPdf = useCallback(() => {
-    if (!engagement?.signed_pdf_s3_key) {
-      showInfo('PDF not yet available', 'The signed PDF will be available after signature.');
-      return;
-    }
-    // TODO(backend): expose a presigned-URL endpoint for client engagement PDF downloads.
-    showInfo('Download starting', 'Your engagement letter PDF is being prepared.');
-  }, [engagement?.signed_pdf_s3_key, showInfo]);
-
   /**
    * Ask-a-question handoff — navigates back to the firm conversation when one
    * exists. When no conversation exists yet, we show an info toast.
@@ -687,11 +678,11 @@ export const ClientEngagementReviewPage: FunctionComponent<ClientEngagementRevie
                 variant="secondary"
                 size="md"
                 icon={Download}
-                onClick={handleDownloadPdf}
-                disabled={!engagement.signed_pdf_s3_key}
+                disabled
+                title="Signed PDF download requires a presigned URL endpoint"
                 className="mt-2"
               >
-                Download PDF
+                Signed PDF unavailable
               </Button>
             </div>
           </div>

@@ -89,4 +89,20 @@ describe('honest compliance UI', () => {
     expect(templates).toContain('await onDraftFromPrompt(');
     expect(templates).toContain('Community unavailable');
   });
+
+  it('does not expose no-op engagement or trust controls and avoids proxy labels', () => {
+    const workbench = source('src/features/engagements/components/EngagementWorkbench.tsx');
+    const clientReview = source('src/features/engagements/pages/ClientEngagementReviewPage.tsx');
+    const trust = source('src/features/trust/pages/PracticeTrustPage.tsx');
+    const clients = source('src/features/clients/pages/PracticeContactsPage.tsx');
+    expect(workbench).not.toContain("label: 'Polish'");
+    expect(workbench).not.toContain("label: 'Translate'");
+    expect(workbench).toContain('AI resolution unavailable');
+    expect(workbench).toContain('PDF unavailable');
+    expect(clientReview).toContain('Signed PDF unavailable');
+    expect(trust).toContain('Pause draws unavailable');
+    expect(clients).not.toContain('Awaiting docs');
+    expect(clients).not.toContain('Awaiting reply');
+    expect(clients).toContain('No activity 7d');
+  });
 });

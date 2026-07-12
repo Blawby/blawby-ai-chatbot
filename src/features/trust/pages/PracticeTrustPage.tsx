@@ -91,7 +91,7 @@ const PracticeTrustPage: FunctionComponent = () => {
   const { session } = useSessionContext();
   const location = useLocation();
   const { navigate } = useNavigation();
-  const { showSuccess, showError, showInfo } = useToastContext();
+  const { showSuccess, showError } = useToastContext();
 
   // Read the slug from the URL so the resolver picks `currentPractice` for the
   // workspace we're on — mirrors the pattern in PracticeHomePage.
@@ -326,17 +326,6 @@ const PracticeTrustPage: FunctionComponent = () => {
     }
   }, [activePracticeId, showError, showSuccess]);
 
-  // ── "Pause new draws" stub ───────────────────────────────────────────────
-  // TODO(backend): wire to a real preference toggle (e.g. flip the
-  // `lock_matter_on_zero` rule globally, or add a `trust_paused` flag on
-  // `practices`). Today we just acknowledge the click.
-  const handlePauseDraws = useCallback(() => {
-    showInfo(
-      'Pause new draws',
-      'Backend wiring pending — this will lock the staged-action queue once available.',
-    );
-  }, [showInfo]);
-
   // ── AI summary copy ────────────────────────────────────────────────────────
   // Surface ONE actionable observation (lowest client under threshold) plus
   // the deterministic period rollup. Every figure is sourced from the
@@ -384,8 +373,8 @@ const PracticeTrustPage: FunctionComponent = () => {
       <Chip onClick={handleOpenCpaDialog} title="Schedule recurring delivery to your CPA">
         Email to CPA
       </Chip>
-      <Chip onClick={handlePauseDraws} title="Pause staged actions against trust">
-        Pause new draws
+      <Chip title="Practice-wide trust draw controls are not available">
+        Pause draws unavailable
       </Chip>
     </>
   ) : null;
