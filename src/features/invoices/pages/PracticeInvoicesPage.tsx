@@ -25,7 +25,6 @@ import { SplitDetail } from '@/design-system/layout';
 import {
   Seg,
   AIAskBar,
-  AIAnswerCard,
 } from '@/design-system/patterns';
 import { usePaginatedList } from '@/shared/hooks/usePaginatedList';
 import { formatCurrency } from '@/shared/utils/currencyFormatter';
@@ -140,14 +139,13 @@ export function PracticeInvoicesPage({
   onCreateInvoice?: () => void;
 }) {
   const { navigate } = useNavigation();
-  const { showError, showSuccess, showInfo } = useToastContext();
+  const { showError, showSuccess } = useToastContext();
   const [visibleOptionalColumns, setVisibleOptionalColumns] = useState<InvoiceColumnKey[]>([]);
   const [chipFilters, setChipFilters] = useState<InvoiceListFilterState>(EMPTY_FILTERS);
   const [pendingVoidInvoice, setPendingVoidInvoice] = useState<InvoiceSummary | null>(null);
   const [isVoidLoading, setIsVoidLoading] = useState(false);
   const [statusTab, setStatusTab] = useState<StatusTabId>('all');
   const [viewMode, setViewMode] = useState<ViewMode>('cards');
-  const [askAnswer, setAskAnswer] = useState<{ query: string } | null>(null);
 
   const aggregates = useInvoiceListAggregates(practiceId);
 
@@ -252,15 +250,6 @@ export function PracticeInvoicesPage({
       setIsVoidLoading(false);
     }
   }, [practiceId, pendingVoidInvoice, refetch, showError, showSuccess]);
-
-  // ── AI ask submit ─────────────────────────────────────────────────────
-  const handleAskSubmit = useCallback((query: string) => {
-    // TODO(backend): wire to /api/practice/:id/invoices/ask once the
-    // natural-language invoices-query endpoint exists. Today the
-    // AIAnswerCard narrates the current filter state so the chat-first
-    // shape is end-to-end without fabricating answers.
-    setAskAnswer({ query });
-  }, []);
 
   if (renderMode === 'detailOnly') {
     return null;
@@ -375,59 +364,10 @@ export function PracticeInvoicesPage({
     <>
       <AIAskBar
         sticky={false}
-        placeholder="Find invoices ready to send..."
-        suggestions={[
-          'Drafts ready to send',
-          'Overdue this week',
-          'Paid last 30 days',
-        ]}
-        onSubmit={handleAskSubmit}
+        placeholder="Grounded invoice questions are not available yet"
+        disabled
+        disclaimer="Requires a grounded invoice-query backend contract"
       />
-      {askAnswer ? (
-        <AIAnswerCard
-          groundingLabel={`Practice assistant · grounded in invoices · ${invoices.length} rows · just now`}
-          lede={
-            <>
-              <em>{invoices.length}</em> {invoices.length === 1 ? 'invoice' : 'invoices'} match your filters
-              {aggregates.outstanding.amount > 0
-                ? <> · <em>{formatCurrency(aggregates.outstanding.amount)}</em> outstanding</>
-                : null}
-            </>
-          }
-          body={
-            <p className="text-sm text-dim-2">
-              You asked: <span className="italic text-ink">&ldquo;{askAnswer.query}&rdquo;</span>. Live natural-language invoice search is coming soon &mdash; for now I&apos;ve narrated the filtered set.
-            </p>
-          }
-          actions={[
-            {
-              id: 'send-all',
-              label: 'Send all',
-              variant: 'primary',
-              // TODO(backend): bulk send endpoint not yet wired.
-              onClick: () => showInfo('Send all', 'Bulk send is coming soon.'),
-            },
-            {
-              id: 'mark-paid',
-              label: 'Mark paid',
-              // TODO(backend): bulk mark-paid endpoint not yet wired.
-              onClick: () => showInfo('Mark paid', 'Bulk mark-paid is coming soon.'),
-            },
-            {
-              id: 'export',
-              label: 'Export to CSV',
-              // TODO(backend): CSV export endpoint not yet wired.
-              onClick: () => showInfo('Export', 'Invoice export is coming soon.'),
-            },
-            {
-              id: 'dismiss',
-              label: 'Dismiss',
-              onClick: () => setAskAnswer(null),
-            },
-          ]}
-          sources={[{ table: 'invoices', count: invoices.length }]}
-        />
-      ) : null}
     </>
   );
 
@@ -520,7 +460,7 @@ export function PracticeInvoicesPage({
       </div>
       <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-auto p-6">
         {aiBlock}
-        {askAnswer ? null : <DetailEmptyState />}
+        <DetailEmptyState />
       </div>
     </div>
   );

@@ -49,4 +49,20 @@ describe('honest compliance UI', () => {
     expect(intelligence).not.toContain("{ key: 'matters', rows: 142 }");
     expect(intelligence).toContain('browser-only preferences that appear saved but do not affect the assistant');
   });
+
+  it('does not answer arbitrary workspace questions with unrelated summaries', () => {
+    const surfaces = [
+      source('src/features/clients/pages/PracticeContactsPage.tsx'),
+      source('src/features/matters/pages/PracticeMattersPage.tsx'),
+      source('src/features/invoices/pages/PracticeInvoicesPage.tsx'),
+      source('src/features/calendar/pages/PracticeCalendarPage.tsx'),
+    ];
+
+    for (const surface of surfaces) {
+      expect(surface).toContain('<AIAskBar');
+      expect(surface).toContain('disabled');
+      expect(surface).toContain('Requires a grounded');
+      expect(surface).not.toContain('Live natural-language');
+    }
+  });
 });

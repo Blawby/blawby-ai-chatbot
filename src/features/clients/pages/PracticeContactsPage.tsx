@@ -43,7 +43,6 @@ import {
 import { getPracticeRoleLabel, normalizePracticeRole } from '@/shared/utils/practiceRoles';
 import {
   AIAskBar,
-  AIAnswerCard,
   Observation,
   StatStrip,
   MatterChip,
@@ -561,7 +560,6 @@ export const PracticeContactsPage = ({
   // ── chat-first list controls ─────────────────────────────────────────
   const [activeFilter, setActiveFilter] = useState<ContactFilterId>('all');
   const [sortMode, setSortMode] = useState<ContactSortId>('recent_activity');
-  const [askAnswer, setAskAnswer] = useState<{ query: string } | null>(null);
 
   const pathSuffix = location.path.startsWith(basePath) ? location.path.slice(basePath.length) : '';
   const pathSegments = pathSuffix.replace(/^\/+/, '').split('/').filter(Boolean);
@@ -1154,16 +1152,6 @@ export const PracticeContactsPage = ({
     { label: 'At risk', value: String(atRiskCount), extraWarn: atRiskCount > 0 },
   ];
 
-  // ── Ask submit ───────────────────────────────────────────────────────
-  const handleAskSubmit = useCallback((query: string) => {
-    // TODO(backend): wire to /api/practice/:id/clients/ask once the natural-
-    // language clients-query endpoint (PracticeAssistantQueryEngine) exists.
-    // Today the AIAnswerCard renders a grounded narration of the current
-    // filter state so the chat-first shape is present end-to-end without
-    // fabricating answers.
-    setAskAnswer({ query });
-  }, []);
-
   // ── Filter chip definitions (counts come from filterCounts memo) ─────
   const FILTER_CHIPS: ReadonlyArray<{ id: ContactFilterId; label: string; warn?: boolean }> = [
     { id: 'all', label: 'All' },
@@ -1591,77 +1579,11 @@ export const PracticeContactsPage = ({
           <div className="mt-6">
             <AIAskBar
               sticky={false}
-              placeholder="Find clients who haven't been heard from in 30 days..."
-              suggestions={[
-                'Who’s been silent the longest?',
-                'Clients with overdue invoices',
-                'Clients with active matters at risk',
-              ]}
-              onSubmit={handleAskSubmit}
+              placeholder="Grounded client questions are not available yet"
+              disabled
+              disclaimer="Requires a grounded client-query backend contract"
             />
           </div>
-
-          {/* ── AI answer card ─────────────────────────────────────── */}
-          {askAnswer ? (
-            <div className="mt-5">
-              <AIAnswerCard
-                groundingLabel={`Practice assistant · grounded in ${totalForCrumb} contacts · ${mattersData.items.length} matters · just now`}
-                lede={
-                  <>
-                    {atRiskCount > 0 ? (
-                      <>
-                        <em>{atRiskCount}</em> {atRiskCount === 1 ? 'client is' : 'clients are'} flagged at risk — frustrated or silent for over 30 days.
-                      </>
-                    ) : awaitingReplyCount > 0 ? (
-                      <>
-                        <em>{awaitingReplyCount}</em> {awaitingReplyCount === 1 ? 'client is' : 'clients are'} awaiting a reply from you.
-                      </>
-                    ) : (
-                      <>Everyone has been heard from recently. Quiet day.</>
-                    )}
-                  </>
-                }
-                body={
-                  <p className="text-sm leading-relaxed text-ink-2">
-                    You asked: <span className="italic text-ink">&ldquo;{askAnswer.query}&rdquo;</span>. Live natural-language clients search is coming soon — for now I&rsquo;ve applied the closest matching filter and surfaced the rows below.
-                  </p>
-                }
-                actions={[
-                  {
-                    id: 'show-needs-check-in',
-                    label: 'Show me as a list',
-                    variant: 'primary',
-                    onClick: () => {
-                      setActiveFilter('needs_check_in');
-                      setSortMode('recent_activity');
-                      setAskAnswer(null);
-                    },
-                  },
-                  {
-                    id: 'message-all',
-                    label: 'Message all',
-                    onClick: () => {
-                      // TODO(backend): stage a multi-recipient draft via the
-                      // assistant when grounded clients-query is live.
-                      setAskAnswer(null);
-                    },
-                  },
-                  {
-                    id: 'schedule-check-ins',
-                    label: 'Schedule check-ins',
-                    onClick: () => {
-                      // TODO(backend): hand off to calendar bulk-schedule.
-                      setAskAnswer(null);
-                    },
-                  },
-                ]}
-                sources={[
-                  { table: 'contacts', count: clients.length },
-                  { table: 'matters', count: mattersData.items.length },
-                ]}
-              />
-            </div>
-          ) : null}
 
           {/* ── Filter row ──────────────────────────────────────────── */}
           {renderFilterRow()}
