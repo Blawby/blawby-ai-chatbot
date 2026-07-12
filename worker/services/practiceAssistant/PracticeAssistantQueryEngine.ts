@@ -6,7 +6,7 @@ import { executePracticeAssistantTools } from './toolExecutor.js';
 import { toOpenAiTools } from './toolRegistry.js';
 import { PracticeAssistantAuditService } from './auditService.js';
 import { buildTurnMetadata, persistAssistantMessage } from './messageAdapter.js';
-import { ConversationService } from '../ConversationService.js';
+import { loadBackendConversationHistory } from './conversationHistoryService.js';
 import { Logger } from '../../utils/logger.js';
 import type {
   PracticeAssistantProgress,
@@ -47,7 +47,6 @@ export interface PracticeAssistantQueryEngineConfig {
   auth: AuthContext & { memberRole: string };
   env: Env;
   request: Request;
-  initialMessages?: PracticeAssistantModelMessage[];
 }
 
 const systemPrompt = [
@@ -202,11 +201,13 @@ export class PracticeAssistantQueryEngine {
   }
 
   private async loadMessages(userMessage: string): Promise<PracticeAssistantModelMessage[]> {
-    const sourceMessages = this.config.initialMessages?.length
-      ? this.config.initialMessages
-      : (await new ConversationService(this.config.env).getMessages(this.config.conversationId, this.config.practiceId, { limit: 20 }))
-        .messages
-        .map((message) => ({ role: message.role, content: message.content }));
+    const sourceMessages = await loadBackendConversationHistory(
+      this.config.env,
+      this.config.request,
+      this.config.practiceId,
+      this.config.conversationId,
+      20,
+    );
     const normalized = sourceMessages
       .filter((message): message is PracticeAssistantModelMessage =>
         (message.role === 'user' || message.role === 'assistant') && message.content.trim().length > 0)

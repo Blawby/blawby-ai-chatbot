@@ -31,16 +31,14 @@ export interface PracticeAssistantTurnParams {
   auth: AuthContext & { memberRole: string };
   env: Env;
   request: Request;
-  messages?: Array<{ role: 'user' | 'assistant'; content: string }>;
 }
 
 export function runPracticeAssistantTurn(params: PracticeAssistantTurnParams): Response {
-  const { conversationId, practiceId, practiceSlug, userMessage, userId, auth, env, request, messages } = params;
+  const { conversationId, practiceId, practiceSlug, userMessage, userId, auth, env, request } = params;
   const { response, write, close } = createSseResponse();
   Logger.info('practice_assistant.sse.prepared', {
     conversationId,
     practiceId,
-    messageCount: messages?.length ?? null,
     userMessageLength: userMessage.length,
   });
   void Promise.resolve().then(async () => {
@@ -51,7 +49,6 @@ export function runPracticeAssistantTurn(params: PracticeAssistantTurnParams): R
     });
     const engine = new PracticeAssistantQueryEngine({
       conversationId, practiceId, practiceSlug, userId, auth, env, request,
-      initialMessages: messages,
     });
     try {
       for await (const event of engine.submitMessage(userMessage)) {

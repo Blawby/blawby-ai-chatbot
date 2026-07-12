@@ -439,7 +439,6 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
       auth,
       env,
       request,
-      messages: body.messages.map((message) => ({ role: message.role, content: message.content })),
     });
   }
 
