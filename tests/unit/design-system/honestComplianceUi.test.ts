@@ -27,4 +27,16 @@ describe('honest compliance UI', () => {
     expect(authoring).not.toContain('Your instruction was saved');
     expect(authoring).toContain('AI template authoring is not connected');
   });
+
+  it('does not claim unsupported exports, travel estimates, or intake side effects', () => {
+    const exportsPage = source('src/features/settings/pages/ExportDataPage.tsx');
+    const calendarDrawer = source('src/features/calendar/components/CalendarFocusDrawer.tsx');
+    const intakeDetail = source('src/features/intake/pages/IntakeDetailPage.tsx');
+    expect(exportsPage).not.toContain("showSuccess('Export requested'");
+    expect(exportsPage).toContain('Export unavailable');
+    expect(calendarDrawer).not.toContain("value: '~22 min'");
+    expect(intakeDetail).not.toContain('Math.round((intake.amount * 4) / 3)');
+    expect(intakeDetail).not.toContain('<IntakeAcceptancePreview');
+    expect(intakeDetail).not.toContain('auto-transcribed');
+  });
 });

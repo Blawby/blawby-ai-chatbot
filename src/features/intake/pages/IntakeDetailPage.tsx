@@ -54,7 +54,6 @@ import { IntakeStickyHeader } from '../components/IntakeStickyHeader';
 import { IntakeAIVerdict } from '../components/IntakeAIVerdict';
 import { IntakeScorecard } from '../components/IntakeScorecard';
 import { IntakePreflightChecks } from '../components/IntakePreflightChecks';
-import { IntakeAcceptancePreview } from '../components/IntakeAcceptancePreview';
 import { IntakePaymentSummary } from '../components/IntakePaymentSummary';
 import type { AIAnswerCardSource } from '@/design-system/patterns';
 
@@ -1025,13 +1024,6 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
 
   // ── Counter-offer derivation ────────────────────────────────────────────────
 
-  // TODO(backend): real per-intake AI suggested fee — today we approximate by
-  // bumping the current intake amount ~33% (e.g. $3,000 → $4,000) so the
-  // surface renders deterministic copy.
-  const counterCents = intake.amount != null
-    ? Math.round((intake.amount * 4) / 3)
-    : null;
-
   // ── Description card (preserved, simplified header) ─────────────────────────
 
   const intakeStoryCard = description ? (
@@ -1047,7 +1039,7 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
 
   const conversationMessageCount = previewMessages.length;
   const conversationStamp = intake.conversation_id
-    ? `${conversationMessageCount} message${conversationMessageCount === 1 ? '' : 's'} · auto-transcribed`
+    ? `${conversationMessageCount} message${conversationMessageCount === 1 ? '' : 's'}`
     : '';
 
   const conversationCard = intake.conversation_id ? (
@@ -1276,7 +1268,7 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
               urgency={intake.urgency}
               practiceArea={enrichedData?.practice_area ?? null}
               currentOfferCents={intake.amount ?? null}
-              counterOfferCents={counterCents}
+              counterOfferCents={null}
               currency={intake.currency || 'USD'}
               sources={verdictSources}
               groundingTime={receivedRelative}
@@ -1306,16 +1298,7 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
               onRetry={refetchPreflight}
             />
 
-            {/* D. Acceptance preview — informational, only when pending. */}
-            {isPending ? (
-              <IntakeAcceptancePreview
-                practiceArea={enrichedData?.practice_area ?? null}
-                retainerCents={intake.amount ?? null}
-                currency={intake.currency || 'USD'}
-              />
-            ) : null}
-
-            {/* E. Conversation transcript. */}
+            {/* D. Conversation transcript. */}
             {conversationCard}
 
             {/* F. Files panel. */}

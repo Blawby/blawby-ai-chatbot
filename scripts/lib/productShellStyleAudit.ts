@@ -53,7 +53,6 @@ export const INLINE_STYLE_EXCEPTION_FILES = {
 /** Serif is reserved for public editorial intake and legal-document surfaces. */
 export const SERIF_EXCEPTION_FILES = {
   publicIntake: [
-    'src/features/intake/components/IntakeAcceptancePreview.tsx',
     'src/features/intake/components/IntakeFirmBar.tsx',
     'src/features/intake/components/IntakePaymentCard.tsx',
     'src/features/intake/components/IntakePaymentSummary.tsx',
