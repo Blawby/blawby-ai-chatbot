@@ -42,7 +42,7 @@ Branch: `refactor/conversational-intake` → PR to `staging`
 | **completenessWeight** | 0–25 slider for custom fields serialized to `validation_rules.completeness_weight` |
 | **Backend sync** | Fixed API normalizer to handle correct backend response shape `{ template: ... }` / `{ templates: ... }` |
 | **AI prompt accuracy** | Custom fields are resolved by `label` instead of raw backend `key` in the AI `buildIntakeContextSummary` block |
-| **Custom template bootstrap** | Widget bootstrap now honors `?template=<slug>` and, using `MCP_BACKEND_TOKEN`, fetches that published template from the admin templates API so public custom forms can route without backend changes |
+| **Custom template bootstrap** | Widget bootstrap honors `?template=<slug>` and fetches that published template through the backend public intake API, with no Worker MCP dependency |
 | **Public link + embed flow** | Publishing a template opens `EmbedCodeDialog` immediately with the direct public URL (`/public/{slug}?template={templateSlug}`) and widget embed snippet ready to copy |
 | **Types cleaned** | `enrichmentMode` removed from `IntakeConversationState`, `IntakeFieldsPayload`, `PERSISTED_INTAKE_FIELD_KEYS`, `consultationState`, `useChatComposer` |
 | **E2E tests updated** | Removed strengthen-case test; new test: score-threshold CTA + "Strengthen" button must not appear |
@@ -75,7 +75,7 @@ Branch: `refactor/conversational-intake` → PR to `staging`
 
 **Why this matters:**
 - Custom published intake forms can be shared directly via public URL without any authenticated API calls in the widget bootstrap flow
-- No `MCP_BACKEND_TOKEN` required for template selection
+- No Worker-side service token is required for template selection
 
 ### 2. Service-aware field conditions ✅ foundation done
 

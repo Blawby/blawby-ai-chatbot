@@ -79,15 +79,6 @@ new_classes = ["MatterProgressRoom"]
 tag = "v5"
 new_classes = ["PresenceRoom"]
 
-[[migrations]]
-tag = "v6"
-new_sqlite_classes = ["McpSession"]
-
-[[migrations]]
-tag = "v7"
-deleted_classes = ["McpSession"]
-
-
 [env.dev]
 name = "blawby-ai-chatbot-dev"
 kv_namespaces = [
@@ -155,14 +146,6 @@ new_classes = ["MatterProgressRoom"]
 [[env.dev.migrations]]
 tag = "v5"
 new_classes = ["PresenceRoom"]
-
-[[env.dev.migrations]]
-tag = "v6"
-new_sqlite_classes = ["McpSession"]
-
-[[env.dev.migrations]]
-tag = "v7"
-deleted_classes = ["McpSession"]
 
 [env.dev.vars]
 NODE_ENV = "development"
@@ -270,14 +253,6 @@ deleted_classes = ["MatterDiffStore"]
 tag = "v8"
 new_classes = ["PresenceRoom"]
 
-[[env.staging.migrations]]
-tag = "v9"
-new_sqlite_classes = ["McpSession"]
-
-[[env.staging.migrations]]
-tag = "v10"
-deleted_classes = ["McpSession"]
-
 [env.staging.vars]
 NODE_ENV = "staging"
 LOG_LEVEL = "warn"
@@ -322,12 +297,6 @@ new_classes = ["MatterProgressRoom"]
 [[env.production.migrations]]
 tag = "v6"
 new_classes = ["PresenceRoom"]
-[[env.production.migrations]]
-tag = "v7"
-new_sqlite_classes = ["McpSession"]
-[[env.production.migrations]]
-tag = "v8"
-deleted_classes = ["McpSession"]
 [[env.production.r2_buckets]]
 binding = "FILES_BUCKET"
 bucket_name = "blawby-ai-files"
