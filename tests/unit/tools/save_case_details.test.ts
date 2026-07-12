@@ -1,5 +1,17 @@
 import { describe, test, expect, vi, beforeEach } from 'vitest';
 import { handleSaveCaseDetails, type IntakeSubmissionGate } from '../../../worker/routes/aiChatIntake';
+import { STANDARD_FIELD_DEFINITIONS } from '../../../src/shared/constants/intakeTemplates';
+
+const defaultTemplateGate: IntakeSubmissionGate = {
+  paymentRequiredBeforeSubmit: false,
+  paymentCompleted: false,
+  activeTemplate: {
+    slug: 'default',
+    name: 'Default',
+    isDefault: true,
+    fields: STANDARD_FIELD_DEFINITIONS,
+  },
+};
 
 describe('save_case_details tool', () => {
   beforeEach(() => {
@@ -46,8 +58,7 @@ describe('save_case_details tool', () => {
       state: 'CA'
     };
 
-    const submissionGate = { paymentRequiredBeforeSubmit: false, paymentCompleted: false };
-    const result = handleSaveCaseDetails(args, null, submissionGate);
+    const result = handleSaveCaseDetails(args, null, defaultTemplateGate);
     
     expect(result.success).toBe(true);
     expect(result.actions).toEqual(expect.arrayContaining([
@@ -160,8 +171,7 @@ describe('save_case_details tool', () => {
       opposingParty: 'John Doe'
     };
 
-    const submissionGate = { paymentRequiredBeforeSubmit: false, paymentCompleted: false };
-    const result = handleSaveCaseDetails(args, null, submissionGate);
+    const result = handleSaveCaseDetails(args, null, defaultTemplateGate);
     
     expect(result.success).toBe(true);
     expect(result.message).toBe('Case details saved. All required fields collected.');
@@ -177,8 +187,7 @@ describe('save_case_details tool', () => {
       state: 'CA'
     };
 
-    const submissionGate = { paymentRequiredBeforeSubmit: false, paymentCompleted: false };
-    const result = handleSaveCaseDetails(args, null, submissionGate);
+    const result = handleSaveCaseDetails(args, null, defaultTemplateGate);
     
     expect(result.success).toBe(true);
     expect(result.message).toBe('Case details saved. All required fields collected.');

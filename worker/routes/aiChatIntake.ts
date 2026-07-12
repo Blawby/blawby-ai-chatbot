@@ -22,6 +22,7 @@ import {
 
 const MAX_SERVICES_IN_PROMPT = 20;
 type IntakePromptService = { name: string; uuid: string };
+const CONTACT_INFO_RULE = 'Contact information is already collected by the secure contact form. Never ask for contact info (name, email, or phone) again.';
 
 const US_STATE_NAME_TO_CODE: Record<string, string> = {
   alabama: 'AL', alaska: 'AK', arizona: 'AZ', arkansas: 'AR', california: 'CA',
@@ -606,6 +607,8 @@ export const buildIntakeSystemPrompt = (
 
 ${clientName}'s required information is complete.${contextBlock ? `\n\nCollected:\n${contextBlock}` : ''}
 
+${CONTACT_INFO_RULE}
+
 Write a warm 2-3 sentence summary of what ${clientName} shared. End with: "Ready to submit, or would you like to add anything first?"
 
 If they say yes/ready → call submit_intake.
@@ -621,7 +624,8 @@ No legal advice. No new questions.`.trim();
 
     const questionLines = queue.map((f, i) => {
       const q = f.previewQuestion?.trim() ?? f.promptHint?.trim() ?? `What is your ${f.label.toLowerCase()}?`;
-      return `${i + 1}. ${q}`;
+      const typeRule = getFieldValueTypeInstruction(f);
+      return `${i + 1}. ${q}${typeRule ? `\n   Answer rule: ${typeRule}` : ''}`;
     }).join('\n');
 
     const contextBlock = buildIntakeContextSummary(storedIntakeState, services, templateFields);
@@ -629,6 +633,7 @@ No legal advice. No new questions.`.trim();
 
     return `You are collecting intake information for ${practiceName}.
 ${collectedBlock}
+${CONTACT_INFO_RULE}
 Every response must have two parts — always, no exceptions:
 Part 1 (text): One warm sentence using "you/your" — something like "That sounds really stressful" or "I'm sorry you're going through this". No legal language (never say "illegal", "rights", "violation", "claim", "liable"). No "thank you", no "perfect". Then ask the first question from the list below that their message hasn't already answered. If all questions are already answered, write: "I'm sorry you're dealing with this — ready to submit, or would you like to add anything first?"
 Part 2 (tool): Call save_case_details with everything ${clientName} shared.
@@ -639,7 +644,7 @@ ${questionLines}
 No analysis, no legal opinions, no other questions beyond this list.`.trim();
   }
 
-  return `You are collecting intake information for ${practiceName}. Tell ${clientName} their information looks complete — one sentence. Call submit_intake if they confirm.`;
+  return `You are collecting intake information for ${practiceName}. ${CONTACT_INFO_RULE} Tell ${clientName} their information looks complete — one sentence. Call submit_intake if they confirm.`;
 };
 
 

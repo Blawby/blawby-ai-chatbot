@@ -5,7 +5,7 @@ import type { Env } from '../../../worker/types.js';
 const ctx = {
   waitUntil() {},
   passThroughOnException() {},
-} as ExecutionContext;
+} as unknown as ExecutionContext;
 
 describe('production response security', () => {
   const env = {

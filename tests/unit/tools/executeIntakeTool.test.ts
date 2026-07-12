@@ -1,7 +1,20 @@
 import { describe, test, expect, vi, beforeEach } from 'vitest';
 import { 
-  executeIntakeTool
+  executeIntakeTool,
+  type IntakeSubmissionGate,
 } from '../../../worker/routes/aiChatIntake';
+import { STANDARD_FIELD_DEFINITIONS } from '../../../src/shared/constants/intakeTemplates';
+
+const defaultTemplateGate: IntakeSubmissionGate = {
+  paymentRequiredBeforeSubmit: false,
+  paymentCompleted: false,
+  activeTemplate: {
+    slug: 'default',
+    name: 'Default',
+    isDefault: true,
+    fields: STANDARD_FIELD_DEFINITIONS,
+  },
+};
 
 describe('executeIntakeTool', () => {
   beforeEach(() => {
@@ -90,9 +103,7 @@ describe('executeIntakeTool', () => {
       opposingParty: 'John Doe'
     });
     const storedIntakeState = null;
-    const submissionGate = { paymentRequiredBeforeSubmit: false, paymentCompleted: false };
-
-    const result = executeIntakeTool(toolName, rawArgs, storedIntakeState, submissionGate);
+    const result = executeIntakeTool(toolName, rawArgs, storedIntakeState, defaultTemplateGate);
     
     expect(result.success).toBe(true);
     expect(result.actions).toEqual(expect.arrayContaining([
