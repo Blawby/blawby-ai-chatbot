@@ -286,6 +286,10 @@ new_classes = ["PresenceRoom"]
 tag = "v9"
 new_classes = ["ChatCounterObject"]
 
+# Staging already records v10; retain it so Wrangler does not replay earlier migrations.
+[[env.staging.migrations]]
+tag = "v10"
+
 [env.staging.vars]
 NODE_ENV = "staging"
 LOG_LEVEL = "warn"
