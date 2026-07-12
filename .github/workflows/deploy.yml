@@ -1,233 +1,78 @@
-name: Deploy to Cloudflare
+name: Deploy staging
 
 on:
   push:
     branches:
-      - main
       - staging
   workflow_dispatch:
 
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-staging
+  cancel-in-progress: true
+
 jobs:
+  validate:
+    name: Validate staging release
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - run: npm run type-check
+      - run: npm run lint
+      - run: npm run validate:production-config
+      - name: Validate staging Worker bundle
+        run: npx wrangler deploy --env staging --config worker/wrangler.toml --dry-run --strict
+
   deploy-worker:
-    name: Deploy Cloudflare Worker
+    name: Deploy staging Worker
+    needs: validate
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Resolve deploy env
-        run: |
-          if [[ "${GITHUB_REF}" == "refs/heads/main" ]]; then
-            echo "DEPLOY_ENV=production" >> "$GITHUB_ENV"
-          else
-            echo "DEPLOY_ENV=staging" >> "$GITHUB_ENV"
-          fi
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
         with:
-          node-version-file: '.nvmrc'
-          cache: 'npm'
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Debug - versions
-        run: |
-          node -v
-          npm -v
-          npx --version
-
-      - name: Debug - list worker files
-        run: |
-          pwd
-          ls -la
-          ls -la worker || true
-          ls -la worker/wrangler.toml || true
-
-      - name: Debug - show wrangler config
-        run: |
-          cat worker/wrangler.toml || true
-
-      - name: Validate deployment secrets
-        run: |
-          if [[ -z "${CLOUDFLARE_API_TOKEN:-}" ]]; then
-            echo "❌ CLOUDFLARE_API_TOKEN is not set" >&2
-            exit 1
-          fi
-          if [[ -z "${CLOUDFLARE_ACCOUNT_ID:-}" ]]; then
-            echo "❌ CLOUDFLARE_ACCOUNT_ID is not set" >&2
-            exit 1
-          fi
-          echo "✅ Deployment secrets are set"
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - name: Deploy Worker
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: >-
+          npx wrangler deploy --env staging --config worker/wrangler.toml
+          --tag "${GITHUB_SHA}" --message "Git commit ${GITHUB_SHA}" --strict
 
-      - name: Validate production configuration
-        run: npm run validate:production-config
-
-      - name: Validate production Worker secret inventory
-        if: env.DEPLOY_ENV == 'production'
-        env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-        run: |
-          set -euo pipefail
-          npx wrangler secret list --env production --config worker/wrangler.toml --format json > /tmp/worker-secret-names.json
-          npm run validate:production-config -- --worker-secrets /tmp/worker-secret-names.json
-
-      - name: Validate Worker bundle
-        run: npx wrangler deploy --env "${DEPLOY_ENV}" --config worker/wrangler.toml --dry-run --strict
-
-      - name: Deploy Worker (direct wrangler)
-        env:
-          WRANGLER_LOG: debug
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-        run: |
-          set -euxo pipefail
-          npx wrangler --version
-          npx wrangler deploy --env "${DEPLOY_ENV}" --config worker/wrangler.toml --tag "${GITHUB_SHA}" --message "Git commit ${GITHUB_SHA}" --strict
-
-      - name: Check wrangler logs
-        if: always()
-        run: |
-          echo "📋 Wrangler logs:"
-          ls -la ~/.config/.wrangler/logs 2>/dev/null || true
-          ls -la ~/.wrangler/logs 2>/dev/null || true
-          LATEST_LOG="$(ls -t ~/.config/.wrangler/logs/wrangler-*.log ~/.wrangler/logs/wrangler-*.log 2>/dev/null | head -1)"
-          if [[ -n "$LATEST_LOG" ]]; then
-            echo "Showing latest log: $LATEST_LOG"
-            tail -300 "$LATEST_LOG"
-          else
-            echo "No wrangler logs found"
-          fi
-
-      - name: Deployment summary
-        if: success()
-        run: echo "✅ Worker deployed successfully to production"
-
-      - name: Deployment failed
-        if: failure()
-        run: |
-          echo "❌ Worker deployment failed"
-          exit 1
-
-  deploy-frontend:
-    name: Deploy Cloudflare Pages
+  deploy-pages:
+    name: Deploy staging Pages
+    needs: deploy-worker
     runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      VITE_BACKEND_API_URL: ${{ secrets.VITE_BACKEND_API_URL_STAGING }}
+      VITE_APP_BASE_URL: ${{ secrets.VITE_APP_BASE_URL_STAGING }}
+      VITE_WORKER_API_URL: ${{ secrets.VITE_WORKER_API_URL_STAGING }}
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Resolve build env
-        run: |
-          if [[ "${GITHUB_REF}" == "refs/heads/main" ]]; then
-            echo "DEPLOY_ENV=production" >> "$GITHUB_ENV"
-            echo "PAGES_PROJECT=blawby-ai-chatbot-frontend" >> "$GITHUB_ENV"
-            {
-              echo "VITE_BACKEND_API_URL<<EOF"
-              echo "$VITE_BACKEND_API_URL_PROD"
-              echo "EOF"
-              echo "VITE_APP_BASE_URL<<EOF"
-              echo "$VITE_APP_BASE_URL_PROD"
-              echo "EOF"
-              echo "VITE_WORKER_API_URL<<EOF"
-              echo "$VITE_WORKER_API_URL_PROD"
-              echo "EOF"
-            } >> "$GITHUB_ENV"
-          else
-            echo "DEPLOY_ENV=staging" >> "$GITHUB_ENV"
-            echo "PAGES_PROJECT=blawby-ai-chatbot-frontend-staging" >> "$GITHUB_ENV"
-            {
-              echo "VITE_BACKEND_API_URL<<EOF"
-              echo "$VITE_BACKEND_API_URL_STG"
-              echo "EOF"
-              echo "VITE_APP_BASE_URL<<EOF"
-              echo "$VITE_APP_BASE_URL_STG"
-              echo "EOF"
-              echo "VITE_WORKER_API_URL<<EOF"
-              echo "$VITE_WORKER_API_URL_STG"
-              echo "EOF"
-            } >> "$GITHUB_ENV"
-          fi
-        env:
-          VITE_BACKEND_API_URL_PROD: ${{ secrets.VITE_BACKEND_API_URL }}
-          VITE_APP_BASE_URL_PROD: ${{ secrets.VITE_APP_BASE_URL }}
-          VITE_WORKER_API_URL_PROD: ${{ secrets.VITE_WORKER_API_URL }}
-          VITE_BACKEND_API_URL_STG: ${{ secrets.VITE_BACKEND_API_URL_STAGING }}
-          VITE_APP_BASE_URL_STG: ${{ secrets.VITE_APP_BASE_URL_STAGING }}
-          VITE_WORKER_API_URL_STG: ${{ secrets.VITE_WORKER_API_URL_STAGING }}
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
         with:
-          node-version-file: '.nvmrc'
-          cache: 'npm'
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Validate build env
-        run: |
-          if [[ -z "${VITE_BACKEND_API_URL:-}" ]]; then
-            echo "VITE_BACKEND_API_URL is required for build." >&2
-            exit 1
-          fi
-          if [[ -z "${VITE_APP_BASE_URL:-}" ]]; then
-            echo "VITE_APP_BASE_URL is required for SSR/build contexts." >&2
-            exit 1
-          fi
-          if [[ -z "${VITE_WORKER_API_URL:-}" ]]; then
-            echo "VITE_WORKER_API_URL is required for SSR/build contexts." >&2
-            exit 1
-          fi
-          if [[ "${DEPLOY_ENV}" == "production" ]]; then
-            npm run validate:production-config -- --build-env
-          else
-            npm run validate:production-config
-          fi
-
-      - name: Build
-        run: npm run build
-
-      - name: Bundle size budget check
-        run: npm run build:check-size
-
-      - name: Debug - list build output
-        run: |
-          pwd
-          ls -la
-          ls -la dist || true
-
-      - name: Quick check - Pages project reachable
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - run: npm run validate:production-config
+      - run: npm run build
+      - run: npm run build:check-size
+      - name: Deploy Pages
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-        run: |
-          set -euo pipefail
-          URL="https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/pages/projects/${PAGES_PROJECT}"
-          echo "Checking Pages project endpoint for ${PAGES_PROJECT}"
-          HTTP_CODE="$(curl -sS -o /tmp/pages_project.json -w "%{http_code}" \
-            --connect-timeout 8 \
-            --max-time 20 \
-            -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" \
-            -H "Content-Type: application/json" \
-            "${URL}")"
-          echo "Pages project lookup HTTP status: ${HTTP_CODE}"
-          if [[ "${HTTP_CODE}" -ge 400 ]]; then
-            echo "Pages API preflight failed (HTTP ${HTTP_CODE})"
-            cat /tmp/pages_project.json || true
-            exit 1
-          fi
-
-      - name: Deploy to Cloudflare Pages
-        timeout-minutes: 5
-        uses: cloudflare/wrangler-action@v3
-        env:
-          WRANGLER_LOG: debug
-        with:
-          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          command: pages deploy dist --project-name=${{ env.PAGES_PROJECT }}
+        run: >-
+          npx wrangler pages deploy dist --project-name blawby-ai-chatbot-frontend-staging
+          --branch staging --commit-hash "${GITHUB_SHA}" --commit-message "Git commit ${GITHUB_SHA}"

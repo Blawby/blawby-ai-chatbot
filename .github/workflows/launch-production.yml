@@ -1,0 +1,201 @@
+name: Launch production
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirmation:
+        description: Type DEPLOY to confirm the production launch
+        required: true
+        type: string
+      backend_git_commit:
+        description: Exact reviewed backend Git commit currently deployed
+        required: true
+        type: string
+      backend_deployment_id:
+        description: Exact backend platform deployment identifier
+        required: true
+        type: string
+      migrations_ready:
+        description: Confirm required backend and Worker migrations are applied
+        required: true
+        type: boolean
+
+permissions:
+  contents: read
+
+concurrency:
+  group: launch-production
+  cancel-in-progress: false
+
+jobs:
+  preflight:
+    name: Validate launch prerequisites
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      VITE_BACKEND_API_URL: ${{ secrets.VITE_BACKEND_API_URL }}
+      VITE_APP_BASE_URL: ${{ secrets.VITE_APP_BASE_URL }}
+      VITE_WORKER_API_URL: ${{ secrets.VITE_WORKER_API_URL }}
+    steps:
+      - name: Require main and explicit confirmations
+        env:
+          CONFIRMATION: ${{ inputs.confirmation }}
+          BACKEND_GIT_COMMIT: ${{ inputs.backend_git_commit }}
+          BACKEND_DEPLOYMENT_ID: ${{ inputs.backend_deployment_id }}
+          MIGRATIONS_READY: ${{ inputs.migrations_ready }}
+        run: |
+          set -euo pipefail
+          [[ "${GITHUB_REF}" == "refs/heads/main" ]] || { echo "Production launches must run from main." >&2; exit 1; }
+          [[ "${CONFIRMATION}" == "DEPLOY" ]] || { echo "Production confirmation must be DEPLOY." >&2; exit 1; }
+          [[ "${MIGRATIONS_READY}" == "true" ]] || { echo "Migration readiness must be confirmed." >&2; exit 1; }
+          [[ "${BACKEND_GIT_COMMIT}" =~ ^[0-9a-fA-F]{7,40}$ ]] || { echo "A valid exact backend Git commit is required." >&2; exit 1; }
+          [[ -n "${BACKEND_DEPLOYMENT_ID// }" ]] || { echo "The backend platform deployment identifier is required." >&2; exit 1; }
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - run: npm run type-check
+      - run: npm run lint
+      - run: npm run test:unit
+      - run: npm run validate:production-config -- --build-env
+      - name: Validate production Worker bundle
+        run: npx wrangler deploy --env production --config worker/wrangler.toml --dry-run --strict
+      - run: npm run build
+      - run: npm run build:check-size
+      - name: Check backend readiness with bounded retries
+        run: npx tsx scripts/verify-deployment-propagation.ts page https://api.blawby.com/api/health 5 10
+      - uses: actions/upload-artifact@v4
+        with:
+          name: production-pages-dist-${{ github.sha }}
+          path: dist
+          if-no-files-found: error
+          retention-days: 7
+
+  deploy-worker:
+    name: Deploy production Worker
+    needs: preflight
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: production
+    outputs:
+      deployment_id: ${{ steps.release.outputs.deployment_id }}
+      deployment_url: ${{ steps.release.outputs.deployment_url }}
+      deployed_at: ${{ steps.release.outputs.deployed_at }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - name: Validate Cloudflare deployment credentials
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          set -euo pipefail
+          [[ -n "${CLOUDFLARE_API_TOKEN:-}" ]] || { echo "CLOUDFLARE_API_TOKEN is required." >&2; exit 1; }
+          [[ -n "${CLOUDFLARE_ACCOUNT_ID:-}" ]] || { echo "CLOUDFLARE_ACCOUNT_ID is required." >&2; exit 1; }
+      - name: Validate production Worker secret inventory
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          set -euo pipefail
+          npx wrangler secret list --env production --config worker/wrangler.toml --format json > "${RUNNER_TEMP}/worker-secret-names.json"
+          npm run validate:production-config -- --worker-secrets "${RUNNER_TEMP}/worker-secret-names.json"
+      - name: Deploy Worker
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          WRANGLER_OUTPUT_FILE_PATH: ${{ runner.temp }}/worker-deploy.ndjson
+        run: >-
+          npx wrangler deploy --env production --config worker/wrangler.toml
+          --tag "${GITHUB_SHA}" --message "Git commit ${GITHUB_SHA}" --strict
+      - name: Read Worker deployment identity
+        id: release
+        run: npx tsx scripts/read-wrangler-output.ts "${RUNNER_TEMP}/worker-deploy.ndjson" deploy
+      - name: Verify Worker propagation
+        env:
+          EXPECTED_COMMIT: ${{ github.sha }}
+          EXPECTED_DEPLOYMENT_ID: ${{ steps.release.outputs.deployment_id }}
+        run: >-
+          npx tsx scripts/verify-deployment-propagation.ts worker
+          https://ai.blawby.com/api/health 10 10
+
+  deploy-pages:
+    name: Deploy production Pages
+    needs: deploy-worker
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: production
+    outputs:
+      deployment_id: ${{ steps.release.outputs.deployment_id }}
+      deployment_url: ${{ steps.release.outputs.deployment_url }}
+      deployed_at: ${{ steps.release.outputs.deployed_at }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - uses: actions/download-artifact@v4
+        with:
+          name: production-pages-dist-${{ github.sha }}
+          path: dist
+      - name: Deploy Pages
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          WRANGLER_OUTPUT_FILE_PATH: ${{ runner.temp }}/pages-deploy.ndjson
+        run: >-
+          npx wrangler pages deploy dist --project-name blawby-ai-chatbot-frontend
+          --branch main --commit-hash "${GITHUB_SHA}" --commit-message "Git commit ${GITHUB_SHA}"
+      - name: Read Pages deployment identity
+        id: release
+        run: npx tsx scripts/read-wrangler-output.ts "${RUNNER_TEMP}/pages-deploy.ndjson" pages-deploy
+      - name: Verify Pages deployment and canonical propagation
+        env:
+          DEPLOYMENT_URL: ${{ steps.release.outputs.deployment_url }}
+        run: |
+          set -euo pipefail
+          npx tsx scripts/verify-deployment-propagation.ts page "${DEPLOYMENT_URL}" 10 10
+          npx tsx scripts/verify-deployment-propagation.ts page https://ai.blawby.com 10 10
+
+  record-release:
+    name: Record production release evidence
+    needs:
+      - deploy-worker
+      - deploy-pages
+    runs-on: ubuntu-latest
+    if: success()
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - name: Write release evidence
+        env:
+          RELEASE_ENVIRONMENT: production
+          FRONTEND_WORKER_COMMIT: ${{ github.sha }}
+          WORKER_DEPLOYMENT_ID: ${{ needs.deploy-worker.outputs.deployment_id }}
+          WORKER_DEPLOYMENT_URL: ${{ needs.deploy-worker.outputs.deployment_url }}
+          PAGES_DEPLOYMENT_ID: ${{ needs.deploy-pages.outputs.deployment_id }}
+          PAGES_DEPLOYMENT_URL: ${{ needs.deploy-pages.outputs.deployment_url }}
+          BACKEND_GIT_COMMIT: ${{ inputs.backend_git_commit }}
+          BACKEND_DEPLOYMENT_ID: ${{ inputs.backend_deployment_id }}
+          LAUNCHED_AT: ${{ needs.deploy-pages.outputs.deployed_at }}
+        run: npx tsx scripts/write-release-evidence.ts release-evidence.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: production-release-${{ github.sha }}
+          path: release-evidence.json
+          if-no-files-found: error
+          retention-days: 90
+      - name: Publish launch summary
+        run: cat release-evidence.json >> "${GITHUB_STEP_SUMMARY}"
