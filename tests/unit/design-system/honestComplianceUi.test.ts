@@ -17,4 +17,14 @@ describe('honest compliance UI', () => {
     expect(invoiceDetail).not.toContain('deriveIsStagedByAssistant');
     expect(invoiceDetail).not.toContain('Staged by assistant');
   });
+
+  it('does not seed intake templates with fabricated AI suggestions or versions', () => {
+    const templates = source('src/features/intake/pages/IntakeTemplatesPage.tsx');
+    const authoring = source('src/features/intake/components/IntakeAuthoringStrip.tsx');
+    expect(templates).not.toContain('DEMO_AI_SUGGESTIONS');
+    expect(templates).not.toContain('DEMO_STAGED_QUESTIONS');
+    expect(templates).not.toContain('v.{headerVersionNumber}');
+    expect(authoring).not.toContain('Your instruction was saved');
+    expect(authoring).toContain('AI template authoring is not connected');
+  });
 });

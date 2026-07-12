@@ -1,110 +1,22 @@
-/**
- * IntakeAuthoringStrip — chat-first AI authoring band rendered at the top
- * of the intake template editor.
- *
- * Wraps <AIRibbon variant="authoring" editable> with the two canonical
- * authoring actions (Suggest improvements, Apply). The user's natural-language
- * instruction is stashed in local state by the parent via `onInstructionChange`,
- * which is the input the backend AI authoring endpoint will eventually
- * consume.
- *
- * TODO(backend): wire to AI authoring endpoint — likely something like
- * POST /api/practices/:id/intakes/templates/:slug/suggest with a body of
- * { instruction: string } returning { changes: AuthoringChange[] } that the
- * editor renders as staged-question rows + inline suggestions.
- *
- * Until then, the buttons surface a toast confirming the instruction was
- * saved as a draft suggestion — which is honest about the wiring state
- * without pretending the AI is responding.
- *
- * On mobile (<640px), the rich editable strip collapses to a single
- * "Talk to assistant" button that scrolls/expands the strip in place.
- * That matches the design's narrow-viewport guidance (no contenteditable
- * input on tap targets).
- */
+import { Sparkles } from 'lucide-preact';
 
-import { useState } from 'preact/hooks';
-import { MessageSquare } from 'lucide-preact';
-
-import { AIRibbon } from '@/design-system/patterns';
 import { Button } from '@/shared/ui/Button';
-import { useToastContext } from '@/shared/contexts/ToastContext';
 
-export interface IntakeAuthoringStripProps {
-  /** Mirrors local state in the parent — the typed instruction. */
-  instruction: string;
-  /** Update the parent's local instruction state. */
-  onInstructionChange: (next: string) => void;
-  /** Disable when the editor is mid-save. */
-  disabled?: boolean;
-}
-
-export function IntakeAuthoringStrip({
-  instruction,
-  onInstructionChange,
-  disabled = false,
-}: IntakeAuthoringStripProps) {
-  const { showInfo } = useToastContext();
-  const [mobileExpanded, setMobileExpanded] = useState(false);
-
-  // The same toast covers both Suggest and Apply for now — both routes need
-  // the backend AI authoring endpoint to do anything real. Differentiating
-  // the UX before backend exists would mislead.
-  const handleSuggest = () => {
-    showInfo(
-      'AI authoring endpoint coming soon',
-      instruction.trim()
-        ? `Your instruction was saved as a draft suggestion: "${instruction.trim()}"`
-        : 'Type an instruction first, then I can draft changes for review.',
-    );
-  };
-
-  const handleApply = () => {
-    showInfo(
-      'AI authoring endpoint coming soon',
-      'Once the backend is live, Apply will stage the changes inline so you can approve them one-by-one.',
-    );
-  };
-
+export function IntakeAuthoringStrip() {
   return (
-    <>
-      {/* Mobile: collapsed by default, expand on tap into the same full strip. */}
-      {!mobileExpanded ? (
-        <div className="mb-6 sm:hidden">
-          <Button
-            type="button"
-            variant="secondary"
-            icon={MessageSquare}
-            onClick={() => setMobileExpanded(true)}
-            disabled={disabled}
-            className="w-full justify-center"
-          >
-            Talk to assistant
-          </Button>
+    <section className="mb-6 flex flex-col gap-3 rounded-md border border-line-subtle bg-paper-2 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex items-start gap-3">
+        <Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-gold" aria-hidden="true" />
+        <div>
+          <h3 className="text-sm font-medium text-ink">AI template authoring is not connected</h3>
+          <p className="mt-0.5 text-xs leading-relaxed text-dim-2">
+            Continue editing questions manually. Blawby will not fabricate suggestions, staged changes, or conversion evidence.
+          </p>
         </div>
-      ) : null}
-
-      <div className={mobileExpanded ? 'mb-6' : 'mb-6 hidden sm:block'}>
-        <AIRibbon
-          variant="authoring"
-          title="Tell me what to add, remove, or rephrase"
-          editable
-          onEdit={onInstructionChange}
-          actions={[
-            {
-              id: 'suggest',
-              label: 'Suggest improvements',
-              onClick: handleSuggest,
-            },
-            {
-              id: 'apply',
-              label: 'Apply ↗',
-              variant: 'primary',
-              onClick: handleApply,
-            },
-          ]}
-        />
       </div>
-    </>
+      <Button variant="secondary" size="sm" disabled title="Requires the backend AI authoring contract">
+        Suggestions unavailable
+      </Button>
+    </section>
   );
 }
