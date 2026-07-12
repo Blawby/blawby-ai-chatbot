@@ -112,6 +112,13 @@ export interface ResolvedDateRange {
   endIso: string;
 }
 
+export type ReportPeriod = 'week' | 'month' | 'quarter' | 'year';
+
+const startOfWeek = (d: Date) => {
+  const day = d.getUTCDay();
+  const daysSinceMonday = (day + 6) % 7;
+  return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() - daysSinceMonday));
+};
 const startOfMonth = (d: Date) => new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), 1));
 const startOfQuarter = (d: Date) => {
   const q = Math.floor(d.getUTCMonth() / 3) * 3;
@@ -126,7 +133,7 @@ const startOfYear = (d: Date) => new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
 export const resolveDateRange = (
   start: string | null | undefined,
   end: string | null | undefined,
-  period: 'month' | 'quarter' | 'year' | undefined,
+  period: ReportPeriod | undefined,
   now: Date = new Date()
 ): ResolvedDateRange => {
   let startMs: number;
@@ -143,7 +150,9 @@ export const resolveDateRange = (
     endMs = now.getTime();
     const yearsBack = period === 'year' ? 1 : period === 'quarter' ? 0 : 0;
     const monthsBack = period === 'month' ? 11 : 0;
-    const baseStart = period === 'year'
+    const baseStart = period === 'week'
+      ? startOfWeek(now)
+      : period === 'year'
       ? startOfYear(new Date(now.getTime() - yearsBack * 365 * 24 * 60 * 60 * 1000))
       : period === 'quarter'
         ? startOfQuarter(now)
@@ -160,10 +169,14 @@ export const resolveDateRange = (
 
 const formatPeriodLabel = (
   bucketStartMs: number,
-  granularity: 'month' | 'quarter' | 'year'
+  granularity: ReportPeriod
 ): string => {
   const d = new Date(bucketStartMs);
   const year = d.getUTCFullYear();
+  if (granularity === 'week') {
+    const month = d.toLocaleString('en-US', { month: 'short', timeZone: 'UTC' });
+    return `Week of ${month} ${d.getUTCDate()}, ${year}`;
+  }
   if (granularity === 'year') return String(year);
   if (granularity === 'quarter') {
     const q = Math.floor(d.getUTCMonth() / 3) + 1;
@@ -175,8 +188,9 @@ const formatPeriodLabel = (
 
 const bucketStartFor = (
   d: Date,
-  granularity: 'month' | 'quarter' | 'year'
+  granularity: ReportPeriod
 ): number => {
+  if (granularity === 'week') return startOfWeek(d).getTime();
   if (granularity === 'year') return startOfYear(d).getTime();
   if (granularity === 'quarter') return startOfQuarter(d).getTime();
   return startOfMonth(d).getTime();
@@ -215,13 +229,13 @@ const parseDateMs = (raw: unknown): number | null => {
 };
 
 /**
- * Group invoices by period (month/quarter/year). An invoice is bucketed by
+ * Group invoices by period (week/month/quarter/year). An invoice is bucketed by
  * `paid_at` when present (falling back to `created_at`). Unpaid invoices
  * contribute to `outstandingAmountCents` but not `invoiceCount`.
  */
 export const groupRevenue = (
   invoices: readonly BackendInvoice[],
-  granularity: 'month' | 'quarter' | 'year',
+  granularity: ReportPeriod,
   range: ResolvedDateRange
 ): RevenueAggregate => {
   const buckets = new Map<number, RevenueAggregateRow>();
@@ -908,7 +922,7 @@ export class ReportService {
   async revenue(
     practiceId: string,
     headers: Record<string, string>,
-    options: { period: 'month' | 'quarter' | 'year'; range: ResolvedDateRange }
+    options: { period: ReportPeriod; range: ResolvedDateRange }
   ): Promise<RevenueAggregate> {
     const invoices = await this.fetchInvoices(practiceId, headers);
     return groupRevenue(invoices, options.period, options.range);

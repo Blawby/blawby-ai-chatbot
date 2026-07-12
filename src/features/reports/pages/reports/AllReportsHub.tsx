@@ -57,7 +57,6 @@ interface AllReportsHubProps {
 }
 
 type ReportPeriod = 'week' | 'month' | 'quarter' | 'year';
-type QueryPeriod = 'month' | 'quarter' | 'year';
 
 const PERIOD_OPTIONS: ReadonlyArray<{ value: ReportPeriod; label: string }> = [
   { value: 'week', label: 'Week' },
@@ -78,22 +77,6 @@ const PERIOD_NOUN: Record<ReportPeriod, string> = {
   month: 'month',
   quarter: 'quarter',
   year: 'year',
-};
-
-/**
- * Map the user-facing period to the backend query period.
- *
- * TODO(backend): `resolveDateRange` only understands `month | quarter | year`.
- * Until we extend it to honour `week`, the hub asks for `month` data when the
- * Seg shows "Week" and notes the gap in the AI summary verifier. `ytd` aliases
- * to `year`, which today returns 12-month trailing data — close enough to
- * year-to-date for the hub's narrative purposes.
- */
-const toQueryPeriod = (period: ReportPeriod): QueryPeriod => {
-  if (period === 'quarter') return 'quarter';
-  if (period === 'year') return 'year';
-  // week + month both map to 'month' (backend exposes no week granularity yet).
-  return 'month';
 };
 
 const ICON_BY_NAME: Record<ReportIconName, IconComponent> = {
@@ -224,7 +207,7 @@ export const AllReportsHub: FunctionComponent<AllReportsHubProps> = ({ practiceI
   const [period, setPeriod] = useState<ReportPeriod>('month');
   const [sendingEmail, setSendingEmail] = useState(false);
 
-  const queryPeriod = toQueryPeriod(period);
+  const queryPeriod = period;
   const queryParams = useMemo(() => ({ period: queryPeriod }), [queryPeriod]);
   const enabled = Boolean(practiceId);
 

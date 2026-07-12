@@ -5,7 +5,7 @@ import { Seg } from '@/design-system/patterns';
 import { cn } from '@/shared/utils/cn';
 import type { FilterSpec } from '@/features/reports/config/reportCollection';
 
-export type ReportPeriod = 'month' | 'quarter' | 'year';
+export type ReportPeriod = 'week' | 'month' | 'quarter' | 'year';
 
 export interface ReportFilterValues {
   period?: ReportPeriod;
@@ -23,6 +23,7 @@ interface ReportFiltersProps {
 }
 
 const PERIOD_OPTIONS: ReadonlyArray<{ value: ReportPeriod; label: string }> = [
+  { value: 'week', label: 'Week' },
   { value: 'month', label: 'Month' },
   { value: 'quarter', label: 'Quarter' },
   { value: 'year', label: 'Year' },
