@@ -39,4 +39,14 @@ describe('honest compliance UI', () => {
     expect(intakeDetail).not.toContain('<IntakeAcceptancePreview');
     expect(intakeDetail).not.toContain('auto-transcribed');
   });
+
+  it('does not persist pretend AI settings in the browser', () => {
+    const intelligence = source('src/features/settings/pages/IntelligencePage.tsx');
+    expect(intelligence).not.toContain('localStorage');
+    expect(intelligence).not.toContain("showSuccess('System prompt saved'");
+    expect(intelligence).not.toContain("showSuccess('Pause requested'");
+    expect(intelligence).not.toContain('sonnet-4.5');
+    expect(intelligence).not.toContain("{ key: 'matters', rows: 142 }");
+    expect(intelligence).toContain('browser-only preferences that appear saved but do not affect the assistant');
+  });
 });
