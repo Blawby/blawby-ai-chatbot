@@ -13,9 +13,14 @@ type E2EFixtures = {
   clientPage: Page;
   anonPage: Page;
   unauthPage: Page;
+  publicAnonPage: Page;
 };
 
-const test = base.extend<E2EFixtures>({
+type E2EWorkerFixtures = {
+  publicAnonContext: BrowserContext;
+};
+
+const test = base.extend<E2EFixtures, E2EWorkerFixtures>({
   baseURL: async ({ browserName: _browserName }, use, testInfo) => {
     const baseURL = resolveBaseUrl(testInfo.project.use.baseURL as string | undefined);
     await use(baseURL);
@@ -55,6 +60,15 @@ const test = base.extend<E2EFixtures>({
     await networkLogger?.flush();
     await context.close();
   },
+  publicAnonContext: [async ({ browser }, use, workerInfo) => {
+    const baseURL = resolveBaseUrl(workerInfo.project.use.baseURL as string | undefined);
+    const context = await browser.newContext({
+      baseURL,
+      storageState: AUTH_STATE_PATHS.anonymous,
+    });
+    await use(context);
+    await context.close();
+  }, { scope: 'worker' }],
   ownerPage: async ({ ownerContext }, use) => {
     const page = await ownerContext.newPage();
     await use(page);
@@ -72,6 +86,11 @@ const test = base.extend<E2EFixtures>({
   },
   unauthPage: async ({ unauthContext }, use) => {
     const page = await unauthContext.newPage();
+    await use(page);
+    await page.close();
+  },
+  publicAnonPage: async ({ publicAnonContext }, use) => {
+    const page = await publicAnonContext.newPage();
     await use(page);
     await page.close();
   }

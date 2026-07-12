@@ -1207,9 +1207,10 @@
     height: 28px;
     border-radius: 50%;
     background: var(--ink);
-    color: var(--accent);
-    font-family: var(--serif);
-    font-style: italic;
+    color: var(--paper);
+    font-family: var(--sans);
+    font-style: normal;
+    font-weight: 600;
     font-size: 14px;
     flex-shrink: 0;
     overflow: hidden;
@@ -1712,16 +1713,16 @@
     color: var(--dim);
   }
   .editor-shell-hero__title {
-    font-family: var(--serif);
-    font-weight: 400;
-    font-size: clamp(28px, 4vw, 40px);
-    letter-spacing: -0.02em;
-    line-height: 1.05;
+    font-family: var(--sans);
+    font-weight: 600;
+    font-size: clamp(24px, 3vw, 32px);
+    letter-spacing: -0.005em;
+    line-height: 1.2;
     color: var(--ink);
     margin: 4px 0 0;
   }
   .editor-shell-hero__title em {
-    color: var(--accent);
+    color: inherit;
     font-style: normal;
   }
   .editor-shell-hero__lede {
@@ -2229,30 +2230,13 @@
     border: 1px solid var(--rule);
     border-radius: var(--r-md);
     padding: 18px;
-    transition:
-      transform 0.15s,
-      box-shadow 0.15s,
-      border-color 0.15s;
-    box-shadow: var(--shadow-1);
-  }
-  .briefing-grid-card:hover {
-    transform: translateY(-1px);
-    box-shadow: var(--shadow-2);
-    border-color: var(--paper-edge);
   }
   .briefing-grid-card-span-2 {
     grid-column: 1 / span 2;
   }
   .briefing-grid-card-feature {
-    background: linear-gradient(
-      180deg,
-      color-mix(in oklab, var(--accent) 18%, var(--card)) 0%,
-      var(--card) 100%
-    );
-    border-color: color-mix(in oklab, var(--accent) 50%, var(--rule));
-    box-shadow:
-      0 1px 0 rgba(255, 255, 255, 0.5) inset,
-      0 12px 32px -18px color-mix(in oklab, var(--accent-deep) 60%, transparent);
+    background: var(--paper-2);
+    border-color: var(--paper-edge);
   }
 
   /* ----------------------------------------------------------------

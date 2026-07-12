@@ -82,8 +82,10 @@ const ToastComponent: FunctionComponent<ToastProps> = ({ toast, onRemove }) => {
         </div>
         <div className="ml-4 flex-shrink-0">
           <button
+            type="button"
             onClick={handleRemove}
-            className="inline-flex text-dim-2 hover:text-ink transition-colors duration-200 focus-visible:ring-2 focus-visible:ring-accent rounded-sm focus:outline-none"
+            aria-label="Dismiss notification"
+            className="-m-2 inline-flex h-11 w-11 items-center justify-center rounded-full text-dim-2 transition-colors duration-200 hover:text-ink focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
           >
             <Icon icon={X} className="h-4 w-4"  />
           </button>

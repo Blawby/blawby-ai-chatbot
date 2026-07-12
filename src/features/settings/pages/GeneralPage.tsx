@@ -248,6 +248,7 @@ export const GeneralPage = () => {
         <SettingsCard className="max-w-[820px]">
           <SettingRow label="Default sidebar state" description="Whether the sidebar is expanded or collapsed when you open Blawby.">
             <Combobox
+              aria-label="Default sidebar state"
               value={sidebarDefault}
               options={sidebarStateOptions}
               onChange={(value) => {
@@ -270,6 +271,7 @@ export const GeneralPage = () => {
         <SettingsCard className="max-w-[820px]">
           <SettingRow label="Date format" description="Used in tables, invoices, and the calendar.">
             <Combobox
+              aria-label="Date format"
               value={dateFormat}
               options={dateFormatOptions}
               onChange={(value) => { setDateFormatState(value); void save({ date_format: value }); }}
@@ -280,6 +282,7 @@ export const GeneralPage = () => {
           </SettingRow>
           <SettingRow label="Time format">
             <Combobox
+              aria-label="Time format"
               value={timeFormat}
               options={timeFormatOptions}
               onChange={(value) => {
@@ -293,6 +296,7 @@ export const GeneralPage = () => {
           </SettingRow>
           <SettingRow label="Timezone">
             <Combobox
+              aria-label="Timezone"
               value={timezone}
               options={timezoneOptions}
               onChange={(value) => { setTimezoneState(value); void save({ timezone: value }); }}

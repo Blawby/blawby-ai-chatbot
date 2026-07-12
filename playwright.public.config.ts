@@ -39,7 +39,7 @@ export default defineConfig({
   // comparable against Linux CI when the underlying browser version
   // matches. Default template includes -{platform} which would force
   // per-OS baselines.
-  snapshotPathTemplate: '{testFileDir}/__screenshots__/{testFilePath}/{arg}-{projectName}{ext}',
+  snapshotPathTemplate: '{testDir}/__screenshots__/{testFileName}/{arg}-{projectName}{ext}',
   fullyParallel: true,
   retries: 0,
   workers: resolveWorkers(),

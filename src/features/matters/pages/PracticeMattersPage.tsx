@@ -2431,7 +2431,7 @@ export const PracticeMattersPage = ({
             <div className="font-mono text-[10px] uppercase tracking-[0.14em] text-dim">
               {crumb}
             </div>
-            <h1 className="mt-1 font-[family-name:var(--serif)] text-[32px] font-normal leading-none tracking-tight text-ink sm:text-4xl lg:text-[44px]">
+            <h1 className="mt-1 font-sans text-2xl font-semibold leading-tight tracking-tight text-ink sm:text-3xl">
               Matters
             </h1>
           </div>

@@ -28,6 +28,7 @@ export const SettingSelect = ({
       </div>
       <div className="w-full sm:ml-4 sm:w-auto">
         <Combobox
+          aria-label={label}
           value={value}
           options={options}
           onChange={onChange}

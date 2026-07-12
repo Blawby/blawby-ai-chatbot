@@ -467,9 +467,9 @@ const SidebarItem: FunctionComponent<SidebarItemProps> = ({
           'relative flex h-9 w-full items-center justify-center rounded-lg transition-colors',
           'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50',
           isDanger
-            ? 'text-red-400 hover:bg-red-500/10'
+            ? 'text-neg hover:bg-neg-soft'
             : isActive
-              ? 'bg-[rgb(var(--sidebar-active-bg))] text-[rgb(var(--sidebar-active-text))] before:absolute before:left-0 before:top-1.5 before:bottom-1.5 before:w-0.5 before:rounded-full before:bg-accent [&_svg]:text-accent'
+              ? 'nav-item-active text-[rgb(var(--sidebar-active-text))] [&_svg]:text-accent'
               : 'text-[rgb(var(--sidebar-text-secondary))] hover:bg-[rgb(var(--sidebar-hover-bg))] hover:text-[rgb(var(--sidebar-text))]',
         )}
       >
@@ -495,9 +495,9 @@ const SidebarItem: FunctionComponent<SidebarItemProps> = ({
           'flex w-full items-center justify-between gap-2.5 rounded-lg px-2.5 py-[9px] text-left text-xs font-normal transition-colors',
           'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50',
           isDanger
-            ? 'text-red-400 hover:bg-red-500/10'
+            ? 'text-neg hover:bg-neg-soft'
             : isActive
-              ? 'relative bg-[rgb(var(--sidebar-active-bg))] text-[rgb(var(--sidebar-active-text))] before:absolute before:left-0 before:top-1.5 before:bottom-1.5 before:w-0.5 before:rounded-full before:bg-accent [&_svg]:text-accent'
+              ? 'nav-item-active text-[rgb(var(--sidebar-active-text))] [&_svg]:text-accent'
               : 'text-[rgb(var(--sidebar-text-secondary))] hover:bg-[rgb(var(--sidebar-hover-bg))]',
         )}
       >
@@ -585,9 +585,9 @@ const SidebarSubItem: FunctionComponent<SidebarSubItemProps> = ({
         'flex w-full items-center justify-between rounded-lg pl-9 pr-2.5 py-[7px] text-left text-xs transition-colors',
         'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50',
         isDanger
-          ? 'text-red-400 hover:bg-red-500/10'
+          ? 'text-neg hover:bg-neg-soft'
           : isActive
-            ? 'relative bg-[rgb(var(--sidebar-active-bg))] text-[rgb(var(--sidebar-active-text))] before:absolute before:left-0 before:top-1.5 before:bottom-1.5 before:w-0.5 before:rounded-full before:bg-accent [&_svg]:text-accent'
+            ? 'nav-item-active text-[rgb(var(--sidebar-active-text))] [&_svg]:text-accent'
             : 'text-[rgb(var(--sidebar-text-secondary))] hover:bg-[rgb(var(--sidebar-hover-bg))]',
       )}
     >
