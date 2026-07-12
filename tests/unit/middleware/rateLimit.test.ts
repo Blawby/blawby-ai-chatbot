@@ -13,7 +13,7 @@ const createMockEnv = (): {
   const mockList = vi.fn();
   const mockDelete = vi.fn();
   const mockGetWithMetadata = vi.fn();
-  const env: Env = {
+  const env = {
     DB: {} as Env['DB'],
     CHAT_SESSIONS: {
       get: mockGet,
@@ -29,7 +29,7 @@ const createMockEnv = (): {
     IDEMPOTENCY_SALT: 'test-salt',
     ONESIGNAL_APP_ID: 'test-app',
     ONESIGNAL_REST_API_KEY: 'test-key',
-  };
+  } as unknown as Env;
   return { env, mockGet, mockPut };
 };
 
