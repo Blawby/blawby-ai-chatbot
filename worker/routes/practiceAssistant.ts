@@ -31,10 +31,11 @@ export interface PracticeAssistantTurnParams {
   auth: AuthContext & { memberRole: string };
   env: Env;
   request: Request;
+  expectedLatestSeq: number;
 }
 
 export function runPracticeAssistantTurn(params: PracticeAssistantTurnParams): Response {
-  const { conversationId, practiceId, practiceSlug, userMessage, userId, auth, env, request } = params;
+  const { conversationId, practiceId, practiceSlug, userMessage, userId, auth, env, request, expectedLatestSeq } = params;
   const { response, write, close } = createSseResponse();
   Logger.info('practice_assistant.sse.prepared', {
     conversationId,
@@ -48,7 +49,7 @@ export function runPracticeAssistantTurn(params: PracticeAssistantTurnParams): R
       practiceId,
     });
     const engine = new PracticeAssistantQueryEngine({
-      conversationId, practiceId, practiceSlug, userId, auth, env, request,
+      conversationId, practiceId, practiceSlug, userId, auth, env, request, expectedLatestSeq,
     });
     try {
       for await (const event of engine.submitMessage(userMessage)) {

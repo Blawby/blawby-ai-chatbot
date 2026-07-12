@@ -27,7 +27,7 @@ describe('loadBackendConversationHistory', () => {
       }), { status: 200 }));
     vi.stubGlobal('fetch', fetchMock);
 
-    const result = await loadBackendConversationHistory(env, request, 'practice/1', 'conversation/1', 20);
+    const result = await loadBackendConversationHistory(env, request, 'practice/1', 'conversation/1', 42, 20);
 
     expect(result).toEqual([
       { role: 'user', content: 'Earlier question' },
@@ -51,7 +51,7 @@ describe('loadBackendConversationHistory', () => {
   it('fails fast when the backend response is malformed', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('not json', { status: 200 })));
 
-    await expect(loadBackendConversationHistory(env, request, 'practice', 'conversation')).rejects.toThrow(
+    await expect(loadBackendConversationHistory(env, request, 'practice', 'conversation', 1)).rejects.toThrow(
       'Conversation history lookup returned malformed JSON',
     );
   });
@@ -59,8 +59,21 @@ describe('loadBackendConversationHistory', () => {
   it('fails fast when the backend source is unavailable', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(JSON.stringify({ message: 'not replicated' }), { status: 404 })));
 
-    await expect(loadBackendConversationHistory(env, request, 'practice', 'conversation')).rejects.toThrow(
+    await expect(loadBackendConversationHistory(env, request, 'practice', 'conversation', 1)).rejects.toThrow(
       'Conversation history lookup failed: not replicated',
     );
+  });
+
+  it('waits for the durable projection to reach the Worker sequence before reading messages', async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify({ data: { latest_seq: 4 } }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ data: { latest_seq: 5 } }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ data: [{ role: 'user', content: 'Current' }] }), { status: 200 }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(loadBackendConversationHistory(env, request, 'practice', 'conversation', 5, 20)).resolves.toEqual([
+      { role: 'user', content: 'Current' },
+    ]);
+    expect(fetchMock).toHaveBeenCalledTimes(3);
   });
 });

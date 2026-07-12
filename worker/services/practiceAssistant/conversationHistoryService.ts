@@ -5,6 +5,8 @@ export interface PracticeAssistantHistoryMessage {
   content: string;
 }
 
+const PROJECTION_RETRY_DELAYS_MS = [0, 100, 300, 700] as const;
+
 const getBackendBaseUrl = (env: Env): string => {
   const base = env.BACKEND_API_URL?.trim();
   if (!base) throw new Error('BACKEND_API_URL is required for conversation history');
@@ -49,18 +51,28 @@ export const loadBackendConversationHistory = async (
   request: Request,
   practiceId: string,
   conversationId: string,
+  expectedLatestSeq: number,
   limit = 20,
 ): Promise<PracticeAssistantHistoryMessage[]> => {
   const base = getBackendBaseUrl(env);
   const headers = forwardHeaders(request);
   const resource = `${base}/api/intake-conversations/${encodeURIComponent(practiceId)}/${encodeURIComponent(conversationId)}`;
-  const conversation = unwrapData(await fetchJson(resource, headers, 'Conversation history lookup'));
-  if (!conversation || typeof conversation !== 'object' || Array.isArray(conversation)) {
-    throw new Error('Conversation history lookup returned an invalid conversation');
-  }
-  const latestSeq = (conversation as Record<string, unknown>).latest_seq;
-  if (typeof latestSeq !== 'number' || !Number.isInteger(latestSeq) || latestSeq < 0) {
-    throw new Error('Conversation history lookup returned an invalid latest_seq');
+  let latestSeq = -1;
+  for (const [attempt, delayMs] of PROJECTION_RETRY_DELAYS_MS.entries()) {
+    if (delayMs > 0) await new Promise((resolve) => setTimeout(resolve, delayMs));
+    const conversation = unwrapData(await fetchJson(resource, headers, 'Conversation history lookup'));
+    if (!conversation || typeof conversation !== 'object' || Array.isArray(conversation)) {
+      throw new Error('Conversation history lookup returned an invalid conversation');
+    }
+    const projectedSeq = (conversation as Record<string, unknown>).latest_seq;
+    if (typeof projectedSeq !== 'number' || !Number.isInteger(projectedSeq) || projectedSeq < 0) {
+      throw new Error('Conversation history lookup returned an invalid latest_seq');
+    }
+    latestSeq = projectedSeq;
+    if (latestSeq >= expectedLatestSeq) break;
+    if (attempt === PROJECTION_RETRY_DELAYS_MS.length - 1) {
+      throw new Error(`Conversation history projection is behind: expected seq ${expectedLatestSeq}, received ${latestSeq}`);
+    }
   }
 
   const boundedLimit = Math.max(1, Math.min(limit, 100));

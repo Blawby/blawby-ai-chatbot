@@ -47,6 +47,7 @@ export interface PracticeAssistantQueryEngineConfig {
   auth: AuthContext & { memberRole: string };
   env: Env;
   request: Request;
+  expectedLatestSeq: number;
 }
 
 const systemPrompt = [
@@ -206,6 +207,7 @@ export class PracticeAssistantQueryEngine {
       this.config.request,
       this.config.practiceId,
       this.config.conversationId,
+      this.config.expectedLatestSeq,
       20,
     );
     const normalized = sourceMessages
