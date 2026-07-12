@@ -65,4 +65,16 @@ describe('honest compliance UI', () => {
       expect(surface).not.toContain('Live natural-language');
     }
   });
+
+  it('does not relabel navigation as AI work or invent intake service levels', () => {
+    const matterOverview = source('src/features/matters/components/MatterOverviewTab.tsx');
+    const intakeDetail = source('src/features/intake/pages/IntakeDetailPage.tsx');
+    expect(matterOverview).not.toContain("label: 'Draft engagement update'");
+    expect(matterOverview).not.toContain("label: 'Settlement projection'");
+    expect(matterOverview).not.toContain('Staged · awaits your approval');
+    expect(matterOverview).toContain("label: 'View engagement'");
+    expect(intakeDetail).not.toContain("'< 3h response window'");
+    expect(intakeDetail).not.toContain("'24h response window'");
+    expect(intakeDetail).not.toContain('via ${practiceName');
+  });
 });
