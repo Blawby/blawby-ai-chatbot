@@ -324,9 +324,6 @@ export const AllReportsHub: FunctionComponent<AllReportsHubProps> = ({ practiceI
   if (medianTimeToClose != null) {
     ledeFragments.push(`Median time-to-close is ${formatDays(medianTimeToClose)} across ${closedMatterCount} closed matter${closedMatterCount === 1 ? '' : 's'}.`);
   }
-  const periodNote = period === 'week'
-    ? ' Week view falls back to monthly aggregations until the backend ships a week bucket.'
-    : '';
   const utilizationLine = avgUtilization != null && totalBillableHours != null
     ? `Billable utilization is averaging ${avgUtilization.toFixed(0)}% (${totalBillableHours.toFixed(1)} hrs).`
     : '';
@@ -397,7 +394,7 @@ export const AllReportsHub: FunctionComponent<AllReportsHubProps> = ({ practiceI
           groundingLabel={groundingLabel}
           lede={
             <>
-              {ledeFragments.join(' ')}{periodNote}
+              {ledeFragments.join(' ')}
               {utilizationLine && (
                 <>
                   {' '}{utilizationLine}
