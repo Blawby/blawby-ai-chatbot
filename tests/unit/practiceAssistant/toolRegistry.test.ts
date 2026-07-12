@@ -438,11 +438,14 @@ describe('practice assistant tool registry', () => {
     expect(routeSource).not.toContain('executePracticeAssistantTools');
   });
 
-  it('sends conversation history through the query engine instead of keeping fake memory', () => {
+  it('loads conversation history from the backend source of truth instead of request or D1 state', () => {
     const routeSource = readFileSync(resolve(process.cwd(), 'worker/routes/aiChat.ts'), 'utf8');
     const engineSource = readFileSync(resolve(process.cwd(), 'worker/services/practiceAssistant/PracticeAssistantQueryEngine.ts'), 'utf8');
-    expect(routeSource).toContain('messages: body.messages.map');
+    expect(routeSource).not.toContain('messages: body.messages.map');
     expect(engineSource).toContain('loadMessages');
+    expect(engineSource).toContain('loadBackendConversationHistory');
+    expect(engineSource).not.toContain('ConversationService');
+    expect(engineSource).not.toContain('initialMessages');
     expect(engineSource).toContain('...conversationMessages');
     expect(engineSource).not.toContain("private readonly messages: Array<{ role: 'user' | 'assistant'; content: string }> = []");
   });
