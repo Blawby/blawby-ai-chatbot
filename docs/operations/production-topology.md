@@ -1,6 +1,6 @@
 # Production topology and configuration ownership
 
-This inventory is the source-of-truth checklist for the production configuration gate. It names systems and configuration fields, never secret values. `npm run validate:production-config` verifies the repository-owned entries against `worker/wrangler.toml`, `public/_headers`, and `public/_redirects`. The production deploy also verifies Cloudflare Worker **secret names** and the three Pages build URLs without printing their values.
+This inventory is the source-of-truth checklist for the production configuration gate. It names systems and configuration fields, never secret values. `npm run validate:production-config` verifies the repository-owned entries against `worker/wrangler.toml`, `public/_headers`, and `public/_redirects`. The manual production launch also verifies Cloudflare Worker **secret names** and the three Pages build URLs without printing their values. Its ordered procedure and release record are documented in `docs/operations/production-launch.md`.
 
 ## Runtime topology
 
