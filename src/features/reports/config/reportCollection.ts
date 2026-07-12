@@ -29,7 +29,7 @@ export type ReportIconName =
   | 'calendar';
 
 export type FilterSpec =
-  | { id: string; label: string; kind: 'period'; defaultValue?: 'month' | 'quarter' | 'year' }
+  | { id: string; label: string; kind: 'period'; defaultValue?: 'week' | 'month' | 'quarter' | 'year' }
   | { id: string; label: string; kind: 'date-range' }
   | { id: string; label: string; kind: 'text'; placeholder?: string }
   | { id: string; label: string; kind: 'number'; placeholder?: string; min?: number; max?: number }
@@ -66,7 +66,7 @@ export interface ReportDefinition {
   description: string;
   icon: ReportIconName;
   phase: ReportPhase;
-  defaultPeriod?: 'month' | 'quarter' | 'year';
+  defaultPeriod?: 'week' | 'month' | 'quarter' | 'year';
   filters: FilterSpec[];
   columns: ColumnSpec[];
   summaryCards?: SummaryCardSpec[];

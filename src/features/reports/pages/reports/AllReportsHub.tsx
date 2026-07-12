@@ -57,7 +57,6 @@ interface AllReportsHubProps {
 }
 
 type ReportPeriod = 'week' | 'month' | 'quarter' | 'year';
-type QueryPeriod = 'month' | 'quarter' | 'year';
 
 const PERIOD_OPTIONS: ReadonlyArray<{ value: ReportPeriod; label: string }> = [
   { value: 'week', label: 'Week' },
@@ -78,22 +77,6 @@ const PERIOD_NOUN: Record<ReportPeriod, string> = {
   month: 'month',
   quarter: 'quarter',
   year: 'year',
-};
-
-/**
- * Map the user-facing period to the backend query period.
- *
- * TODO(backend): `resolveDateRange` only understands `month | quarter | year`.
- * Until we extend it to honour `week`, the hub asks for `month` data when the
- * Seg shows "Week" and notes the gap in the AI summary verifier. `ytd` aliases
- * to `year`, which today returns 12-month trailing data — close enough to
- * year-to-date for the hub's narrative purposes.
- */
-const toQueryPeriod = (period: ReportPeriod): QueryPeriod => {
-  if (period === 'quarter') return 'quarter';
-  if (period === 'year') return 'year';
-  // week + month both map to 'month' (backend exposes no week granularity yet).
-  return 'month';
 };
 
 const ICON_BY_NAME: Record<ReportIconName, IconComponent> = {
@@ -202,7 +185,13 @@ const buildSixMonthBars = (rows: readonly RevenueRow[]): BarChartDatum[] => {
   if (rows.length === 0) return [];
   const tail = rows.slice(-6);
   return tail.map((row) => {
-    const label = row.periodLabel.split(' ')[0]?.toUpperCase().slice(0, 3) ?? row.periodLabel;
+    const label = row.periodLabel.startsWith('Week of ')
+      ? new Date(row.periodStart).toLocaleDateString('en-US', {
+          month: 'numeric',
+          day: 'numeric',
+          timeZone: 'UTC',
+        })
+      : row.periodLabel.split(' ')[0]?.toUpperCase().slice(0, 3) ?? row.periodLabel;
     return { label, value: row.paidAmountCents };
   });
 };
@@ -224,7 +213,7 @@ export const AllReportsHub: FunctionComponent<AllReportsHubProps> = ({ practiceI
   const [period, setPeriod] = useState<ReportPeriod>('month');
   const [sendingEmail, setSendingEmail] = useState(false);
 
-  const queryPeriod = toQueryPeriod(period);
+  const queryPeriod = period;
   const queryParams = useMemo(() => ({ period: queryPeriod }), [queryPeriod]);
   const enabled = Boolean(practiceId);
 
@@ -341,9 +330,6 @@ export const AllReportsHub: FunctionComponent<AllReportsHubProps> = ({ practiceI
   if (medianTimeToClose != null) {
     ledeFragments.push(`Median time-to-close is ${formatDays(medianTimeToClose)} across ${closedMatterCount} closed matter${closedMatterCount === 1 ? '' : 's'}.`);
   }
-  const periodNote = period === 'week'
-    ? ' Week view falls back to monthly aggregations until the backend ships a week bucket.'
-    : '';
   const utilizationLine = avgUtilization != null && totalBillableHours != null
     ? `Billable utilization is averaging ${avgUtilization.toFixed(0)}% (${totalBillableHours.toFixed(1)} hrs).`
     : '';
@@ -414,7 +400,7 @@ export const AllReportsHub: FunctionComponent<AllReportsHubProps> = ({ practiceI
           groundingLabel={groundingLabel}
           lede={
             <>
-              {ledeFragments.join(' ')}{periodNote}
+              {ledeFragments.join(' ')}
               {utilizationLine && (
                 <>
                   {' '}{utilizationLine}

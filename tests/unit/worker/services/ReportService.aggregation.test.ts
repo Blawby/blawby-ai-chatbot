@@ -58,6 +58,13 @@ describe('resolveDateRange', () => {
     expect(new Date(r.startIso).getUTCMonth()).toBe(5);
   });
 
+  it('uses the current Monday UTC as the start of a weekly range', () => {
+    const now = new Date('2026-05-14T15:30:00Z');
+    const r = resolveDateRange(null, null, 'week', now);
+    expect(r.startIso).toBe('2026-05-11T00:00:00.000Z');
+    expect(r.endMs).toBe(now.getTime());
+  });
+
   it('throws when start is after end', () => {
     expect(() => resolveDateRange('2026-05-01', '2026-01-01', 'month')).toThrow();
   });
@@ -102,6 +109,23 @@ describe('groupRevenue', () => {
     expect(result.rows[0].invoiceCount).toBe(2);
     expect(result.totalPaidCents).toBe(155000);
     expect(result.totalInvoiceCount).toBe(3);
+  });
+
+  it('buckets weekly revenue from Monday through Sunday in UTC', () => {
+    const weeklyRange = resolveDateRange('2026-05-01', '2026-05-31', 'week');
+    const result = groupRevenue([
+      invoice({ paid_at: '2026-05-11T00:00:00Z', amount_paid: 1000, status: 'paid' }),
+      invoice({ paid_at: '2026-05-17T23:59:59Z', amount_paid: 2000, status: 'paid' }),
+      invoice({ paid_at: '2026-05-18T00:00:00Z', amount_paid: 3000, status: 'paid' }),
+    ], 'week', weeklyRange);
+
+    expect(result.rows).toHaveLength(2);
+    expect(result.rows[0]).toMatchObject({
+      periodLabel: 'Week of May 11, 2026',
+      invoiceCount: 2,
+      paidAmountCents: 3000,
+    });
+    expect(result.rows[1].periodLabel).toBe('Week of May 18, 2026');
   });
 
   it('ignores invoices outside the range', () => {

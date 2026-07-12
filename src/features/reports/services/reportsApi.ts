@@ -29,7 +29,7 @@ const queryString = (params: Record<string, string | number | null | undefined>)
 };
 
 export interface ReportQueryParams {
-  period?: 'month' | 'quarter' | 'year';
+  period?: 'week' | 'month' | 'quarter' | 'year';
   start?: string;
   end?: string;
   hourlyRate?: number;

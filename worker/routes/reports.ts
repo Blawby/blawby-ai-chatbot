@@ -15,6 +15,7 @@ import {
   BackendUnavailableError,
   ReportService,
   resolveDateRange,
+  type ReportPeriod,
   type ResolvedDateRange,
 } from '../services/ReportService.js';
 import {
@@ -39,7 +40,7 @@ const VALID_REPORT_TYPES = new Set<string>([
   'task-productivity',
 ]);
 
-const VALID_PERIODS = new Set(['month', 'quarter', 'year']);
+const VALID_PERIODS = new Set<ReportPeriod>(['week', 'month', 'quarter', 'year']);
 
 interface ReportEnvelope<T> {
   items: T[];
@@ -74,12 +75,12 @@ const backendUnavailable = (reportType: string): Response =>
     { status: 503, headers: { 'Content-Type': 'application/json' } }
   );
 
-const parsePeriod = (raw: string | null): 'month' | 'quarter' | 'year' => {
-  if (raw && VALID_PERIODS.has(raw)) return raw as 'month' | 'quarter' | 'year';
+const parsePeriod = (raw: string | null): ReportPeriod => {
+  if (raw && VALID_PERIODS.has(raw as ReportPeriod)) return raw as ReportPeriod;
   return 'month';
 };
 
-const parseRange = (url: URL, period: 'month' | 'quarter' | 'year'): ResolvedDateRange => {
+const parseRange = (url: URL, period: ReportPeriod): ResolvedDateRange => {
   return resolveDateRange(
     url.searchParams.get('start'),
     url.searchParams.get('end'),
