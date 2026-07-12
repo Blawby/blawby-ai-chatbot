@@ -48,6 +48,9 @@ index_name = "blawby-search-vectors"
 [ai]
 binding = "AI"
 
+[version_metadata]
+binding = "CF_VERSION_METADATA"
+
 [triggers]
 crons = ["30 3 * * *"]
 
@@ -119,6 +122,9 @@ index_name = "blawby-search-vectors-dev"
 
 [env.dev.ai]
 binding = "AI"
+
+[env.dev.version_metadata]
+binding = "CF_VERSION_METADATA"
 
 [env.dev.triggers]
 crons = ["30 3 * * *"]
@@ -226,6 +232,9 @@ index_name = "blawby-search-vectors-staging"
 [env.staging.ai]
 binding = "AI"
 
+[env.staging.version_metadata]
+binding = "CF_VERSION_METADATA"
+
 [env.staging.triggers]
 crons = ["30 3 * * *"]
 
@@ -323,12 +332,26 @@ max_batch_timeout = 5
 max_retries = 5
 dead_letter_queue = "search-index-events-dlq"
 
+[[env.production.queues.producers]]
+queue = "intake-conversation-events"
+binding = "INTAKE_CONVERSATION_EVENTS"
+
+[[env.production.queues.consumers]]
+queue = "intake-conversation-events"
+max_batch_size = 100
+max_batch_timeout = 5
+max_retries = 3
+dead_letter_queue = "intake-conversation-events-dlq"
+
 [[env.production.vectorize]]
 binding = "SEARCH_VECTORS"
 index_name = "blawby-search-vectors"
 
 [env.production.ai]
 binding = "AI"
+
+[env.production.version_metadata]
+binding = "CF_VERSION_METADATA"
 
 [env.production.triggers]
 crons = ["30 3 * * *"]
