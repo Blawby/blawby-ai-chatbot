@@ -50,6 +50,7 @@ import type { IntakeConversationQueueMessage } from './types/intakeConversationQ
 import { handleNotificationQueue } from './queues/notificationProcessor.js';
 import { handleSearchIndexQueue } from './queues/searchIndexConsumer.js';
 import type { SearchIndexEvent } from './types/search.js';
+import { failureClass, logOperationalEvent, routeFamily } from './utils/operationalLogging.js';
 
 export function validateRequest(request: Request): boolean {
   const contentLength = request.headers.get('content-length');
@@ -353,8 +354,21 @@ const affectsSidebarCounts = (pathname: string): boolean =>
 async function handleRequestInternal(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
   const url = new URL(request.url);
   const path = url.pathname;
+  const requestId = crypto.randomUUID();
+  const startedAt = Date.now();
 
   if (!validateRequest(request)) {
+    logOperationalEvent({
+      level: 'warn',
+      event: 'request.failed',
+      env,
+      correlationId: requestId,
+      route: routeFamily(path),
+      outcome: 'failed',
+      failureClass: 'invalid_request',
+      status: 400,
+      durationMs: Date.now() - startedAt,
+    });
     return new Response(JSON.stringify({
       success: false,
       error: 'Invalid request',
@@ -382,52 +396,130 @@ async function handleRequestInternal(request: Request, env: Env, ctx: ExecutionC
     ) {
       edgeCache.invalidate('sidebar:counts:', /* prefix */ true);
     }
+    if (response.status >= 400) {
+      logOperationalEvent({
+        level: response.status >= 500 ? 'error' : 'warn',
+        event: 'request.failed',
+        env,
+        correlationId: requestId,
+        route: routeFamily(path),
+        outcome: 'failed',
+        failureClass: failureClass(undefined, response.status),
+        status: response.status,
+        durationMs: Date.now() - startedAt,
+      });
+    }
     return response;
   } catch (error) {
-    return handleError(error);
+    logOperationalEvent({
+      level: 'error',
+      event: 'request.failed',
+      env,
+      correlationId: requestId,
+      route: routeFamily(path),
+      outcome: 'failed',
+      failureClass: failureClass(error),
+      status: 500,
+      durationMs: Date.now() - startedAt,
+    });
+    return handleError(error, requestId);
   }
 }
 
 export const handleRequest = withCORS(handleRequestInternal, getCorsConfig);
 
 async function handleQueue(batch: MessageBatch<unknown>, env: Env): Promise<void> {
-  if (batch.queue.startsWith('search-index-events')) {
-    return handleSearchIndexQueue(batch as MessageBatch<SearchIndexEvent>, env);
+  const correlationId = crypto.randomUUID();
+  const startedAt = Date.now();
+  const route = batch.queue.startsWith('search-index-events')
+    ? 'queue:search-index-events'
+    : batch.queue.startsWith('intake-conversation-events')
+      ? 'queue:intake-conversation-events'
+      : 'queue:notification-events';
+  logOperationalEvent({ level: 'info', event: 'background_job', env, correlationId, route, outcome: 'started' });
+  try {
+    if (batch.queue.startsWith('search-index-events')) {
+      await handleSearchIndexQueue(batch as MessageBatch<SearchIndexEvent>, env);
+    } else if (batch.queue.startsWith('intake-conversation-events')) {
+      await handleIntakeConversationQueue(batch as MessageBatch<IntakeConversationQueueMessage>, env);
+    } else {
+      await handleNotificationQueue(batch as MessageBatch<NotificationQueueMessage>, env);
+    }
+    logOperationalEvent({
+      level: 'info',
+      event: 'background_job',
+      env,
+      correlationId,
+      route,
+      outcome: 'succeeded',
+      durationMs: Date.now() - startedAt,
+    });
+  } catch (error) {
+    logOperationalEvent({
+      level: 'error',
+      event: 'background_job',
+      env,
+      correlationId,
+      route,
+      outcome: 'failed',
+      failureClass: failureClass(error),
+      durationMs: Date.now() - startedAt,
+    });
+    throw error;
   }
-  if (batch.queue.startsWith('intake-conversation-events')) {
-    return handleIntakeConversationQueue(batch as MessageBatch<IntakeConversationQueueMessage>, env);
-  }
-  return handleNotificationQueue(batch as MessageBatch<NotificationQueueMessage>, env);
 }
 
 export default {
   fetch: handleRequest,
-  queue: handleQueue
+  queue: handleQueue,
+  scheduled,
 };
 
 export async function scheduled(event: ScheduledEvent, env: Env, ctx: ExecutionContext): Promise<void> {
   const { StatusService } = await import('./services/StatusService');
+  const correlationId = crypto.randomUUID();
 
-  const cleanupPromise = StatusService.cleanupExpiredStatuses(env)
-    .then(count => {
-      console.log(`Scheduled cleanup: removed ${count} expired status entries`);
-    })
-    .catch(error => {
-      console.error('Scheduled cleanup failed:', error);
-    });
+  const runTask = async (route: string, task: Promise<unknown>): Promise<void> => {
+    const startedAt = Date.now();
+    logOperationalEvent({ level: 'info', event: 'background_job', env, correlationId, route, outcome: 'started' });
+    try {
+      await task;
+      logOperationalEvent({
+        level: 'info',
+        event: 'background_job',
+        env,
+        correlationId,
+        route,
+        outcome: 'succeeded',
+        durationMs: Date.now() - startedAt,
+      });
+    } catch (error) {
+      logOperationalEvent({
+        level: 'error',
+        event: 'background_job',
+        env,
+        correlationId,
+        route,
+        outcome: 'failed',
+        failureClass: failureClass(error),
+        durationMs: Date.now() - startedAt,
+      });
+      throw error;
+    }
+  };
+
+  const cleanupPromise = runTask(
+    'scheduled:status-cleanup',
+    StatusService.cleanupExpiredStatuses(env),
+  );
 
   const searchPurgeCutoff = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString();
-  const searchPurgePromise = env.DB.prepare(
-    `DELETE FROM search_query_log WHERE created_at < ?`,
-  )
-    .bind(searchPurgeCutoff)
-    .run()
-    .then((res) => {
-      console.log(`search_query_log purge: removed ${res.meta?.changes ?? 0} rows older than ${searchPurgeCutoff}`);
-    })
-    .catch((error) => {
-      console.error('search_query_log purge failed:', error);
-    });
+  const searchPurgePromise = runTask(
+    'scheduled:search-log-purge',
+    env.DB.prepare(`DELETE FROM search_query_log WHERE created_at < ?`)
+      .bind(searchPurgeCutoff)
+      .run(),
+  );
 
   ctx.waitUntil(Promise.all([cleanupPromise, searchPurgePromise]));
 }

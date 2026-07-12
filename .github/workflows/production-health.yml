@@ -1,0 +1,114 @@
+name: Production health
+
+on:
+  schedule:
+    - cron: '*/15 * * * *'
+  workflow_dispatch:
+
+permissions:
+  actions: read
+  contents: read
+  issues: write
+
+concurrency:
+  group: production-health
+  cancel-in-progress: false
+
+jobs:
+  health:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - name: Check production health
+        id: health
+        continue-on-error: true
+        run: npx tsx scripts/production-health-check.ts
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: production-health-${{ github.run_id }}
+          path: production-health.json
+          if-no-files-found: error
+          retention-days: 30
+      - name: Notify after two consecutive failures
+        if: steps.health.outcome == 'failure'
+        uses: actions/github-script@v7
+        env:
+          HEALTH_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        with:
+          script: |
+            const title = '[production monitor] Production origin health failure';
+            const runs = await github.rest.actions.listWorkflowRuns({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              workflow_id: 'production-health.yml',
+              branch: 'staging',
+              status: 'completed',
+              per_page: 2,
+            });
+            const previous = runs.data.workflow_runs.find((run) => run.id !== context.runId);
+            if (previous?.conclusion !== 'failure') {
+              core.notice('First failing run; waiting for a consecutive failure before notifying.');
+              return;
+            }
+            const issues = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              per_page: 100,
+            });
+            if (issues.data.some((issue) => issue.title === title)) {
+              core.notice('The bounded production health incident is already open.');
+              return;
+            }
+            await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title,
+              body: [
+                'Two consecutive bounded production health runs failed.',
+                '',
+                `Latest evidence: ${process.env.HEALTH_RUN_URL}`,
+                `Previous failure: ${previous.html_url}`,
+                '',
+                'Use `docs/operations/incident-response.md`; do not retry mutations or expose response bodies.',
+              ].join('\n'),
+            });
+      - name: Close recovered incident
+        if: steps.health.outcome == 'success'
+        uses: actions/github-script@v7
+        env:
+          HEALTH_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        with:
+          script: |
+            const title = '[production monitor] Production origin health failure';
+            const issues = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              per_page: 100,
+            });
+            const incident = issues.data.find((issue) => issue.title === title);
+            if (!incident) return;
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: incident.number,
+              body: `Production health recovered: ${process.env.HEALTH_RUN_URL}`,
+            });
+            await github.rest.issues.update({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: incident.number,
+              state: 'closed',
+              state_reason: 'completed',
+            });
+      - name: Fail unhealthy run
+        if: steps.health.outcome == 'failure'
+        run: exit 1

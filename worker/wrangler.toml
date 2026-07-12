@@ -410,6 +410,15 @@ binding = "AI"
 [env.production.version_metadata]
 binding = "CF_VERSION_METADATA"
 
+[env.production.observability]
+enabled = true
+
+[env.production.observability.logs]
+enabled = true
+head_sampling_rate = 1
+invocation_logs = true
+persist = true
+
 [env.production.triggers]
 crons = ["30 3 * * *"]
 

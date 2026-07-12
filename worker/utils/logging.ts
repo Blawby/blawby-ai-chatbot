@@ -91,8 +91,11 @@ export function logJSONParsing(requestId: string, step: string, data: LogData = 
 export function logError(requestId: string, stage: string, error: Error, data: LogData = {}): void {
   log('error', stage, {
     request_id: requestId,
-    error: error.message,
-    stack: error.stack,
+    failure_class: error instanceof SyntaxError
+      ? 'invalid_json'
+      : error instanceof TypeError
+        ? 'type_error'
+        : 'unexpected_error',
     ...data
   });
 }

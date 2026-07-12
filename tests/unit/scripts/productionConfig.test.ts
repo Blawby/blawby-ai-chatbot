@@ -32,6 +32,10 @@ const validConfig = () => ({
         },
         ai: { binding: 'AI' },
         version_metadata: { binding: 'CF_VERSION_METADATA' },
+        observability: {
+          enabled: true,
+          logs: { enabled: true, persist: true, invocation_logs: true },
+        },
         vars: {
           NODE_ENV: 'production',
           CLOUDFLARE_PUBLIC_URL: 'https://ai.blawby.com',

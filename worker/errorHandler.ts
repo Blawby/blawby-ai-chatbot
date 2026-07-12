@@ -3,11 +3,16 @@ import { ZodError } from 'zod';
 
 // Structured logging for better observability
 export function logError(error: unknown, context: Record<string, unknown> = {}) {
-  const isSafeClientError = error instanceof HttpError && error.status < 500;
+  const status = error instanceof HttpError
+    ? error.status
+    : error instanceof ZodError || error instanceof SyntaxError
+      ? 400
+      : 500;
   const errorData = {
-    error: isSafeClientError ? error.message : 'Internal server error',
-    errorType: error instanceof Error ? error.name : typeof error,
-    context,
+    event: 'error.response',
+    status,
+    failure_class: status >= 500 ? 'server_error' : 'client_error',
+    correlation_id: typeof context.correlationId === 'string' ? context.correlationId : 'unknown',
     timestamp: new Date().toISOString(),
     worker: 'blawby-ai-chatbot'
   };
