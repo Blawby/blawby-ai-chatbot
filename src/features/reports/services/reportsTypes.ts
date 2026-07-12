@@ -138,6 +138,27 @@ export interface TaskProductivityMeta extends Record<string, unknown> {
   averageCycleDays: number;
 }
 
+export type AssistantActivityStatus = 'pending' | 'approved' | 'rejected' | 'executed' | 'failed';
+
+export interface AssistantActivityRow {
+  id: string;
+  conversationId: string;
+  title: string;
+  description: string;
+  status: AssistantActivityStatus;
+  createdAt: string;
+  completedAt: string | null;
+  estimatedMinutesSaved: number;
+}
+
+export interface AssistantActivityMeta extends Record<string, unknown> {
+  estimatedMinutesSaved: number;
+  executedCount: number;
+  rejectedCount: number;
+  failedCount: number;
+  pendingCount: number;
+}
+
 export type ReportRow =
   | RevenueRow
   | AgingRow

@@ -27,6 +27,7 @@ import {
 import { Bar, Pill } from '@/design-system/primitives';
 import { useNavigation } from '@/shared/utils/navigation';
 import { formatCurrency } from '@/shared/utils/currencyFormatter';
+import { formatRelativeTime } from '@/features/matters/utils/formatRelativeTime';
 import { useReportData } from '@/features/reports/hooks/useReportData';
 import { useReportExport } from '@/features/reports/hooks/useReportExport';
 import { reportsApi } from '@/features/reports/services/reportsApi';
@@ -39,6 +40,9 @@ import {
 } from '@/features/reports/config/reportCollection';
 import type { IconComponent } from '@/shared/ui/Icon';
 import type {
+  AssistantActivityMeta,
+  AssistantActivityRow,
+  AssistantActivityStatus,
   RevenueMeta,
   RevenueRow,
   UtilizationMeta,
@@ -510,7 +514,7 @@ export const AllReportsHub: FunctionComponent<AllReportsHubProps> = ({ practiceI
           conversionPercent={conversionPercent}
         />
 
-        <AssistantActivitySection />
+        <AssistantActivitySection practiceId={practiceId} />
 
         <section className="flex flex-col gap-3">
           <div className="flex items-end justify-between border-b border-rule pb-3">
@@ -745,24 +749,21 @@ const IntakeQualitySection: FunctionComponent<IntakeQualitySectionProps> = ({
   );
 };
 
-const AssistantActivitySection: FunctionComponent = () => {
-  // TODO(backend): wire this section to GET /api/reports/:practiceId/assistant-activity
-  // reading from a practice_assistant_actions D1 table (worker-owned, just needs
-  // a route + table). Today the table renders placeholder rows so the chat-first
-  // shape is visible end-to-end and the route gap is documented inline.
-  const placeholderRows: ReadonlyArray<{
-    when: string;
-    what: string;
-    saved: string;
-    status: 'pending' | 'approved' | 'declined';
-  }> = [
-    {
-      when: 'Today',
-      what: 'Recent assistant actions appear here once the activity feed ships.',
-      saved: '—',
-      status: 'pending',
-    },
-  ];
+const ACTIVITY_TONE: Record<AssistantActivityStatus, 'live' | 'warn' | 'urgent' | 'gold' | 'dim'> = {
+  pending: 'gold',
+  approved: 'live',
+  rejected: 'dim',
+  executed: 'live',
+  failed: 'urgent',
+};
+
+const AssistantActivitySection: FunctionComponent<{ practiceId: string }> = ({ practiceId }) => {
+  const { data, loading, error } = useReportData<AssistantActivityRow, AssistantActivityMeta>(
+    practiceId,
+    'assistant-activity'
+  );
+  const minutesSaved = data?.meta?.estimatedMinutesSaved ?? 0;
+  const completed = data?.meta?.executedCount ?? 0;
   return (
     <section className="flex flex-col gap-4">
       <div className="flex items-end justify-between border-b border-rule pb-3">
@@ -770,13 +771,16 @@ const AssistantActivitySection: FunctionComponent = () => {
           Assistant activity log
         </h2>
         <span className="font-mono text-[10px] uppercase tracking-[0.12em] text-dim">
-          Awaiting activity feed
+          {loading ? 'Reading activity' : `${completed} completed · ${minutesSaved}m saved`}
         </span>
       </div>
 
       <Observation>
-        Once the assistant-activity feed ships I will tally hours saved, surface declined actions, and link
-        straight to the source rows for each one.
+        {error
+          ? 'I could not read the assistant activity ledger. Refresh the report to try again.'
+          : data?.items.length
+            ? `The practice assistant completed ${completed} ${completed === 1 ? 'action' : 'actions'} in this view, saving an estimated ${minutesSaved} minutes. Estimates use a fixed action-type rubric and count executed actions only.`
+            : 'No assistant actions have been staged for this practice yet.'}
       </Observation>
 
       <div className="panel overflow-hidden">
@@ -786,19 +790,34 @@ const AssistantActivitySection: FunctionComponent = () => {
           <div className="text-right">Time saved</div>
           <div className="text-center">Status</div>
         </div>
-        {placeholderRows.map((row) => (
+        {loading ? (
+          <div className="flex items-center justify-center gap-3 px-5 py-8 text-sm text-dim-2">
+            <LoadingSpinner size="sm" /> Reading the action ledger…
+          </div>
+        ) : error ? (
+          <div className="px-5 py-8 text-center text-sm text-neg">Assistant activity could not be loaded.</div>
+        ) : data?.items.length ? data.items.map((row) => (
           <div
-            key={row.what}
+            key={row.id}
             className="grid grid-cols-[90px_1fr_90px_90px] items-center gap-4 border-b border-rule px-5 py-3 text-sm last:border-b-0"
           >
-            <div className="font-mono text-[11px] uppercase tracking-[0.04em] text-dim">{row.when}</div>
-            <div className="font-sans text-sm text-ink">{row.what}</div>
-            <div className="text-right font-mono tabular-nums text-ink-2">{row.saved}</div>
+            <time dateTime={row.createdAt} className="font-mono text-[11px] uppercase tracking-[0.04em] text-dim">
+              {formatRelativeTime(row.createdAt)}
+            </time>
+            <div className="min-w-0 font-sans text-sm text-ink">
+              <div className="truncate">{row.title}</div>
+              {row.description ? <div className="truncate text-xs text-dim-2">{row.description}</div> : null}
+            </div>
+            <div className="text-right font-mono tabular-nums text-ink-2">
+              {row.estimatedMinutesSaved ? `${row.estimatedMinutesSaved}m` : '—'}
+            </div>
             <div className="flex justify-center">
-              <Pill tone="dim">{row.status}</Pill>
+              <Pill tone={ACTIVITY_TONE[row.status]}>{row.status}</Pill>
             </div>
           </div>
-        ))}
+        )) : (
+          <div className="px-5 py-8 text-center text-sm text-dim-2">No assistant activity yet.</div>
+        )}
       </div>
     </section>
   );
