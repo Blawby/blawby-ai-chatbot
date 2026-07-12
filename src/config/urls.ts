@@ -93,6 +93,17 @@ export const intakeTemplatesPath = (practiceId: string): string =>
 export const intakeTemplatePath = (practiceId: string, templateId: string): string =>
 	`${intakeTemplatesPath(practiceId)}/${encodeSegment(templateId)}`;
 
+export const intakeTemplateSuggestionsPath = (practiceId: string, templateId: string): string =>
+	`${intakeTemplatePath(practiceId, templateId)}/suggestions`;
+
+export const intakeTemplateSuggestionDecisionPath = (
+	practiceId: string,
+	templateId: string,
+	suggestionId: string,
+	decision: 'approve' | 'dismiss'
+): string =>
+	`${intakeTemplateSuggestionsPath(practiceId, templateId)}/${encodeSegment(suggestionId)}/${decision}`;
+
 export const matterCollectionPath = (practiceId: string): string => `/api/matters/${encodeSegment(practiceId)}`;
 
 export const matterItemPath = (practiceId: string, matterId: string): string =>

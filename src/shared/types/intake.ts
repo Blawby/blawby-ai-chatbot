@@ -106,6 +106,9 @@ export interface IntakeTemplate {
   slug: string;
   name: string;
   status?: IntakeTemplateStatus;
+  /** Durable optimistic-concurrency revision returned by the backend. */
+  revision?: number;
+  publishedAt?: string | null;
   is_default?: boolean;
   /** @deprecated use is_default */
   isDefault?: boolean;
