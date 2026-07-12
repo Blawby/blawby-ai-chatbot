@@ -8,6 +8,7 @@ import {
   deleteEntitySchema,
   runEntityActionSchema,
   validateActionPayload,
+  validateProposedActionContract,
   deriveActionCopy,
 } from './EntityRegistry.js';
 import type { PracticeAssistantSource } from './types.js';
@@ -101,6 +102,7 @@ const renderEntityApproval = async (
 ): Promise<{ title: string; description: string; payload: Record<string, unknown>; sources: PracticeAssistantSource[] }> => {
   const parsed = asRecord(input);
   const payload = validateActionPayload(parsed);
+  validateProposedActionContract(payload);
   const derived = deriveActionCopy(payload);
   return {
     title: derived.title,
