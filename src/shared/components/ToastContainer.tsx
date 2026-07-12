@@ -9,7 +9,7 @@ interface ToastContainerProps {
 
 const ToastContainer: FunctionComponent<ToastContainerProps> = ({ toasts, onRemoveToast }) => {
   return (
-    <div className="fixed top-4 right-4 space-y-2" style={{ zIndex: THEME.zIndex.modal + 50 }}>
+    <div data-testid="toast-container" className="fixed top-4 right-4 space-y-2" style={{ zIndex: THEME.zIndex.modal + 50 }}>
       {toasts.map((toast) => (
         <ToastComponent
           key={toast.id}

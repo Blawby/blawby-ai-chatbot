@@ -63,21 +63,21 @@
   /* ---- Accent (gold) ---- */
   --accent:       oklch(0.72 0.13 82);
   --accent-soft:  oklch(0.72 0.13 82 / 0.14);
-  --accent-deep:  oklch(0.55 0.12 78);
+  --accent-deep:  oklch(0.48 0.12 78);
   --accent-ink:   #2a2200;
 
   --accent-rgb:      212 175 55;
-  --accent-deep-rgb: 145 110 30;
+  --accent-deep-rgb: 119  81 10;
   --accent-ink-rgb:   42  34  0;
 
   /* ---- Semantic status ---- */
-  --pos:          oklch(0.55 0.10 155);
-  --warn:         oklch(0.68 0.13 60);
-  --neg:          oklch(0.55 0.16 28);
+  --pos:          oklch(0.47 0.10 155);
+  --warn:         oklch(0.44 0.13 60);
+  --neg:          oklch(0.46 0.16 28);
 
-  --pos-rgb:       46 127 78;
-  --warn-rgb:     201 137 30;
-  --neg-rgb:      189  68 40;
+  --pos-rgb:       31 104 61;
+  --warn-rgb:     126  64  0;
+  --neg-rgb:      150  32 33;
 
   /* ---- Compatibility aliases ----
      Page, input, inspector, markdown, and upload components consume these
@@ -214,12 +214,20 @@ html[data-theme="dark"] {
 
   --accent:       oklch(0.78 0.13 82);
   --accent-soft:  oklch(0.78 0.13 82 / 0.16);
-  --accent-deep:  oklch(0.66 0.13 80);
+  --accent-deep:  oklch(0.72 0.13 80);
   --accent-ink:   #2a2200;
 
   --accent-rgb:      221 184 70;
-  --accent-deep-rgb: 173 137 35;
+  --accent-deep-rgb: 196 159 55;
   --accent-ink-rgb:   42  34  0;
+
+  --pos:          oklch(0.75 0.11 155);
+  --warn:         oklch(0.78 0.13 60);
+  --neg:          oklch(0.72 0.16 28);
+
+  --pos-rgb:       98 196 127;
+  --warn-rgb:     239 174  83;
+  --neg-rgb:      238 112  98;
 
   --sidebar-bg:             14  24  48;
   --sidebar-text:           var(--ink-rgb);
@@ -266,12 +274,20 @@ html[data-theme="midnight"] {
 
   --accent:       oklch(0.80 0.14 84);
   --accent-soft:  oklch(0.80 0.14 84 / 0.16);
-  --accent-deep:  oklch(0.66 0.13 80);
+  --accent-deep:  oklch(0.72 0.13 80);
   --accent-ink:   #2a2200;
 
   --accent-rgb:      232 196 80;
-  --accent-deep-rgb: 173 137 35;
+  --accent-deep-rgb: 196 159 55;
   --accent-ink-rgb:   42  34  0;
+
+  --pos:          oklch(0.75 0.11 155);
+  --warn:         oklch(0.78 0.13 60);
+  --neg:          oklch(0.72 0.16 28);
+
+  --pos-rgb:       98 196 127;
+  --warn-rgb:     239 174  83;
+  --neg-rgb:      238 112  98;
 
   --sidebar-bg:             8   16  34;
   --sidebar-text:           var(--ink-rgb);
@@ -318,11 +334,11 @@ html[data-theme="parchment"] {
 
   --accent:       oklch(0.66 0.13 82);
   --accent-soft:  oklch(0.66 0.13 82 / 0.14);
-  --accent-deep:  oklch(0.52 0.11 78);
+  --accent-deep:  oklch(0.46 0.11 78);
   --accent-ink:   #2a2200;
 
   --accent-rgb:      186 152 50;
-  --accent-deep-rgb: 130  98 25;
+  --accent-deep-rgb: 108  74 10;
   --accent-ink-rgb:   42  34  0;
 }
 

@@ -59,6 +59,7 @@ type BaseProps = {
   /** Dropdown direction. Default: "down" */
   direction?: 'up' | 'down';
   description?: string;
+  'aria-label'?: string;
   'aria-labelledby'?: string;
   id?: string;
   autoFocus?: boolean;
@@ -225,6 +226,7 @@ export function Combobox({
   hideCustomHint = false,
   direction = 'down',
   description,
+  'aria-label': ariaLabel,
   'aria-labelledby': ariaLabelledBy,
   id,
   autoFocus,
@@ -234,6 +236,7 @@ export function Combobox({
   const isMultiple = multiple === true;
   const internalId = useMemo(() => uid(), []);
   const inputId = id || internalId;
+  const labelId = `${inputId}-label`;
   const listboxId = `${inputId}-listbox`;
 
   const containerRef = useRef<HTMLDivElement>(null);
@@ -556,7 +559,7 @@ export function Combobox({
     <div ref={containerRef} className={cn('relative w-full', className, disabled && 'opacity-50 pointer-events-none')}>
       {/* Label */}
       {label && (
-        <label htmlFor={inputId} className="mb-1 block text-sm font-medium text-ink">
+        <label id={labelId} className="mb-1 block text-sm font-medium text-ink">
           {label}
         </label>
       )}
@@ -571,7 +574,8 @@ export function Combobox({
           aria-haspopup="listbox"
           aria-expanded={isOpen}
           aria-controls={listboxId}
-          aria-labelledby={ariaLabelledBy}
+          aria-label={ariaLabel}
+          aria-labelledby={ariaLabelledBy ?? (!ariaLabel && label ? labelId : undefined)}
           aria-activedescendant={
             !searchable && isOpen && clampedFocus >= 0
               ? `${inputId}-option-${clampedFocus}`

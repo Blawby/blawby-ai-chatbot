@@ -466,8 +466,8 @@ export function PracticeAssistantBriefing({
     <header className="flex flex-wrap items-end justify-between gap-4 border-b border-rule pb-5">
       <div className="min-w-0">
         <div className="font-mono text-[10.5px] uppercase tracking-[0.16em] text-dim">{greetingDate}</div>
-        <h1 className="mt-1.5 font-serif text-[32px] font-normal leading-none tracking-tight text-ink lg:text-[60px]">
-          {greeting}, <em className="text-accent">{firstName}.</em>
+        <h1 className="mt-1.5 font-sans text-2xl font-semibold leading-tight tracking-tight text-ink lg:text-3xl">
+          {greeting}, {firstName}.
         </h1>
       </div>
       <div className="text-right text-sm leading-relaxed text-ink-2">
@@ -489,11 +489,11 @@ export function PracticeAssistantBriefing({
     const urgent = String(priorityIntake.urgency ?? '').toLowerCase() === 'emergency';
     return (
       <BriefingGrid.Card spanTwo feature>
-        <div className="flex items-center justify-between font-mono text-[9.5px] uppercase tracking-[0.14em] text-accent-deep">
+        <div className="flex items-center justify-between font-mono text-[9.5px] uppercase tracking-[0.14em] text-dim">
           <span>If you do one thing today</span>
           {urgent ? <SignalPill signal="urgent" label="Urgent" /> : <SignalPill signal="warn" label="Triage" />}
         </div>
-        <h3 className="mt-3 font-serif text-2xl font-normal leading-tight tracking-tight text-ink">Triage {name}&apos;s intake.</h3>
+        <h2 className="mt-3 font-sans text-lg font-semibold leading-tight tracking-tight text-ink">Triage {name}&apos;s intake.</h2>
         <p className="mt-1.5 max-w-[46ch] text-[13.5px] leading-relaxed text-ink-2">
           {subject}
           {typeof priorityIntake.case_strength === 'number' ? ` · case strength ${priorityIntake.case_strength.toFixed(1)} / 5` : ''}
@@ -507,11 +507,11 @@ export function PracticeAssistantBriefing({
     );
   })() : (
     <BriefingGrid.Card spanTwo feature>
-      <div className="flex items-center justify-between font-mono text-[9.5px] uppercase tracking-[0.14em] text-accent-deep">
+      <div className="flex items-center justify-between font-mono text-[9.5px] uppercase tracking-[0.14em] text-dim">
         <span>If you do one thing today</span>
-        <span className="font-sans text-[10.5px] normal-case tracking-normal text-accent-deep/80">All clear</span>
+        <span className="font-sans text-[10.5px] normal-case tracking-normal text-dim">All clear</span>
       </div>
-      <h3 className="mt-3 font-serif text-2xl font-normal leading-tight tracking-tight text-ink">No urgent intake waiting on you.</h3>
+      <h2 className="mt-3 font-sans text-lg font-semibold leading-tight tracking-tight text-ink">No urgent intake waiting on you.</h2>
       <p className="mt-1.5 max-w-[46ch] text-[13.5px] leading-relaxed text-ink-2">
         When a new prospect submits an intake, they&apos;ll show up here so you can decide fast.
       </p>
@@ -534,7 +534,7 @@ export function PracticeAssistantBriefing({
       ) : hasCashflowData ? (
         <>
           <div className="mt-3 flex items-baseline gap-2">
-            <span className="font-serif text-4xl leading-none tabular-nums text-ink">{formatCurrency(revenueStat?.value ?? unbilledStat?.value ?? 0)}</span>
+            <span className="font-sans text-3xl font-semibold leading-none tabular-nums text-ink">{formatCurrency(revenueStat?.value ?? unbilledStat?.value ?? 0)}</span>
             <span className="font-mono text-[10px] uppercase tracking-[0.1em] text-dim">{revenueStat ? 'collected · 7d' : 'unbilled · 7d'}</span>
           </div>
           <svg aria-hidden="true" width="100%" height="40" viewBox="0 0 280 40" preserveAspectRatio="none" style={{ display: 'block', marginTop: '10px' }}>
@@ -602,7 +602,7 @@ export function PracticeAssistantBriefing({
         <p className="mt-3 text-[13.5px] leading-relaxed text-ink-2">Nothing on the calendar for the next two weeks.</p>
       ) : (
         <>
-          <h3 className="mt-3 font-serif text-xl font-normal leading-tight tracking-tight text-ink">{upcomingEvents[0].title}</h3>
+          <h2 className="mt-3 font-sans text-lg font-semibold leading-tight tracking-tight text-ink">{upcomingEvents[0].title}</h2>
           <p className="mt-0.5 text-[13px] text-ink-2">{upcomingEvents[0].matterTitle}</p>
           {upcomingEvents.length > 1 && (
             <ul className="mt-2 flex flex-col">
@@ -763,7 +763,7 @@ export function PracticeAssistantBriefing({
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
               <div className="font-mono text-[10px] uppercase tracking-[0.14em] text-dim">Matter · pinned by assistant</div>
-              <h2 className="mt-1.5 font-serif text-[30px] font-normal leading-tight tracking-tight text-ink">{matter.title || 'Untitled matter'}</h2>
+              <h2 className="mt-1.5 font-sans text-2xl font-semibold leading-tight tracking-tight text-ink">{matter.title || 'Untitled matter'}</h2>
               <div className="mt-1 text-[13px] text-dim">
                 {focusClientName ?? matterType}{matter.case_number ? ` · ${matter.case_number}` : ''}{` · opened ${opened}`}
               </div>
@@ -802,7 +802,7 @@ export function PracticeAssistantBriefing({
               return (
                 <div className="rounded-md border border-rule bg-card p-3">
                   <div className="font-mono text-[9.5px] uppercase tracking-[0.12em] text-dim">Retainer</div>
-                  <div className="mt-1 font-serif text-2xl leading-none tracking-tight text-ink">
+                  <div className="mt-1 font-sans text-2xl font-semibold leading-none tracking-tight text-ink">
                     {balanceDollars != null ? (
                       <>
                         {formatCurrency(balanceDollars)}
@@ -818,7 +818,7 @@ export function PracticeAssistantBriefing({
             })()}
             <div className="rounded-md border border-rule bg-card p-3">
               <div className="font-mono text-[9.5px] uppercase tracking-[0.12em] text-dim">Unbilled</div>
-              <div className="mt-1 font-serif text-2xl leading-none tracking-tight text-ink">
+              <div className="mt-1 font-sans text-2xl font-semibold leading-none tracking-tight text-ink">
                 {focusUnbilledHours != null ? (
                   <>
                     {focusUnbilledHours % 1 === 0 ? `${focusUnbilledHours.toFixed(0)}h` : `${focusUnbilledHours.toFixed(1)}h`}
@@ -834,14 +834,14 @@ export function PracticeAssistantBriefing({
             </div>
             <div className="rounded-md border border-rule bg-card p-3">
               <div className="font-mono text-[9.5px] uppercase tracking-[0.12em] text-dim">Events · 30d</div>
-              <div className="mt-1 font-serif text-2xl leading-none tracking-tight text-ink">{focusEventCount != null ? focusEventCount : '—'}</div>
+              <div className="mt-1 font-sans text-2xl font-semibold leading-none tracking-tight text-ink">{focusEventCount != null ? focusEventCount : '—'}</div>
               {focusEventCount != null && focusEventCount > 0 && (
                 <Bar value={Math.min(focusEventCount, 30)} max={30} tone="default" className="mt-2" label="Events in 30 days" />
               )}
             </div>
             <div className="rounded-md border border-rule bg-card p-3">
               <div className="font-mono text-[9.5px] uppercase tracking-[0.12em] text-dim">SOL</div>
-              <div className="mt-1 font-serif text-2xl leading-none tracking-tight text-ink">{focusSolDate ?? '—'}</div>
+              <div className="mt-1 font-sans text-2xl font-semibold leading-none tracking-tight text-ink">{focusSolDate ?? '—'}</div>
             </div>
           </div>
 
@@ -914,7 +914,7 @@ export function PracticeAssistantBriefing({
 
             {/* AI message wrapper */}
             <article className="flex gap-3.5">
-              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-ink font-serif italic leading-none text-accent select-none" style={{ fontSize: '15px' }}>
+              <div className="flex h-8 w-8 shrink-0 select-none items-center justify-center rounded-full bg-ink font-sans text-sm font-semibold leading-none text-accent">
                 B
               </div>
               <div className="min-w-0 flex-1">
@@ -928,7 +928,7 @@ export function PracticeAssistantBriefing({
                   )}
                   <span>{new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}</span>
                 </div>
-                <p className="mb-4 max-w-[52ch] font-serif text-[22px] font-normal leading-snug tracking-tight text-ink" style={{ textWrap: 'balance' } as React.CSSProperties}>
+                <p className="mb-4 max-w-[52ch] font-sans text-lg font-medium leading-snug tracking-tight text-ink" style={{ textWrap: 'balance' } as React.CSSProperties}>
                   Here&apos;s your day.{' '}
                   {priorityIntake
                     ? <>One intake needs a decision before it goes cold.</>

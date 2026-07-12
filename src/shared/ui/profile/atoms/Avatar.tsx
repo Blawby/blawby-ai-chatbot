@@ -23,7 +23,7 @@ interface AvatarProps {
   statusLabel?: string;
   /**
    * DS avatar kind controls fill + ink colors:
-   * - 'ai' (default): gold serif glyph on ink
+   * - 'ai' (default): contrast-aware paper glyph on ink
    * - 'user': paper sans initials on ink gradient
    * - 'staff': accent-deep sans initials on accent-soft
    */

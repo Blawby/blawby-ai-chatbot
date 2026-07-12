@@ -204,7 +204,7 @@ export function EditorShell({
             className="flex-1"
             contentClassName={cn('px-6 py-6', contentMaxWidth ?? undefined, contentClassName)}
             previewClassName={cn(
-              'flex items-start justify-center bg-gray-50 p-6',
+              'flex items-start justify-center bg-paper-2 p-6',
               previewClassName
             )}
           >

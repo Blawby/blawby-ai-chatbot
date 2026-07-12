@@ -24,10 +24,9 @@ export const SettingRow = ({
 }: SettingRowProps) => (
   <div
     className={cn(
-      'grid items-center gap-7 py-[18px] border-b border-rule last:border-0',
+      'grid grid-cols-1 items-center gap-4 border-b border-rule py-[18px] last:border-0 sm:grid-cols-[minmax(0,1fr)_auto] sm:gap-7',
       className,
     )}
-    style={{ gridTemplateColumns: '1fr auto' }}
   >
     <div className="flex min-w-0 flex-col gap-1">
       {labelNode ?? (
@@ -42,7 +41,7 @@ export const SettingRow = ({
       )}
     </div>
     {children != null && (
-      <div className={cn('flex items-center gap-2 shrink-0', controlClassName)}>
+      <div className={cn('flex min-w-0 items-center gap-2 sm:shrink-0', controlClassName)}>
         {children}
       </div>
     )}

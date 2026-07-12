@@ -96,8 +96,8 @@ export const Checkbox = forwardRef<HTMLInputElement, CheckboxProps>(({
 
   const variantClasses = {
     default: 'border-input-border focus:ring-accent focus:border-accent',
-    error: 'border-red-300 focus:ring-red-500 focus:border-red-500',
-    success: 'border-green-300 focus:ring-green-500 focus:border-green-500'
+    error: 'border-neg focus:ring-neg focus:border-neg',
+    success: 'border-pos focus:ring-pos focus:border-pos'
   };
 
   const checkboxClasses = cn(
@@ -131,7 +131,7 @@ export const Checkbox = forwardRef<HTMLInputElement, CheckboxProps>(({
         {displayLabel && (
           <label htmlFor={checkboxId} className="text-sm font-medium text-ink">
             {displayLabel}
-            {required && <span className="text-red-500 ml-1">*</span>}
+            {required && <span className="ml-1 text-neg">*</span>}
           </label>
         )}
         
@@ -142,7 +142,7 @@ export const Checkbox = forwardRef<HTMLInputElement, CheckboxProps>(({
         )}
         
         {error && (
-          <p id={errorId} className="text-xs text-red-600 mt-1" role="alert" aria-live="assertive">
+          <p id={errorId} className="mt-1 text-xs text-neg" role="alert" aria-live="assertive">
             {error}
           </p>
         )}

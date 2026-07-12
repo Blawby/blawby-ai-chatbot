@@ -30,10 +30,10 @@ export const MATTER_STATUS_DOT_CLASS: Record<MatterStatus, string> = {
   conflict_check: 'text-violet-600 dark:text-violet-400',
   conflicted: 'text-rose-600 dark:text-rose-400',
   eligibility: 'text-cyan-600 dark:text-cyan-400',
-  referred: 'text-slate-600 dark:text-slate-400',
+  referred: 'text-dim',
   consultation_scheduled: 'text-blue-600 dark:text-blue-400',
   declined: 'text-rose-600 dark:text-rose-400',
-  engagement_draft: 'text-slate-600 dark:text-slate-400',
+  engagement_draft: 'text-dim',
   engagement_sent: 'text-violet-600 dark:text-violet-400',
   engagement_accepted: 'text-emerald-600 dark:text-emerald-400',
   engagement_pending: 'text-amber-600 dark:text-amber-400',
@@ -45,5 +45,5 @@ export const MATTER_STATUS_DOT_CLASS: Record<MatterStatus, string> = {
   trial: 'text-rose-600 dark:text-rose-400',
   order_entered: 'text-emerald-600 dark:text-emerald-400',
   appeal_pending: 'text-amber-600 dark:text-amber-400',
-  closed: 'text-slate-600 dark:text-slate-400'
+  closed: 'text-dim'
 };

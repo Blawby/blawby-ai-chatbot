@@ -156,19 +156,19 @@ export default function DebugStylesPage() {
         <div className="grid gap-4 md:grid-cols-2">
           <div className="status-info rounded-r-md p-3">
             <p className="text-sm font-semibold">status-info</p>
-            <p className="text-sm opacity-90">Information or neutral feedback.</p>
+            <p className="text-sm">Information or neutral feedback.</p>
           </div>
           <div className="status-success rounded-r-md p-3">
             <p className="text-sm font-semibold">status-success</p>
-            <p className="text-sm opacity-90">Operation completed successfully.</p>
+            <p className="text-sm">Operation completed successfully.</p>
           </div>
           <div className="status-warning rounded-r-md p-3">
             <p className="text-sm font-semibold">status-warning</p>
-            <p className="text-sm opacity-90">Warning or attention required.</p>
+            <p className="text-sm">Warning or attention required.</p>
           </div>
           <div className="status-error rounded-r-md p-3">
             <p className="text-sm font-semibold">status-error</p>
-            <p className="text-sm opacity-90">Critical failure or invalid input.</p>
+            <p className="text-sm">Critical failure or invalid input.</p>
           </div>
         </div>
       </section>
@@ -308,7 +308,7 @@ export default function DebugStylesPage() {
               options={comboboxOptions}
               value={comboboxValue}
               onChange={setComboboxValue}
-              leading={renderUserAvatar({ name: 'Demo User' }, 'xs', 'h-4 w-4 text-dim-2')}
+              leading={renderUserAvatar({ name: 'Demo User' }, 'xs', 'h-4 w-4')}
             />
           </div>
           <div className="panel relative z-30 rounded-r-md p-4 overflow-visible">
@@ -320,7 +320,7 @@ export default function DebugStylesPage() {
               onChange={setComboboxMultiOnlyValue}
               multiple
               searchable={false}
-              leading={renderUserAvatar({ name: 'Demo User' }, 'xs', 'h-4 w-4 text-dim-2')}
+              leading={renderUserAvatar({ name: 'Demo User' }, 'xs', 'h-4 w-4')}
             />
           </div>
           <div className="panel relative z-30 rounded-r-md p-4 overflow-visible">
@@ -332,7 +332,7 @@ export default function DebugStylesPage() {
               onChange={setComboboxMultiValue}
               multiple
               allowCustomValues
-              leading={renderUserAvatar({ name: 'Demo User' }, 'xs', 'h-4 w-4 text-dim-2')}
+              leading={renderUserAvatar({ name: 'Demo User' }, 'xs', 'h-4 w-4')}
             />
           </div>
         </div>

@@ -99,6 +99,10 @@ function PublicShortLinkRoute({ practiceSlug }: { practiceSlug?: string }) {
   return <PublicWorkspaceRoute practiceSlug={practiceSlug} />;
 }
 
+function PublicWelcomeRoute({ practiceSlug }: { practiceSlug?: string }) {
+  return <PublicWorkspaceRoute practiceSlug={practiceSlug} shell="marketing" />;
+}
+
 const mountApp = (mountEl: HTMLElement) => {
   if (import.meta.env.DEV) {
     render(<AppWithProviders />, mountEl);
@@ -151,7 +155,11 @@ const resolveAuthenticatedHomePath = ({
 
 const DevDebugStylesRoute = () => {
   if (!import.meta.env.DEV) return <App404 />;
-  return <DebugStylesPage />;
+  return (
+    <Suspense fallback={<LoadingScreen />}>
+      <DebugStylesPage />
+    </Suspense>
+  );
 };
 
 const DevDebugChatRoute = () => {
@@ -523,7 +531,7 @@ function AppShell() {
           <Route path="/debug/matters" component={DevDebugMatterRoute} />
           <Route path="/debug/onboarding" component={DevDebugOnboardingRoute} />
           <Route path="/pay" component={PayRedirect} />
-          <Route path="/public/:practiceSlug/welcome" component={(props) => <PublicWorkspaceRoute {...props} shell="marketing" />} />
+          <Route path="/public/:practiceSlug/welcome" component={PublicWelcomeRoute} />
           <Route path="/public/:practiceSlug/intake/:templateSlug" component={PublicWorkspaceRoute} />
           <Route path="/public/:practiceSlug" component={PublicWorkspaceRoute} />
           <Route path="/public/:practiceSlug/conversations" component={PublicWorkspaceRoute} />

@@ -18,7 +18,7 @@ export const SettingSection = ({
   first = false,
 }: SettingSectionProps) => (
   <section className={cn('pb-8', first ? 'pt-0' : 'pt-8 border-t border-rule', className)}>
-    <h3 className="font-serif text-2xl font-normal tracking-tight text-ink mb-1">{title}</h3>
+    <h2 className="mb-1 font-sans text-xl font-semibold tracking-tight text-ink">{title}</h2>
     {description && (
       <p className="text-[13.5px] text-dim mb-6 max-w-[60ch] leading-relaxed">{description}</p>
     )}

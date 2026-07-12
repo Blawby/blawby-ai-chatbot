@@ -10,7 +10,7 @@ export interface BriefingGridCardProps {
   children: ComponentChildren;
   /** Span both columns (the "morning briefing" hero). */
   spanTwo?: boolean;
-  /** Gold-gradient feature variant. Per spec the first/hero card uses this. */
+  /** Tonal feature variant for the primary briefing card. */
   feature?: boolean;
   className?: string;
 }

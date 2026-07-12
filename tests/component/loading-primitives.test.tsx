@@ -87,8 +87,8 @@ describe('Loading primitives', () => {
     expect(circle.className).toContain('h-6');
     expect(circle.className).toContain('w-6');
     expect(circle.className).toContain('border-2');
-    // Color is inherited from the wrapper's `text-[rgb(var(--accent-foreground))]` via `border-current`.
-    expect(status.className).toContain('text-[rgb(var(--accent-foreground))]');
+    // Color is inherited from the wrapper's semantic accent token via `border-current`.
+    expect(status).toHaveClass('text-accent-ink');
     expect(circle.className).toContain('border-current');
     expect(circle.className).toContain('border-t-transparent');
   });
@@ -134,7 +134,7 @@ describe('Loading primitives', () => {
     expect(blockLabelWrapper).toHaveAttribute('aria-live', 'polite');
     expect(blockLabelStatuses).toHaveLength(1);
     expect(blockLabelContainer.querySelector('.sr-only')).toBeNull();
-    expect(blockLabelContainer.querySelector('.text-sm.text-input-placeholder')).toHaveTextContent('Loading records');
+    expect(blockLabelContainer.querySelector('.text-sm.text-dim-2')).toHaveTextContent('Loading records');
   });
 
   it('renders SkeletonLoader defaults, multi-line variants, and wide text rows', () => {
