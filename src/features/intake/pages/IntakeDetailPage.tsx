@@ -20,7 +20,7 @@ import { useToastContext } from '@/shared/contexts/ToastContext';
 import { useSessionContext } from '@/shared/contexts/SessionContext';
 import { useNavigation } from '@/shared/utils/navigation';
 import { apiClient, isHttpError } from '@/shared/lib/apiClient';
-import { generateEngagement } from '@/config/urls';
+import { engagementTemplatesApi } from '@/shared/api/engagementTemplatesApi';
 import { cn } from '@/shared/utils/cn';
 import {
   fetchConversationMessages,
@@ -777,42 +777,18 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
   ]);
 
   const handleGenerateEngagement = useCallback(async (template: EngagementLetterTemplate) => {
-    if (!intake || generateLoading) return;
-    const metaRecord = (intake.metadata ?? {}) as Record<string, unknown>;
-    const enriched = parseEnrichedData(metaRecord);
+    if (!intake || !practiceId || generateLoading) return;
     setGenerateLoading(true);
     setGeneratedBody(null);
     try {
-      const result = await apiClient.post<{ contractBody: string }>(generateEngagement, {
-        enrichedData: enriched,
-        template,
-        intakeFields: {
-          clientName: typeof metaRecord.name === 'string' ? metaRecord.name : '',
-          clientEmail: typeof metaRecord.email === 'string' ? metaRecord.email : '',
-          opposingParty: typeof metaRecord.opposing_party === 'string' ? metaRecord.opposing_party : null,
-          description: typeof metaRecord.description === 'string' ? metaRecord.description : null,
-          courtDate: intake.court_date ?? null,
-          jurisdiction: typeof (intakeConversationState as unknown as Record<string, unknown>)?.state === 'string'
-            ? (intakeConversationState as unknown as Record<string, unknown>).state as string
-            : null,
-          practiceName: typeof (practiceDetails as Record<string, unknown> | null)?.name === 'string'
-            ? (practiceDetails as Record<string, unknown>).name as string
-            : practiceName,
-        },
-      });
-      // Validate response shape before using
-      if (result?.data && typeof result.data === 'object' && typeof result.data.contractBody === 'string') {
-        setGeneratedBody(result.data.contractBody);
-      } else {
-        console.warn('[IntakeDetailPage] Unexpected generate-engagement response shape', result);
-        showError('Generation failed', 'Unexpected response format from server');
-      }
+      const result = await engagementTemplatesApi.generateDraft(practiceId, template.id, intake.uuid);
+      setGeneratedBody(result.contractBody);
     } catch (error) {
       showError('Generation failed', error instanceof Error ? error.message : 'Failed to generate engagement letter');
     } finally {
       if (isMountedRef.current) setGenerateLoading(false);
     }
-  }, [generateLoading, intake, intakeConversationState, practiceDetails, practiceName, showError]);
+  }, [generateLoading, intake, practiceId, showError]);
 
   // Scroll composer textarea into view when reply CTA fires.
   const focusComposer = useCallback(() => {

@@ -28,7 +28,26 @@ export type DraftTemplatePayload = {
 };
 
 const base = (practiceId: string) =>
-  `/api/practices/${encodeURIComponent(practiceId)}/engagement-templates`;
+  `/api/engagement-templates/${encodeURIComponent(practiceId)}`;
+
+const parseEngagementDraft = (
+  value: unknown,
+  expected: { intakeId: string; templateId: string },
+): { contractBody: string } => {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    throw new Error('Malformed engagement draft response.');
+  }
+  const record = value as Record<string, unknown>;
+  if (
+    typeof record.contract_body !== 'string'
+    || !record.contract_body.trim()
+    || record.intake_id !== expected.intakeId
+    || record.template_id !== expected.templateId
+  ) {
+    throw new Error('Malformed engagement draft response.');
+  }
+  return { contractBody: record.contract_body };
+};
 
 async function apiFetch<T>(url: string, init?: RequestInit): Promise<T | undefined> {
   const res = await fetch(url, {
@@ -91,6 +110,17 @@ export const engagementTemplatesApi = {
     return apiFetch(`${base(practiceId)}/${encodeURIComponent(templateId)}`, {
       method: 'DELETE',
     });
+  },
+
+  async generateDraft(practiceId: string, templateId: string, intakeId: string): Promise<{ contractBody: string }> {
+    const response = await apiFetch<unknown>(
+      `${base(practiceId)}/${encodeURIComponent(templateId)}/draft`,
+      {
+        method: 'POST',
+        body: JSON.stringify({ intake_id: intakeId }),
+      },
+    );
+    return parseEngagementDraft(response, { intakeId, templateId });
   },
 
   // Worker route — generates a new template from a natural-language prompt.
