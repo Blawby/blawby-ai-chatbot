@@ -35,8 +35,9 @@ const DEFAULT_CORS_OPTIONS: Required<CorsOptions> = {
 
 // Security headers following Cloudflare best practices
 export const SECURITY_HEADERS = {
+  'Content-Security-Policy': "default-src 'none'; base-uri 'none'; object-src 'none'; frame-ancestors 'none'; form-action 'none'",
   'X-Content-Type-Options': 'nosniff',
-  'X-Frame-Options': 'SAMEORIGIN',
+  'X-Frame-Options': 'DENY',
   'X-XSS-Protection': '1; mode=block',
   'Referrer-Policy': 'strict-origin-when-cross-origin',
   'Permissions-Policy': 'camera=(), microphone=(), geolocation=()',
@@ -208,13 +209,12 @@ export function getCorsConfig(env: Env): CorsOptions {
   const isProduction = env.NODE_ENV === 'production';
   
   if (isProduction) {
-    // In production, restrict to specific domains
-    const allowedDomains = [
-      'https://ai.blawby.com',
-      'https://ai-staging.blawby.com',
-      'https://blawby.com',
-      'https://www.blawby.com'
-    ];
+    // Fail closed if the validated production allowlist is absent. Same-origin
+    // requests do not require CORS response headers.
+    const allowedDomains = (env.ALLOWED_WS_ORIGINS ?? '')
+      .split(',')
+      .map((origin) => origin.trim())
+      .filter(Boolean);
     return createProductionCorsOptions(allowedDomains);
   } else {
     // In development, allow specific localhost origins for credentials

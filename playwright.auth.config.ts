@@ -31,6 +31,7 @@ export default defineConfig({
     /.*engagements-create-page\.spec\.ts/,
     /.*responsive-auth\.spec\.ts/,
     /.*responsive-screenshots\.spec\.ts/,
+    /.*security-isolation\.spec\.ts/,
   ],
   // Strip the platform suffix so a baseline produced on Windows is
   // comparable against Linux CI when the underlying browser version

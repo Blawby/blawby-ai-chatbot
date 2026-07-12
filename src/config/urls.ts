@@ -23,7 +23,6 @@
  *   /api/conversations/*           - Conversation management + messages
  *   /api/ai/chat                   - AI chat responses
  *   /api/files/*                   - File uploads/downloads
- *   /api/status                    - Status check
  *   /api/health                    - Health check
  *   /api/practices/:id/workspace/* - Practice workspace data (chatbot-specific)
  * 

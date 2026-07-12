@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { parseAuthSessionPayload, requirePracticeMember } from '../../../worker/middleware/auth';
+import { parseAuthSessionPayload, requireAuth, requirePracticeMember } from '../../../worker/middleware/auth';
 import type { Env } from '../../../worker/types';
 
 describe('auth middleware membership resolution', () => {
@@ -159,5 +159,84 @@ describe('auth middleware membership resolution', () => {
         method: 'GET',
       })
     );
+  });
+
+  it.each([
+    'https://worker.example.test/api/reports/practice-b/revenue',
+    'https://worker.example.test/api/activity?practiceId=practice-b',
+  ])('does not let an active Practice A session authorize Practice B identifiers: %s', async (url) => {
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockImplementation(async (input: RequestInfo | URL) => {
+      const requestUrl = String(input);
+      if (requestUrl === 'https://api.example.test/api/auth/get-session') {
+        return Response.json({
+          data: {
+            user: {
+              id: 'user-isolated',
+              email: 'owner@test-blawby.com',
+              name: 'Owner',
+              emailVerified: true,
+            },
+            session: {
+              id: 'session-isolated',
+              expiresAt: new Date('2030-01-01T00:00:00.000Z').toISOString(),
+              activeOrganizationId: 'practice-a',
+            },
+            routing: { active_membership_role: 'owner' },
+          },
+        });
+      }
+      if (requestUrl.includes('organizationId=practice-b')) {
+        return Response.json({ message: 'not a member' }, { status: 403 });
+      }
+      throw new Error(`Unexpected fetch: ${requestUrl}`);
+    });
+
+    const request = new Request(url, {
+      method: url.includes('/activity') ? 'POST' : 'GET',
+      headers: {
+        Cookie: `better-auth.session_token=${crypto.randomUUID()}`,
+        'Content-Type': 'application/json',
+      },
+      body: url.includes('/activity') ? JSON.stringify({ practiceId: 'practice-b' }) : undefined,
+    });
+
+    await expect(requirePracticeMember(request, env, 'practice-b')).rejects.toMatchObject({ status: 403 });
+    expect(fetchSpy).toHaveBeenCalledWith(
+      expect.stringContaining('organizationId=practice-b'),
+      expect.objectContaining({ method: 'GET' }),
+    );
+  });
+
+  it('observes backend session revocation on the next request', async () => {
+    let validationCount = 0;
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockImplementation(async (input: RequestInfo | URL) => {
+      expect(String(input)).toBe('https://api.example.test/api/auth/get-session');
+      validationCount += 1;
+      if (validationCount === 1) {
+        return Response.json({
+          data: {
+            user: {
+              id: 'user-revoked',
+              email: 'client@test-blawby.com',
+              name: 'Client',
+              emailVerified: true,
+            },
+            session: {
+              id: 'session-revoked',
+              expiresAt: new Date('2030-01-01T00:00:00.000Z').toISOString(),
+            },
+          },
+        });
+      }
+      return Response.json({ error: 'revoked' }, { status: 401, statusText: 'Unauthorized' });
+    });
+
+    const request = new Request('https://worker.example.test/api/conversations', {
+      headers: { Cookie: 'better-auth.session_token=revoked-session' },
+    });
+
+    await expect(requireAuth(request, env)).resolves.toMatchObject({ user: { id: 'user-revoked' } });
+    await expect(requireAuth(request, env)).rejects.toMatchObject({ status: 401 });
+    expect(fetchSpy).toHaveBeenCalledTimes(2);
   });
 });

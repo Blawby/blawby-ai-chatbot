@@ -44,13 +44,16 @@ type CachedMembership = {
   expiresAt: number;
 };
 
-const SESSION_CACHE_TTL_MS = 30 * 1000;
-const SESSION_STALE_TTL_MS = 5 * 60 * 1000;
+// Do not reuse a positive session after the backend revokes it. Concurrent
+// validations are still coalesced, but completed results are not cached.
+const SESSION_CACHE_TTL_MS = 0;
+const SESSION_STALE_TTL_MS = 0;
 const SESSION_CACHE_MAX_ENTRIES = 200;
 const sessionCache = new Map<string, CachedSession>();
 const sessionValidationInflight = new Map<string, Promise<{ user: AuthenticatedUser; session: { id: string; expiresAt: Date } }>>();
 const SESSION_COOKIE_NAMES = ['__Secure-better-auth.session_token', 'better-auth.session_token'];
-const MEMBERSHIP_CACHE_TTL_MS = 30 * 1000;
+// Membership removal must take effect on the next request as well.
+const MEMBERSHIP_CACHE_TTL_MS = 0;
 const MEMBERSHIP_CACHE_MAX_ENTRIES = 500;
 const membershipCache = new Map<string, CachedMembership>();
 const membershipValidationInflight = new Map<string, Promise<string>>();

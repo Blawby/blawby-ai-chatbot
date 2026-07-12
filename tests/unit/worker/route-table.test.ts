@@ -96,6 +96,15 @@ describe('worker route table', () => {
     const offEnv = { NODE_ENV: 'test' } as Env;
     expect(findRoute('/api/debug/foo', offEnv)).toBeNull();
     expect(findRoute('/api/test/bar', offEnv)).toBeNull();
+
+    const productionEnv = { NODE_ENV: 'production', ALLOW_DEBUG: 'true' } as Env;
+    expect(findRoute('/api/debug/foo', productionEnv)).toBeNull();
+    expect(findRoute('/api/test/bar', productionEnv)).toBeNull();
+  });
+
+  it('does not expose the retired unauthenticated status surface', () => {
+    expectNoRoute('/api/status/file_123');
+    expectNoRoute('/api/status/cleanup');
   });
 
   it('more-specific widget/practice-details/* matches before /api/widget/bootstrap', () => {

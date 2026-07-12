@@ -23,7 +23,6 @@ const createMockEnv = (): {
       getWithMetadata: mockGetWithMetadata
     } as Env['CHAT_SESSIONS'],
     NOTIFICATION_EVENTS: {} as Env['NOTIFICATION_EVENTS'],
-    CHAT_COUNTER: {} as Env['CHAT_COUNTER'],
     CHAT_ROOM: {} as Env['CHAT_ROOM'],
     MATTER_PROGRESS: {} as Env['MATTER_PROGRESS'],
     PRESENCE_ROOM: {} as Env['PRESENCE_ROOM'],
@@ -55,9 +54,9 @@ describe('Rate Limiting Tests', () => {
     
     expect(result).toBe(true);
     expect(mockPut).toHaveBeenCalledWith(
-      expect.stringContaining('rl:test-client:'),
+      expect.stringContaining('rate-limit:test-client:'),
       '6',
-      expect.objectContaining({ expirationTtl: 65 })
+      expect.objectContaining({ expirationTtl: 120 })
     );
   });
 
@@ -79,9 +78,9 @@ describe('Rate Limiting Tests', () => {
     
     expect(result).toBe(true);
     expect(mockPut).toHaveBeenCalledWith(
-      expect.stringContaining('rl:test-client:'),
+      expect.stringContaining('rate-limit:test-client:'),
       '1',
-      expect.objectContaining({ expirationTtl: 65 })
+      expect.objectContaining({ expirationTtl: 120 })
     );
   });
 
@@ -117,14 +116,21 @@ describe('Rate Limiting Tests', () => {
   it('should generate correct bucket key with time window', async () => {
     const now = Date.now();
     const windowSec = 60;
-    const expectedWindow = Math.floor(now / (windowSec * 1000));
+    const date = new Date(now);
+    const expectedWindow = `${date.getFullYear()}${String(date.getMonth() + 1).padStart(2, '0')}${String(date.getDate()).padStart(2, '0')}${String(date.getHours()).padStart(2, '0')}${String(date.getMinutes()).padStart(2, '0')}`;
     
     mockGet.mockResolvedValue('5');
     
     await rateLimit(mockEnv, 'test-client', 10, windowSec);
     
     expect(mockGet).toHaveBeenCalledWith(
-      expect.stringContaining(`rl:test-client:${expectedWindow}`)
+      expect.stringContaining(`rate-limit:test-client:${expectedWindow}`)
+    );
+  });
+
+  it('fails closed outside tests when no rate-limit store is configured', async () => {
+    await expect(rateLimit({ NODE_ENV: 'production' } as Env, 'client')).rejects.toThrow(
+      'Rate-limit store is not configured',
     );
   });
 });
