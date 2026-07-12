@@ -166,3 +166,17 @@ Never commit or disclose passwords, API tokens, cookies, storage state, private 
 ---
 
 **These guidelines are working if:** agents complete bounded goals autonomously, diffs remain focused, tests prove behavior, review findings are resolved, and blocked states are reported once with actionable evidence.
+
+## Agent skills
+
+### Issue tracker
+
+Issues and PRDs are tracked in GitHub Issues for `Blawby/blawby-ai-chatbot`. See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+Triage uses the five canonical labels without custom aliases. See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+This repository uses a single-context domain-doc layout. See `docs/agents/domain.md`.
