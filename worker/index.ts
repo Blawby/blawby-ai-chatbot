@@ -124,6 +124,7 @@ const matchesBackendProxy: RouteMatcher = (path) =>
   path.startsWith('/api/preferences') ||
   path.startsWith('/api/subscriptions') ||
   path.startsWith('/api/subscription') ||
+  path.startsWith('/api/trust') ||
   path.startsWith('/api/uploads');
 
 // Order is significant: more specific patterns must come before more general

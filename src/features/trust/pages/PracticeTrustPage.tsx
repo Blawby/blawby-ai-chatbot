@@ -28,10 +28,13 @@ import { formatRelativeTime } from '@/features/matters/utils/formatRelativeTime'
 import { reportsApi } from '@/features/reports/services/reportsApi';
 
 import { useTrustLedger, type TrustClientBalance } from '../hooks/useTrustLedger';
+import { useTrustReadiness } from '../hooks/useTrustReadiness';
 import { TrustLedgerEntryRow } from '../components/TrustLedgerEntryRow';
 import { TrustAuditTrailPane } from '../components/TrustAuditTrailPane';
 import { TrustComplianceRulesPane } from '../components/TrustComplianceRulesPane';
 import { EmailCpaDialog } from '../components/EmailCpaDialog';
+import { ReconcileTrustDialog } from '../components/ReconcileTrustDialog';
+import { TrustReadinessPanel } from '../components/TrustReadinessPanel';
 
 const formatCentsMajor = (cents: number): string => formatCurrency(cents / 100);
 
@@ -57,16 +60,6 @@ const formatGeneratedAt = (iso: string | null): string => {
   if (Number.isNaN(d.getTime())) return iso;
   return formatRelativeTime(iso);
 };
-
-/**
- * Rough "low balance" threshold for the AI lede observation. We don't
- * have a per-client retainer target yet (`practices.retainer_target_cents`
- * is in the backend backlog — see PR #662), so a flat $1,000 cents value
- * is the most we can ground without inventing data.
- */
-const LOW_BALANCE_CENTS = 100_000;
-/** Threshold the lede suggests as the typical replenishment amount. */
-const SUGGESTED_REPLENISH_CENTS = 300_000;
 
 /*
  * TODO(backend): expose `matter_id` on `TrustLedgerRow` so per-client
@@ -136,6 +129,12 @@ const PracticeTrustPage: FunctionComponent = () => {
     error,
     refetch,
   } = useTrustLedger(activePracticeId ?? '');
+  const {
+    data: readiness,
+    loading: readinessLoading,
+    error: readinessError,
+    refetch: refetchReadiness,
+  } = useTrustReadiness(activePracticeId ?? '');
 
   // Filter the ledger by client when a chip is clicked.
   const [clientFilter, setClientFilter] = useState<string | null>(null);
@@ -248,16 +247,15 @@ const PracticeTrustPage: FunctionComponent = () => {
   ) : null;
 
   // ── Actionable observation ───────────────────────────────────────────────
-  // Single client with the lowest balance below LOW_BALANCE_CENTS — the
-  // lede surfaces it by name so the user has somewhere to act. We don't
-  // synthesize a name when no one is below threshold; the second sentence
-  // (net flow / period totals) carries the lede instead.
-  const lowestBelowThreshold = useMemo<TrustClientBalance | null>(() => {
-    if (clientBalances.length === 0) return null;
-    const below = clientBalances.filter((b) => b.balanceCents > 0 && b.balanceCents < LOW_BALANCE_CENTS);
-    if (below.length === 0) return null;
-    return below.reduce((min, b) => (b.balanceCents < min.balanceCents ? b : min), below[0]);
-  }, [clientBalances]);
+  // Use the backend's agreed retainer targets; never substitute invoice totals
+  // or a flat client-side threshold for trust funding readiness.
+  const lowestRetainerTarget = useMemo(() => {
+    const lowTargets = readiness?.retainer_targets.filter((target) => target.status === 'low') ?? [];
+    return lowTargets.reduce<(typeof lowTargets)[number] | null>(
+      (lowest, target) => (!lowest || target.funded_percent < lowest.funded_percent ? target : lowest),
+      null,
+    );
+  }, [readiness?.retainer_targets]);
 
   const netFlowCents = totalCreditsCents - totalDebitsCents;
   const isNetOutflow = totalDebitsCents > 0 && netFlowCents < 0;
@@ -266,6 +264,13 @@ const PracticeTrustPage: FunctionComponent = () => {
   const [cpaDialogOpen, setCpaDialogOpen] = useState(false);
   const handleOpenCpaDialog = useCallback(() => setCpaDialogOpen(true), []);
   const handleCloseCpaDialog = useCallback(() => setCpaDialogOpen(false), []);
+  const [reconcileDialogOpen, setReconcileDialogOpen] = useState(false);
+  const handleOpenReconcileDialog = useCallback(() => setReconcileDialogOpen(true), []);
+  const handleCloseReconcileDialog = useCallback(() => setReconcileDialogOpen(false), []);
+  const handleReconciled = useCallback(() => {
+    void refetchReadiness();
+    refetch();
+  }, [refetch, refetchReadiness]);
 
   // ── Generate IOLTA report (send-now → Reports → Deliveries) ──────────────
   const [generatingReport, setGeneratingReport] = useState(false);
@@ -349,11 +354,11 @@ const PracticeTrustPage: FunctionComponent = () => {
     }
     return (
       <>
-        {lowestBelowThreshold ? (
+        {lowestRetainerTarget ? (
           <>
-            I noticed: <em>{lowestBelowThreshold.clientName}</em> retainer is at{' '}
-            <em>{formatCentsMajor(lowestBelowThreshold.balanceCents)}</em> — practices
-            typically replenish at <em>{formatCentsMajor(SUGGESTED_REPLENISH_CENTS)}</em>.
+            I noticed: one matter retainer is at <em>{lowestRetainerTarget.funded_percent}%</em> —{' '}
+            <em>{formatCentsMajor(lowestRetainerTarget.current_balance)}</em> held against a{' '}
+            <em>{formatCentsMajor(lowestRetainerTarget.target_balance)}</em> agreed target.
             {' '}
           </>
         ) : null}
@@ -396,14 +401,14 @@ const PracticeTrustPage: FunctionComponent = () => {
     </Tooltip>
   );
 
-  // Reconcile is also gated on the bank-integration track. Render disabled
-  // so the affordance is visible but the user can't trigger it.
   const reconcileButton = (
-    <Tooltip content="Reconciliation pending bank integration">
-      <Button variant="secondary" disabled>
-        Reconcile
-      </Button>
-    </Tooltip>
+    <Button
+      variant="secondary"
+      onClick={handleOpenReconcileDialog}
+      disabled={!activePracticeId || readinessLoading || !readiness}
+    >
+      Reconcile
+    </Button>
   );
 
   const handleExportCsv = () => {
@@ -458,6 +463,14 @@ const PracticeTrustPage: FunctionComponent = () => {
         >
           {aiSummaryBody}
         </AISummary>
+
+        <TrustReadinessPanel
+          data={readiness}
+          loading={readinessLoading}
+          error={readinessError}
+          onRetry={refetchReadiness}
+          onReconcile={handleOpenReconcileDialog}
+        />
 
         <StatStrip cells={statCells} />
 
@@ -596,6 +609,13 @@ const PracticeTrustPage: FunctionComponent = () => {
         practiceId={activePracticeId}
         isOpen={cpaDialogOpen}
         onClose={handleCloseCpaDialog}
+      />
+      <ReconcileTrustDialog
+        practiceId={activePracticeId}
+        readiness={readiness}
+        isOpen={reconcileDialogOpen}
+        onClose={handleCloseReconcileDialog}
+        onReconciled={handleReconciled}
       />
     </div>
   );

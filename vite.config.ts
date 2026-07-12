@@ -83,6 +83,7 @@ const workerEndpoints = [
 	'engagement-contracts',
 	'matters',
 	'tasks',
+	'trust',
 	'uploads',
 	'widget',
 	'presence',
