@@ -27,7 +27,6 @@ import { handleGlobalSearch } from './routes/search.js';
 import { handlePresence } from './routes/presence.js';
 import { handleAiChat } from './routes/aiChat.js';
 import { handleAiIntent } from './routes/aiIntent.js';
-import { handleGenerateEngagement } from './routes/generateEngagement.js';
 import { handleDraftEngagementTemplate } from './routes/draftEngagementTemplate.js';
 import { handlePracticeAssistant } from './routes/practiceAssistant.js';
 import { withAuth, withCache, withRateLimit } from './middleware/compose.js';
@@ -114,6 +113,7 @@ const matchesBackendProxy: RouteMatcher = (path) =>
   path.startsWith('/api/onboarding') ||
   path.startsWith('/api/matters') ||
   path.startsWith('/api/engagement-contracts') ||
+  path.startsWith('/api/engagement-templates') ||
   /^\/api\/practices\/[^/]+\/engagement-templates(\/|$)/.test(path) ||
   path.startsWith('/api/invoices') ||
   path.startsWith('/api/practice-client-intakes') ||
@@ -259,15 +259,6 @@ export const routes: RouteEntry[] = [
       'practice-assistant',
       30,
       withAuth((req, env) => handlePracticeAssistant(req, env), { required: true }),
-    ),
-  },
-  {
-    mode: 'owned',
-    match: exact('/api/ai/generate-engagement'),
-    handler: withIpRateLimit(
-      'generate-engagement',
-      20,
-      withAuth((req, env) => handleGenerateEngagement(req, env), { required: true }),
     ),
   },
   {

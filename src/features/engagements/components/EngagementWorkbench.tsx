@@ -62,8 +62,7 @@ import { formatRelativeTime } from '@/features/matters/utils/formatRelativeTime'
 import { getPracticeIntake, listIntakes } from '@/features/intake/api/intakesApi';
 import type { IntakeListItem, PracticeIntakeDetail } from '@/features/intake/api/intakesApi';
 import { resolveIntakeTitle } from '@/features/intake/utils/intakeTitle';
-import { apiClient } from '@/shared/lib/apiClient';
-import { generateEngagement } from '@/config/urls';
+import { engagementTemplatesApi } from '@/shared/api/engagementTemplatesApi';
 import { useToastContext } from '@/shared/contexts/ToastContext';
 import { usePracticeDetails } from '@/shared/hooks/usePracticeDetails';
 import { cn } from '@/shared/utils/cn';
@@ -74,7 +73,6 @@ import {
 } from '../api/engagementsApi';
 import type { EngagementDetail } from '../types/engagement';
 import {
-  buildDeterministicContractBody,
   buildEngagementDraftFormFromIntake,
   buildProposalDataFromDraft,
   EMPTY_ENGAGEMENT_DRAFT_FORM,
@@ -555,32 +553,19 @@ export const EngagementWorkbench: FunctionComponent<EngagementWorkbenchProps> = 
       && activeGenerationRef.current.intakeId === intakeId
       && selectedIntakeIdRef.current === intakeId;
 
-    const meta = asRecord(intake.metadata);
-    const enriched = parseEnrichedData(meta);
     setIsGeneratingBody(true);
     try {
-      const result = await apiClient.post<{ contractBody: string }>(generateEngagement, {
-        enrichedData: enriched,
-        template,
-        intakeFields: {
-          clientName: typeof meta.name === 'string' ? meta.name : '',
-          clientEmail: typeof meta.email === 'string' ? meta.email : '',
-          opposingParty: typeof meta.opposing_party === 'string' ? meta.opposing_party : null,
-          description: typeof meta.description === 'string' ? meta.description : null,
-          courtDate: intake.court_date ?? null,
-          practiceName: practiceName ?? null,
-        },
-      });
+      if (!practiceId) throw new Error('Practice context is required to generate an engagement.');
+      const result = await engagementTemplatesApi.generateDraft(practiceId, template.id, intakeId);
       if (!isCurrentGeneration()) return false;
       if (isMountedRef.current) {
-        setForm((prev) => ({ ...prev, contractBody: result.data.contractBody }));
+        setForm((prev) => ({ ...prev, contractBody: result.contractBody }));
       }
       return true;
     } catch (error) {
       if (!isCurrentGeneration()) return false;
       if (isMountedRef.current) {
         showError('Generation failed', error instanceof Error ? error.message : 'Failed to generate engagement letter');
-        setForm((prev) => ({ ...prev, contractBody: prev.contractBody || buildDeterministicContractBody(prev) }));
       }
       return false;
     } finally {
@@ -590,7 +575,7 @@ export const EngagementWorkbench: FunctionComponent<EngagementWorkbenchProps> = 
         if (isMountedRef.current) setIsGeneratingBody(false);
       }
     }
-  }, [practiceName, showError]);
+  }, [practiceId, showError]);
 
   useEffect(() => {
     if (!isCreate || !practiceId || !form.intakeId) {
