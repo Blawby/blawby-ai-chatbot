@@ -185,7 +185,13 @@ const buildSixMonthBars = (rows: readonly RevenueRow[]): BarChartDatum[] => {
   if (rows.length === 0) return [];
   const tail = rows.slice(-6);
   return tail.map((row) => {
-    const label = row.periodLabel.split(' ')[0]?.toUpperCase().slice(0, 3) ?? row.periodLabel;
+    const label = row.periodLabel.startsWith('Week of ')
+      ? new Date(row.periodStart).toLocaleDateString('en-US', {
+          month: 'numeric',
+          day: 'numeric',
+          timeZone: 'UTC',
+        })
+      : row.periodLabel.split(' ')[0]?.toUpperCase().slice(0, 3) ?? row.periodLabel;
     return { label, value: row.paidAmountCents };
   });
 };
