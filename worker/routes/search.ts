@@ -125,12 +125,6 @@ async function loadSuggestions(
   return suggestions;
 }
 
-function pinKey(practiceId: string, userId: string, pinId?: string): string {
-  return pinId
-    ? `search-pin:${practiceId}:${userId}:${pinId}`
-    : `search-pin:${practiceId}:${userId}:`;
-}
-
 function parsePath(pathname: string): {
   practiceId: string;
   action: string | null;
@@ -890,24 +884,17 @@ async function handlePins(
 ): Promise<Response> {
   const auth = await requirePracticeMember(request, env, practiceId, 'paralegal');
   const userId = auth.user.id;
-  if (!env.CHAT_SESSIONS) {
-    throw HttpErrors.internalServerError('Pin storage unavailable');
-  }
 
   if (method === 'GET') {
-    const list = await env.CHAT_SESSIONS.list({ prefix: pinKey(practiceId, userId) });
-    const pins = await Promise.all(
-      list.keys.map(async (k) => {
-        const raw = await env.CHAT_SESSIONS.get(k.name);
-        if (!raw) return null;
-        try {
-          return { id: k.name.split(':').pop(), ...JSON.parse(raw) };
-        } catch {
-          return null;
-        }
-      }),
-    );
-    return SUCCESS(pins.filter(Boolean));
+    const pins = await env.DB.prepare(
+      `SELECT id, entity_type AS entityType, entity_id AS entityId, created_at AS createdAt
+       FROM search_pins
+       WHERE practice_id = ? AND user_id = ?
+       ORDER BY created_at ASC, id ASC`,
+    )
+      .bind(practiceId, userId)
+      .all<{ id: string; entityType: string; entityId: string; createdAt: string }>();
+    return SUCCESS(pins.results);
   }
 
   if (method === 'POST') {
@@ -918,21 +905,21 @@ async function handlePins(
       throw HttpErrors.badRequest('entityType and entityId are required');
     }
     const pinId = crypto.randomUUID();
-    await env.CHAT_SESSIONS.put(
-      pinKey(practiceId, userId, pinId),
-      JSON.stringify({
-        entityType: body.entityType,
-        entityId: body.entityId,
-        createdAt: new Date().toISOString(),
-      }),
-    );
+    await env.DB.prepare(
+      `INSERT INTO search_pins (id, practice_id, user_id, entity_type, entity_id, created_at)
+       VALUES (?, ?, ?, ?, ?, ?)`,
+    )
+      .bind(pinId, practiceId, userId, body.entityType, body.entityId, new Date().toISOString())
+      .run();
     return SUCCESS({ id: pinId }, { status: 201 });
   }
 
   if (method === 'DELETE') {
     const pinId = rest[0];
     if (!pinId) throw HttpErrors.badRequest('Pin id required');
-    await env.CHAT_SESSIONS.delete(pinKey(practiceId, userId, pinId));
+    await env.DB.prepare('DELETE FROM search_pins WHERE id = ? AND practice_id = ? AND user_id = ?')
+      .bind(pinId, practiceId, userId)
+      .run();
     return SUCCESS({ ok: true });
   }
 

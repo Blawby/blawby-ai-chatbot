@@ -10,10 +10,10 @@ This inventory is the source-of-truth checklist for the production configuration
 | Cloudflare Worker | Worker `blawby-ai-chatbot`; route `ai.blawby.com/api/*` | Frontend repository. Wrangler config, dry-run, and live bindings are validated before deploy. |
 | Backend API | `https://api.blawby.com` on Railway | Backend repository and human-owned backend deployment. Frontend validates the URL shape; it does not deploy or roll back the backend. |
 | PostgreSQL | Railway-managed backend database | Backend repository / Railway. Schema migration and recovery are human-owned backend gates. |
-| D1 | Binding `DB`, database `blawby-ai-chatbot` | Worker. Durable conversations, messages, approvals, assistant actions, and intake diagnostics currently live here. |
-| KV | Binding `CHAT_SESSIONS` | Worker. Ephemeral/session and counter support; not the durable business-record store. |
+| D1 | Binding `DB`, database `blawby-ai-chatbot` | Worker. Durable conversations, messages, approvals, assistant actions, intake diagnostics, report schedules, saved search pins, and report-delivery metadata currently live here. |
+| KV | Binding `CHAT_SESSIONS` | Worker. Rebuildable TTL caches, subscriptions, and counters only; never a durable business-record store. |
 | Durable Objects | `CHAT_ROOM`, `CHAT_COUNTER`, `MATTER_PROGRESS`, `PRESENCE_ROOM` | Worker. Realtime coordination, atomic rate limits, and presence. |
-| R2 | Binding `FILES_BUCKET`, bucket `blawby-ai-files` | Worker. Uploaded file objects; recovery evidence belongs to #723. |
+| R2 | Binding `FILES_BUCKET`, bucket `blawby-ai-files` | Worker. Uploaded file objects are durable and require 30-day bucket-lock retention plus the #723 rehearsal. |
 | Notification queue | `NOTIFICATION_EVENTS` / `notification-events` plus DLQ | Worker. In-app/push notification processing. |
 | Search queue | `SEARCH_INDEX_EVENTS` / `search-index-events` plus DLQ | Worker. Search indexing; Vectorize binding is `SEARCH_VECTORS`. |
 | Intake event queue | `INTAKE_CONVERSATION_EVENTS` / `intake-conversation-events` plus DLQ | Worker producer/consumer. Consumer authenticates backend delivery with the named Worker secret `WORKER_EVENT_SECRET`. |

@@ -5,20 +5,96 @@ import {
 } from '../../../../worker/services/ReportScheduleService';
 import type { Env } from '../../../../worker/types';
 
-class FakeKV {
-  store = new Map<string, string>();
-  async get(key: string) { return this.store.get(key) ?? null; }
-  async put(key: string, value: string) { this.store.set(key, value); }
-  async delete(key: string) { this.store.delete(key); }
-  async list({ prefix }: { prefix: string }) {
-    const keys = Array.from(this.store.keys())
-      .filter((k) => k.startsWith(prefix))
-      .map((name) => ({ name }));
-    return { keys, list_complete: true as const };
+type StoredRow = Record<string, string | number | null>;
+
+class FakeD1 {
+  rows = new Map<string, StoredRow>();
+
+  prepare(query: string) {
+    let args: unknown[] = [];
+    const statement = {
+      bind: (...values: unknown[]) => {
+        args = values;
+        return statement;
+      },
+      all: async <T>() => ({
+        results: [...this.rows.values()]
+          .filter((row) => row.practice_id === args[0])
+          .sort((left, right) => String(left.created_at).localeCompare(String(right.created_at))) as T[],
+        success: true,
+        meta: {},
+      }),
+      first: async <T>() =>
+        ([...this.rows.values()].find((row) => row.practice_id === args[0] && row.id === args[1]) ?? null) as T | null,
+      run: async () => {
+        if (query.startsWith('INSERT')) {
+          const [
+            report_type,
+            frequency,
+            day_of_week,
+            day_of_month,
+            hour_utc,
+            recipients_json,
+            filters_json,
+            active,
+            updated_at,
+            next_delivery_at,
+            id,
+            practice_id,
+            created_at,
+          ] = args;
+          this.rows.set(String(id), {
+            id: String(id),
+            practice_id: String(practice_id),
+            report_type: String(report_type),
+            frequency: String(frequency),
+            day_of_week: day_of_week as number | null,
+            day_of_month: day_of_month as number | null,
+            hour_utc: hour_utc as number,
+            recipients_json: String(recipients_json),
+            filters_json: String(filters_json),
+            active: active as number,
+            created_at: String(created_at),
+            updated_at: String(updated_at),
+            next_delivery_at: next_delivery_at as string | null,
+          });
+          return { success: true, meta: { changes: 1 } };
+        }
+        if (query.startsWith('UPDATE')) {
+          const id = String(args[10]);
+          const practiceId = String(args[11]);
+          const row = this.rows.get(id);
+          if (!row || row.practice_id !== practiceId) return { success: true, meta: { changes: 0 } };
+          const keys = [
+            'report_type',
+            'frequency',
+            'day_of_week',
+            'day_of_month',
+            'hour_utc',
+            'recipients_json',
+            'filters_json',
+            'active',
+            'updated_at',
+            'next_delivery_at',
+          ];
+          keys.forEach((key, index) => {
+            row[key] = args[index] as string | number | null;
+          });
+          return { success: true, meta: { changes: 1 } };
+        }
+        const practiceId = String(args[0]);
+        const id = String(args[1]);
+        const row = this.rows.get(id);
+        const deleted = row?.practice_id === practiceId;
+        if (deleted) this.rows.delete(id);
+        return { success: true, meta: { changes: deleted ? 1 : 0 } };
+      },
+    };
+    return statement;
   }
 }
 
-const makeEnv = (kv: FakeKV) => ({ CHAT_SESSIONS: kv as unknown as KVNamespace } as unknown as Env);
+const makeEnv = (db: FakeD1) => ({ DB: db as unknown as D1Database }) as Env;
 
 describe('computeNextDelivery', () => {
   it('rolls daily forward to next-day occurrence if same-day hour has passed', () => {
@@ -61,11 +137,11 @@ describe('computeNextDelivery', () => {
 });
 
 describe('ReportScheduleService', () => {
-  let kv: FakeKV;
+  let db: FakeD1;
   let service: ReportScheduleService;
   beforeEach(() => {
-    kv = new FakeKV();
-    service = new ReportScheduleService(makeEnv(kv));
+    db = new FakeD1();
+    service = new ReportScheduleService(makeEnv(db));
   });
 
   it('create -> get round-trip works and key is scoped to practice', async () => {
@@ -79,7 +155,7 @@ describe('ReportScheduleService', () => {
     });
     expect(created.practiceId).toBe('p1');
     expect(created.id).toBeTruthy();
-    expect(kv.store.has(`report-schedule:p1:${created.id}`)).toBe(true);
+    expect(db.rows.get(created.id)?.practice_id).toBe('p1');
     const got = await service.get('p1', created.id);
     expect(got?.recipients).toEqual(['u1']);
   });
