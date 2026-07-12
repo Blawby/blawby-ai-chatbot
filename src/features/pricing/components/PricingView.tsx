@@ -218,15 +218,11 @@ const PricingView: FunctionComponent<PricingViewProps> = ({
           </div>
         ) : null}
 
-        <div
-          className={isOnboarding ? 'mt-5 rounded-[20px] border bg-[var(--card)] px-6 py-7 shadow-[var(--shadow-2)] md:px-8 md:py-8' : 'mt-6 card px-5 py-6 md:px-7 md:py-8'}
-          style={isOnboarding ? { borderColor: 'var(--rule)' } : undefined}
-        >
+        <div className={isOnboarding ? 'mt-5 rounded-[20px] border border-rule bg-[var(--card)] px-6 py-7 shadow-[var(--shadow-2)] md:px-8 md:py-8' : 'mt-6 card px-5 py-6 md:px-7 md:py-8'}>
           <div className="flex flex-col items-start text-left">
             <h1
               data-testid="pricing-page-title"
-              className={isOnboarding ? 'text-[40px] tracking-[-0.03em] text-ink md:text-[52px]' : 'text-3xl font-semibold tracking-tight text-ink md:text-4xl'}
-              style={isOnboarding ? { fontFamily: 'var(--serif)', fontWeight: 400, lineHeight: 0.95 } : undefined}
+              className={isOnboarding ? 'font-sans text-[40px] font-normal leading-[0.95] tracking-[-0.03em] text-ink md:text-[52px]' : 'text-3xl font-semibold tracking-tight text-ink md:text-4xl'}
             >
               {plan.displayName || plan.name}
             </h1>
@@ -240,14 +236,12 @@ const PricingView: FunctionComponent<PricingViewProps> = ({
             {hasDisplayPrice && plan.currency ? (
               <div className={`flex items-end gap-1.5 ${isOnboarding ? 'mt-8' : 'mt-7'}`}>
                 <span
-                  className={isOnboarding ? 'text-[54px] tracking-[-0.04em] text-ink md:text-[68px]' : 'text-5xl font-semibold tracking-tight text-ink md:text-6xl'}
-                  style={isOnboarding ? { fontFamily: 'var(--serif)', fontWeight: 400, lineHeight: 0.95 } : undefined}
+                  className={isOnboarding ? 'font-sans text-[54px] font-normal leading-[0.95] tracking-[-0.04em] text-ink md:text-[68px]' : 'text-5xl font-semibold tracking-tight text-ink md:text-6xl'}
                 >
                   {formatCurrency(selectedPriceValue, plan.currency, i18n.language)}
                 </span>
                 <span
-                  className={isOnboarding ? 'pb-1 text-lg text-dim md:pb-2 md:text-xl' : 'pb-1 text-xl font-semibold text-dim-2 md:pb-2 md:text-2xl'}
-                  style={isOnboarding ? { fontFamily: 'var(--mono)', letterSpacing: '0.08em', textTransform: 'uppercase' } : undefined}
+                  className={isOnboarding ? 'pb-1 font-mono text-lg uppercase tracking-[0.08em] text-dim md:pb-2 md:text-xl' : 'pb-1 text-xl font-semibold text-dim-2 md:pb-2 md:text-2xl'}
                 >
                   /{periodLabel}
                 </span>

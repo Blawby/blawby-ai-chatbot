@@ -79,7 +79,7 @@ export const MatterAskCard = ({
       <div className="flex items-center gap-2.5">
         <div
           aria-hidden="true"
-          className="flex h-7 w-7 items-center justify-center rounded-full bg-[color:var(--accent)] font-[family-name:var(--serif)] text-base italic text-[color:var(--accent-ink)]"
+          className="flex h-7 w-7 items-center justify-center rounded-full bg-[color:var(--accent)] font-sans text-base italic text-[color:var(--accent-ink)]"
         >
           B
         </div>
@@ -87,7 +87,7 @@ export const MatterAskCard = ({
           <div className="font-mono text-[9px] uppercase tracking-[0.1em] text-dim-2">
             {contextLabel}
           </div>
-          <h4 className="font-[family-name:var(--serif)] text-base font-normal text-ink">
+          <h4 className="font-sans text-base font-normal text-ink">
             Ask about this matter
           </h4>
         </div>
@@ -125,7 +125,7 @@ export const MatterAskCard = ({
                   onClick={() => submit(suggestion)}
                   className="flex w-full items-center gap-2 py-1 text-left font-[family-name:var(--sans)] text-[12.5px] text-accent-deep transition-colors hover:text-accent dark:text-accent dark:hover:text-accent-deep"
                 >
-                  <span aria-hidden="true" className="font-[family-name:var(--serif)] italic opacity-70">
+                  <span aria-hidden="true" className="font-sans italic opacity-70">
                     ›
                   </span>
                   <span>{suggestion}</span>

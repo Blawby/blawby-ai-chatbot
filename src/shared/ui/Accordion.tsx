@@ -173,7 +173,7 @@ const AccordionTrigger: FunctionComponent<AccordionTriggerProps> = ({
         aria-expanded={isOpen}
         aria-controls={contentId}
         className={cn(
-          "focus-visible:border-ring focus-visible:ring-ring/50 flex flex-1 items-center justify-between gap-4 px-4 py-3 text-left text-sm font-medium transition-all outline-none focus-visible:ring-[3px] disabled:pointer-events-none disabled:opacity-50 rounded-r-md",
+          "focus-visible:border-ring focus-visible:ring-ring/50 flex flex-1 items-center justify-between gap-4 px-4 py-3 text-left text-sm font-medium transition-[color,background-color,border-color,box-shadow,opacity] outline-none focus-visible:ring-[3px] disabled:pointer-events-none disabled:opacity-50 rounded-r-md",
           className
         )}
         onClick={handleClick}
@@ -213,7 +213,7 @@ const AccordionContent: FunctionComponent<AccordionContentProps> = ({
       role="region"
       aria-labelledby={triggerId}
       className={cn(
-        "text-sm overflow-hidden transition-all duration-200",
+        "text-sm overflow-hidden transition-[max-height,opacity] duration-200",
         isOpen ? "max-h-screen opacity-100" : "max-h-0 opacity-0",
         className
       )}

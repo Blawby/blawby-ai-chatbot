@@ -107,7 +107,7 @@ export function ClientDirectoryRow({
 
       {/* Col 2: name + primary matter sub-line */}
       <div className="min-w-0">
-        <div className="truncate font-[family-name:var(--serif)] text-[17px] leading-[1.1] tracking-[-0.005em] text-ink">
+        <div className="truncate font-sans text-[17px] leading-[1.1] tracking-[-0.005em] text-ink">
           {name}
         </div>
         <div className="mt-1 truncate font-mono text-[11px] uppercase tracking-wider text-dim">

@@ -71,27 +71,14 @@ const getStepState = (
   return 'next';
 };
 
-const indicatorStyles = (state: 'done' | 'now' | 'next') => {
+const indicatorClasses = (state: 'done' | 'now' | 'next') => {
   if (state === 'done') {
-    return {
-      background: 'var(--ink)',
-      border: '1px solid var(--ink)',
-      color: 'var(--accent)'
-    };
+    return 'border-ink bg-ink text-accent';
   }
   if (state === 'now') {
-    return {
-      background: 'var(--accent)',
-      border: '1px solid var(--accent)',
-      color: 'var(--accent-ink)',
-      boxShadow: '0 0 0 4px var(--accent-soft)'
-    };
+    return 'border-accent bg-accent text-accent-ink shadow-[0_0_0_4px_var(--accent-soft)]';
   }
-  return {
-    background: 'var(--card)',
-    border: '1px solid var(--rule)',
-    color: 'var(--dim)'
-  };
+  return 'border-rule bg-card text-dim';
 };
 
 const getMobileState = (
@@ -109,23 +96,11 @@ export const ProgressSidebar = ({
   onStepSelect
 }: ProgressSidebarProps) => {
   return (
-    <aside
-      className="hidden lg:flex lg:flex-col lg:w-[340px] lg:shrink-0 lg:border-r lg:border-rule lg:px-8 lg:pt-9 lg:pb-8"
-      style={{ background: 'color-mix(in oklab, var(--paper) 96%, var(--card))' }}
-    >
+    <aside className="hidden bg-[color-mix(in_oklab,var(--paper)_96%,var(--card))] lg:flex lg:w-[340px] lg:shrink-0 lg:flex-col lg:border-r lg:border-rule lg:px-8 lg:pb-8 lg:pt-9">
       <div>
         <Logo size="md" />
-        <p
-          className="mt-7 max-w-[22ch] text-balance"
-          style={{
-            fontFamily: 'var(--serif)',
-            fontSize: '26px',
-            lineHeight: 1.15,
-            letterSpacing: '-0.012em',
-            color: 'var(--ink)'
-          }}
-        >
-          Let&apos;s get your practice <em style={{ color: 'var(--accent)', fontStyle: 'italic' }}>running itself</em>.
+        <p className="mt-7 max-w-[22ch] text-balance font-sans text-[26px] leading-[1.15] tracking-[-0.012em] text-ink">
+          Let&apos;s get your practice <em className="italic text-accent">running itself</em>.
         </p>
       </div>
 
@@ -144,65 +119,27 @@ export const ProgressSidebar = ({
                 !canClick ? undefined : () => onStepSelect?.(step.clickStep as OnboardingStep)
               }
               disabled={!canClick}
-              className="relative grid grid-cols-[24px_1fr] gap-3.5 rounded-r-md px-3 py-3.5 text-left"
-              style={{
-                cursor: canClick ? 'pointer' : 'default',
-                opacity: 1,
-                background: 'transparent',
-                border: 0
-              }}
+              className={`relative grid grid-cols-[24px_1fr] gap-3.5 rounded-r-md border-0 bg-transparent px-3 py-3.5 text-left opacity-100 ${canClick ? 'cursor-pointer' : 'cursor-default'}`}
             >
               {index < SIDEBAR_STEPS.length - 1 && (
                 <span
                   aria-hidden="true"
-                  className="absolute"
-                  style={{
-                    left: '23px',
-                    top: '38px',
-                    bottom: '-2px',
-                    width: '1px',
-                    background: state === 'done' ? 'var(--ink)' : 'var(--rule)'
-                  }}
+                  className={`absolute bottom-[-2px] left-[23px] top-[38px] w-px ${state === 'done' ? 'bg-ink' : 'bg-rule'}`}
                 />
               )}
 
               <span
                 aria-hidden="true"
-                className="relative z-[1] grid h-6 w-6 place-items-center rounded-full"
-                style={{
-                  fontFamily: 'var(--mono)',
-                  fontSize: '11px',
-                  ...indicatorStyles(state)
-                }}
+                className={`relative z-[1] grid h-6 w-6 place-items-center rounded-full border font-mono text-[11px] ${indicatorClasses(state)}`}
               >
                 {indicatorLabel}
               </span>
 
               <span className="flex min-w-0 flex-col gap-0.5">
-                <span
-                  style={{
-                    fontSize: '14px',
-                    fontWeight: 500,
-                    color:
-                      step.row === 3 && state === 'now'
-                        ? 'var(--accent-deep)'
-                        : state === 'done'
-                          ? 'var(--ink-2)'
-                          : 'var(--ink)',
-                    textDecoration:
-                      state === 'done' && step.row !== 3 ? 'line-through' : 'none',
-                    textDecorationColor: 'var(--dim-2)'
-                  }}
-                >
+                <span className={`text-sm font-medium decoration-dim-2 ${step.row === 3 && state === 'now' ? 'text-accent-deep' : state === 'done' ? 'text-ink-2' : 'text-ink'} ${state === 'done' && step.row !== 3 ? 'line-through' : ''}`}>
                   {step.title}
                 </span>
-                <span
-                  style={{
-                    fontSize: '12px',
-                    color: 'var(--dim)',
-                    lineHeight: 1.35
-                  }}
-                >
+                <span className="text-xs leading-[1.35] text-dim">
                   {step.description}
                 </span>
               </span>
@@ -211,14 +148,7 @@ export const ProgressSidebar = ({
         })}
       </nav>
 
-      <div
-        className="mt-auto"
-        style={{
-          fontFamily: 'var(--mono)',
-          fontSize: '11px',
-          color: 'var(--dim)'
-        }}
-      >
+      <div className="mt-auto font-mono text-[11px] text-dim">
         Step {getSidebarPosition(currentStep)} of 6
       </div>
     </aside>
@@ -241,14 +171,7 @@ export const ProgressPips = ({ currentStep }: ProgressSidebarProps) => {
           <li
             key={step}
             aria-current={isActive ? 'step' : undefined}
-            className="h-1.5 flex-1 rounded-full"
-            style={{
-              background: isActive
-                ? 'var(--accent)'
-                : isDone
-                  ? 'var(--ink)'
-                  : 'var(--rule)'
-            }}
+            className={`h-1.5 flex-1 rounded-full ${isActive ? 'bg-accent' : isDone ? 'bg-ink' : 'bg-rule'}`}
             title={`Step ${step}`}
           />
         );

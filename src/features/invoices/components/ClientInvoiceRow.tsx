@@ -13,7 +13,7 @@ export interface ClientInvoiceRowProps {
  *
  * Built separately from PracticeInvoiceRow per the client/practice
  * separation rule — the client surface shows:
- *   top: serif invoice number + mono amount
+ *   top: sans invoice number + mono amount
  *   mid: matter title (the work being billed)
  *   bot: status pill + due date / paid date
  *
@@ -34,9 +34,9 @@ export function ClientInvoiceRow({ invoice, isSelected = false }: ClientInvoiceR
           : 'border-l-transparent hover:bg-rule-soft'
       )}
     >
-      {/* Top row: serif invoice # + mono amount */}
+      {/* Top row: sans invoice # + mono amount */}
       <div className="flex items-baseline justify-between gap-3">
-        <div className="min-w-0 flex-1 truncate font-[family-name:var(--serif)] text-[17px] leading-tight tracking-[-0.005em] text-ink">
+        <div className="min-w-0 flex-1 truncate font-sans text-[17px] leading-tight tracking-[-0.005em] text-ink">
           {invoice.invoiceNumber || 'Invoice'}
         </div>
         <div className="shrink-0 font-mono text-[14px] tabular-nums tracking-[-0.01em] text-ink">

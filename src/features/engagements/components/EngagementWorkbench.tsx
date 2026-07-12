@@ -12,7 +12,7 @@
  *
  * Layout (per design_handoff_blawby_chat_first/screens/Engagement.html):
  *
- *   [topbar — breadcrumb + serif H1 "Engagement for {Client}" + saved indicator]
+ *   [topbar — breadcrumb + sans H1 "Engagement for {Client}" + saved indicator]
  *   [AIRibbon authoring — "I generated this draft from X, prefilled with Y.
  *                         {N} of {Total} placeholders unresolved"]
  *   ┌──────────────────────┬─────────────────────────────────────┐
@@ -809,7 +809,7 @@ export const EngagementWorkbench: FunctionComponent<EngagementWorkbenchProps> = 
       <div className="font-mono text-[10px] uppercase tracking-[0.14em] text-dim">
         Engagement · {engagementNumber} · {status}
       </div>
-      <h1 className="m-0 font-serif text-[22px] font-normal leading-tight tracking-[-0.012em] text-ink">
+      <h1 className="m-0 font-sans text-[22px] font-normal leading-tight tracking-[-0.012em] text-ink">
         Engagement for <em className="not-italic text-accent-deep italic">{clientNameDisplay}</em>
       </h1>
     </div>
@@ -1081,7 +1081,7 @@ export const EngagementWorkbench: FunctionComponent<EngagementWorkbenchProps> = 
                       ai suggested
                     </span>
                   )}
-                  <span className="font-serif text-[15px] tracking-[-0.005em] text-ink">{opt.title}</span>
+                  <span className="font-sans text-[15px] tracking-[-0.005em] text-ink">{opt.title}</span>
                   <span className="text-[11.5px] leading-snug text-dim">{opt.description}</span>
                 </button>
               );
@@ -1442,7 +1442,7 @@ export const EngagementWorkbench: FunctionComponent<EngagementWorkbenchProps> = 
 
   const clientReviewView = (
     <div className="rounded-md border border-card-border bg-card p-5 text-sm text-ink-2">
-      <p className="font-serif text-base text-ink">Client review page preview</p>
+      <p className="font-sans text-base text-ink">Client review page preview</p>
       <p className="mt-2">
         Clients see this letter inside the standard review page with a signature
         pad and consent checkbox.
@@ -1472,7 +1472,7 @@ export const EngagementWorkbench: FunctionComponent<EngagementWorkbenchProps> = 
 
   const placeholdersCard = (
     <div className="rounded-md border border-card-border bg-card px-4 py-3">
-      <h4 className="m-0 font-serif text-[15px] font-normal">
+      <h4 className="m-0 font-sans text-[15px] font-normal">
         {placeholderStats.total} placeholders — {placeholderStats.resolved} resolved, {placeholderStats.unresolved} open
       </h4>
       <div className="mt-2 flex flex-col">

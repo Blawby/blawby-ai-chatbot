@@ -167,7 +167,7 @@ const SectionHeader = ({
   onCancel: () => void;
 }) => (
   <div className="mb-4 flex items-center justify-between">
-    <h4 className="font-serif text-sm font-semibold tracking-tight text-ink">
+    <h4 className="font-sans text-sm font-semibold tracking-tight text-ink">
       {title}
     </h4>
     {isEditing ? (
@@ -198,7 +198,7 @@ const SectionHeader = ({
         onClick={onEdit}
         icon={Pencil} iconClassName="h-4 w-4"
         className={cn(
-          'text-dim-2 transition-all',
+          'text-dim-2 transition-colors',
           'hover:bg-paper-2 hover:text-ink focus-visible:text-ink'
         )}
         aria-label={`Edit ${title.toLowerCase()}`}
@@ -382,7 +382,7 @@ export const MatterDetailsPanel = ({
   return (
     <div className="panel divide-y divide-white/[0.06]">
       <div className="flex items-center justify-between px-5 py-4">
-        <h3 className="font-serif text-sm font-semibold tracking-tight text-ink">Matter details</h3>
+        <h3 className="font-sans text-sm font-semibold tracking-tight text-ink">Matter details</h3>
         <span aria-hidden="true" className="h-px w-8 bg-gradient-to-r from-accent/0 via-accent/60 to-accent/0" />
       </div>
 

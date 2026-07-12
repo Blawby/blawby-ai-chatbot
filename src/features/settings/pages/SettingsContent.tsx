@@ -52,7 +52,7 @@ export interface SettingsContentProps {
 }
 
 // Hero text per view — matches the design file headings exactly.
-// All settings pages use the same flat layout: crumb → serif h1 → lede → content.
+// All settings pages use the same flat layout: crumb → sans h1 → lede → content.
 // The existing editor-shell-hero__* CSS classes in index.css handle the typography.
 interface SettingsViewHero {
   crumb: string;

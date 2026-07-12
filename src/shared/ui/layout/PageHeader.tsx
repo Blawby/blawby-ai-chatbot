@@ -8,7 +8,7 @@ export interface PageHeaderProps {
    */
   crumb?: ComponentChildren;
   title: string;
-  /** Lede paragraph beneath the title. Source serif body, max 56ch, color ink-2. */
+  /** Lede paragraph beneath the title. Source sans body, max 56ch, color ink-2. */
   subtitle?: string;
   actions?: ComponentChildren;
   className?: string;

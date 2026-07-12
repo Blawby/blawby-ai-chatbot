@@ -122,7 +122,7 @@ export function PINInput({
             'focus-visible:outline-none',
             error && 'field is-error',
             'disabled:opacity-45 disabled:cursor-not-allowed',
-            'transition-all duration-200',
+            'transition-[color,background-color,border-color,box-shadow,opacity] duration-200',
           )}
         />
       ))}

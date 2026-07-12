@@ -58,7 +58,7 @@ export const ClientEngagementDecideRow: FunctionComponent<ClientEngagementDecide
       <div>
         <h3 className="m-0 mb-1 font-serif text-[24px] font-normal leading-[1.15] tracking-[-0.012em] text-ink">
           Ready to{' '}
-          <em className="text-accent" style={{ fontStyle: 'italic' }}>accept?</em>
+          <em className="italic text-accent">accept?</em>
         </h3>
         <p className="m-0 text-[13.5px] leading-[1.55] text-ink-2">{subCopy}</p>
       </div>

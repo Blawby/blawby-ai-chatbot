@@ -110,7 +110,7 @@ export const EmailInput = forwardRef<HTMLInputElement, EmailInputProps>(
 
     const inputClasses = cn(
       "input",
-      "transition-all duration-200",
+      "transition-[color,background-color,border-color,box-shadow] duration-200",
       sizeClasses[size],
       iconPaddingClasses[size],
       variantClasses[variant],

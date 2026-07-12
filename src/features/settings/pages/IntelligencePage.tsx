@@ -473,7 +473,7 @@ export const IntelligencePage = ({ className }: IntelligencePageProps) => {
           <div className="flex items-start gap-3">
             <Icon icon={ShieldCheck} className="mt-0.5 h-5 w-5 shrink-0 text-neg" aria-hidden="true" />
             <div className="min-w-0 flex-1 space-y-1">
-              <h3 className="font-serif text-lg font-normal leading-tight text-neg">
+              <h3 className="font-sans text-lg font-normal leading-tight text-neg">
                 Danger zone
               </h3>
               <p className="text-sm text-ink-2">

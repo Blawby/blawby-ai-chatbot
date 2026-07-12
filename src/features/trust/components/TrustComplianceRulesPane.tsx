@@ -103,7 +103,7 @@ export const TrustComplianceRulesPane: FunctionComponent<TrustComplianceRulesPan
     <section className="panel overflow-hidden">
       <header className="flex items-center justify-between border-b border-rule bg-paper-2 px-5 py-3">
         <div className="flex flex-col">
-          <h3 className="font-serif text-lg leading-tight text-ink">Compliance rules</h3>
+          <h3 className="font-sans text-lg leading-tight text-ink">Compliance rules</h3>
           <span className="mt-0.5 font-mono text-[10px] uppercase tracking-[0.1em] text-dim">
             IOLTA · {activeCount} of {RULES.length} active
           </span>

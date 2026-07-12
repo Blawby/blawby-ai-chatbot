@@ -55,11 +55,10 @@ const ThemeCard = ({ id, label, selected, onSelect }: ThemeCardProps) => {
       type="button"
       onClick={onSelect}
       aria-pressed={selected}
-      className={cn('card card-hover text-left p-0 overflow-hidden', selected ? 'border-ink' : '')}
-      style={{ borderWidth: 2 }}
+      className={cn('card card-hover overflow-hidden border-2 p-0 text-left', selected ? 'border-ink' : '')}
     >
       {/* Mini preview */}
-      <div className="grid overflow-hidden" style={{ height: 80, gridTemplateColumns: '28% 1fr', background: p.bg }}>
+      <div className="grid h-20 grid-cols-[28%_1fr] overflow-hidden" style={{ background: p.bg }}>
         <div className="p-1.5 flex flex-col gap-1" style={{ background: p.sidebar, borderRight: '1px solid rgba(0,0,0,0.08)' }}>
           {p.bars.map((color, i) => (
             <div key={i} className="rounded-sm" style={{ height: 3, background: color, width: i === 2 ? '90%' : i === 1 ? '60%' : i === 3 ? '70%' : '80%' }} />
@@ -73,14 +72,8 @@ const ThemeCard = ({ id, label, selected, onSelect }: ThemeCardProps) => {
       </div>
       {/* Label */}
       <div className="flex items-center justify-between px-3 py-2.5">
-        <span style={{ fontSize: 13, fontWeight: 500, color: 'var(--ink)' }}>{label}</span>
-        <span style={{
-          width: 16, height: 16, borderRadius: '50%',
-          border: `2px solid ${selected ? 'var(--ink)' : 'var(--rule)'}`,
-          background: selected ? 'var(--ink)' : 'transparent',
-          display: 'grid', placeItems: 'center',
-          fontSize: 10, color: 'var(--accent)',
-        }}>
+        <span className="text-[13px] font-medium text-ink">{label}</span>
+        <span className={cn('grid h-4 w-4 place-items-center rounded-full border-2 text-[10px] text-accent', selected ? 'border-ink bg-ink' : 'border-rule bg-transparent')}>
           {selected ? '✓' : null}
         </span>
       </div>
@@ -235,7 +228,7 @@ export const GeneralPage = () => {
       {/* Theme */}
       <SettingSection first title="Theme" description="Choose a color scheme. All themes maintain WCAG AA contrast for readability.">
         <SettingsCard className="max-w-[820px]">
-        <div className="grid gap-3.5" style={{ gridTemplateColumns: 'repeat(3, 1fr)' }}>
+        <div className="grid grid-cols-3 gap-3.5">
           {(['light', 'dark', 'system'] as const).map((id) => (
             <ThemeCard key={id} id={id} label={id.charAt(0).toUpperCase() + id.slice(1)} selected={theme === id} onSelect={() => handleTheme(id)} />
           ))}

@@ -115,7 +115,7 @@ export function CalendarEventRow({
         <span className="font-mono text-[10px] uppercase tracking-[0.1em] text-dim">{dayName}</span>
         <span
           className={cn(
-            'font-serif text-2xl leading-none tracking-tight',
+            'font-sans text-2xl leading-none tracking-tight',
             urgent ? 'text-neg' : 'text-ink'
           )}
         >
@@ -129,7 +129,7 @@ export function CalendarEventRow({
       <div
         aria-hidden="true"
         className={cn(
-          'flex h-8 w-8 items-center justify-center rounded-full border font-serif text-sm italic',
+          'flex h-8 w-8 items-center justify-center rounded-full border font-sans text-sm italic',
           KIND_GLYPH_TONE[event.kind]
         )}
       >
@@ -153,7 +153,7 @@ export function CalendarEventRow({
             <Pill tone="dim">{event.court}</Pill>
           )}
         </div>
-        <div className="truncate font-serif text-base leading-tight tracking-tight text-ink">
+        <div className="truncate font-sans text-base leading-tight tracking-tight text-ink">
           {event.title}
         </div>
         {event.matterId && event.matterTitle && (

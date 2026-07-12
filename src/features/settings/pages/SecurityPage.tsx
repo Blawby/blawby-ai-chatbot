@@ -334,7 +334,7 @@ export const SecurityPage = ({
                   Forgot password?
                 </Button>
               </div>
-              {lastChanged && <p className="mt-3" style={{ fontSize: 12.5, color: 'var(--dim)' }}>Last changed: {lastChanged}</p>}
+              {lastChanged && <p className="mt-3 text-[12.5px] text-dim">Last changed: {lastChanged}</p>}
             </>
           ) : (
             <Button variant="primary" size="sm" onClick={() => void handleResetPassword()} disabled={isResettingPassword}>
@@ -399,7 +399,7 @@ export const SecurityPage = ({
       </SettingSection>
 
       <section className="mt-8 rounded-[20px] border border-[color:color-mix(in_oklab,var(--neg)_30%,var(--rule))] bg-[color:color-mix(in_oklab,var(--neg)_6%,var(--card))] px-5 py-5 sm:px-6">
-        <h3 className="font-serif text-2xl font-normal tracking-tight text-[var(--neg)]">Delete account</h3>
+        <h3 className="font-sans text-2xl font-normal tracking-tight text-[var(--neg)]">Delete account</h3>
         <p className="mt-1 max-w-[60ch] text-[13.5px] leading-relaxed text-ink-2">Permanently delete your Blawby account and all associated data. This removes you from the organization but does not delete the practice. Transfer ownership first if you&apos;re the sole owner.</p>
         <Button variant="danger-ghost" size="sm" className="mt-3"
           onClick={() => showError('Contact support', 'To delete your account, please contact support@blawby.com.')}>

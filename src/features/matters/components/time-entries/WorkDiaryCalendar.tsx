@@ -77,8 +77,7 @@ export const WorkDiaryCalendar = ({ selectedWeekStart, onSelectWeek }: WorkDiary
       <div className="text-sm font-semibold text-ink text-center">{monthLabel}</div>
 
       <div
-        className="mt-4 grid gap-2 text-center text-[11px] font-medium text-dim-2 justify-items-center"
-        style={{ gridTemplateColumns: 'repeat(7, minmax(0, 1fr))' }}
+        className="mt-4 grid grid-cols-7 justify-items-center gap-2 text-center text-[11px] font-medium text-dim-2"
       >
         {WEEKDAYS.map((day) => (
           <div key={day}>{day}</div>
@@ -86,8 +85,7 @@ export const WorkDiaryCalendar = ({ selectedWeekStart, onSelectWeek }: WorkDiary
       </div>
 
       <div
-        className="mt-2 grid gap-2 justify-items-center"
-        style={{ gridTemplateColumns: 'repeat(7, minmax(0, 1fr))' }}
+        className="mt-2 grid grid-cols-7 justify-items-center gap-2"
       >
         {calendarDays.map((day) => {
           const isCurrentMonth = day.getUTCMonth() === monthStart.getUTCMonth();

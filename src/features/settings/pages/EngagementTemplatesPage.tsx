@@ -458,7 +458,7 @@ const TemplateCard = ({ template, onEdit }: TemplateCardProps) => {
         {/* Left — gist + meta */}
         <div className="flex min-w-0 flex-col gap-2">
           <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1.5">
-            <span className="font-serif text-xl leading-tight tracking-tight text-ink sm:text-2xl">
+            <span className="font-sans text-xl leading-tight tracking-tight text-ink sm:text-2xl">
               {template.name || <span className="text-dim-2">Untitled template</span>}
             </span>
             {draft ? (
@@ -491,7 +491,7 @@ const TemplateCard = ({ template, onEdit }: TemplateCardProps) => {
             <span className="font-mono text-[9.5px] uppercase tracking-[0.1em] text-dim">
               {fee.mode}
             </span>
-            <span className="font-serif text-2xl leading-none tracking-tight text-ink tabular-nums sm:text-[28px]">
+            <span className="font-sans text-2xl leading-none tracking-tight text-ink tabular-nums sm:text-[28px]">
               {fee.amount}
               {fee.unit ? (
                 <span className="ml-0.5 font-mono text-[11px] uppercase tracking-[0.06em] text-dim">
@@ -526,7 +526,7 @@ interface EmptyAreaCardProps {
 const EmptyAreaCard = ({ area, onAsk }: EmptyAreaCardProps) => (
   <div className="flex flex-col items-start gap-4 rounded-r-md border border-dashed border-rule bg-paper p-5 sm:flex-row sm:items-center sm:gap-5 sm:px-[26px] sm:py-[22px]">
     <div className="flex-1">
-      <p className="font-serif text-base text-ink sm:text-[17px]">
+      <p className="font-sans text-base text-ink sm:text-[17px]">
         No {area.toLowerCase()} template yet
       </p>
       <p className="mt-1 text-sm leading-snug text-ink-2">
@@ -564,7 +564,7 @@ const AreaSection = ({ bucket, onAdd, onAsk, onEdit }: AreaSectionProps) => {
         )}
       >
         <div className="flex items-baseline gap-3">
-          <h2 className="font-serif text-xl font-normal leading-none tracking-tight text-ink sm:text-[22px]">
+          <h2 className="font-sans text-xl font-normal leading-none tracking-tight text-ink sm:text-[22px]">
             {bucket.area}
           </h2>
           <span className="font-mono text-[10.5px] uppercase tracking-[0.1em] text-dim">
@@ -700,7 +700,7 @@ function TemplateListView({ templates, onNew, onNewInArea, onEdit, onDraftFromPr
       {/* Page hero */}
       <header className="flex flex-col gap-5 border-b border-rule pb-6 lg:flex-row lg:items-end lg:justify-between lg:gap-8">
         <div className="min-w-0 flex-1">
-          <h1 className="font-serif text-3xl font-normal leading-[1.05] tracking-tight text-ink sm:text-4xl lg:text-[46px]">
+          <h1 className="font-sans text-3xl font-normal leading-[1.05] tracking-tight text-ink sm:text-4xl lg:text-[46px]">
             Letters the assistant <em className="not-italic text-accent">drafts from.</em>
           </h1>
           <p className="mt-3 max-w-[58ch] text-sm leading-relaxed text-ink-2 sm:text-[14px]">
@@ -773,7 +773,7 @@ function TemplateListView({ templates, onNew, onNewInArea, onEdit, onDraftFromPr
       {/* Area sections */}
       {totalCount === 0 ? (
         <div className="flex flex-col items-start gap-3 rounded-r-md border border-dashed border-rule bg-paper p-6 sm:p-8">
-          <p className="font-serif text-lg text-ink">No templates yet</p>
+          <p className="font-sans text-lg text-ink">No templates yet</p>
           <p className="max-w-[56ch] text-sm leading-relaxed text-ink-2">
             Create your first engagement letter template, or describe one above and the assistant will draft it from your prior matters.
           </p>

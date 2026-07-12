@@ -62,7 +62,7 @@ export const ClientEngagementGreetingBand: FunctionComponent<ClientEngagementGre
           </div>
         ) : null}
         <h1 className="m-0 font-serif text-[28px] font-normal leading-[1.05] tracking-[-0.018em] text-ink text-balance sm:text-[42px]">
-          Hi {displayName} — <em className="text-accent" style={{ fontStyle: 'italic' }}>here&apos;s the agreement</em> {attorney} wants to sign with you.
+          Hi {displayName} — <em className="italic text-accent">here&apos;s the agreement</em> {attorney} wants to sign with you.
         </h1>
         <p className="m-0 mt-2.5 max-w-[62ch] text-[15px] leading-[1.55] text-ink-2">
           {introCopy}

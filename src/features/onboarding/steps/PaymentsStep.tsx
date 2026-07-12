@@ -69,56 +69,23 @@ export const PaymentsStep = ({
   };
 
   return (
-    <section className="card" style={{ padding: '28px' }}>
-      <h2
-        style={{
-          fontFamily: 'var(--serif)',
-          fontWeight: 400,
-          fontSize: '28px',
-          lineHeight: 1.15,
-          letterSpacing: '-0.01em',
-          margin: '0 0 18px',
-          color: 'var(--ink)'
-        }}
-      >
+    <section className="card p-7">
+      <h2 className="mb-[18px] font-sans text-[28px] font-normal leading-[1.15] tracking-[-0.01em] text-ink">
         Payments &amp; payouts
       </h2>
 
-      <div
-        className="flex flex-col gap-4 rounded-md border p-4 sm:flex-row sm:items-center"
-        style={{
-          background: 'var(--card)',
-          borderColor: 'var(--rule)',
-          borderRadius: 'var(--r-md)'
-        }}
-      >
+      <div className="flex flex-col gap-4 rounded-[var(--r-md)] border border-rule bg-card p-4 sm:flex-row sm:items-center">
         <div
-          className="grid h-10 w-10 shrink-0 place-items-center rounded"
-          style={{
-            background: 'var(--ink)',
-            color: 'var(--paper)',
-            fontWeight: 700,
-            fontFamily: 'var(--sans)',
-            fontSize: '18px'
-          }}
+          className="grid h-10 w-10 shrink-0 place-items-center rounded bg-ink font-sans text-lg font-bold text-paper"
           aria-hidden="true"
         >
           S
         </div>
         <div className="min-w-0 flex-1">
-          <h4
-            style={{
-              fontFamily: 'var(--serif)',
-              fontWeight: 400,
-              fontSize: '18px',
-              margin: 0,
-              lineHeight: 1.2,
-              color: 'var(--ink)'
-            }}
-          >
+          <h4 className="m-0 font-sans text-lg font-normal leading-[1.2] text-ink">
             Set up payouts to get paid
           </h4>
-          <p className="mt-1 text-sm" style={{ color: 'var(--dim)', maxWidth: '50ch' }}>
+          <p className="mt-1 max-w-[50ch] text-sm text-dim">
             Connect your bank account with Stripe so you can accept payments and
             receive payouts.
           </p>
@@ -133,30 +100,22 @@ export const PaymentsStep = ({
         </Button>
       </div>
 
-      <div
-        className="mt-6 rounded-md border p-4 text-sm"
-        style={{
-          background: 'var(--accent-soft)',
-          borderColor: 'color-mix(in oklab, var(--accent) 30%, var(--rule))',
-          borderRadius: 'var(--r-md)',
-          color: 'var(--ink-2)'
-        }}
-      >
+      <div className="mt-6 rounded-[var(--r-md)] border border-[color-mix(in_oklab,var(--accent)_30%,var(--rule))] bg-[var(--accent-soft)] p-4 text-sm text-ink-2">
         Stripe opens a secure hosted flow for business and representative
         verification. You can return here after Stripe sends you back.
       </div>
 
-      <ul className="mt-6 flex flex-col gap-3 text-sm" style={{ color: 'var(--ink-2)' }}>
+      <ul className="mt-6 flex flex-col gap-3 text-sm text-ink-2">
         <li className="flex items-start gap-2">
-          <Icon icon={CheckCircle2} className="h-4 w-4 mt-0.5" style={{ color: 'var(--pos)' }} />
+          <Icon icon={CheckCircle2} className="mt-0.5 h-4 w-4 text-pos" />
           <span>Connect Stripe to receive payouts for your practice</span>
         </li>
         <li className="flex items-start gap-2">
-          <Icon icon={CheckCircle2} className="h-4 w-4 mt-0.5" style={{ color: 'var(--pos)' }} />
+          <Icon icon={CheckCircle2} className="mt-0.5 h-4 w-4 text-pos" />
           <span>Stripe will verify your business and representative details before enabling payouts</span>
         </li>
         <li className="flex items-start gap-2">
-          <Icon icon={CheckCircle2} className="h-4 w-4 mt-0.5" style={{ color: 'var(--pos)' }} />
+          <Icon icon={CheckCircle2} className="mt-0.5 h-4 w-4 text-pos" />
           <span>You can also finish setup later from Payouts &amp; billing settings</span>
         </li>
       </ul>

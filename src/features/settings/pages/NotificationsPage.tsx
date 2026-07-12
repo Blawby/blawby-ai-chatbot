@@ -181,10 +181,7 @@ export const NotificationsPage = ({ className = '' }: NotificationsPageProps) =>
         const emailAlwaysDisabled = section.events.every((e) => e.emailDisabled);
         return (
           <SettingSection key={section.title} first={i === 0} title={section.title} description={section.description}>
-            <div
-              className="grid items-center border-b border-rule pb-2"
-              style={{ gridTemplateColumns: '1fr 70px 70px', gap: 14 }}
-            >
+            <div className="grid grid-cols-[1fr_70px_70px] items-center gap-[14px] border-b border-rule pb-2">
               <span className="font-mono text-[10px] uppercase tracking-[0.1em] text-dim">Event</span>
               <div className="flex flex-col items-center gap-1">
                 <span className="font-mono text-[10px] uppercase tracking-[0.1em] text-dim">Email</span>

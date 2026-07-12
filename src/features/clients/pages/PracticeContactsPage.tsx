@@ -162,13 +162,7 @@ const PendingInvitationDetailPanel = ({
   return (
     <div className="h-full overflow-y-auto @container">
       <div className="space-y-6">
-        <section
-          className="relative overflow-hidden rounded-r-md border"
-          style={{
-            background: 'linear-gradient(180deg, color-mix(in oklab, var(--accent) 12%, var(--card)), var(--card))',
-            borderColor: 'color-mix(in oklab, var(--accent) 30%, var(--rule))',
-          }}
-        >
+        <section className="relative overflow-hidden rounded-r-md border border-rule bg-card">
           <div className="px-6 pb-12 pt-10">
             <div className="flex flex-col items-center text-center">
               <Avatar name={invitation.email} size="xl" />
@@ -355,7 +349,7 @@ const ClientDetailPanel = ({
           <div className="font-mono text-[10px] uppercase tracking-[0.14em] text-dim">
             {isClientRecord ? 'Selected client' : 'Team member'}
           </div>
-          <h2 className="font-[family-name:var(--serif)] text-3xl font-normal leading-[1.05] tracking-[-0.012em] text-ink">
+          <h2 className="font-sans text-3xl font-normal leading-[1.05] tracking-[-0.012em] text-ink">
             {(() => {
               const parts = splitName(client.name);
               if (parts.first && parts.last) {
@@ -1210,7 +1204,7 @@ export const PracticeContactsPage = ({
           <div className="flex min-w-0 items-center gap-3">
             <Avatar name={client.name} size="md" className={cn('shrink-0 text-ink', signal === 'frustrated' && 'ring-1 ring-neg')} />
             <div className="min-w-0">
-              <div className="truncate font-[family-name:var(--serif)] text-[17px] leading-tight text-ink">
+              <div className="truncate font-sans text-[17px] leading-tight text-ink">
                 {client.name}
               </div>
               <div className="mt-1 truncate text-xs text-dim-2">
@@ -1568,7 +1562,7 @@ export const PracticeContactsPage = ({
               <div className="font-mono text-[10.5px] uppercase tracking-[0.16em] text-dim">
                 Clients · {totalForCrumb} active
               </div>
-              <h1 className="mt-1.5 font-[family-name:var(--serif)] text-[32px] font-normal leading-[1.05] tracking-[-0.022em] text-ink sm:text-[44px] sm:leading-none lg:text-[56px]">
+              <h1 className="mt-1.5 font-sans text-[32px] font-normal leading-[1.05] tracking-[-0.022em] text-ink sm:text-[44px] sm:leading-none lg:text-[56px]">
                 Clients you{' '}
                 <em className="not-italic text-accent">haven&apos;t heard from.</em>
               </h1>
@@ -1731,7 +1725,7 @@ export const PracticeContactsPage = ({
             <div className="font-mono text-[10.5px] uppercase tracking-[0.16em] text-dim">
               Contacts · {sortedPendingInvitations.length} pending
             </div>
-            <h1 className="mt-1.5 font-[family-name:var(--serif)] text-[32px] font-normal leading-[1.05] tracking-[-0.022em] text-ink sm:text-[44px] sm:leading-none lg:text-[56px]">
+            <h1 className="mt-1.5 font-sans text-[32px] font-normal leading-[1.05] tracking-[-0.022em] text-ink sm:text-[44px] sm:leading-none lg:text-[56px]">
               Pending invitations
             </h1>
           </div>

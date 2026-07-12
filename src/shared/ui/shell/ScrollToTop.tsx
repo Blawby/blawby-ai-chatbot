@@ -31,7 +31,7 @@ export function ScrollToTop({ threshold = 300, className }: ScrollToTopProps) {
       tabIndex={visible ? 0 : -1}
       className={cn(
         'fixed bottom-6 right-6 z-[200] btn btn-secondary btn-icon-md',
-        'transition-all duration-200',
+        'transition-[opacity,transform] duration-200',
         visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4 pointer-events-none',
         className,
       )}

@@ -18,7 +18,7 @@ export const MatterListItem = ({ matter, onSelect, isSelected = false }: MatterL
   const statusLabel = MATTER_STATUS_LABELS[matter.status];
 
   const rowClassName = cn(
-    'relative w-full text-left flex items-center gap-3 px-4 py-3 transition-all duration-150',
+    'relative w-full text-left flex items-center gap-3 px-4 py-3 transition-colors duration-150',
     isSelected ? SELECTED_ACCENT_SURFACE_CLASS : '',
     isInteractive ? 'hover:bg-paper-2 cursor-pointer' : 'cursor-default'
   );

@@ -13,7 +13,7 @@ export interface PracticeInvoiceRowProps {
  * Chat-first practice invoice row (Invoices.html `.inv-row`).
  *
  * Three-line composition:
- *   top: serif client name + mono amount
+ *   top: sans client name + mono amount
  *   mid: mono "INV-#### · matter · sub-line"
  *   bot: status pill + mono due qualifier ("due in 3d" / "overdue 18d" / "Nov 25")
  *
@@ -35,9 +35,9 @@ export function PracticeInvoiceRow({ invoice, isSelected = false }: PracticeInvo
           : 'border-l-transparent hover:bg-rule-soft'
       )}
     >
-      {/* Top row: serif client + mono amount */}
+      {/* Top row: sans client + mono amount */}
       <div className="flex items-baseline justify-between gap-3">
-        <div className="min-w-0 flex-1 truncate font-[family-name:var(--serif)] text-[17px] leading-tight tracking-[-0.005em] text-ink">
+        <div className="min-w-0 flex-1 truncate font-sans text-[17px] leading-tight tracking-[-0.005em] text-ink">
           {invoice.clientName ?? 'Unknown client'}
         </div>
         <div className="shrink-0 font-mono text-[14px] tabular-nums tracking-[-0.01em] text-ink">

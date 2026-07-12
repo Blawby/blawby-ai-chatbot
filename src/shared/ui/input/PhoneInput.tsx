@@ -318,7 +318,7 @@ export const PhoneInput = forwardRef<HTMLInputElement, PhoneInputProps>(
 
     const inputClasses = cn(
       "w-full h-full rounded-none border-0 bg-transparent text-ink placeholder:text-dim-2",
-      "focus:outline-none transition-all duration-200",
+      "focus:outline-none transition-[color,background-color,border-color,box-shadow] duration-200",
       inputSizeClasses[size],
       showCountryCode ? null : iconPaddingClasses[size],
       showValidation && trimmedValue.length > 0

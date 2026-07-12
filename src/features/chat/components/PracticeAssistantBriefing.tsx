@@ -537,7 +537,7 @@ export function PracticeAssistantBriefing({
             <span className="font-sans text-3xl font-semibold leading-none tabular-nums text-ink">{formatCurrency(revenueStat?.value ?? unbilledStat?.value ?? 0)}</span>
             <span className="font-mono text-[10px] uppercase tracking-[0.1em] text-dim">{revenueStat ? 'collected · 7d' : 'unbilled · 7d'}</span>
           </div>
-          <svg aria-hidden="true" width="100%" height="40" viewBox="0 0 280 40" preserveAspectRatio="none" style={{ display: 'block', marginTop: '10px' }}>
+          <svg aria-hidden="true" width="100%" height="40" viewBox="0 0 280 40" preserveAspectRatio="none" className="mt-2.5 block">
             <defs>
               <linearGradient id="pa-spark-data" x1="0" y1="0" x2="0" y2="1">
                 <stop offset="0%" stopColor="oklch(0.72 0.13 82)" stopOpacity="0.55" />
@@ -558,7 +558,7 @@ export function PracticeAssistantBriefing({
         </>
       ) : (
         <>
-          <svg aria-hidden="true" width="100%" height="40" viewBox="0 0 280 40" preserveAspectRatio="none" style={{ display: 'block', marginTop: '12px' }}>
+          <svg aria-hidden="true" width="100%" height="40" viewBox="0 0 280 40" preserveAspectRatio="none" className="mt-3 block">
             <line x1="0" y1="20" x2="280" y2="20" stroke="var(--rule)" strokeWidth="1" strokeDasharray="5 4" />
             {[0, 56, 112, 168, 224, 280].map((x) => (<circle key={x} cx={x} cy="20" r="2.5" fill="var(--paper-2)" stroke="var(--rule)" strokeWidth="1" />))}
           </svg>
@@ -884,7 +884,7 @@ export function PracticeAssistantBriefing({
           <section>
             <div className="mb-2 flex items-center justify-between font-mono text-[10px] uppercase tracking-[0.14em] text-dim">
               <span>Quick actions</span>
-              <button type="button" className="font-sans text-[11px] normal-case tracking-normal text-ink-2" style={{ textDecoration: 'underline dotted', textUnderlineOffset: '2px' }} onClick={() => goToMatter(matter.id)}>everything else, just ask</button>
+              <button type="button" className="font-sans text-[11px] normal-case tracking-normal text-ink-2 underline decoration-dotted underline-offset-2" onClick={() => goToMatter(matter.id)}>everything else, just ask</button>
             </div>
             <div className="flex flex-wrap gap-1.5">
               <button type="button" className="chip" onClick={() => goToMatter(matter.id)}>Log time</button>
@@ -928,7 +928,7 @@ export function PracticeAssistantBriefing({
                   )}
                   <span>{new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}</span>
                 </div>
-                <p className="mb-4 max-w-[52ch] font-sans text-lg font-medium leading-snug tracking-tight text-ink" style={{ textWrap: 'balance' } as React.CSSProperties}>
+                <p className="mb-4 max-w-[52ch] text-balance font-sans text-lg font-medium leading-snug tracking-tight text-ink">
                   Here&apos;s your day.{' '}
                   {priorityIntake
                     ? <>One intake needs a decision before it goes cold.</>

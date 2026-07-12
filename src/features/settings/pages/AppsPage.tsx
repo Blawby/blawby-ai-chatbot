@@ -59,7 +59,7 @@ const AppCard = ({ app, onSelect }: AppCardProps) => (
     onClick={onSelect}
     className={cn(
       'bg-card border border-rule rounded-lg p-5 text-left flex flex-col gap-3 w-full',
-      'cursor-pointer shadow-sm transition-all',
+      'cursor-pointer shadow-sm transition-[transform,border-color,box-shadow]',
       'hover:border-ink hover:-translate-y-px hover:shadow-md',
     )}
   >
@@ -93,7 +93,7 @@ const AppCard = ({ app, onSelect }: AppCardProps) => (
 
 const SectionHeader = ({ title, count, first = false }: { title: string; count: number; first?: boolean }) => (
   <div className={cn('flex items-baseline gap-2 mb-4', !first && 'pt-8 border-t border-rule')}>
-    <h3 className="font-serif text-[22px] font-normal tracking-tight">{title}</h3>
+    <h3 className="font-sans text-[22px] font-normal tracking-tight">{title}</h3>
     <span className="font-mono text-[10px] tracking-widest text-dim">{count}</span>
   </div>
 );
@@ -117,7 +117,7 @@ export const AppsPage = ({ apps, onSelect, className = '' }: AppsPageProps) => {
       <SettingsCard className="mb-8 max-w-[860px]">
         <div className="flex items-start justify-between gap-4 max-sm:flex-col">
           <div>
-            <div className="font-serif text-[24px] font-normal tracking-[-0.01em] text-ink">Connected tools</div>
+            <div className="font-sans text-[24px] font-normal tracking-[-0.01em] text-ink">Connected tools</div>
             <p className="mt-1 max-w-[58ch] text-[13.5px] leading-relaxed text-dim">
               Connect external services the assistant can read from or act on with your approval.
             </p>

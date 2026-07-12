@@ -75,7 +75,7 @@ export const ClientEngagementAcknowledgmentsCard: FunctionComponent<ClientEngage
         className="mb-1.5 mt-0.5 font-serif text-[26px] font-normal leading-[1.15] tracking-[-0.012em] text-ink"
       >
         Before you{' '}
-        <em className="text-accent" style={{ fontStyle: 'italic' }}>sign,</em>
+        <em className="italic text-accent">sign,</em>
         {' '}please confirm.
       </h3>
       <p className="mb-5 max-w-[60ch] text-[14px] leading-[1.55] text-ink-2">
@@ -108,7 +108,7 @@ export const ClientEngagementAcknowledgmentsCard: FunctionComponent<ClientEngage
               <span
                 aria-hidden="true"
                 className={cn(
-                  'mt-0.5 grid h-[18px] w-[18px] place-items-center rounded-[4px] border-[1.5px] transition-all',
+                  'mt-0.5 grid h-[18px] w-[18px] place-items-center rounded-[4px] border-[1.5px] transition-[background-color,border-color,color]',
                   checked
                     ? 'border-ink bg-ink'
                     : 'border-ink-3 bg-card',

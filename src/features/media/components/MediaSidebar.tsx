@@ -107,7 +107,7 @@ const MediaRow: FunctionComponent<MediaRowProps> = ({ media, onPreview, onError 
       role="button"
       tabIndex={0}
       aria-busy={busy}
-      className="cursor-pointer transition-all duration-200 hover:scale-[1.02] focus:outline-none focus:ring-2 focus:ring-accent/50 rounded-r-md"
+      className="cursor-pointer transition-[transform,box-shadow] duration-200 hover:scale-[1.02] focus:outline-none focus:ring-2 focus:ring-accent/50 rounded-r-md"
       onClick={() => { void handleActivate(); }}
       onKeyDown={(e) => {
         if (e.key === 'Enter' || e.key === ' ') {

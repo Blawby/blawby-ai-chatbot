@@ -375,14 +375,7 @@ const OnboardingFlowImpl = ({
   const resolvedTestId = testId ?? 'onboarding-flow';
 
   return (
-    <div
-      className={`min-h-screen w-full ${className}`}
-      data-testid={resolvedTestId}
-      style={{
-        background:
-          'radial-gradient(ellipse 1200px 800px at 80% -10%, color-mix(in oklab, var(--accent) 18%, transparent), transparent 60%), var(--paper)'
-      }}
-    >
+    <div className={`min-h-screen w-full bg-paper ${className}`} data-testid={resolvedTestId}>
       <div className="mx-auto grid min-h-screen w-full max-w-[1440px] grid-cols-1 lg:grid-cols-[340px_1fr]">
         <ProgressSidebar
           currentStep={step}
@@ -390,17 +383,14 @@ const OnboardingFlowImpl = ({
           onStepSelect={enableSidebarStepSelect ? setStep : undefined}
         />
 
-        <main
-          className="flex min-h-screen flex-col gap-9 px-6 py-10 lg:px-20 lg:py-16"
-          style={{ maxWidth: '940px' }}
-        >
+        <main className="flex min-h-screen max-w-[940px] flex-col gap-9 px-6 py-10 lg:px-20 lg:py-16">
           <ProgressPips currentStep={step} />
 
           {step === 1 && (
             <>
               <StageHeader
                 crumb={CRUMB[1]}
-                title={<>So, let&apos;s <em style={{ color: 'var(--accent)', fontStyle: 'italic' }}>start</em> with you.</>}
+                title={<>So, let&apos;s <em className="italic text-accent">start</em> with you.</>}
                 lede={
                   <>
                     We&apos;ll use your name on engagement letters and your birthday for
@@ -410,9 +400,9 @@ const OnboardingFlowImpl = ({
                 }
               />
               <AssistantTurn trail="private to you">
-                <p style={{ margin: 0 }}>
+                <p className="m-0">
                   I see you just signed up. Let&apos;s get the basics, then we&apos;ll set up
-                  your practice — should take about <em style={{ color: 'var(--accent-deep)', fontStyle: 'italic' }}>two minutes</em>.
+                  your practice — should take about <em className="italic text-accent-deep">two minutes</em>.
                 </p>
               </AssistantTurn>
               <AboutYouStep
@@ -433,7 +423,7 @@ const OnboardingFlowImpl = ({
             <>
               <StageHeader
                 crumb={CRUMB[3]}
-                title={<>Set up <em style={{ color: 'var(--accent)', fontStyle: 'italic' }}>Business</em>.</>}
+                title={<>Set up <em className="italic text-accent">Business</em>.</>}
                 lede={
                   <>
                     This is the same Business plan surface you&apos;ll use before heading
@@ -442,7 +432,7 @@ const OnboardingFlowImpl = ({
                 }
               />
               <AssistantTurn trail="shared workspace">
-                <p style={{ margin: 0 }}>
+                <p className="m-0">
                   Business gives you the shared practice workspace, pricing, and
                   billing setup this flow expects. If you&apos;re reviewing styling,
                   this step should now mirror the existing pricing screen instead
@@ -468,7 +458,7 @@ const OnboardingFlowImpl = ({
             <>
               <StageHeader
                 crumb={CRUMB[2]}
-                title={<>Now — what&apos;s your <em style={{ color: 'var(--accent)', fontStyle: 'italic' }}>practice</em> called?</>}
+                title={<>Now — what&apos;s your <em className="italic text-accent">practice</em> called?</>}
                 lede={
                   <>
                     Your practice is the workspace your team and clients see. Pick a
@@ -478,7 +468,7 @@ const OnboardingFlowImpl = ({
                 }
               />
               <AssistantTurn trail="grounding context">
-                <p style={{ margin: 0 }}>
+                <p className="m-0">
                   {firstName ? <>Got it, <strong>{firstName}</strong>. </> : 'Got it. '}
                   Add the practice name clients should see. We&apos;ll use the
                   jurisdiction, service areas, and practice type to qualify leads
@@ -500,7 +490,7 @@ const OnboardingFlowImpl = ({
             <>
               <StageHeader
                 crumb={CRUMB[4]}
-                title={<>Get <em style={{ color: 'var(--accent)', fontStyle: 'italic' }}>paid</em> — properly.</>}
+                title={<>Get <em className="italic text-accent">paid</em> — properly.</>}
                 lede={
                   <>
                     Connect the Stripe account where payouts from invoices,
@@ -511,7 +501,7 @@ const OnboardingFlowImpl = ({
                 }
               />
               <AssistantTurn trail="payout routing">
-                <p style={{ margin: 0 }}>
+                <p className="m-0">
                   Blawby uses this connected account for money movement: client
                   payments are processed by Stripe, then paid out to the bank account
                   your practice designates. Use the appropriate operating or
@@ -538,7 +528,7 @@ const OnboardingFlowImpl = ({
             <>
               <StageHeader
                 crumb={CRUMB[5]}
-                title={<>Your intake form is <em style={{ color: 'var(--accent)', fontStyle: 'italic' }}>ready.</em></>}
+                title={<>Your intake form is <em className="italic text-accent">ready.</em></>}
                 lede={
                   <>
                     This is what clients see when they reach out. The required fields
@@ -548,7 +538,7 @@ const OnboardingFlowImpl = ({
                 }
               />
               <AssistantTurn trail="seeded for your practice">
-                <p style={{ margin: 0 }}>
+                <p className="m-0">
                   I&apos;ve set up a general consultation intake tuned to your practice areas.
                   Once you&apos;re in your workspace you can rename it, add custom fields, or
                   create forms for different matter types.
@@ -573,7 +563,7 @@ const OnboardingFlowImpl = ({
             <>
               <StageHeader
                 crumb={CRUMB[6]}
-                title={<>You&apos;re <em style={{ color: 'var(--accent)', fontStyle: 'italic' }}>live</em>.</>}
+                title={<>You&apos;re <em className="italic text-accent">live</em>.</>}
                 lede={
                   <>
                     Your intake link is ready. Share it directly, embed it on your
@@ -583,10 +573,10 @@ const OnboardingFlowImpl = ({
                 }
               />
               <AssistantTurn trail="ready for clients">
-                <p style={{ margin: 0 }}>
+                <p className="m-0">
                   Everything is set up. The next thing you&apos;ll see is your
                   workspace — your intake link is already accepting traffic, and
-                  I&apos;ll prompt you to <em style={{ color: 'var(--accent-deep)', fontStyle: 'italic' }}>connect Stripe</em> as
+                  I&apos;ll prompt you to <em className="italic text-accent-deep">connect Stripe</em> as
                   your first action there.
                 </p>
               </AssistantTurn>

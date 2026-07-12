@@ -69,7 +69,7 @@ export const UploadProgressRing = ({
         strokeWidth="2"
         fill="none"
         strokeLinecap="round"
-        className="text-light-file-progress-fill dark:text-dark-file-progress-fill transition-all duration-300"
+        className="text-light-file-progress-fill dark:text-dark-file-progress-fill transition-[stroke-dashoffset] duration-300"
         strokeDasharray={strokeDasharray}
       />
       </svg>
