@@ -18,7 +18,7 @@ afterEach(() => {
 
 describe('practice skill prompt contract', () => {
   it('loads the authenticated practice contract and forwards session authority', async () => {
-    const fetchMock = vi.fn(async () =>
+    const fetchMock = vi.fn(async (_input: string | URL | Request, _init?: RequestInit) =>
       new Response(
         JSON.stringify({
           enabled_skills: ['matter_management'],
@@ -43,7 +43,7 @@ describe('practice skill prompt contract', () => {
   });
 
   it('uses the public slug endpoint for client-facing chat', async () => {
-    const fetchMock = vi.fn(async () =>
+    const fetchMock = vi.fn(async (_input: string | URL | Request, _init?: RequestInit) =>
       new Response(
         JSON.stringify({
           enabled_skills: ['client_intake'],
@@ -65,7 +65,7 @@ describe('practice skill prompt contract', () => {
   it('fast-fails malformed or missing prompt context instead of hiding it', async () => {
     vi.stubGlobal(
       'fetch',
-      vi.fn(async () =>
+      vi.fn(async (_input: string | URL | Request, _init?: RequestInit) =>
         new Response(JSON.stringify({ enabled_skills: ['billing'], prompt_contribution: '' }), {
           status: 200,
           headers: { 'Content-Type': 'application/json' },
