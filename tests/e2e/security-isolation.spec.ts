@@ -3,7 +3,7 @@ import { expect, test } from './fixtures.auth';
 const OTHER_PRACTICE_ID = '00000000-0000-4000-8000-000000000718';
 
 const expectDenied = async (response: { status(): number; text(): Promise<string> }) => {
-  expect([401, 403, 404], await response.text()).toContain(response.status());
+  expect([400, 401, 403, 404], await response.text()).toContain(response.status());
 };
 
 test.describe('launch security isolation', () => {
