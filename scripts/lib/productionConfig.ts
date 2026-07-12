@@ -142,6 +142,15 @@ export function validateProductionConfig(input: ProductionConfigInput): Validati
   if (asRecord(production.version_metadata).binding !== 'CF_VERSION_METADATA') {
     failures.push({ field: 'worker.env.production.version_metadata.CF_VERSION_METADATA', reason: 'release metadata binding is missing' });
   }
+  const observability = asRecord(production.observability);
+  const observabilityLogs = asRecord(observability.logs);
+  if (observability.enabled !== true || observabilityLogs.enabled !== true ||
+      observabilityLogs.persist !== true || observabilityLogs.invocation_logs !== true) {
+    failures.push({
+      field: 'worker.env.production.observability.logs',
+      reason: 'persisted production invocation logs must be enabled',
+    });
+  }
 
   validateHttpsUrl(failures, 'worker.env.production.vars.CLOUDFLARE_PUBLIC_URL', vars.CLOUDFLARE_PUBLIC_URL, 'ai.blawby.com');
   validateHttpsUrl(failures, 'worker.env.production.vars.BACKEND_API_URL', vars.BACKEND_API_URL, 'api.blawby.com');

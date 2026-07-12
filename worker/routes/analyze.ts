@@ -323,7 +323,7 @@ export async function handleAnalyze(request: Request, env: Env): Promise<Respons
   // Rate limiting for analysis endpoint
   const clientId = getClientId(request);
   if (!(await rateLimit(env, clientId, 30, 60))) { // 30 requests per minute
-    logWarning('analyze', 'rate_limit.exceeded', 'Rate limit exceeded', { clientId });
+    logWarning('analyze', 'rate_limit.exceeded', 'Rate limit exceeded');
     return createRateLimitResponse(60, {
       errorMessage: 'Rate limit exceeded. Please try again later.'
     });
@@ -354,10 +354,8 @@ export async function handleAnalyze(request: Request, env: Env): Promise<Respons
     }
 
     log('info', 'file_analysis_start', {
-      fileName: file.name,
       fileType: file.type,
       fileSize: file.size,
-      question: question,
       ENABLE_ADOBE_EXTRACT: env.ENABLE_ADOBE_EXTRACT,
       ADOBE_CLIENT_ID: env.ADOBE_CLIENT_ID ? 'SET' : 'NOT SET',
       requestId
@@ -394,7 +392,6 @@ export async function handleAnalyze(request: Request, env: Env): Promise<Respons
     };
 
     log('info', 'analysis_completed', {
-      fileName: file.name,
       confidence: analysis.confidence,
       summaryLength: analysis.summary?.length || 0,
       keyFactsCount: analysis.key_facts?.length || 0,

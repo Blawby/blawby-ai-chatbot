@@ -55,3 +55,5 @@ Successful launches upload `release-evidence.json` for 90 days and append it to 
 - migration-readiness confirmation.
 
 It never includes runtime configuration or secret values.
+
+After launch, the scheduled native checks and component runbooks in [Launch monitoring and incident response](./incident-response.md) own bounded detection, notification, and recovery evidence.

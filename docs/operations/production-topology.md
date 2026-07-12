@@ -45,3 +45,5 @@ The deploy gate checks that these names exist in Cloudflare without reading or p
 - Push: `ONESIGNAL_APP_ID`, `ONESIGNAL_REST_API_KEY`
 
 GitHub deployment credentials (`CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`) are separately presence-checked by the workflow. Backend, Stripe, OAuth, database, and email secret inventories stay in their owning backend/platform systems and are not copied into this repository.
+
+Production monitoring, thresholds, signal ownership, and incident actions are defined in [Launch monitoring and incident response](./incident-response.md).
