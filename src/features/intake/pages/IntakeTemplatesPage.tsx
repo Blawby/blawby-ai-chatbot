@@ -50,14 +50,6 @@ import { Pill } from '@/design-system/primitives';
 import { IntakeAnalyticsStrip } from '@/features/intake/components/IntakeAnalyticsStrip';
 import { IntakeAuthoringStrip } from '@/features/intake/components/IntakeAuthoringStrip';
 import {
-  IntakeSuggestionBanner,
-  type IntakeAiSuggestion,
-} from '@/features/intake/components/IntakeSuggestionBanner';
-import {
-  IntakeStagedQuestionRow,
-  type StagedQuestion,
-} from '@/features/intake/components/IntakeStagedQuestionRow';
-import {
   IntakePreviewChrome,
   type IntakePreviewMode,
 } from '@/features/intake/components/IntakePreviewChrome';
@@ -345,29 +337,6 @@ function createBlankQuestion(existingKeys: Set<string>, phase: FieldPhase): Edit
     _id: key,
   };
 }
-
-// TODO(backend): the demo AI suggestion + staged-question seeds below
-// keep the chat-first authoring loop visible while the real suggestion
-// endpoint is unimplemented. Once the backend lands, replace these with
-// fetched suggestions keyed by template slug.
-const DEMO_AI_SUGGESTIONS: readonly IntakeAiSuggestion[] = [
-  {
-    id: 'demo-reorder-fee',
-    type: 'reorder',
-    message: 'Move the consult-fee question after jurisdiction — 22% drop-off when we ask for money first.',
-    rationale:
-      'Over the last 30 days, 22% of clients who saw the fee question before disclosing jurisdiction abandoned the form. Re-ordering preserves the conversion path and only nudges payment after we know the matter is in-scope.',
-  },
-];
-
-const DEMO_STAGED_QUESTIONS: readonly StagedQuestion[] = [
-  {
-    id: 'demo-staged-counsel',
-    label: 'Does the other parent have their own counsel?',
-    rationale: 'Helps Sarah judge complexity and conflict risk before triage. Suggested after Q02 (court order = Yes).',
-    previewQuestion: "Does the other parent have their own counsel?",
-  },
-];
 
 function maskStripeAccountId(value?: string | null) {
   if (!value) return 'Not connected';
@@ -691,23 +660,9 @@ function TemplateEditor({
   const [selectedItemId, setSelectedItemId] = useState<BuilderSelectionId>('contact');
 
   // ── Chat-first authoring layer ──────────────────────────────────────────
-  // The natural-language instruction typed into the AI authoring strip.
-  // Stashed locally so we can surface it back in the toast when the
-  // backend endpoint isn't wired yet — and so the eventual backend call
-  // has a clear input to send.
-  const [authoringInstruction, setAuthoringInstruction] = useState('');
   // Preview viewport mode — width-only; the inner widget renders the same
   // content regardless of which device profile is selected.
   const [previewMode, setPreviewMode] = useState<IntakePreviewMode>('mobile');
-  // Suggestions + staged questions are local state for now (seeded from
-  // DEMO_AI_SUGGESTIONS / DEMO_STAGED_QUESTIONS on first render). When the
-  // backend AI authoring endpoint exists, replace these seeds with a
-  // fetch keyed on the template slug — every other handler stays the same.
-  // TODO(backend): replace seed state with `useQuery` against the
-  // AI authoring suggestions endpoint.
-  const [aiSuggestions, setAiSuggestions] = useState<IntakeAiSuggestion[]>(() => [...DEMO_AI_SUGGESTIONS]);
-  const [stagedQuestions, setStagedQuestions] = useState<StagedQuestion[]>(() => [...DEMO_STAGED_QUESTIONS]);
-  const [expandedSuggestionId, setExpandedSuggestionId] = useState<string | null>(null);
 
   const applyEditorState = useCallback((updater: (prev: EditorState) => EditorState) => {
     setState(updater);
@@ -936,60 +891,6 @@ function TemplateEditor({
     setSelectedItemId('contact');
   };
 
-  // ── AI suggestion handlers (local state for now; backend later) ─────────
-  const handleSuggestionApply = useCallback((suggestion: IntakeAiSuggestion) => {
-    // TODO(backend): wire to the actual change applier. The shape lets us
-    // dispatch on `suggestion.type` once the suggestion payload includes
-    // structured edits (reorder index pairs, rephrase text deltas, etc.).
-    setAiSuggestions((prev) => prev.filter((entry) => entry.id !== suggestion.id));
-    showSuccess(
-      'Suggestion applied',
-      'Once the AI authoring endpoint is live, the change will land in your draft automatically.',
-    );
-  }, [showSuccess]);
-
-  const handleSuggestionDismiss = useCallback((suggestion: IntakeAiSuggestion) => {
-    setAiSuggestions((prev) => prev.filter((entry) => entry.id !== suggestion.id));
-  }, []);
-
-  const handleSuggestionToggleExpanded = useCallback((suggestion: IntakeAiSuggestion) => {
-    setExpandedSuggestionId((prev) => (prev === suggestion.id ? null : suggestion.id));
-  }, []);
-
-  const handleStagedApprove = useCallback((staged: StagedQuestion) => {
-    // Materialize the staged question into a real enrichment field. We use
-    // `enrichment` (AI-assisted follow-up) instead of `required` so the
-    // assistant's draft doesn't gate the form — the practice owner can
-    // promote it later if they want.
-    applyEditorState((prev) => {
-      const existingKeys = new Set(
-        [...prev.requiredFields, ...prev.enrichmentFields].map((field) => field.key),
-      );
-      const key = generateFieldKey(staged.label, existingKeys);
-      const nextField: EditorField = {
-        key,
-        label: staged.label,
-        previewQuestion: staged.previewQuestion ?? getDefaultPreviewQuestion(staged.label),
-        promptHint: staged.rationale,
-        type: 'text',
-        required: false,
-        phase: 'enrichment',
-        isStandard: false,
-        _id: key,
-      };
-      return {
-        ...prev,
-        enrichmentFields: [...prev.enrichmentFields, nextField],
-      };
-    });
-    setStagedQuestions((prev) => prev.filter((entry) => entry.id !== staged.id));
-    showSuccess('Question approved', `"${staged.label}" was added as an AI-assisted follow-up.`);
-  }, [applyEditorState, showSuccess]);
-
-  const handleStagedDismiss = useCallback((staged: StagedQuestion) => {
-    setStagedQuestions((prev) => prev.filter((entry) => entry.id !== staged.id));
-  }, []);
-
   const validatePublish = (currentState: EditorState) => {
     if (!currentState.name.trim()) {
       showError('Form name is required.');
@@ -1198,27 +1099,8 @@ function TemplateEditor({
     : hasSavedDraft
       ? 'Draft saved'
       : 'Live';
-  // Compute version + staged counts here too so the header pill stays in
-  // sync with the preview foot row. We can't reuse the values declared
-  // alongside `livePreview` because `headerActions` is composed earlier in
-  // the function — the cost is one tiny calc duplication, paid to keep
-  // both surfaces consistent.
-  const headerVersionNumber = 1; // TODO(backend): swap to real template.published_versions
-  const headerStagedCount = stagedQuestions.length + aiSuggestions.length;
   const headerActions = (
     <div className="flex items-center gap-2">
-      {/*
-        Version pill — `live` tone when published with no draft changes,
-        `dim` otherwise so the user always sees what they're about to ship.
-      */}
-      <Pill tone={!hasChanges && !hasSavedDraft ? 'live' : 'dim'} className="hidden sm:inline-flex">
-        v.{headerVersionNumber}
-      </Pill>
-      {headerStagedCount > 0 ? (
-        <span className="hidden font-mono text-[10.5px] uppercase tracking-[0.06em] text-dim-2 sm:inline">
-          {headerStagedCount} staged
-        </span>
-      ) : null}
       <span
         className={cn(
           'hidden rounded-full border px-2.5 py-1 text-xs font-medium sm:inline-flex',
@@ -1363,13 +1245,7 @@ function TemplateEditor({
               onSelect={() => selectItem(`required:${field.key}`)}
             />
           ))}
-          {movableRequiredFields.map((field, index) => {
-            // Attach the (currently single) AI suggestion to the first
-            // movable required question. Once the backend returns
-            // suggestions keyed to specific field keys, swap this for a
-            // lookup of `suggestionsByFieldKey[field.key]`.
-            const attachedSuggestion = index === 0 && aiSuggestions.length > 0 ? aiSuggestions[0] : null;
-            return (
+          {movableRequiredFields.map((field, index) => (
               <QuestionRow
                 key={field._id}
                 label={field.label}
@@ -1388,33 +1264,7 @@ function TemplateEditor({
                   onDrop: () => requiredDrag.handleDrop(index),
                   onDragOver: requiredDrag.handleDragOver,
                 }}
-                suggestionBanner={attachedSuggestion ? (
-                  <IntakeSuggestionBanner
-                    suggestion={attachedSuggestion}
-                    onApply={handleSuggestionApply}
-                    onDismiss={handleSuggestionDismiss}
-                    expanded={expandedSuggestionId === attachedSuggestion.id}
-                    onToggleExpanded={handleSuggestionToggleExpanded}
-                  />
-                ) : null}
               />
-            );
-          })}
-          {/*
-            Staged-by-assistant rows render AFTER the saved required
-            questions so the practice owner sees existing rows first, then
-            the proposed-but-not-yet-saved additions. Approving promotes
-            into the enrichment list (chosen over required so the assistant
-            never gates the form behind its own drafts).
-          */}
-          {stagedQuestions.map((staged) => (
-            <IntakeStagedQuestionRow
-              key={staged.id}
-              staged={staged}
-              onApprove={handleStagedApprove}
-              onDismiss={handleStagedDismiss}
-              disabled={isSaving}
-            />
           ))}
           <AddInlineButton
             onClick={() => {
@@ -1520,16 +1370,11 @@ function TemplateEditor({
   // on the first published version (v.1) so the surface renders honestly.
   // TODO(backend): swap to a real `template.published_versions` field once
   // backend versioning lands.
-  const versionNumber = 1;
-  const stagedChangeCount = stagedQuestions.length + aiSuggestions.length;
-  const versionLabel = hasChanges
-    ? `v.${versionNumber} draft`
+  const previewStatusLabel = hasChanges
+    ? 'Unsaved changes'
     : hasSavedDraft
-      ? `v.${versionNumber} draft`
-      : `v.${versionNumber} live`;
-  const stagedChangesLabel = stagedChangeCount > 0
-    ? `${stagedChangeCount} staged change${stagedChangeCount === 1 ? '' : 's'}`
-    : undefined;
+      ? 'Draft saved'
+      : 'Live';
 
   // Mirror the canonical `blawby.com/p/{slug}/{template}` shape in the fake
   // browser chrome. We strip the protocol for display so the URL feels like
@@ -1550,8 +1395,7 @@ function TemplateEditor({
         onModeChange={setPreviewMode}
         publicFormUrl={publicFormUrl}
         displayUrl={displayUrl}
-        versionLabel={versionLabel}
-        stagedChangesLabel={stagedChangesLabel}
+        versionLabel={previewStatusLabel}
       >
         <div className="relative">
           <WidgetPreviewFrame
@@ -1584,11 +1428,7 @@ function TemplateEditor({
       <div className="px-2 pt-4 sm:px-4">
         <IntakeAnalyticsStrip usesLast30Days={null} conversionPercent={null} />
         <div className="mt-3">
-          <IntakeAuthoringStrip
-            instruction={authoringInstruction}
-            onInstructionChange={setAuthoringInstruction}
-            disabled={isSaving || isPublishing}
-          />
+          <IntakeAuthoringStrip />
         </div>
       </div>
       <div className="min-h-0 flex-1">{livePreview}</div>
@@ -2096,8 +1936,7 @@ function TemplateEditor({
               onModeChange={setPreviewMode}
               publicFormUrl={publicFormUrl}
               displayUrl={displayUrl}
-              versionLabel={versionLabel}
-              stagedChangesLabel={stagedChangesLabel}
+              versionLabel={previewStatusLabel}
             >
               <WidgetPreviewFrame
                 practiceSlug={practiceSlug}
@@ -2134,7 +1973,7 @@ function TemplateEditor({
           </header>
           <div className="flex items-center justify-center gap-2 border-b border-line-subtle px-3 py-2">
             <Pill tone={!hasChanges && !hasSavedDraft ? 'live' : 'dim'} className="mr-auto">
-              v.{headerVersionNumber}
+              {draftStatusLabel}
             </Pill>
             <Button
               type="button"
@@ -2174,11 +2013,7 @@ function TemplateEditor({
             */}
             <div className="mb-4 flex flex-col gap-3">
               <IntakeAnalyticsStrip usesLast30Days={null} conversionPercent={null} />
-              <IntakeAuthoringStrip
-                instruction={authoringInstruction}
-                onInstructionChange={setAuthoringInstruction}
-                disabled={isSaving || isPublishing}
-              />
+              <IntakeAuthoringStrip />
             </div>
             {formStructure}
           </div>
