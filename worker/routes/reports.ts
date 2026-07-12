@@ -24,6 +24,7 @@ import {
 } from '../services/ReportScheduleService.js';
 import { ReportDeliveryService } from '../services/ReportDeliveryService.js';
 import { AssistantActivityReportService } from '../services/practiceAssistant/activityReportService.js';
+import { ReportSummaryService } from '../services/ReportSummaryService.js';
 import { toCsv, type CsvColumn } from '../utils/csv.js';
 import { parseJsonBody } from '../utils.js';
 
@@ -691,6 +692,21 @@ export async function handleReports(request: Request, env: Env): Promise<Respons
   await requirePracticeMember(request, env, practiceId, 'paralegal');
 
   try {
+    if (remainder === 'summary') {
+      if (request.method !== 'GET') throw HttpErrors.methodNotAllowed('Only GET allowed');
+      const period = parsePeriod(url.searchParams.get('period'));
+      const range = parseRange(url, period);
+      const service = new ReportSummaryService(env);
+      const summary = await service.get(practiceId, buildForwardHeaders(request), period, range);
+      return envelope({
+        items: summary.observations,
+        total: summary.observations.length,
+        generatedAt: new Date().toISOString(),
+        filters: { period, start: range.startIso, end: range.endIso },
+        meta: summary as unknown as Record<string, unknown>,
+      });
+    }
+
     if (remainder === 'assistant-activity') {
       if (request.method !== 'GET') throw HttpErrors.methodNotAllowed('Only GET allowed');
       const rawLimit = url.searchParams.get('limit');

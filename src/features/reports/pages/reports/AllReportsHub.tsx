@@ -31,7 +31,6 @@ import { formatRelativeTime } from '@/features/matters/utils/formatRelativeTime'
 import { useReportData } from '@/features/reports/hooks/useReportData';
 import { useReportExport } from '@/features/reports/hooks/useReportExport';
 import { reportsApi } from '@/features/reports/services/reportsApi';
-import { useReportsHubAggregations } from '@/features/reports/services/useReportsHubAggregations';
 import { Sparkline, BarChart, type BarChartDatum } from '@/features/reports/components/InlineCharts';
 import {
   REPORT_DEFINITIONS,
@@ -43,9 +42,7 @@ import type {
   AssistantActivityMeta,
   AssistantActivityRow,
   AssistantActivityStatus,
-  RevenueMeta,
   RevenueRow,
-  UtilizationMeta,
   UtilizationRow,
 } from '@/features/reports/services/reportsTypes';
 import type { IntakeListItem } from '@/features/intake/api/intakesApi';
@@ -70,13 +67,6 @@ const PERIOD_CRUMB: Record<ReportPeriod, string> = {
   month: 'Monthly review',
   quarter: 'Quarterly review',
   year: 'Year-to-date review',
-};
-
-const PERIOD_NOUN: Record<ReportPeriod, string> = {
-  week: 'week',
-  month: 'month',
-  quarter: 'quarter',
-  year: 'year',
 };
 
 const ICON_BY_NAME: Record<ReportIconName, IconComponent> = {
@@ -115,18 +105,50 @@ interface IntakeConversionRow {
   avgCaseScore: number | null;
 }
 
+interface ReportSummaryObservation {
+  id: string;
+  text: string;
+  signal: 'positive' | 'attention' | 'neutral';
+}
+
+interface ReportSummaryMeta extends Record<string, unknown> {
+  narrative: string;
+  groundingLabel: string;
+  revenue: {
+    items: RevenueRow[];
+    totalPaidCents: number;
+    totalOutstandingCents: number;
+    totalInvoiceCount: number;
+    currentPaidCents: number;
+    currentInvoiceCount: number;
+    priorPaidCents: number;
+    deltaPercent: number | null;
+  };
+  utilization: {
+    items: UtilizationRow[];
+    totalBillableHours: number;
+    totalNonBillableHours: number;
+    averageUtilizationPercent: number;
+  };
+  intakes: IntakeListItem[];
+  matters: BackendMatter[];
+  conversionPercent: number | null;
+  acceptedIntakeCount: number;
+  totalIntakeCount: number;
+  medianTimeToCloseDays: number | null;
+  closedMatterCount: number;
+}
+
 const formatDays = (value: number | null): string => {
   if (value == null || !Number.isFinite(value)) return '—';
   return `${Math.round(value)}d`;
 };
 
 const groupRevenueByArea = (matters: readonly BackendMatter[]): RevenueBreakdownRow[] => {
-  // Until the hub aggregation endpoint ships, approximate "revenue by practice
-  // area" from matter `total_fixed_price` (the only money figure the matter
-  // list endpoint hands us today). Buckets fall back to `practice_service_id`
-  // when no human-readable area is available.
-  // TODO(backend): swap to a real invoice-by-practice-area aggregation when
-  // /reports hub endpoint ships.
+  // The summary contract returns matter rows but invoices still lack a
+  // practice-area grouping. Approximate composition from each open matter's
+  // `total_fixed_price`, falling back to `practice_service_id` when no
+  // human-readable area is available.
   const totals = new Map<string, number>();
   let grandTotal = 0;
   for (const m of matters) {
@@ -217,32 +239,33 @@ export const AllReportsHub: FunctionComponent<AllReportsHubProps> = ({ practiceI
   const queryParams = useMemo(() => ({ period: queryPeriod }), [queryPeriod]);
   const enabled = Boolean(practiceId);
 
-  const revenue = useReportData<RevenueRow, RevenueMeta>(practiceId, 'revenue', queryParams, { enabled });
-  const utilization = useReportData<UtilizationRow, UtilizationMeta>(practiceId, 'utilization', queryParams, { enabled });
-  const aggregations = useReportsHubAggregations(practiceId, { enabled });
+  const summary = useReportData<ReportSummaryObservation, ReportSummaryMeta>(
+    practiceId,
+    'summary',
+    queryParams,
+    { enabled }
+  );
 
-  const revenueMeta = revenue.data?.meta;
-  const revenueRows = useMemo(() => revenue.data?.items ?? [], [revenue.data]);
-  const utilizationMeta = utilization.data?.meta;
+  const summaryMeta = summary.data?.meta;
+  const revenueMeta = summaryMeta?.revenue;
+  const revenueRows = useMemo(() => summaryMeta?.revenue.items ?? [], [summaryMeta]);
+  const utilizationMeta = summaryMeta?.utilization;
+  const intakes = useMemo(() => summaryMeta?.intakes ?? [], [summaryMeta]);
+  const matters = useMemo(() => summaryMeta?.matters ?? [], [summaryMeta]);
 
-  const periodRow = revenueRows[revenueRows.length - 1];
-  const priorRow = revenueRows.length >= 2 ? revenueRows[revenueRows.length - 2] : null;
-  const periodPaidCents = periodRow?.paidAmountCents ?? 0;
-  const priorPaidCents = priorRow?.paidAmountCents ?? 0;
-  const periodInvoiceCount = periodRow?.invoiceCount ?? revenueMeta?.totalInvoiceCount ?? 0;
-
-  const revenueDelta = priorPaidCents > 0
-    ? Math.round(((periodPaidCents - priorPaidCents) / priorPaidCents) * 100)
-    : null;
+  const periodPaidCents = revenueMeta?.currentPaidCents ?? 0;
+  const priorPaidCents = revenueMeta?.priorPaidCents ?? 0;
+  const periodInvoiceCount = revenueMeta?.currentInvoiceCount ?? 0;
+  const revenueDelta = revenueMeta?.deltaPercent ?? null;
 
   const avgUtilization = utilizationMeta?.averageUtilizationPercent ?? null;
   const totalBillableHours = utilizationMeta?.totalBillableHours ?? null;
 
-  const conversionPercent = aggregations.conversionPercent;
-  const acceptedIntakes = aggregations.acceptedIntakeCount;
-  const totalIntakes = aggregations.totalIntakeCount;
-  const medianTimeToClose = aggregations.medianTimeToCloseDays;
-  const closedMatterCount = aggregations.closedMatterCount;
+  const conversionPercent = summaryMeta?.conversionPercent ?? null;
+  const acceptedIntakes = summaryMeta?.acceptedIntakeCount ?? 0;
+  const totalIntakes = summaryMeta?.totalIntakeCount ?? 0;
+  const medianTimeToClose = summaryMeta?.medianTimeToCloseDays ?? null;
+  const closedMatterCount = summaryMeta?.closedMatterCount ?? 0;
 
   const sparklineValues = useMemo(
     () => revenueRows.map((row) => row.paidAmountCents),
@@ -250,12 +273,12 @@ export const AllReportsHub: FunctionComponent<AllReportsHubProps> = ({ practiceI
   );
   const sixMonthBars = useMemo(() => buildSixMonthBars(revenueRows), [revenueRows]);
   const revenueByArea = useMemo(
-    () => groupRevenueByArea(aggregations.matters),
-    [aggregations.matters],
+    () => groupRevenueByArea(matters),
+    [matters],
   );
   const intakesByArea = useMemo(
-    () => groupIntakesByArea(aggregations.intakes),
-    [aggregations.intakes],
+    () => groupIntakesByArea(intakes),
+    [intakes],
   );
 
   const handleSelect = useCallback((def: ReportDefinition) => {
@@ -313,42 +336,6 @@ export const AllReportsHub: FunctionComponent<AllReportsHubProps> = ({ practiceI
     );
   }, [showInfo, periodInvoiceCount, totalIntakes, closedMatterCount]);
 
-  const ledeFragments: string[] = [];
-  if (revenue.error) {
-    ledeFragments.push('Revenue figures are unavailable right now — open Revenue below for the latest run.');
-  } else if (periodPaidCents > 0) {
-    const deltaPhrase = revenueDelta != null
-      ? ` (${revenueDelta >= 0 ? 'up' : 'down'} ${Math.abs(revenueDelta)}% vs prior ${PERIOD_NOUN[period]})`
-      : '';
-    ledeFragments.push(`You billed ${formatCurrency(periodPaidCents / 100)}${deltaPhrase} across ${periodInvoiceCount} invoice${periodInvoiceCount === 1 ? '' : 's'}.`);
-  } else {
-    ledeFragments.push(`No paid invoices recorded for the ${PERIOD_NOUN[period]} yet.`);
-  }
-  if (conversionPercent != null) {
-    ledeFragments.push(`Intake conversion is ${conversionPercent}% (${acceptedIntakes} of ${totalIntakes}).`);
-  }
-  if (medianTimeToClose != null) {
-    ledeFragments.push(`Median time-to-close is ${formatDays(medianTimeToClose)} across ${closedMatterCount} closed matter${closedMatterCount === 1 ? '' : 's'}.`);
-  }
-  const utilizationLine = avgUtilization != null && totalBillableHours != null
-    ? `Billable utilization is averaging ${avgUtilization.toFixed(0)}% (${totalBillableHours.toFixed(1)} hrs).`
-    : '';
-
-  const groundingPieces: string[] = [];
-  if (revenueRows.length > 0) {
-    groundingPieces.push(`${revenueRows.length} period${revenueRows.length === 1 ? '' : 's'}`);
-  }
-  groundingPieces.push(`${periodInvoiceCount} invoice${periodInvoiceCount === 1 ? '' : 's'}`);
-  if (totalIntakes > 0) groundingPieces.push(`${totalIntakes} intake${totalIntakes === 1 ? '' : 's'}`);
-  if (aggregations.matters.length > 0) {
-    groundingPieces.push(`${aggregations.matters.length} matter${aggregations.matters.length === 1 ? '' : 's'}`);
-  }
-  const groundingLabel = `Executive summary · grounded in ${groundingPieces.join(' · ')}`;
-
-  // TODO(backend): once a `/reports/summary` endpoint ships, replace the
-  // deterministic lede above with the AI's narrative reply. Today the lede is
-  // mechanically composed from real KPIs so every assertion is auditable.
-
   return (
     <Page className="h-full" padded>
       <div className="mx-auto flex max-w-5xl flex-col gap-6">
@@ -397,17 +384,10 @@ export const AllReportsHub: FunctionComponent<AllReportsHubProps> = ({ practiceI
         />
 
         <AIAnswerCard
-          groundingLabel={groundingLabel}
-          lede={
-            <>
-              {ledeFragments.join(' ')}
-              {utilizationLine && (
-                <>
-                  {' '}{utilizationLine}
-                </>
-              )}
-            </>
-          }
+          groundingLabel={summaryMeta?.groundingLabel ?? 'Executive summary · loading grounded data'}
+          lede={summary.error
+            ? 'The report summary could not be generated because one or more source contracts failed.'
+            : summaryMeta?.narrative ?? 'Reading revenue, utilization, intake, and matter records…'}
           actions={[
             { id: 'math', label: 'Show me the math', variant: 'primary', onClick: handleShowMath },
             { id: 'email', label: 'Email this to my CPA', onClick: handleEmailCpa },
@@ -417,14 +397,14 @@ export const AllReportsHub: FunctionComponent<AllReportsHubProps> = ({ practiceI
           sources={[
             { table: 'invoices', count: revenueMeta?.totalInvoiceCount ?? 0 },
             { table: 'time_entries', count: totalBillableHours ? Math.round(totalBillableHours) : 0 },
-            { table: 'matters', count: aggregations.matters.length },
+            { table: 'matters', count: matters.length },
             { table: 'intakes', count: totalIntakes },
           ]}
         />
 
         <ToolUseLine
           tools={['fetch_revenue', 'fetch_utilization', 'fetch_intakes', 'fetch_matters']}
-          durationMs={revenue.loading || utilization.loading || aggregations.loading ? undefined : 142}
+          durationMs={summary.loading ? undefined : 142}
         />
 
         {/* Mobile collapses to single column; lg+ stretches the 2-col DS grid
@@ -457,7 +437,7 @@ export const AllReportsHub: FunctionComponent<AllReportsHubProps> = ({ practiceI
               value={conversionPercent != null ? `${conversionPercent}%` : '—'}
               extra={
                 totalIntakes === 0
-                  ? aggregations.loading ? 'Loading intakes…' : 'No intakes in scope'
+                  ? summary.loading ? 'Loading intakes…' : 'No intakes in scope'
                   : `${acceptedIntakes} of ${totalIntakes} accepted`
               }
               tone={conversionPercent != null && conversionPercent >= 30 ? 'pos' : 'neutral'}
@@ -469,7 +449,7 @@ export const AllReportsHub: FunctionComponent<AllReportsHubProps> = ({ practiceI
               value={formatDays(medianTimeToClose)}
               extra={
                 closedMatterCount === 0
-                  ? aggregations.loading ? 'Loading matters…' : 'No closed matters yet'
+                  ? summary.loading ? 'Loading matters…' : 'No closed matters yet'
                   : `${closedMatterCount} closed matter${closedMatterCount === 1 ? '' : 's'}`
               }
               tone={medianTimeToClose != null && medianTimeToClose <= 90 ? 'pos' : 'neutral'}
