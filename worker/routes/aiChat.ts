@@ -17,6 +17,11 @@ import {
 } from '../services/PartialIntakeSubmissionService.js';
 import { createWorkersAiClient, resolveWorkersAiModel } from '../utils/workersAiClient.js';
 import { fetchPracticeDetailsWithCache } from '../utils/practiceDetailsCache.js';
+import {
+  appendPracticeSkillPrompt,
+  fetchAuthenticatedPracticeSkillPrompt,
+  fetchPublicPracticeSkillPrompt,
+} from '../services/practiceSkills.js';
 import { Logger } from '../utils/logger.js';
 import { resolveConsultationState } from '../../src/shared/utils/consultationState';
 
@@ -777,6 +782,15 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
   // Streaming path
   // ------------------------------------------------------------------
 
+  const publicPracticeSlug = practiceSlug || (typeof details?.slug === 'string' ? details.slug.trim() : '');
+  const practiceSkillPrompt = isOnboardingMode
+    ? ''
+    : (
+        isPublic
+          ? await fetchPublicPracticeSkillPrompt(env, request, publicPracticeSlug)
+          : await fetchAuthenticatedPracticeSkillPrompt(env, request, practiceId)
+      ).promptContribution;
+
   const aiPromptContext = buildCompactPracticeContextForPrompt(details);
   const aiClient = createWorkersAiClient(env);
   const model = resolveWorkersAiModel(env, DEFAULT_AI_MODEL);
@@ -891,6 +905,7 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
       templateFields,
       requiredComplete,
     );
+    systemPrompt = appendPracticeSkillPrompt(systemPrompt, practiceSkillPrompt);
 
     const intakeTools = templateFields.length > 0
       ? buildIntakeTools(templateFields)
@@ -929,6 +944,7 @@ export async function handleAiChat(request: Request, env: Env, ctx?: ExecutionCo
         ? [`SEARCH_CONTEXT: ${body.additionalContext}`]
         : []),
     ].join('\n\n');
+    systemPrompt = appendPracticeSkillPrompt(systemPrompt, practiceSkillPrompt);
 
     if (isAnthropicModel) {
       requestPayload.system = systemPrompt;

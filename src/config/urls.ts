@@ -90,6 +90,9 @@ export const uploadConfirmPath = (uploadId: string): string =>
 export const intakeTemplatesPath = (practiceId: string): string =>
 	`/api/practice/${encodeSegment(practiceId)}/intake-templates`;
 
+export const practiceSkillsPath = (practiceId: string): string =>
+	`/api/practice/${encodeSegment(practiceId)}/skills`;
+
 export const intakeTemplatePath = (practiceId: string, templateId: string): string =>
 	`${intakeTemplatesPath(practiceId)}/${encodeSegment(templateId)}`;
 

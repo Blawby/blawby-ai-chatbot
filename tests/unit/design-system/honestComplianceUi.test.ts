@@ -51,7 +51,9 @@ describe('honest compliance UI', () => {
     expect(intelligence).not.toContain("showSuccess('Pause requested'");
     expect(intelligence).not.toContain('sonnet-4.5');
     expect(intelligence).not.toContain("{ key: 'matters', rows: 142 }");
-    expect(intelligence).toContain('browser-only preferences that appear saved but do not affect the assistant');
+    expect(intelligence).toContain('practiceSkillsApi.get');
+    expect(intelligence).toContain('practiceSkillsApi.update');
+    expect(intelligence).toContain('There is no free-text system prompt');
   });
 
   it('does not answer arbitrary workspace questions with unrelated summaries', () => {
