@@ -22,6 +22,7 @@ import {
   type ReportFrequency,
 } from '../services/ReportScheduleService.js';
 import { ReportDeliveryService } from '../services/ReportDeliveryService.js';
+import { AssistantActivityReportService } from '../services/practiceAssistant/activityReportService.js';
 import { toCsv, type CsvColumn } from '../utils/csv.js';
 import { parseJsonBody } from '../utils.js';
 
@@ -688,11 +689,22 @@ export async function handleReports(request: Request, env: Env): Promise<Respons
   if (authContext.isAnonymous) throw HttpErrors.forbidden('Access denied');
   await requirePracticeMember(request, env, practiceId, 'paralegal');
 
-  if (!env.BACKEND_API_URL) {
-    throw HttpErrors.internalServerError('BACKEND_API_URL not configured');
-  }
-
   try {
+    if (remainder === 'assistant-activity') {
+      if (request.method !== 'GET') throw HttpErrors.methodNotAllowed('Only GET allowed');
+      const rawLimit = url.searchParams.get('limit');
+      const limit = rawLimit === null ? undefined : Number(rawLimit);
+      if (limit !== undefined && (!Number.isInteger(limit) || limit < 1 || limit > 100)) {
+        throw HttpErrors.badRequest('limit must be an integer from 1 to 100');
+      }
+      const service = new AssistantActivityReportService(env);
+      return envelope(await service.get(practiceId, limit));
+    }
+
+    if (!env.BACKEND_API_URL) {
+      throw HttpErrors.internalServerError('BACKEND_API_URL not configured');
+    }
+
     if (remainder === 'schedules') {
       if (request.method === 'GET') return await handleSchedulesList(env, practiceId);
       if (request.method === 'POST') return await handleScheduleCreate(request, env, practiceId);
