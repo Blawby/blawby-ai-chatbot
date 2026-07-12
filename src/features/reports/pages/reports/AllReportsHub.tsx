@@ -30,7 +30,6 @@ import { formatCurrency } from '@/shared/utils/currencyFormatter';
 import { formatRelativeTime } from '@/features/matters/utils/formatRelativeTime';
 import { useReportData } from '@/features/reports/hooks/useReportData';
 import { useReportExport } from '@/features/reports/hooks/useReportExport';
-import { reportsApi } from '@/features/reports/services/reportsApi';
 import { Sparkline, BarChart, type BarChartDatum } from '@/features/reports/components/InlineCharts';
 import {
   REPORT_DEFINITIONS,
@@ -233,7 +232,6 @@ export const AllReportsHub: FunctionComponent<AllReportsHubProps> = ({ practiceI
   const { showSuccess, showError, showInfo } = useToastContext();
   const { exportReport, exporting } = useReportExport();
   const [period, setPeriod] = useState<ReportPeriod>('month');
-  const [sendingEmail, setSendingEmail] = useState(false);
 
   const queryPeriod = period;
   const queryParams = useMemo(() => ({ period: queryPeriod }), [queryPeriod]);
@@ -286,38 +284,14 @@ export const AllReportsHub: FunctionComponent<AllReportsHubProps> = ({ practiceI
     navigate(`/practice/${encodeURIComponent(practiceSlug)}/reports/${def.id}`);
   }, [navigate, practiceSlug]);
 
-  const handleDownloadPdf = useCallback(async () => {
-    // Worker exports CSV today (no server-side PDF rendering yet); we surface
-    // that to the user so they don't expect a binary PDF blob.
-    // TODO(backend): add `format=pdf` support to `/api/reports/:practiceId/export/:type`
-    // so this button can deliver a real PDF instead of CSV.
+  const handleDownloadCsv = useCallback(async () => {
     try {
       await exportReport(practiceId, 'revenue', { period: queryPeriod });
-      showSuccess('Export downloaded', 'CSV saved. PDF export coming soon.');
+      showSuccess('Export downloaded', 'Revenue CSV saved.');
     } catch (err) {
       showError('Export failed', err instanceof Error ? err.message : 'Try again in a moment.');
     }
   }, [exportReport, practiceId, queryPeriod, showSuccess, showError]);
-
-  const handleEmailCpa = useCallback(async () => {
-    // No recipient picker on the hub yet — fall back to the practice's owner
-    // recipients (server resolves when array is empty).
-    // TODO(backend): add owner-mailing-list resolution + per-user "my CPA"
-    // contact so this can ship a stored address without showing a modal.
-    setSendingEmail(true);
-    try {
-      await reportsApi.sendNow(practiceId, {
-        reportType: 'revenue',
-        recipients: [],
-        filters: { period: queryPeriod },
-      });
-      showSuccess('Sent to your CPA', 'Open Deliveries to track the email.');
-    } catch (err) {
-      showError('Send failed', err instanceof Error ? err.message : 'Try again in a moment.');
-    } finally {
-      setSendingEmail(false);
-    }
-  }, [practiceId, queryPeriod, showSuccess, showError]);
 
   const handleDrillRevenue = useCallback(() => {
     if (!practiceSlug) return;
@@ -355,20 +329,15 @@ export const AllReportsHub: FunctionComponent<AllReportsHubProps> = ({ practiceI
                 <Button
                   variant="ghost"
                   size="sm"
-                  onClick={handleEmailCpa}
-                  disabled={sendingEmail}
+                  disabled
+                  title="Requires a configured CPA recipient"
                 >
-                  {sendingEmail && (
-                    <span className="mr-1.5 inline-flex">
-                      <LoadingSpinner size="sm" ariaLabel="Sending report" announce={false} />
-                    </span>
-                  )}
-                  Email this to my CPA
+                  Email CPA unavailable
                 </Button>
                 <Button
                   variant="ghost"
                   size="sm"
-                  onClick={handleDownloadPdf}
+                  onClick={handleDownloadCsv}
                   disabled={exporting}
                 >
                   {exporting && (
@@ -376,7 +345,7 @@ export const AllReportsHub: FunctionComponent<AllReportsHubProps> = ({ practiceI
                       <LoadingSpinner size="sm" ariaLabel="Exporting report" announce={false} />
                     </span>
                   )}
-                  Download PDF
+                  Download CSV
                 </Button>
               </div>
             </div>
@@ -390,7 +359,6 @@ export const AllReportsHub: FunctionComponent<AllReportsHubProps> = ({ practiceI
             : summaryMeta?.narrative ?? 'Reading revenue, utilization, intake, and matter records…'}
           actions={[
             { id: 'math', label: 'Show me the math', variant: 'primary', onClick: handleShowMath },
-            { id: 'email', label: 'Email this to my CPA', onClick: handleEmailCpa },
             { id: 'drill-revenue', label: 'Drill into revenue', onClick: handleDrillRevenue },
             { id: 'drill-util', label: 'Drill into utilization', onClick: handleDrillUtilization },
           ]}
