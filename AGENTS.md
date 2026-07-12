@@ -1,8 +1,21 @@
-# CLAUDE.md
-
-**Never merge without explicit human approval.** Do not run `git merge`, `gh pr merge`, or any equivalent that combines branches — including fast-forward merges and merges into your own working branch — unless the human has approved that specific merge in this conversation. Approval of one merge is not approval of the next. Rebases, cherry-picks, and pushes that would land merged history are covered by this rule.
+# Repository Agent Instructions
 
 When an internal API returns errors, nulls, or malformed data, fix the API contract/source of truth first; do not add frontend fallbacks, guards, or workaround logic unless the API behavior is intentionally nullable and documented.
+
+## Autonomous delivery
+
+Agents may investigate, implement, test, push, open pull requests, resolve automated review findings, and merge pull requests into `staging` without waiting for human approval when all of the following are true:
+
+- the work is authorized by the active issue or user request;
+- the pull request is non-draft and targets `staging`;
+- required local checks and repository CI are green on the current head SHA;
+- actionable review findings are resolved or answered with evidence;
+- the pull request is mergeable and has no unresolved blocking review threads;
+- no secrets, credentials, session state, or production data are exposed or committed.
+
+Use the repository's normal merge method. Do not bypass branch protection, required checks, or explicit issue constraints. Do not merge into production or release branches unless the active issue or user request explicitly authorizes that target.
+
+Do not wait indefinitely for CI or automated review. Poll at bounded intervals, perform only remaining scoped work while checks run, and stop repeated polling after the limit defined by the active issue. Report an external blocker once with evidence instead of emitting duplicate status messages or inventing unrelated work.
 
 Behavioral guidelines to reduce common LLM coding mistakes. Merge with project-specific instructions as needed.
 
@@ -13,11 +26,10 @@ Behavioral guidelines to reduce common LLM coding mistakes. Merge with project-s
 **Don't assume. Don't hide confusion. Surface tradeoffs.**
 
 Before implementing:
-
-- State your assumptions explicitly. If uncertain, ask.
-- If multiple interpretations exist, present them - don't pick silently.
-- If a simpler approach exists, say so. Push back when warranted.
-- If something is unclear, stop. Name what's confusing. Ask.
+- State your assumptions explicitly. If uncertain, investigate repository code, tests, documentation, and runtime evidence first.
+- If multiple interpretations exist, choose the interpretation best supported by the issue, existing architecture, and acceptance criteria.
+- If a simpler approach exists, use it.
+- Ask for clarification only when a genuinely external product decision, unavailable credential, or irreversible production action blocks correctness.
 
 ## 2. Simplicity First
 
@@ -36,31 +48,27 @@ Ask yourself: "Would a senior engineer say this is overcomplicated?" If yes, sim
 **Touch only what you must. Clean up only your own mess.**
 
 When editing existing code:
-
 - Don't "improve" adjacent code, comments, or formatting.
 - Don't refactor things that aren't broken.
 - Match existing style, even if you'd do it differently.
-- If you notice unrelated dead code, mention it - don't delete it.
+- If you notice unrelated dead code, mention it or open a follow-up issue; don't delete it unless the active issue authorizes cleanup.
 
 When your changes create orphans:
+- Remove imports, variables, functions, styles, fixtures, and files that your changes made unused.
+- Don't remove pre-existing dead code unless asked or it is directly made obsolete by the authorized work.
 
-- Remove imports/variables/functions that YOUR changes made unused.
-- Don't remove pre-existing dead code unless asked.
-
-The test: Every changed line should trace directly to the user's request.
+The test: Every changed line should trace directly to the user's request or an acceptance criterion.
 
 ## 4. Goal-Driven Execution
 
 **Define success criteria. Loop until verified.**
 
 Transform tasks into verifiable goals:
-
 - "Add validation" → "Write tests for invalid inputs, then make them pass"
 - "Fix the bug" → "Write a test that reproduces it, then make it pass"
 - "Refactor X" → "Ensure tests pass before and after"
 
 For multi-step tasks, state a brief plan:
-
 ```
 1. [Step] → verify: [check]
 2. [Step] → verify: [check]
@@ -71,7 +79,18 @@ Strong success criteria let you loop independently. Weak criteria ("make it work
 
 ## 5. Local Browser Verification
 
-Always verify browser/auth/signup flows through `https://local.blawby.com`, not raw Vite or Wrangler localhost URLs. Auth cookies, Worker proxying, and app routing all depend on the same origin/path shape as real deployments.
+Always verify browser/auth/signup flows through the developer-specific tunnel hostname, not raw Vite or Wrangler localhost URLs. Auth cookies, Worker proxying, and app routing all depend on the same origin/path shape as real deployments.
+
+Each developer has their own Cloudflare tunnel hostname (Vite's `server.allowedHosts` / `hmr.host` must match whichever tunnel is in use):
+
+| Developer | Tunnel hostname |
+|-----------|----------------|
+| `paulchrisluke` | `https://local.blawby.com` |
+| `DarkSkyXD` | `https://dev.blawby.com` |
+
+The tunnel hostname is determined by the `CLOUDFLARE_TUNNEL_TOKEN` configured in `.env` / `worker/.dev.vars` — `scripts/run-tunnel.ts` reads it and `cloudflared` connects to whichever hostname that token owns. If you switch machines, update `vite.config.ts`'s `server.allowedHosts` and `server.hmr.host` to match, or Vite will reject the request with "Blocked request (… ) is not allowed."
+
+For E2E tests, set `E2E_BASE_URL` to your tunnel hostname. Defaults in the Playwright configs assume `local.blawby.com`.
 
 Always use the staging backend — auth, preferences, and API calls all proxy to `https://staging-api.blawby.com`.
 
@@ -80,7 +99,7 @@ npm install
 npm run dev:full
 ```
 
-Open `https://local.blawby.com`. Done.
+Open your tunnel hostname in the browser.
 
 #### Wrangler auth — if `dev:full` fails to start the worker
 
@@ -91,7 +110,7 @@ If you see:
   notes: Authentication error [code: 10000]
 ```
 
-…the worker is dying because wrangler's stored OAuth token (`~/.config/.wrangler/config/default.toml` on macOS/Linux, `%APPDATA%/xdg.config/.wrangler/config/default.toml` on Windows) doesn't have the right scopes for the AI binding's remote-proxy session, and wrangler prefers the OAuth token over `CLOUDFLARE_API_TOKEN` in `worker/.dev.vars`. `.dev.vars` is loaded into the worker _runtime_, not consumed by the wrangler _CLI_.
+…the worker is dying because wrangler's stored OAuth token (`~/.config/.wrangler/config/default.toml` on macOS/Linux, `%APPDATA%/xdg.config/.wrangler/config/default.toml` on Windows) doesn't have the right scopes for the AI binding's remote-proxy session, and wrangler prefers the OAuth token over `CLOUDFLARE_API_TOKEN` in `worker/.dev.vars`. `.dev.vars` is loaded into the worker *runtime*, not consumed by the wrangler *CLI*.
 
 Workaround — export the API token in your shell so wrangler picks it up:
 
@@ -142,6 +161,8 @@ npm run test:e2e:auth
 
 Playwright auth setup reads E2E credentials from environment variables or `tests/e2e/fixtures/e2e-credentials.json`. Keep docs and tests path-agnostic: do not use machine-specific absolute paths for this repo or the backend repo.
 
+Never commit or disclose passwords, API tokens, cookies, storage state, private keys, `.env` contents, or ignored credential fixtures. Redact secrets from logs, screenshots, pull requests, and issue comments.
+
 ---
 
-**These guidelines are working if:** fewer unnecessary changes in diffs, fewer rewrites due to overcomplication, and clarifying questions come before implementation rather than after mistakes.
+**These guidelines are working if:** agents complete bounded goals autonomously, diffs remain focused, tests prove behavior, review findings are resolved, and blocked states are reported once with actionable evidence.
