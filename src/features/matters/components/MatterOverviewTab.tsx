@@ -196,8 +196,7 @@ const buildAssistantSummary = (
     actions.push({ id: 'approve-invoice', label: `Approve invoice draft`, variant: 'primary', onClick: () => {} });
   }
   actions.push({ id: 'reply', label: 'Reply to client', onClick: () => {} });
-  actions.push({ id: 'engagement-update', label: 'Draft engagement update', onClick: () => {} });
-  actions.push({ id: 'settlement', label: 'Settlement projection', onClick: () => {} });
+  actions.push({ id: 'engagement-update', label: 'View engagement', onClick: () => {} });
 
   // Source citations — real database tables that ground the summary.
   // TODO(backend): when the AI route exists, the response itself will
@@ -212,7 +211,7 @@ const buildAssistantSummary = (
 
   // Grounding label — count distinct sources surfaced.
   const grounded = sources.reduce((sum, s) => sum + s.count, 0);
-  const groundingLabel = `Practice assistant · grounded in ${grounded} ${grounded === 1 ? 'source' : 'sources'} · ${relativeTimeLabel()}`;
+  const groundingLabel = `Matter summary · grounded in ${grounded} ${grounded === 1 ? 'source' : 'sources'} · ${relativeTimeLabel()}`;
 
   return { lede, actions, sources, groundingLabel };
 };
@@ -245,20 +244,16 @@ const AISummaryCard = ({
   );
 
   // Bind real handlers to the action chips by id.
-  const boundActions = actions.map((action) => {
+  const boundActions = actions.flatMap<AIAnswerCardAction>((action) => {
     switch (action.id) {
       case 'approve-invoice':
-        return { ...action, onClick: onApproveInvoice };
+        return [{ ...action, label: 'Review invoice draft', onClick: onApproveInvoice }];
       case 'reply':
-        return { ...action, onClick: onReplyToClient };
+        return onReplyToClient ? [{ ...action, onClick: onReplyToClient }] : [];
       case 'engagement-update':
-        return { ...action, onClick: onViewEngagement };
-      case 'settlement':
-        // TODO(backend): wire to settlement projection AI route — for now
-        // reuse the engagement view as the closest existing surface.
-        return { ...action, onClick: onViewEngagement };
+        return [{ ...action, onClick: onViewEngagement }];
       default:
-        return action;
+        return [action];
     }
   });
 
@@ -290,12 +285,12 @@ const StagedInvoiceAction = ({
 
   return (
     <StagedAction
-      label="Staged · awaits your approval"
-      title={`Invoice draft · ${formatCurrency(amountMajor)}`}
+      label="Ready to draft · requires review"
+      title={`Invoice opportunity · ${formatCurrency(amountMajor)}`}
       description={
         <>
           {hours.toFixed(hours % 1 === 0 ? 0 : 1)} unbilled {hours === 1 ? 'hour' : 'hours'} aggregated from
-          the current pay period. Approving opens the draft in the invoice editor — the invoice is not sent
+          the current pay period. Drafting opens the invoice editor — the invoice is not sent
           until you review the line items and click <strong>Send</strong>.
         </>
       }
@@ -704,10 +699,6 @@ export const MatterOverviewTab = (props: MatterOverviewTabProps) => {
   } = props;
 
   const approveInvoice = onApproveInvoiceDraft ?? onCreateInvoice;
-  // "Reply to client" defaults to opening the engagement (closest existing
-  // contact surface); a real reply requires the practice-assistant matter
-  // route. TODO(backend): replace with the scoped chat endpoint.
-  const replyToClient = onReplyToClient ?? onViewEngagement;
 
   return (
     <div className="@container">
@@ -721,7 +712,7 @@ export const MatterOverviewTab = (props: MatterOverviewTabProps) => {
             tasks={tasks}
             timelineItems={timelineItems}
             onApproveInvoice={approveInvoice}
-            onReplyToClient={replyToClient}
+            onReplyToClient={onReplyToClient}
             onViewEngagement={onViewEngagement}
           />
 

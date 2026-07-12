@@ -918,17 +918,6 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
       ? `${intakeJurisdictionState} · ${cityFromAddress}`
       : intakeJurisdictionState
     : null;
-  // TODO(backend): expose intake source (widget origin / referral) via the
-  // intake row. For now we fall back to a generic practice label.
-  const sourceLabel = `via ${practiceName?.trim() || 'public intake form'}`;
-  // TODO(backend): expose a real response-window from practice settings;
-  // surface "urgent" when the intake is flagged as time-sensitive.
-  const responseWindow = intake.urgency === 'emergency'
-    ? '< 3h response window'
-    : intake.urgency === 'time_sensitive'
-      ? '24h response window'
-      : null;
-
   const stampParts: string[] = [];
   const intakeAgeMin = (() => {
     const created = new Date(intake.created_at).getTime();
@@ -1249,8 +1238,6 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
         scopeLabel={headerScope}
         practiceArea={headerPracticeArea}
         jurisdiction={jurisdictionLabel}
-        source={sourceLabel}
-        responseWindow={responseWindow}
         statusBadge={statusPill}
         actions={headerActions}
         stamp={stampText}
