@@ -64,6 +64,8 @@ describe('worker route table', () => {
     expectRoute('/api/preferences', 'proxy');
     expectRoute('/api/subscriptions', 'proxy');
     expectRoute('/api/subscription', 'proxy');
+    expectRoute('/api/trust/practice-1/readiness', 'proxy');
+    expectRoute('/api/trust/practice-1/reconciliations', 'proxy');
     expectRoute('/api/uploads', 'proxy');
   });
 
