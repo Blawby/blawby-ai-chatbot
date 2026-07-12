@@ -178,7 +178,6 @@ export function CalendarFocusDrawer({
   if (event.kind === 'court') {
     if (event.court) whenCells.push({ label: 'Courthouse', value: event.court });
     if (event.judge) whenCells.push({ label: 'Judge', value: event.judge });
-    whenCells.push({ label: 'Travel', value: '~22 min' }); // TODO(backend): geocode + maps API
   } else {
     if (time) whenCells.push({ label: 'Time', value: time });
     whenCells.push({ label: 'Kind', value: KIND_LABELS[event.kind] });
