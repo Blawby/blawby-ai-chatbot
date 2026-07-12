@@ -186,6 +186,8 @@ describe('deployment evidence', () => {
     expect(staging).toContain('rollbackDurationSeconds');
     expect(staging).toContain('Redeploy current staging Worker');
     expect(staging).toContain('Redeploy current staging Pages');
+    expect(staging).toContain('page https://ai-staging.blawby.com');
+    expect(staging).not.toContain('https://staging.blawby.com');
 
     expect(smoke).toContain('production-launch-test');
     expect(smoke).toContain('production_launch_smoke');
