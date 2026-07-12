@@ -1,13 +1,13 @@
 import { expect, test } from './fixtures.auth';
 import { loadE2EConfig, normalizeE2EPracticeSlug } from './helpers/e2eConfig';
 import { fetchJsonViaPage, formatJsonResultError, type JsonResult } from './helpers/http';
+import { verifyE2ETestUserEmail } from './helpers/stagingAuthBootstrap';
 import { completeStripeHostedInvoicePaymentWithTestCard } from './helpers/stripeCheckout';
 
 type JsonRecord = Record<string, unknown>;
 type ApiPage = Parameters<typeof fetchJsonViaPage>[0];
 type E2EClientIdentity = {
   email: string;
-  name: string;
   userId: string;
 };
 
@@ -72,6 +72,15 @@ const numberFrom = (record: JsonRecord | null | undefined, keys: string[]): numb
   return null;
 };
 
+const booleanFrom = (record: JsonRecord | null | undefined, keys: string[]): boolean | null => {
+  if (!record) return null;
+  for (const key of keys) {
+    const value = record[key];
+    if (typeof value === 'boolean') return value;
+  }
+  return null;
+};
+
 const requireRecord = (result: JsonResult, keys: string[], label: string): JsonRecord => {
   if (result.status < 200 || result.status >= 300) {
     throw new Error(`${label} failed: ${formatJsonResultError(result)}`);
@@ -104,7 +113,8 @@ const findClientByEmail = async (
   const clients = arrayFrom(clientList.data, ['data', 'clients', 'items']);
   return clients.find((item) => {
     const user = asRecord(item.user);
-    return textFrom(user, ['email'])?.toLowerCase() === email;
+    const rowEmail = textFrom(user, ['email']) ?? textFrom(item, ['email']);
+    return rowEmail?.toLowerCase() === email;
   }) ?? null;
 };
 
@@ -114,7 +124,6 @@ const configuredClientIdentityFromSession = async (clientPage: ApiPage): Promise
   const user = userFromSessionPayload(clientSession.data);
   return {
     email: requireText(user as JsonRecord, ['email'], 'client session').toLowerCase(),
-    name: textFrom(user, ['name']) ?? 'Billing E2E Client',
     userId: requireText(user as JsonRecord, ['id'], 'client session'),
   };
 };
@@ -144,17 +153,74 @@ const ensureClientLinkedToPractice = async (
   clientIdentity: E2EClientIdentity
 ): Promise<JsonRecord> => {
   const existingClient = await findClientByEmail(ownerPage, clientIdentity.email);
-  if (!existingClient) {
-    await api(ownerPage, `/api/clients/${encodeURIComponent(PRACTICE_ID)}`, {
+  if (existingClient) return existingClient;
+
+  const session = await api(clientPage, '/api/auth/get-session');
+  const sessionUser = userFromSessionPayload(session.data);
+  if (booleanFrom(sessionUser, ['emailVerified', 'email_verified']) !== true) {
+    const verificationResult = await verifyE2ETestUserEmail(clientIdentity.email);
+    if (verificationResult.status !== 'verified' && verificationResult.status !== 'already-verified') {
+      throw new Error(
+        `Client account is not email verified, so staging rejects practice invitation acceptance. ` +
+        verificationResult.message
+      );
+    }
+  }
+
+  const memberList = await api(
+    ownerPage,
+    `/api/auth/organization/list-members?organizationId=${encodeURIComponent(PRACTICE_ID)}`
+  );
+  const staleMember = arrayFrom(memberList.data, ['members', 'data', 'items']).find((member) => {
+    const user = asRecord(member.user);
+    return textFrom(member, ['userId', 'user_id']) === clientIdentity.userId
+      || textFrom(user, ['id']) === clientIdentity.userId
+      || textFrom(user, ['email'])?.toLowerCase() === clientIdentity.email;
+  });
+  if (staleMember) {
+    await api(ownerPage, '/api/auth/organization/remove-member', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        name: clientIdentity.name,
-        email: clientIdentity.email,
-        status: 'active',
+        memberIdOrEmail: textFrom(staleMember, ['id']) ?? clientIdentity.email,
+        organizationId: PRACTICE_ID,
       }),
     });
+
+    const membersAfterRemoval = await api(
+      ownerPage,
+      `/api/auth/organization/list-members?organizationId=${encodeURIComponent(PRACTICE_ID)}`
+    );
+    const staleMembershipRemains = arrayFrom(membersAfterRemoval.data, ['members', 'data', 'items']).some((member) => {
+      const user = asRecord(member.user);
+      return textFrom(member, ['userId', 'user_id']) === clientIdentity.userId
+        || textFrom(user, ['id']) === clientIdentity.userId;
+    });
+    expect(staleMembershipRemains, 'stale pre-linkage membership should be removed before reinviting').toBe(false);
   }
+
+  const invitation = await api(ownerPage, '/api/auth/organization/invite-member', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      email: clientIdentity.email,
+      role: 'client',
+      organizationId: PRACTICE_ID,
+    }),
+  });
+  const invitationRecord = firstRecordFrom(invitation.data, ['invitation', 'data']) ?? asRecord(invitation.data);
+  const invitationId = textFrom(invitationRecord, ['invitationId', 'id']);
+  if (!invitationId) {
+    throw new Error('Practice invitation response did not include an invitation id.');
+  }
+
+  const acceptedInvitation = await api(clientPage, '/api/auth/organization/accept-invitation', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ invitationId }),
+  });
+  const acceptedMember = firstRecordFrom(acceptedInvitation.data, ['member']);
+  expect(textFrom(acceptedMember, ['role']), 'accepted invitation should create a client membership').toBe('client');
 
   await api(clientPage, '/api/auth/organization/set-active', {
     method: 'POST',
@@ -164,7 +230,7 @@ const ensureClientLinkedToPractice = async (
 
   const linkedClient = await findClientByEmail(ownerPage, clientIdentity.email);
   if (!linkedClient) {
-    throw new Error(`Created billing client was not returned by /api/clients/${PRACTICE_ID}.`);
+    throw new Error(`Accepted billing client was not returned by /api/clients/${PRACTICE_ID}.`);
   }
   return linkedClient;
 };
