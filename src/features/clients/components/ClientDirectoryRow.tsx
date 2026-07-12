@@ -6,7 +6,7 @@ import { Bar, SignalPill, type SignalPillSignal } from '@/design-system/primitiv
 import { MatterChip } from '@/design-system/patterns';
 import { cn } from '@/shared/utils/cn';
 import { formatCurrency } from '@/shared/utils/currencyFormatter';
-import { getMajorAmountValue, asMajor } from '@/shared/utils/money';
+import { asMajor } from '@/shared/utils/money';
 import type { BackendMatter } from '@/features/matters/services/mattersApi';
 import { formatLastContact, signalLabel } from './clientSignals';
 
@@ -217,12 +217,8 @@ export function ClientDirectoryRow({
 /** Helper to safely read a retainer-ish dollar amount from a matter. */
 export const readRetainerAmount = (matter: BackendMatter | null): number | null => {
   if (!matter) return null;
-  // Closest proxy we have today is `total_fixed_price` for fixed-fee matters.
-  // True trust/retainer balances live on the engagement / trust ledger and
-  // aren't joined onto the matters list.
-  if (matter.total_fixed_price !== null && matter.total_fixed_price !== undefined) {
-    const value = getMajorAmountValue(matter.total_fixed_price);
-    return Number.isFinite(value) && value > 0 ? value : null;
+  if (matter.retainer_balance !== null && matter.retainer_balance !== undefined) {
+    return Number.isFinite(matter.retainer_balance) ? matter.retainer_balance / 100 : null;
   }
   return null;
 };

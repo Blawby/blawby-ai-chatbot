@@ -11,6 +11,8 @@ import { type TimelineItem, type TimelinePerson } from '@/shared/ui/activity/Act
 import { Dialog, DialogBody } from '@/shared/ui/dialog';
 import { Folder, SquarePen, Plus, Download } from 'lucide-preact';
 import { formatRelativeTime } from '@/features/matters/utils/formatRelativeTime';
+import { useMatterRisks } from '@/features/insights/hooks/usePracticeInsights';
+import type { MatterRiskInsight } from '@/features/insights/services/practiceInsightsApi';
 
 import { MATTER_STATUS_LABELS, type MatterStatus } from '@/shared/types/matterStatus';
 import {
@@ -175,27 +177,7 @@ const mobileFilterChipActiveClass =
 const mobileFilterChipInactiveClass =
   `${mobileFilterChipBaseClass} border-line-subtle bg-paper-2 text-ink-2 hover:bg-[rgb(var(--sidebar-hover-bg))] hover:text-ink`;
 
-// Risk signal derivation from matter data. We only have urgency + updated_at
-// in the prefetched list payload — per-row event counts and retainer % live in
-// the matter detail and don't fan out to the list (would be N+1). So:
-//   - urgency='emergency' → urgent
-//   - last activity within 24h → healthy
-//   - last activity > 30d → quiet
-//   - everything else → warn
 const DAY_MS = 24 * 60 * 60 * 1000;
-const deriveRiskSignal = (
-  urgency: MatterDetail['urgency'] | undefined,
-  updatedAt: string,
-  now: number
-): SignalPillSignal => {
-  if (urgency === 'emergency') return 'urgent';
-  const updated = new Date(updatedAt).getTime();
-  if (!Number.isFinite(updated)) return 'warn';
-  const ageMs = now - updated;
-  if (ageMs <= DAY_MS) return 'healthy';
-  if (ageMs > 30 * DAY_MS) return 'quiet';
-  return 'warn';
-};
 
 const riskSignalLabel = (signal: SignalPillSignal): string => {
   switch (signal) {
@@ -445,6 +427,15 @@ export const PracticeMattersPage = ({
     hasDetails: hasPracticeDetails,
     fetchDetails: fetchPracticeDetails
   } = usePracticeDetails(activePracticeId, null, false);
+  const {
+    data: matterRisksData,
+    isLoading: matterRisksLoading,
+    error: matterRisksError,
+  } = useMatterRisks(activePracticeId ?? '');
+  const matterRisksById = useMemo(
+    () => new Map((matterRisksData ?? []).map((insight) => [insight.matter_id, insight])),
+    [matterRisksData],
+  );
 
   // ── Detail state ──────────────────────────────────────────────────────────
   const [selectedMatterDetailState, setSelectedMatterDetail] = useState<MatterDetail | null>(null);
@@ -883,8 +874,8 @@ export const PracticeMattersPage = ({
     void onRefetchList?.();
   }, [onRefetchList]);
   const matters = prefetchedItems;
-  const mattersLoading = prefetchedLoading;
-  const mattersError = prefetchedError;
+  const mattersLoading = prefetchedLoading || matterRisksLoading;
+  const mattersSourceError = prefetchedError ?? matterRisksError;
 
   // ── Data fetching: matter detail ──────────────────────────────────────────
   useEffect(() => {
@@ -1537,6 +1528,10 @@ export const PracticeMattersPage = ({
       (a, b) => new Date(b.summary.updatedAt).getTime() - new Date(a.summary.updatedAt).getTime()
     );
   }, [filteredMatters]);
+  const missingMatterInsights = Boolean(matterRisksData)
+    && sortedMatterEntries.some((entry) => !matterRisksById.has(entry.summary.id));
+  const mattersError = mattersSourceError
+    ?? (missingMatterInsights ? 'Matter risk insights did not cover every listed matter.' : null);
 
   const selectedMatterSummary = useMemo(
     () => selectedMatterId ? matterSummaries.find((m) => m.id === selectedMatterId) ?? null : null,
@@ -2337,9 +2332,10 @@ export const PracticeMattersPage = ({
   // `assigned: me` is a no-op when we don't yet know the current user.
   const sessionUserId = session?.user?.id ?? null;
   const now = Date.now();
+  const matterSignal = (matterId: string): SignalPillSignal => matterRisksById.get(matterId)?.signal ?? 'quiet';
   const visibleMatterEntries = sortedMatterEntries.filter((entry) => {
     if (activeFilters.has('at_risk')) {
-      const signal = deriveRiskSignal(entry.urgency, entry.summary.updatedAt, now);
+      const signal = matterSignal(entry.summary.id);
       if (signal !== 'urgent' && signal !== 'warn') return false;
     }
     if (activeFilters.has('status_open')) {
@@ -2363,7 +2359,7 @@ export const PracticeMattersPage = ({
     return cat === 'active' || cat === 'closing' || cat === 'new';
   }).length;
   const atRiskCount = sortedMatterEntries.filter((e) =>
-    deriveRiskSignal(e.urgency, e.summary.updatedAt, now) === 'urgent'
+    matterSignal(e.summary.id) === 'urgent'
   ).length;
   const totalMatters = sortedMatterEntries.length;
   const openRetainerTotal = sortedMatterEntries.reduce((sum, entry) => {
@@ -2596,6 +2592,10 @@ export const PracticeMattersPage = ({
                 ))}
               </div>
             </div>
+          ) : mattersError ? (
+            <div className="panel px-6 py-12 text-center text-sm text-neg">
+              Matter risk data is unavailable. The list is withheld so stale client-side risk guesses are not shown.
+            </div>
           ) : showEmpty ? (
             <EmptyState onCreate={handleNewMatter} disableCreate={!activePracticeId} />
           ) : showFilteredEmpty ? (
@@ -2616,7 +2616,7 @@ export const PracticeMattersPage = ({
                 <MattersBoard
                   entries={visibleMatterEntries}
                   onSelect={(id) => goToDetail(id)}
-                  now={now}
+                  riskByMatterId={matterRisksById}
                 />
               </div>
               <div className="lg:hidden">
@@ -2625,6 +2625,7 @@ export const PracticeMattersPage = ({
                   onSelect={(id) => goToDetail(id)}
                   now={now}
                   activeFilters={activeFilters}
+                  riskByMatterId={matterRisksById}
                 />
               </div>
             </>
@@ -2634,6 +2635,7 @@ export const PracticeMattersPage = ({
               onSelect={(id) => goToDetail(id)}
               now={now}
               activeFilters={activeFilters}
+              riskByMatterId={matterRisksById}
             />
           )}
         </div>
@@ -2747,11 +2749,13 @@ function MattersTable({
   onSelect,
   now,
   activeFilters,
+  riskByMatterId,
 }: {
   entries: MatterRow[];
   onSelect: (id: string) => void;
   now: number;
   activeFilters: ReadonlySet<MatterRiskFilter>;
+  riskByMatterId: ReadonlyMap<string, MatterRiskInsight>;
 }) {
   const filterSummary = activeFilters.size === 0
     ? 'no filters'
@@ -2774,7 +2778,8 @@ function MattersTable({
       <ul className="divide-y divide-line-subtle">
         {entries.map((row) => {
           const { summary } = row;
-          const signal = deriveRiskSignal(row.urgency, summary.updatedAt, now);
+          const insight = riskByMatterId.get(summary.id);
+          const signal = insight?.signal ?? 'quiet';
           const tone = matterStatusPillTone(summary.status);
           const billingLabel = billingTypeLabel(row.billingType);
           const opened = daysSince(row.openDate ?? summary.createdAt, now);
@@ -2839,6 +2844,11 @@ function MattersTable({
                       {summary.practiceArea}
                     </span>
                   ) : null}
+                  {insight?.tags.slice(0, 2).map((tag) => (
+                    <span key={tag} className="rounded-[2px] bg-rule-soft px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-wider text-ink-2">
+                      {tag.replaceAll('-', ' ')}
+                    </span>
+                  ))}
                 </div>
 
                 {/* Risk SignalPill — desktop only. */}
@@ -2848,9 +2858,10 @@ function MattersTable({
 
                 {/* Activity — desktop only. */}
                 <div className="hidden text-right md:block">
-                  <div className="font-mono text-sm text-ink">{formatRelativeTime(summary.updatedAt)}</div>
-                  {/* TODO(backend): per-matter event count for trailing 30d. */}
-                  <div className="mt-0.5 font-mono text-[10px] uppercase tracking-wider text-dim">last activity</div>
+                  <div className="font-mono text-sm text-ink">{formatRelativeTime(insight?.last_activity_at ?? summary.updatedAt)}</div>
+                  <div className="mt-0.5 font-mono text-[10px] uppercase tracking-wider text-dim">
+                    {insight?.last_activity_source.replaceAll('-', ' ') ?? 'activity unavailable'}
+                  </div>
                 </div>
               </button>
             </li>
@@ -2875,11 +2886,11 @@ function MattersTable({
 function MattersBoard({
   entries,
   onSelect,
-  now,
+  riskByMatterId,
 }: {
   entries: MatterRow[];
   onSelect: (id: string) => void;
-  now: number;
+  riskByMatterId: ReadonlyMap<string, MatterRiskInsight>;
 }) {
   const byLane: Record<BoardLane, MatterRow[]> = {
     lead: [],
@@ -2911,7 +2922,8 @@ function MattersBoard({
               <p className="mt-2 font-mono text-[10.5px] text-dim-2">No matters in this lane.</p>
             ) : (
               rows.map((row) => {
-                const signal = deriveRiskSignal(row.urgency, row.summary.updatedAt, now);
+                const insight = riskByMatterId.get(row.summary.id);
+                const signal = insight?.signal ?? 'quiet';
                 return (
                   <button
                     key={row.summary.id}
@@ -2928,7 +2940,7 @@ function MattersBoard({
                     </div>
                     <div className="mt-1.5 flex items-center justify-between">
                       <span className="font-mono text-[10px] uppercase tracking-wider text-dim-2">
-                        {formatRelativeTime(row.summary.updatedAt)}
+                        {formatRelativeTime(insight?.last_activity_at ?? row.summary.updatedAt)}
                       </span>
                       <SignalPill signal={signal} label={riskSignalLabel(signal)} />
                     </div>

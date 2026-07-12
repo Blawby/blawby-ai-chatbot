@@ -51,12 +51,10 @@ import {
 } from '@/design-system/patterns';
 import { Pill, SignalPill, type PillTone, type SignalPillSignal } from '@/design-system/primitives';
 import type { BackendMatter } from '@/features/matters/services/mattersApi';
-import { formatRelativeTime } from '@/features/matters/utils/formatRelativeTime';
+import { useClientCheckins } from '@/features/insights/hooks/usePracticeInsights';
 import { readRetainerAmount } from '@/features/clients/components/ClientDirectoryRow';
 import {
   SENTIMENT_RANK,
-  computeLastContactDays,
-  deriveContactSignal,
   formatLastContact,
   signalLabel,
   type ContactFilterId,
@@ -79,6 +77,7 @@ type DirectoryRecord = {
   matters?: BackendMatter[];
   primaryMatter?: BackendMatter | null;
   lastContactDays?: number | null;
+  lastContactSource?: string | null;
   signal?: SignalPillSignal;
 };
 
@@ -601,6 +600,11 @@ export const PracticeContactsPage = ({
     : null;
   const activePracticeId = routePracticeId === undefined ? (currentPractice?.id ?? null) : routePracticeId;
   const {
+    data: clientCheckinsData,
+    isLoading: clientCheckinsLoading,
+    error: clientCheckinsError,
+  } = useClientCheckins(activePracticeId ?? '');
+  const {
     invitations: practiceInvitations,
     isLoading: invitationsLoading,
     error: invitationsError,
@@ -674,7 +678,10 @@ export const PracticeContactsPage = ({
     })[0] ?? null;
   }, []);
 
-  const now = useMemo(() => Date.now(), []);
+  const clientCheckinsById = useMemo(
+    () => new Map((clientCheckinsData ?? []).map((insight) => [insight.client_id, insight])),
+    [clientCheckinsData],
+  );
 
   const clients = useMemo<DirectoryRecord[]>(() => {
     const peopleItems: DirectoryRecord[] = prefetchedItems.map((detail) => {
@@ -683,8 +690,7 @@ export const PracticeContactsPage = ({
       const userId = detail.user_id;
       const matters = userId ? (mattersByUserId.get(userId) ?? []) : [];
       const primaryMatter = pickPrimaryMatter(matters);
-      const lastContactDays = computeLastContactDays(detail, now);
-      const signal = deriveContactSignal({ lastContactDays, matters });
+      const insight = clientCheckinsById.get(detail.id);
       return {
         id: detail.id,
         kind: 'client',
@@ -696,8 +702,9 @@ export const PracticeContactsPage = ({
         addressDisplay: formatUserDetailAddressDisplay(resolvedAddress),
         matters,
         primaryMatter,
-        lastContactDays,
-        signal,
+        lastContactDays: insight?.recency_days ?? null,
+        lastContactSource: insight?.last_contact_source ?? null,
+        signal: insight?.signal ?? 'calm',
       };
     });
     if (isArchivedListRoute) {
@@ -714,7 +721,7 @@ export const PracticeContactsPage = ({
       return activePeople;
     }
     return teamMembersLoaded ? [...activePeople, ...teamMembers] : activePeople;
-  }, [isArchivedListRoute, isClientsListRoute, isTeamListRoute, mattersByUserId, now, pickPrimaryMatter, prefetchedItems, statusFilter, teamMembers, teamMembersLoaded]);
+  }, [clientCheckinsById, isArchivedListRoute, isClientsListRoute, isTeamListRoute, mattersByUserId, pickPrimaryMatter, prefetchedItems, statusFilter, teamMembers, teamMembersLoaded]);
 
   const pendingClientInvitations = useMemo(
     () => practiceInvitations.filter((invitation) => normalizePracticeRole(invitation.role) === 'client' && invitation.status === 'pending'),
@@ -726,14 +733,19 @@ export const PracticeContactsPage = ({
   );
   const isTeamSelectionRoute = isTeamListRoute || selectedClientIdFromPath?.startsWith('team:') === true;
   const isCombinedPeopleRoute = !isClientsListRoute && !isTeamListRoute && !isArchivedListRoute;
+  const missingClientCheckins = Boolean(clientCheckinsData)
+    && prefetchedItems.some((detail) => !clientCheckinsById.has(detail.id));
   const clientsLoading = isPendingListRoute
     ? invitationsLoading
     : prefetchedLoading
+    || clientCheckinsLoading
     || (isTeamSelectionRoute && isFetchingMembers)
     || (isCombinedPeopleRoute && !teamMembersLoaded);
   const clientsError = isPendingListRoute
     ? invitationsError
     : prefetchedError
+    ?? clientCheckinsError
+    ?? (missingClientCheckins ? 'Client check-in insights did not cover every listed client.' : null)
     ?? ((isCombinedPeopleRoute || isTeamListRoute) ? teamMembersError : null);
 
   // ── Apply filter chip + sort ──────────────────────────────────────────
@@ -932,8 +944,7 @@ export const PracticeContactsPage = ({
         const userId = detail.user_id;
         const matters = userId ? (mattersByUserId.get(userId) ?? []) : [];
         const primaryMatter = pickPrimaryMatter(matters);
-        const lastContactDays = computeLastContactDays(detail, now);
-        const signal = deriveContactSignal({ lastContactDays, matters });
+        const insight = clientCheckinsById.get(detail.id);
         setSelectedClientRemote({
           id: detail.id,
           kind: 'client' as const,
@@ -945,8 +956,9 @@ export const PracticeContactsPage = ({
           addressDisplay: formatUserDetailAddressDisplay(resolvedAddress),
           matters,
           primaryMatter,
-          lastContactDays,
-          signal,
+          lastContactDays: insight?.recency_days ?? null,
+          lastContactSource: insight?.last_contact_source ?? null,
+          signal: insight?.signal ?? 'calm',
         });
       })
       .catch((error) => {
@@ -955,7 +967,7 @@ export const PracticeContactsPage = ({
         setSelectedClientRemote(null);
       });
     return () => controller.abort();
-  }, [activePracticeId, mattersByUserId, now, pickPrimaryMatter, selectedClientFromList, selectedClientIdFromPath, teamMembersLoaded]);
+  }, [activePracticeId, clientCheckinsById, mattersByUserId, pickPrimaryMatter, selectedClientFromList, selectedClientIdFromPath, teamMembersLoaded]);
 
   const handleMemoSubmit = useCallback(async (text: string) => {
     if (!activePracticeId || !selectedClient || selectedClient.kind !== 'client') return;
@@ -1191,8 +1203,8 @@ export const PracticeContactsPage = ({
       ? (client.status ? STATUS_LABELS[client.status] : 'Contact')
       : roleLabel;
     const signal = client.signal ?? 'calm';
-    const lastContactSource = isClientRecord && client.lastContactDays !== null && primaryMatter?.updated_at
-      ? `via ${formatRelativeTime(primaryMatter.updated_at)}`
+    const lastContactSource = isClientRecord && client.lastContactSource
+      ? client.lastContactSource.replaceAll('-', ' ')
       : null;
 
     return {

@@ -1,5 +1,5 @@
 import { FunctionComponent, type ComponentChildren } from 'preact';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'preact/hooks';
+import { useCallback, useEffect, useRef, useState } from 'preact/hooks';
 import {
   Copy,
   FileText,
@@ -39,6 +39,7 @@ import {
   type PracticeIntakeDetail,
 } from '@/features/intake/api/intakesApi';
 import { useIntakeDetail } from '@/features/intake/hooks/useIntakeDetail';
+import { useIntakePreflight } from '@/features/intake/hooks/useIntakePreflight';
 import { useIntakeFiles } from '@/features/intake/hooks/useIntakeFiles';
 import { IntakeFilesPanel } from '@/features/intake/components/IntakeFilesPanel';
 import { STANDARD_FIELD_DEFINITIONS } from '@/shared/constants/intakeTemplates';
@@ -332,6 +333,12 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
     refetch: refetchIntake,
   } = useIntakeDetail(practiceId, intakeId);
   const intake: PracticeIntakeDetail | null = intakeData ?? null;
+  const {
+    data: preflightData,
+    isLoading: preflightLoading,
+    error: preflightError,
+    refetch: refetchPreflight,
+  } = useIntakePreflight(practiceId, intakeId);
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [localTriageStatus, setLocalTriageStatus] = useState<string | null>(null);
@@ -834,27 +841,6 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
     setTriageReason('');
   }, [isSubmitting]);
 
-  // Practice coverage states (used by preflight checks). Defensive read
-  // because PracticeDetails.serviceStates is typed as `string[] | null`.
-  const coverageStates: string[] = useMemo(() => {
-    const detailRecord = practiceDetails as Record<string, unknown> | null;
-    const raw = detailRecord?.serviceStates;
-    if (!Array.isArray(raw)) return [];
-    return raw.filter((s): s is string => typeof s === 'string' && s.trim().length > 0);
-  }, [practiceDetails]);
-
-  // Practice service labels for area-fit matching. Read off practiceDetails
-  // directly (not via the local `services` const, which is re-created each
-  // render and would invalidate this memo on every paint).
-  const practiceServiceLabels: string[] = useMemo(() => {
-    const raw = (practiceDetails as Record<string, unknown> | null)?.services;
-    if (!Array.isArray(raw)) return [];
-    return raw
-      .filter((s): s is Record<string, unknown> => s !== null && typeof s === 'object')
-      .map((s) => typeof s.name === 'string' ? s.name : '')
-      .filter((label): label is string => label.length > 0);
-  }, [practiceDetails]);
-
   if (isLoading) return <DetailSkeleton onBack={onBack} />;
 
   if (loadError || !intake) {
@@ -1056,10 +1042,6 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
       </div>
     </Card>
   ) : null;
-
-  // Note: `coverageStates` / `practiceServiceLabels` are hoisted above the
-  // early-return so the hook order is stable. They're used here for the
-  // preflight checks panel.
 
   // ── Conversation card ──────────────────────────────────────────────────────
 
@@ -1318,10 +1300,10 @@ export const IntakeDetailPage: FunctionComponent<IntakeDetailPageProps> = ({
 
             {/* C. Pre-flight checks. */}
             <IntakePreflightChecks
-              enrichedData={enrichedData}
-              intakeState={intakeJurisdictionState}
-              coverageStates={coverageStates}
-              practiceServiceLabels={practiceServiceLabels}
+              data={preflightData ?? null}
+              loading={preflightLoading}
+              error={preflightError}
+              onRetry={refetchPreflight}
             />
 
             {/* D. Acceptance preview — informational, only when pending. */}
