@@ -73,9 +73,36 @@ jobs:
           if-no-files-found: error
           retention-days: 7
 
+  capture-current:
+    name: Capture current production release
+    needs: preflight
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    environment: production
+    outputs:
+      previous_worker_commit: ${{ steps.current.outputs.previous_worker_commit }}
+      previous_worker_deployment_id: ${{ steps.current.outputs.previous_worker_deployment_id }}
+      previous_pages_deployment_id: ${{ steps.current.outputs.previous_pages_deployment_id }}
+      previous_pages_deployment_url: ${{ steps.current.outputs.previous_pages_deployment_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - name: Read current Worker and Pages identities
+        id: current
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: >-
+          npx tsx scripts/capture-cloudflare-release.ts
+          https://ai.blawby.com/api/health blawby-ai-chatbot-frontend production
+
   deploy-worker:
     name: Deploy production Worker
-    needs: preflight
+    needs: capture-current
     runs-on: ubuntu-latest
     timeout-minutes: 10
     environment: production
@@ -159,17 +186,122 @@ jobs:
         run: npx tsx scripts/read-wrangler-output.ts "${RUNNER_TEMP}/pages-deploy.ndjson" pages-deploy
       - name: Verify Pages deployment and canonical propagation
         env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           DEPLOYMENT_URL: ${{ steps.release.outputs.deployment_url }}
+          DEPLOYMENT_ID: ${{ steps.release.outputs.deployment_id }}
         run: |
           set -euo pipefail
           npx tsx scripts/verify-deployment-propagation.ts page "${DEPLOYMENT_URL}" 10 10
           npx tsx scripts/verify-deployment-propagation.ts page https://ai.blawby.com 10 10
+          npx tsx scripts/verify-pages-canonical.ts blawby-ai-chatbot-frontend "${DEPLOYMENT_ID}" 10 10
+
+  production-smoke:
+    name: Run bounded production smoke
+    needs: deploy-pages
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: production
+    env:
+      E2E_BASE_URL: https://ai.blawby.com
+      E2E_REQUIRE_ENV_ONLY: "true"
+      E2E_FORCE_AUTH_REFRESH: "true"
+      E2E_REQUIRE_EXISTING_USERS: "true"
+      E2E_SKIP_ANONYMOUS_AUTH: "true"
+      E2E_SKIP_ONBOARDING_PREFERENCE: "true"
+      E2E_LAUNCH_TEST_MARKER: production-launch-test
+      E2E_PRACTICE_ID: ${{ secrets.PRODUCTION_SMOKE_PRACTICE_ID }}
+      E2E_PRACTICE_SLUG: ${{ secrets.PRODUCTION_SMOKE_PRACTICE_SLUG }}
+      E2E_OWNER_EMAIL: ${{ secrets.PRODUCTION_SMOKE_OWNER_EMAIL }}
+      E2E_OWNER_PASSWORD: ${{ secrets.PRODUCTION_SMOKE_OWNER_PASSWORD }}
+      E2E_CLIENT_EMAIL: ${{ secrets.PRODUCTION_SMOKE_CLIENT_EMAIL }}
+      E2E_CLIENT_PASSWORD: ${{ secrets.PRODUCTION_SMOKE_CLIENT_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - name: Run production-origin smoke
+        run: npx playwright test -c playwright.production-smoke.config.ts
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: production-smoke-${{ github.sha }}
+          path: .tmp/playwright/production-smoke
+          if-no-files-found: ignore
+          retention-days: 30
+
+  rollback-production:
+    name: Restore previous production release
+    needs:
+      - capture-current
+      - deploy-worker
+      - deploy-pages
+      - production-smoke
+    if: >-
+      ${{ always() && needs.capture-current.result == 'success' &&
+          (needs.deploy-worker.result == 'failure' || needs.deploy-pages.result == 'failure' ||
+           needs.production-smoke.result == 'failure') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - name: Restore previous Worker version
+        id: worker
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          PREVIOUS_WORKER_DEPLOYMENT_ID: ${{ needs.capture-current.outputs.previous_worker_deployment_id }}
+        run: >-
+          npx wrangler rollback "${PREVIOUS_WORKER_DEPLOYMENT_ID}"
+          --env production --config worker/wrangler.toml
+          --message "Automatic rollback after failed launch ${GITHUB_SHA}" --yes
+      - name: Restore previous Pages deployment
+        id: pages
+        if: always()
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          PREVIOUS_PAGES_DEPLOYMENT_ID: ${{ needs.capture-current.outputs.previous_pages_deployment_id }}
+        run: >-
+          npx tsx scripts/rollback-pages-deployment.ts
+          blawby-ai-chatbot-frontend "${PREVIOUS_PAGES_DEPLOYMENT_ID}"
+      - name: Verify restored Worker
+        if: always()
+        env:
+          EXPECTED_COMMIT: ${{ needs.capture-current.outputs.previous_worker_commit }}
+          EXPECTED_DEPLOYMENT_ID: ${{ needs.capture-current.outputs.previous_worker_deployment_id }}
+        run: >-
+          npx tsx scripts/verify-deployment-propagation.ts worker
+          https://ai.blawby.com/api/health 10 10
+      - name: Verify restored Pages deployment
+        if: always()
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          PREVIOUS_PAGES_DEPLOYMENT_ID: ${{ needs.capture-current.outputs.previous_pages_deployment_id }}
+          PREVIOUS_PAGES_DEPLOYMENT_URL: ${{ needs.capture-current.outputs.previous_pages_deployment_url }}
+        run: |
+          set -euo pipefail
+          npx tsx scripts/verify-deployment-propagation.ts page "${PREVIOUS_PAGES_DEPLOYMENT_URL}" 10 10
+          npx tsx scripts/verify-deployment-propagation.ts page https://ai.blawby.com 10 10
+          npx tsx scripts/verify-pages-canonical.ts blawby-ai-chatbot-frontend "${PREVIOUS_PAGES_DEPLOYMENT_ID}" 10 10
 
   record-release:
     name: Record production release evidence
     needs:
       - deploy-worker
       - deploy-pages
+      - production-smoke
     runs-on: ubuntu-latest
     if: success()
     steps:

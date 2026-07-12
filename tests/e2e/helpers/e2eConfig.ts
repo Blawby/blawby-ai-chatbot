@@ -39,6 +39,7 @@ const parseEnvValue = (value: string): string => {
 export const loadE2EEnvFiles = (): void => {
   if (envFilesLoaded) return;
   envFilesLoaded = true;
+  if (process.env.E2E_REQUIRE_ENV_ONLY === 'true') return;
   const protectedEnvKeys = new Set(Object.keys(process.env));
 
   for (const fileName of ['.env', '.env.local']) {
@@ -81,6 +82,7 @@ export const normalizeE2EPracticeSlug = (value: string | null | undefined, fallb
 };
 
 const readConfigFile = (): Partial<E2EConfig> | null => {
+  if (process.env.E2E_REQUIRE_ENV_ONLY === 'true') return null;
   const filePath = resolve(process.cwd(), 'tests/e2e/fixtures/e2e-credentials.json');
   if (!existsSync(filePath)) {
     return null;

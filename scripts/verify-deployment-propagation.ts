@@ -13,6 +13,10 @@ if (!Number.isInteger(timeoutSeconds) || timeoutSeconds < 1 || timeoutSeconds > 
 
 const expectedCommit = process.env.EXPECTED_COMMIT?.trim();
 const expectedDeploymentId = process.env.EXPECTED_DEPLOYMENT_ID?.trim();
+const expectedEnvironment = process.env.EXPECTED_ENVIRONMENT?.trim() || 'production';
+if (expectedEnvironment !== 'production' && expectedEnvironment !== 'staging') {
+  throw new Error('EXPECTED_ENVIRONMENT must be production or staging');
+}
 if (mode === 'worker' && (!expectedCommit || !expectedDeploymentId)) {
   throw new Error('Worker propagation requires EXPECTED_COMMIT and EXPECTED_DEPLOYMENT_ID');
 }
@@ -27,10 +31,15 @@ for (let attempt = 1; attempt <= attempts; attempt += 1) {
     });
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     if (mode === 'worker') {
-      const body = await response.json() as {
-        data?: { environment?: unknown; release?: { commit?: unknown; workerVersionId?: unknown } };
+      const body = (await response.json()) as {
+        data?: {
+          environment?: unknown;
+          release?: { commit?: unknown; workerVersionId?: unknown };
+        };
       };
-      if (body.data?.environment !== 'production') throw new Error('Worker environment is not production');
+      if (body.data?.environment !== expectedEnvironment) {
+        throw new Error(`Worker environment is not ${expectedEnvironment}`);
+      }
       if (body.data.release?.commit !== expectedCommit) throw new Error('Worker commit has not propagated');
       if (body.data.release?.workerVersionId !== expectedDeploymentId) {
         throw new Error('Worker deployment identifier has not propagated');
@@ -41,7 +50,7 @@ for (let attempt = 1; attempt <= attempts; attempt += 1) {
   } catch (error) {
     lastFailure = error instanceof Error ? error.message : 'Unknown propagation failure';
     console.log(`Propagation attempt ${attempt}/${attempts} not ready: ${lastFailure}`);
-    if (attempt < attempts) await new Promise((resolveDelay) => setTimeout(resolveDelay, 5000));
+    if (attempt < attempts) await new Promise((resolveDelay) => globalThis.setTimeout(resolveDelay, 5000));
   }
 }
 throw new Error(`Propagation did not complete after ${attempts} attempts: ${lastFailure}`);

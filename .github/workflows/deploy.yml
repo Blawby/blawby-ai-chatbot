@@ -5,6 +5,12 @@ on:
     branches:
       - staging
   workflow_dispatch:
+    inputs:
+      rehearse_rollback:
+        description: Deploy staging, restore the previous release, verify it, then redeploy the current commit
+        required: false
+        default: false
+        type: boolean
 
 permissions:
   contents: read
@@ -35,6 +41,12 @@ jobs:
     needs: validate
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    outputs:
+      deployment_id: ${{ steps.release.outputs.deployment_id }}
+      previous_worker_commit: ${{ steps.current.outputs.previous_worker_commit }}
+      previous_worker_deployment_id: ${{ steps.current.outputs.previous_worker_deployment_id }}
+      previous_pages_deployment_id: ${{ steps.current.outputs.previous_pages_deployment_id }}
+      previous_pages_deployment_url: ${{ steps.current.outputs.previous_pages_deployment_url }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -42,19 +54,43 @@ jobs:
           node-version-file: .nvmrc
           cache: npm
       - run: npm ci
-      - name: Deploy Worker
+      - name: Capture current staging release for rollback rehearsal
+        id: current
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.rehearse_rollback }}
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         run: >-
+          npx tsx scripts/capture-cloudflare-release.ts
+          https://ai-staging.blawby.com/api/health blawby-ai-chatbot-frontend-staging staging
+      - name: Deploy Worker
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          WRANGLER_OUTPUT_FILE_PATH: ${{ runner.temp }}/worker-deploy.ndjson
+        run: >-
           npx wrangler deploy --env staging --config worker/wrangler.toml
           --tag "${GITHUB_SHA}" --message "Git commit ${GITHUB_SHA}" --strict
+      - name: Read Worker deployment identity
+        id: release
+        run: npx tsx scripts/read-wrangler-output.ts "${RUNNER_TEMP}/worker-deploy.ndjson" deploy
+      - name: Verify staging Worker propagation
+        env:
+          EXPECTED_ENVIRONMENT: staging
+          EXPECTED_COMMIT: ${{ github.sha }}
+          EXPECTED_DEPLOYMENT_ID: ${{ steps.release.outputs.deployment_id }}
+        run: >-
+          npx tsx scripts/verify-deployment-propagation.ts worker
+          https://ai-staging.blawby.com/api/health 10 10
 
   deploy-pages:
     name: Deploy staging Pages
     needs: deploy-worker
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    outputs:
+      deployment_id: ${{ steps.release.outputs.deployment_id }}
+      deployment_url: ${{ steps.release.outputs.deployment_url }}
     env:
       VITE_BACKEND_API_URL: ${{ secrets.VITE_BACKEND_API_URL_STAGING }}
       VITE_APP_BASE_URL: ${{ secrets.VITE_APP_BASE_URL_STAGING }}
@@ -73,6 +109,155 @@ jobs:
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          WRANGLER_OUTPUT_FILE_PATH: ${{ runner.temp }}/pages-deploy.ndjson
         run: >-
           npx wrangler pages deploy dist --project-name blawby-ai-chatbot-frontend-staging
           --branch staging --commit-hash "${GITHUB_SHA}" --commit-message "Git commit ${GITHUB_SHA}"
+      - name: Read Pages deployment identity
+        id: release
+        run: npx tsx scripts/read-wrangler-output.ts "${RUNNER_TEMP}/pages-deploy.ndjson" pages-deploy
+      - name: Verify staging Pages propagation
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          DEPLOYMENT_ID: ${{ steps.release.outputs.deployment_id }}
+          DEPLOYMENT_URL: ${{ steps.release.outputs.deployment_url }}
+        run: |
+          set -euo pipefail
+          npx tsx scripts/verify-deployment-propagation.ts page "${DEPLOYMENT_URL}" 10 10
+          npx tsx scripts/verify-deployment-propagation.ts page https://staging.blawby.com 10 10
+          npx tsx scripts/verify-pages-canonical.ts blawby-ai-chatbot-frontend-staging "${DEPLOYMENT_ID}" 10 10
+      - uses: actions/upload-artifact@v4
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.rehearse_rollback }}
+        with:
+          name: staging-pages-dist-${{ github.sha }}
+          path: dist
+          if-no-files-found: error
+          retention-days: 1
+
+  rollback-rehearsal:
+    name: Rehearse staging rollback and restore
+    needs:
+      - deploy-worker
+      - deploy-pages
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.rehearse_rollback }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - uses: actions/download-artifact@v4
+        with:
+          name: staging-pages-dist-${{ github.sha }}
+          path: dist
+      - name: Start rollback timer
+        id: timer
+        run: echo "started_at=$(date +%s)" >> "${GITHUB_OUTPUT}"
+      - name: Restore previous staging Worker
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          PREVIOUS_WORKER_DEPLOYMENT_ID: ${{ needs.deploy-worker.outputs.previous_worker_deployment_id }}
+        run: >-
+          npx wrangler rollback "${PREVIOUS_WORKER_DEPLOYMENT_ID}"
+          --env staging --config worker/wrangler.toml
+          --message "Staging rollback rehearsal for ${GITHUB_SHA}" --yes
+      - name: Restore previous staging Pages
+        if: always()
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          PREVIOUS_PAGES_DEPLOYMENT_ID: ${{ needs.deploy-worker.outputs.previous_pages_deployment_id }}
+        run: >-
+          npx tsx scripts/rollback-pages-deployment.ts
+          blawby-ai-chatbot-frontend-staging "${PREVIOUS_PAGES_DEPLOYMENT_ID}"
+      - name: Verify previous staging Worker
+        if: always()
+        env:
+          EXPECTED_ENVIRONMENT: staging
+          EXPECTED_COMMIT: ${{ needs.deploy-worker.outputs.previous_worker_commit }}
+          EXPECTED_DEPLOYMENT_ID: ${{ needs.deploy-worker.outputs.previous_worker_deployment_id }}
+        run: >-
+          npx tsx scripts/verify-deployment-propagation.ts worker
+          https://ai-staging.blawby.com/api/health 10 10
+      - name: Verify previous staging Pages
+        if: always()
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          PREVIOUS_PAGES_DEPLOYMENT_ID: ${{ needs.deploy-worker.outputs.previous_pages_deployment_id }}
+          PREVIOUS_PAGES_DEPLOYMENT_URL: ${{ needs.deploy-worker.outputs.previous_pages_deployment_url }}
+        run: |
+          set -euo pipefail
+          npx tsx scripts/verify-deployment-propagation.ts page "${PREVIOUS_PAGES_DEPLOYMENT_URL}" 10 10
+          npx tsx scripts/verify-deployment-propagation.ts page https://staging.blawby.com 10 10
+          npx tsx scripts/verify-pages-canonical.ts blawby-ai-chatbot-frontend-staging "${PREVIOUS_PAGES_DEPLOYMENT_ID}" 10 10
+      - name: Record measured rollback duration
+        if: always()
+        env:
+          STARTED_AT: ${{ steps.timer.outputs.started_at }}
+          PREVIOUS_WORKER_DEPLOYMENT_ID: ${{ needs.deploy-worker.outputs.previous_worker_deployment_id }}
+          PREVIOUS_PAGES_DEPLOYMENT_ID: ${{ needs.deploy-worker.outputs.previous_pages_deployment_id }}
+        run: |
+          set -euo pipefail
+          finished_at=$(date +%s)
+          jq -n \
+            --arg environment staging \
+            --arg gitCommit "${GITHUB_SHA}" \
+            --arg workerDeploymentId "${PREVIOUS_WORKER_DEPLOYMENT_ID}" \
+            --arg pagesDeploymentId "${PREVIOUS_PAGES_DEPLOYMENT_ID}" \
+            --argjson rollbackDurationSeconds "$((finished_at - STARTED_AT))" \
+            '{environment: $environment, gitCommit: $gitCommit, workerDeploymentId: $workerDeploymentId, pagesDeploymentId: $pagesDeploymentId, rollbackDurationSeconds: $rollbackDurationSeconds}' \
+            > staging-rollback-rehearsal.json
+      - name: Redeploy current staging Worker
+        if: always()
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          WRANGLER_OUTPUT_FILE_PATH: ${{ runner.temp }}/worker-restore.ndjson
+        run: >-
+          npx wrangler deploy --env staging --config worker/wrangler.toml
+          --tag "${GITHUB_SHA}" --message "Restore Git commit ${GITHUB_SHA} after rollback rehearsal" --strict
+      - name: Read restored Worker identity
+        id: restored-worker
+        if: always()
+        run: npx tsx scripts/read-wrangler-output.ts "${RUNNER_TEMP}/worker-restore.ndjson" deploy
+      - name: Redeploy current staging Pages
+        if: always()
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          WRANGLER_OUTPUT_FILE_PATH: ${{ runner.temp }}/pages-restore.ndjson
+        run: >-
+          npx wrangler pages deploy dist --project-name blawby-ai-chatbot-frontend-staging
+          --branch staging --commit-hash "${GITHUB_SHA}" --commit-message "Restore after rollback rehearsal"
+      - name: Read restored Pages identity
+        id: restored-pages
+        if: always()
+        run: npx tsx scripts/read-wrangler-output.ts "${RUNNER_TEMP}/pages-restore.ndjson" pages-deploy
+      - name: Verify current staging release restored
+        if: always()
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          EXPECTED_ENVIRONMENT: staging
+          EXPECTED_COMMIT: ${{ github.sha }}
+          EXPECTED_DEPLOYMENT_ID: ${{ steps.restored-worker.outputs.deployment_id }}
+          RESTORED_PAGES_URL: ${{ steps.restored-pages.outputs.deployment_url }}
+        run: |
+          set -euo pipefail
+          npx tsx scripts/verify-deployment-propagation.ts worker https://ai-staging.blawby.com/api/health 10 10
+          npx tsx scripts/verify-deployment-propagation.ts page "${RESTORED_PAGES_URL}" 10 10
+          npx tsx scripts/verify-deployment-propagation.ts page https://staging.blawby.com 10 10
+          npx tsx scripts/verify-pages-canonical.ts blawby-ai-chatbot-frontend-staging "${{ steps.restored-pages.outputs.deployment_id }}" 10 10
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: staging-rollback-rehearsal-${{ github.sha }}
+          path: staging-rollback-rehearsal.json
+          if-no-files-found: error
+          retention-days: 90
