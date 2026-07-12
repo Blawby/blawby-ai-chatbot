@@ -180,6 +180,28 @@ describe('PracticeContext Middleware Security Tests', () => {
   });
 
   describe('URL Override Cannot Affect Authentication', () => {
+    it('keeps the active Practice when an authenticated route query names another Practice', async () => {
+      const request = new Request('https://example.com/api/activity?practiceId=practice-b', {
+        headers: { Cookie: 'session=valid-session' },
+      });
+
+      vi.mocked(optionalAuth).mockResolvedValue({
+        user: { id: 'user-a', email: 'owner@test-blawby.com', name: 'Owner', emailVerified: true },
+        session: { id: 'session-a', expiresAt: new Date('2030-01-01T00:00:00.000Z') },
+        cookie: 'session=valid-session',
+        activeOrganizationId: 'practice-a',
+        activeMembershipRole: 'owner',
+      });
+
+      const context = await extractPracticeContext(request, mockEnv);
+
+      expect(context).toMatchObject({
+        practiceId: 'practice-a',
+        source: 'auth',
+        userId: 'user-a',
+      });
+    });
+
     it('should use original request auth headers, not URL params, for authentication', async () => {
       const originalUserId = 'user-123';
       const originalCookie = 'session=valid-session-for-user-123';

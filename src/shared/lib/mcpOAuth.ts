@@ -18,7 +18,7 @@ const toBase64Url = (bytes: Uint8Array): string =>
 
 const randomBase64Url = (size: number): string => toBase64Url(crypto.getRandomValues(new Uint8Array(size)));
 
-const buildCallbackUrl = (): string => `${getWorkerApiUrl()}${MCP_OAUTH_CALLBACK_PATH}`;
+export const getMcpOAuthCallbackUrl = (): string => `${getWorkerApiUrl()}${MCP_OAUTH_CALLBACK_PATH}`;
 
 const setSessionItem = (key: string, value: string): void => {
   window.sessionStorage.setItem(key, value);
@@ -43,7 +43,7 @@ export async function beginMcpOAuthConnect(returnPath: string): Promise<void> {
   const params = new URLSearchParams({
     response_type: 'code',
     client_id: MCP_OAUTH_CLIENT_ID,
-    redirect_uri: buildCallbackUrl(),
+    redirect_uri: getMcpOAuthCallbackUrl(),
     resource: getMcpResourceUrl(),
     scope: MCP_SCOPES.map((scope) => scope.id).join(' '),
     code_challenge: challenge,
@@ -97,7 +97,7 @@ export async function exchangeMcpAuthorizationCode(code: string, verifier: strin
     body: new URLSearchParams({
       grant_type: 'authorization_code',
       code,
-      redirect_uri: buildCallbackUrl(),
+      redirect_uri: getMcpOAuthCallbackUrl(),
       client_id: MCP_OAUTH_CLIENT_ID,
       code_verifier: verifier,
       resource: getMcpResourceUrl(),

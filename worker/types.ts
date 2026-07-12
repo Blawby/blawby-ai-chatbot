@@ -253,7 +253,7 @@ export class HttpError extends Error {
 // Common response envelope — discriminated union so consumers narrow on `success`.
 export type ApiResponse<T = unknown> =
   | { success: true; data: T; message?: string }
-  | { success: false; error: string; errorCode?: string; details?: unknown; message?: string };
+  | { success: false; error: string; errorCode?: string; details?: unknown; message?: string; correlationId?: string; retryAfter?: number };
 
 // Conversation wire types — canonical declarations live in
 // worker/types/wire/conversation.ts. Re-exported here so legacy imports

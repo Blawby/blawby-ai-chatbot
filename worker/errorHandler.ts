@@ -15,8 +15,8 @@ export function logError(error: unknown, context: Record<string, unknown> = {}) 
 }
 
 // Centralized error handler with enhanced features
-export function handleError(error: unknown): Response {
-  logError(error, { endpoint: 'unknown' });
+export function handleError(error: unknown, correlationId = crypto.randomUUID()): Response {
+  logError(error, { endpoint: 'unknown', correlationId });
 
   let status = 500;
   let message = 'Internal server error';
@@ -38,21 +38,28 @@ export function handleError(error: unknown): Response {
     message = 'Invalid JSON format';
     errorCode = 'INVALID_JSON';
   } else if (error instanceof Error) {
-    message = error.message;
+    message = 'Internal server error';
     errorCode = 'GENERIC_ERROR';
+  }
+
+  if (status >= 500) {
+    message = 'Internal server error';
+    details = undefined;
   }
 
   const response: ApiResponse = {
     success: false,
     error: message,
     errorCode,
-    ...(details && { details })
+    ...(details && { details }),
+    correlationId,
   };
 
   return new Response(JSON.stringify(response), {
     status,
     headers: {
-      'Content-Type': 'application/json'
+      'Content-Type': 'application/json',
+      'X-Request-ID': correlationId,
     }
   });
 }
@@ -108,7 +115,8 @@ export function createRateLimitResponse(
   const response: ApiResponse = {
     success: false,
     error: options?.errorMessage || 'Too many requests',
-    errorCode: 'RATE_LIMIT_EXCEEDED'
+    errorCode: 'RATE_LIMIT_EXCEEDED',
+    retryAfter,
   };
 
   const headers: Record<string, string> = {

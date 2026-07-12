@@ -31,11 +31,11 @@ import { handleGenerateEngagement } from './routes/generateEngagement.js';
 import { handleDraftEngagementTemplate } from './routes/draftEngagementTemplate.js';
 import { handlePracticeAssistant } from './routes/practiceAssistant.js';
 import { withAuth, withCache, withRateLimit } from './middleware/compose.js';
+import { getClientId } from './middleware/rateLimit.js';
 import { withEngineerAllowlist } from './middleware/withEngineerAllowlist.js';
 import { handleAdminIntakeInspector } from './routes/adminIntakeInspector.js';
 import { handleWebsiteExtract } from './routes/handleWebsiteExtract.js';
 import { handleSearch } from './routes/handleSearch.js';
-import { handleStatus } from './routes/status.js';
 import { handleStagedActions } from './routes/stagedActions.js';
 import { handleMatterSummary } from './routes/matterSummary.js';
 import { handleAutocompleteWithCORS } from './routes/api/geo/autocomplete.js';
@@ -99,6 +99,13 @@ const exact = (target: string): RouteMatcher => (path) => path === target;
 const prefix = (target: string): RouteMatcher => (path) => path.startsWith(target);
 const regex = (re: RegExp): RouteMatcher => (path) => re.test(path);
 
+const withIpRateLimit = (scope: string, max: number, handler: RouteHandler): RouteHandler =>
+  withRateLimit(handler, {
+    keyFn: (request) => `${scope}:${getClientId(request)}`,
+    max,
+    windowMs: 60_000,
+  });
+
 // Backend proxy paths — these all forward to BACKEND_API_URL via handleBackendProxy.
 // The (!practice/details, !practices) carve-out preserves the original if/else
 // precedence: those paths have dedicated handlers further down.
@@ -122,7 +129,7 @@ const matchesBackendProxy: RouteMatcher = (path) =>
 // ones (e.g. `/api/widget/practice-details/*` before `/api/widget/bootstrap`,
 // `/api/ai/intent` before `/api/ai/chat`).
 export const routes: RouteEntry[] = [
-  { mode: 'proxy', match: prefix('/api/auth'), handler: (req, env) => handleAuthProxy(req, env) },
+  { mode: 'proxy', match: prefix('/api/auth'), handler: withIpRateLimit('auth', 60, (req, env) => handleAuthProxy(req, env)) },
   { mode: 'proxy', match: regex(/^\/api\/practice\/[^/]+\/team$/), handler: (req, env) => handlePracticeTeam(req, env) },
   {
     mode: 'owned',
@@ -148,7 +155,7 @@ export const routes: RouteEntry[] = [
   {
     mode: 'owned',
     match: regex(/^\/api\/practice-client-intakes\/[^/]+\/intake$/),
-    handler: (req, env) => handlePublicPracticeIntakeSettings(req, env),
+    handler: withIpRateLimit('public-intake', 60, (req, env) => handlePublicPracticeIntakeSettings(req, env)),
   },
   { mode: 'proxy', match: matchesBackendProxy, handler: (req, env, ctx) => handleBackendProxy(req, env, ctx) },
   { mode: 'proxy', match: prefix('/api/practices'), handler: (req, env) => handlePractices(req, env) },
@@ -164,16 +171,16 @@ export const routes: RouteEntry[] = [
   { mode: 'owned', match: prefix('/api/pdf'), handler: (req, env) => handlePDF(req, env) },
   {
     mode: 'owned',
-    match: (path, env) => (path.startsWith('/api/debug') || path.startsWith('/api/test')) && env.ALLOW_DEBUG === 'true',
+    match: (path, env) => env.NODE_ENV !== 'production' &&
+      (path.startsWith('/api/debug') || path.startsWith('/api/test')) && env.ALLOW_DEBUG === 'true',
     handler: (req, env) => handleDebug(req, env),
   },
-  { mode: 'owned', match: prefix('/api/status'), handler: (req, env) => handleStatus(req, env) },
   {
     mode: 'owned',
     match: prefix('/api/notifications'),
     handler: withAuth((req, env) => handleNotifications(req, env), { required: true }),
   },
-  { mode: 'owned', match: prefix('/api/widget/practice-details/'), handler: (req, env) => handleWidgetPracticeDetails(req, env) },
+  { mode: 'owned', match: prefix('/api/widget/practice-details/'), handler: withIpRateLimit('widget-details', 120, (req, env) => handleWidgetPracticeDetails(req, env)) },
   { mode: 'owned', match: prefix('/api/practice/details/'), handler: (req, env) => handlePracticeDetails(req, env) },
   {
     mode: 'owned',
@@ -184,19 +191,27 @@ export const routes: RouteEntry[] = [
       keyFn: () => 'practice:config:static',
     }),
   },
-  { mode: 'owned', match: prefix('/api/widget/bootstrap'), handler: (req, env) => handleWidgetBootstrap(req, env) },
-  { mode: 'owned', match: prefix('/api/geo/autocomplete'), handler: handleAutocompleteWithCORS },
+  { mode: 'owned', match: prefix('/api/widget/bootstrap'), handler: withIpRateLimit('widget-bootstrap', 120, (req, env) => handleWidgetBootstrap(req, env)) },
+  { mode: 'owned', match: prefix('/api/geo/autocomplete'), handler: withIpRateLimit('geo', 60, handleAutocompleteWithCORS) },
   {
     mode: 'owned',
     match: prefix('/api/conversations'),
     // Anonymous and authenticated users are both admitted; downstream
     // operations gate via requirePracticeMember per-branch where needed.
-    handler: withAuth((req, env) => handleConversations(req, env), { required: false }),
+    handler: withIpRateLimit(
+      'conversations',
+      120,
+      withAuth((req, env) => handleConversations(req, env), { required: false }),
+    ),
   },
   {
     mode: 'owned',
     match: prefix('/api/presence'),
-    handler: withAuth((req, env) => handlePresence(req, env), { required: false }),
+    handler: withIpRateLimit(
+      'presence',
+      120,
+      withAuth((req, env) => handlePresence(req, env), { required: false }),
+    ),
   },
   {
     mode: 'owned',
@@ -208,7 +223,7 @@ export const routes: RouteEntry[] = [
     handler: withRateLimit(
       withAuth((req, env) => handleAiIntent(req, env), { required: true }),
       {
-        keyFn: (req) => req.headers.get('CF-Connecting-IP'),
+        keyFn: (req) => `ai-intent:${getClientId(req)}`,
         max: 30,
         windowMs: 60_000,
       },
@@ -220,7 +235,7 @@ export const routes: RouteEntry[] = [
     // External fetch + LLM analysis — rate-limit per IP to prevent
     // scraping abuse from a single client. 10 req / 60s.
     handler: withRateLimit((req, env) => handleWebsiteExtract(req, env), {
-      keyFn: (req) => req.headers.get('CF-Connecting-IP'),
+      keyFn: (req) => `website-extract:${getClientId(req)}`,
       max: 10,
       windowMs: 60_000,
     }),
@@ -238,22 +253,34 @@ export const routes: RouteEntry[] = [
   {
     mode: 'owned',
     match: prefix('/api/ai/practice-assistant'),
-    handler: withAuth((req, env) => handlePracticeAssistant(req, env), { required: true }),
+    handler: withIpRateLimit(
+      'practice-assistant',
+      30,
+      withAuth((req, env) => handlePracticeAssistant(req, env), { required: true }),
+    ),
   },
   {
     mode: 'owned',
     match: exact('/api/ai/generate-engagement'),
-    handler: withAuth((req, env) => handleGenerateEngagement(req, env), { required: true }),
+    handler: withIpRateLimit(
+      'generate-engagement',
+      20,
+      withAuth((req, env) => handleGenerateEngagement(req, env), { required: true }),
+    ),
   },
   {
     mode: 'owned',
     match: exact('/api/ai/draft-engagement-template'),
-    handler: withAuth((req, env) => handleDraftEngagementTemplate(req, env), { required: true }),
+    handler: withIpRateLimit(
+      'draft-engagement-template',
+      20,
+      withAuth((req, env) => handleDraftEngagementTemplate(req, env), { required: true }),
+    ),
   },
   {
     mode: 'owned',
     match: prefix('/api/ai/chat'),
-    handler: withAuth(handleAiChat, { required: true }),
+    handler: withIpRateLimit('ai-chat', 30, withAuth(handleAiChat, { required: true })),
   },
   {
     mode: 'owned',
@@ -272,7 +299,7 @@ export const routes: RouteEntry[] = [
     match: exact('/api/metrics/vitals'),
     // Anonymous beacon endpoint — rate-limit per IP to discourage spam.
     handler: withRateLimit((req, env) => handleMetricsVitals(req, env), {
-      keyFn: (req) => req.headers.get('CF-Connecting-IP'),
+      keyFn: (req) => `vitals:${getClientId(req)}`,
       max: 60,
       windowMs: 60_000,
     }),

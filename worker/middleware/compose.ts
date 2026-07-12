@@ -20,6 +20,8 @@ import { HttpErrors } from '../errorHandler.js';
 import { optionalAuth, requireAuth, type AuthContext } from './auth.js';
 import { edgeCache } from '../utils/edgeCache.js';
 import { policyTtlMs } from '../utils/cachePolicy.js';
+import { incrementRateLimitCounter } from '../lib/kvCounters.js';
+import { createRateLimitResponse } from '../errorHandler.js';
 
 export type RouteHandler = (
   request: Request,
@@ -129,13 +131,8 @@ export const withCache = (
 };
 
 /**
- * `withRateLimit(handler, { keyFn, max, windowMs })` — token-bucket
- * style rate limit using edgeCache as the counter store.
- *
- * Per-isolate scope means a request hitting a fresh isolate gets a
- * fresh budget; that's an explicit trade for simplicity vs. KV-backed
- * exact counting. Use this for UX guardrails (avoid one abusive client
- * spamming a single isolate), not for security-critical quotas.
+ * `withRateLimit(handler, { keyFn, max, windowMs })` uses an atomic
+ * ChatCounterObject for one-minute limits. KV is only a development fallback.
  *
  * Returns 429 with a JSON body when the limit is exceeded; passes
  * through to the handler otherwise.
@@ -149,24 +146,14 @@ export const withRateLimit = (
   },
 ): RouteHandler => {
   return async (request, env, ctx) => {
-    const key = opts.keyFn(request, env);
-    if (!key) return handler(request, env, ctx);
-
-    const bucketKey = `ratelimit:${key}`;
-    const now = Date.now();
-    const bucket = edgeCache.get<{ count: number; expiresAt: number }>(bucketKey);
-
-    if (bucket && bucket.expiresAt > now) {
-      if (bucket.count >= opts.max) {
-        const retryAfter = Math.max(1, Math.ceil((bucket.expiresAt - now) / 1000));
-        return new Response(
-          JSON.stringify({ success: false, error: 'Rate limit exceeded', retryAfter }),
-          { status: 429, headers: { 'Content-Type': 'application/json', 'Retry-After': String(retryAfter) } },
-        );
-      }
-      edgeCache.set(bucketKey, { count: bucket.count + 1, expiresAt: bucket.expiresAt }, bucket.expiresAt - now);
-    } else {
-      edgeCache.set(bucketKey, { count: 1, expiresAt: now + opts.windowMs }, opts.windowMs);
+    if (opts.windowMs !== 60_000) {
+      throw new RangeError('Only one-minute rate-limit windows are supported');
+    }
+    const key = opts.keyFn(request, env) ?? 'anonymous';
+    const result = await incrementRateLimitCounter(env, `route:${key}`, opts.max);
+    if (result.exceeded) {
+      const retryAfter = Math.max(1, 60 - new Date().getSeconds());
+      return createRateLimitResponse(retryAfter);
     }
 
     return handler(request, env, ctx);

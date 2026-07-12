@@ -2,7 +2,26 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import type { Env } from '../../../../worker/types.js';
 import { edgeCache } from '../../../../worker/utils/edgeCache.js';
 
-const env = { NODE_ENV: 'test', ALLOW_DEBUG: 'false' } as Env;
+const counters = new Map<string, number>();
+const env = {
+  NODE_ENV: 'test',
+  ALLOW_DEBUG: 'false',
+  CHAT_COUNTER: {
+    idFromName: (name: string) => name,
+    get: (id: string) => ({
+      fetch: async (url: string) => {
+        const parsed = new URL(url);
+        const limit = Number(parsed.searchParams.get('limit'));
+        const current = counters.get(id) ?? 0;
+        if (current >= limit) {
+          return Response.json({ exceeded: true, current });
+        }
+        counters.set(id, current + 1);
+        return Response.json({ exceeded: false, current: current + 1 });
+      },
+    }),
+  },
+} as unknown as Env;
 const ctx = {
   waitUntil: vi.fn(),
   passThroughOnException: vi.fn(),
@@ -10,6 +29,7 @@ const ctx = {
 
 beforeEach(() => {
   edgeCache.clear();
+  counters.clear();
 });
 
 describe('withCache', () => {
@@ -75,7 +95,7 @@ describe('withRateLimit', () => {
     expect(body.retryAfter).toBeGreaterThan(0);
   });
 
-  it('skips rate-limit when keyFn returns null', async () => {
+  it('uses a bounded anonymous bucket when keyFn returns null', async () => {
     const { withRateLimit } = await import('../../../../worker/middleware/compose.js');
     const handler = withRateLimit(
       async () => new Response('ok'),
@@ -86,6 +106,7 @@ describe('withRateLimit', () => {
     const r2 = await handler(new Request('https://x/a'), env, ctx);
 
     expect(r1.status).toBe(200);
-    expect(r2.status).toBe(200);
+    expect(r2.status).toBe(429);
+    expect(r2.headers.get('Retry-After')).toMatch(/^\d+$/);
   });
 });

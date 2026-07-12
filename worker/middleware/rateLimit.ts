@@ -1,5 +1,6 @@
 import type { Env } from '../types';
 import { parseEnvBool } from '../utils/safeStringUtils.js';
+import { incrementRateLimitCounter } from '../lib/kvCounters.js';
 
 export async function rateLimit(env: Env, key: string, limit = 60, windowSec = 60): Promise<boolean> {
   // Guard clause: validate numeric parameters
@@ -14,31 +15,17 @@ export async function rateLimit(env: Env, key: string, limit = 60, windowSec = 6
   // Check if we're in a test environment
   const isTestEnv = env.NODE_ENV === 'test' || parseEnvBool(env.ENV_TEST);
 
-  // Handle missing CHAT_SESSIONS
-  if (!env.CHAT_SESSIONS) {
-    if (isTestEnv) {
-      // In test environment, silently bypass rate limiting
-      return true;
-    } else {
-      // In non-test environment, log warning about misconfiguration
-      console.warn('⚠️ Rate limiting is disabled: CHAT_SESSIONS binding is not available. This is a security risk in production!');
-      // Still allow the request to proceed to maintain service availability
-      return true;
-    }
+  if (!env.CHAT_COUNTER && !env.CHAT_SESSIONS) {
+    if (isTestEnv) return true;
+    throw new Error('Rate-limit store is not configured');
   }
-  
-  const bucketKey = `rl:${key}:${Math.floor(Date.now() / (windowSec * 1000))}`;
-  const current = parseInt((await env.CHAT_SESSIONS.get(bucketKey)) || "0", 10);
-  
-  if (current >= limit) {
-    return false;
+
+  if (windowSec !== 60) {
+    throw new RangeError('Only one-minute rate-limit windows are supported');
   }
-  
-  await env.CHAT_SESSIONS.put(bucketKey, String(current + 1), { 
-    expirationTtl: windowSec + 5 
-  });
-  
-  return true;
+
+  const result = await incrementRateLimitCounter(env, `rate-limit:${key}`, limit);
+  return !result.exceeded;
 }
 
 // Helper to get client identifier for rate limiting

@@ -25,6 +25,7 @@ const validConfig = () => ({
         durable_objects: {
           bindings: [
             { name: 'CHAT_ROOM' },
+            { name: 'CHAT_COUNTER' },
             { name: 'MATTER_PROGRESS' },
             { name: 'PRESENCE_ROOM' },
           ],

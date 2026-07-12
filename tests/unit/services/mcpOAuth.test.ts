@@ -1,15 +1,20 @@
 import { describe, expect, it, vi } from 'vitest';
 
 vi.mock('@/config/urls', () => ({
-  getBackendApiUrl: () => 'https://staging-api.blawby.com/',
-  getWorkerApiUrl: () => 'https://dev.blawby.com',
+  getBackendApiUrl: () => 'https://api.blawby.com/',
+  getWorkerApiUrl: () => 'https://ai.blawby.com',
 }));
 
-import { getMcpResourceUrl } from '@/shared/lib/mcpOAuth';
+import { getMcpOAuthCallbackUrl, getMcpResourceUrl } from '@/shared/lib/mcpOAuth';
 
 describe('MCP OAuth resource ownership', () => {
   it('uses the canonical backend MCP endpoint', () => {
-    expect(getMcpResourceUrl()).toBe('https://staging-api.blawby.com/mcp');
+    expect(getMcpResourceUrl()).toBe('https://api.blawby.com/mcp');
     expect(getMcpResourceUrl()).not.toContain('/api/mcp');
+  });
+
+  it('uses only the documented production callback origin', () => {
+    expect(getMcpOAuthCallbackUrl()).toBe('https://ai.blawby.com/oauth/callback');
+    expect(getMcpOAuthCallbackUrl()).not.toMatch(/localhost|staging|dev\.blawby/i);
   });
 });

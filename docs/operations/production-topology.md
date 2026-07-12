@@ -12,7 +12,7 @@ This inventory is the source-of-truth checklist for the production configuration
 | PostgreSQL | Railway-managed backend database | Backend repository / Railway. Schema migration and recovery are human-owned backend gates. |
 | D1 | Binding `DB`, database `blawby-ai-chatbot` | Worker. Durable conversations, messages, approvals, assistant actions, and intake diagnostics currently live here. |
 | KV | Binding `CHAT_SESSIONS` | Worker. Ephemeral/session and counter support; not the durable business-record store. |
-| Durable Objects | `CHAT_ROOM`, `MATTER_PROGRESS`, `PRESENCE_ROOM` | Worker. Realtime coordination and presence. |
+| Durable Objects | `CHAT_ROOM`, `CHAT_COUNTER`, `MATTER_PROGRESS`, `PRESENCE_ROOM` | Worker. Realtime coordination, atomic rate limits, and presence. |
 | R2 | Binding `FILES_BUCKET`, bucket `blawby-ai-files` | Worker. Uploaded file objects; recovery evidence belongs to #723. |
 | Notification queue | `NOTIFICATION_EVENTS` / `notification-events` plus DLQ | Worker. In-app/push notification processing. |
 | Search queue | `SEARCH_INDEX_EVENTS` / `search-index-events` plus DLQ | Worker. Search indexing; Vectorize binding is `SEARCH_VECTORS`. |
