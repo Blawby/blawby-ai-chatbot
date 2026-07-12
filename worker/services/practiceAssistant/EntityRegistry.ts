@@ -31,8 +31,8 @@ export type FieldValidator =
   | { kind: "money"; min?: number; max?: number }
   | { kind: "number"; min?: number; max?: number; integer?: boolean }
   | { kind: "boolean" }
-  | { kind: "array"; items?: FieldValidator }
-  | { kind: "object"; schema?: Record<string, FieldValidator> };
+  | { kind: "array"; items?: FieldValidator; minItems?: number }
+  | { kind: "object"; schema?: Record<string, FieldValidator>; requiredFields?: string[] };
 
 export interface WritableField {
   field: string;
@@ -101,6 +101,23 @@ export interface EntityConfig {
 // ─── Registry ─────────────────────────────────────────────────────────────────
 
 const enc = encodeURIComponent;
+const invoiceLineItemsValidator: FieldValidator = {
+  kind: "array",
+  items: {
+    kind: "object",
+    requiredFields: ["type", "description", "unit_price"],
+    schema: {
+      type: { kind: "enum", values: ["service", "time_entry", "expense", "flat_fee", "retainer", "other"] as const },
+      description: { kind: "string", minLength: 1 },
+      quantity: { kind: "number", integer: true, min: 1 },
+      unit_price: { kind: "money", min: 0 },
+      time_entry_id: { kind: "string", minLength: 1 },
+      expense_id: { kind: "string", minLength: 1 },
+      sort_order: { kind: "number", integer: true, min: 0 },
+    },
+  },
+  minItems: 1,
+};
 
 export const ENTITY_REGISTRY: Record<string, EntityConfig> = {
   // ── Practice ────────────────────────────────────────────────────────────────
@@ -401,11 +418,37 @@ export const ENTITY_REGISTRY: Record<string, EntityConfig> = {
     deleteRoute: ({ practiceId, id }) => `/api/invoices/${enc(practiceId)}/${enc(id!)}`,
     deleteSemantics: "delete",
     writableFields: [
-      { field: "status", validator: { kind: "string" }, allowedOps: ["set"] },
+      { field: "status", validator: { kind: "enum", values: ["draft", "pending", "sent", "overdue", "cancelled"] as const }, allowedOps: ["set"] },
       { field: "due_date", aliases: ["dueDate"], validator: { kind: "date" }, allowedOps: ["set"] },
-      { field: "description", validator: { kind: "string" }, allowedOps: ["set", "replace"] },
-      { field: "matter_id", aliases: ["matterId"], validator: { kind: "string" }, allowedOps: ["set"] },
+      { field: "notes", validator: { kind: "string" }, allowedOps: ["set", "replace", "append"] },
+      { field: "memo", validator: { kind: "string" }, allowedOps: ["set", "replace", "append"] },
+      {
+        field: "line_items",
+        aliases: ["lineItems"],
+        validator: invoiceLineItemsValidator,
+        allowedOps: ["set", "replace"],
+      },
     ],
+    creatableFields: [
+      { field: "client_id", aliases: ["clientId"], validator: { kind: "string", minLength: 1 }, allowedOps: ["set"] },
+      { field: "matter_id", aliases: ["matterId"], validator: { kind: "string", minLength: 1 }, allowedOps: ["set"] },
+      { field: "connected_account_id", aliases: ["connectedAccountId"], validator: { kind: "string", minLength: 1 }, allowedOps: ["set"] },
+      { field: "invoice_number", aliases: ["invoiceNumber"], validator: { kind: "string", minLength: 1, maxLength: 50 }, allowedOps: ["set"] },
+      { field: "invoice_type", aliases: ["invoiceType"], validator: { kind: "enum", values: ["flat_fee", "phase_fee", "retainer_deposit"] as const }, allowedOps: ["set"] },
+      { field: "due_date", aliases: ["dueDate"], validator: { kind: "date" }, allowedOps: ["set"] },
+      { field: "notes", validator: { kind: "string" }, allowedOps: ["set"] },
+      { field: "memo", validator: { kind: "string" }, allowedOps: ["set"] },
+      {
+        field: "line_items",
+        aliases: ["lineItems"],
+        validator: invoiceLineItemsValidator,
+        allowedOps: ["set"],
+      },
+      { field: "time_entry_ids", aliases: ["timeEntryIds"], validator: { kind: "array", items: { kind: "string", minLength: 1 } }, allowedOps: ["set"] },
+      { field: "expense_ids", aliases: ["expenseIds"], validator: { kind: "array", items: { kind: "string", minLength: 1 } }, allowedOps: ["set"] },
+      { field: "milestone_id", aliases: ["milestoneId"], validator: { kind: "string", minLength: 1 }, allowedOps: ["set"] },
+    ],
+    requiredCreateFields: ["client_id", "connected_account_id", "line_items"],
     lifecycleActions: [
       {
         action: "send",
@@ -665,6 +708,46 @@ export const validateActionPayload = (
   return result.data;
 };
 
+/** Fail before staging approval when a model proposes an unsupported create or lifecycle payload. */
+export const validateProposedActionContract = (action: ActionPayload): void => {
+  const config = getEntityConfig(action.entityType);
+
+  if (action.actionType === "create_entity") {
+    if (!config.createRoute) {
+      throw HttpErrors.badRequest(`Entity type ${action.entityType} does not support create`);
+    }
+    const createFields = config.creatableFields ?? config.writableFields ?? [];
+    const allowedNames = new Set(createFields.flatMap((field) => [field.field, ...(field.aliases ?? [])]));
+    for (const key of Object.keys(action.data)) {
+      if (!allowedNames.has(key)) {
+        throw HttpErrors.badRequest(`Field "${key}" is not creatable on ${action.entityType}`);
+      }
+    }
+    for (const required of config.requiredCreateFields ?? []) {
+      const field = createFields.find((candidate) => candidate.field === required);
+      if (![required, ...(field?.aliases ?? [])].some((name) => action.data[name] !== undefined)) {
+        throw HttpErrors.badRequest(`Field "${required}" is required when creating ${action.entityType}`);
+      }
+    }
+    for (const field of createFields) {
+      const value = action.data[field.field]
+        ?? field.aliases?.map((alias) => action.data[alias]).find((candidate) => candidate !== undefined);
+      if (value !== undefined) validateFieldValue(field.validator, value, field.field);
+    }
+  }
+
+  if (action.actionType === "run_entity_action") {
+    const lifecycle = config.lifecycleActions?.find((candidate) => candidate.action === action.action);
+    if (!lifecycle) {
+      throw HttpErrors.badRequest(`Action "${action.action}" is not supported for ${action.entityType}`);
+    }
+    const parsed = lifecycle.inputSchema?.safeParse(action.input ?? {});
+    if (parsed && !parsed.success) {
+      throw HttpErrors.badRequest(`Invalid input for ${action.entityType}.${action.action}: ${parsed.error.message}`);
+    }
+  }
+};
+
 // ─── Copy derivation ──────────────────────────────────────────────────────────
 
 const opVerbMap: Record<OpName, string> = {
@@ -784,6 +867,8 @@ export const validateFieldValue = (
     case 'array': {
       if (!Array.isArray(value))
         throw HttpErrors.badRequest(`${label} must be an array`);
+      if (validator.minItems !== undefined && value.length < validator.minItems)
+        throw HttpErrors.badRequest(`${label} must contain at least ${validator.minItems} item(s)`);
       if (validator.items) {
         for (let i = 0; i < value.length; i++) {
           validateFieldValue(validator.items, value[i], `${label}[${i}]`);
@@ -795,6 +880,11 @@ export const validateFieldValue = (
       if (value === null || typeof value !== 'object' || Array.isArray(value))
         throw HttpErrors.badRequest(`${label} must be an object`);
       if (validator.schema) {
+        for (const required of validator.requiredFields ?? []) {
+          if ((value as Record<string, unknown>)[required] === undefined) {
+            throw HttpErrors.badRequest(`${label}.${required} is required`);
+          }
+        }
         for (const [k, subValidator] of Object.entries(validator.schema)) {
           const subValue = (value as Record<string, unknown>)[k];
           if (subValue !== undefined) {
