@@ -530,7 +530,7 @@ const EmptyAreaCard = ({ area, onAsk }: EmptyAreaCardProps) => (
         No {area.toLowerCase()} template yet
       </p>
       <p className="mt-1 text-sm leading-snug text-ink-2">
-        The assistant can draft one from your prior {area.toLowerCase()} matters.
+        The assistant can draft a starting point for you to review and edit.
       </p>
     </div>
     <Button type="button" size="sm" variant="secondary" onClick={onAsk}>
@@ -610,7 +610,7 @@ type ListViewProps = {
 };
 
 function TemplateListView({ templates, onNew, onNewInArea, onEdit, onDraftFromPrompt }: ListViewProps) {
-  const { showSuccess, showError } = useToastContext();
+  const { showError } = useToastContext();
 
   const [areaFilters, setAreaFilters] = useState<Set<string>>(new Set());
   const [statusFilters, setStatusFilters] = useState<Set<StatusFilter>>(new Set());
@@ -679,18 +679,17 @@ function TemplateListView({ templates, onNew, onNewInArea, onEdit, onDraftFromPr
     }
   }, [onDraftFromPrompt, showError]);
 
-  const handleAskAssistant = useCallback((area: string) => {
-    // TODO(backend): wire to assistant authoring; for now open a blank
-    // template pre-seeded with the area so the user can keep going.
-    onNewInArea(area);
-  }, [onNewInArea]);
-
-  const handleBrowseCommunity = useCallback(() => {
-    // TODO(backend): replace with a community-templates gallery dialog
-    // (read-only browse + import). The endpoint and UI both don't exist
-    // yet — surface the intent for now.
-    showSuccess('Community templates', 'A community template gallery is on the roadmap.');
-  }, [showSuccess]);
+  const handleAskAssistant = useCallback(async (area: string) => {
+    try {
+      await onDraftFromPrompt(
+        `Draft a reusable engagement letter template for ${area.toLowerCase()} matters.`,
+        area,
+        undefined,
+      );
+    } catch (err) {
+      showError('Draft failed', err instanceof Error ? err.message : 'Unable to draft template.');
+    }
+  }, [onDraftFromPrompt, showError]);
 
   const totalCount = templates.length;
   const allActive = areaFilters.size === 0 && statusFilters.size === 0;
@@ -709,8 +708,8 @@ function TemplateListView({ templates, onNew, onNewInArea, onEdit, onDraftFromPr
           </p>
         </div>
         <div className="flex shrink-0 flex-wrap items-center gap-2">
-          <Button type="button" variant="ghost" size="sm" onClick={handleBrowseCommunity}>
-            Browse community
+          <Button type="button" variant="ghost" size="sm" disabled title="Community template gallery is not available">
+            Community unavailable
           </Button>
           <Button type="button" variant="primary" size="sm" icon={Plus} onClick={onNew}>
             New template

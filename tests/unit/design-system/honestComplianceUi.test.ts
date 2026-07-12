@@ -77,4 +77,16 @@ describe('honest compliance UI', () => {
     expect(intakeDetail).not.toContain("'24h response window'");
     expect(intakeDetail).not.toContain('via ${practiceName');
   });
+
+  it('uses real report and template capabilities without false success', () => {
+    const reports = source('src/features/reports/pages/reports/AllReportsHub.tsx');
+    const templates = source('src/features/settings/pages/EngagementTemplatesPage.tsx');
+    expect(reports).not.toContain("showSuccess('Sent to your CPA'");
+    expect(reports).not.toContain('Download PDF');
+    expect(reports).toContain('Download CSV');
+    expect(reports).toContain('Email CPA unavailable');
+    expect(templates).not.toContain("showSuccess('Community templates'");
+    expect(templates).toContain('await onDraftFromPrompt(');
+    expect(templates).toContain('Community unavailable');
+  });
 });
