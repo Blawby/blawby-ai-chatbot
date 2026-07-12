@@ -125,7 +125,7 @@ jobs:
         run: |
           set -euo pipefail
           npx tsx scripts/verify-deployment-propagation.ts page "${DEPLOYMENT_URL}" 10 10
-          npx tsx scripts/verify-deployment-propagation.ts page https://staging.blawby.com 10 10
+          npx tsx scripts/verify-deployment-propagation.ts page https://ai-staging.blawby.com 10 10
           npx tsx scripts/verify-pages-canonical.ts blawby-ai-chatbot-frontend-staging "${DEPLOYMENT_ID}" 10 10
       - uses: actions/upload-artifact@v4
         if: ${{ github.event_name == 'workflow_dispatch' && inputs.rehearse_rollback }}
@@ -194,7 +194,7 @@ jobs:
         run: |
           set -euo pipefail
           npx tsx scripts/verify-deployment-propagation.ts page "${PREVIOUS_PAGES_DEPLOYMENT_URL}" 10 10
-          npx tsx scripts/verify-deployment-propagation.ts page https://staging.blawby.com 10 10
+          npx tsx scripts/verify-deployment-propagation.ts page https://ai-staging.blawby.com 10 10
           npx tsx scripts/verify-pages-canonical.ts blawby-ai-chatbot-frontend-staging "${PREVIOUS_PAGES_DEPLOYMENT_ID}" 10 10
       - name: Record measured rollback duration
         if: always()
@@ -252,7 +252,7 @@ jobs:
           set -euo pipefail
           npx tsx scripts/verify-deployment-propagation.ts worker https://ai-staging.blawby.com/api/health 10 10
           npx tsx scripts/verify-deployment-propagation.ts page "${RESTORED_PAGES_URL}" 10 10
-          npx tsx scripts/verify-deployment-propagation.ts page https://staging.blawby.com 10 10
+          npx tsx scripts/verify-deployment-propagation.ts page https://ai-staging.blawby.com 10 10
           npx tsx scripts/verify-pages-canonical.ts blawby-ai-chatbot-frontend-staging "${{ steps.restored-pages.outputs.deployment_id }}" 10 10
       - uses: actions/upload-artifact@v4
         if: always()
