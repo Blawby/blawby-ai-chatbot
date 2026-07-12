@@ -842,9 +842,7 @@ export class ReportService {
         const url = `${this.backendUrl}${path}?page=${page}&limit=${MAX_LIST_PAGE_SIZE}`;
         const resp = await fetch(url, { headers });
         if (!resp.ok) {
-          Logger.warn(`reports: ${label} page ${page} returned ${resp.status}`);
-          if (all.length > 0) truncated = true;
-          break;
+          throw new BackendUnavailableError(label, `${label} upstream returned ${resp.status}`);
         }
         const json = await resp.json();
         const items = extractListArray(json, candidateKeys);
@@ -853,11 +851,8 @@ export class ReportService {
           return { items: all, truncated: false };
         }
       } catch (err) {
-        Logger.warn(`reports: ${label} page ${page} failed`, {
-          error: err instanceof Error ? err.message : String(err),
-        });
-        if (all.length > 0) truncated = true;
-        break;
+        if (err instanceof BackendUnavailableError) throw err;
+        throw new BackendUnavailableError(label, `${label} upstream request failed`);
       }
     }
     truncated = all.length >= MAX_LIST_PAGES * MAX_LIST_PAGE_SIZE;
@@ -874,7 +869,8 @@ export class ReportService {
     const parsed: BackendInvoice[] = [];
     for (const raw of items) {
       const result = BackendInvoiceSchema.safeParse(raw);
-      if (result.success) parsed.push(result.data);
+      if (!result.success) throw new Error('Invalid invoice in reports response');
+      parsed.push(result.data);
     }
     return parsed;
   }
@@ -889,7 +885,8 @@ export class ReportService {
     const parsed: BackendMatter[] = [];
     for (const raw of items) {
       const result = BackendMatterSchema.safeParse(raw);
-      if (result.success) parsed.push(result.data);
+      if (!result.success) throw new Error('Invalid matter in reports response');
+      parsed.push(result.data);
     }
     return { items: parsed, truncated };
   }
@@ -902,20 +899,19 @@ export class ReportService {
     try {
       const url = `${this.backendUrl}/api/matters/${encodeURIComponent(practiceId)}/${encodeURIComponent(matterId)}/time-entries`;
       const resp = await fetch(url, { headers });
-      if (!resp.ok) return [];
+      if (!resp.ok) throw new BackendUnavailableError('utilization', `time entries upstream returned ${resp.status}`);
       const json = await resp.json();
       const items = extractListArray(json, ['time_entries', 'timeEntries', 'items']);
       const out: BackendMatterTimeEntry[] = [];
       for (const raw of items) {
         const result = BackendMatterTimeEntrySchema.safeParse(raw);
-        if (result.success) out.push(result.data);
+        if (!result.success) throw new Error('Invalid time entry in reports response');
+        out.push(result.data);
       }
       return out;
     } catch (err) {
-      Logger.warn(`reports: time entries for ${matterId} failed`, {
-        error: err instanceof Error ? err.message : String(err),
-      });
-      return [];
+      if (err instanceof BackendUnavailableError) throw err;
+      throw new BackendUnavailableError('utilization', 'time entries upstream request failed');
     }
   }
 
