@@ -27,7 +27,7 @@ export const formatLastContact = (days: number | null): string => {
   return `${days} days`;
 };
 
-export type ContactFilterId = 'all' | 'needs_check_in' | 'on_retainer' | 'awaiting_docs' | 'closed';
+export type ContactFilterId = 'all' | 'needs_check_in' | 'on_retainer' | 'closed';
 
 export type ContactSortId = 'a_z' | 'recent_activity' | 'sentiment' | 'risk';
 

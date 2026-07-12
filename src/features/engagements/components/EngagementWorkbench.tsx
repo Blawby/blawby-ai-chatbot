@@ -761,7 +761,7 @@ export const EngagementWorkbench: FunctionComponent<EngagementWorkbenchProps> = 
   const currencyUpdate = (key: keyof EngagementDraftForm) =>
     (v: number | undefined) => updateField(key, v != null ? String(v) : '');
 
-  // ── AIRibbon actions (stubs) ───────────────────────────────────────────────
+  // ── AIRibbon actions ───────────────────────────────────────────────────────
 
   const handleRegenerate = useCallback(() => {
     if (!isCreate || !selectedIntakeDetail) return;
@@ -771,36 +771,17 @@ export const EngagementWorkbench: FunctionComponent<EngagementWorkbenchProps> = 
     // takes proposal_data + practice templates and returns a fresh contract body.
   }, [isCreate, selectedIntakeDetail, selectedTemplate, engagementTemplates, generateFromTemplate]);
 
-  const ribbonActions = useMemo(() => ([
+  const canRegenerate = isCreate
+    && Boolean(selectedIntakeDetail)
+    && Boolean(selectedTemplate ?? engagementTemplates[0]);
+  const ribbonActions = useMemo(() => canRegenerate ? ([
     {
       id: 'regenerate',
-      label: 'Re-generate',
+      label: 'Regenerate draft',
       variant: 'primary' as const,
       onClick: handleRegenerate,
     },
-    {
-      id: 'polish',
-      label: 'Polish',
-      // TODO(backend): wire to a polish/rewrite endpoint that smooths the
-      // tone of the contract body without changing material terms.
-      onClick: () => undefined,
-    },
-    {
-      id: 'translate',
-      label: 'Translate',
-      // TODO(backend): wire to a translate endpoint that produces a
-      // plain-English version of the contract body.
-      onClick: () => undefined,
-    },
-  ]), [handleRegenerate]);
-
-  // ── Placeholders: "Resolve all with AI" stub ───────────────────────────────
-
-  const handleResolveAll = useCallback(() => {
-    // TODO(backend): call a placeholder-resolution endpoint that takes
-    // unresolved placeholder keys + practice defaults and patches the
-    // contract body with sensible values.
-  }, []);
+  ]) : [], [canRegenerate, handleRegenerate]);
 
   // ── Top bar render helpers ─────────────────────────────────────────────────
 
@@ -1519,10 +1500,11 @@ export const EngagementWorkbench: FunctionComponent<EngagementWorkbenchProps> = 
         <div className="mt-3 flex flex-wrap gap-1.5">
           <button
             type="button"
-            onClick={handleResolveAll}
             className="chip primary"
+            disabled
+            title="AI placeholder resolution is not available"
           >
-            Resolve all ({placeholderStats.unresolved}) with AI
+            AI resolution unavailable ({placeholderStats.unresolved})
           </button>
         </div>
       )}
@@ -1546,13 +1528,11 @@ export const EngagementWorkbench: FunctionComponent<EngagementWorkbenchProps> = 
       <button
         type="button"
         className="chip"
-        // TODO(backend): wire to engagement-contract PDF export endpoint
-        // (not currently exposed; see worker/routes for the engagement
-        // proxy and add a /pdf action when ready).
-        onClick={() => undefined}
+        disabled
+        title="Engagement PDF export is not available"
       >
         <Download className="mr-1 inline h-3 w-3" />
-        Download PDF
+        PDF unavailable
       </button>
       {!isCreate && (
         <Button

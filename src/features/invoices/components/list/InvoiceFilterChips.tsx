@@ -3,7 +3,6 @@ import { ChevronDown, Download } from 'lucide-preact';
 import { Button } from '@/shared/ui/Button';
 import { Dialog, DialogBody, DialogFooter } from '@/shared/ui/dialog';
 import { CurrencyInput, Input } from '@/shared/ui/input';
-import { useToastContext } from '@/shared/contexts/ToastContext';
 import { ColumnEditor, type ColumnEditorOption } from '@/shared/ui/table';
 import {
   DEFAULT_INVOICE_COLUMN_DEFS,
@@ -69,7 +68,6 @@ export const InvoiceFilterChips = ({
   visibleOptionalColumns,
   onVisibleColumnsChange,
 }: InvoiceFilterChipsProps) => {
-  const { showInfo } = useToastContext();
   const [dateOpen, setDateOpen] = useState<null | 'created' | 'due'>(null);
   const [totalOpen, setTotalOpen] = useState(false);
   const [draftFilters, setDraftFilters] = useState(filters);
@@ -119,8 +117,8 @@ export const InvoiceFilterChips = ({
           size="sm"
           icon={Download}
           iconClassName="h-4 w-4"
-          onClick={() => showInfo('Export', 'Invoice export is coming soon.')}
           disabled
+          title="Invoice export requires a backend export contract"
         >
           Export
         </Button>

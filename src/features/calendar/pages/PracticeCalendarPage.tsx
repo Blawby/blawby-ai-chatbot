@@ -169,12 +169,6 @@ export function PracticeCalendarPage({
 
   const handleDrawerClose = useCallback(() => setSelectedEvent(null), []);
 
-  // ── AI ask bar — stubbed query → deterministic answer card. ─────────────
-  // TODO(backend): wire onSubmit to PracticeAssistantQueryEngine for a real
-  // grounded calendar query endpoint. Today we surface a deterministic answer
-  // that uses the aggregated event corpus so the surface isn't an empty shell.
-  // Timestamp captured at submit-time so the answer card grounding label
-  // stays stable instead of ticking on every render.
   // ── Navigation label ─────────────────────────────────────────────────────
   const navLabel =
     view === 'month' ? monthLabel(anchor)

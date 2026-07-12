@@ -752,7 +752,6 @@ export const PracticeContactsPage = ({
       all: 0,
       needs_check_in: 0,
       on_retainer: 0,
-      awaiting_docs: 0,
       closed: 0,
     };
     for (const c of clients) {
@@ -762,9 +761,6 @@ export const PracticeContactsPage = ({
       if (days !== null && days > 30) counts.needs_check_in += 1;
       const hasRetainer = (c.matters ?? []).some((m) => readRetainerAmount(m) !== null);
       if (hasRetainer) counts.on_retainer += 1;
-      // "Awaiting docs" heuristic — leads with no open matters yet.
-      // TODO(backend): replace with a real `awaiting_docs` flag from intake state.
-      if (c.status === 'lead' && (c.matters ?? []).length === 0) counts.awaiting_docs += 1;
       if (c.status === 'inactive') counts.closed += 1;
     }
     return counts;
@@ -780,8 +776,6 @@ export const PracticeContactsPage = ({
           return days !== null && days > 30;
         case 'on_retainer':
           return (c.matters ?? []).some((m) => readRetainerAmount(m) !== null);
-        case 'awaiting_docs':
-          return c.status === 'lead' && (c.matters ?? []).length === 0;
         case 'closed':
           return c.status === 'inactive';
         default:
@@ -1135,10 +1129,7 @@ export const PracticeContactsPage = ({
     () => clients.filter((c) => c.kind === 'client' && c.status !== 'archived').length,
     [clients]
   );
-  const awaitingReplyCount = useMemo(() => {
-    // TODO(backend): replace with a real "days since lawyer's last outbound
-    // message" derivation once the messages join is exposed per contact.
-    // For now we proxy "awaiting reply" with "no contact activity in 7+ days".
+  const inactiveSevenDaysCount = useMemo(() => {
     return clients.filter((c) => c.kind === 'client' && (c.lastContactDays ?? 0) > 7).length;
   }, [clients]);
   const atRiskCount = useMemo(
@@ -1148,7 +1139,7 @@ export const PracticeContactsPage = ({
 
   const headerStatCells: StatStripCell[] = [
     { label: 'Active', value: String(totalActiveCount) },
-    { label: 'Awaiting reply', value: String(awaitingReplyCount), extraWarn: awaitingReplyCount > 0 },
+    { label: 'No activity 7d', value: String(inactiveSevenDaysCount), extraWarn: inactiveSevenDaysCount > 0 },
     { label: 'At risk', value: String(atRiskCount), extraWarn: atRiskCount > 0 },
   ];
 
@@ -1157,7 +1148,6 @@ export const PracticeContactsPage = ({
     { id: 'all', label: 'All' },
     { id: 'needs_check_in', label: 'Needs check-in', warn: true },
     { id: 'on_retainer', label: 'On retainer' },
-    { id: 'awaiting_docs', label: 'Awaiting docs' },
     { id: 'closed', label: 'Closed' },
   ];
 
