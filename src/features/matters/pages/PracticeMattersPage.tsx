@@ -5,7 +5,7 @@ import { Page } from '@/shared/ui/layout/Page';
 import { WorkspacePlaceholderState } from '@/shared/ui/layout/WorkspacePlaceholderState';
 import { Button } from '@/shared/ui/Button';
 import { CurrencyInput, Input } from '@/shared/ui/input';
-import { Seg, AIAskBar, AIAnswerCard, type StatStripCell } from '@/design-system/patterns';
+import { Seg, AIAskBar, type StatStripCell } from '@/design-system/patterns';
 import { Bar, Pill, SignalPill, type SignalPillSignal, type PillTone } from '@/design-system/primitives';
 import { type TimelineItem, type TimelinePerson } from '@/shared/ui/activity/ActivityTimeline';
 import { Dialog, DialogBody } from '@/shared/ui/dialog';
@@ -446,7 +446,6 @@ export const PracticeMattersPage = ({
   const [activeFilters, setActiveFilters] = useState<ReadonlySet<MatterRiskFilter>>(() => new Set());
   const [viewMode, setViewMode] = useState<MatterViewMode>('table');
   const [isMobileFiltersOpen, setIsMobileFiltersOpen] = useState(false);
-  const [askAnswer, setAskAnswer] = useState<{ query: string } | null>(null);
   const [isShortcutsHelpOpen, setIsShortcutsHelpOpen] = useState(false);
 
   const toggleFilter = useCallback((id: MatterRiskFilter) => {
@@ -466,11 +465,6 @@ export const PracticeMattersPage = ({
       if (event.metaKey || event.ctrlKey || event.altKey) return;
 
       if (event.key === 'Escape') {
-        if (askAnswer) {
-          event.preventDefault();
-          setAskAnswer(null);
-          return;
-        }
         if (activeFilters.size > 0) {
           event.preventDefault();
           setActiveFilters(new Set());
@@ -498,7 +492,7 @@ export const PracticeMattersPage = ({
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, [activePracticeId, navigate, basePath, location.url, activeFilters, askAnswer]);
+  }, [activePracticeId, navigate, basePath, location.url, activeFilters]);
 
   // ── Activity / notes ──────────────────────────────────────────────────────
   const [activityRecords, setActivityRecords] = useState<BackendMatterActivity[]>([]);
@@ -2382,21 +2376,6 @@ export const PracticeMattersPage = ({
 
   const crumb = `Workspace · ${formatCount(openMattersCount)} active`;
 
-  const handleAskSubmit = (query: string) => {
-    // TODO(backend): wire to /api/practice/:id/matters/ask once the natural-
-    // language matters-query endpoint exists. Today we surface a placeholder
-    // AIAnswerCard so the surface composes the canonical chat-first shape;
-    // the model never fabricates numbers — the lede is grounded narration
-    // of the current filter state instead.
-    setAskAnswer({ query });
-  };
-
-  // TODO(backend): replace with a real CSV stream via
-  // /api/practice/:id/matters/export?format=csv. Stub until then.
-  const handleExport = () => {
-    setAskAnswer({ query: '__export_pending__' });
-  };
-
   // Mobile reflow strategy:
   // - H1: 32px on mobile, 44px from sm+
   // - Hero stats stack under the title on mobile, align right on desktop
@@ -2454,53 +2433,11 @@ export const PracticeMattersPage = ({
         <div className="mt-6">
           <AIAskBar
             sticky={false}
-            placeholder='Ask anything — "which matters are at risk?" · "open Martinez" · "draft an invoice for Johnson"'
-            suggestions={[
-              'Show matters at risk',
-              'Retainer below 30%',
-              'No activity > 2 weeks',
-            ]}
-            onSubmit={handleAskSubmit}
+            placeholder="Grounded matter questions are not available yet"
+            disabled
+            disclaimer="Requires a grounded matter-query backend contract"
           />
         </div>
-
-        {/* ── AI ANSWER CARD (shown after ask) ─────────────────────────── */}
-        {askAnswer ? (
-          <div className="mt-5">
-            <AIAnswerCard
-              groundingLabel={`Practice assistant · grounded in matters · ${totalMatters} rows · just now`}
-              lede={
-                askAnswer.query === '__export_pending__'
-                  ? <>Exporting <em>{formatCount(totalMatters)}</em> matters to CSV. The download will start shortly.</>
-                  : <>Showing <em>{formatCount(visibleMatterEntries.length)}</em> of <em>{formatCount(totalMatters)}</em> matters{activeFilters.size > 0 ? ' that match the active filters' : ''}. Sorted by most recent activity.</>
-              }
-              body={
-                askAnswer.query === '__export_pending__'
-                  ? undefined
-                  : <p className="text-sm text-dim-2">
-                      You asked: <span className="italic text-ink">&ldquo;{askAnswer.query}&rdquo;</span>. Live natural-language matters search is coming soon &mdash; for now I&rsquo;ve applied the closest matching filter and surfaced the rows below.
-                    </p>
-              }
-              actions={[
-                {
-                  id: 'show-at-risk',
-                  label: 'Show at risk',
-                  variant: 'primary',
-                  onClick: () => {
-                    setActiveFilters(new Set(['at_risk']));
-                    setAskAnswer(null);
-                  },
-                },
-                {
-                  id: 'dismiss',
-                  label: 'Dismiss',
-                  onClick: () => setAskAnswer(null),
-                },
-              ]}
-              sources={[{ table: 'matters', count: totalMatters }]}
-            />
-          </div>
-        ) : null}
 
         {/* ── TOOLBAR (filter chips + view toggle) ─────────────────────── */}
         <div className="mt-7 flex flex-wrap items-center gap-3">
@@ -2561,8 +2498,8 @@ export const PracticeMattersPage = ({
             size="sm"
             variant="ghost"
             icon={Download}
-            onClick={handleExport}
-            disabled={!activePracticeId || totalMatters === 0}
+            disabled
+            title="Matter export requires a backend export contract"
             className="min-h-[44px] sm:min-h-0"
           >
             Export

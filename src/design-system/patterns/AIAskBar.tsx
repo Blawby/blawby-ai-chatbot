@@ -15,12 +15,13 @@ export interface AIAskBarProps {
   placeholder?: string;
   contextChips?: readonly AIAskBarContextChip[];
   suggestions?: readonly string[];
-  onSubmit: (query: string, contextIds: string[]) => void;
+  onSubmit?: (query: string, contextIds: string[]) => void;
   onVoice?: () => void;
   onAddContext?: () => void;
   sticky?: boolean;
   /** Pass a string to override, null to hide entirely, undefined for default kbd hint. */
   disclaimer?: string | null;
+  disabled?: boolean;
   className?: string;
 }
 
@@ -39,6 +40,7 @@ export function AIAskBar({
   onAddContext,
   sticky = true,
   disclaimer = undefined,
+  disabled = false,
   className,
 }: AIAskBarProps) {
   const [value, setValue] = useState('');
@@ -46,12 +48,12 @@ export function AIAskBar({
   const submit = useCallback(
     (query: string) => {
       const trimmed = query.trim();
-      if (!trimmed) return;
+      if (!trimmed || disabled || !onSubmit) return;
       const contextIds = contextChips?.map((chip) => chip.id) ?? [];
       onSubmit(trimmed, contextIds);
       setValue('');
     },
-    [contextChips, onSubmit]
+    [contextChips, disabled, onSubmit]
   );
 
   const handleSubmit: JSX.GenericEventHandler<HTMLFormElement> = (event) => {
@@ -78,10 +80,12 @@ export function AIAskBar({
       onSubmit={handleSubmit}
       role="search"
       aria-label="Ask the assistant"
+      data-disabled={disabled || undefined}
     >
       <Composer
         placeholder={placeholder}
         value={value}
+        inputDisabled={disabled}
         inputMode="single-line"
         onInput={(event) => setValue((event.currentTarget as HTMLTextAreaElement).value)}
         onKeyDown={handleKeyDown}
@@ -93,6 +97,7 @@ export function AIAskBar({
                 key={suggestion}
                 type="button"
                 className="composer-suggestion"
+                disabled={disabled}
                 onClick={() => submit(suggestion)}
               >
                 {suggestion}
@@ -123,7 +128,7 @@ export function AIAskBar({
               type="submit"
               className="composer-send-button"
               aria-label="Send"
-              disabled={!value.trim()}
+              disabled={disabled || !value.trim()}
             >
               <Icon icon={ArrowUp} className="h-4 w-4" />
             </button>

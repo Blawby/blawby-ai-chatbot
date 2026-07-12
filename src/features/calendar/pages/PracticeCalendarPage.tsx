@@ -6,7 +6,6 @@ import { Page } from '@/shared/ui/layout/Page';
 import { Button } from '@/shared/ui/Button';
 import {
   AIAskBar,
-  AIAnswerCard,
   Seg,
   StatStrip,
   type SegOption
@@ -31,12 +30,6 @@ const VIEW_OPTIONS: ReadonlyArray<SegOption<ViewMode>> = [
   { value: 'agenda', label: 'Agenda' }
 ];
 
-const ASK_SUGGESTIONS = [
-  'Court dates this week',
-  'Overdue tasks',
-  'Upcoming engagement expiries'
-] as const;
-
 const startOfDay = (date: Date): Date => {
   const copy = new Date(date);
   copy.setHours(0, 0, 0, 0);
@@ -60,8 +53,6 @@ const weekLabel = (date: Date): string => {
   const fmt: Intl.DateTimeFormatOptions = { month: 'short', day: 'numeric' };
   return `${start.toLocaleDateString('en-US', fmt)} — ${end.toLocaleDateString('en-US', fmt)}`;
 };
-
-const now = () => Date.now();
 
 interface PracticeCalendarPageProps {
   /** Practice id resolved from the route (`/practice/:slug/calendar`). */
@@ -99,7 +90,6 @@ export function PracticeCalendarPage({
   const [anchor, setAnchor] = useState<Date>(() => startOfDay(new Date()));
   const [filters, setFilters] = useState<Set<CalendarFilterKind>>(new Set());
   const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null);
-  const [askedQuery, setAskedQuery] = useState<string | null>(null);
 
   const { events, isLoading, error, truncated, refresh } = useCalendarEvents(practiceId ?? null);
 
@@ -185,20 +175,6 @@ export function PracticeCalendarPage({
   // that uses the aggregated event corpus so the surface isn't an empty shell.
   // Timestamp captured at submit-time so the answer card grounding label
   // stays stable instead of ticking on every render.
-  const [askedAt, setAskedAt] = useState<string | null>(null);
-  const handleAskSubmit = useCallback((query: string) => {
-    setAskedQuery(query);
-    setAskedAt(
-      new Date(now()).toLocaleTimeString('en-US', {
-        hour: 'numeric',
-        minute: '2-digit',
-        hour12: true
-      })
-    );
-  }, []);
-
-  const answerSourceCount = events.length;
-
   // ── Navigation label ─────────────────────────────────────────────────────
   const navLabel =
     view === 'month' ? monthLabel(anchor)
@@ -254,45 +230,11 @@ export function PracticeCalendarPage({
 
           {/* AI ask bar — non-sticky, chat-first composer. ------------------ */}
           <AIAskBar
-            placeholder="What's coming up? · 'court dates this week' · 'overdue tasks'"
-            suggestions={ASK_SUGGESTIONS}
+            placeholder="Grounded calendar questions are not available yet"
             sticky={false}
-            onSubmit={handleAskSubmit}
-            disclaimer="Blawby never writes without your approval"
+            disabled
+            disclaimer="Requires a grounded calendar-query backend contract"
           />
-
-          {/* AI answer card — appears only after a query has been asked. --- */}
-          {askedQuery && (
-            <AIAnswerCard
-              groundingLabel={`Practice assistant · grounded in ${answerSourceCount} ${answerSourceCount === 1 ? 'event' : 'events'}${askedAt ? ` · ${askedAt}` : ''}`}
-              lede={
-                <>
-                  Here&apos;s what I see for <em className="not-italic text-accent-deep">&quot;{askedQuery}&quot;</em>.
-                  {/* TODO(backend): replace deterministic lede with real AI narrative
-                      from PracticeAssistantQueryEngine. */}
-                </>
-              }
-              body={
-                <p className="m-0">
-                  I aggregated across tasks, time, engagements, invoices, court
-                  dates and milestones. Filter the list below to drill in, or
-                  open any row to see prep status.
-                </p>
-              }
-              actions={[
-                { id: 'show-list', label: 'Show as list', onClick: () => setView('agenda') },
-                { id: 'open-court', label: 'Filter to court', onClick: () => setFilters(new Set(['court'])) },
-                { id: 'dismiss', label: 'Dismiss', onClick: () => setAskedQuery(null) }
-              ]}
-              sources={[
-                { table: 'matter_tasks', count: events.filter((e) => e.kind === 'task').length },
-                { table: 'milestones', count: events.filter((e) => e.kind === 'milestone').length },
-                { table: 'engagements', count: events.filter((e) => e.kind === 'engagement').length },
-                { table: 'invoices', count: events.filter((e) => e.kind === 'invoice').length },
-                { table: 'court_dates', count: events.filter((e) => e.kind === 'court').length }
-              ]}
-            />
-          )}
 
           {/* Error + truncation banners --------------------------------- */}
           {error && (
