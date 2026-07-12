@@ -26,6 +26,11 @@ for (let attempt = 1; attempt <= attempts; attempt += 1) {
   try {
     const response = await fetch(url, {
       cache: 'no-store',
+      headers: {
+        accept: mode === 'worker' ? 'application/json' : 'text/html,application/xhtml+xml',
+        'user-agent':
+          'Mozilla/5.0 (compatible; BlawbyDeploymentVerifier/1.0; +https://github.com/Blawby/blawby-ai-chatbot)',
+      },
       redirect: 'follow',
       signal: AbortSignal.timeout(timeoutSeconds * 1000),
     });

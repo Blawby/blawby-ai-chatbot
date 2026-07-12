@@ -27,6 +27,11 @@ if (!token || !accountId)
 
 const workerResponse = await fetch(healthUrl, {
   cache: "no-store",
+  headers: {
+    accept: "application/json",
+    "user-agent":
+      "Mozilla/5.0 (compatible; BlawbyDeploymentVerifier/1.0; +https://github.com/Blawby/blawby-ai-chatbot)",
+  },
   signal: AbortSignal.timeout(10_000),
 });
 if (!workerResponse.ok)
