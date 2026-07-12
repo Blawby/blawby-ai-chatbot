@@ -104,6 +104,18 @@ export const intakeTemplateSuggestionDecisionPath = (
 ): string =>
 	`${intakeTemplateSuggestionsPath(practiceId, templateId)}/${encodeSegment(suggestionId)}/${decision}`;
 
+export const practiceAuditLogPath = (practiceId: string): string =>
+	`/api/practices/${encodeSegment(practiceId)}/audit-log`;
+
+export const practiceAuditLogExportPath = (practiceId: string): string =>
+	`${practiceAuditLogPath(practiceId)}/export`;
+
+export const practiceExportsPath = (practiceId: string): string =>
+	`/api/practices/${encodeSegment(practiceId)}/exports`;
+
+export const practiceExportPath = (practiceId: string, exportId: string): string =>
+	`${practiceExportsPath(practiceId)}/${encodeSegment(exportId)}`;
+
 export const matterCollectionPath = (practiceId: string): string => `/api/matters/${encodeSegment(practiceId)}`;
 
 export const matterItemPath = (practiceId: string, matterId: string): string =>

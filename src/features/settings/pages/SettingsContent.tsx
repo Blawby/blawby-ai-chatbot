@@ -89,7 +89,7 @@ const SETTINGS_VIEW_HERO: Partial<Record<SettingsView, SettingsViewHero>> = {
   'audit-log': {
     crumb: 'Settings · Account',
     accentTitle: <>Audit <em>log.</em></>,
-    lede: 'Every action in your workspace is recorded. Use this for compliance reviews, bar audits, and troubleshooting.',
+    lede: 'Review recorded domain, matter, and file activity with source provenance for compliance and troubleshooting.',
   },
   'export-data': {
     crumb: 'Settings · Account',
@@ -275,6 +275,8 @@ export const SettingsContent = (props: SettingsContentProps) => {
   const isPracticeScopedView = view === 'practice-payouts'
     || view === 'practice-team'
     || view === 'engagement-templates'
+    || view === 'audit-log'
+    || view === 'export-data'
     || view === 'intelligence'
     || view === 'practice'
     || view === 'apps'

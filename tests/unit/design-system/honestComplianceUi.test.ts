@@ -7,9 +7,11 @@ const source = (path: string): string => readFileSync(resolve(process.cwd(), pat
 describe('honest compliance UI', () => {
   it('does not render sample audit events as practice evidence', () => {
     const auditLog = source('src/features/settings/pages/AuditLogPage.tsx');
+    const settingsContent = source('src/features/settings/pages/SettingsContent.tsx');
     expect(auditLog).not.toContain('DEMO_EVENTS');
-    expect(auditLog).toContain('will not present sample entries as compliance evidence');
-    expect(auditLog).toContain('Export unavailable');
+    expect(auditLog).toContain('auditLogApi.list');
+    expect(auditLog).toContain('auditLogApi.exportCsv');
+    expect(settingsContent).not.toContain('Every action in your workspace is recorded');
   });
 
   it('does not infer assistant authorship from invoice age or line items', () => {
@@ -33,8 +35,9 @@ describe('honest compliance UI', () => {
     const exportsPage = source('src/features/settings/pages/ExportDataPage.tsx');
     const calendarDrawer = source('src/features/calendar/components/CalendarFocusDrawer.tsx');
     const intakeDetail = source('src/features/intake/pages/IntakeDetailPage.tsx');
-    expect(exportsPage).not.toContain("showSuccess('Export requested'");
-    expect(exportsPage).toContain('Export unavailable');
+    expect(exportsPage).toContain('practiceExportsApi.request');
+    expect(exportsPage).toContain('practiceExportsApi.get');
+    expect(exportsPage).not.toContain('No export request is sent');
     expect(calendarDrawer).not.toContain("value: '~22 min'");
     expect(intakeDetail).not.toContain('Math.round((intake.amount * 4) / 3)');
     expect(intakeDetail).not.toContain('<IntakeAcceptancePreview');
