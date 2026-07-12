@@ -8,6 +8,7 @@ import { PracticeAssistantAuditService } from './auditService.js';
 import { buildTurnMetadata, persistAssistantMessage } from './messageAdapter.js';
 import { loadBackendConversationHistory } from './conversationHistoryService.js';
 import { Logger } from '../../utils/logger.js';
+import { appendPracticeSkillPrompt, fetchAuthenticatedPracticeSkillPrompt } from '../practiceSkills.js';
 import type {
   PracticeAssistantProgress,
   PracticeAssistantToolCall,
@@ -233,7 +234,12 @@ export class PracticeAssistantQueryEngine {
       events.push({ type: 'tool_progress', progress: progressEvent });
     };
     try {
-      const conversationMessages = await this.loadMessages(userMessage);
+      const [conversationMessages, skillPromptContract] = await Promise.all([
+        this.loadMessages(userMessage),
+        fetchAuthenticatedPracticeSkillPrompt(env, request, practiceId),
+      ]);
+      const turnSystemPrompt = appendPracticeSkillPrompt(systemPrompt, skillPromptContract.promptContribution);
+      const turnFinalSystemPrompt = appendPracticeSkillPrompt(finalSystemPrompt, skillPromptContract.promptContribution);
       Logger.info('practice_assistant.turn.started', {
         requestId,
         conversationId,
@@ -262,7 +268,7 @@ export class PracticeAssistantQueryEngine {
         model, temperature: 0.1, max_tokens: 1200, stream: true,
         tools: toOpenAiTools(), tool_choice: 'auto',
         messages: [
-          { role: 'system', content: systemPrompt },
+          { role: 'system', content: turnSystemPrompt },
           ...conversationMessages,
         ],
       }, this.abortController.signal);
@@ -315,7 +321,7 @@ export class PracticeAssistantQueryEngine {
       const finalResponse = await aiClient.requestChatCompletions({
         model, temperature: 0.2, max_tokens: 1600, stream: true,
         messages: [
-          { role: 'system', content: finalSystemPrompt },
+          { role: 'system', content: turnFinalSystemPrompt },
           { role: 'user', content: finalUserPrompt },
         ],
       }, this.abortController.signal);
