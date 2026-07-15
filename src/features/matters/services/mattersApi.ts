@@ -3,6 +3,7 @@ import {
   isAbortError,
   pluckCollection,
   pluckRecord,
+  parseOffsetPaginatedResponse,
   unwrapApiResponse,
   apiClient,
 } from '@/shared/lib/apiClient';
@@ -226,23 +227,6 @@ const requestData = async <T>(promise: Promise<{ data: T }>, fallbackMessage: st
 // Extract helpers — all delegate to the shared `pluckCollection` /
 // `pluckRecord` primitives in `apiClient.ts`. Each helper just declares
 // the keys the backend uses for its resource.
-const extractMatterArray = (payload: unknown): BackendMatter[] => {
-  const unwrapped = unwrapApiResponse<unknown>(payload, 'Failed to load matters');
-  const list = pluckCollection<BackendMatter>(unwrapped, ['matters', 'items']);
-  if (list.length > 0) return list;
-  // Fallback: backend occasionally returns a single matter at the top level.
-  if (unwrapped && typeof unwrapped === 'object' && !Array.isArray(unwrapped)) {
-    const record = unwrapped as Record<string, unknown>;
-    if (record.matter && typeof record.matter === 'object' && !Array.isArray(record.matter)) {
-      return [record.matter as BackendMatter];
-    }
-    if (record.id && ('title' in record || 'slug' in record || 'organization_id' in record)) {
-      return [record as BackendMatter];
-    }
-  }
-  return [];
-};
-
 const extractMatter = (payload: unknown): BackendMatter | null =>
   pluckRecord<BackendMatter>(unwrapApiResponse<unknown>(payload), ['matter']);
 
@@ -291,8 +275,8 @@ export const listMatters = async (
     'Failed to load matters'
   );
   
-  const matters = extractMatterArray(payload);
-  return matters.map(normalizeMatter);
+  const result = parseOffsetPaginatedResponse<BackendMatter>(payload, 'Invalid matters list response');
+  return result.data.map(normalizeMatter);
 };
 
 export const getMatter = async (
@@ -338,8 +322,8 @@ export const listClientMatters = async (
     'Failed to load client matters'
   );
 
-  const matters = extractMatterArray(payload);
-  return matters.map(normalizeMatter);
+  const result = parseOffsetPaginatedResponse<BackendMatter>(payload, 'Invalid client matters list response');
+  return result.data.map(normalizeMatter);
 };
 
 export const getClientMatter = async (

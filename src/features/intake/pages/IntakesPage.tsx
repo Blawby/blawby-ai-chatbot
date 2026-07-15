@@ -171,9 +171,9 @@ export const IntakesPage: FunctionComponent<IntakesPageProps> = ({
         { ttl: policyTtl(cacheKey), swr: false },
       );
       if (signal.aborted || requestSeqRef.current !== localSeq) return;
-      setItems((prev) => (targetPage === 1 ? result.intakes : [...prev, ...result.intakes]));
+      setItems((prev) => (targetPage === 1 ? result.data : [...prev, ...result.data]));
       setPage(targetPage);
-      setHasMore(targetPage < result.total_pages);
+      setHasMore(targetPage * result.pagination.limit < result.pagination.total);
       setError(null);
     } catch (err) {
       if (signal.aborted || requestSeqRef.current !== localSeq) return;

@@ -1,5 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { apiClient, isHttpError, resolveIntakeInvitationPrefill } from '@/shared/lib/apiClient';
+import {
+  apiClient,
+  isHttpError,
+  parseOffsetPaginatedResponse,
+  resolveIntakeInvitationPrefill,
+} from '@/shared/lib/apiClient';
 
 beforeEach(() => {
   vi.restoreAllMocks();
@@ -62,5 +67,26 @@ describe('apiClient', () => {
     await expect(resolveIntakeInvitationPrefill('opaque_token')).rejects.toThrow(
       'Invitation prefill response is malformed'
     );
+  });
+
+  it('accepts the shared offset pagination envelope', () => {
+    expect(
+      parseOffsetPaginatedResponse<{ id: string }>(
+        { data: [{ id: 'one' }], pagination: { page: 2, limit: 10, total: 11 } },
+        'Invalid list response'
+      )
+    ).toEqual({ data: [{ id: 'one' }], pagination: { page: 2, limit: 10, total: 11 } });
+  });
+
+  it('fast-fails legacy and malformed list envelopes', () => {
+    expect(() =>
+      parseOffsetPaginatedResponse({ matters: [], total: 0 }, 'Invalid matters list response')
+    ).toThrow('Invalid matters list response');
+    expect(() =>
+      parseOffsetPaginatedResponse(
+        { data: [], pagination: { page: 1, limit: 0, total: 0 } },
+        'Invalid matters list response'
+      )
+    ).toThrow('Invalid matters list response');
   });
 });

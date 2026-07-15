@@ -32,6 +32,11 @@ vi.mock('@/shared/lib/apiClient', () => {
     if (record.data) return pluckRecord<T>(record.data, candidates);
     return record as T;
   }
+  function parseOffsetPaginatedResponse<T>(payload: unknown): { data: T[]; pagination: object } {
+    const record = payload as { data: T[]; pagination: object };
+    if (!Array.isArray(record.data) || !record.pagination) throw new Error('Invalid list response');
+    return record;
+  }
   return {
     apiClient: mockApiClient,
     isAbortError: (e: unknown) => e instanceof Error && e.name === 'AbortError',
@@ -47,6 +52,7 @@ vi.mock('@/shared/lib/apiClient', () => {
     },
     pluckCollection,
     pluckRecord,
+    parseOffsetPaginatedResponse,
   };
 });
 

@@ -1,5 +1,10 @@
 import { clientIntake, clientIntakeInvite, clientIntakeStatus, clientIntakes } from '@/config/urls';
-import { apiClient, isHttpError } from '@/shared/lib/apiClient';
+import {
+  apiClient,
+  isHttpError,
+  parseOffsetPaginatedResponse,
+  type OffsetPaginatedResponse,
+} from '@/shared/lib/apiClient';
 
 export interface IntakeListParams {
   page: number;
@@ -44,13 +49,7 @@ export interface IntakeListItem {
   created_at: string;
 }
 
-export interface IntakeListResponse {
-  intakes: IntakeListItem[];
-  total: number;
-  page: number;
-  total_pages: number;
-  limit?: number;
-}
+export type IntakeListResponse = OffsetPaginatedResponse<IntakeListItem>;
 
 export interface PracticeIntakeDetail {
   uuid: string;
@@ -131,7 +130,11 @@ const errorFromHttp = (error: unknown, fallback: string): Error => {
   return error instanceof Error ? error : new Error(fallback);
 };
 
-export async function listIntakes(practiceId: string, params: IntakeListParams, options: { signal?: AbortSignal } = {}) {
+export async function listIntakes(
+  practiceId: string,
+  params: IntakeListParams,
+  options: { signal?: AbortSignal } = {}
+): Promise<IntakeListResponse> {
   if (!practiceId) {
     throw new Error('practiceId is required');
   }
@@ -158,20 +161,7 @@ export async function listIntakes(practiceId: string, params: IntakeListParams, 
     throw errorFromHttp(error, 'Failed to fetch intakes');
   }
 
-  const env = unwrapEnvelope(raw);
-  if (!env) throw new Error('Failed to fetch intakes');
-  const { json, data } = env;
-  if (json.success === false || (!Array.isArray(data.intakes) && typeof data.total !== 'number')) {
-    throw new Error('Failed to fetch intakes');
-  }
-
-  return {
-    intakes: Array.isArray(data.intakes) ? data.intakes : [],
-    total: typeof data.total === 'number' ? data.total : 0,
-    page: typeof data.page === 'number' ? data.page : params.page,
-    total_pages: typeof data.total_pages === 'number' ? data.total_pages : 0,
-    limit: typeof data.limit === 'number' ? data.limit : undefined,
-  };
+  return parseOffsetPaginatedResponse<IntakeListItem>(raw, 'Invalid intakes list response');
 }
 
 export async function getPracticeIntake(
