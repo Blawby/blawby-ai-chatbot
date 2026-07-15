@@ -166,5 +166,36 @@ Store a sanitized `durable-recovery-evidence.json` artifact for 90 days with:
   tokens, connection strings, or row payloads);
 - measured RPO/RTO and pass/fail status.
 
+After the human operator completes the provider rehearsal, run the **Record
+durable recovery evidence** workflow from `main`. Paste only the sanitized JSON
+described by the workflow input. Copy
+[`durable-recovery-evidence.example.json`](./durable-recovery-evidence.example.json),
+replace every example value with observed rehearsal evidence, and never submit
+the example unchanged. The validator derives RPO and RTO from the UTC
+timestamps, requires Railway PITR and a sibling restore, requires one 30-day
+lock result for each upload bucket, requires every integrity result to pass,
+rejects unexpected fields, and uploads the normalized artifact for 90 days.
+
+The accepted document has these top-level fields:
+
+- `schemaVersion` (`1`) and `environment` (`production`);
+- `rehearsal`: start, declaration, latest durable/recovered write, restore-point,
+  and verification timestamps;
+- `releases`: exact 40-character frontend/Worker and backend Git commits;
+- `railway`: PITR state, retention, restore window, and distinct source/restored
+  service and deployment IDs;
+- `d1`: rehearsal database ID, production storage version, selected/previous
+  bookmarks, and restore completion time;
+- `r2.buckets`: exactly one `worker-uploads` and one `backend-uploads` result,
+  including lock rule, retention, SHA-256 checksum, and rejected overwrite/delete;
+- `recordCounts`: positive synthetic counts for every representative durable
+  domain and the cross-tenant negative control;
+- `integrity`: referential, tenant, financial, approval, object-byte, and
+  derived-state outcomes.
+
+The workflow validates and retains evidence; it does not perform or simulate
+the Railway, D1, or R2 restore itself. Provider console/API evidence and the
+timed human rehearsal remain mandatory.
+
 Until that artifact exists and every result passes, #723 and the public cutover
 in #724 remain open.
