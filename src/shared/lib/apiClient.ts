@@ -782,6 +782,43 @@ interface LinkConversationOptions {
   anonymousSessionId?: string | null;
 }
 
+export interface IntakeInvitationPrefill {
+  type: 'intake';
+  intakeId: string;
+  conversationId: string;
+  email: string;
+  orgName: string;
+  orgSlug: string;
+}
+
+const isIntakeInvitationPrefill = (value: unknown): value is IntakeInvitationPrefill =>
+  isRecord(value) &&
+  value.type === 'intake' &&
+  typeof value.intakeId === 'string' &&
+  typeof value.conversationId === 'string' &&
+  typeof value.email === 'string' &&
+  typeof value.orgName === 'string' &&
+  typeof value.orgSlug === 'string';
+
+export async function resolveIntakeInvitationPrefill(
+  token: string,
+  config?: ApiRequestConfig
+): Promise<IntakeInvitationPrefill> {
+  if (!token) {
+    throw new Error('intakeToken is required');
+  }
+
+  const response = await apiClient.get<unknown>('/api/practice-client-intakes/invitation-prefill', {
+    signal: config?.signal,
+    params: { token },
+  });
+  const data = unwrapApiData(response.data);
+  if (!isIntakeInvitationPrefill(data)) {
+    throw new Error('Invitation prefill response is malformed');
+  }
+  return data;
+}
+
 export async function linkConversationToUser(
   conversationId: string,
   practiceId: string,

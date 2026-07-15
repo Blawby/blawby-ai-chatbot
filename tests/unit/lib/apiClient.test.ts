@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { apiClient, isHttpError } from '@/shared/lib/apiClient';
+import { apiClient, isHttpError, resolveIntakeInvitationPrefill } from '@/shared/lib/apiClient';
 
 beforeEach(() => {
   vi.restoreAllMocks();
@@ -23,5 +23,44 @@ describe('apiClient', () => {
       expect(error.response.status).toBe(502);
       expect(error.message).toContain('<!DOCTYPE html>');
     }
+  });
+
+  it('resolves opaque intake invitation tokens through the authenticated backend endpoint', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({
+          type: 'intake',
+          intakeId: '10000000-0000-4000-8000-000000000001',
+          conversationId: '10000000-0000-4000-8000-000000000002',
+          email: 'client@example.com',
+          orgName: 'Test Practice',
+          orgSlug: 'test-practice',
+        }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } }
+      )
+    );
+
+    await expect(resolveIntakeInvitationPrefill('opaque_token')).resolves.toMatchObject({
+      type: 'intake',
+      email: 'client@example.com',
+      orgSlug: 'test-practice',
+    });
+
+    const [url, init] = vi.mocked(globalThis.fetch).mock.calls[0] ?? [];
+    expect(String(url)).toContain('/api/practice-client-intakes/invitation-prefill?token=opaque_token');
+    expect(init).toMatchObject({ credentials: 'include', method: 'GET' });
+  });
+
+  it('fast-fails malformed invitation prefill responses', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(
+      new Response(JSON.stringify({ type: 'intake' }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      })
+    );
+
+    await expect(resolveIntakeInvitationPrefill('opaque_token')).rejects.toThrow(
+      'Invitation prefill response is malformed'
+    );
   });
 });
