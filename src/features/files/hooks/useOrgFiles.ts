@@ -5,21 +5,16 @@ import { policyTtl } from '@/shared/lib/cachePolicy';
 import type { BackendMatter } from '@/features/matters/services/mattersApi';
 import type { IntakeListItem } from '@/features/intake/api/intakesApi';
 import { resolveIntakeTitle } from '@/features/intake/utils/intakeTitle';
-import { listAllFileIntakes, listAllFileMatters } from '@/features/files/hooks/pagination';
+import {
+  listAllClientFileMatters,
+  listAllFileIntakes,
+  listAllFileMatters,
+} from '@/features/files/hooks/pagination';
 import { listUploadsByScope } from '@/shared/lib/uploadsApi';
 import { listIntakeFiles } from '@/features/intake/api/intakeFilesApi';
 import type { OrgFile } from '@/features/files/utils/fileCategory';
 
 export type OrgFilesScope = 'practice' | 'client';
-
-const matterMatchesViewer = (matter: BackendMatter, userId: string): boolean => (
-  typeof matter.client_id === 'string' && matter.client_id === userId
-);
-
-const intakeMatchesViewer = (intake: IntakeListItem, userId: string): boolean => {
-  const meta = intake.metadata as Record<string, unknown> | null | undefined;
-  return typeof meta?.user_id === 'string' && meta.user_id === userId;
-};
 
 export interface UseOrgFilesOptions {
   practiceId: string | null | undefined;
@@ -95,12 +90,14 @@ const collectIntakeFiles = async (
 const fetchAllOrgFiles = async (
   practiceId: string,
   scope: OrgFilesScope,
-  userId: string | null,
+  _userId: string | null,
   signal?: AbortSignal,
 ): Promise<OrgFile[]> => {
   const [mattersResult, intakesResult] = await Promise.allSettled([
-    listAllFileMatters(practiceId, signal),
-    listAllFileIntakes(practiceId, signal),
+    scope === 'client'
+      ? listAllClientFileMatters(practiceId, signal)
+      : listAllFileMatters(practiceId, signal),
+    scope === 'client' ? Promise.resolve([] as IntakeListItem[]) : listAllFileIntakes(practiceId, signal),
   ]);
   if (mattersResult.status === 'rejected' && intakesResult.status === 'rejected') {
     const reason = mattersResult.reason ?? intakesResult.reason;
@@ -111,16 +108,9 @@ const fetchAllOrgFiles = async (
   const matters = mattersResult.status === 'fulfilled' ? mattersResult.value : [];
   const intakes = intakesResult.status === 'fulfilled' ? intakesResult.value : [];
 
-  const visibleMatters = scope === 'client'
-    ? userId ? matters.filter((m) => matterMatchesViewer(m, userId)) : []
-    : matters;
-  const visibleIntakes = scope === 'client'
-    ? userId ? intakes.filter((i) => intakeMatchesViewer(i, userId)) : []
-    : intakes;
-
   const [matterFiles, intakeFiles] = await Promise.all([
-    collectMatterFiles(visibleMatters, signal),
-    collectIntakeFiles(visibleIntakes, signal),
+    collectMatterFiles(matters, signal),
+    collectIntakeFiles(intakes, signal),
   ]);
 
   const all = [...matterFiles, ...intakeFiles];
