@@ -6,6 +6,9 @@
     "recoveryDeclaredAt": "2026-07-15T00:10:00Z",
     "latestDurableWriteAt": "2026-07-15T00:09:00Z",
     "latestRecoveredWriteAt": "2026-07-15T00:00:00Z",
+    "sourceMarkerWatermark": "example-source-marker",
+    "recoveredMarkerWatermark": "example-recovered-marker",
+    "restoreBoundaryMarkerPresent": true,
     "restorePointAt": "2026-07-15T00:05:00Z",
     "verificationCompletedAt": "2026-07-15T02:10:00Z"
   },
@@ -15,13 +18,19 @@
   },
   "railway": {
     "pitrEnabled": true,
+    "restoredPitrEnabled": true,
+    "restoredArchiveHealthy": true,
     "retentionDays": 30,
     "restoreWindowStart": "2026-06-15T00:00:00Z",
     "restoreWindowEnd": "2026-07-15T00:10:00Z",
     "sourceServiceId": "example-source-service",
     "restoredServiceId": "example-restored-service",
     "sourceDeploymentId": "example-source-deployment",
-    "restoredDeploymentId": "example-restored-deployment"
+    "restoredDeploymentId": "example-restored-deployment",
+    "writeFenceMode": "global-block",
+    "capturedPostTargetWrites": 0,
+    "replayedPostTargetWrites": 0,
+    "allTenantReplayVerified": true
   },
   "d1": {
     "databaseId": "example-rehearsal-database",
@@ -37,18 +46,26 @@
         "name": "example-worker-uploads",
         "lockRuleId": "example-worker-lock",
         "retentionDays": 30,
-        "objectChecksum": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "preUploadSha256": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
         "overwriteRejected": true,
-        "deleteRejected": true
+        "deleteRejected": true,
+        "runtimeObjectTokenScoped": true,
+        "controlPlaneIdentitySeparate": true,
+        "lockAuditEventId": "example-worker-lock-audit",
+        "lockEditAlertVerified": true
       },
       {
         "role": "backend-uploads",
         "name": "example-backend-uploads",
         "lockRuleId": "example-backend-lock",
         "retentionDays": 30,
-        "objectChecksum": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "preUploadSha256": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
         "overwriteRejected": true,
-        "deleteRejected": true
+        "deleteRejected": true,
+        "runtimeObjectTokenScoped": true,
+        "controlPlaneIdentitySeparate": true,
+        "lockAuditEventId": "example-backend-lock-audit",
+        "lockEditAlertVerified": true
       }
     ]
   },
