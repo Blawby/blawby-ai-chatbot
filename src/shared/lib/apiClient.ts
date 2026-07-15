@@ -404,9 +404,8 @@ async function apiUpload<T>(
  * pass an optional `pluck` to lift the inner array/object after unwrapping
  * the envelope.
  *
- * Replaces the inline `.data ?? .matters ?? .items ?? recurse` patterns
- * (`extractMatterArray`, `extractNotesArray`, `requestData`, …) that each
- * service file used to reinvent.
+ * Replaces the inline `.data ?? .resource ?? .items ?? recurse` patterns
+ * that older service files used to reinvent.
  */
 export function unwrapApiResponse<T>(payload: unknown, fallbackMessage = 'Request failed'): T {
   if (payload && typeof payload === 'object' && 'success' in payload) {
@@ -422,6 +421,47 @@ export function unwrapApiResponse<T>(payload: unknown, fallbackMessage = 'Reques
     if ('data' in env) return env.data as T;
   }
   return payload as T;
+}
+
+export type OffsetPagination = {
+  page: number;
+  limit: number;
+  total: number;
+};
+
+export type OffsetPaginatedResponse<T> = {
+  data: T[];
+  pagination: OffsetPagination;
+};
+
+export function parseOffsetPaginatedResponse<T>(
+  payload: unknown,
+  invalidResponseMessage: string
+): OffsetPaginatedResponse<T> {
+  const unwrapped = unwrapApiResponse<unknown>(payload, invalidResponseMessage);
+  if (!isRecord(unwrapped) || !Array.isArray(unwrapped.data) || !isRecord(unwrapped.pagination)) {
+    throw new Error(invalidResponseMessage);
+  }
+
+  const { page, limit, total } = unwrapped.pagination;
+  if (
+    typeof page !== 'number' ||
+    !Number.isInteger(page) ||
+    page < 1 ||
+    typeof limit !== 'number' ||
+    !Number.isInteger(limit) ||
+    limit < 1 ||
+    typeof total !== 'number' ||
+    !Number.isInteger(total) ||
+    total < 0
+  ) {
+    throw new Error(invalidResponseMessage);
+  }
+
+  return {
+    data: unwrapped.data as T[],
+    pagination: { page, limit, total },
+  };
 }
 
 /**
@@ -1425,7 +1465,7 @@ export type UserDetailRecord = {
 
 export type UserDetailListResponse = {
   data: UserDetailRecord[];
-  total: number;
+  pagination: OffsetPagination;
 };
 
 export async function listUserDetails(
@@ -1448,17 +1488,7 @@ export async function listUserDetails(
     `/api/clients/${encodeURIComponent(practiceId)}`,
     { params: queryParams, signal }
   );
-  const payload = response.data;
-  if (isRecord(payload) && Array.isArray(payload.data)) {
-    return {
-      data: payload.data as UserDetailRecord[],
-      total: typeof payload.total === 'number' ? payload.total : payload.data.length
-    };
-  }
-  return {
-    data: [],
-    total: 0
-  };
+  return parseOffsetPaginatedResponse<UserDetailRecord>(response.data, 'Invalid clients list response');
 }
 
 export async function getUserDetail(

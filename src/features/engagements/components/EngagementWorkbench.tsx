@@ -468,10 +468,10 @@ export const EngagementWorkbench: FunctionComponent<EngagementWorkbenchProps> = 
     listIntakes(practiceId, { page: 1, limit: 100, triage_status: 'accepted' }, { signal: controller.signal })
       .then((result) => {
         if (controller.signal.aborted) return;
-        setIntakes(result.intakes);
+        setIntakes(result.data);
         const initialIntakeId = props.mode === 'create' ? props.initialIntakeId : null;
         if (initialIntakeId) {
-          const match = result.intakes.find((i) => i.uuid === initialIntakeId);
+          const match = result.data.find((i) => i.uuid === initialIntakeId);
           if (match) setForm((prev) => buildEngagementDraftFormFromIntake(match, prev));
         }
       })

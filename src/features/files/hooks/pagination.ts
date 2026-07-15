@@ -28,8 +28,8 @@ export const listAllFileIntakes = async (
   let page = 1;
   while (true) {
     const pageResult = await listIntakes(practiceId, { page, limit: ORG_FILES_FAN_OUT_LIMIT }, { signal });
-    intakes.push(...pageResult.intakes);
-    if (pageResult.intakes.length < ORG_FILES_FAN_OUT_LIMIT) break;
+    intakes.push(...pageResult.data);
+    if (pageResult.data.length < ORG_FILES_FAN_OUT_LIMIT) break;
     page += 1;
   }
   return intakes;

@@ -2214,7 +2214,7 @@ function TemplateListView({
     listIntakes(practiceId, { page: 1, limit: 100 }, { signal: controller.signal })
       .then((result) => {
         if (controller.signal.aborted) return;
-        const counts = result.intakes.reduce<Record<string, number>>((acc, intake) => {
+        const counts = result.data.reduce<Record<string, number>>((acc, intake) => {
           const slug = getResponseTemplateSlug(intake);
           if (slug) acc[slug] = (acc[slug] ?? 0) + 1;
           return acc;

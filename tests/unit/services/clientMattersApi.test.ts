@@ -34,6 +34,12 @@ vi.mock('@/shared/lib/apiClient', () => {
     return record as T;
   }
 
+  function parseOffsetPaginatedResponse<T>(payload: unknown): { data: T[]; pagination: object } {
+    const record = payload as { data: T[]; pagination: object };
+    if (!Array.isArray(record.data) || !record.pagination) throw new Error('Invalid list response');
+    return record;
+  }
+
   return {
     apiClient: mockApiClient,
     isAbortError: (e: unknown) => e instanceof Error && e.name === 'AbortError',
@@ -49,6 +55,7 @@ vi.mock('@/shared/lib/apiClient', () => {
     },
     pluckCollection,
     pluckRecord,
+    parseOffsetPaginatedResponse,
   };
 });
 
@@ -66,7 +73,9 @@ describe('client matter API endpoints', () => {
   });
 
   it('lists client matters without using the practice matter list route', async () => {
-    mockApiClient.get.mockResolvedValueOnce({ data: { matters: [{ id: 'matter-1' }] } });
+    mockApiClient.get.mockResolvedValueOnce({
+      data: { data: [{ id: 'matter-1' }], pagination: { page: 2, limit: 10, total: 1 } },
+    });
 
     const result = await listClientMatters('practice-1', { page: 2, limit: 10 });
 

@@ -746,7 +746,7 @@ export const PracticeMattersPage = ({
         if (signal?.aborted) break;
 
         allClients.push(...response.data.map(buildClientOption));
-        lastTotal = response.total ?? 0;
+        lastTotal = response.pagination.total;
         hasMore = lastTotal > 0 ? allClients.length < lastTotal : response.data.length === limit;
         if (hasMore) offset += limit;
       }

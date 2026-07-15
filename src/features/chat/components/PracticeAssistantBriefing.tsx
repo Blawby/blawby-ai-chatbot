@@ -310,7 +310,7 @@ export function PracticeAssistantBriefing({
     void listIntakes(practiceId, { page: 1, limit: 10 }, { signal: controller.signal })
       .then((result) => {
         if (controller.signal.aborted) return;
-        setRecentIntakes(result.intakes);
+        setRecentIntakes(result.data);
       })
       .catch((error) => {
         if (isAbortError(error) || controller.signal.aborted) return;

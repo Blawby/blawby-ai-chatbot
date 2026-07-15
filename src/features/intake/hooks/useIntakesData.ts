@@ -40,9 +40,8 @@ export function intakesFilterToApiStatus(filter: IntakesFilter): IntakeListParam
 }
 
 type IntakesPayload = {
-  intakes: IntakeListItem[];
-  total: number;
-  total_pages: number;
+  data: IntakeListItem[];
+  pagination: { page: number; limit: number; total: number };
 };
 
 export function useIntakesData(
@@ -96,7 +95,7 @@ export function useIntakesData(
   }, [options.page]);
 
   return {
-    items: data?.intakes ?? [],
+    items: data?.data ?? [],
     isLoading,
     // post-Phase-C3 contract: isLoading is permanently false after first
     // successful fetch, so `!isLoading && data !== undefined` is the
@@ -104,8 +103,8 @@ export function useIntakesData(
     isLoaded: data !== undefined,
     error,
     page: effectivePage,
-    totalPages: data?.total_pages ?? 0,
-    total: data?.total ?? 0,
+    totalPages: data ? Math.ceil(data.pagination.total / data.pagination.limit) : 0,
+    total: data?.pagination.total ?? 0,
     filter: effectiveFilter,
     setFilter,
     setPage,
