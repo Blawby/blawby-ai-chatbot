@@ -8,7 +8,12 @@ import { useNavigation } from '@/shared/utils/navigation';
 import { getClient } from '@/shared/lib/authClient';
 import { useToastContext } from '@/shared/contexts/ToastContext';
 import { signOut } from '@/shared/utils/auth';
-import { linkConversationToUser } from '@/shared/lib/apiClient';
+import {
+  isAbortError,
+  linkConversationToUser,
+  resolveIntakeInvitationPrefill,
+  type IntakeInvitationPrefill,
+} from '@/shared/lib/apiClient';
 import { peekAnonymousUserId } from '@/shared/utils/anonymousIdentity';
 import AuthForm from '@/shared/components/AuthForm';
 import { cn } from '@/shared/utils/cn';
@@ -34,33 +39,16 @@ type InviteFetchState =
   | { status: 'ready'; invitation: InvitationDetails; invitationId: string }
   | { status: 'error'; message: string; invitationId: string | null };
 
-type IntakeInvitePayload = {
-  email: string;
-  orgName: string;
-  orgSlug: string;
-  type: 'intake';
-  intakeId: string;
-  conversationId: string;
-};
-
-type PrefillDetails = {
-  email: string;
-  practiceName: string;
-  practiceSlug: string;
-  intakeId?: string;
-  conversationId?: string;
-  payloadType?: string;
-};
-
 type PracticeSummary = {
   id: string;
   slug?: string | null;
 };
 
-type PayloadParseResult = {
-  data: PrefillDetails | null;
-  error: string | null;
-};
+type IntakePrefillState =
+  | { status: 'idle' }
+  | { status: 'loading'; token: string }
+  | { status: 'ready'; token: string; prefill: IntakeInvitationPrefill }
+  | { status: 'error'; token: string; message: string };
 
 
 const resolveQueryValue = (value: string | string[] | undefined) => {
@@ -102,53 +90,10 @@ const isValidDate = (d: unknown): d is string | number | Date => {
   return !isNaN(date.getTime());
 };
 
-const decodeBase64Url = (value: string): string => {
-  const normalized = value.replace(/-/g, '+').replace(/_/g, '/');
-  const padding = (4 - (normalized.length % 4)) % 4;
-  const padded = normalized + '='.repeat(padding);
-  const binary = atob(padded);
-  const bytes = Uint8Array.from(binary, (char) => char.charCodeAt(0));
-  return new TextDecoder().decode(bytes);
-};
-
-const parsePrefillPayload = (raw: string): PayloadParseResult => {
-  if (!raw) return { data: null, error: null };
-
-  try {
-    const decoded = decodeBase64Url(raw);
-    const payload = JSON.parse(decoded) as Partial<IntakeInvitePayload> & Record<string, unknown>;
-
-    const email = typeof payload.email === 'string' ? payload.email.trim() : '';
-    const orgName = typeof payload.orgName === 'string' ? payload.orgName.trim() : '';
-    const orgSlug = typeof payload.orgSlug === 'string' ? payload.orgSlug.trim() : '';
-    const intakeId = typeof payload.intakeId === 'string' ? payload.intakeId.trim() : '';
-    const conversationId = typeof payload.conversationId === 'string' ? payload.conversationId.trim() : '';
-    const payloadType = typeof payload.type === 'string' ? payload.type.trim() : '';
-
-    if (!email || !orgName || !orgSlug) {
-      return { data: null, error: 'Invitation data is incomplete.' };
-    }
-
-    return {
-      data: {
-        email,
-        practiceName: orgName,
-        practiceSlug: orgSlug,
-        intakeId,
-        conversationId,
-        payloadType
-      },
-      error: null
-    };
-  } catch {
-    return { data: null, error: 'Invitation data is invalid.' };
-  }
-};
-
-const buildRedirectTarget = (invitationId: string, dataParam: string) => {
+const buildRedirectTarget = (invitationId: string, intakeToken: string) => {
   const params = new URLSearchParams();
   if (invitationId) params.set('invitationId', invitationId);
-  if (dataParam) params.set('data', dataParam);
+  if (intakeToken) params.set('intakeToken', intakeToken);
   const query = params.toString();
   return query ? `/auth/accept-invitation?${query}` : '/auth/accept-invitation';
 };
@@ -177,21 +122,26 @@ export const AcceptInvitationPage = () => {
   const [accepting, setAccepting] = useState(false);
   const [recipientMismatch, setRecipientMismatch] = useState(false);
   const [isLinkingConversation, setIsLinkingConversation] = useState(false);
+  const [intakePrefillState, setIntakePrefillState] = useState<IntakePrefillState>({ status: 'idle' });
 
   const invitationId = useMemo(() => resolveQueryValue(location.query?.invitationId), [location.query?.invitationId]);
-  const dataParam = useMemo(() => resolveQueryValue(location.query?.data), [location.query?.data]);
-  const payloadResult = useMemo(() => parsePrefillPayload(dataParam), [dataParam]);
+  const intakeToken = useMemo(() => resolveQueryValue(location.query?.intakeToken), [location.query?.intakeToken]);
 
   const isAuthenticated = Boolean(session?.user && !session.user.is_anonymous);
-  const redirectTarget = useMemo(() => buildRedirectTarget(invitationId, dataParam), [dataParam, invitationId]);
+  const redirectTarget = useMemo(
+    () => buildRedirectTarget(invitationId, intakeToken),
+    [intakeToken, invitationId]
+  );
 
-  const flowType = invitationId ? 'invite' : dataParam ? 'intake' : 'invalid';
-  const prefill = payloadResult.data;
+  const flowType = invitationId ? 'invite' : intakeToken ? 'intake' : 'invalid';
+  const prefill =
+    intakePrefillState.status === 'ready' && intakePrefillState.token === intakeToken
+      ? intakePrefillState.prefill
+      : null;
   const invitedEmail = prefill?.email ?? '';
-  const practiceName = prefill?.practiceName ?? '';
-  const practiceSlug = prefill?.practiceSlug ?? '';
+  const practiceName = prefill?.orgName ?? '';
+  const practiceSlug = prefill?.orgSlug ?? '';
   const intakeConversationId = prefill?.conversationId ?? '';
-  const payloadType = prefill?.payloadType?.toLowerCase() ?? '';
 
   const sessionEmail = typeof session?.user?.email === 'string' ? session.user.email.trim() : '';
   const effectiveInvitedEmail = invitedEmail || (inviteState.status === 'ready' ? inviteState.invitation.email : '');
@@ -203,23 +153,40 @@ export const AcceptInvitationPage = () => {
 
   const preAuthError = useMemo(() => {
     if (flowType === 'invalid') {
-      return payloadResult.error ?? 'This link is missing required information. Please request a new invite.';
+      return 'This link is missing required information. Please request a new invite.';
     }
 
-    if (flowType === 'intake') {
-      if (!prefill) {
-        return payloadResult.error ?? 'This link is missing required invitation details. Please use the latest email from your practice.';
-      }
-      if (payloadType !== 'intake') {
-        return 'Invitation data is invalid.';
-      }
-      if (!prefill.intakeId || !prefill.conversationId) {
-        return 'Invitation data is incomplete.';
-      }
+    if (
+      flowType === 'intake' &&
+      intakePrefillState.status === 'error' &&
+      intakePrefillState.token === intakeToken
+    ) {
+      return intakePrefillState.message;
     }
 
     return null;
-  }, [flowType, payloadResult.error, payloadType, prefill]);
+  }, [flowType, intakePrefillState, intakeToken]);
+
+  useEffect(() => {
+    if (!isAuthenticated || flowType !== 'intake' || !intakeToken) return;
+
+    const controller = new AbortController();
+    setIntakePrefillState({ status: 'loading', token: intakeToken });
+    void resolveIntakeInvitationPrefill(intakeToken, { signal: controller.signal })
+      .then((resolvedPrefill) => {
+        setIntakePrefillState({ status: 'ready', token: intakeToken, prefill: resolvedPrefill });
+      })
+      .catch((error: unknown) => {
+        if (isAbortError(error)) return;
+        setIntakePrefillState({
+          status: 'error',
+          token: intakeToken,
+          message: error instanceof Error ? error.message : 'Invitation link could not be resolved.',
+        });
+      });
+
+    return () => controller.abort();
+  }, [flowType, intakeToken, isAuthenticated]);
 
   const fetchInvitation = useCallback(async () => {
     if (!invitationId) {
@@ -444,9 +411,11 @@ export const AcceptInvitationPage = () => {
 
   if (!isAuthenticated) {
     const inviterLabel = practiceName || 'the practice';
-    const subtitle = practiceName
-      ? `Sign up to accept ${inviterLabel}'s invitation to join Blawby.`
-      : 'Sign up to accept your invitation to join Blawby.';
+    const subtitle = flowType === 'intake'
+      ? 'Sign in or create an account to continue your intake securely.'
+      : practiceName
+        ? `Sign up to accept ${inviterLabel}'s invitation to join Blawby.`
+        : 'Sign up to accept your invitation to join Blawby.';
 
     return (
       <Card>
@@ -455,7 +424,9 @@ export const AcceptInvitationPage = () => {
         </div>
         <div className="text-center">
           <h1 className="text-2xl font-semibold text-ink">
-            Accept your invitation to sign up{practiceName ? ` | ${practiceName}` : ''}
+            {flowType === 'intake'
+              ? 'Continue your intake'
+              : `Accept your invitation to sign up${practiceName ? ` | ${practiceName}` : ''}`}
           </h1>
           <p className="mt-2 text-sm text-dim-2">
             {subtitle}
@@ -473,6 +444,10 @@ export const AcceptInvitationPage = () => {
         </div>
       </Card>
     );
+  }
+
+  if (flowType === 'intake' && !prefill) {
+    return <LoadingScreen label={'Loading invitation\u2026'} showLabel={false} />;
   }
 
   if (flowType === 'intake') {
