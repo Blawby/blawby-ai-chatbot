@@ -46,6 +46,8 @@ monthly and cannot prove a 15-minute RPO.
 - Enable PITR on the production PostgreSQL service.
 - Retain at least 30 days of WAL/base backups.
 - Wait for the first base backup and confirm the displayed restore window.
+- Enable PITR on the restored sibling and verify its base backup plus archive
+  health before any cutover.
 - Keep daily, weekly, and monthly volume schedules as a second recovery layer.
 - Never wipe the source volume; cut over only after the restored sibling passes
   the verification queries below.
@@ -82,7 +84,12 @@ documented deletion workflow.
 - Apply a 30-day bucket-lock rule to `blawby-ai-files`.
 - Apply the same rule to the backend-configured production upload bucket.
 - Do not configure an expiration lifecycle on durable upload prefixes.
-- Record object key, size, ETag, and checksum in the owning PostgreSQL/D1 row.
+- Give application runtimes bucket-scoped object tokens and use a separate
+  human/control-plane identity for lock administration. Retain provider audit
+  evidence and alert on every lock-rule edit.
+- Record object key and size in the owning PostgreSQL/D1 row. Compute a
+  pre-upload SHA-256 for rehearsal evidence; do not treat an R2 ETag as a
+  canonical checksum or claim the current backend upload row stores one.
 - Generated/rebuildable exports may use a separate prefix with a shorter
   lifecycle, but original uploads may not.
 
@@ -131,8 +138,10 @@ timestamps for every step.
 3. R2: upload a synthetic object whose checksum is also recorded in its metadata
    row. Confirm a delete/overwrite attempt is rejected by bucket lock.
 4. Wait at least one minute, then mutate/delete the synthetic database records.
-5. Railway: restore a sibling PostgreSQL service to `T0`; never replace the
-   source during rehearsal.
+5. Railway: globally fence the shared database, or durably capture every
+   post-target write for every organization. Restore a sibling PostgreSQL
+   service to `T0`; never replace the source during rehearsal. Enable PITR on
+   the sibling and verify archive health before cutover eligibility.
 6. D1: run Time Travel against a temporary rehearsal database to the recorded
    bookmark, preserving the returned previous bookmark.
 7. Verify the restored rows and R2 bytes with the checks below. Rebuild search,
@@ -148,7 +157,8 @@ timestamps for every step.
   the same practice ID.
 - The negative-control tenant cannot read or mutate the restored records.
 - Message sequence is contiguous and no approval is silently executed.
-- R2 object size, ETag/checksum, and downloaded bytes match the metadata row.
+- R2 storage key and size match the metadata row; downloaded bytes match the
+  separately recorded pre-upload SHA-256.
 - Search and other derived views rebuild from the restored sources.
 - Measured RPO is `<= 15 minutes`; measured RTO is `<= 4 hours`.
 
@@ -179,15 +189,18 @@ rejects unexpected fields, and uploads the normalized artifact for 90 days.
 The accepted document has these top-level fields:
 
 - `schemaVersion` (`1`) and `environment` (`production`);
-- `rehearsal`: start, declaration, latest durable/recovered write, restore-point,
+- `rehearsal`: start, declaration, latest durable/recovered write, source and
+  recovered marker watermarks, restore-boundary marker result, restore-point,
   and verification timestamps;
 - `releases`: exact 40-character frontend/Worker and backend Git commits;
-- `railway`: PITR state, retention, restore window, and distinct source/restored
-  service and deployment IDs;
+- `railway`: source and restored-sibling PITR/archive state, retention, restore
+  window, distinct source/restored service and deployment IDs, global
+  write-fence mode, and captured/replayed all-tenant write counts;
 - `d1`: rehearsal database ID, production storage version, selected/previous
   bookmarks, and restore completion time;
 - `r2.buckets`: exactly one `worker-uploads` and one `backend-uploads` result,
-  including lock rule, retention, SHA-256 checksum, and rejected overwrite/delete;
+  including lock rule, retention, pre-upload SHA-256, rejected overwrite/delete,
+  scoped runtime token, separate control-plane identity, audit event, and alert;
 - `recordCounts`: positive synthetic counts for every representative durable
   domain and the cross-tenant negative control;
 - `integrity`: referential, tenant, financial, approval, object-byte, and

@@ -111,6 +111,9 @@ export const buildDurableRecoveryEvidence = (source: unknown) => {
       'recoveryDeclaredAt',
       'latestDurableWriteAt',
       'latestRecoveredWriteAt',
+      'sourceMarkerWatermark',
+      'recoveredMarkerWatermark',
+      'restoreBoundaryMarkerPresent',
       'restorePointAt',
       'verificationCompletedAt',
     ],
@@ -120,6 +123,20 @@ export const buildDurableRecoveryEvidence = (source: unknown) => {
   const recoveryDeclaredAt = requireTimestamp(rehearsal, 'recoveryDeclaredAt', 'evidence.rehearsal');
   const latestDurableWriteAt = requireTimestamp(rehearsal, 'latestDurableWriteAt', 'evidence.rehearsal');
   const latestRecoveredWriteAt = requireTimestamp(rehearsal, 'latestRecoveredWriteAt', 'evidence.rehearsal');
+  const sourceMarkerWatermark = requireString(rehearsal, 'sourceMarkerWatermark', 'evidence.rehearsal', idPattern);
+  const recoveredMarkerWatermark = requireString(
+    rehearsal,
+    'recoveredMarkerWatermark',
+    'evidence.rehearsal',
+    idPattern,
+  );
+  const restoreBoundaryMarkerPresent = requireBoolean(
+    rehearsal,
+    'restoreBoundaryMarkerPresent',
+    'evidence.rehearsal',
+  );
+  rejectExampleValue(sourceMarkerWatermark, 'evidence.rehearsal.sourceMarkerWatermark');
+  rejectExampleValue(recoveredMarkerWatermark, 'evidence.rehearsal.recoveredMarkerWatermark');
   const restorePointAt = requireTimestamp(rehearsal, 'restorePointAt', 'evidence.rehearsal');
   const verificationCompletedAt = requireTimestamp(rehearsal, 'verificationCompletedAt', 'evidence.rehearsal');
   minutesBetween(startedAt.millis, recoveryDeclaredAt.millis, 'Rehearsal');
@@ -155,6 +172,8 @@ export const buildDurableRecoveryEvidence = (source: unknown) => {
     railway,
     [
       'pitrEnabled',
+      'restoredPitrEnabled',
+      'restoredArchiveHealthy',
       'retentionDays',
       'restoreWindowStart',
       'restoreWindowEnd',
@@ -162,6 +181,10 @@ export const buildDurableRecoveryEvidence = (source: unknown) => {
       'restoredServiceId',
       'sourceDeploymentId',
       'restoredDeploymentId',
+      'writeFenceMode',
+      'capturedPostTargetWrites',
+      'replayedPostTargetWrites',
+      'allTenantReplayVerified',
     ],
     'evidence.railway',
   );
@@ -172,6 +195,8 @@ export const buildDurableRecoveryEvidence = (source: unknown) => {
   }
   const normalizedRailway = {
     pitrEnabled: requireBoolean(railway, 'pitrEnabled', 'evidence.railway'),
+    restoredPitrEnabled: requireBoolean(railway, 'restoredPitrEnabled', 'evidence.railway'),
+    restoredArchiveHealthy: requireBoolean(railway, 'restoredArchiveHealthy', 'evidence.railway'),
     retentionDays: requireInteger(railway, 'retentionDays', 'evidence.railway', 30),
     restoreWindowStart: restoreWindowStart.iso,
     restoreWindowEnd: restoreWindowEnd.iso,
@@ -179,7 +204,23 @@ export const buildDurableRecoveryEvidence = (source: unknown) => {
     restoredServiceId: requireString(railway, 'restoredServiceId', 'evidence.railway', idPattern),
     sourceDeploymentId: requireString(railway, 'sourceDeploymentId', 'evidence.railway', idPattern),
     restoredDeploymentId: requireString(railway, 'restoredDeploymentId', 'evidence.railway', idPattern),
+    writeFenceMode: railway.writeFenceMode,
+    capturedPostTargetWrites: requireInteger(railway, 'capturedPostTargetWrites', 'evidence.railway', 0),
+    replayedPostTargetWrites: requireInteger(railway, 'replayedPostTargetWrites', 'evidence.railway', 0),
+    allTenantReplayVerified: requireBoolean(railway, 'allTenantReplayVerified', 'evidence.railway'),
   };
+  if (normalizedRailway.writeFenceMode !== 'global-block' && normalizedRailway.writeFenceMode !== 'capture-and-replay') {
+    throw new Error('evidence.railway.writeFenceMode must be global-block or capture-and-replay');
+  }
+  if (normalizedRailway.capturedPostTargetWrites !== normalizedRailway.replayedPostTargetWrites) {
+    throw new Error('Every captured post-target write must be replayed before cutover');
+  }
+  if (
+    normalizedRailway.writeFenceMode === 'global-block' &&
+    (normalizedRailway.capturedPostTargetWrites !== 0 || normalizedRailway.replayedPostTargetWrites !== 0)
+  ) {
+    throw new Error('Global-block evidence must have zero captured and replayed post-target writes');
+  }
   if (normalizedRailway.sourceServiceId === normalizedRailway.restoredServiceId) {
     throw new Error('Railway rehearsal must restore into a sibling service');
   }
@@ -222,7 +263,19 @@ export const buildDurableRecoveryEvidence = (source: unknown) => {
     const bucket = asRecord(value, path);
     requireExactKeys(
       bucket,
-      ['role', 'name', 'lockRuleId', 'retentionDays', 'objectChecksum', 'overwriteRejected', 'deleteRejected'],
+      [
+        'role',
+        'name',
+        'lockRuleId',
+        'retentionDays',
+        'preUploadSha256',
+        'overwriteRejected',
+        'deleteRejected',
+        'runtimeObjectTokenScoped',
+        'controlPlaneIdentitySeparate',
+        'lockAuditEventId',
+        'lockEditAlertVerified',
+      ],
       path,
     );
     if (bucket.role !== 'worker-uploads' && bucket.role !== 'backend-uploads') {
@@ -233,9 +286,13 @@ export const buildDurableRecoveryEvidence = (source: unknown) => {
       name: requireString(bucket, 'name', path, bucketPattern),
       lockRuleId: requireString(bucket, 'lockRuleId', path, idPattern),
       retentionDays: requireInteger(bucket, 'retentionDays', path, 30),
-      objectChecksum: requireString(bucket, 'objectChecksum', path, checksumPattern).toLowerCase(),
+      preUploadSha256: requireString(bucket, 'preUploadSha256', path, checksumPattern).toLowerCase(),
       overwriteRejected: requireBoolean(bucket, 'overwriteRejected', path),
       deleteRejected: requireBoolean(bucket, 'deleteRejected', path),
+      runtimeObjectTokenScoped: requireBoolean(bucket, 'runtimeObjectTokenScoped', path),
+      controlPlaneIdentitySeparate: requireBoolean(bucket, 'controlPlaneIdentitySeparate', path),
+      lockAuditEventId: requireString(bucket, 'lockAuditEventId', path, idPattern),
+      lockEditAlertVerified: requireBoolean(bucket, 'lockEditAlertVerified', path),
     };
   });
   if (new Set(normalizedBuckets.map(({ role }) => role)).size !== 2) {
@@ -245,8 +302,9 @@ export const buildDurableRecoveryEvidence = (source: unknown) => {
     const path = `evidence.r2.buckets[${index}]`;
     rejectExampleValue(bucket.name, `${path}.name`);
     rejectExampleValue(bucket.lockRuleId, `${path}.lockRuleId`);
-    if (/^sha256:([0-9a-f])\1{63}$/i.test(bucket.objectChecksum)) {
-      throw new Error(`${path}.objectChecksum still contains an example value`);
+    rejectExampleValue(bucket.lockAuditEventId, `${path}.lockAuditEventId`);
+    if (/^sha256:([0-9a-f])\1{63}$/i.test(bucket.preUploadSha256)) {
+      throw new Error(`${path}.preUploadSha256 still contains an example value`);
     }
   });
 
@@ -270,6 +328,9 @@ export const buildDurableRecoveryEvidence = (source: unknown) => {
       recoveryDeclaredAt: recoveryDeclaredAt.iso,
       latestDurableWriteAt: latestDurableWriteAt.iso,
       latestRecoveredWriteAt: latestRecoveredWriteAt.iso,
+      sourceMarkerWatermark,
+      recoveredMarkerWatermark,
+      restoreBoundaryMarkerPresent,
       restorePointAt: restorePointAt.iso,
       verificationCompletedAt: verificationCompletedAt.iso,
     },

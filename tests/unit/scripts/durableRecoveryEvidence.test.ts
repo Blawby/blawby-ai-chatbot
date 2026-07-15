@@ -11,6 +11,9 @@ const validEvidence = () => ({
     recoveryDeclaredAt: '2026-07-15T00:10:00Z',
     latestDurableWriteAt: '2026-07-15T00:09:00Z',
     latestRecoveredWriteAt: '2026-07-15T00:00:00Z',
+    sourceMarkerWatermark: 'marker-source-100',
+    recoveredMarkerWatermark: 'marker-recovered-091',
+    restoreBoundaryMarkerPresent: true,
     restorePointAt: '2026-07-15T00:05:00Z',
     verificationCompletedAt: '2026-07-15T02:10:00Z',
   },
@@ -20,6 +23,8 @@ const validEvidence = () => ({
   },
   railway: {
     pitrEnabled: true,
+    restoredPitrEnabled: true,
+    restoredArchiveHealthy: true,
     retentionDays: 30,
     restoreWindowStart: '2026-06-15T00:00:00Z',
     restoreWindowEnd: '2026-07-15T00:10:00Z',
@@ -27,6 +32,10 @@ const validEvidence = () => ({
     restoredServiceId: 'railway-restored',
     sourceDeploymentId: 'deploy-source',
     restoredDeploymentId: 'deploy-restored',
+    writeFenceMode: 'global-block',
+    capturedPostTargetWrites: 0,
+    replayedPostTargetWrites: 0,
+    allTenantReplayVerified: true,
   },
   d1: {
     databaseId: 'd1-rehearsal',
@@ -42,18 +51,26 @@ const validEvidence = () => ({
         name: 'blawby-ai-files',
         lockRuleId: 'lock-worker',
         retentionDays: 30,
-        objectChecksum: `sha256:${'ab'.repeat(32)}`,
+        preUploadSha256: `sha256:${'ab'.repeat(32)}`,
         overwriteRejected: true,
         deleteRejected: true,
+        runtimeObjectTokenScoped: true,
+        controlPlaneIdentitySeparate: true,
+        lockAuditEventId: 'audit-worker-lock',
+        lockEditAlertVerified: true,
       },
       {
         role: 'backend-uploads',
         name: 'blawby-backend-files',
         lockRuleId: 'lock-backend',
         retentionDays: 30,
-        objectChecksum: `sha256:${'cd'.repeat(32)}`,
+        preUploadSha256: `sha256:${'cd'.repeat(32)}`,
         overwriteRejected: true,
         deleteRejected: true,
+        runtimeObjectTokenScoped: true,
+        controlPlaneIdentitySeparate: true,
+        lockAuditEventId: 'audit-backend-lock',
+        lockEditAlertVerified: true,
       },
     ],
   },
@@ -113,6 +130,10 @@ describe('durable recovery evidence', () => {
     noPitr.railway.pitrEnabled = false;
     expect(() => buildDurableRecoveryEvidence(noPitr)).toThrow('pitrEnabled must be true');
 
+    const noRestoredPitr = validEvidence();
+    noRestoredPitr.railway.restoredArchiveHealthy = false;
+    expect(() => buildDurableRecoveryEvidence(noRestoredPitr)).toThrow('restoredArchiveHealthy must be true');
+
     const shortLock = validEvidence();
     shortLock.r2.buckets[0]!.retentionDays = 29;
     expect(() => buildDurableRecoveryEvidence(shortLock)).toThrow('greater than or equal to 30');
@@ -120,6 +141,22 @@ describe('durable recovery evidence', () => {
     const failedIsolation = validEvidence();
     failedIsolation.integrity.tenantIsolation = false;
     expect(() => buildDurableRecoveryEvidence(failedIsolation)).toThrow('tenantIsolation must be true');
+
+    const sharedControlPlane = validEvidence();
+    sharedControlPlane.r2.buckets[0]!.controlPlaneIdentitySeparate = false;
+    expect(() => buildDurableRecoveryEvidence(sharedControlPlane)).toThrow('controlPlaneIdentitySeparate must be true');
+  });
+
+  it('rejects incomplete all-tenant write replay and restore markers', () => {
+    const replay = validEvidence();
+    replay.railway.writeFenceMode = 'capture-and-replay';
+    replay.railway.capturedPostTargetWrites = 2;
+    replay.railway.replayedPostTargetWrites = 1;
+    expect(() => buildDurableRecoveryEvidence(replay)).toThrow('Every captured post-target write must be replayed');
+
+    const marker = validEvidence();
+    marker.rehearsal.restoreBoundaryMarkerPresent = false;
+    expect(() => buildDurableRecoveryEvidence(marker)).toThrow('restoreBoundaryMarkerPresent must be true');
   });
 
   it('rejects unexpected fields so the artifact cannot carry arbitrary payloads', () => {
