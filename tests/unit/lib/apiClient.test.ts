@@ -116,7 +116,7 @@ describe('apiClient', () => {
         })
       );
 
-    await listPractices({ force: true });
+    await listPractices();
     await updatePractice('practice-1', { name: 'Updated' });
     await updatePracticeDetails('practice-1', { introMessage: 'Welcome' });
 

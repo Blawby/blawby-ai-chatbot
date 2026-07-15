@@ -4,7 +4,11 @@ import { useQuery } from '@/shared/hooks/useQuery';
 import { policyTtl } from '@/shared/lib/cachePolicy';
 import type { BackendMatter } from '@/features/matters/services/mattersApi';
 import type { IntakeListItem } from '@/features/intake/api/intakesApi';
-import { listAllFileIntakes, listAllFileMatters } from '@/features/files/hooks/pagination';
+import {
+  listAllClientFileMatters,
+  listAllFileIntakes,
+  listAllFileMatters,
+} from '@/features/files/hooks/pagination';
 
 export interface UseUploadDestinationsOptions {
   practiceId: string | null | undefined;
@@ -21,22 +25,14 @@ export interface UploadDestinationsResult {
   refetch: () => Promise<void>;
 }
 
-const matterMatchesViewer = (matter: BackendMatter, userId: string): boolean => (
-  typeof matter.client_id === 'string' && matter.client_id === userId
-);
-
-const intakeMatchesViewer = (intake: IntakeListItem, userId: string): boolean => {
-  const meta = intake.metadata as Record<string, unknown> | null | undefined;
-  return typeof meta?.user_id === 'string' && meta.user_id === userId;
-};
-
 const fetchDestinations = async (
   practiceId: string,
+  isClient: boolean,
   signal?: AbortSignal,
 ): Promise<{ matters: BackendMatter[]; intakes: IntakeListItem[] }> => {
   const [mattersResult, intakesResult] = await Promise.allSettled([
-    listAllFileMatters(practiceId, signal),
-    listAllFileIntakes(practiceId, signal),
+    isClient ? listAllClientFileMatters(practiceId, signal) : listAllFileMatters(practiceId, signal),
+    isClient ? Promise.resolve([] as IntakeListItem[]) : listAllFileIntakes(practiceId, signal),
   ]);
   // If both calls fail, surface an error rather than caching an empty
   // success — otherwise the dropdown silently looks empty for 30s after a
@@ -66,7 +62,7 @@ export const useUploadDestinations = ({
   enabled = true,
 }: UseUploadDestinationsOptions): UploadDestinationsResult => {
   const practiceKey = getPracticeCacheKey(practiceId);
-  const cacheKey = `intake:upload-destinations:${practiceKey}`;
+  const cacheKey = `intake:upload-destinations:${practiceKey}:${clientUserId ? 'client' : 'practice'}`;
   const { data, isLoading, error, refetch } = useQuery<{ matters: BackendMatter[]; intakes: IntakeListItem[] }>({
     key: cacheKey,
     enabled: enabled && Boolean(practiceId),
@@ -74,6 +70,7 @@ export const useUploadDestinations = ({
     fetcher: (signal) => fetchDestinations(
       // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
       practiceId!,
+      Boolean(clientUserId),
       signal,
     ),
   });
@@ -83,15 +80,12 @@ export const useUploadDestinations = ({
   return useMemo(() => {
     const matters = data?.matters ?? [];
     const intakes = data?.intakes ?? [];
-    if (!clientUserId) {
-      return { matters, intakes, isLoading, error, refetch: refetchVoid };
-    }
     return {
-      matters: matters.filter((matter) => matterMatchesViewer(matter, clientUserId)),
-      intakes: intakes.filter((intake) => intakeMatchesViewer(intake, clientUserId)),
+      matters,
+      intakes,
       isLoading,
       error,
       refetch: refetchVoid,
     };
-  }, [data, clientUserId, isLoading, error, refetchVoid]);
+  }, [data, isLoading, error, refetchVoid]);
 };
