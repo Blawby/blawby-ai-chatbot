@@ -1,0 +1,78 @@
+{
+  "schemaVersion": 1,
+  "environment": "production",
+  "rehearsal": {
+    "startedAt": "2026-07-15T00:00:00Z",
+    "recoveryDeclaredAt": "2026-07-15T00:10:00Z",
+    "latestDurableWriteAt": "2026-07-15T00:09:00Z",
+    "latestRecoveredWriteAt": "2026-07-15T00:00:00Z",
+    "restorePointAt": "2026-07-15T00:05:00Z",
+    "verificationCompletedAt": "2026-07-15T02:10:00Z"
+  },
+  "releases": {
+    "frontendWorkerCommit": "1111111111111111111111111111111111111111",
+    "backendGitCommit": "2222222222222222222222222222222222222222"
+  },
+  "railway": {
+    "pitrEnabled": true,
+    "retentionDays": 30,
+    "restoreWindowStart": "2026-06-15T00:00:00Z",
+    "restoreWindowEnd": "2026-07-15T00:10:00Z",
+    "sourceServiceId": "example-source-service",
+    "restoredServiceId": "example-restored-service",
+    "sourceDeploymentId": "example-source-deployment",
+    "restoredDeploymentId": "example-restored-deployment"
+  },
+  "d1": {
+    "databaseId": "example-rehearsal-database",
+    "storageVersion": "production",
+    "selectedBookmark": "example-selected-bookmark",
+    "previousBookmark": "example-previous-bookmark",
+    "restoreCompletedAt": "2026-07-15T01:00:00Z"
+  },
+  "r2": {
+    "buckets": [
+      {
+        "role": "worker-uploads",
+        "name": "example-worker-uploads",
+        "lockRuleId": "example-worker-lock",
+        "retentionDays": 30,
+        "objectChecksum": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "overwriteRejected": true,
+        "deleteRejected": true
+      },
+      {
+        "role": "backend-uploads",
+        "name": "example-backend-uploads",
+        "lockRuleId": "example-backend-lock",
+        "retentionDays": 30,
+        "objectChecksum": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "overwriteRejected": true,
+        "deleteRejected": true
+      }
+    ]
+  },
+  "recordCounts": {
+    "identities": 1,
+    "memberships": 1,
+    "practices": 2,
+    "clients": 1,
+    "matters": 1,
+    "invoices": 1,
+    "intakes": 1,
+    "approvals": 1,
+    "uploads": 2,
+    "conversations": 1,
+    "messages": 2,
+    "reportSchedules": 1,
+    "crossTenantControls": 1
+  },
+  "integrity": {
+    "referentialIntegrity": true,
+    "tenantIsolation": true,
+    "financialIntegrity": true,
+    "approvalsSafe": true,
+    "objectBytesMatch": true,
+    "derivedStateRebuilt": true
+  }
+}

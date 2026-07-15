@@ -1,0 +1,50 @@
+name: Record durable recovery evidence
+
+on:
+  workflow_dispatch:
+    inputs:
+      evidence_json:
+        description: Sanitized JSON from the completed production recovery rehearsal
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  validate-and-record:
+    name: Validate and retain recovery proof
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: production
+    steps:
+      - name: Require the production branch
+        run: |
+          set -euo pipefail
+          [[ "${GITHUB_REF}" == "refs/heads/main" ]] || {
+            echo "Recovery evidence must be recorded from main." >&2
+            exit 1
+          }
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - name: Validate and sanitize evidence
+        env:
+          RECOVERY_EVIDENCE_JSON: ${{ inputs.evidence_json }}
+        run: npx tsx scripts/write-durable-recovery-evidence.ts durable-recovery-evidence.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: durable-recovery-evidence-${{ github.run_id }}
+          path: durable-recovery-evidence.json
+          if-no-files-found: error
+          retention-days: 90
+      - name: Publish sanitized recovery summary
+        run: |
+          echo '```json' >> "${GITHUB_STEP_SUMMARY}"
+          cat durable-recovery-evidence.json >> "${GITHUB_STEP_SUMMARY}"
+          echo '```' >> "${GITHUB_STEP_SUMMARY}"
