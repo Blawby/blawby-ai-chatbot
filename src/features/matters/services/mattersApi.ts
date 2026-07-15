@@ -378,7 +378,7 @@ export const updateMatter = async (
   const normalizedPayload = normalizeMatterPayload(payload);
   // Debug log removed for security/cleanliness
   const json = await requestData(
-    apiClient.put(
+    apiClient.patch(
       matterItemPath(practiceId, matterId),
       normalizedPayload,
       { signal: options.signal, invalidates: [`matters:${practiceId}:`] }
@@ -525,7 +525,7 @@ export const updateMatterNote = async (
     throw new Error('content is required');
   }
   const payload = await requestData(
-    apiClient.put(
+    apiClient.patch(
       matterNestedItemPath(practiceId, matterId, 'notes', noteId),
       { content },
       { signal: options.signal }
@@ -631,7 +631,7 @@ export const updateMatterTimeEntry = async (
     throw new Error('start_time and end_time are required');
   }
   const json = await requestData(
-    apiClient.put(
+    apiClient.patch(
       matterNestedItemPath(practiceId, matterId, 'time-entries', timeEntryId),
       payload,
       { signal: options.signal }
@@ -772,7 +772,7 @@ export const updateMatterExpense = async (
     throw new Error('date is required');
   }
   const json = await requestData(
-    apiClient.put(
+    apiClient.patch(
       matterNestedItemPath(practiceId, matterId, 'expenses', expenseId),
       normalizeExpensePayload(payload),
       { signal: options.signal }
@@ -894,7 +894,7 @@ export const updateMatterMilestone = async (
     throw new Error('due_date is required');
   }
   const json = await requestData(
-    apiClient.put(
+    apiClient.patch(
       matterNestedItemPath(practiceId, matterId, 'milestones', milestoneId),
       normalizeMilestonePayload(payload),
       { signal: options.signal }

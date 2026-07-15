@@ -55,7 +55,7 @@ describe('submitContactForm', () => {
           })
         });
       }
-      if (url.includes('/api/practice-client-intakes/create')) {
+      if (url.endsWith('/api/practice-client-intakes')) {
         return Promise.resolve({
           ok: true,
           status: 201,
@@ -97,11 +97,11 @@ describe('submitContactForm', () => {
     );
 
     const createCall = fetchMock.mock.calls.find(([url]) =>
-      String(url).includes('/api/practice-client-intakes/create')
+      String(url).endsWith('/api/practice-client-intakes')
     );
 
     expect(createCall).toBeTruthy();
-    expect(String(createCall?.[0])).toContain('/api/practice-client-intakes/create');
+    expect(String(createCall?.[0])).toMatch(/\/api\/practice-client-intakes$/);
     expect(String(createCall?.[0])).not.toContain('/api/practice/client-intakes/create');
 
     const body = JSON.parse(String(createCall?.[1]?.body ?? '{}')) as { amount?: number };
@@ -143,7 +143,7 @@ describe('submitContactForm', () => {
           })
         });
       }
-      if (url.includes('/api/practice-client-intakes/create')) {
+      if (url.endsWith('/api/practice-client-intakes')) {
         return Promise.resolve({
           ok: true,
           status: 201,

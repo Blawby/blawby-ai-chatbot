@@ -420,9 +420,9 @@ export const sendInvoice = async (
 ): Promise<Invoice | null> => {
   if (!practiceId || !invoiceId) return null;
   const payload = await requestData(
-    apiClient.post(
-      urls.sendInvoice(practiceId, invoiceId),
-      {},
+    apiClient.patch(
+      urls.invoiceStatus(practiceId, invoiceId),
+      { status: 'sent' },
       { signal: options.signal, invalidates: INVOICE_CACHE_INVALIDATIONS }
     ),
     'Failed to send invoice'
@@ -468,9 +468,9 @@ export const voidInvoice = async (
 ): Promise<Invoice | null> => {
   if (!practiceId || !invoiceId) return null;
   const payload = await requestData(
-    apiClient.post(
-      urls.voidInvoice(practiceId, invoiceId),
-      {},
+    apiClient.patch(
+      urls.invoiceStatus(practiceId, invoiceId),
+      { status: 'cancelled' },
       { signal: options.signal, invalidates: INVOICE_CACHE_INVALIDATIONS }
     ),
     'Failed to void invoice'

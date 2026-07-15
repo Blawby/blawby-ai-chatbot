@@ -210,7 +210,7 @@ export function PracticeMatterCreatePage({
       throw new Error('Practice ID and intake UUID are required to convert an intake.');
     }
 
-    const endpoint = `${urls.clientIntake(practiceId, convertIntakeUuid)}/convert`;
+    const endpoint = urls.clientIntakeConversions(convertIntakeUuid);
     const response = await fetch(endpoint, {
       method: 'POST',
       credentials: 'include',

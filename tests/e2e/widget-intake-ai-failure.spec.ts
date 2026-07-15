@@ -12,7 +12,7 @@
  *
  * Verifies (U11 of docs/plans/2026-05-18-002-feat-strengthen-intake-ai-observability-plan.md):
  *   - widget renders the hard-error UI with the canonical copy
- *   - backend `POST /api/practice-client-intakes/create` fires with
+ *   - backend `POST /api/practice-client-intakes` fires with
  *     custom_fields._worker_conversation_id (partial-intake submission per U7)
  *   - composer is disabled and inline error region has role=alert
  */
@@ -46,7 +46,7 @@ test.describe('Public widget intake — AI failure path (U11)', () => {
     // independent of the assertion ordering below.
     const partialSubmitWaiter = anonPage.waitForRequest(
       (request) =>
-        request.url().includes('/api/practice-client-intakes/create') &&
+        request.url().endsWith('/api/practice-client-intakes') &&
         request.method() === 'POST',
       { timeout: 60_000 },
     );

@@ -21,7 +21,7 @@ export const getFormsApiUrl = () => {
 };
 
 export const getFormsEndpoint = () => {
-  return `${getFormsApiUrl()}/api/practice-client-intakes/create`;
+  return `${getFormsApiUrl()}/api/practice-client-intakes`;
 };
 
 export const getPracticeClientIntakeSettingsEndpoint = (slug: string) => {
@@ -29,7 +29,7 @@ export const getPracticeClientIntakeSettingsEndpoint = (slug: string) => {
 };
 
 export const getPracticeClientIntakeCreateEndpoint = () => {
-  return `${getFormsApiUrl()}/api/practice-client-intakes/create`;
+  return `${getFormsApiUrl()}/api/practice-client-intakes`;
 };
 
 export const getPracticeClientIntakeUpdateEndpoint = (uuid: string) => {
@@ -70,7 +70,7 @@ export const getSubscriptionBillingPortalEndpoint = () => {
 };
 
 export const getSubscriptionCancelEndpoint = () => {
-  return `${getWorkerApiUrl()}/api/subscriptions/cancel`;
+  return `${getWorkerApiUrl()}/api/subscriptions`;
 };
 
 export const getSubscriptionListEndpoint = () => {
