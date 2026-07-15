@@ -2,8 +2,12 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   apiClient,
   isHttpError,
+  listPractices,
   parseOffsetPaginatedResponse,
+  requestSubscriptionCancellation,
   resolveIntakeInvitationPrefill,
+  updatePractice,
+  updatePracticeDetails,
 } from '@/shared/lib/apiClient';
 
 beforeEach(() => {
@@ -88,5 +92,55 @@ describe('apiClient', () => {
         'Invalid matters list response'
       )
     ).toThrow('Invalid matters list response');
+  });
+
+  it('uses canonical practice routes and PATCH updates', async () => {
+    const fetchMock = vi.spyOn(globalThis, 'fetch');
+    fetchMock
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ practices: [] }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        })
+      )
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ practice: { id: 'practice-1', name: 'Updated', slug: 'updated' } }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        })
+      )
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ details: {} }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        })
+      );
+
+    await listPractices({ force: true });
+    await updatePractice('practice-1', { name: 'Updated' });
+    await updatePracticeDetails('practice-1', { introMessage: 'Welcome' });
+
+    const calls = fetchMock.mock.calls;
+    expect(new URL(String(calls[0]?.[0])).pathname).toBe('/api/practice');
+    expect(calls[1]?.[1]?.method).toBe('PATCH');
+    expect(new URL(String(calls[1]?.[0])).pathname).toBe('/api/practice/practice-1');
+    expect(calls[2]?.[1]?.method).toBe('PATCH');
+    expect(new URL(String(calls[2]?.[0])).pathname).toBe('/api/practice/practice-1/details');
+  });
+
+  it('uses DELETE on the canonical subscription resource for cancellation', async () => {
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(
+      new Response(JSON.stringify({ url: 'https://billing.example.com' }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      })
+    );
+
+    await requestSubscriptionCancellation('practice-1');
+
+    const [url, init] = fetchMock.mock.calls[0] ?? [];
+    expect(new URL(String(url)).pathname).toBe('/api/subscriptions');
+    expect(init?.method).toBe('DELETE');
+    expect(JSON.parse(String(init?.body))).toEqual({ practiceId: 'practice-1' });
   });
 });

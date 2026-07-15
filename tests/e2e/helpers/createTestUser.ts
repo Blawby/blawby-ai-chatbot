@@ -61,7 +61,7 @@ export async function createTestUser(
   await page.evaluate(async () => {
     try {
       await fetch('/api/preferences/onboarding', {
-        method: 'PUT',
+        method: 'PATCH',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

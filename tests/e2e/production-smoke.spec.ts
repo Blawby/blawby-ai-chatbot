@@ -250,7 +250,7 @@ test.describe("bounded production launch smoke", () => {
         ),
       ).toBe(config.practice.id);
 
-      const practiceList = await owner.request.get("/api/practice/list");
+      const practiceList = await owner.request.get("/api/practice");
       expect(practiceList.ok()).toBe(true);
       const configuredPractice = records(await practiceList.json()).find(
         (practice) => text(practice, "id") === config.practice.id,

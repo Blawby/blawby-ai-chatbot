@@ -265,7 +265,7 @@ const api = async (page: ApiPage, url: string, init?: Parameters<typeof fetchJso
 };
 
 const resolveOwnerPracticeContext = async (ownerPage: ApiPage) => {
-  const practiceList = await api(ownerPage, '/api/practice/list');
+  const practiceList = await api(ownerPage, '/api/practice');
   const practices = arrayFrom(practiceList.data, ['practices', 'data', 'items']);
   const practice = practices.find((item) => textFrom(item, ['slug']) === PRACTICE_SLUG)
     ?? practices.find((item) => textFrom(item, ['id']) === PRACTICE_ID);
@@ -417,10 +417,10 @@ const createPracticeBillingScenario = async (
   let hostedInvoiceUrl: string | null = null;
   let ownerInvoiceDetail: JsonRecord | null = null;
   if (options.sendInvoice) {
-    const sentInvoice = requireRecord(await api(ownerPage, `/api/invoices/${encodeURIComponent(PRACTICE_ID)}/${encodeURIComponent(invoiceId)}/send`, {
-      method: 'POST',
+    const sentInvoice = requireRecord(await api(ownerPage, `/api/invoices/${encodeURIComponent(PRACTICE_ID)}/${encodeURIComponent(invoiceId)}/status`, {
+      method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: '{}',
+      body: JSON.stringify({ status: 'sent' }),
     }), ['invoice', 'invoices'], 'send invoice');
     expect(['sent', 'open', 'pending'].includes((textFrom(sentInvoice, ['status']) ?? '').toLowerCase())).toBe(true);
 

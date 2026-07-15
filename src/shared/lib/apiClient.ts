@@ -992,14 +992,15 @@ export async function listMatterConversations(
   return data as Conversation[];
 }
 
-async function postSubscriptionEndpoint(
+async function requestSubscriptionEndpoint(
+  method: 'POST' | 'DELETE',
   url: string,
   body: Record<string, unknown>
 ): Promise<SubscriptionEndpointResult> {
   try {
-    const response = await apiClient.post(url, body, {
-      baseURL: undefined
-    });
+    const response = method === 'POST'
+      ? await apiClient.post(url, body, { baseURL: undefined })
+      : await apiClient.delete(url, { baseURL: undefined, body });
     return {
       ok: true,
       status: response.status,
@@ -1199,7 +1200,7 @@ export async function listPractices(configOrOptions?: ListPracticesOptions): Pro
   const practices = await queryCache.coalesceGet(
     'practices:list',
     async (signal) => {
-      const response = await apiClient.get('/api/practice/list', { signal });
+      const response = await apiClient.get('/api/practice', { signal });
       return unwrapPracticeListResponse(response.data);
     },
     { ttl: 60_000, signal: opts.signal as AbortSignal | undefined }
@@ -1248,7 +1249,7 @@ export async function updatePractice(
   if (import.meta.env.DEV) {
     console.info('[apiClient] updatePractice payload', { practiceId, payload: normalized });
   }
-  const response = await apiClient.put(
+  const response = await apiClient.patch(
     `/api/practice/${encodeURIComponent(practiceId)}`,
     normalized,
     {
@@ -1825,7 +1826,7 @@ export async function updatePracticeDetails(
     throw new Error('practiceId is required');
   }
   const normalized = normalizePracticeDetailsPayload(details);
-  const response = await apiClient.put(
+  const response = await apiClient.patch(
     `/api/practice/${encodeURIComponent(practiceId)}/details`,
     normalized,
     {
@@ -2419,7 +2420,7 @@ export function normalizePracticeDetailsResponse(payload: unknown): PracticeDeta
 export async function requestBillingPortalSession(
   payload: BillingPortalPayload
 ): Promise<SubscriptionEndpointResult> {
-  return postSubscriptionEndpoint(getSubscriptionBillingPortalEndpoint(), {
+  return requestSubscriptionEndpoint('POST', getSubscriptionBillingPortalEndpoint(), {
     referenceId: payload.practiceId,
     customerType: payload.customerType,
     returnUrl: payload.returnUrl
@@ -2496,7 +2497,7 @@ export async function getCurrentSubscription(
 export async function requestSubscriptionCancellation(
   practiceId: string
 ): Promise<SubscriptionEndpointResult> {
-  return postSubscriptionEndpoint(getSubscriptionCancelEndpoint(), { practiceId });
+  return requestSubscriptionEndpoint('DELETE', getSubscriptionCancelEndpoint(), { practiceId });
 }
 
 export interface SubscriptionListItem {

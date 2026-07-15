@@ -70,7 +70,10 @@ export const clientIntakeStatus = (intakeId: string): string =>
 	`/api/practice-client-intakes/${encodeSegment(intakeId)}/status`;
 
 export const clientIntakeInvite = (intakeId: string): string =>
-	`/api/practice-client-intakes/${encodeSegment(intakeId)}/invite`;
+	`/api/practice-client-intakes/${encodeSegment(intakeId)}/invitations`;
+
+export const clientIntakeConversions = (intakeId: string): string =>
+	`/api/practice-client-intakes/${encodeSegment(intakeId)}/conversions`;
 
 export const uploadDownloadPath = (uploadId: string): string =>
 	`/api/uploads/${encodeSegment(uploadId)}/download`;
@@ -317,14 +320,14 @@ export const urls = {
 	clientIntake,
 	clientIntakeStatus,
 	clientIntakeInvite,
+	clientIntakeConversions,
 	practiceAssistantDecision,
 	invoices: (practiceId: string) => `/api/invoices/${encodeURIComponent(practiceId)}`,
 	invoice: (practiceId: string, invoiceId: string) => `/api/invoices/${encodeURIComponent(practiceId)}/${encodeURIComponent(invoiceId)}`,
 	createInvoice: (practiceId: string) => `/api/invoices/${encodeURIComponent(practiceId)}`,
 	updateInvoice: (practiceId: string, invoiceId: string) => `/api/invoices/${encodeURIComponent(practiceId)}/${encodeURIComponent(invoiceId)}`,
 	deleteInvoice: (practiceId: string, invoiceId: string) => `/api/invoices/${encodeURIComponent(practiceId)}/${encodeURIComponent(invoiceId)}`,
-	sendInvoice: (practiceId: string, invoiceId: string) => `/api/invoices/${encodeURIComponent(practiceId)}/${encodeURIComponent(invoiceId)}/send`,
-	voidInvoice: (practiceId: string, invoiceId: string) => `/api/invoices/${encodeURIComponent(practiceId)}/${encodeURIComponent(invoiceId)}/void`,
+	invoiceStatus: (practiceId: string, invoiceId: string) => `/api/invoices/${encodeURIComponent(practiceId)}/${encodeURIComponent(invoiceId)}/status`,
 	syncInvoice: (practiceId: string, invoiceId: string) => `/api/invoices/${encodeURIComponent(practiceId)}/${encodeURIComponent(invoiceId)}/sync`,
 	invoiceRefundRequests: (practiceId: string, invoiceId: string) => `/api/invoices/${encodeURIComponent(practiceId)}/${encodeURIComponent(invoiceId)}/refund-requests`,
 	practiceRefundRequests: (practiceId: string) => `/api/invoices/${encodeURIComponent(practiceId)}/refund-requests`,

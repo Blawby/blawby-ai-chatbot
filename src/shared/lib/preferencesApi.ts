@@ -50,7 +50,7 @@ export async function updatePreferencesCategory<T extends object>(
   category: PreferenceCategory,
   data: T
 ): Promise<T> {
-  const response = await apiClient.put(`/api/preferences/${category}`, data);
+  const response = await apiClient.patch(`/api/preferences/${category}`, data);
   const result = unwrapApiResponse<T | null | undefined>(response.data);
   if (result === null || result === undefined) {
     throw new Error(`Preferences update for '${category}' returned no data`);
