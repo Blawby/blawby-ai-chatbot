@@ -177,7 +177,9 @@ Store a sanitized `durable-recovery-evidence.json` artifact for 90 days with:
 - measured RPO/RTO and pass/fail status.
 
 After the human operator completes the provider rehearsal, run the **Record
-durable recovery evidence** workflow from `main`. Paste only the sanitized JSON
+durable recovery evidence** workflow from `staging` before the initial public
+cutover. After cutover, run later rehearsals from `main`. Both refs retain the
+`production` environment approval boundary. Paste only the sanitized JSON
 described by the workflow input. Copy
 [`durable-recovery-evidence.example.json`](./durable-recovery-evidence.example.json),
 replace every example value with observed rehearsal evidence, and never submit
