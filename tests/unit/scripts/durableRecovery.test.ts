@@ -47,4 +47,12 @@ describe('durable recovery contract', () => {
       expect(runbook).toContain(required);
     }
   });
+
+  it('allows pre-launch evidence from staging without removing the production approval boundary', () => {
+    const workflow = source('.github/workflows/record-durable-recovery.yml');
+
+    expect(workflow).toContain('refs/heads/staging');
+    expect(workflow).toContain('refs/heads/main');
+    expect(workflow).toContain('environment: production');
+  });
 });

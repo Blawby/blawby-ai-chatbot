@@ -18,13 +18,16 @@ jobs:
     timeout-minutes: 10
     environment: production
     steps:
-      - name: Require the production branch
+      - name: Require an approved evidence branch
         run: |
           set -euo pipefail
-          [[ "${GITHUB_REF}" == "refs/heads/main" ]] || {
-            echo "Recovery evidence must be recorded from main." >&2
-            exit 1
-          }
+          case "${GITHUB_REF}" in
+            refs/heads/staging|refs/heads/main) ;;
+            *)
+              echo "Recovery evidence must be recorded from staging before cutover or main after cutover." >&2
+              exit 1
+              ;;
+          esac
       - uses: actions/checkout@v4
         with:
           persist-credentials: false
