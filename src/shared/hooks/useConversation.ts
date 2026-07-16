@@ -50,6 +50,7 @@ import {
 } from '@/shared/utils/anonymousIdentity';
 import { quickActionDebugLog, isQuickActionDebugEnabled } from '@/shared/utils/quickActionDebug';
 import { normalizeChatActions } from '@/shared/utils/chatActions';
+import { parsePracticeAssistantSources } from '@/shared/utils/practiceAssistantSources';
 import { useConversationTransport } from '@/shared/hooks/useConversationTransport';
 
 // ─── constants ───────────────────────────────────────────────────────────────
@@ -421,6 +422,7 @@ export const useConversation = ({
       timestamp: new Date(msg.created_at).getTime(),
       metadata: { ...(msg.metadata || {}), __client_id: msg.client_id },
       userId: senderId,
+      sources: parsePracticeAssistantSources(metadataRecord?.sources),
       files: msg.metadata?.attachments
         ? (msg.metadata.attachments as string[]).map((fileId: string) => ({
             id: fileId, name: 'File', size: 0, type: 'application/octet-stream', url: buildFileUrl(fileId),
