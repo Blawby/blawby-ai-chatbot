@@ -31,7 +31,7 @@ Do not add request/response bodies, names, email addresses, practice/client/matt
 ## First five minutes
 
 1. Open the monitor run and its `production-health.json` artifact. Do not paste response bodies into the incident.
-2. Record the failing component, first observed time, and the exact release markers from `/api/health`, the last production launch artifact, Cloudflare, and Railway.
+2. Record the failing component and first observed time. Read the Worker release marker from `/api/health`; read the backend deployment identity from the last production launch artifact and confirm it against Railway or CI metadata.
 3. Decide whether the failure began with a deployment. If yes, prefer the repository's proven rollback path for the owning surface.
 4. Check whether the failure is isolated (one 4xx/correlation ID) or systemic (two scheduled failures, repeated 5xx, failed queue invocation, or multiple components).
 5. Keep ownership boundaries: this repository may restore Worker/Pages; Railway/backend deployment and database actions require a human backend operator.
@@ -72,4 +72,4 @@ Stop further deploys and preserve the failed migration output. Durable Object mi
 
 ## Backend and Railway gaps
 
-The public backend health endpoint currently proves API uptime and PostgreSQL connectivity, but it does not report Stripe reachability, webhook backlog/age, Graphile Worker heartbeat, failed-job count, or the Railway deployment identifier. Backend task logs also need one consistent sanitized release/correlation/failure contract. [Backend PR #371](https://github.com/Blawby/blawby-backend/pull/371) adds native Railway release identity and a sanitized database-health failure event; it is left for human review and merge. The remaining backend signals stay explicit gaps, and that review does not block the frontend/Worker monitoring and runbooks delivered here.
+The public backend health endpoint proves API uptime and PostgreSQL connectivity. It intentionally does not expose a Railway deployment identifier: the exact identifier is a required production-launch input, is preserved in the launch artifact, and is verified against Railway or CI metadata during an incident. The endpoint also does not report Stripe reachability, webhook backlog/age, Graphile Worker heartbeat, or failed-job count. Backend task logs still need one consistent sanitized release/correlation/failure contract. Those signals remain explicit provider/backend gaps and do not weaken the frontend/Worker monitor.
