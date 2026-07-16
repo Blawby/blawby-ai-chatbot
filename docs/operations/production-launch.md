@@ -8,7 +8,7 @@ The operator supplies four explicit confirmations before any production componen
 
 - `confirmation`: exactly `DEPLOY`.
 - `backend_git_commit`: the exact reviewed backend commit already deployed.
-- `backend_deployment_id`: the backend platform deployment identifier.
+- `backend_deployment_id`: the exact backend platform deployment identifier from Railway or CI metadata. Do not derive it from the public health endpoint.
 - `migrations_ready`: confirmation that required backend and Worker migrations are applied.
 
 The preflight then runs typecheck, lint, the unit suite, production configuration validation, strict Worker dry-run, production build and bundle budget, and a bounded backend health check. The `production` GitHub environment remains the human approval boundary for production credentials and deployment.

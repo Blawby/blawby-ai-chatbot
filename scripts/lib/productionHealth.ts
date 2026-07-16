@@ -37,12 +37,11 @@ const jsonRecord = async (response: Response): Promise<Record<string, unknown> |
   }
 };
 
-const releaseMarker = (
+const workerReleaseMarker = (
   release: Record<string, unknown> | null,
-  deploymentKey: 'workerVersionId' | 'deployment_id',
 ): ProductionCheckResult['release'] =>
-  typeof release?.commit === 'string' && typeof release[deploymentKey] === 'string'
-    ? { commit: release.commit, deploymentId: release[deploymentKey] as string }
+  typeof release?.commit === 'string' && typeof release.workerVersionId === 'string'
+    ? { commit: release.commit, deploymentId: release.workerVersionId }
     : undefined;
 
 export const productionChecks: CheckDefinition[] = [
@@ -76,7 +75,7 @@ export const productionChecks: CheckDefinition[] = [
       const release = data?.release && typeof data.release === 'object' && !Array.isArray(data.release)
         ? data.release as Record<string, unknown>
         : null;
-      return releaseMarker(release, 'workerVersionId');
+      return workerReleaseMarker(release);
     },
   },
   {
@@ -88,20 +87,7 @@ export const productionChecks: CheckDefinition[] = [
       const database = body?.database && typeof body.database === 'object' && !Array.isArray(body.database)
         ? body.database as Record<string, unknown>
         : null;
-      const release = body?.release && typeof body.release === 'object' && !Array.isArray(body.release)
-        ? body.release as Record<string, unknown>
-        : null;
-      return body?.status === 'ok' && database?.status === 'connected' &&
-        typeof release?.commit === 'string' && release.commit !== 'unknown' &&
-        typeof release.deployment_id === 'string' && release.deployment_id !== 'unknown' &&
-        release.environment === 'production';
-    },
-    releaseMarker: async (response) => {
-      const body = await jsonRecord(response);
-      const release = body?.release && typeof body.release === 'object' && !Array.isArray(body.release)
-        ? body.release as Record<string, unknown>
-        : null;
-      return releaseMarker(release, 'deployment_id');
+      return body?.status === 'ok' && database?.status === 'connected';
     },
   },
   {
