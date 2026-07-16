@@ -2,8 +2,8 @@ import { z } from 'zod';
 
 export const PracticeAssistantSourceSchema = z.object({
   type: z.enum(['client', 'intake', 'matter', 'engagement', 'invoice', 'report', 'task', 'search', 'practice']),
-  id: z.string(),
-  label: z.string(),
+  id: z.string().min(1),
+  label: z.string().min(1),
   href: z.string().optional(),
 });
 export type PracticeAssistantSource = z.infer<typeof PracticeAssistantSourceSchema>;

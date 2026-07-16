@@ -265,6 +265,7 @@ import type {
   MessageReaction,
   BackendConversation,
 } from './types/wire/conversation';
+import type { PracticeAssistantSource } from './types/wire/practiceAssistant';
 export type { ChatMessage, ChatSession, MessageReaction, BackendConversation };
 
 // Matter types
@@ -444,6 +445,8 @@ export interface UIMessageExtras {
   userId?: string | null;
   files?: FileAttachment[];
   reactions?: MessageReaction[];
+  /** Grounding records used by Practice Assistant to produce this message. */
+  sources?: PracticeAssistantSource[];
 
   matterCreation?: MatterCreationData;
   welcomeMessage?: WelcomeMessageData;
